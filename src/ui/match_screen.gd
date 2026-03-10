@@ -12,6 +12,19 @@ const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.
 
 const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
 const PLAYER_ORDER := ["player_2", "player_1"]
+const DISPLAY_RUNE_THRESHOLDS := [25, 20, 15, 10, 5]
+const HAND_DRAG_THRESHOLD := 18.0
+const ATTACK_FEEDBACK_DURATION_MS := 520
+const DAMAGE_FEEDBACK_DURATION_MS := 1050
+const REMOVAL_FEEDBACK_DURATION_MS := 1280
+const DRAW_FEEDBACK_DURATION_MS := 1800
+const RUNE_FEEDBACK_DURATION_MS := 2100
+const TURN_BANNER_DURATION_MS := 1600
+const SELECTION_MODE_NONE := "none"
+const SELECTION_MODE_SUMMON := "summon"
+const SELECTION_MODE_ITEM := "item"
+const SELECTION_MODE_SUPPORT := "support"
+const SELECTION_MODE_ATTACK := "attack"
 const HELP_TEXT := {
 	"guard": "Guard creatures must be attacked before other legal targets in the same lane.",
 	"charge": "Charge creatures can attack immediately instead of waiting a turn cycle.",
@@ -32,8 +45,10 @@ const HELP_TEXT := {
 
 var _match_state: Dictionary = {}
 var _selected_instance_id := ""
+var _selected_pile_player_id := ""
+var _selected_pile_zone := ""
 var _status_message := ""
-var _scenario_id := MatchDebugScenarios.DEFAULT_SCENARIO_ID
+var _scenario_id: String = MatchDebugScenarios.DEFAULT_SCENARIO_ID
 var _keyword_registry := {}
 var _lane_registry := {}
 var _keyword_display_names := {}
@@ -46,24 +61,60 @@ var _ring_button: Button
 var _end_turn_button: Button
 var _clear_button: Button
 var _status_label: Label
+var _prompt_panel: PanelContainer
+var _prompt_title_label: Label
 var _prompt_label: Label
 var _prompt_button_row: HBoxContainer
+var _turn_state_panel: PanelContainer
+var _turn_state_label: Label
+var _turn_state_detail_label: Label
+var _turn_banner_panel: PanelContainer
+var _turn_banner_label: Label
+var _turn_banner_detail_label: Label
+var _match_end_overlay: PanelContainer
+var _match_end_title_label: Label
+var _match_end_detail_label: Label
 var _player_sections := {}
+var _lane_panels := {}
+var _lane_row_panels := {}
 var _lane_row_containers := {}
 var _lane_header_buttons := {}
+var _card_buttons := {}
+var _lane_slot_buttons := {}
+var _invalid_feedback := {}
+var _drag_state := {}
+var _suppressed_card_press_instance_id := ""
+var _attack_feedbacks: Array = []
+var _damage_feedbacks: Array = []
+var _removal_feedbacks: Array = []
+var _draw_feedbacks: Array = []
+var _rune_feedbacks: Array = []
+var _feedback_sequence := 0
 var _inspector_label: Label
 var _keyword_button_row: HBoxContainer
 var _help_label: Label
 var _history_text: TextEdit
 var _replay_text: TextEdit
 var _state_text: TextEdit
+var _last_turn_owner_id := ""
+var _turn_banner_until_ms := 0
 
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	set_process(true)
 	_load_registries()
 	_build_ui()
+	resized.connect(_apply_match_layout_scale)
 	load_scenario(_scenario_id)
+
+
+func _process(_delta: float) -> void:
+	if _turn_banner_panel == null:
+		return
+	var should_show := _turn_banner_until_ms > Time.get_ticks_msec()
+	if _turn_banner_panel.visible != should_show:
+		_turn_banner_panel.visible = should_show
 
 
 func get_available_scenarios() -> Array:
@@ -97,8 +148,62 @@ func get_pending_prophecy_ids() -> Array:
 	return ids
 
 
+func get_interaction_state() -> Dictionary:
+	return {
+		"selection_mode": _selected_action_mode(_selected_card()),
+		"local_turn": _is_local_player_turn(),
+		"local_controls_locked": _should_dim_local_interaction_surfaces(),
+		"valid_lane_slot_keys": _valid_lane_slot_keys(),
+		"valid_lane_ids": _valid_lane_ids(),
+		"valid_target_instance_ids": _valid_card_target_ids(),
+		"valid_target_player_ids": _valid_player_target_ids(),
+		"invalid_lane_slot_keys": _copy_array(_invalid_feedback.get("lane_slot_keys", [])),
+		"invalid_lane_ids": _copy_array(_invalid_feedback.get("lane_ids", [])),
+		"invalid_target_instance_ids": _copy_array(_invalid_feedback.get("instance_ids", [])),
+		"invalid_player_ids": _copy_array(_invalid_feedback.get("player_ids", [])),
+		"drag_active": bool(_drag_state.get("active", false)),
+		"drag_instance_id": str(_drag_state.get("instance_id", "")),
+	}
+
+
+func get_feedback_state() -> Dictionary:
+	_prune_feedback_state()
+	return {
+		"attacks": _attack_feedbacks.duplicate(true),
+		"damage": _damage_feedbacks.duplicate(true),
+		"removals": _removal_feedbacks.duplicate(true),
+		"draws": _draw_feedbacks.duplicate(true),
+		"runes": _rune_feedbacks.duplicate(true),
+	}
+
+
+func start_hand_drag(instance_id: String) -> bool:
+	return _start_hand_drag_for_instance(instance_id, _drag_source_position(instance_id))
+
+
+func drop_hand_drag_on_node(node_name: String) -> Dictionary:
+	if not bool(_drag_state.get("active", false)):
+		return _invalid_ui_result("No active hand drag.")
+	var target := find_child(node_name, true, false) as Control
+	if target == null:
+		return _invalid_ui_result("Drop target %s is not available." % node_name)
+	var rect := target.get_global_rect()
+	return _finish_hand_drag(rect.position + rect.size * 0.5)
+
+
+func cancel_hand_drag() -> void:
+	_cancel_active_hand_drag()
+
+
+func is_hand_drag_active() -> bool:
+	return bool(_drag_state.get("active", false))
+
+
 func load_scenario(scenario_id: String) -> bool:
-	var next_state := MatchDebugScenarios.build_scenario(scenario_id)
+	_clear_drag_state()
+	_reset_invalid_feedback()
+	_clear_feedback_state()
+	var next_state: Dictionary = MatchDebugScenarios.build_scenario(scenario_id)
 	if next_state.is_empty():
 		_status_message = "Failed to load scenario %s." % scenario_id
 		_refresh_ui()
@@ -106,6 +211,14 @@ func load_scenario(scenario_id: String) -> bool:
 	_scenario_id = scenario_id
 	_match_state = next_state
 	_selected_instance_id = ""
+	_last_turn_owner_id = ""
+	_turn_banner_until_ms = 0
+	_clear_pile_selection()
+	var scenario_timing_result: Dictionary = _match_state.get("last_timing_result", {})
+	var scenario_events := _copy_array(scenario_timing_result.get("processed_events", []))
+	if scenario_events.is_empty():
+		scenario_events = _recent_presentation_events_from_history()
+	_record_feedback_from_events(scenario_events)
 	_status_message = "Loaded %s." % _scenario_label(scenario_id)
 	_refresh_ui()
 	return true
@@ -117,6 +230,8 @@ func select_card(instance_id: String) -> bool:
 		_status_message = "Card %s is not available to inspect." % instance_id
 		_refresh_ui()
 		return false
+	_reset_invalid_feedback()
+	_clear_pile_selection()
 	_selected_instance_id = instance_id
 	_status_message = _selection_prompt(card)
 	_refresh_ui()
@@ -124,7 +239,10 @@ func select_card(instance_id: String) -> bool:
 
 
 func clear_selection() -> void:
+	_clear_drag_state()
+	_reset_invalid_feedback()
 	_selected_instance_id = ""
+	_clear_pile_selection()
 	_status_message = "Selection cleared."
 	_refresh_ui()
 
@@ -239,6 +357,8 @@ func end_turn_action() -> bool:
 		return false
 	var player_id := _active_player_id()
 	MatchTurnLoop.end_turn(_match_state, player_id)
+	var timing_result: Dictionary = _match_state.get("last_timing_result", {})
+	_record_feedback_from_events(_copy_array(timing_result.get("processed_events", [])))
 	_selected_instance_id = ""
 	_status_message = "Ended %s's turn." % _player_name(player_id)
 	_refresh_ui()
@@ -266,6 +386,7 @@ func _build_ui() -> void:
 	var top_shell := PanelContainer.new()
 	top_shell.name = "ScenarioBar"
 	top_shell.custom_minimum_size = Vector2(0, 72)
+	_apply_panel_style(top_shell, Color(0.11, 0.12, 0.16, 0.96), Color(0.34, 0.36, 0.43, 0.9), 1, 10)
 	content.add_child(top_shell)
 
 	var top_bar := HBoxContainer.new()
@@ -290,6 +411,7 @@ func _build_ui() -> void:
 	_scenario_picker.size_flags_horizontal = SIZE_EXPAND_FILL
 	_scenario_picker.custom_minimum_size = Vector2(0, 44)
 	_scenario_picker.add_theme_font_size_override("font_size", 16)
+	_apply_button_style(_scenario_picker, Color(0.16, 0.17, 0.21, 0.96), Color(0.36, 0.39, 0.48, 0.92), Color(0.92, 0.93, 0.97, 1.0))
 	_scenario_picker.item_selected.connect(_on_scenario_selected)
 	top_bar.add_child(_scenario_picker)
 	_populate_scenario_picker()
@@ -298,22 +420,43 @@ func _build_ui() -> void:
 	_reload_button.text = "Reload"
 	_reload_button.custom_minimum_size = Vector2(132, 44)
 	_reload_button.add_theme_font_size_override("font_size", 16)
+	_apply_button_style(_reload_button, Color(0.18, 0.19, 0.23, 0.96), Color(0.39, 0.41, 0.5, 0.92), Color(0.92, 0.93, 0.97, 1.0))
 	_reload_button.pressed.connect(_on_reload_pressed)
 	top_bar.add_child(_reload_button)
+
+	_turn_state_panel = PanelContainer.new()
+	_turn_state_panel.name = "TurnStatePanel"
+	_turn_state_panel.custom_minimum_size = Vector2(252, 44)
+	_turn_state_panel.size_flags_horizontal = SIZE_SHRINK_END
+	_top_bar_apply_turn_state_style()
+	top_bar.add_child(_turn_state_panel)
+	var turn_state_box := _build_panel_box(_turn_state_panel, 8, 12)
+	var turn_state_column := VBoxContainer.new()
+	turn_state_column.add_theme_constant_override("separation", 2)
+	turn_state_box.add_child(turn_state_column)
+	_turn_state_label = Label.new()
+	_turn_state_label.name = "TurnStateLabel"
+	_turn_state_label.add_theme_font_size_override("font_size", 20)
+	turn_state_column.add_child(_turn_state_label)
+	_turn_state_detail_label = Label.new()
+	_turn_state_detail_label.name = "TurnStateDetailLabel"
+	_turn_state_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_turn_state_detail_label.add_theme_font_size_override("font_size", 12)
+	turn_state_column.add_child(_turn_state_detail_label)
 
 	var main_row := HBoxContainer.new()
 	main_row.name = "MainRow"
 	main_row.size_flags_horizontal = SIZE_EXPAND_FILL
 	main_row.size_flags_vertical = SIZE_EXPAND_FILL
-	main_row.add_theme_constant_override("separation", 24)
+	main_row.add_theme_constant_override("separation", 28)
 	content.add_child(main_row)
 
 	var board_column := VBoxContainer.new()
 	board_column.name = "BoardColumn"
 	board_column.size_flags_horizontal = SIZE_EXPAND_FILL
 	board_column.size_flags_vertical = SIZE_EXPAND_FILL
-	board_column.size_flags_stretch_ratio = 3.8
-	board_column.add_theme_constant_override("separation", 20)
+	board_column.size_flags_stretch_ratio = 4.4
+	board_column.add_theme_constant_override("separation", 22)
 	main_row.add_child(board_column)
 
 	for player_id in PLAYER_ORDER:
@@ -326,10 +469,10 @@ func _build_ui() -> void:
 
 	var utility_column := VBoxContainer.new()
 	utility_column.name = "UtilityColumn"
-	utility_column.custom_minimum_size = Vector2(336, 0)
+	utility_column.custom_minimum_size = Vector2(304, 0)
 	utility_column.size_flags_horizontal = SIZE_FILL
 	utility_column.size_flags_vertical = SIZE_EXPAND_FILL
-	utility_column.add_theme_constant_override("separation", 18)
+	utility_column.add_theme_constant_override("separation", 16)
 	main_row.add_child(utility_column)
 
 	_play_selected_button = Button.new()
@@ -337,6 +480,7 @@ func _build_ui() -> void:
 	_play_selected_button.custom_minimum_size = Vector2(0, 54)
 	_play_selected_button.size_flags_horizontal = SIZE_EXPAND_FILL
 	_play_selected_button.add_theme_font_size_override("font_size", 17)
+	_apply_button_style(_play_selected_button, Color(0.21, 0.19, 0.14, 0.98), Color(0.58, 0.44, 0.22, 0.94), Color(0.97, 0.94, 0.86, 1.0))
 	_play_selected_button.pressed.connect(_on_play_selected_pressed)
 
 	_ring_button = Button.new()
@@ -344,6 +488,7 @@ func _build_ui() -> void:
 	_ring_button.custom_minimum_size = Vector2(0, 54)
 	_ring_button.size_flags_horizontal = SIZE_EXPAND_FILL
 	_ring_button.add_theme_font_size_override("font_size", 17)
+	_apply_button_style(_ring_button, Color(0.14, 0.17, 0.23, 0.98), Color(0.33, 0.47, 0.63, 0.94), Color(0.92, 0.95, 0.98, 1.0))
 	_ring_button.pressed.connect(_on_ring_pressed)
 
 	_end_turn_button = Button.new()
@@ -351,6 +496,7 @@ func _build_ui() -> void:
 	_end_turn_button.custom_minimum_size = Vector2(0, 54)
 	_end_turn_button.size_flags_horizontal = SIZE_EXPAND_FILL
 	_end_turn_button.add_theme_font_size_override("font_size", 17)
+	_apply_button_style(_end_turn_button, Color(0.25, 0.14, 0.13, 0.98), Color(0.69, 0.35, 0.27, 0.94), Color(0.98, 0.93, 0.9, 1.0))
 	_end_turn_button.pressed.connect(_on_end_turn_pressed)
 
 	_clear_button = Button.new()
@@ -358,17 +504,21 @@ func _build_ui() -> void:
 	_clear_button.custom_minimum_size = Vector2(0, 54)
 	_clear_button.size_flags_horizontal = SIZE_EXPAND_FILL
 	_clear_button.add_theme_font_size_override("font_size", 17)
+	_apply_button_style(_clear_button, Color(0.15, 0.16, 0.2, 0.98), Color(0.34, 0.36, 0.46, 0.94), Color(0.9, 0.92, 0.96, 1.0))
 	_clear_button.pressed.connect(_on_clear_pressed)
 
-	var prompt_panel := PanelContainer.new()
-	prompt_panel.name = "PromptPanel"
-	prompt_panel.custom_minimum_size = Vector2(0, 126)
-	utility_column.add_child(prompt_panel)
+	_prompt_panel = PanelContainer.new()
+	_prompt_panel.name = "PromptPanel"
+	_prompt_panel.custom_minimum_size = Vector2(0, 126)
+	_apply_panel_style(_prompt_panel, Color(0.11, 0.12, 0.16, 0.96), Color(0.29, 0.33, 0.41, 0.88), 1, 10)
+	utility_column.add_child(_prompt_panel)
+	var prompt_panel := _prompt_panel
 	var prompt_box := _build_panel_box(prompt_panel, 12, 16)
-	var prompt_title := Label.new()
-	prompt_title.text = "Interrupts / Prophecy"
-	prompt_title.add_theme_font_size_override("font_size", 20)
-	prompt_box.add_child(prompt_title)
+	_prompt_title_label = Label.new()
+	_prompt_title_label.name = "PromptTitleLabel"
+	_prompt_title_label.text = "Interrupts / Prophecy"
+	_prompt_title_label.add_theme_font_size_override("font_size", 20)
+	prompt_box.add_child(_prompt_title_label)
 	_prompt_label = Label.new()
 	_prompt_label.size_flags_horizontal = SIZE_EXPAND_FILL
 	_prompt_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -383,6 +533,7 @@ func _build_ui() -> void:
 	var actions_panel := PanelContainer.new()
 	actions_panel.name = "ActionPanel"
 	actions_panel.custom_minimum_size = Vector2(0, 188)
+	_apply_panel_style(actions_panel, Color(0.12, 0.13, 0.17, 0.96), Color(0.31, 0.34, 0.42, 0.88), 1, 10)
 	utility_column.add_child(actions_panel)
 	var actions_box := _build_panel_box(actions_panel, 12, 16)
 	var actions_title := Label.new()
@@ -408,6 +559,7 @@ func _build_ui() -> void:
 	var inspector_panel := PanelContainer.new()
 	inspector_panel.name = "InspectorRailPanel"
 	inspector_panel.custom_minimum_size = Vector2(0, 236)
+	_apply_panel_style(inspector_panel, Color(0.11, 0.12, 0.16, 0.96), Color(0.28, 0.32, 0.39, 0.86), 1, 10)
 	utility_column.add_child(inspector_panel)
 	var inspector_box := _build_panel_box(inspector_panel, 12, 16)
 	var inspector_title := Label.new()
@@ -432,6 +584,7 @@ func _build_ui() -> void:
 	debug_panel.name = "DebugRailPanel"
 	debug_panel.size_flags_horizontal = SIZE_EXPAND_FILL
 	debug_panel.size_flags_vertical = SIZE_EXPAND_FILL
+	_apply_panel_style(debug_panel, Color(0.1, 0.11, 0.14, 0.94), Color(0.24, 0.27, 0.34, 0.82), 1, 10)
 	utility_column.add_child(debug_panel)
 	var debug_box := _build_panel_box(debug_panel, 12, 16)
 	var debug_title := Label.new()
@@ -453,35 +606,179 @@ func _build_ui() -> void:
 	_state_text = _build_read_only_text("State")
 	tabs.add_child(_state_text)
 
+	_match_end_overlay = _build_match_end_overlay()
+	root.add_child(_match_end_overlay)
+
 
 func _build_player_section(player_id: String) -> Dictionary:
+	var is_opponent := player_id == PLAYER_ORDER[0]
 	var panel := PanelContainer.new()
-	panel.name = "OpponentBand" if player_id == PLAYER_ORDER[0] else "PlayerBand"
-	panel.custom_minimum_size = Vector2(0, 208)
+	panel.name = "OpponentBand" if is_opponent else "PlayerBand"
+	panel.custom_minimum_size = Vector2(0, 220)
 	panel.size_flags_horizontal = SIZE_EXPAND_FILL
-	var box := _build_panel_box(panel, 14, 16)
+	_apply_panel_style(panel, Color(0.14, 0.11, 0.13, 0.96) if is_opponent else Color(0.12, 0.14, 0.17, 0.96), Color(0.47, 0.34, 0.27, 0.88) if is_opponent else Color(0.31, 0.42, 0.51, 0.88), 2, 12)
+	var box := _build_panel_box(panel, 12, 14)
 
 	var title := Label.new()
-	title.text = "Opponent" if player_id == PLAYER_ORDER[0] else "Local Player"
-	title.add_theme_font_size_override("font_size", 21)
+	title.text = "Opponent" if is_opponent else "You"
+	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_color_override("font_color", Color(0.95, 0.89, 0.76, 1.0))
 	box.add_child(title)
+	var content_row := HBoxContainer.new()
+	content_row.add_theme_constant_override("separation", 16)
+	content_row.size_flags_horizontal = SIZE_EXPAND_FILL
+	box.add_child(content_row)
+
+	var hero_row := HBoxContainer.new()
+	hero_row.add_theme_constant_override("separation", 12)
+	hero_row.size_flags_horizontal = SIZE_EXPAND_FILL
+	content_row.add_child(hero_row)
+
+	var art_panel := PanelContainer.new()
+	art_panel.name = "%s_art_placeholder" % player_id
+	art_panel.custom_minimum_size = Vector2(160, 92)
+	_apply_panel_style(art_panel, Color(0.2, 0.16, 0.13, 0.78), Color(0.58, 0.45, 0.28, 0.82), 1, 10)
+	hero_row.add_child(art_panel)
+	var art_box := _build_panel_box(art_panel, 4, 10)
+	var art_label := Label.new()
+	art_label.text = "Portrait / Art"
+	art_label.add_theme_font_size_override("font_size", 15)
+	art_label.add_theme_color_override("font_color", Color(0.95, 0.89, 0.76, 1.0))
+	art_box.add_child(art_label)
+	var art_frame := Label.new()
+	art_frame.text = "Avatar placeholder"
+	art_frame.add_theme_font_size_override("font_size", 16)
+	art_frame.add_theme_color_override("font_color", Color(0.94, 0.86, 0.72, 0.96))
+	art_box.add_child(art_frame)
+	var art_caption := Label.new()
+	art_caption.text = "Reserved frame for hero portrait and faction treatment"
+	art_caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	art_caption.max_lines_visible = 2
+	art_caption.add_theme_font_size_override("font_size", 11)
+	art_caption.add_theme_color_override("font_color", Color(0.8, 0.8, 0.85, 0.9))
+	art_box.add_child(art_caption)
+
+	var identity_column := VBoxContainer.new()
+	identity_column.size_flags_horizontal = SIZE_EXPAND_FILL
+	identity_column.add_theme_constant_override("separation", 8)
+	hero_row.add_child(identity_column)
 
 	var button := Button.new()
+	button.name = "%s_identity_button" % player_id
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	button.custom_minimum_size = Vector2(0, 78)
+	button.custom_minimum_size = Vector2(0, 52)
 	button.size_flags_horizontal = SIZE_EXPAND_FILL
-	button.add_theme_font_size_override("font_size", 18)
+	button.add_theme_font_size_override("font_size", 16)
+	_apply_button_style(button, Color(0.17, 0.18, 0.22, 0.98), Color(0.45, 0.47, 0.55, 0.92), Color(0.95, 0.96, 0.98, 1.0), 1, 10)
 	button.pressed.connect(_on_player_pressed.bind(player_id))
-	box.add_child(button)
+	identity_column.add_child(button)
+	var resource_row := HBoxContainer.new()
+	resource_row.add_theme_constant_override("separation", 10)
+	resource_row.size_flags_horizontal = SIZE_EXPAND_FILL
+	identity_column.add_child(resource_row)
+
+	var identity_stats_row := HBoxContainer.new()
+	identity_stats_row.add_theme_constant_override("separation", 12)
+	identity_stats_row.size_flags_horizontal = SIZE_EXPAND_FILL
+	resource_row.add_child(identity_stats_row)
+
+	var health_panel := PanelContainer.new()
+	health_panel.name = "%s_health_panel" % player_id
+	health_panel.custom_minimum_size = Vector2(96, 72)
+	_apply_panel_style(health_panel, Color(0.28, 0.12, 0.12, 0.98), Color(0.73, 0.37, 0.25, 0.96), 1, 10)
+	identity_stats_row.add_child(health_panel)
+	var health_box := _build_panel_box(health_panel, 2, 8)
+	var health_value := Label.new()
+	health_value.name = "%s_health_value" % player_id
+	health_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	health_value.add_theme_font_size_override("font_size", 30)
+	health_value.add_theme_color_override("font_color", Color(0.98, 0.91, 0.86, 1.0))
+	health_box.add_child(health_value)
+	var health_caption := Label.new()
+	health_caption.text = "HEALTH"
+	health_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	health_caption.add_theme_font_size_override("font_size", 11)
+	health_caption.add_theme_color_override("font_color", Color(0.95, 0.78, 0.68, 0.96))
+	health_box.add_child(health_caption)
+
+	var rune_box := VBoxContainer.new()
+	rune_box.size_flags_horizontal = SIZE_EXPAND_FILL
+	rune_box.add_theme_constant_override("separation", 8)
+	identity_stats_row.add_child(rune_box)
+	var rune_label := Label.new()
+	rune_label.text = "Runes"
+	rune_label.add_theme_font_size_override("font_size", 13)
+	rune_label.add_theme_color_override("font_color", Color(0.95, 0.88, 0.74, 0.98))
+	rune_box.add_child(rune_label)
+	var rune_row := HBoxContainer.new()
+	rune_row.name = "%s_rune_row" % player_id
+	rune_row.add_theme_constant_override("separation", 8)
+	rune_box.add_child(rune_row)
+
+	var magicka_panel := PanelContainer.new()
+	magicka_panel.name = "%s_magicka_panel" % player_id
+	magicka_panel.custom_minimum_size = Vector2(0, 64)
+	magicka_panel.size_flags_horizontal = SIZE_EXPAND_FILL
+	_apply_panel_style(magicka_panel, Color(0.09, 0.16, 0.24, 0.96) if not is_opponent else Color(0.11, 0.14, 0.21, 0.94), Color(0.31, 0.55, 0.76, 0.92) if not is_opponent else Color(0.28, 0.4, 0.58, 0.9), 1, 10)
+	resource_row.add_child(magicka_panel)
+	var magicka_box := _build_panel_box(magicka_panel, 4, 8)
+	var magicka_label := Label.new()
+	magicka_label.name = "%s_magicka_label" % player_id
+	magicka_label.add_theme_font_size_override("font_size", 14)
+	magicka_label.add_theme_color_override("font_color", Color(0.88, 0.95, 0.99, 1.0))
+	magicka_box.add_child(magicka_label)
+	var magicka_row := HBoxContainer.new()
+	magicka_row.name = "%s_magicka_bar" % player_id
+	magicka_row.add_theme_constant_override("separation", 3)
+	magicka_box.add_child(magicka_row)
+
+	var ring_panel := PanelContainer.new()
+	ring_panel.name = "%s_ring_panel" % player_id
+	ring_panel.custom_minimum_size = Vector2(0, 54)
+	ring_panel.size_flags_horizontal = SIZE_EXPAND_FILL
+	_apply_panel_style(ring_panel, Color(0.18, 0.14, 0.08, 0.96), Color(0.63, 0.53, 0.26, 0.94), 1, 10)
+	resource_row.add_child(ring_panel)
+	var ring_box := _build_panel_box(ring_panel, 4, 8)
+	var ring_label := Label.new()
+	ring_label.name = "%s_ring_label" % player_id
+	ring_label.add_theme_font_size_override("font_size", 14)
+	ring_label.add_theme_color_override("font_color", Color(0.98, 0.92, 0.78, 1.0))
+	ring_box.add_child(ring_label)
+	var ring_row := HBoxContainer.new()
+	ring_row.name = "%s_ring_row" % player_id
+	ring_row.add_theme_constant_override("separation", 4)
+	ring_box.add_child(ring_row)
+
+	var pile_column := VBoxContainer.new()
+	pile_column.custom_minimum_size = Vector2(108, 0)
+	pile_column.add_theme_constant_override("separation", 8)
+	hero_row.add_child(pile_column)
+
+	var deck_button := Button.new()
+	deck_button.name = "%s_deck_button" % player_id
+	deck_button.custom_minimum_size = Vector2(0, 48)
+	deck_button.add_theme_font_size_override("font_size", 15)
+	_apply_button_style(deck_button, Color(0.15, 0.16, 0.2, 0.98), Color(0.36, 0.39, 0.49, 0.92), Color(0.92, 0.94, 0.98, 1.0), 1, 10)
+	deck_button.pressed.connect(_on_pile_pressed.bind(player_id, MatchMutations.ZONE_DECK))
+	pile_column.add_child(deck_button)
+
+	var discard_button := Button.new()
+	discard_button.name = "%s_discard_button" % player_id
+	discard_button.custom_minimum_size = Vector2(0, 48)
+	discard_button.add_theme_font_size_override("font_size", 15)
+	_apply_button_style(discard_button, Color(0.2, 0.12, 0.16, 0.98), Color(0.58, 0.32, 0.39, 0.94), Color(0.97, 0.92, 0.94, 1.0), 1, 10)
+	discard_button.pressed.connect(_on_pile_pressed.bind(player_id, MatchMutations.ZONE_DISCARD))
+	pile_column.add_child(discard_button)
 
 	var rows := HBoxContainer.new()
-	rows.add_theme_constant_override("separation", 18)
+	rows.add_theme_constant_override("separation", 14)
 	rows.size_flags_horizontal = SIZE_EXPAND_FILL
-	box.add_child(rows)
+	rows.size_flags_vertical = SIZE_SHRINK_CENTER
+	content_row.add_child(rows)
 
 	var support_box := VBoxContainer.new()
-	support_box.custom_minimum_size = Vector2(224, 0)
-	support_box.add_theme_constant_override("separation", 10)
+	support_box.custom_minimum_size = Vector2(192, 0)
+	support_box.add_theme_constant_override("separation", 8)
 	rows.add_child(support_box)
 
 	var support_label := Label.new()
@@ -490,13 +787,14 @@ func _build_player_section(player_id: String) -> Dictionary:
 	support_box.add_child(support_label)
 
 	var support_row := HBoxContainer.new()
-	support_row.add_theme_constant_override("separation", 10)
+	support_row.add_theme_constant_override("separation", 8)
 	support_row.size_flags_horizontal = SIZE_EXPAND_FILL
 	support_box.add_child(support_row)
 
 	var hand_box := VBoxContainer.new()
 	hand_box.size_flags_horizontal = SIZE_EXPAND_FILL
-	hand_box.add_theme_constant_override("separation", 10)
+	hand_box.custom_minimum_size = Vector2(0, 214)
+	hand_box.add_theme_constant_override("separation", 8)
 	rows.add_child(hand_box)
 
 	var hand_label := Label.new()
@@ -504,55 +802,130 @@ func _build_player_section(player_id: String) -> Dictionary:
 	hand_label.add_theme_font_size_override("font_size", 17)
 	hand_box.add_child(hand_label)
 
-	var hand_row := HBoxContainer.new()
-	hand_row.add_theme_constant_override("separation", 10)
+	var hand_row := Control.new()
+	hand_row.name = "%s_hand_row" % player_id
+	hand_row.clip_contents = false
 	hand_row.size_flags_horizontal = SIZE_EXPAND_FILL
+	hand_row.custom_minimum_size = Vector2(0, 192)
+	hand_row.set_meta("player_id", player_id)
+	hand_row.resized.connect(_on_hand_surface_resized.bind(hand_row))
 	hand_box.add_child(hand_row)
 
 	return {
+		"player_id": player_id,
 		"panel": panel,
 		"summary_button": button,
+		"health_panel": health_panel,
+		"health_value": health_value,
+		"rune_row": rune_row,
+		"magicka_label": magicka_label,
+		"magicka_row": magicka_row,
+		"ring_label": ring_label,
+		"ring_row": ring_row,
+		"deck_button": deck_button,
+		"discard_button": discard_button,
 		"support_row": support_row,
 		"hand_row": hand_row,
 	}
 
 
+func _build_match_end_overlay() -> PanelContainer:
+	var overlay := PanelContainer.new()
+	overlay.name = "MatchEndOverlay"
+	overlay.visible = false
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	overlay.z_index = 80
+	_apply_panel_style(overlay, Color(0.04, 0.05, 0.07, 0.78), Color(0.84, 0.71, 0.42, 0.96), 2, 18)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	overlay.add_child(center)
+	var card := PanelContainer.new()
+	card.name = "MatchEndCard"
+	card.custom_minimum_size = Vector2(360, 220)
+	_apply_panel_style(card, Color(0.1, 0.11, 0.16, 0.98), Color(0.88, 0.74, 0.44, 0.98), 2, 16)
+	center.add_child(card)
+	var box := _build_panel_box(card, 18, 18)
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	_match_end_title_label = Label.new()
+	_match_end_title_label.name = "MatchEndTitle"
+	_match_end_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_match_end_title_label.add_theme_font_size_override("font_size", 34)
+	box.add_child(_match_end_title_label)
+	_match_end_detail_label = Label.new()
+	_match_end_detail_label.name = "MatchEndDetailLabel"
+	_match_end_detail_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_match_end_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_match_end_detail_label.add_theme_font_size_override("font_size", 17)
+	_match_end_detail_label.custom_minimum_size = Vector2(320, 0)
+	box.add_child(_match_end_detail_label)
+	var hint := Label.new()
+	hint.name = "MatchEndHintLabel"
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.add_theme_font_size_override("font_size", 13)
+	hint.add_theme_color_override("font_color", Color(0.84, 0.86, 0.92, 0.9))
+	hint.text = "Match complete. Reload or switch scenarios to keep inspecting presentation state."
+	box.add_child(hint)
+	return overlay
+
+
 func _build_lanes_panel() -> Control:
 	var lanes_panel := PanelContainer.new()
 	lanes_panel.name = "BattlefieldPanel"
-	lanes_panel.custom_minimum_size = Vector2(0, 432)
+	lanes_panel.custom_minimum_size = Vector2(0, 360)
 	lanes_panel.size_flags_horizontal = SIZE_EXPAND_FILL
 	lanes_panel.size_flags_vertical = SIZE_EXPAND_FILL
-	lanes_panel.size_flags_stretch_ratio = 2.3
-	var lanes_box := _build_panel_box(lanes_panel, 18, 18)
+	lanes_panel.size_flags_stretch_ratio = 2.8
+	_apply_panel_style(lanes_panel, Color(0.09, 0.1, 0.12, 0.98), Color(0.49, 0.4, 0.25, 0.92), 2, 14)
+	var lanes_box := _build_panel_box(lanes_panel, 12, 14)
 
 	var battlefield_title := Label.new()
 	battlefield_title.text = "Battlefield"
-	battlefield_title.add_theme_font_size_override("font_size", 24)
+	battlefield_title.add_theme_font_size_override("font_size", 26)
+	battlefield_title.add_theme_color_override("font_color", Color(0.97, 0.9, 0.76, 1.0))
 	lanes_box.add_child(battlefield_title)
+
+	var battlefield_caption := Label.new()
+	battlefield_caption.text = "Field stays neutral. Shadow keeps the darker cover lane identity."
+	battlefield_caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	battlefield_caption.max_lines_visible = 2
+	battlefield_caption.add_theme_font_size_override("font_size", 14)
+	battlefield_caption.add_theme_color_override("font_color", Color(0.82, 0.84, 0.88, 0.92))
+	lanes_box.add_child(battlefield_caption)
 
 	var lanes_row := HBoxContainer.new()
 	lanes_row.size_flags_horizontal = SIZE_EXPAND_FILL
 	lanes_row.size_flags_vertical = SIZE_EXPAND_FILL
-	lanes_row.add_theme_constant_override("separation", 20)
+	lanes_row.add_theme_constant_override("separation", 18)
 	lanes_box.add_child(lanes_row)
 
 	for lane in _lane_entries():
 		var lane_id := str(lane.get("id", ""))
 		var lane_panel := PanelContainer.new()
 		lane_panel.name = "%s_lane_panel" % lane_id
-		lane_panel.custom_minimum_size = Vector2(0, 304)
+		lane_panel.custom_minimum_size = Vector2(0, 252)
 		lane_panel.size_flags_horizontal = SIZE_EXPAND_FILL
 		lane_panel.size_flags_vertical = SIZE_EXPAND_FILL
 		lane_panel.size_flags_stretch_ratio = 1.0
+		_apply_panel_style(lane_panel, _lane_panel_fill(lane_id), _lane_panel_border(lane_id), 2, 12)
 		lanes_row.add_child(lane_panel)
-		var lane_box := _build_panel_box(lane_panel, 14, 14)
+		_lane_panels[lane_id] = lane_panel
+		var lane_box := _build_panel_box(lane_panel, 8, 10)
+
+		var marker := Label.new()
+		marker.name = "%s_lane_marker" % lane_id
+		marker.text = _lane_marker_text(lane_id)
+		marker.add_theme_font_size_override("font_size", 12)
+		marker.add_theme_color_override("font_color", _lane_marker_color(lane_id))
+		lane_box.add_child(marker)
 
 		var header := Button.new()
 		header.name = "%s_lane_header" % lane_id
 		header.alignment = HORIZONTAL_ALIGNMENT_CENTER
-		header.custom_minimum_size = Vector2(0, 72)
-		header.add_theme_font_size_override("font_size", 18)
+		header.custom_minimum_size = Vector2(0, 56)
+		header.add_theme_font_size_override("font_size", 17)
+		_apply_button_style(header, _lane_header_fill(lane_id), _lane_panel_border(lane_id), Color(0.96, 0.96, 0.98, 1.0), 1, 10)
 		header.pressed.connect(_on_lane_pressed.bind(lane_id))
 		lane_box.add_child(header)
 		_lane_header_buttons[lane_id] = header
@@ -560,14 +933,17 @@ func _build_lanes_panel() -> Control:
 		for player_id in PLAYER_ORDER:
 			var row_panel := PanelContainer.new()
 			row_panel.name = "%s_%s_lane_row_panel" % [lane_id, player_id]
-			row_panel.custom_minimum_size = Vector2(0, 132)
+			row_panel.custom_minimum_size = Vector2(0, 144)
 			row_panel.size_flags_horizontal = SIZE_EXPAND_FILL
 			row_panel.size_flags_vertical = SIZE_EXPAND_FILL
+			_apply_panel_style(row_panel, _lane_row_fill(lane_id), _lane_row_border(lane_id), 1, 10)
 			lane_box.add_child(row_panel)
-			var row_box := _build_panel_box(row_panel, 10, 12)
+			_lane_row_panels[_lane_row_key(lane_id, player_id)] = row_panel
+			var row_box := _build_panel_box(row_panel, 4, 6)
 			var row_label := Label.new()
-			row_label.text = "%s lane" % _player_name(player_id)
-			row_label.add_theme_font_size_override("font_size", 16)
+			row_label.text = "Opponent side" if player_id == PLAYER_ORDER[0] else "Your side"
+			row_label.add_theme_font_size_override("font_size", 13)
+			row_label.add_theme_color_override("font_color", Color(0.88, 0.9, 0.94, 1.0))
 			row_box.add_child(row_label)
 
 			var row := HBoxContainer.new()
@@ -577,6 +953,41 @@ func _build_lanes_panel() -> Control:
 			row.add_theme_constant_override("separation", 14)
 			row_box.add_child(row)
 			_lane_row_containers[_lane_row_key(lane_id, player_id)] = row
+
+	var banner_overlay := MarginContainer.new()
+	banner_overlay.name = "TurnBannerOverlay"
+	banner_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	banner_overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	banner_overlay.add_theme_constant_override("margin_left", 48)
+	banner_overlay.add_theme_constant_override("margin_top", 24)
+	banner_overlay.add_theme_constant_override("margin_right", 48)
+	banner_overlay.add_theme_constant_override("margin_bottom", 24)
+	banner_overlay.z_index = 40
+	lanes_panel.add_child(banner_overlay)
+	var banner_row := HBoxContainer.new()
+	banner_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	banner_row.size_flags_horizontal = SIZE_EXPAND_FILL
+	banner_overlay.add_child(banner_row)
+	_turn_banner_panel = PanelContainer.new()
+	_turn_banner_panel.name = "TurnBannerPanel"
+	_turn_banner_panel.visible = false
+	_turn_banner_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_turn_banner_panel.custom_minimum_size = Vector2(336, 72)
+	banner_row.add_child(_turn_banner_panel)
+	var banner_box := _build_panel_box(_turn_banner_panel, 10, 16)
+	var banner_column := VBoxContainer.new()
+	banner_column.add_theme_constant_override("separation", 3)
+	banner_box.add_child(banner_column)
+	_turn_banner_label = Label.new()
+	_turn_banner_label.name = "TurnBannerLabel"
+	_turn_banner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_turn_banner_label.add_theme_font_size_override("font_size", 28)
+	banner_column.add_child(_turn_banner_label)
+	_turn_banner_detail_label = Label.new()
+	_turn_banner_detail_label.name = "TurnBannerDetailLabel"
+	_turn_banner_detail_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_turn_banner_detail_label.add_theme_font_size_override("font_size", 13)
+	banner_column.add_child(_turn_banner_detail_label)
 	return lanes_panel
 
 
@@ -608,6 +1019,227 @@ func _build_panel_box(panel: PanelContainer, separation: int = 12, padding: int 
 	return box
 
 
+func _apply_panel_style(panel: PanelContainer, fill: Color, border: Color, border_width := 1, corner_radius := 10) -> void:
+	panel.add_theme_stylebox_override("panel", _build_style_box(fill, border, border_width, corner_radius))
+
+
+func _apply_button_style(button: Button, fill: Color, border: Color, font_color: Color, border_width := 1, corner_radius := 9) -> void:
+	button.add_theme_stylebox_override("normal", _build_style_box(fill, border, border_width, corner_radius))
+	button.add_theme_stylebox_override("hover", _build_style_box(fill.lightened(0.08), border.lightened(0.08), border_width, corner_radius))
+	button.add_theme_stylebox_override("pressed", _build_style_box(fill.darkened(0.1), border, border_width, corner_radius))
+	button.add_theme_stylebox_override("disabled", _build_style_box(fill.darkened(0.18), border.darkened(0.22), border_width, corner_radius))
+	button.add_theme_stylebox_override("focus", _build_style_box(fill.lightened(0.04), border.lightened(0.12), border_width, corner_radius))
+	button.add_theme_color_override("font_color", font_color)
+	button.add_theme_color_override("font_disabled_color", font_color.darkened(0.4))
+
+
+func _apply_surface_button_style(button: Button, surface: String, hidden := false, selected := false, muted := false, interaction_state := "default", card: Dictionary = {}, locked := false) -> void:
+	var fill := Color(0.17, 0.18, 0.22, 0.96)
+	var border := Color(0.42, 0.44, 0.53, 0.9)
+	var font_color := Color(0.95, 0.96, 0.98, 1.0)
+	if hidden:
+		fill = Color(0.11, 0.11, 0.14, 0.98)
+		border = Color(0.3, 0.28, 0.22, 0.9)
+	else:
+		match surface:
+			"lane":
+				fill = Color(0.19, 0.16, 0.12, 0.98)
+				border = Color(0.66, 0.54, 0.29, 0.94)
+			"hand":
+				fill = Color(0.14, 0.15, 0.2, 0.99)
+				border = Color(0.45, 0.51, 0.68, 0.94)
+			"support":
+				fill = Color(0.14, 0.18, 0.18, 0.98)
+				border = Color(0.35, 0.58, 0.56, 0.92)
+		if surface == "hand" and _is_pending_prophecy_card(card):
+			fill = fill.lerp(Color(0.24, 0.12, 0.31, 0.99), 0.72)
+			border = Color(0.93, 0.73, 0.98, 1.0)
+			font_color = Color(1.0, 0.96, 1.0, 1.0)
+		var draw_feedback := _active_draw_feedback_for_instance(str(card.get("instance_id", "")))
+		if surface == "hand" and not hidden and not draw_feedback.is_empty():
+			if bool(draw_feedback.get("from_rune_break", false)):
+				fill = fill.lerp(Color(0.33, 0.16, 0.1, 0.99), 0.56)
+				border = Color(1.0, 0.78, 0.46, 1.0)
+			else:
+				fill = fill.lerp(Color(0.16, 0.24, 0.31, 0.99), 0.48)
+				border = Color(0.66, 0.9, 1.0, 1.0)
+		if surface == "lane" and str(card.get("card_type", "")) == "creature":
+			if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_GUARD):
+				fill = fill.lerp(Color(0.31, 0.24, 0.14, 0.99), 0.46)
+				border = border.lerp(Color(0.99, 0.85, 0.46, 1.0), 0.72)
+			var readiness_state := _creature_readiness_state(card)
+			match str(readiness_state.get("id", "")):
+				"ready":
+					fill = fill.lerp(Color(0.15, 0.24, 0.18, 0.99), 0.34)
+					border = border.lerp(Color(0.62, 0.95, 0.64, 1.0), 0.54)
+				"summoning_sick":
+					fill = fill.lerp(Color(0.29, 0.16, 0.11, 0.99), 0.42)
+					border = border.lerp(Color(0.96, 0.63, 0.34, 1.0), 0.58)
+				"spent":
+					fill = fill.darkened(0.08)
+					border = border.lerp(Color(0.62, 0.67, 0.76, 0.96), 0.42)
+				"disabled":
+					fill = fill.lerp(Color(0.23, 0.14, 0.24, 0.99), 0.4)
+					border = border.lerp(Color(0.82, 0.58, 0.94, 1.0), 0.54)
+	if muted:
+		fill = fill.darkened(0.18)
+		border = border.darkened(0.12)
+		font_color = Color(0.84, 0.84, 0.88, 0.96)
+	if locked and interaction_state == "default" and not selected:
+		fill = fill.darkened(0.26)
+		border = border.darkened(0.18)
+		font_color = font_color.lerp(Color(0.72, 0.74, 0.8, 0.92), 0.5)
+	if interaction_state == "valid":
+		fill = fill.lerp(Color(0.2, 0.31, 0.23, 0.98), 0.48)
+		border = Color(0.74, 0.94, 0.68, 1.0)
+	elif interaction_state == "invalid":
+		fill = fill.lerp(Color(0.31, 0.12, 0.13, 0.99), 0.72)
+		border = Color(0.98, 0.48, 0.44, 1.0)
+	if selected:
+		border = Color(0.98, 0.88, 0.58, 1.0)
+		fill = fill.lightened(0.04)
+	_apply_button_style(button, fill, border, font_color, 2 if selected else 1, 10 if surface == "hand" else 8)
+	button.self_modulate = _locked_surface_modulate(locked, muted)
+
+
+func _apply_lane_slot_style(button: Button, lane_id: String, interaction_state := "default", locked := false) -> void:
+	var fill := _lane_row_fill(lane_id).darkened(0.04)
+	var border := _lane_panel_border(lane_id)
+	var font_color := Color(0.9, 0.92, 0.96, 1.0)
+	if locked and interaction_state == "default":
+		fill = fill.darkened(0.24)
+		border = border.darkened(0.18)
+		font_color = Color(0.74, 0.76, 0.82, 0.9)
+	if interaction_state == "valid":
+		fill = fill.lerp(Color(0.21, 0.33, 0.24, 0.98), 0.48)
+		border = Color(0.74, 0.94, 0.68, 1.0)
+	elif interaction_state == "invalid":
+		fill = fill.lerp(Color(0.32, 0.13, 0.15, 0.98), 0.72)
+		border = Color(0.98, 0.48, 0.44, 1.0)
+	_apply_button_style(button, fill, border, font_color, 2 if interaction_state != "default" else 1, 8)
+	button.self_modulate = Color(0.82, 0.84, 0.9, 0.72) if locked and interaction_state == "default" else Color(1, 1, 1, 1)
+
+
+func _apply_lane_panel_style(panel: PanelContainer, lane_id: String) -> void:
+	if panel == null:
+		return
+	var fill := _lane_panel_fill(lane_id)
+	var border := _lane_panel_border(lane_id)
+	var interaction_state := _lane_panel_interaction_state(lane_id)
+	if interaction_state == "valid":
+		fill = fill.lightened(0.05)
+		border = Color(0.74, 0.94, 0.68, 1.0)
+	elif interaction_state == "invalid":
+		fill = fill.lerp(Color(0.27, 0.12, 0.14, 0.98), 0.58)
+		border = Color(0.98, 0.48, 0.44, 1.0)
+	_apply_panel_style(panel, fill, border, 2, 12)
+
+
+func _apply_lane_header_style(button: Button, lane_id: String) -> void:
+	if button == null:
+		return
+	var fill := _lane_header_fill(lane_id)
+	var border := _lane_panel_border(lane_id)
+	var interaction_state := _lane_panel_interaction_state(lane_id)
+	if interaction_state == "valid":
+		fill = fill.lightened(0.06)
+		border = Color(0.74, 0.94, 0.68, 1.0)
+	elif interaction_state == "invalid":
+		fill = fill.lerp(Color(0.28, 0.12, 0.14, 1.0), 0.52)
+		border = Color(0.98, 0.48, 0.44, 1.0)
+	_apply_button_style(button, fill, border, Color(0.96, 0.95, 0.9, 1.0), 2 if interaction_state != "default" else 1, 10)
+
+
+func _apply_lane_row_panel_style(panel: PanelContainer, lane_id: String, player_id: String) -> void:
+	if panel == null:
+		return
+	var fill := _lane_row_fill(lane_id)
+	var border := _lane_row_border(lane_id)
+	var interaction_state := _lane_row_interaction_state(lane_id, player_id)
+	if _should_dim_local_surface(player_id) and interaction_state == "default":
+		fill = fill.darkened(0.18)
+		border = border.darkened(0.14)
+	if interaction_state == "valid":
+		fill = fill.lightened(0.05)
+		border = Color(0.74, 0.94, 0.68, 1.0)
+	elif interaction_state == "invalid":
+		fill = fill.lerp(Color(0.28, 0.12, 0.14, 0.98), 0.56)
+		border = Color(0.98, 0.48, 0.44, 1.0)
+	_apply_panel_style(panel, fill, border, 2 if interaction_state != "default" else 1, 10)
+
+
+func _apply_player_summary_style(button: Button, player_id: String, is_opponent: bool) -> void:
+	if button == null:
+		return
+	var fill := Color(0.18, 0.14, 0.14, 0.98) if is_opponent else Color(0.12, 0.17, 0.14, 0.98)
+	var border := Color(0.66, 0.42, 0.42, 0.92) if is_opponent else Color(0.42, 0.64, 0.46, 0.92)
+	var font_color := Color(0.98, 0.97, 0.94, 1.0)
+	var interaction_state := _player_button_interaction_state(player_id)
+	if _should_dim_local_surface(player_id) and interaction_state == "default":
+		fill = fill.darkened(0.2)
+		border = border.darkened(0.12)
+		font_color = Color(0.82, 0.84, 0.88, 0.96)
+	if interaction_state == "valid":
+		fill = fill.lightened(0.08)
+		border = Color(0.74, 0.94, 0.68, 1.0)
+	elif interaction_state == "invalid":
+		fill = fill.lerp(Color(0.31, 0.12, 0.13, 0.99), 0.64)
+		border = Color(0.98, 0.48, 0.44, 1.0)
+	_apply_button_style(button, fill, border, font_color, 2 if interaction_state != "default" else 1, 10)
+	button.self_modulate = Color(0.86, 0.88, 0.94, 0.8) if _should_dim_local_surface(player_id) and interaction_state == "default" else Color(1, 1, 1, 1)
+
+
+func _locked_surface_modulate(locked: bool, muted: bool) -> Color:
+	if locked:
+		return Color(0.78, 0.8, 0.88, 0.64)
+	if muted:
+		return Color(0.74, 0.74, 0.78, 0.72)
+	return Color(1, 1, 1, 1)
+
+
+func _build_style_box(fill: Color, border: Color, border_width := 1, corner_radius := 10) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill
+	style.border_color = border
+	style.border_width_left = border_width
+	style.border_width_top = border_width
+	style.border_width_right = border_width
+	style.border_width_bottom = border_width
+	style.corner_radius_top_left = corner_radius
+	style.corner_radius_top_right = corner_radius
+	style.corner_radius_bottom_right = corner_radius
+	style.corner_radius_bottom_left = corner_radius
+	return style
+
+
+func _lane_panel_fill(lane_id: String) -> Color:
+	return Color(0.1, 0.1, 0.15, 0.98) if lane_id == "shadow" else Color(0.17, 0.17, 0.18, 0.97)
+
+
+func _lane_panel_border(lane_id: String) -> Color:
+	return Color(0.42, 0.41, 0.61, 0.94) if lane_id == "shadow" else Color(0.53, 0.54, 0.48, 0.9)
+
+
+func _lane_row_fill(lane_id: String) -> Color:
+	return Color(0.13, 0.13, 0.17, 0.94) if lane_id == "shadow" else Color(0.21, 0.21, 0.22, 0.92)
+
+
+func _lane_row_border(lane_id: String) -> Color:
+	return Color(0.29, 0.31, 0.45, 0.88) if lane_id == "shadow" else Color(0.34, 0.35, 0.34, 0.82)
+
+
+func _lane_header_fill(lane_id: String) -> Color:
+	return Color(0.16, 0.15, 0.23, 0.98) if lane_id == "shadow" else Color(0.23, 0.22, 0.18, 0.98)
+
+
+func _lane_marker_text(lane_id: String) -> String:
+	return "SHADOW • Cover on entry" if lane_id == "shadow" else "FIELD • Open battle"
+
+
+func _lane_marker_color(lane_id: String) -> Color:
+	return Color(0.82, 0.8, 0.98, 0.96) if lane_id == "shadow" else Color(0.9, 0.88, 0.74, 0.96)
+
+
 func _populate_scenario_picker() -> void:
 	_scenario_picker.clear()
 	var index := 0
@@ -618,15 +1250,40 @@ func _populate_scenario_picker() -> void:
 
 
 func _refresh_ui() -> void:
+	_prune_feedback_state()
+	_card_buttons = {}
+	_lane_slot_buttons = {}
 	_sync_scenario_picker()
+	_refresh_turn_presentation()
 	_status_label.text = _status_message
 	_prompt_label.text = _prompt_text()
+	_refresh_prompt_presentation()
 	_refresh_prompt_buttons()
 	_refresh_player_sections()
 	_refresh_lanes()
 	_refresh_inspector()
+	_apply_match_layout_scale()
 	_refresh_debug_tabs()
 	_refresh_action_buttons()
+	_refresh_match_end_overlay()
+	_apply_presentation_feedback()
+
+
+func _apply_match_layout_scale() -> void:
+	var layout := find_child("MatchLayout", true, false) as Control
+	var content := find_child("MatchContent", true, false) as Control
+	if layout == null or content == null:
+		return
+	content.pivot_offset = Vector2.ZERO
+	content.scale = Vector2.ONE
+	var available: Vector2 = layout.size - Vector2(48, 44)
+	if available.x <= 0.0 or available.y <= 0.0:
+		return
+	var needed: Vector2 = content.get_combined_minimum_size()
+	if needed.x <= 0.0 or needed.y <= 0.0:
+		return
+	var scale_factor: float = min(1.0, min(available.x / needed.x, available.y / needed.y))
+	content.scale = Vector2(scale_factor, scale_factor)
 
 
 func _refresh_player_sections() -> void:
@@ -635,9 +1292,39 @@ func _refresh_player_sections() -> void:
 		var player := _player_state(player_id)
 		if section.is_empty() or player.is_empty():
 			continue
+		var is_opponent: bool = player_id == PLAYER_ORDER[0]
+		var panel: PanelContainer = section["panel"]
+		panel.self_modulate = Color(0.82, 0.84, 0.9, 0.78) if _should_dim_local_surface(player_id) else Color(1, 1, 1, 1)
 		var summary_button: Button = section["summary_button"]
 		summary_button.text = _player_summary_text(player)
 		summary_button.tooltip_text = _player_summary_tooltip(player)
+		_apply_player_summary_style(summary_button, player_id, is_opponent)
+
+		var health_panel: PanelContainer = section["health_panel"]
+		_apply_panel_style(health_panel, _health_panel_fill(player, is_opponent), _health_panel_border(player, is_opponent), 1, 10)
+		var health_value: Label = section["health_value"]
+		health_value.text = str(int(player.get("health", 0)))
+
+		var rune_row: HBoxContainer = section["rune_row"]
+		_refresh_rune_row(rune_row, player, player_id, is_opponent)
+
+		var magicka_label: Label = section["magicka_label"]
+		magicka_label.text = _magicka_summary_text(player)
+		var magicka_row: HBoxContainer = section["magicka_row"]
+		_refresh_magicka_row(magicka_row, player, not is_opponent)
+
+		var ring_label: Label = section["ring_label"]
+		ring_label.text = _ring_panel_text(player)
+		var ring_row: HBoxContainer = section["ring_row"]
+		_refresh_ring_row(ring_row, player)
+
+		var deck_button: Button = section["deck_button"]
+		deck_button.text = _pile_button_text("Deck", player.get("deck", []).size())
+		deck_button.tooltip_text = _pile_button_tooltip(player, MatchMutations.ZONE_DECK)
+
+		var discard_button: Button = section["discard_button"]
+		discard_button.text = _pile_button_text("Discard", player.get("discard", []).size())
+		discard_button.tooltip_text = _pile_button_tooltip(player, MatchMutations.ZONE_DISCARD)
 
 		var support_row: HBoxContainer = section["support_row"]
 		_clear_children(support_row)
@@ -646,23 +1333,32 @@ func _refresh_player_sections() -> void:
 		if support_row.get_child_count() == 0:
 			support_row.add_child(_build_placeholder_label("No supports"))
 
-		var hand_row: HBoxContainer = section["hand_row"]
+		var hand_row: Control = section["hand_row"]
 		_clear_children(hand_row)
 		var hand_public := _is_hand_public(player_id)
 		for card in player.get("hand", []):
 			hand_row.add_child(_build_card_button(card, hand_public, "hand"))
 		if hand_row.get_child_count() == 0:
-			hand_row.add_child(_build_placeholder_label("Hand empty"))
+			var placeholder := _build_placeholder_label("Hand empty")
+			hand_row.add_child(placeholder)
+			_layout_hand_placeholder(hand_row, placeholder)
+		else:
+			_layout_hand_cards(hand_row, player_id)
 
 
 func _refresh_lanes() -> void:
 	for lane in _lane_entries():
 		var lane_id := str(lane.get("id", ""))
+		var lane_panel: PanelContainer = _lane_panels.get(lane_id)
+		_apply_lane_panel_style(lane_panel, lane_id)
 		var header: Button = _lane_header_buttons.get(lane_id)
 		if header != null:
 			header.text = _lane_header_text(lane_id)
 			header.tooltip_text = _lane_description(lane_id)
+			_apply_lane_header_style(header, lane_id)
 		for player_id in PLAYER_ORDER:
+			var row_panel: PanelContainer = _lane_row_panels.get(_lane_row_key(lane_id, player_id))
+			_apply_lane_row_panel_style(row_panel, lane_id, player_id)
 			var row: HBoxContainer = _lane_row_containers.get(_lane_row_key(lane_id, player_id))
 			if row == null:
 				continue
@@ -679,9 +1375,13 @@ func _refresh_lanes() -> void:
 func _refresh_inspector() -> void:
 	var card := _selected_card()
 	_clear_children(_keyword_button_row)
-	if card.is_empty():
+	if card.is_empty() and _selected_pile_zone.is_empty():
 		_inspector_label.text = "Select a visible card or Prophecy prompt to inspect details and available actions."
 		_help_label.text = _default_help_text()
+		return
+	if card.is_empty():
+		_inspector_label.text = _pile_inspector_text(_selected_pile_player_id, _selected_pile_zone)
+		_help_label.text = _pile_help_text(_selected_pile_zone)
 		return
 	_inspector_label.text = _card_inspector_text(card)
 	for term_id in _card_terms(card):
@@ -700,6 +1400,24 @@ func _refresh_debug_tabs() -> void:
 	_state_text.text = JSON.stringify(_match_state, "  ")
 
 
+func _refresh_prompt_presentation() -> void:
+	if _prompt_panel == null:
+		return
+	var has_pending_prophecy := MatchTiming.has_pending_prophecy(_match_state)
+	if has_pending_prophecy:
+		_apply_panel_style(_prompt_panel, Color(0.16, 0.1, 0.22, 0.98), Color(0.86, 0.66, 0.96, 0.98), 2, 10)
+		if _prompt_title_label != null:
+			_prompt_title_label.text = "INTERRUPT • PROPHECY"
+			_prompt_title_label.add_theme_color_override("font_color", Color(0.98, 0.92, 1.0, 1.0))
+		_prompt_label.add_theme_color_override("font_color", Color(0.94, 0.88, 1.0, 0.98))
+		return
+	_apply_panel_style(_prompt_panel, Color(0.11, 0.12, 0.16, 0.96), Color(0.29, 0.33, 0.41, 0.88), 1, 10)
+	if _prompt_title_label != null:
+		_prompt_title_label.text = "Interrupts / Prophecy"
+		_prompt_title_label.add_theme_color_override("font_color", Color(1, 1, 1, 1))
+	_prompt_label.add_theme_color_override("font_color", Color(1, 1, 1, 1))
+
+
 func _refresh_prompt_buttons() -> void:
 	_clear_children(_prompt_button_row)
 	for window in MatchTiming.get_pending_prophecies(_match_state):
@@ -710,6 +1428,7 @@ func _refresh_prompt_buttons() -> void:
 		select_button.text = "Select %s" % _card_name(card)
 		select_button.custom_minimum_size = Vector2(0, 42)
 		select_button.add_theme_font_size_override("font_size", 15)
+		_apply_button_style(select_button, Color(0.21, 0.12, 0.29, 0.99), Color(0.92, 0.72, 0.98, 1.0), Color(0.99, 0.96, 1.0, 1.0), 2, 10)
 		select_button.pressed.connect(_on_select_prophecy_pressed.bind(instance_id))
 		_prompt_button_row.add_child(select_button)
 
@@ -717,6 +1436,7 @@ func _refresh_prompt_buttons() -> void:
 		decline_button.text = "Decline (%s)" % _player_name(player_id)
 		decline_button.custom_minimum_size = Vector2(0, 42)
 		decline_button.add_theme_font_size_override("font_size", 15)
+		_apply_button_style(decline_button, Color(0.22, 0.11, 0.14, 0.98), Color(0.78, 0.45, 0.47, 0.96), Color(0.99, 0.95, 0.95, 1.0), 1, 10)
 		decline_button.pressed.connect(_on_decline_prophecy_pressed.bind(instance_id))
 		_prompt_button_row.add_child(decline_button)
 	if _prompt_button_row.get_child_count() == 0:
@@ -724,30 +1444,72 @@ func _refresh_prompt_buttons() -> void:
 
 
 func _refresh_action_buttons() -> void:
-	var active_player := _active_player_id()
-	_play_selected_button.disabled = _selected_card().is_empty()
-	_ring_button.disabled = not MatchTurnLoop.can_activate_ring_of_magicka(_match_state, active_player) or MatchTiming.has_pending_prophecy(_match_state)
-	_end_turn_button.disabled = MatchTiming.has_pending_prophecy(_match_state)
+	var selected_card := _selected_card()
+	var has_pending_prophecy := MatchTiming.has_pending_prophecy(_match_state)
+	var local_turn := _is_local_player_turn()
+	var match_complete := _has_match_winner()
+	var selected_pending_prophecy := _is_pending_prophecy_card(selected_card)
+	_play_selected_button.disabled = match_complete or selected_card.is_empty() or (not local_turn and not selected_pending_prophecy)
+	_ring_button.disabled = match_complete or not local_turn or not MatchTurnLoop.can_activate_ring_of_magicka(_match_state, _local_player_id()) or has_pending_prophecy
+	_end_turn_button.disabled = match_complete or not local_turn or has_pending_prophecy
+	_refresh_end_turn_button_style(has_pending_prophecy)
+	if match_complete:
+		_play_selected_button.tooltip_text = "Match complete. Reload or switch scenarios to continue exploring the UI."
+		_ring_button.tooltip_text = "Match complete. Ring actions are no longer available."
+		_end_turn_button.tooltip_text = "Match complete. No further turn actions are available."
+		return
+	_play_selected_button.tooltip_text = "Resolve the selected card through the existing match command wiring."
+	_ring_button.tooltip_text = "Use the Ring of Magicka during your turn when a charge is available."
 
 
 func _build_card_button(card: Dictionary, public_view: bool, surface := "default") -> Button:
 	var button := Button.new()
+	var instance_id := str(card.get("instance_id", ""))
+	var hidden := not public_view and not _is_pending_prophecy_card(card)
+	var selected := instance_id == _selected_instance_id
+	var muted := _should_mute_card(card, public_view, surface)
+	var interaction_state := _card_interaction_state(card, surface)
+	var locked := _should_dim_card_for_turn(card, surface, interaction_state)
+	button.name = "%s_%s_card" % [surface, instance_id]
 	button.custom_minimum_size = _surface_button_minimum_size(surface)
-	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	button.add_theme_font_size_override("font_size", _surface_font_size(surface))
+	button.clip_contents = surface != "hand"
+	button.text = ""
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.focus_mode = Control.FOCUS_NONE
+	button.mouse_default_cursor_shape = Control.CURSOR_ARROW if locked and interaction_state == "default" else Control.CURSOR_POINTING_HAND
+	button.set_meta("instance_id", instance_id)
+	button.set_meta("surface", surface)
+	button.set_meta("presentation_locked", locked)
+	_apply_surface_button_style(button, surface, hidden, selected, muted, interaction_state, card, locked)
 	button.pressed.connect(_on_card_pressed.bind(str(card.get("instance_id", ""))))
-	button.text = _card_button_text(card, public_view)
 	button.tooltip_text = _card_tooltip(card, public_view)
-	button.disabled = not public_view and not _is_pending_prophecy_card(card)
+	button.disabled = hidden
+	_populate_card_button_content(button, card, public_view, surface)
+	_apply_card_feedback_decoration(button, card, surface)
+	_card_buttons[instance_id] = button
+	if surface == "hand" and public_view and str(card.get("controller_player_id", "")) == PLAYER_ORDER[1]:
+		button.mouse_entered.connect(_on_local_hand_card_mouse_entered.bind(button))
+		button.mouse_exited.connect(_on_local_hand_card_mouse_exited.bind(button))
+		button.gui_input.connect(_on_local_hand_card_gui_input.bind(button, instance_id))
 	return button
 
 
 func _build_empty_slot_button(lane_id: String, player_id: String, slot_index: int) -> Button:
 	var button := Button.new()
+	var slot_key := _lane_slot_key(lane_id, player_id, slot_index)
+	var interaction_state := _lane_slot_interaction_state(lane_id, player_id, slot_index)
+	var locked := _should_dim_local_surface(player_id) and interaction_state == "default"
+	button.name = "%s_%s_slot_%d" % [lane_id, player_id, slot_index]
 	button.custom_minimum_size = Vector2(132, 88)
 	button.add_theme_font_size_override("font_size", 15)
 	button.text = "Open %d" % (slot_index + 1)
+	button.mouse_default_cursor_shape = Control.CURSOR_ARROW if locked else Control.CURSOR_POINTING_HAND
+	button.set_meta("lane_id", lane_id)
+	button.set_meta("player_id", player_id)
+	button.set_meta("slot_index", slot_index)
+	_apply_lane_slot_style(button, lane_id, interaction_state, locked)
 	button.pressed.connect(_on_lane_slot_pressed.bind(lane_id, player_id, slot_index))
+	_lane_slot_buttons[slot_key] = button
 	return button
 
 
@@ -758,6 +1520,7 @@ func _build_placeholder_label(text: String) -> Label:
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.add_theme_font_size_override("font_size", 16)
+	label.add_theme_color_override("font_color", Color(0.83, 0.85, 0.89, 0.9))
 	label.custom_minimum_size = Vector2(176, 44)
 	return label
 
@@ -765,11 +1528,11 @@ func _build_placeholder_label(text: String) -> Label:
 func _surface_button_minimum_size(surface: String) -> Vector2:
 	match surface:
 		"lane":
-			return Vector2(168, 104)
+			return Vector2(136, 172)
 		"hand":
-			return Vector2(148, 92)
+			return Vector2(156, 196)
 		"support":
-			return Vector2(124, 68)
+			return Vector2(140, 152)
 		_:
 			return Vector2(132, 80)
 
@@ -777,13 +1540,515 @@ func _surface_button_minimum_size(surface: String) -> Vector2:
 func _surface_font_size(surface: String) -> int:
 	match surface:
 		"lane":
-			return 16
+			return 13
 		"hand":
 			return 15
 		"support":
-			return 15
+			return 14
 		_:
 			return 15
+
+
+func _on_hand_surface_resized(hand_surface: Control) -> void:
+	if hand_surface == null:
+		return
+	var player_id := str(hand_surface.get_meta("player_id", ""))
+	var has_card := false
+	for child in hand_surface.get_children():
+		if child is Button:
+			has_card = true
+			break
+	if has_card:
+		_layout_hand_cards(hand_surface, player_id)
+	elif hand_surface.get_child_count() > 0 and hand_surface.get_child(0) is Label:
+		_layout_hand_placeholder(hand_surface, hand_surface.get_child(0) as Label)
+
+
+func _layout_hand_cards(hand_surface: Control, player_id: String) -> void:
+	var cards: Array[Button] = []
+	for child in hand_surface.get_children():
+		if child is Button:
+			cards.append(child as Button)
+	if cards.is_empty():
+		return
+	var card_size := _surface_button_minimum_size("hand")
+	var count := cards.size()
+	var is_local := player_id == PLAYER_ORDER[1]
+	var overlap_step: float = 78.0 if is_local else 62.0
+	var total_width: float = card_size.x + overlap_step * float(max(0, count - 1))
+	var available_width: float = max(hand_surface.size.x, total_width + 24.0)
+	var start_x: float = max(0.0, (available_width - total_width) * 0.5)
+	var max_y: float = 0.0
+	for index in range(count):
+		var button := cards[index]
+		var offset := float(index) - float(count - 1) * 0.5
+		var y := absf(offset) * (6.0 if is_local else 3.0)
+		var rotation := offset * (3.4 if is_local else 1.2)
+		var position := Vector2(start_x + overlap_step * index, y)
+		button.size = card_size
+		button.position = position
+		button.pivot_offset = card_size * 0.5
+		button.rotation_degrees = rotation
+		button.scale = Vector2.ONE
+		button.z_index = index
+		button.set_meta("hand_index", index)
+		button.set_meta("base_position", position)
+		button.set_meta("base_rotation", rotation)
+		max_y = max(max_y, y)
+	hand_surface.custom_minimum_size = Vector2(max(total_width + 24.0, 240.0), card_size.y + max_y + 20.0)
+	if is_local:
+		for button in cards:
+			_apply_local_hand_hover_state(button, false)
+
+
+func _layout_hand_placeholder(hand_surface: Control, placeholder: Label) -> void:
+	if hand_surface == null or placeholder == null:
+		return
+	placeholder.position = Vector2.ZERO
+	placeholder.size = Vector2(max(hand_surface.size.x, 220.0), placeholder.custom_minimum_size.y)
+
+
+func _on_local_hand_card_mouse_entered(button: Button) -> void:
+	_apply_local_hand_hover_state(button, true)
+
+
+func _on_local_hand_card_mouse_exited(button: Button) -> void:
+	_apply_local_hand_hover_state(button, false)
+
+
+func _apply_local_hand_hover_state(button: Button, hovered: bool) -> void:
+	if button == null:
+		return
+	var base_position: Vector2 = button.get_meta("base_position", button.position)
+	var base_rotation := float(button.get_meta("base_rotation", button.rotation_degrees))
+	var hand_index := int(button.get_meta("hand_index", button.z_index))
+	var selected := str(button.get_meta("instance_id", "")) == _selected_instance_id
+	var locked := bool(button.get_meta("presentation_locked", false))
+	button.scale = Vector2.ONE
+	button.position = base_position
+	button.rotation_degrees = base_rotation
+	button.z_index = hand_index
+	if locked:
+		return
+	if selected:
+		button.scale = Vector2(1.12, 1.12)
+		button.position = base_position + Vector2(-10, -34)
+		button.rotation_degrees = base_rotation * 0.18
+		button.z_index = 110
+	if hovered:
+		button.scale = Vector2(1.14, 1.14) if selected else Vector2(1.08, 1.08)
+		button.position = base_position + Vector2(-10, -40) if selected else base_position + Vector2(-8, -24)
+		button.rotation_degrees = base_rotation * 0.12 if selected else base_rotation * 0.35
+		button.z_index = 120 if selected else 100
+
+
+func _populate_card_button_content(button: Button, card: Dictionary, public_view: bool, surface: String) -> void:
+	var hidden := not public_view and not _is_pending_prophecy_card(card)
+	var instance_id := str(card.get("instance_id", ""))
+	var margin := MarginContainer.new()
+	margin.name = "%s_content_root" % instance_id
+	margin.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", _surface_content_padding(surface))
+	margin.add_theme_constant_override("margin_top", _surface_content_padding(surface))
+	margin.add_theme_constant_override("margin_right", _surface_content_padding(surface))
+	margin.add_theme_constant_override("margin_bottom", _surface_content_padding(surface))
+	button.add_child(margin)
+	button.set_meta("content_root", margin)
+	var column := VBoxContainer.new()
+	column.size_flags_horizontal = SIZE_EXPAND_FILL
+	column.size_flags_vertical = SIZE_EXPAND_FILL
+	column.add_theme_constant_override("separation", 2 if surface == "lane" else 6)
+	margin.add_child(column)
+	if hidden:
+		var card_back_label := Label.new()
+		card_back_label.name = "%s_card_back_label" % instance_id
+		card_back_label.text = "CARD BACK"
+		card_back_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		card_back_label.add_theme_font_size_override("font_size", 12 if surface == "lane" else 14)
+		card_back_label.add_theme_color_override("font_color", Color(0.87, 0.8, 0.62, 0.96))
+		column.add_child(card_back_label)
+		var art_back := PanelContainer.new()
+		art_back.name = "%s_art_region" % instance_id
+		art_back.custom_minimum_size = Vector2(0, _surface_art_height(surface))
+		art_back.size_flags_horizontal = SIZE_EXPAND_FILL
+		_apply_panel_style(art_back, Color(0.17, 0.12, 0.1, 0.98), Color(0.57, 0.44, 0.27, 0.92), 1, 8)
+		column.add_child(art_back)
+		var art_box := _build_panel_box(art_back, 4, 8)
+		var art_label := Label.new()
+		art_label.text = "Hidden opponent hand"
+		art_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		art_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		art_label.max_lines_visible = 1 if surface == "lane" else -1
+		art_label.add_theme_font_size_override("font_size", 11 if surface == "lane" else 12)
+		art_label.add_theme_color_override("font_color", Color(0.92, 0.87, 0.76, 0.94))
+		art_box.add_child(art_label)
+		return
+	var top_row := HBoxContainer.new()
+	top_row.add_theme_constant_override("separation", 4 if surface == "lane" else 6)
+	column.add_child(top_row)
+	var cost_badge := _build_value_badge("%s_cost" % instance_id, str(int(card.get("cost", 0))), Color(0.18, 0.22, 0.31, 0.98), Color(0.68, 0.82, 0.98, 0.98), Color(0.95, 0.98, 1.0, 1.0), 12 if surface == "lane" else 15, Vector2(34, 24))
+	top_row.add_child(cost_badge)
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = SIZE_EXPAND_FILL
+	top_row.add_child(spacer)
+	var rarity_marker := Label.new()
+	rarity_marker.name = "%s_rarity_marker" % instance_id
+	rarity_marker.text = _card_rarity_text(card).to_upper()
+	rarity_marker.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	rarity_marker.add_theme_font_size_override("font_size", 10 if surface == "lane" else 11)
+	rarity_marker.add_theme_color_override("font_color", _rarity_color(card))
+	top_row.add_child(rarity_marker)
+	var draw_feedback := _active_draw_feedback_for_instance(instance_id)
+	if _is_pending_prophecy_card(card) or (surface == "hand" and public_view and not draw_feedback.is_empty()):
+		var emphasis_row := HBoxContainer.new()
+		emphasis_row.name = "%s_emphasis_row" % instance_id
+		emphasis_row.add_theme_constant_override("separation", 4)
+		column.add_child(emphasis_row)
+		if _is_pending_prophecy_card(card):
+			emphasis_row.add_child(_build_text_badge("%s_prophecy_window" % instance_id, "PROPHECY", Color(0.28, 0.14, 0.34, 0.99), Color(0.94, 0.75, 0.98, 1.0), Color(1.0, 0.96, 1.0, 1.0), 9 if surface == "lane" else 10, Vector2(0, 22)))
+			emphasis_row.add_child(_build_text_badge("%s_prophecy_free" % instance_id, "FREE INTERRUPT", Color(0.18, 0.12, 0.3, 0.99), Color(0.72, 0.84, 1.0, 0.98), Color(0.95, 0.98, 1.0, 1.0), 9 if surface == "lane" else 10, Vector2(0, 22)))
+		if surface == "hand" and public_view and not draw_feedback.is_empty():
+			emphasis_row.add_child(_build_text_badge("%s_draw_feedback" % instance_id, _draw_feedback_badge_text(draw_feedback), _draw_feedback_badge_fill(draw_feedback), _draw_feedback_badge_border(draw_feedback), Color(1.0, 0.97, 0.92, 1.0), 9 if surface == "lane" else 10, Vector2(0, 22)))
+	var art_panel := PanelContainer.new()
+	art_panel.name = "%s_art_region" % instance_id
+	art_panel.custom_minimum_size = Vector2(0, _surface_art_height(surface))
+	art_panel.size_flags_horizontal = SIZE_EXPAND_FILL
+	_apply_panel_style(art_panel, _surface_art_fill(surface), _surface_art_border(surface), 1, 8)
+	column.add_child(art_panel)
+	var art_box := _build_panel_box(art_panel, 4, 8)
+	var art_title := Label.new()
+	art_title.text = "ART" if surface == "lane" else "Illustration Placeholder"
+	art_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	art_title.add_theme_font_size_override("font_size", 11 if surface == "lane" else 12)
+	art_title.add_theme_color_override("font_color", Color(0.95, 0.89, 0.76, 0.96))
+	art_box.add_child(art_title)
+	if surface != "lane":
+		var art_caption := Label.new()
+		art_caption.text = "Reserved frame for future card art"
+		art_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		art_caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		art_caption.add_theme_font_size_override("font_size", 11)
+		art_caption.add_theme_color_override("font_color", Color(0.84, 0.84, 0.9, 0.88))
+		art_box.add_child(art_caption)
+	var name_label := Label.new()
+	name_label.name = "%s_name_label" % instance_id
+	name_label.text = _card_name(card)
+	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	name_label.max_lines_visible = 1 if surface == "lane" else -1
+	name_label.add_theme_font_size_override("font_size", _surface_name_font_size(surface))
+	name_label.add_theme_color_override("font_color", Color(0.97, 0.95, 0.9, 1.0))
+	column.add_child(name_label)
+	if surface != "lane":
+		var type_label := Label.new()
+		type_label.name = "%s_type_label" % instance_id
+		type_label.text = _card_type_line(card, surface)
+		type_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		type_label.max_lines_visible = -1
+		type_label.add_theme_font_size_override("font_size", _surface_meta_font_size(surface))
+		type_label.add_theme_color_override("font_color", Color(0.84, 0.88, 0.96, 0.92))
+		column.add_child(type_label)
+	var rules_label := Label.new()
+	rules_label.name = "%s_rules_label" % instance_id
+	rules_label.text = _card_rules_preview(card, surface)
+	rules_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	rules_label.max_lines_visible = 1 if surface == "lane" else -1
+	rules_label.add_theme_font_size_override("font_size", _surface_rules_font_size(surface))
+	rules_label.add_theme_color_override("font_color", Color(0.88, 0.89, 0.94, 0.96))
+	column.add_child(rules_label)
+	var tags := _card_tag_text(card)
+	if not tags.is_empty() and surface != "lane":
+		var tags_label := Label.new()
+		tags_label.name = "%s_tags_label" % instance_id
+		tags_label.text = tags
+		tags_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		tags_label.add_theme_font_size_override("font_size", 10 if surface == "lane" else 11)
+		tags_label.add_theme_color_override("font_color", Color(0.86, 0.78, 0.6, 0.94))
+		column.add_child(tags_label)
+	if str(card.get("card_type", "")) == "creature":
+		var combat_badges := HBoxContainer.new()
+		combat_badges.name = "%s_combat_badges" % instance_id
+		combat_badges.add_theme_constant_override("separation", 4)
+		column.add_child(combat_badges)
+		var readiness_state := _creature_readiness_state(card)
+		combat_badges.add_child(_build_text_badge(
+			"%s_readiness" % instance_id,
+			str(readiness_state.get("label", "READY")),
+			readiness_state.get("fill", Color(0.16, 0.28, 0.18, 0.98)),
+			readiness_state.get("border", Color(0.58, 0.9, 0.62, 0.96)),
+			readiness_state.get("font", Color(0.95, 0.99, 0.96, 1.0)),
+			9 if surface == "lane" else 10,
+			Vector2(0, 22)
+		))
+		if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_GUARD):
+			combat_badges.add_child(_build_text_badge("%s_guard_emphasis" % instance_id, "GUARD", Color(0.34, 0.24, 0.08, 0.99), Color(0.99, 0.85, 0.42, 1.0), Color(1.0, 0.97, 0.84, 1.0), 9 if surface == "lane" else 10, Vector2(0, 22)))
+		if EvergreenRules.is_cover_active(_match_state, card):
+			combat_badges.add_child(_build_text_badge("%s_cover_state" % instance_id, "COVER", Color(0.18, 0.18, 0.3, 0.98), Color(0.7, 0.76, 1.0, 0.96), Color(0.94, 0.96, 1.0, 1.0), 9 if surface == "lane" else 10, Vector2(0, 22)))
+		var stats_row := HBoxContainer.new()
+		stats_row.add_theme_constant_override("separation", 6)
+		column.add_child(stats_row)
+		stats_row.add_child(_build_value_badge("%s_power" % instance_id, str(EvergreenRules.get_power(card)), Color(0.2, 0.16, 0.11, 0.98), Color(0.71, 0.54, 0.31, 0.96), _stat_color(card, "power"), 13 if surface == "hand" else 12, Vector2(0, 26)))
+		stats_row.add_child(_build_value_badge("%s_health" % instance_id, str(EvergreenRules.get_remaining_health(card)), Color(0.15, 0.1, 0.12, 0.98), Color(0.64, 0.35, 0.31, 0.96), _stat_color(card, "health"), 13 if surface == "hand" else 12, Vector2(0, 26)))
+
+
+func _build_value_badge(name_prefix: String, text: String, fill: Color, border: Color, font_color: Color, font_size: int, min_size: Vector2) -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.name = "%s_badge" % name_prefix
+	panel.custom_minimum_size = min_size
+	_apply_panel_style(panel, fill, border, 1, 8)
+	var box := _build_panel_box(panel, 0, 6)
+	var label := Label.new()
+	label.name = "%s_label" % name_prefix
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", font_color)
+	box.add_child(label)
+	return panel
+
+
+func _build_text_badge(name_prefix: String, text: String, fill: Color, border: Color, font_color: Color, font_size: int, min_size: Vector2) -> PanelContainer:
+	return _build_value_badge(name_prefix, text, fill, border, font_color, font_size, min_size)
+
+
+func _draw_feedback_badge_text(feedback: Dictionary) -> String:
+	return "RUNE DRAW" if bool(feedback.get("from_rune_break", false)) else "DRAWN"
+
+
+func _draw_feedback_badge_fill(feedback: Dictionary) -> Color:
+	return Color(0.32, 0.16, 0.09, 0.99) if bool(feedback.get("from_rune_break", false)) else Color(0.15, 0.22, 0.31, 0.99)
+
+
+func _draw_feedback_badge_border(feedback: Dictionary) -> Color:
+	return Color(1.0, 0.79, 0.46, 1.0) if bool(feedback.get("from_rune_break", false)) else Color(0.66, 0.9, 1.0, 1.0)
+
+
+func _surface_content_padding(surface: String) -> int:
+	match surface:
+		"lane":
+			return 4
+		"hand":
+			return 8
+		"support":
+			return 6
+		_:
+			return 6
+
+
+func _surface_art_height(surface: String) -> float:
+	match surface:
+		"lane":
+			return 18.0
+		"hand":
+			return 64.0
+		"support":
+			return 48.0
+		_:
+			return 40.0
+
+
+func _surface_name_font_size(surface: String) -> int:
+	match surface:
+		"lane":
+			return 11
+		"hand":
+			return 14
+		"support":
+			return 12
+		_:
+			return 13
+
+
+func _surface_meta_font_size(surface: String) -> int:
+	return 9 if surface == "lane" else 11
+
+
+func _surface_rules_font_size(surface: String) -> int:
+	match surface:
+		"lane":
+			return 9
+		"hand":
+			return 10
+		"support":
+			return 9
+		_:
+			return 10
+
+
+func _surface_art_fill(surface: String) -> Color:
+	match surface:
+		"lane":
+			return Color(0.24, 0.19, 0.14, 0.94)
+		"support":
+			return Color(0.14, 0.22, 0.22, 0.94)
+		_:
+			return Color(0.19, 0.16, 0.13, 0.94)
+
+
+func _surface_art_border(surface: String) -> Color:
+	match surface:
+		"lane":
+			return Color(0.62, 0.47, 0.28, 0.9)
+		"support":
+			return Color(0.42, 0.63, 0.61, 0.9)
+		_:
+			return Color(0.72, 0.58, 0.34, 0.9)
+
+
+func _card_type_line(card: Dictionary, surface := "default") -> String:
+	var card_type := str(card.get("card_type", "")).capitalize()
+	if surface == "lane":
+		return card_type
+	return "%s • Cost %d" % [card_type, int(card.get("cost", 0))]
+
+
+func _card_stat_line(card: Dictionary) -> String:
+	if str(card.get("card_type", "")) != "creature":
+		return ""
+	return "%d / %d" % [EvergreenRules.get_power(card), EvergreenRules.get_remaining_health(card)]
+
+
+func _card_rules_preview(card: Dictionary, surface := "default") -> String:
+	var rules_text := str(card.get("rules_text", "")).strip_edges()
+	rules_text = rules_text.replace("\n", " ")
+	if not rules_text.is_empty():
+		if surface == "lane" and rules_text.length() > 40:
+			return "%s…" % rules_text.substr(0, 39).strip_edges()
+		return rules_text
+	if surface == "lane":
+		return "Placeholder rules surface."
+	return "No final rules text yet. Placeholder frame keeps the identity readable."
+
+
+func _card_rarity_text(card: Dictionary) -> String:
+	var rarity := str(card.get("rarity", "common")).strip_edges().to_lower()
+	return "common" if rarity.is_empty() else rarity
+
+
+func _rarity_color(card: Dictionary) -> Color:
+	match _card_rarity_text(card):
+		"legendary":
+			return Color(0.98, 0.82, 0.42, 1.0)
+		"epic":
+			return Color(0.78, 0.62, 0.98, 1.0)
+		"rare":
+			return Color(0.54, 0.82, 0.99, 1.0)
+		"uncommon":
+			return Color(0.64, 0.9, 0.64, 1.0)
+		_:
+			return Color(0.86, 0.86, 0.86, 0.96)
+
+
+func _stat_color(card: Dictionary, stat: String) -> Color:
+	var current := EvergreenRules.get_power(card) if stat == "power" else EvergreenRules.get_remaining_health(card)
+	var printed := _printed_power(card) if stat == "power" else _printed_health(card)
+	if current > printed:
+		return Color(0.56, 0.94, 0.56, 1.0)
+	if current < printed:
+		return Color(0.97, 0.48, 0.43, 1.0)
+	return Color(0.98, 0.94, 0.86, 1.0)
+
+
+func _printed_power(card: Dictionary) -> int:
+	if card.has("power"):
+		return int(card.get("power", 0))
+	if card.has("current_power"):
+		return int(card.get("current_power", 0))
+	return int(card.get("base_power", 0))
+
+
+func _printed_health(card: Dictionary) -> int:
+	if card.has("health"):
+		return int(card.get("health", 0))
+	if card.has("current_health"):
+		return int(card.get("current_health", 0))
+	return int(card.get("base_health", 0))
+
+
+func _should_mute_card(card: Dictionary, public_view: bool, surface: String) -> bool:
+	if surface != "hand" or not public_view or _is_pending_prophecy_card(card):
+		return false
+	if str(card.get("controller_player_id", "")) != PLAYER_ORDER[1]:
+		return false
+	var player := _player_state(str(card.get("controller_player_id", "")))
+	if player.is_empty():
+		return false
+	var available := int(player.get("current_magicka", 0)) + int(player.get("temporary_magicka", 0))
+	return int(card.get("cost", 0)) > available
+
+
+func _should_dim_card_for_turn(card: Dictionary, surface: String, interaction_state: String) -> bool:
+	if surface != "hand" and surface != "support" and surface != "lane":
+		return false
+	if not _should_dim_local_interaction_surfaces():
+		return false
+	if str(card.get("controller_player_id", "")) != _local_player_id():
+		return false
+	if _is_pending_prophecy_card(card):
+		return false
+	if interaction_state == "valid":
+		return false
+	if str(card.get("instance_id", "")) == _selected_instance_id and _selected_action_mode(card) != SELECTION_MODE_NONE:
+		return false
+	return true
+
+
+func _creature_readiness_state(card: Dictionary) -> Dictionary:
+	if str(card.get("card_type", "")) != "creature":
+		return {
+			"id": "default",
+			"label": "READY",
+			"fill": Color(0.16, 0.28, 0.18, 0.98),
+			"border": Color(0.58, 0.9, 0.62, 0.96),
+			"font": Color(0.95, 0.99, 0.96, 1.0),
+		}
+	if bool(card.get("cannot_attack", false)) or EvergreenRules.has_status(card, EvergreenRules.STATUS_SHACKLED):
+		return {
+			"id": "disabled",
+			"label": "DISABLED",
+			"fill": Color(0.25, 0.14, 0.28, 0.99),
+			"border": Color(0.8, 0.57, 0.93, 0.98),
+			"font": Color(0.98, 0.94, 1.0, 1.0),
+		}
+	if bool(card.get("has_attacked_this_turn", false)):
+		return {
+			"id": "spent",
+			"label": "SPENT",
+			"fill": Color(0.18, 0.2, 0.26, 0.98),
+			"border": Color(0.62, 0.68, 0.78, 0.94),
+			"font": Color(0.89, 0.92, 0.98, 1.0),
+		}
+	if _entered_lane_this_turn(card) and not EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_CHARGE):
+		return {
+			"id": "summoning_sick",
+			"label": "SUMMONING SICK",
+			"fill": Color(0.31, 0.18, 0.11, 0.99),
+			"border": Color(0.96, 0.62, 0.32, 0.98),
+			"font": Color(1.0, 0.95, 0.88, 1.0),
+		}
+	if str(card.get("controller_player_id", "")) == _active_player_id():
+		return {
+			"id": "ready",
+			"label": "READY",
+			"fill": Color(0.16, 0.28, 0.18, 0.99),
+			"border": Color(0.58, 0.92, 0.61, 0.98),
+			"font": Color(0.95, 0.99, 0.96, 1.0),
+		}
+	return {
+		"id": "waiting",
+		"label": "WAITING",
+		"fill": Color(0.17, 0.2, 0.27, 0.99),
+		"border": Color(0.55, 0.67, 0.84, 0.94),
+		"font": Color(0.9, 0.94, 0.99, 1.0),
+	}
+
+
+func _entered_lane_this_turn(card: Dictionary) -> bool:
+	return int(card.get("entered_lane_on_turn", -1)) == int(_match_state.get("turn_number", 0))
+
+
+func _clear_pile_selection() -> void:
+	_selected_pile_player_id = ""
+	_selected_pile_zone = ""
 
 
 func _on_scenario_selected(index: int) -> void:
@@ -811,11 +2076,52 @@ func _on_clear_pressed() -> void:
 	clear_selection()
 
 
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		var motion := event as InputEventMouseMotion
+		if bool(_drag_state.get("pending", false)) and not bool(_drag_state.get("active", false)):
+			if motion.position.distance_to(_drag_state.get("start_position", motion.position)) >= HAND_DRAG_THRESHOLD:
+				_start_hand_drag_for_instance(str(_drag_state.get("instance_id", "")), motion.position)
+		elif bool(_drag_state.get("active", false)):
+			_update_hand_drag_preview(motion.position)
+	elif event is InputEventMouseButton:
+		var button_event := event as InputEventMouseButton
+		if button_event.button_index != MOUSE_BUTTON_LEFT or button_event.pressed:
+			return
+		if bool(_drag_state.get("active", false)):
+			_finish_hand_drag(button_event.position)
+		elif bool(_drag_state.get("pending", false)):
+			_clear_drag_state(false)
+
+
+func _on_local_hand_card_gui_input(event: InputEvent, button: Button, instance_id: String) -> void:
+	if not _card_supports_direct_drag(instance_id):
+		return
+	if event is InputEventMouseButton:
+		var button_event := event as InputEventMouseButton
+		if button_event.button_index == MOUSE_BUTTON_LEFT:
+			if button_event.pressed:
+				_drag_state = {
+					"pending": true,
+					"active": false,
+					"instance_id": instance_id,
+					"start_position": button.get_global_mouse_position(),
+					"source_position": _drag_source_position(instance_id),
+					"source_button": button,
+				}
+			else:
+				if bool(_drag_state.get("pending", false)) and str(_drag_state.get("instance_id", "")) == instance_id:
+					_clear_drag_state(false)
+
+
 func _on_card_pressed(instance_id: String) -> void:
+	if _suppressed_card_press_instance_id == instance_id:
+		_suppressed_card_press_instance_id = ""
+		return
 	if _selected_instance_id == instance_id:
 		clear_selection()
 		return
-	if _selected_card_uses_card_target(instance_id):
+	if _try_resolve_selected_card_target(instance_id):
 		return
 	select_card(instance_id)
 
@@ -823,7 +2129,14 @@ func _on_card_pressed(instance_id: String) -> void:
 func _on_lane_pressed(lane_id: String) -> void:
 	var slot_index := _first_open_slot_index(lane_id, _target_lane_player_id())
 	if slot_index >= 0 and _selected_card_wants_lane(_selected_card(), _target_lane_player_id()):
-		play_selected_to_lane(lane_id, slot_index)
+		var validation := _validate_selected_lane_play(lane_id, _target_lane_player_id(), slot_index)
+		if bool(validation.get("is_valid", false)):
+			play_selected_to_lane(lane_id, slot_index)
+		else:
+			_report_invalid_interaction(validation.get("message", "Cannot play into %s." % _lane_name(lane_id)), {
+				"lane_ids": [lane_id],
+				"lane_slot_keys": [_lane_slot_key(lane_id, _target_lane_player_id(), slot_index)],
+			})
 		return
 	_help_label.text = _lane_description(lane_id)
 	_status_message = "Lane details: %s." % _lane_name(lane_id)
@@ -832,17 +2145,35 @@ func _on_lane_pressed(lane_id: String) -> void:
 
 func _on_lane_slot_pressed(lane_id: String, player_id: String, slot_index: int) -> void:
 	if _selected_card_wants_lane(_selected_card(), player_id):
-		play_selected_to_lane(lane_id, slot_index)
+		var validation := _validate_selected_lane_play(lane_id, player_id, slot_index)
+		if bool(validation.get("is_valid", false)):
+			play_selected_to_lane(lane_id, slot_index)
+		else:
+			_report_invalid_interaction(validation.get("message", "Cannot play into %s." % _lane_name(lane_id)), {
+				"lane_ids": [lane_id],
+				"lane_slot_keys": [_lane_slot_key(lane_id, player_id, slot_index)],
+			})
 		return
-	_status_message = "Select a creature that can be summoned into %s." % _lane_name(lane_id)
-	_refresh_ui()
+	_report_invalid_interaction("Select a creature that can be summoned into %s." % _lane_name(lane_id), {
+		"lane_ids": [lane_id],
+		"lane_slot_keys": [_lane_slot_key(lane_id, player_id, slot_index)],
+	})
 
 
 func _on_player_pressed(player_id: String) -> void:
-	if not _selected_card().is_empty() and player_id != _active_player_id():
-		attack_selected_player(player_id)
+	if _try_resolve_selected_player_target(player_id):
 		return
+	_clear_pile_selection()
 	_status_message = "%s selected. Click an enemy player with an attacker to strike face." % _player_name(player_id)
+	_refresh_ui()
+
+
+func _on_pile_pressed(player_id: String, zone: String) -> void:
+	_reset_invalid_feedback()
+	_selected_instance_id = ""
+	_selected_pile_player_id = player_id
+	_selected_pile_zone = zone
+	_status_message = "Inspecting %s's %s." % [_player_name(player_id), _identifier_to_name(zone)]
 	_refresh_ui()
 
 
@@ -884,36 +2215,237 @@ func _selected_card() -> Dictionary:
 	return _card_from_instance_id(_selected_instance_id)
 
 
-func _selected_card_uses_card_target(fallback_instance_id: String) -> bool:
-	var card := _selected_card()
-	if card.is_empty() or fallback_instance_id.is_empty():
-		return false
-	var target_card := _card_from_instance_id(fallback_instance_id)
-	if target_card.is_empty():
-		return false
-	var location := MatchMutations.find_card_location(_match_state, _selected_instance_id)
+func _selected_action_mode(card: Dictionary) -> String:
+	if card.is_empty():
+		return SELECTION_MODE_NONE
+	if MatchTiming.has_pending_prophecy(_match_state) and not _is_pending_prophecy_card(card):
+		return SELECTION_MODE_NONE
+	if _is_pending_prophecy_card(card):
+		var prophecy_type := str(card.get("card_type", ""))
+		if prophecy_type == "creature":
+			return SELECTION_MODE_SUMMON
+		if prophecy_type == "item":
+			return SELECTION_MODE_ITEM
+		if prophecy_type == "support":
+			return SELECTION_MODE_SUPPORT
+		return SELECTION_MODE_NONE
+	if str(card.get("controller_player_id", "")) != _active_player_id():
+		return SELECTION_MODE_NONE
+	var location := MatchMutations.find_card_location(_match_state, str(card.get("instance_id", "")))
 	if not bool(location.get("is_valid", false)):
+		return SELECTION_MODE_NONE
+	match str(location.get("zone", "")):
+		MatchMutations.ZONE_HAND:
+			match str(card.get("card_type", "")):
+				"creature":
+					return SELECTION_MODE_SUMMON
+				"item":
+					return SELECTION_MODE_ITEM
+				"support":
+					return SELECTION_MODE_SUPPORT
+		MatchMutations.ZONE_SUPPORT:
+			return SELECTION_MODE_SUPPORT
+		MatchMutations.ZONE_LANE:
+			return SELECTION_MODE_ATTACK
+	return SELECTION_MODE_NONE
+
+
+func _try_resolve_selected_card_target(target_instance_id: String) -> bool:
+	var selected_card := _selected_card()
+	var target_card := _card_from_instance_id(target_instance_id)
+	if selected_card.is_empty() or target_card.is_empty():
 		return false
-	var zone := str(location.get("zone", ""))
-	if zone == MatchMutations.ZONE_HAND and str(card.get("card_type", "")) == "item":
-		target_selected_card(fallback_instance_id)
+	if not _selected_action_consumes_card_click(target_card):
+		return false
+	if _is_card_target_valid_for_selected(target_instance_id):
+		_reset_invalid_feedback()
+		target_selected_card(target_instance_id)
+	else:
+		_report_invalid_interaction("%s can't target %s right now." % [_card_name(selected_card), _card_name(target_card)], {"instance_ids": [target_instance_id]})
+	return true
+
+
+func _try_resolve_selected_player_target(player_id: String) -> bool:
+	var selected_card := _selected_card()
+	if selected_card.is_empty():
+		return false
+	var mode := _selected_action_mode(selected_card)
+	if mode == SELECTION_MODE_SUMMON:
+		_report_invalid_interaction("Select a lane slot to summon this creature.", {"player_ids": [player_id]})
 		return true
-	if zone == MatchMutations.ZONE_SUPPORT:
-		target_selected_card(fallback_instance_id)
-		return true
-	if zone == MatchMutations.ZONE_LANE and str(target_card.get("controller_player_id", "")) != str(card.get("controller_player_id", "")):
-		target_selected_card(fallback_instance_id)
-		return true
+	if mode != SELECTION_MODE_ATTACK or player_id == _active_player_id():
+		return false
+	if _is_player_target_valid_for_selected(player_id):
+		_reset_invalid_feedback()
+		attack_selected_player(player_id)
+	else:
+		_report_invalid_interaction("%s can't attack %s right now." % [_card_name(selected_card), _player_name(player_id)], {"player_ids": [player_id]})
+	return true
+
+
+func _selected_action_consumes_card_click(target_card: Dictionary) -> bool:
+	var selected_card := _selected_card()
+	var mode := _selected_action_mode(selected_card)
+	if mode == SELECTION_MODE_NONE:
+		return false
+	var target_location := MatchMutations.find_card_location(_match_state, str(target_card.get("instance_id", "")))
+	if not bool(target_location.get("is_valid", false)):
+		return false
+	var target_zone := str(target_location.get("zone", ""))
+	match mode:
+		SELECTION_MODE_ITEM:
+			return target_zone == MatchMutations.ZONE_LANE
+		SELECTION_MODE_SUPPORT:
+			return target_zone == MatchMutations.ZONE_LANE
+		SELECTION_MODE_ATTACK:
+			return target_zone == MatchMutations.ZONE_LANE and str(target_card.get("controller_player_id", "")) != str(selected_card.get("controller_player_id", ""))
 	return false
 
 
 func _selected_card_wants_lane(card: Dictionary, player_id: String) -> bool:
 	if card.is_empty() or player_id != _target_lane_player_id():
 		return false
+	return _selected_action_mode(card) == SELECTION_MODE_SUMMON
+
+
+func _validate_selected_lane_play(lane_id: String, player_id: String, slot_index: int) -> Dictionary:
+	var card := _selected_card()
+	if not _selected_card_wants_lane(card, player_id):
+		return {"is_valid": false, "message": "Select a creature that can be summoned into %s." % _lane_name(lane_id)}
 	if _is_pending_prophecy_card(card):
-		return str(card.get("card_type", "")) == "creature"
-	var location := MatchMutations.find_card_location(_match_state, str(card.get("instance_id", "")))
-	return bool(location.get("is_valid", false)) and str(location.get("zone", "")) == MatchMutations.ZONE_HAND and str(card.get("card_type", "")) == "creature"
+		var prophecy_state: Dictionary = _match_state.duplicate(true)
+		return MatchTiming.play_pending_prophecy(prophecy_state, str(card.get("controller_player_id", "")), _selected_instance_id, {"lane_id": lane_id, "slot_index": slot_index})
+	return LaneRules.validate_summon_from_hand(_match_state, _active_player_id(), _selected_instance_id, lane_id, {"slot_index": slot_index})
+
+
+func _is_card_target_valid_for_selected(target_instance_id: String) -> bool:
+	var selected_card := _selected_card()
+	var mode := _selected_action_mode(selected_card)
+	if mode == SELECTION_MODE_NONE:
+		return false
+	match mode:
+		SELECTION_MODE_ITEM:
+			var item_state: Dictionary = _match_state.duplicate(true)
+			return bool(PersistentCardRules.play_item_from_hand(item_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"target_instance_id": target_instance_id}).get("is_valid", false))
+		SELECTION_MODE_SUPPORT:
+			var location := MatchMutations.find_card_location(_match_state, target_instance_id)
+			return bool(location.get("is_valid", false)) and str(location.get("zone", "")) == MatchMutations.ZONE_LANE
+		SELECTION_MODE_ATTACK:
+			return bool(MatchCombat.validate_attack(_match_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"type": "creature", "instance_id": target_instance_id}).get("is_valid", false))
+	return false
+
+
+func _is_player_target_valid_for_selected(player_id: String) -> bool:
+	var selected_card := _selected_card()
+	if _selected_action_mode(selected_card) != SELECTION_MODE_ATTACK:
+		return false
+	return bool(MatchCombat.validate_attack(_match_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"type": "player", "player_id": player_id}).get("is_valid", false))
+
+
+func _lane_cards() -> Array:
+	var cards: Array = []
+	for lane in _lane_entries():
+		var lane_id := str(lane.get("id", ""))
+		for player_id in PLAYER_ORDER:
+			for card in _lane_slots(lane_id, player_id):
+				if typeof(card) == TYPE_DICTIONARY and not card.is_empty():
+					cards.append(card)
+	return cards
+
+
+func _valid_lane_slot_keys() -> Array:
+	var keys: Array = []
+	if _selected_action_mode(_selected_card()) != SELECTION_MODE_SUMMON:
+		return keys
+	for lane in _lane_entries():
+		var lane_id := str(lane.get("id", ""))
+		var player_id := _target_lane_player_id()
+		for slot_index in range(_lane_slots(lane_id, player_id).size()):
+			if bool(_validate_selected_lane_play(lane_id, player_id, slot_index).get("is_valid", false)):
+				keys.append(_lane_slot_key(lane_id, player_id, slot_index))
+	return keys
+
+
+func _valid_lane_ids() -> Array:
+	var ids: Array = []
+	for slot_key in _valid_lane_slot_keys():
+		var lane_id := str(slot_key).split(":")[0]
+		if not ids.has(lane_id):
+			ids.append(lane_id)
+	return ids
+
+
+func _valid_card_target_ids() -> Array:
+	var ids: Array = []
+	var mode := _selected_action_mode(_selected_card())
+	if mode != SELECTION_MODE_ITEM and mode != SELECTION_MODE_SUPPORT and mode != SELECTION_MODE_ATTACK:
+		return ids
+	for card in _lane_cards():
+		var instance_id := str(card.get("instance_id", ""))
+		if _is_card_target_valid_for_selected(instance_id):
+			ids.append(instance_id)
+	return ids
+
+
+func _valid_player_target_ids() -> Array:
+	var ids: Array = []
+	if _selected_action_mode(_selected_card()) != SELECTION_MODE_ATTACK:
+		return ids
+	for player_id in PLAYER_ORDER:
+		if player_id != _active_player_id() and _is_player_target_valid_for_selected(player_id):
+			ids.append(player_id)
+	return ids
+
+
+func _card_interaction_state(card: Dictionary, surface: String) -> String:
+	var instance_id := str(card.get("instance_id", ""))
+	if _copy_array(_invalid_feedback.get("instance_ids", [])).has(instance_id):
+		return "invalid"
+	var mode := _selected_action_mode(_selected_card())
+	if (mode == SELECTION_MODE_ITEM or mode == SELECTION_MODE_SUPPORT) and surface == "lane":
+		return "valid" if _is_card_target_valid_for_selected(instance_id) else "invalid"
+	if mode == SELECTION_MODE_ATTACK and surface == "lane":
+		var selected_card := _selected_card()
+		if not selected_card.is_empty() and str(card.get("controller_player_id", "")) != str(selected_card.get("controller_player_id", "")):
+			return "valid" if _is_card_target_valid_for_selected(instance_id) else "invalid"
+	return "default"
+
+
+func _lane_slot_interaction_state(lane_id: String, player_id: String, slot_index: int) -> String:
+	var slot_key := _lane_slot_key(lane_id, player_id, slot_index)
+	if _copy_array(_invalid_feedback.get("lane_slot_keys", [])).has(slot_key):
+		return "invalid"
+	if _selected_action_mode(_selected_card()) != SELECTION_MODE_SUMMON:
+		return "default"
+	if player_id != _target_lane_player_id():
+		return "invalid"
+	return "valid" if bool(_validate_selected_lane_play(lane_id, player_id, slot_index).get("is_valid", false)) else "invalid"
+
+
+func _lane_panel_interaction_state(lane_id: String) -> String:
+	if _copy_array(_invalid_feedback.get("lane_ids", [])).has(lane_id):
+		return "invalid"
+	if _selected_action_mode(_selected_card()) != SELECTION_MODE_SUMMON:
+		return "default"
+	return "valid" if _valid_lane_ids().has(lane_id) else "invalid"
+
+
+func _lane_row_interaction_state(lane_id: String, player_id: String) -> String:
+	if _selected_action_mode(_selected_card()) != SELECTION_MODE_SUMMON:
+		return "default"
+	if player_id != _target_lane_player_id():
+		return "invalid"
+	return "valid" if _valid_lane_ids().has(lane_id) else "invalid"
+
+
+func _player_button_interaction_state(player_id: String) -> String:
+	if _copy_array(_invalid_feedback.get("player_ids", [])).has(player_id):
+		return "invalid"
+	if _valid_player_target_ids().has(player_id):
+		return "valid"
+	if _selected_action_mode(_selected_card()) == SELECTION_MODE_ATTACK and player_id != _active_player_id():
+		return "invalid"
+	return "default"
 
 
 func _can_resolve_selected_action(card: Dictionary) -> bool:
@@ -934,8 +2466,11 @@ func _can_resolve_selected_action(card: Dictionary) -> bool:
 
 func _finalize_engine_result(result: Dictionary, success_message: String, clear_selection_on_success := true) -> Dictionary:
 	if bool(result.get("is_valid", false)):
+		_clear_drag_state()
+		_reset_invalid_feedback()
 		if clear_selection_on_success:
 			_selected_instance_id = ""
+		_record_feedback_from_events(_copy_array(result.get("events", [])))
 		_status_message = success_message
 	else:
 		_status_message = str(result.get("errors", ["Action failed."])[0])
@@ -947,6 +2482,481 @@ func _invalid_ui_result(message: String) -> Dictionary:
 	_status_message = message
 	_refresh_ui()
 	return {"is_valid": false, "errors": [message]}
+
+
+func _report_invalid_interaction(message: String, feedback := {}) -> Dictionary:
+	_invalid_feedback = {
+		"lane_slot_keys": _copy_array(feedback.get("lane_slot_keys", [])),
+		"lane_ids": _copy_array(feedback.get("lane_ids", [])),
+		"instance_ids": _copy_array(feedback.get("instance_ids", [])),
+		"player_ids": _copy_array(feedback.get("player_ids", [])),
+	}
+	_status_message = message
+	_refresh_ui()
+	return {"is_valid": false, "errors": [message]}
+
+
+func _reset_invalid_feedback() -> void:
+	_invalid_feedback = {
+		"lane_slot_keys": [],
+		"lane_ids": [],
+		"instance_ids": [],
+		"player_ids": [],
+	}
+
+
+func _recent_presentation_events_from_history() -> Array:
+	var recent: Array = []
+	var history: Array = _match_state.get("event_log", [])
+	for index in range(history.size() - 1, -1, -1):
+		var event = history[index]
+		if typeof(event) != TYPE_DICTIONARY:
+			continue
+		var event_type := str(event.get("event_type", ""))
+		if event_type == "turn_started" and not recent.is_empty():
+			break
+		if event_type == MatchTiming.EVENT_RUNE_BROKEN or event_type == MatchTiming.EVENT_CARD_DRAWN or event_type == MatchTiming.EVENT_PROPHECY_WINDOW_OPENED or event_type == "match_won":
+			recent.push_front(event)
+			if recent.size() >= 8:
+				break
+	return recent
+
+
+func _clear_feedback_state() -> void:
+	_attack_feedbacks.clear()
+	_damage_feedbacks.clear()
+	_removal_feedbacks.clear()
+	_draw_feedbacks.clear()
+	_rune_feedbacks.clear()
+
+
+func _record_feedback_from_events(events: Array) -> void:
+	if events.is_empty():
+		return
+	var damage_stacks := {}
+	var removal_stacks := {}
+	var draw_stacks := {}
+	var rune_stacks := {}
+	var now := _feedback_now_ms()
+	for event in events:
+		if typeof(event) != TYPE_DICTIONARY:
+			continue
+		var event_type := str(event.get("event_type", ""))
+		match event_type:
+			"attack_declared":
+				_attack_feedbacks.append({
+					"feedback_id": _next_feedback_id(),
+					"attacker_instance_id": str(event.get("attacker_instance_id", "")),
+					"attacker_player_id": str(event.get("attacking_player_id", "")),
+					"target_type": str(event.get("target_type", "")),
+					"target_instance_id": str(event.get("target_instance_id", "")),
+					"target_player_id": str(event.get("target_player_id", "")),
+					"expires_at_ms": now + ATTACK_FEEDBACK_DURATION_MS,
+				})
+			"damage_resolved":
+				var damage_target_key := _damage_target_key(event)
+				var damage_stack := int(damage_stacks.get(damage_target_key, 0))
+				damage_stacks[damage_target_key] = damage_stack + 1
+				_damage_feedbacks.append({
+					"feedback_id": _next_feedback_id(),
+					"target_kind": str(event.get("target_type", "")),
+					"target_instance_id": str(event.get("target_instance_id", "")),
+					"target_player_id": str(event.get("target_player_id", "")),
+					"text": "-%d" % int(event.get("amount", 0)),
+					"color": Color(1.0, 0.56, 0.47, 1.0),
+					"stack_index": damage_stack,
+					"expires_at_ms": now + DAMAGE_FEEDBACK_DURATION_MS,
+				})
+			"ward_removed":
+				var ward_target_key := "creature:%s" % str(event.get("target_instance_id", ""))
+				var ward_stack := int(damage_stacks.get(ward_target_key, 0))
+				damage_stacks[ward_target_key] = ward_stack + 1
+				_damage_feedbacks.append({
+					"feedback_id": _next_feedback_id(),
+					"target_kind": MatchCombat.TARGET_TYPE_CREATURE,
+					"target_instance_id": str(event.get("target_instance_id", "")),
+					"target_player_id": "",
+					"text": "WARD",
+					"color": Color(0.74, 0.9, 1.0, 1.0),
+					"stack_index": ward_stack,
+					"expires_at_ms": now + DAMAGE_FEEDBACK_DURATION_MS,
+				})
+			"creature_destroyed":
+				var row_key := "%s:%s" % [str(event.get("lane_id", "")), str(event.get("controller_player_id", ""))]
+				var removal_stack := int(removal_stacks.get(row_key, 0))
+				removal_stacks[row_key] = removal_stack + 1
+				var destroyed_card := _card_from_instance_id(str(event.get("instance_id", "")))
+				_removal_feedbacks.append({
+					"feedback_id": _next_feedback_id(),
+					"lane_id": str(event.get("lane_id", "")),
+					"player_id": str(event.get("controller_player_id", "")),
+					"instance_id": str(event.get("instance_id", "")),
+					"text": "%s falls" % _card_name(destroyed_card),
+					"stack_index": removal_stack,
+					"expires_at_ms": now + REMOVAL_FEEDBACK_DURATION_MS,
+				})
+			"card_drawn":
+				var draw_player_id := str(event.get("player_id", ""))
+				var draw_stack := int(draw_stacks.get(draw_player_id, 0))
+				draw_stacks[draw_player_id] = draw_stack + 1
+				var drawn_instance_id := str(event.get("drawn_instance_id", ""))
+				var drawn_card := _card_from_instance_id(drawn_instance_id)
+				var show_card_name := _should_reveal_drawn_card(draw_player_id, drawn_card)
+				_draw_feedbacks.append({
+					"feedback_id": _next_feedback_id(),
+					"player_id": draw_player_id,
+					"drawn_instance_id": drawn_instance_id,
+					"card_name": _card_name(drawn_card) if show_card_name else "",
+					"show_card_name": show_card_name,
+					"from_rune_break": str(event.get("reason", "")) == MatchTiming.EVENT_RUNE_BROKEN,
+					"stack_index": draw_stack,
+					"expires_at_ms": now + DRAW_FEEDBACK_DURATION_MS,
+				})
+			"rune_broken":
+				var rune_player_id := str(event.get("player_id", ""))
+				var rune_stack := int(rune_stacks.get(rune_player_id, 0))
+				rune_stacks[rune_player_id] = rune_stack + 1
+				_rune_feedbacks.append({
+					"feedback_id": _next_feedback_id(),
+					"player_id": rune_player_id,
+					"threshold": int(event.get("threshold", -1)),
+					"draw_card": bool(event.get("draw_card", false)),
+					"stack_index": rune_stack,
+					"expires_at_ms": now + RUNE_FEEDBACK_DURATION_MS,
+				})
+
+
+func _apply_presentation_feedback() -> void:
+	_clear_feedback_overlays()
+	for feedback in _attack_feedbacks:
+		_apply_attack_feedback(feedback)
+	for feedback in _damage_feedbacks:
+		_apply_damage_feedback(feedback)
+	for feedback in _removal_feedbacks:
+		_apply_removal_feedback(feedback)
+	for feedback in _draw_feedbacks:
+		_apply_draw_feedback(feedback)
+	for feedback in _rune_feedbacks:
+		_apply_rune_feedback(feedback)
+
+
+func _clear_feedback_overlays() -> void:
+	for section in _player_sections.values():
+		_clear_feedback_children(section.get("summary_button"))
+		_clear_feedback_children(section.get("rune_row"))
+		_clear_feedback_children(section.get("hand_row"))
+	for row_panel in _lane_row_panels.values():
+		_clear_feedback_children(row_panel)
+
+
+func _clear_feedback_children(node) -> void:
+	if not (node is Node):
+		return
+	for child in (node as Node).get_children():
+		if str(child.name).begins_with("feedback_"):
+			child.queue_free()
+
+
+func _apply_attack_feedback(feedback: Dictionary) -> void:
+	var attacker_button: Button = _card_buttons.get(str(feedback.get("attacker_instance_id", "")))
+	if attacker_button != null:
+		_animate_card_motion(attacker_button, _attack_offset_for_player(str(feedback.get("attacker_player_id", ""))), 1.04)
+		_add_feedback_banner(attacker_button, "feedback_attack_%s" % str(feedback.get("feedback_id", "0")), "ATTACK", Color(0.36, 0.2, 0.09, 0.98), Color(0.98, 0.78, 0.42, 1.0), Color(1.0, 0.96, 0.87, 1.0), 8.0)
+	if str(feedback.get("target_type", "")) == MatchCombat.TARGET_TYPE_CREATURE:
+		var defender_button: Button = _card_buttons.get(str(feedback.get("target_instance_id", "")))
+		if defender_button != null:
+			_animate_card_motion(defender_button, _attack_offset_for_player(str(feedback.get("attacker_player_id", ""))) * -0.38, 1.02)
+			_add_feedback_banner(defender_button, "feedback_block_%s" % str(feedback.get("feedback_id", "0")), "BLOCK", Color(0.18, 0.18, 0.24, 0.98), Color(0.76, 0.82, 0.96, 0.96), Color(0.96, 0.98, 1.0, 1.0), 8.0)
+
+
+func _apply_damage_feedback(feedback: Dictionary) -> void:
+	var target_kind := str(feedback.get("target_kind", ""))
+	if target_kind == MatchCombat.TARGET_TYPE_CREATURE:
+		var target_button: Button = _card_buttons.get(str(feedback.get("target_instance_id", "")))
+		if target_button != null:
+			_add_feedback_popup(target_button, "feedback_damage_%s" % str(feedback.get("feedback_id", "0")), str(feedback.get("text", "-0")), feedback.get("color", Color(1, 1, 1, 1)), 10.0 + float(feedback.get("stack_index", 0)) * 18.0)
+	elif target_kind == MatchCombat.TARGET_TYPE_PLAYER:
+		var section: Dictionary = _player_sections.get(str(feedback.get("target_player_id", "")), {})
+		var summary_button: Button = section.get("summary_button")
+		if summary_button != null:
+			_add_feedback_popup(summary_button, "feedback_damage_%s" % str(feedback.get("feedback_id", "0")), str(feedback.get("text", "-0")), feedback.get("color", Color(1, 1, 1, 1)), 12.0 + float(feedback.get("stack_index", 0)) * 18.0)
+
+
+func _apply_removal_feedback(feedback: Dictionary) -> void:
+	var row_key := _lane_row_key(str(feedback.get("lane_id", "")), str(feedback.get("player_id", "")))
+	var row_panel: PanelContainer = _lane_row_panels.get(row_key)
+	if row_panel == null:
+		return
+	var toast := PanelContainer.new()
+	toast.name = "feedback_removal_%s" % str(feedback.get("feedback_id", "0"))
+	toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	toast.anchor_right = 1.0
+	toast.offset_left = 14
+	toast.offset_right = -14
+	toast.offset_top = 42.0 + float(feedback.get("stack_index", 0)) * 24.0
+	toast.offset_bottom = toast.offset_top + 24.0
+	toast.z_index = 20
+	_apply_panel_style(toast, Color(0.32, 0.12, 0.12, 0.96), Color(0.96, 0.55, 0.46, 0.98), 1, 6)
+	row_panel.add_child(toast)
+	var toast_box := _build_panel_box(toast, 0, 4)
+	var toast_label := Label.new()
+	toast_label.name = "%s_label" % toast.name
+	toast_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	toast_label.add_theme_font_size_override("font_size", 11)
+	toast_label.add_theme_color_override("font_color", Color(1.0, 0.95, 0.92, 1.0))
+	toast_label.text = str(feedback.get("text", "Creature removed"))
+	toast_box.add_child(toast_label)
+	var tween := create_tween()
+	tween.tween_property(toast, "position", Vector2(0, -14), 0.2)
+	tween.parallel().tween_property(toast, "modulate", Color(1, 1, 1, 0), 0.8)
+	tween.finished.connect(func() -> void:
+		if is_instance_valid(toast):
+			toast.queue_free()
+	)
+
+
+func _apply_draw_feedback(feedback: Dictionary) -> void:
+	var player_id := str(feedback.get("player_id", ""))
+	var section: Dictionary = _player_sections.get(player_id, {})
+	var summary_button: Button = section.get("summary_button")
+	if summary_button != null:
+		_add_feedback_popup(summary_button, "feedback_draw_popup_%s" % str(feedback.get("feedback_id", "0")), _draw_feedback_popup_text(feedback), _draw_feedback_popup_color(feedback), 14.0 + float(feedback.get("stack_index", 0)) * 18.0)
+	var hand_row: Control = section.get("hand_row")
+	if hand_row != null:
+		_add_feedback_toast(hand_row, "feedback_draw_toast_%s" % str(feedback.get("feedback_id", "0")), _draw_feedback_toast_text(feedback), _draw_feedback_toast_fill(feedback), _draw_feedback_toast_border(feedback), Color(1.0, 0.97, 0.93, 1.0), 10.0 + float(feedback.get("stack_index", 0)) * 24.0)
+	var drawn_instance_id := str(feedback.get("drawn_instance_id", ""))
+	var card_button: Button = _card_buttons.get(drawn_instance_id)
+	if card_button != null:
+		_add_feedback_banner(card_button, "feedback_draw_banner_%s" % str(feedback.get("feedback_id", "0")), _draw_feedback_badge_text(feedback), _draw_feedback_toast_fill(feedback), _draw_feedback_toast_border(feedback), Color(1.0, 0.97, 0.92, 1.0), 8.0)
+
+
+func _apply_rune_feedback(feedback: Dictionary) -> void:
+	var player_id := str(feedback.get("player_id", ""))
+	var section: Dictionary = _player_sections.get(player_id, {})
+	var summary_button: Button = section.get("summary_button")
+	if summary_button != null:
+		_add_feedback_popup(summary_button, "feedback_rune_popup_%s" % str(feedback.get("feedback_id", "0")), "RUNE BREAK", Color(1.0, 0.79, 0.45, 1.0), 12.0 + float(feedback.get("stack_index", 0)) * 18.0)
+	var rune_row: Control = section.get("rune_row")
+	if rune_row != null:
+		_add_feedback_toast(rune_row, "feedback_rune_toast_%s" % str(feedback.get("feedback_id", "0")), _rune_feedback_toast_text(feedback), Color(0.31, 0.13, 0.11, 0.98), Color(1.0, 0.73, 0.42, 1.0), Color(1.0, 0.95, 0.89, 1.0), 8.0 + float(feedback.get("stack_index", 0)) * 22.0)
+		var token_name := "%s_rune_%d" % [player_id, int(feedback.get("threshold", -1))]
+		var token_panel: Node = rune_row.get_node_or_null(token_name)
+		if token_panel is PanelContainer:
+			_add_feedback_banner(token_panel as Control, "feedback_rune_banner_%s" % str(feedback.get("feedback_id", "0")), "SHATTER", Color(0.39, 0.14, 0.09, 0.99), Color(1.0, 0.78, 0.48, 1.0), Color(1.0, 0.96, 0.9, 1.0), 4.0)
+
+
+func _apply_card_feedback_decoration(button: Button, card: Dictionary, surface: String) -> void:
+	var instance_id := str(card.get("instance_id", ""))
+	var modulate_color := Color(1, 1, 1, 1)
+	var applied_damage := false
+	if surface == "lane" and str(card.get("card_type", "")) == "creature":
+		for feedback in _damage_feedbacks:
+			if str(feedback.get("target_kind", "")) == MatchCombat.TARGET_TYPE_CREATURE and str(feedback.get("target_instance_id", "")) == instance_id:
+				modulate_color = Color(1.0, 0.92, 0.92, 1.0)
+				applied_damage = true
+				break
+	if surface == "hand":
+		var draw_feedback := _active_draw_feedback_for_instance(instance_id)
+		var can_reveal_draw := _should_reveal_drawn_card(str(card.get("controller_player_id", "")), card)
+		if can_reveal_draw and not draw_feedback.is_empty():
+			modulate_color = Color(1.0, 0.98, 0.94, 1.0) if bool(draw_feedback.get("from_rune_break", false)) else Color(0.95, 0.99, 1.0, 1.0)
+			_add_feedback_banner(button, "feedback_hand_draw_%s" % instance_id, _draw_feedback_badge_text(draw_feedback), _draw_feedback_toast_fill(draw_feedback), _draw_feedback_toast_border(draw_feedback), Color(1.0, 0.97, 0.92, 1.0), 8.0)
+		if _is_pending_prophecy_card(card):
+			modulate_color = Color(1.0, 0.97, 1.0, 1.0)
+			_add_feedback_banner(button, "feedback_hand_prophecy_%s" % instance_id, "PROPHECY", Color(0.28, 0.14, 0.34, 0.99), Color(0.94, 0.75, 0.98, 1.0), Color(1.0, 0.96, 1.0, 1.0), 30.0 if not applied_damage else 8.0)
+	button.modulate = modulate_color
+
+
+func _add_feedback_banner(container: Control, name: String, text: String, fill: Color, border: Color, font_color: Color, top_offset: float) -> void:
+	var banner := PanelContainer.new()
+	banner.name = name
+	banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	banner.anchor_right = 1.0
+	banner.offset_left = 8
+	banner.offset_right = -8
+	banner.offset_top = top_offset
+	banner.offset_bottom = top_offset + 20.0
+	banner.z_index = 12
+	_apply_panel_style(banner, fill, border, 1, 6)
+	container.add_child(banner)
+	var box := _build_panel_box(banner, 0, 4)
+	var label := Label.new()
+	label.name = "%s_label" % name
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 9)
+	label.add_theme_color_override("font_color", font_color)
+	label.text = text
+	box.add_child(label)
+	var tween := create_tween()
+	tween.tween_interval(0.26)
+	tween.tween_property(banner, "modulate", Color(1, 1, 1, 0), 0.18)
+	tween.finished.connect(func() -> void:
+		if is_instance_valid(banner):
+			banner.queue_free()
+	)
+
+
+func _add_feedback_popup(container: Control, name: String, text: String, font_color: Color, top_offset: float) -> void:
+	var label := Label.new()
+	label.name = name
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.anchor_right = 1.0
+	label.offset_left = 0
+	label.offset_right = 0
+	label.offset_top = top_offset
+	label.offset_bottom = top_offset + 26.0
+	label.z_index = 18
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 18)
+	label.add_theme_color_override("font_color", font_color)
+	label.text = text
+	container.add_child(label)
+	var tween := create_tween()
+	tween.tween_property(label, "position", Vector2(0, -24), 0.22)
+	tween.parallel().tween_property(label, "scale", Vector2(1.08, 1.08), 0.18)
+	tween.tween_property(label, "modulate", Color(1, 1, 1, 0), 0.7)
+	tween.finished.connect(func() -> void:
+		if is_instance_valid(label):
+			label.queue_free()
+	)
+
+
+func _add_feedback_toast(container: Control, name: String, text: String, fill: Color, border: Color, font_color: Color, top_offset: float) -> void:
+	var toast := PanelContainer.new()
+	toast.name = name
+	toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	toast.anchor_right = 1.0
+	toast.offset_left = 12
+	toast.offset_right = -12
+	toast.offset_top = top_offset
+	toast.offset_bottom = top_offset + 24.0
+	toast.z_index = 18
+	_apply_panel_style(toast, fill, border, 1, 7)
+	container.add_child(toast)
+	var box := _build_panel_box(toast, 0, 4)
+	var label := Label.new()
+	label.name = "%s_label" % name
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 11)
+	label.add_theme_color_override("font_color", font_color)
+	label.text = text
+	box.add_child(label)
+	var tween := create_tween()
+	tween.tween_interval(0.5)
+	tween.parallel().tween_property(toast, "position", Vector2(0, -10), 0.26)
+	tween.tween_property(toast, "modulate", Color(1, 1, 1, 0), 0.75)
+	tween.finished.connect(func() -> void:
+		if is_instance_valid(toast):
+			toast.queue_free()
+	)
+
+
+func _should_reveal_drawn_card(player_id: String, card: Dictionary) -> bool:
+	if card.is_empty():
+		return false
+	if _is_hand_public(player_id):
+		return true
+	return _is_pending_prophecy_card(card)
+
+
+func _active_draw_feedback_for_instance(instance_id: String) -> Dictionary:
+	if instance_id.is_empty():
+		return {}
+	for feedback in _draw_feedbacks:
+		if str(feedback.get("drawn_instance_id", "")) == instance_id:
+			return feedback
+	return {}
+
+
+func _draw_feedback_popup_text(feedback: Dictionary) -> String:
+	if bool(feedback.get("show_card_name", false)):
+		return "+ %s" % str(feedback.get("card_name", "Card"))
+	return "+1 CARD"
+
+
+func _draw_feedback_popup_color(feedback: Dictionary) -> Color:
+	return Color(1.0, 0.81, 0.48, 1.0) if bool(feedback.get("from_rune_break", false)) else Color(0.72, 0.91, 1.0, 1.0)
+
+
+func _draw_feedback_toast_text(feedback: Dictionary) -> String:
+	var prefix := "RUNE DRAW" if bool(feedback.get("from_rune_break", false)) else "DRAW"
+	if bool(feedback.get("show_card_name", false)):
+		return "%s • %s" % [prefix, str(feedback.get("card_name", "Card"))]
+	return "%s • card added to hand" % prefix
+
+
+func _draw_feedback_toast_fill(feedback: Dictionary) -> Color:
+	return Color(0.32, 0.16, 0.09, 0.98) if bool(feedback.get("from_rune_break", false)) else Color(0.14, 0.22, 0.31, 0.98)
+
+
+func _draw_feedback_toast_border(feedback: Dictionary) -> Color:
+	return Color(1.0, 0.79, 0.46, 1.0) if bool(feedback.get("from_rune_break", false)) else Color(0.66, 0.9, 1.0, 1.0)
+
+
+func _rune_feedback_toast_text(feedback: Dictionary) -> String:
+	var threshold := int(feedback.get("threshold", -1))
+	var draw_suffix := " • draw triggered" if bool(feedback.get("draw_card", false)) else ""
+	if threshold > 0:
+		return "RUNE %d SHATTERED%s" % [threshold, draw_suffix]
+	return "RUNE BREAK%s" % draw_suffix
+
+
+func _animate_card_motion(button: Button, offset: Vector2, end_scale: float) -> void:
+	var content_variant = button.get_meta("content_root", null)
+	if not (content_variant is Control):
+		return
+	var content := content_variant as Control
+	content.pivot_offset = Vector2(button.custom_minimum_size.x * 0.5, button.custom_minimum_size.y * 0.5)
+	content.position = Vector2.ZERO
+	content.scale = Vector2.ONE
+	var tween := create_tween()
+	tween.tween_property(content, "position", offset, 0.11)
+	tween.parallel().tween_property(content, "scale", Vector2(end_scale, end_scale), 0.11)
+	tween.tween_property(content, "position", Vector2.ZERO, 0.16)
+	tween.parallel().tween_property(content, "scale", Vector2.ONE, 0.16)
+
+
+func _attack_offset_for_player(player_id: String) -> Vector2:
+	return Vector2(0, 16) if player_id == PLAYER_ORDER[0] else Vector2(0, -16)
+
+
+func _damage_target_key(event: Dictionary) -> String:
+	var target_type := str(event.get("target_type", ""))
+	if target_type == MatchCombat.TARGET_TYPE_PLAYER:
+		return "player:%s" % str(event.get("target_player_id", ""))
+	return "creature:%s" % str(event.get("target_instance_id", ""))
+
+
+func _prune_feedback_state() -> void:
+	var now := _feedback_now_ms()
+	_attack_feedbacks = _feedbacks_after(_attack_feedbacks, now)
+	_damage_feedbacks = _feedbacks_after(_damage_feedbacks, now)
+	_removal_feedbacks = _feedbacks_after(_removal_feedbacks, now)
+	_draw_feedbacks = _feedbacks_after(_draw_feedbacks, now)
+	_rune_feedbacks = _feedbacks_after(_rune_feedbacks, now)
+
+
+func _feedbacks_after(entries: Array, now: int) -> Array:
+	var remaining: Array = []
+	for entry in entries:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		if int(entry.get("expires_at_ms", 0)) > now:
+			remaining.append(entry)
+	return remaining
+
+
+func _feedback_now_ms() -> int:
+	return Time.get_ticks_msec()
+
+
+func _next_feedback_id() -> int:
+	_feedback_sequence += 1
+	return _feedback_sequence
+
+
+func _copy_array(value) -> Array:
+	return value.duplicate() if typeof(value) == TYPE_ARRAY else []
 
 
 func _card_from_instance_id(instance_id: String) -> Dictionary:
@@ -980,6 +2990,26 @@ func _active_player_id() -> String:
 	return str(_match_state.get("active_player_id", ""))
 
 
+func _local_player_id() -> String:
+	return PLAYER_ORDER[1]
+
+
+func _is_local_player_turn() -> bool:
+	return _active_player_id() == _local_player_id()
+
+
+func _should_dim_local_interaction_surfaces() -> bool:
+	return not _is_local_player_turn()
+
+
+func _should_dim_local_surface(player_id: String) -> bool:
+	return player_id == _local_player_id() and _should_dim_local_interaction_surfaces()
+
+
+func _has_pending_prophecy_for_player(player_id: String) -> bool:
+	return not MatchTiming.get_pending_prophecies(_match_state, player_id).is_empty()
+
+
 func _target_lane_player_id() -> String:
 	if _is_pending_prophecy_card(_selected_card()):
 		return str(_selected_card().get("controller_player_id", ""))
@@ -993,23 +3023,300 @@ func _player_name(player_id: String) -> String:
 	return str(player.get("display_name", player_id))
 
 
+func _turn_state_text() -> String:
+	return "Your Turn" if _is_local_player_turn() else "Opponent's Turn"
+
+
+func _turn_state_detail_text() -> String:
+	if _is_local_player_turn():
+		return "Play cards, attack, use the Ring, or end the turn when you are ready."
+	if _has_pending_prophecy_for_player(_local_player_id()):
+		return "Waiting on the opponent, but your interrupt window is available."
+	return "Waiting for the opponent to finish acting."
+
+
+func _turn_state_fill() -> Color:
+	return Color(0.34, 0.19, 0.09, 0.98) if _is_local_player_turn() else Color(0.12, 0.17, 0.28, 0.97)
+
+
+func _turn_state_border() -> Color:
+	return Color(0.99, 0.78, 0.44, 1.0) if _is_local_player_turn() else Color(0.62, 0.81, 0.99, 0.98)
+
+
+func _turn_state_font_color() -> Color:
+	return Color(1.0, 0.96, 0.9, 1.0) if _is_local_player_turn() else Color(0.92, 0.96, 1.0, 1.0)
+
+
+func _refresh_turn_presentation() -> void:
+	var active_player := _active_player_id()
+	if active_player.is_empty():
+		return
+	if active_player != _last_turn_owner_id:
+		_last_turn_owner_id = active_player
+		_turn_banner_until_ms = Time.get_ticks_msec() + TURN_BANNER_DURATION_MS
+	_top_bar_apply_turn_state_style()
+	if _turn_state_label != null:
+		_turn_state_label.text = _turn_state_text()
+		_turn_state_label.add_theme_color_override("font_color", _turn_state_font_color())
+	if _turn_state_detail_label != null:
+		_turn_state_detail_label.text = _turn_state_detail_text()
+		_turn_state_detail_label.add_theme_color_override("font_color", _turn_state_font_color().lerp(Color(0.78, 0.82, 0.9, 0.96), 0.28))
+	if _turn_banner_panel != null:
+		_apply_panel_style(_turn_banner_panel, _turn_state_fill(), _turn_state_border(), 2, 14)
+		_turn_banner_panel.visible = _turn_banner_until_ms > Time.get_ticks_msec()
+	if _turn_banner_label != null:
+		_turn_banner_label.text = _turn_state_text()
+		_turn_banner_label.add_theme_color_override("font_color", _turn_state_font_color())
+	if _turn_banner_detail_label != null:
+		_turn_banner_detail_label.text = _player_name(active_player)
+		_turn_banner_detail_label.add_theme_color_override("font_color", _turn_state_font_color().lerp(Color(0.8, 0.84, 0.92, 0.96), 0.32))
+
+
+func _top_bar_apply_turn_state_style() -> void:
+	if _turn_state_panel == null:
+		return
+	_apply_panel_style(_turn_state_panel, _turn_state_fill(), _turn_state_border(), 2 if _is_local_player_turn() else 1, 12)
+
+
+func _refresh_match_end_overlay() -> void:
+	if _match_end_overlay == null:
+		return
+	var winner_player_id := _match_winner_id()
+	var visible := not winner_player_id.is_empty()
+	_match_end_overlay.visible = visible
+	if not visible:
+		return
+	var local_won := winner_player_id == _local_player_id()
+	_apply_panel_style(_match_end_overlay, Color(0.04, 0.05, 0.07, 0.78), Color(0.88, 0.74, 0.44, 0.96) if local_won else Color(0.9, 0.42, 0.42, 0.96), 2, 18)
+	if _match_end_title_label != null:
+		_match_end_title_label.text = "Victory" if local_won else "Defeat"
+		_match_end_title_label.add_theme_color_override("font_color", Color(1.0, 0.95, 0.84, 1.0) if local_won else Color(1.0, 0.9, 0.9, 1.0))
+	if _match_end_detail_label != null:
+		_match_end_detail_label.text = _match_end_detail_text(winner_player_id)
+		_match_end_detail_label.add_theme_color_override("font_color", Color(0.93, 0.95, 0.99, 0.96))
+
+
+func _refresh_end_turn_button_style(has_pending_prophecy: bool) -> void:
+	var fill := Color(0.18, 0.15, 0.16, 0.96)
+	var border := Color(0.39, 0.36, 0.4, 0.88)
+	var font_color := Color(0.82, 0.84, 0.88, 0.96)
+	var border_width := 1
+	var font_size := 17
+	_end_turn_button.text = "End Turn"
+	_end_turn_button.custom_minimum_size = Vector2(0, 54)
+	_end_turn_button.self_modulate = Color(0.92, 0.92, 0.96, 0.95)
+	if _has_match_winner():
+		_end_turn_button.tooltip_text = "Match complete. No further turn actions are available."
+	elif _is_local_player_turn() and not has_pending_prophecy:
+		fill = Color(0.56, 0.2, 0.08, 0.99)
+		border = Color(1.0, 0.76, 0.43, 1.0)
+		font_color = Color(1.0, 0.97, 0.92, 1.0)
+		border_width = 2
+		font_size = 18
+		_end_turn_button.custom_minimum_size = Vector2(0, 62)
+		_end_turn_button.tooltip_text = "Your turn is live. End the turn when you are finished acting."
+		_end_turn_button.self_modulate = Color(1, 1, 1, 1)
+	elif has_pending_prophecy and _is_local_player_turn():
+		_end_turn_button.tooltip_text = "Resolve the open Prophecy window before ending the turn."
+	else:
+		_end_turn_button.tooltip_text = "Unavailable while the opponent is taking their turn."
+	_end_turn_button.add_theme_font_size_override("font_size", font_size)
+	_apply_button_style(_end_turn_button, fill, border, font_color, border_width, 12)
+
+
+func _has_match_winner() -> bool:
+	return not _match_winner_id().is_empty()
+
+
+func _match_winner_id() -> String:
+	return str(_match_state.get("winner_player_id", ""))
+
+
+func _match_end_detail_text(winner_player_id: String) -> String:
+	if winner_player_id.is_empty():
+		return ""
+	var loser_player_id := PLAYER_ORDER[0] if winner_player_id == PLAYER_ORDER[1] else PLAYER_ORDER[1]
+	if winner_player_id == _local_player_id():
+		return "%s has fallen. %s wins the match." % [_player_name(loser_player_id), _player_name(winner_player_id)]
+	return "%s wins the match. %s is out of actions." % [_player_name(winner_player_id), _player_name(_local_player_id())]
+
+
 func _player_summary_text(player: Dictionary) -> String:
 	var lines: Array = []
-	lines.append("%s%s" % [_player_name(str(player.get("player_id", ""))), " (Active)" if str(player.get("player_id", "")) == _active_player_id() else ""])
-	lines.append("Health %d | Runes %d | Magicka %d/%d" % [int(player.get("health", 0)), player.get("rune_thresholds", []).size(), int(player.get("current_magicka", 0)), int(player.get("max_magicka", 0))])
-	lines.append("Deck %d | Discard %d | Ring %s" % [player.get("deck", []).size(), player.get("discard", []).size(), _ring_summary(player)])
+	lines.append("%s%s" % [_player_name(str(player.get("player_id", ""))), " • Active" if str(player.get("player_id", "")) == _active_player_id() else ""])
+	lines.append("Inspect combatant • attackers can target enemy face here")
 	return _join_parts(lines, "\n")
 
 
 func _player_summary_tooltip(player: Dictionary) -> String:
 	var runes: Array = player.get("rune_thresholds", [])
-	return "Remaining rune thresholds: %s" % [runes]
+	var lines := [
+		"Health %d" % int(player.get("health", 0)),
+		"Remaining rune thresholds: %s" % [runes],
+		_magicka_summary_text(player),
+		"Deck %d • Discard %d • Ring %s" % [player.get("deck", []).size(), player.get("discard", []).size(), _ring_summary(player)],
+	]
+	return _join_parts(lines, "\n")
 
 
 func _ring_summary(player: Dictionary) -> String:
 	if not bool(player.get("has_ring_of_magicka", false)):
 		return "None"
 	return "%d charge(s)" % int(player.get("ring_of_magicka_charges", 0))
+
+
+func _health_panel_fill(player: Dictionary, is_opponent: bool) -> Color:
+	var health := int(player.get("health", 0))
+	if health <= 10:
+		return Color(0.36, 0.12, 0.12, 0.98)
+	if is_opponent:
+		return Color(0.31, 0.13, 0.12, 0.98)
+	return Color(0.24, 0.12, 0.14, 0.98)
+
+
+func _health_panel_border(player: Dictionary, is_opponent: bool) -> Color:
+	var health := int(player.get("health", 0))
+	if health <= 10:
+		return Color(0.88, 0.4, 0.28, 0.98)
+	return Color(0.74, 0.44, 0.28, 0.94) if is_opponent else Color(0.67, 0.46, 0.33, 0.94)
+
+
+func _refresh_rune_row(rune_row: HBoxContainer, player: Dictionary, player_id: String, is_opponent: bool) -> void:
+	_clear_children(rune_row)
+	var remaining_runes: Array = player.get("rune_thresholds", [])
+	for threshold in DISPLAY_RUNE_THRESHOLDS:
+		rune_row.add_child(_build_rune_token(player_id, int(threshold), remaining_runes.has(threshold), is_opponent))
+
+
+func _build_rune_token(player_id: String, threshold: int, active: bool, is_opponent: bool) -> Control:
+	var panel := PanelContainer.new()
+	panel.name = "%s_rune_%d" % [player_id, threshold]
+	panel.custom_minimum_size = Vector2(42, 28)
+	var fill := Color(0.48, 0.18, 0.14, 0.98) if active else Color(0.12, 0.12, 0.14, 0.94)
+	var border := Color(0.89, 0.69, 0.39, 0.96) if active else Color(0.31, 0.32, 0.37, 0.88)
+	if is_opponent and active:
+		fill = Color(0.45, 0.16, 0.13, 0.98)
+	_apply_panel_style(panel, fill, border, 1, 8)
+	var box := _build_panel_box(panel, 0, 4)
+	var label := Label.new()
+	label.text = str(threshold)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_color_override("font_color", Color(0.97, 0.91, 0.84, 0.98) if active else Color(0.62, 0.64, 0.7, 0.8))
+	box.add_child(label)
+	return panel
+
+
+func _magicka_summary_text(player: Dictionary) -> String:
+	var current := maxi(0, int(player.get("current_magicka", 0)))
+	var max_magicka := maxi(0, int(player.get("max_magicka", 0)))
+	var temporary := maxi(0, int(player.get("temporary_magicka", 0)))
+	var text := "Magicka %d / %d" % [current, max_magicka]
+	if temporary > 0:
+		text += " • +%d temp" % temporary
+	return text
+
+
+func _refresh_magicka_row(magicka_row: HBoxContainer, player: Dictionary, emphasize: bool) -> void:
+	_clear_children(magicka_row)
+	var current := maxi(0, int(player.get("current_magicka", 0)))
+	var max_magicka := maxi(0, mini(12, int(player.get("max_magicka", 0))))
+	var temporary := maxi(0, int(player.get("temporary_magicka", 0)))
+	var available := mini(12, current + temporary)
+	for slot_index in range(12):
+		var state := "empty"
+		if slot_index < current:
+			state = "filled"
+		elif slot_index < available:
+			state = "temporary"
+		elif slot_index < max_magicka:
+			state = "spent"
+		magicka_row.add_child(_build_magicka_token(slot_index, state, emphasize))
+
+
+func _build_magicka_token(slot_index: int, state: String, emphasize: bool) -> Control:
+	var panel := PanelContainer.new()
+	panel.name = "magicka_%d" % slot_index
+	panel.custom_minimum_size = Vector2(18, 18) if not emphasize else Vector2(20, 20)
+	var fill := Color(0.08, 0.1, 0.13, 0.94)
+	var border := Color(0.23, 0.29, 0.37, 0.88)
+	match state:
+		"filled":
+			fill = Color(0.21, 0.62, 0.91, 0.98) if emphasize else Color(0.18, 0.5, 0.78, 0.96)
+			border = Color(0.73, 0.9, 0.99, 0.98)
+		"temporary":
+			fill = Color(0.38, 0.52, 0.95, 0.98)
+			border = Color(0.97, 0.9, 0.58, 0.98)
+		"spent":
+			fill = Color(0.12, 0.21, 0.32, 0.92)
+			border = Color(0.36, 0.48, 0.63, 0.9)
+	_apply_panel_style(panel, fill, border, 1, 6)
+	panel.tooltip_text = "Magicka slot %d" % [slot_index + 1]
+	return panel
+
+
+func _ring_panel_text(player: Dictionary) -> String:
+	var charges := maxi(0, int(player.get("ring_of_magicka_charges", 0)))
+	if charges > 0 or bool(player.get("has_ring_of_magicka", false)):
+		return "Ring of Magicka • %d / 3" % charges
+	return "Ring of Magicka • None"
+
+
+func _refresh_ring_row(ring_row: HBoxContainer, player: Dictionary) -> void:
+	_clear_children(ring_row)
+	var charges := maxi(0, mini(3, int(player.get("ring_of_magicka_charges", 0))))
+	for index in range(3):
+		ring_row.add_child(_build_ring_token(index, index < charges))
+
+
+func _build_ring_token(index: int, active: bool) -> Control:
+	var panel := PanelContainer.new()
+	panel.name = "ring_%d" % index
+	panel.custom_minimum_size = Vector2(18, 18)
+	_apply_panel_style(panel, Color(0.7, 0.57, 0.24, 0.98) if active else Color(0.12, 0.12, 0.14, 0.94), Color(0.96, 0.87, 0.58, 0.98) if active else Color(0.31, 0.3, 0.28, 0.86), 1, 9)
+	return panel
+
+
+func _pile_button_text(title: String, count: int) -> String:
+	return "%s\n%d" % [title, count]
+
+
+func _pile_button_tooltip(player: Dictionary, zone: String) -> String:
+	var count: int = player.get(zone, []).size()
+	if zone == MatchMutations.ZONE_DISCARD:
+		return "%s's discard pile has %d card(s). Click to inspect public discard contents." % [_player_name(str(player.get("player_id", ""))), count]
+	return "%s's deck has %d card(s) remaining. Click to inspect the count surface." % [_player_name(str(player.get("player_id", ""))), count]
+
+
+func _pile_inspector_text(player_id: String, zone: String) -> String:
+	var player := _player_state(player_id)
+	if player.is_empty():
+		return "Selected pile is unavailable."
+	var cards: Array = player.get(zone, [])
+	var lines: Array = [
+		"%s %s" % [_player_name(player_id), _identifier_to_name(zone)],
+		"Count %d" % cards.size(),
+	]
+	if zone == MatchMutations.ZONE_DISCARD:
+		if cards.is_empty():
+			lines.append("No discarded cards yet.")
+		else:
+			var names: Array = []
+			for card in cards.slice(0, 6):
+				if typeof(card) == TYPE_DICTIONARY:
+					names.append("- %s" % _card_name(card))
+			lines.append(_join_parts(names, "\n"))
+			if cards.size() > 6:
+				lines.append("+%d more" % (cards.size() - 6))
+	else:
+		lines.append("Deck contents stay abstract in this presentation surface; use the count for board reading.")
+	return _join_parts(lines, "\n")
+
+
+func _pile_help_text(zone: String) -> String:
+	if zone == MatchMutations.ZONE_DISCARD:
+		return "Discard inspection is presentation-only and lists public graveyard contents without changing match logic."
+	return "Deck surface is count-first. Full deck truth still lives in the debug/state rail and engine data."
 
 
 func _lane_entries() -> Array:
@@ -1064,7 +3371,7 @@ func _first_open_slot_index(lane_id: String, player_id: String) -> int:
 
 
 func _is_hand_public(player_id: String) -> bool:
-	return player_id == _active_player_id()
+	return player_id == PLAYER_ORDER[1]
 
 
 func _is_pending_prophecy_card(card: Dictionary) -> bool:
@@ -1282,6 +3589,220 @@ func _identifier_to_name(value: String) -> String:
 			continue
 		titled.append(part.substr(0, 1).to_upper() + part.substr(1))
 	return _join_parts(titled, " ")
+
+
+func _card_supports_direct_drag(instance_id: String) -> bool:
+	var card := _card_from_instance_id(instance_id)
+	if card.is_empty() or str(card.get("controller_player_id", "")) != PLAYER_ORDER[1]:
+		return false
+	var mode := _selected_action_mode(card)
+	return mode == SELECTION_MODE_SUMMON or mode == SELECTION_MODE_ITEM
+
+
+func _drag_source_position(instance_id: String) -> Vector2:
+	var button: Button = _card_buttons.get(instance_id)
+	if button != null:
+		var rect := button.get_global_rect()
+		return rect.position + rect.size * 0.5
+	return Vector2(320, 520)
+
+
+func _start_hand_drag_for_instance(instance_id: String, start_position: Vector2) -> bool:
+	if instance_id.is_empty() or not _card_supports_direct_drag(instance_id):
+		return false
+	var card := _card_from_instance_id(instance_id)
+	if card.is_empty():
+		return false
+	if _selected_instance_id != instance_id:
+		select_card(instance_id)
+		card = _selected_card()
+	var preview := _build_drag_preview(card)
+	add_child(preview)
+	_suppressed_card_press_instance_id = instance_id
+	_drag_state = {
+		"pending": false,
+		"active": true,
+		"instance_id": instance_id,
+		"preview": preview,
+		"source_position": _drag_source_position(instance_id),
+		"last_position": start_position,
+	}
+	_update_hand_drag_preview(start_position)
+	return true
+
+
+func _build_drag_preview(card: Dictionary) -> PanelContainer:
+	var preview := PanelContainer.new()
+	preview.name = "hand_drag_preview"
+	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	preview.custom_minimum_size = _surface_button_minimum_size("hand")
+	preview.size = preview.custom_minimum_size
+	preview.z_index = 500
+	_apply_panel_style(preview, Color(0.17, 0.19, 0.24, 0.98), Color(0.98, 0.88, 0.58, 1.0), 2, 10)
+	var box := _build_panel_box(preview, 6, 10)
+	var title := Label.new()
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title.add_theme_font_size_override("font_size", 16)
+	title.text = _card_name(card)
+	box.add_child(title)
+	var subtitle := Label.new()
+	subtitle.add_theme_font_size_override("font_size", 13)
+	subtitle.modulate = Color(0.86, 0.89, 0.96, 0.92)
+	subtitle.text = "%s • %d cost" % [_identifier_to_name(str(card.get("card_type", "card"))), int(card.get("cost", 0))]
+	box.add_child(subtitle)
+	var stats := _card_stat_line(card)
+	if not stats.is_empty():
+		var stats_label := Label.new()
+		stats_label.add_theme_font_size_override("font_size", 13)
+		stats_label.modulate = Color(0.92, 0.94, 0.98, 0.9)
+		stats_label.text = stats
+		box.add_child(stats_label)
+	preview.scale = Vector2(1.04, 1.04)
+	return preview
+
+
+func _update_hand_drag_preview(pointer_position: Vector2) -> void:
+	var preview: Control = _drag_state.get("preview")
+	if preview == null or not is_instance_valid(preview):
+		return
+	_drag_state["last_position"] = pointer_position
+	preview.position = pointer_position + Vector2(-preview.size.x * 0.5, -preview.size.y * 0.62)
+
+
+func _finish_hand_drag(pointer_position: Vector2) -> Dictionary:
+	if not bool(_drag_state.get("active", false)):
+		return _invalid_ui_result("No active hand drag.")
+	var descriptor := _drag_drop_descriptor(pointer_position)
+	if descriptor.is_empty():
+		_cancel_active_hand_drag()
+		return {"is_valid": false, "errors": ["Interaction cancelled."]}
+	match str(descriptor.get("kind", "")):
+		"lane_slot":
+			if bool(descriptor.get("valid", false)):
+				_clear_drag_state()
+				return play_selected_to_lane(str(descriptor.get("lane_id", "")), int(descriptor.get("slot_index", -1)))
+			_animate_drag_preview_return()
+			return _report_invalid_interaction(str(descriptor.get("message", "Cannot play there.")), {
+				"lane_ids": [str(descriptor.get("lane_id", ""))],
+				"lane_slot_keys": [_lane_slot_key(str(descriptor.get("lane_id", "")), str(descriptor.get("player_id", "")), int(descriptor.get("slot_index", -1)))],
+			})
+		"card":
+			if bool(descriptor.get("valid", false)):
+				_clear_drag_state()
+				return target_selected_card(str(descriptor.get("instance_id", "")))
+			_animate_drag_preview_return()
+			return _report_invalid_interaction(str(descriptor.get("message", "That isn't a valid target.")), {"instance_ids": [str(descriptor.get("instance_id", ""))]})
+		"invalid":
+			_animate_drag_preview_return()
+			return _report_invalid_interaction(str(descriptor.get("message", "That isn't a valid drop zone.")), descriptor.get("feedback", {}))
+	_cancel_active_hand_drag()
+	return {"is_valid": false, "errors": ["Interaction cancelled."]}
+
+
+func _cancel_active_hand_drag() -> void:
+	if not bool(_drag_state.get("active", false)):
+		_clear_drag_state(false)
+		return
+	_animate_drag_preview_return()
+
+
+func _animate_drag_preview_return() -> void:
+	var preview: Control = _drag_state.get("preview")
+	var source_position: Vector2 = _drag_state.get("source_position", Vector2.ZERO)
+	_drag_state = {}
+	if preview == null or not is_instance_valid(preview):
+		return
+	var tween := create_tween()
+	tween.tween_property(preview, "position", source_position + Vector2(-preview.size.x * 0.5, -preview.size.y * 0.5), 0.14)
+	tween.parallel().tween_property(preview, "scale", Vector2.ONE, 0.14)
+	tween.finished.connect(func() -> void:
+		if is_instance_valid(preview):
+			preview.queue_free()
+	)
+
+
+func _clear_drag_state(remove_preview := true) -> void:
+	var preview: Control = _drag_state.get("preview")
+	if remove_preview and preview != null and is_instance_valid(preview):
+		preview.queue_free()
+	_drag_state = {}
+
+
+func _drag_drop_descriptor(pointer_position: Vector2) -> Dictionary:
+	var mode := _selected_action_mode(_selected_card())
+	if mode == SELECTION_MODE_SUMMON:
+		for slot_key in _lane_slot_buttons.keys():
+			var slot_button: Button = _lane_slot_buttons.get(slot_key)
+			if slot_button != null and slot_button.get_global_rect().has_point(pointer_position):
+				var lane_id := str(slot_button.get_meta("lane_id", ""))
+				var player_id := str(slot_button.get_meta("player_id", ""))
+				var slot_index := int(slot_button.get_meta("slot_index", -1))
+				var validation := _validate_selected_lane_play(lane_id, player_id, slot_index)
+				return {
+					"kind": "lane_slot",
+					"lane_id": lane_id,
+					"player_id": player_id,
+					"slot_index": slot_index,
+					"valid": bool(validation.get("is_valid", false)),
+					"message": str(validation.get("message", "Cannot play there.")),
+				}
+		for lane in _lane_entries():
+			var lane_id := str(lane.get("id", ""))
+			var player_id := _target_lane_player_id()
+			var header: Button = _lane_header_buttons.get(lane_id)
+			var lane_panel: PanelContainer = _lane_panels.get(lane_id)
+			var row_panel: PanelContainer = _lane_row_panels.get(_lane_row_key(lane_id, player_id))
+			if (header != null and header.get_global_rect().has_point(pointer_position)) or (lane_panel != null and lane_panel.get_global_rect().has_point(pointer_position)) or (row_panel != null and row_panel.get_global_rect().has_point(pointer_position)):
+				var slot_index := _first_valid_lane_slot_index(lane_id, player_id)
+				if slot_index < 0:
+					slot_index = _first_open_slot_index(lane_id, player_id)
+				var validation := _validate_selected_lane_play(lane_id, player_id, slot_index)
+				return {
+					"kind": "lane_slot",
+					"lane_id": lane_id,
+					"player_id": player_id,
+					"slot_index": slot_index,
+					"valid": slot_index >= 0 and bool(validation.get("is_valid", false)),
+					"message": str(validation.get("message", "Cannot play there.")),
+				}
+		for instance_id in _card_buttons.keys():
+			var card_button: Button = _card_buttons.get(instance_id)
+			if card_button != null and card_button.get_global_rect().has_point(pointer_position) and str(card_button.get_meta("surface", "")) == "lane":
+				return {"kind": "invalid", "message": "Select a lane slot to summon this creature.", "feedback": {"instance_ids": [instance_id]}}
+		for section in _player_sections.values():
+			var summary_button: Button = section.get("summary_button")
+			if summary_button != null and summary_button.get_global_rect().has_point(pointer_position):
+				return {"kind": "invalid", "message": "Select a lane slot to summon this creature.", "feedback": {"player_ids": [str(section.get("player_id", ""))]}}
+	elif mode == SELECTION_MODE_ITEM:
+		for instance_id in _card_buttons.keys():
+			var card_button: Button = _card_buttons.get(instance_id)
+			if card_button != null and card_button.get_global_rect().has_point(pointer_position) and str(card_button.get_meta("surface", "")) == "lane":
+				return {
+					"kind": "card",
+					"instance_id": instance_id,
+					"valid": _is_card_target_valid_for_selected(instance_id),
+					"message": "%s can't target %s right now." % [_card_name(_selected_card()), _card_name(_card_from_instance_id(instance_id))],
+				}
+		for slot_button in _lane_slot_buttons.values():
+			if slot_button != null and slot_button.get_global_rect().has_point(pointer_position):
+				return {"kind": "invalid", "message": "Drop this item onto a creature.", "feedback": {}}
+		for lane_id in _lane_header_buttons.keys():
+			var header: Button = _lane_header_buttons.get(lane_id)
+			var lane_panel: PanelContainer = _lane_panels.get(lane_id)
+			if (header != null and header.get_global_rect().has_point(pointer_position)) or (lane_panel != null and lane_panel.get_global_rect().has_point(pointer_position)):
+				return {"kind": "invalid", "message": "Drop this item onto a creature.", "feedback": {"lane_ids": [lane_id]}}
+	return {}
+
+
+func _first_valid_lane_slot_index(lane_id: String, player_id: String) -> int:
+	for slot_index in range(_lane_slots(lane_id, player_id).size()):
+		if bool(_validate_selected_lane_play(lane_id, player_id, slot_index).get("is_valid", false)):
+			return slot_index
+	return -1
+
+
+func _lane_slot_key(lane_id: String, player_id: String, slot_index: int) -> String:
+	return "%s:%s:%d" % [lane_id, player_id, slot_index]
 
 
 func _lane_row_key(lane_id: String, player_id: String) -> String:

@@ -88,6 +88,26 @@ static func _build_local_match() -> Dictionary:
 			"health": 2,
 		}),
 	])
+	player_one["discard"] = [
+		_build_named_card(player_one["player_id"], "discard_a", {
+			"name": "Spent Torchbearer",
+			"card_type": "creature",
+			"cost": 1,
+			"power": 1,
+			"health": 1,
+			"zone": "discard",
+			"rules_text": "Placeholder discard entry for pile inspection.",
+		}),
+	]
+	player_two["discard"] = [
+		_build_named_card(player_two["player_id"], "discard_a", {
+			"name": "Ashen Scroll",
+			"card_type": "action",
+			"cost": 2,
+			"zone": "discard",
+			"rules_text": "Placeholder discard entry for opponent pile visibility.",
+		}),
+	]
 
 	ScenarioFixtures.add_hand_card(player_one, "field_guardian", {
 		"name": "Field Guardian",
@@ -95,8 +115,11 @@ static func _build_local_match() -> Dictionary:
 		"cost": 2,
 		"power": 3,
 		"health": 4,
+		"power_bonus": 1,
+		"health_bonus": 1,
+		"rarity": "uncommon",
 		"keywords": [EvergreenRules.KEYWORD_GUARD],
-		"rules_text": "Guard.",
+		"rules_text": "Guard. Placeholder boosted creature for frame and stat-color testing.",
 	})
 	ScenarioFixtures.add_hand_card(player_one, "shadow_raider", {
 		"name": "Shadow Raider",
@@ -104,13 +127,16 @@ static func _build_local_match() -> Dictionary:
 		"cost": 3,
 		"power": 4,
 		"health": 2,
+		"power_bonus": -1,
+		"rarity": "rare",
 		"keywords": [EvergreenRules.KEYWORD_CHARGE],
-		"rules_text": "Charge.",
+		"rules_text": "Charge. Placeholder reduced-stat attacker for frame testing.",
 	})
 	ScenarioFixtures.add_hand_card(player_one, "steel_sword", {
 		"name": "Steel Sword",
 		"card_type": "item",
 		"cost": 1,
+		"rarity": "common",
 		"equip_power_bonus": 2,
 		"equip_health_bonus": 1,
 		"rules_text": "Give a friendly creature +2/+1.",
@@ -119,6 +145,7 @@ static func _build_local_match() -> Dictionary:
 		"name": "Arsenal",
 		"card_type": "support",
 		"cost": 1,
+		"rarity": "epic",
 		"activation_cost": 1,
 		"support_uses": 2,
 		"rules_text": "Activate: Give a creature Guard.",
@@ -128,6 +155,15 @@ static func _build_local_match() -> Dictionary:
 			"effects": [{"op": "grant_keyword", "target": "event_target", "keyword_id": EvergreenRules.KEYWORD_GUARD}],
 		}],
 	})
+	ScenarioFixtures.add_hand_card(player_one, "grand_colossus", {
+		"name": "Grand Colossus",
+		"card_type": "creature",
+		"cost": 9,
+		"power": 8,
+		"health": 8,
+		"rarity": "legendary",
+		"rules_text": "Expensive placeholder finisher for affordability muting.",
+	})
 
 	ScenarioFixtures.add_hand_card(player_two, "skeletal_sentry", {
 		"name": "Skeletal Sentry",
@@ -135,6 +171,7 @@ static func _build_local_match() -> Dictionary:
 		"cost": 2,
 		"power": 2,
 		"health": 3,
+		"rarity": "common",
 		"keywords": [EvergreenRules.KEYWORD_GUARD],
 		"rules_text": "Guard.",
 	})
@@ -144,12 +181,14 @@ static func _build_local_match() -> Dictionary:
 		"cost": 4,
 		"power": 4,
 		"health": 4,
+		"rarity": "rare",
 		"rules_text": "Heavy creature for Ring testing.",
 	})
 
 	var vanguard := ScenarioFixtures.summon_creature(player_one, match_state, "vanguard", "field", 4, 4, [], 0, {
 		"name": "Vanguard Captain",
 		"cost": 4,
+		"rarity": "rare",
 		"rules_text": "A sturdy attacker for the sandbox.",
 	})
 	ScenarioFixtures.ready_for_attack(vanguard, match_state)
@@ -157,6 +196,8 @@ static func _build_local_match() -> Dictionary:
 	var enemy_guard := ScenarioFixtures.summon_creature(player_two, match_state, "bone_guard", "field", 2, 3, [EvergreenRules.KEYWORD_GUARD], 0, {
 		"name": "Bone Guard",
 		"cost": 2,
+		"damage_marked": 1,
+		"rarity": "common",
 		"rules_text": "Guard.",
 	})
 	ScenarioFixtures.ready_for_attack(enemy_guard, match_state)
@@ -164,6 +205,7 @@ static func _build_local_match() -> Dictionary:
 	var shadow_creature := ScenarioFixtures.summon_creature(player_two, match_state, "night_watch", "shadow", 3, 2, [], 0, {
 		"name": "Night Watch",
 		"cost": 3,
+		"rarity": "uncommon",
 		"rules_text": "Starts covered in the Shadow Lane.",
 	})
 	EvergreenRules.grant_cover(shadow_creature, int(match_state.get("turn_number", 0)) + 1)
@@ -194,6 +236,7 @@ static func _build_support_lab() -> Dictionary:
 		"name": "Battle Drum",
 		"card_type": "support",
 		"cost": 2,
+		"rarity": "rare",
 		"activation_cost": 1,
 		"support_uses": 3,
 		"rules_text": "Activate: Give a friendly creature Guard.",
@@ -207,6 +250,7 @@ static func _build_support_lab() -> Dictionary:
 		"name": "Training Blade",
 		"card_type": "item",
 		"cost": 1,
+		"rarity": "common",
 		"equip_power_bonus": 1,
 		"equip_health_bonus": 1,
 		"rules_text": "Give a friendly creature +1/+1.",
@@ -250,6 +294,7 @@ static func _build_prophecy_lab() -> Dictionary:
 		"cost": 2,
 		"power": 3,
 		"health": 3,
+			"rarity": "epic",
 		"keywords": [EvergreenRules.KEYWORD_GUARD],
 		"rules_tags": ["prophecy"],
 		"rules_text": "Prophecy. Guard.",
