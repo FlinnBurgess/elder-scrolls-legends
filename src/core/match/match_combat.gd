@@ -1,0 +1,498 @@
+class_name MatchCombat
+extends RefCounted
+
+const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
+const MatchTiming = preload("res://src/core/match/match_timing.gd")
+const PHASE_ACTION := "action"
+const TARGET_TYPE_CREATURE := "creature"
+const TARGET_TYPE_PLAYER := "player"
+const ZONE_LANE := "lane"
+const ZONE_DISCARD := "discard"
+
+
+static func can_attack(match_state: Dictionary, player_id: String, attacker_instance_id: String, target: Dictionary) -> bool:
+	return bool(validate_attack(match_state, player_id, attacker_instance_id, target).get("is_valid", false))
+
+
+static func validate_attack(match_state: Dictionary, player_id: String, attacker_instance_id: String, target: Dictionary) -> Dictionary:
+	var action_validation := _validate_action_owner(match_state, player_id, "Attack")
+	if not action_validation["is_valid"]:
+		return action_validation
+
+	var attacker_lookup := _find_creature_on_board(match_state.get("lanes", []), attacker_instance_id)
+	if not attacker_lookup["is_valid"]:
+		return attacker_lookup
+
+	if str(attacker_lookup["player_id"]) != player_id:
+		return _invalid_result("Creature %s is not controlled by %s." % [attacker_instance_id, player_id])
+
+	var attacker: Dictionary = attacker_lookup["card"]
+	var readiness_validation := _validate_attacker_readiness(match_state, attacker)
+	if not readiness_validation["is_valid"]:
+		return readiness_validation
+
+	var defending_player_id := _get_opposing_player_id(match_state.get("players", []), player_id)
+	if defending_player_id.is_empty():
+		return _invalid_result("Could not determine the defending player for attack validation.")
+
+	var enemy_guards := _get_lane_guard_instance_ids(match_state, attacker_lookup["lane_index"], defending_player_id)
+	var target_type := str(target.get("type", ""))
+	if target_type == TARGET_TYPE_PLAYER:
+		return _validate_player_attack_target(attacker_lookup, defending_player_id, enemy_guards, target)
+	if target_type == TARGET_TYPE_CREATURE:
+		return _validate_creature_attack_target(match_state, attacker_lookup, defending_player_id, enemy_guards, target)
+
+	return _invalid_result("Unknown attack target type: %s" % target_type)
+
+
+static func resolve_attack(match_state: Dictionary, player_id: String, attacker_instance_id: String, target: Dictionary) -> Dictionary:
+	var validation := validate_attack(match_state, player_id, attacker_instance_id, target)
+	if not validation["is_valid"]:
+		return validation
+
+	var attacker: Dictionary = validation["attacker"]
+	attacker["has_attacked_this_turn"] = true
+
+	var events: Array = []
+	events.append({
+		"event_type": "attack_declared",
+		"attacking_player_id": player_id,
+		"defending_player_id": str(validation.get("defending_player_id", "")),
+		"attacker_instance_id": str(attacker.get("instance_id", "")),
+		"lane_id": str(validation.get("lane_id", "")),
+		"target_type": str(validation.get("target_type", "")),
+		"target_instance_id": str(validation.get("target_instance_id", "")),
+		"target_player_id": str(validation.get("target_player_id", "")),
+	})
+	var rally_result := EvergreenRules.resolve_rally(match_state, attacker)
+	if bool(rally_result.get("triggered", false)):
+		events.append({
+			"event_type": "rally_resolved",
+			"source_instance_id": str(attacker.get("instance_id", "")),
+			"target_instance_id": str(rally_result.get("target_instance_id", "")),
+			"power_bonus": int(rally_result.get("power_bonus", 0)),
+			"health_bonus": int(rally_result.get("health_bonus", 0)),
+		})
+
+	if str(validation.get("target_type", "")) == TARGET_TYPE_PLAYER:
+		var player_result := _resolve_player_attack(match_state, validation, attacker, events)
+		var player_timing_result := MatchTiming.publish_events(match_state, events)
+		player_result["events"] = player_timing_result.get("processed_events", [])
+		player_result["trigger_resolutions"] = player_timing_result.get("trigger_resolutions", [])
+		_record_events(match_state, player_result["events"])
+		return player_result
+
+	var creature_result := _resolve_creature_attack(match_state, validation, attacker, events)
+	var creature_timing_result := MatchTiming.publish_events(match_state, events)
+	creature_result["events"] = creature_timing_result.get("processed_events", [])
+	creature_result["trigger_resolutions"] = creature_timing_result.get("trigger_resolutions", [])
+	_record_events(match_state, creature_result["events"])
+	return creature_result
+
+
+static func _validate_player_attack_target(attacker_lookup: Dictionary, defending_player_id: String, enemy_guards: Array, target: Dictionary) -> Dictionary:
+	if str(target.get("player_id", "")) != defending_player_id:
+		return _invalid_result("Creatures can only attack the opposing player.")
+
+	if not enemy_guards.is_empty():
+		return _invalid_result("Guard creatures in lane %s must be attacked first." % attacker_lookup["lane_id"])
+
+	return {
+		"is_valid": true,
+		"errors": [],
+		"target_type": TARGET_TYPE_PLAYER,
+		"attacker": attacker_lookup["card"],
+		"attacker_instance_id": attacker_lookup["card"].get("instance_id", ""),
+		"lane_id": attacker_lookup["lane_id"],
+		"defending_player_id": defending_player_id,
+		"target_player_id": defending_player_id,
+		"guard_instance_ids": enemy_guards,
+	}
+
+
+static func _validate_creature_attack_target(match_state: Dictionary, attacker_lookup: Dictionary, defending_player_id: String, enemy_guards: Array, target: Dictionary) -> Dictionary:
+	var target_instance_id := str(target.get("instance_id", ""))
+	var defender_lookup := _find_creature_on_board(match_state.get("lanes", []), target_instance_id)
+	if not defender_lookup["is_valid"]:
+		return defender_lookup
+
+	if str(defender_lookup["player_id"]) != defending_player_id:
+		return _invalid_result("Creatures can only attack enemy creatures.")
+
+	if str(defender_lookup["lane_id"]) != str(attacker_lookup["lane_id"]):
+		return _invalid_result("Creatures can only attack enemy creatures in the same lane.")
+
+	var defender: Dictionary = defender_lookup["card"]
+	if _is_cover_active(match_state, defender):
+		return _invalid_result("Covered creatures cannot be attacked by enemy creatures.")
+
+	if not enemy_guards.is_empty() and not _has_keyword(defender, EvergreenRules.KEYWORD_GUARD):
+		return _invalid_result("Guard creatures in lane %s must be attacked first." % attacker_lookup["lane_id"])
+
+	return {
+		"is_valid": true,
+		"errors": [],
+		"target_type": TARGET_TYPE_CREATURE,
+		"attacker": attacker_lookup["card"],
+		"attacker_instance_id": attacker_lookup["card"].get("instance_id", ""),
+		"lane_id": attacker_lookup["lane_id"],
+		"defending_player_id": defending_player_id,
+		"target_instance_id": target_instance_id,
+		"defender": defender,
+		"defender_lookup": defender_lookup,
+		"guard_instance_ids": enemy_guards,
+	}
+
+
+static func _resolve_player_attack(match_state: Dictionary, validation: Dictionary, attacker: Dictionary, events: Array) -> Dictionary:
+	var damage := maxi(0, EvergreenRules.get_power(attacker))
+	var applied_damage_result := MatchTiming.apply_player_damage(match_state, str(validation.get("target_player_id", "")), damage, {
+		"reason": "combat",
+		"source_instance_id": str(attacker.get("instance_id", "")),
+		"source_controller_player_id": str(attacker.get("controller_player_id", "")),
+	})
+	var applied_damage := int(applied_damage_result.get("applied_damage", 0))
+	if applied_damage > 0:
+		events.append(_build_damage_event(attacker, TARGET_TYPE_PLAYER, {
+			"player_id": validation.get("target_player_id", ""),
+		}, applied_damage, "combat"))
+		events.append_array(applied_damage_result.get("events", []))
+
+	var drained := _resolve_drain(match_state, attacker, applied_damage, events)
+	_set_winner_if_needed(match_state, str(validation.get("target_player_id", "")), str(attacker.get("controller_player_id", "")), events)
+	var result := {
+		"is_valid": true,
+		"errors": [],
+		"target_type": TARGET_TYPE_PLAYER,
+		"events": events,
+		"damage_to_player": applied_damage,
+		"drain_heal": drained,
+		"attacker_instance_id": attacker.get("instance_id", ""),
+		"target_player_id": validation.get("target_player_id", ""),
+	}
+	events.append({
+		"event_type": "attack_resolved",
+		"attacker_instance_id": attacker.get("instance_id", ""),
+		"target_type": TARGET_TYPE_PLAYER,
+		"target_player_id": validation.get("target_player_id", ""),
+		"damage_to_player": applied_damage,
+		"drain_heal": drained,
+	})
+	return result
+
+
+static func _resolve_creature_attack(match_state: Dictionary, validation: Dictionary, attacker: Dictionary, events: Array) -> Dictionary:
+	var defender: Dictionary = validation["defender"]
+	var attacker_remaining_before := EvergreenRules.get_remaining_health(attacker)
+	var defender_remaining_before := EvergreenRules.get_remaining_health(defender)
+	var damage_to_defender := maxi(0, EvergreenRules.get_power(attacker))
+	var damage_to_attacker := maxi(0, EvergreenRules.get_power(defender))
+	var defender_damage := EvergreenRules.apply_damage_to_creature(defender, damage_to_defender)
+	var attacker_damage := EvergreenRules.apply_damage_to_creature(attacker, damage_to_attacker)
+	var applied_to_defender := int(defender_damage.get("applied", 0))
+	var applied_to_attacker := int(attacker_damage.get("applied", 0))
+
+	if bool(defender_damage.get("ward_removed", false)):
+		events.append(_build_ward_event(attacker, defender))
+	if bool(attacker_damage.get("ward_removed", false)):
+		events.append(_build_ward_event(defender, attacker))
+
+	if applied_to_defender > 0:
+		events.append(_build_damage_event(attacker, TARGET_TYPE_CREATURE, defender, applied_to_defender, "combat"))
+
+	if applied_to_attacker > 0:
+		events.append(_build_damage_event(defender, TARGET_TYPE_CREATURE, attacker, applied_to_attacker, "combat"))
+
+	var defender_destroyed := EvergreenRules.is_creature_destroyed(defender, applied_to_defender > 0 and EvergreenRules.has_keyword(attacker, EvergreenRules.KEYWORD_LETHAL))
+	var attacker_destroyed := EvergreenRules.is_creature_destroyed(attacker, applied_to_attacker > 0 and EvergreenRules.has_keyword(defender, EvergreenRules.KEYWORD_LETHAL))
+	var breakthrough_damage := 0
+	if defender_destroyed and EvergreenRules.has_keyword(attacker, EvergreenRules.KEYWORD_BREAKTHROUGH):
+		breakthrough_damage = maxi(0, damage_to_defender - defender_remaining_before)
+		if breakthrough_damage > 0:
+			var applied_breakthrough_result := MatchTiming.apply_player_damage(match_state, str(validation.get("defending_player_id", "")), breakthrough_damage, {
+				"reason": "breakthrough",
+				"source_instance_id": str(attacker.get("instance_id", "")),
+				"source_controller_player_id": str(attacker.get("controller_player_id", "")),
+			})
+			var applied_breakthrough := int(applied_breakthrough_result.get("applied_damage", 0))
+			breakthrough_damage = applied_breakthrough
+			events.append(_build_damage_event(attacker, TARGET_TYPE_PLAYER, {
+				"player_id": validation.get("defending_player_id", ""),
+			}, applied_breakthrough, "breakthrough"))
+			events.append_array(applied_breakthrough_result.get("events", []))
+			_set_winner_if_needed(match_state, str(validation.get("defending_player_id", "")), str(attacker.get("controller_player_id", "")), events)
+
+	var total_drain := _resolve_drain(match_state, attacker, applied_to_defender + breakthrough_damage, events)
+	if defender_destroyed:
+		_destroy_creature(match_state, validation["defender_lookup"], str(attacker.get("instance_id", "")), events)
+	if attacker_destroyed:
+		var attacker_lookup := _find_creature_on_board(match_state.get("lanes", []), str(attacker.get("instance_id", "")))
+		if attacker_lookup["is_valid"]:
+			_destroy_creature(match_state, attacker_lookup, str(defender.get("instance_id", "")), events)
+
+	var result := {
+		"is_valid": true,
+		"errors": [],
+		"target_type": TARGET_TYPE_CREATURE,
+		"events": events,
+		"attacker_instance_id": attacker.get("instance_id", ""),
+		"target_instance_id": defender.get("instance_id", ""),
+		"attacker_destroyed": attacker_destroyed,
+		"defender_destroyed": defender_destroyed,
+		"breakthrough_damage": breakthrough_damage,
+		"drain_heal": total_drain,
+	}
+	events.append({
+		"event_type": "attack_resolved",
+		"attacker_instance_id": attacker.get("instance_id", ""),
+		"target_type": TARGET_TYPE_CREATURE,
+		"target_instance_id": defender.get("instance_id", ""),
+		"attacker_destroyed": attacker_destroyed,
+		"defender_destroyed": defender_destroyed,
+		"breakthrough_damage": breakthrough_damage,
+		"drain_heal": total_drain,
+	})
+	return result
+
+
+static func _validate_attacker_readiness(match_state: Dictionary, attacker: Dictionary) -> Dictionary:
+	if EvergreenRules.has_status(attacker, EvergreenRules.STATUS_SHACKLED):
+		return _invalid_result("Shackled creatures cannot attack.")
+
+	if bool(attacker.get("has_attacked_this_turn", false)):
+		return _invalid_result("Creatures can only attack once per turn.")
+
+	if _entered_lane_this_turn(match_state, attacker) and not EvergreenRules.has_keyword(attacker, EvergreenRules.KEYWORD_CHARGE):
+		return _invalid_result("Creatures without Charge cannot attack on the turn they enter a lane.")
+
+	return {
+		"is_valid": true,
+		"errors": [],
+	}
+
+
+static func _entered_lane_this_turn(match_state: Dictionary, attacker: Dictionary) -> bool:
+	return int(attacker.get("entered_lane_on_turn", -1)) == int(match_state.get("turn_number", 0))
+
+
+static func _is_cover_active(match_state: Dictionary, defender: Dictionary) -> bool:
+	return EvergreenRules.is_cover_active(match_state, defender)
+
+
+static func _get_lane_guard_instance_ids(match_state: Dictionary, lane_index: int, player_id: String) -> Array:
+	var guards: Array = []
+	var lanes: Array = match_state.get("lanes", [])
+	if lane_index < 0 or lane_index >= lanes.size():
+		return guards
+
+	var lane: Dictionary = lanes[lane_index]
+	var player_slots_by_id: Dictionary = lane.get("player_slots", {})
+	if not player_slots_by_id.has(player_id):
+		return guards
+
+	for card in player_slots_by_id[player_id]:
+		if card == null:
+			continue
+		if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_GUARD):
+			guards.append(str(card.get("instance_id", "")))
+	return guards
+
+
+static func _build_ward_event(source: Dictionary, target: Dictionary) -> Dictionary:
+	return {
+		"event_type": "ward_removed",
+		"source_instance_id": str(source.get("instance_id", "")),
+		"target_instance_id": str(target.get("instance_id", "")),
+	}
+
+
+static func _build_damage_event(source: Dictionary, target_type: String, target, amount: int, damage_kind: String) -> Dictionary:
+	var event := {
+		"event_type": "damage_resolved",
+		"damage_kind": damage_kind,
+		"source_instance_id": str(source.get("instance_id", "")),
+		"source_controller_player_id": str(source.get("controller_player_id", "")),
+		"target_type": target_type,
+		"amount": amount,
+		"source_keywords": _collect_relevant_keywords(source),
+	}
+	if target_type == TARGET_TYPE_CREATURE:
+		event["target_instance_id"] = str(target.get("instance_id", ""))
+		event["target_controller_player_id"] = str(target.get("controller_player_id", ""))
+		event["target_remaining_health"] = EvergreenRules.get_remaining_health(target)
+		event["target_destroyed"] = EvergreenRules.get_remaining_health(target) <= 0
+	else:
+		event["target_player_id"] = str(target.get("player_id", ""))
+		event["target_health"] = int(target.get("health", 0))
+	return event
+
+
+static func _collect_relevant_keywords(card: Dictionary) -> Array:
+	var keywords: Array = []
+	for keyword_id in [
+		EvergreenRules.KEYWORD_BREAKTHROUGH,
+		EvergreenRules.KEYWORD_DRAIN,
+		EvergreenRules.KEYWORD_GUARD,
+		EvergreenRules.KEYWORD_LETHAL,
+		EvergreenRules.KEYWORD_CHARGE,
+		EvergreenRules.KEYWORD_WARD,
+		EvergreenRules.KEYWORD_RALLY,
+		EvergreenRules.KEYWORD_REGENERATE,
+	]:
+		if _has_keyword(card, keyword_id):
+			keywords.append(keyword_id)
+	return keywords
+
+
+static func _resolve_drain(match_state: Dictionary, attacker: Dictionary, damage_dealt: int, events: Array) -> int:
+	if damage_dealt <= 0:
+		return 0
+	if not EvergreenRules.has_keyword(attacker, EvergreenRules.KEYWORD_DRAIN):
+		return 0
+
+	var controller_player_id := str(attacker.get("controller_player_id", ""))
+	if controller_player_id != str(match_state.get("active_player_id", "")):
+		return 0
+
+	var player := _get_player_state(match_state, controller_player_id)
+	player["health"] = int(player.get("health", 0)) + damage_dealt
+	events.append({
+		"event_type": "heal_resolved",
+		"player_id": controller_player_id,
+		"source_instance_id": str(attacker.get("instance_id", "")),
+		"amount": damage_dealt,
+		"reason": EvergreenRules.KEYWORD_DRAIN,
+	})
+	return damage_dealt
+
+
+static func _is_creature_destroyed(card: Dictionary, destroyed_by_lethal: bool) -> bool:
+	return EvergreenRules.is_creature_destroyed(card, destroyed_by_lethal)
+
+
+static func _get_remaining_health(card: Dictionary) -> int:
+	return EvergreenRules.get_remaining_health(card)
+
+
+static func _get_power(card: Dictionary) -> int:
+	return EvergreenRules.get_power(card)
+
+
+static func _get_health(card: Dictionary) -> int:
+	return EvergreenRules.get_health(card)
+
+
+static func _destroy_creature(match_state: Dictionary, lookup: Dictionary, destroyed_by_instance_id: String, events: Array) -> void:
+	var lane: Dictionary = match_state["lanes"][lookup["lane_index"]]
+	var player_slots: Array = lane["player_slots"][lookup["player_id"]]
+	var card: Dictionary = player_slots[lookup["slot_index"]]
+	if card == null:
+		return
+
+	player_slots[lookup["slot_index"]] = null
+	card["zone"] = ZONE_DISCARD
+	card.erase("lane_id")
+	card.erase("slot_index")
+	var owner_player_id := str(card.get("owner_player_id", lookup["player_id"]))
+	var owner_player := _get_player_state(match_state, owner_player_id)
+	owner_player[ZONE_DISCARD].append(card)
+	events.append({
+		"event_type": "creature_destroyed",
+		"instance_id": str(card.get("instance_id", "")),
+		"source_instance_id": str(card.get("instance_id", "")),
+		"owner_player_id": owner_player_id,
+		"controller_player_id": str(card.get("controller_player_id", "")),
+		"destroyed_by_instance_id": destroyed_by_instance_id,
+		"lane_id": str(lookup.get("lane_id", "")),
+		"source_zone": ZONE_LANE,
+	})
+
+
+static func _record_events(match_state: Dictionary, events: Array) -> void:
+	match_state["last_combat_events"] = events.duplicate(true)
+
+
+static func _set_winner_if_needed(match_state: Dictionary, damaged_player_id: String, winner_player_id: String, events: Array) -> void:
+	MatchTiming.append_match_win_if_needed(match_state, damaged_player_id, winner_player_id, events)
+
+
+static func _validate_action_owner(match_state: Dictionary, player_id: String, action_name: String) -> Dictionary:
+	if match_state.get("phase", "") != PHASE_ACTION:
+		return _invalid_result("%s can only be used during the action phase." % action_name)
+
+	if String(match_state.get("active_player_id", "")) != player_id:
+		return _invalid_result("%s is only legal for the active player." % action_name)
+
+	if _find_player_index(match_state.get("players", []), player_id) == -1:
+		return _invalid_result("Unknown player_id: %s" % player_id)
+
+	return {
+		"is_valid": true,
+		"errors": [],
+	}
+
+
+static func _get_player_state(match_state: Dictionary, player_id: String) -> Dictionary:
+	var players: Array = match_state.get("players", [])
+	var player_index := _find_player_index(players, player_id)
+	if player_index == -1:
+		push_error("Unknown player_id: %s" % player_id)
+		return {}
+	return players[player_index]
+
+
+static func _get_opposing_player_id(players: Array, player_id: String) -> String:
+	for player in players:
+		var candidate_id := str(player.get("player_id", ""))
+		if candidate_id != player_id:
+			return candidate_id
+	return ""
+
+
+static func _find_creature_on_board(lanes: Array, instance_id: String) -> Dictionary:
+	for lane_index in range(lanes.size()):
+		var lane: Dictionary = lanes[lane_index]
+		var player_slots_by_id: Dictionary = lane.get("player_slots", {})
+		for player_id in player_slots_by_id.keys():
+			var slots: Array = player_slots_by_id[player_id]
+			for slot_index in range(slots.size()):
+				var card = slots[slot_index]
+				if card != null and str(card.get("instance_id", "")) == instance_id:
+					return {
+						"is_valid": true,
+						"errors": [],
+						"lane_index": lane_index,
+						"lane_id": str(lane.get("lane_id", "")),
+						"player_id": str(player_id),
+						"slot_index": slot_index,
+						"card": card,
+					}
+	return _invalid_result("Creature %s is not on the board." % instance_id)
+
+
+static func _find_player_index(players: Array, player_id: String) -> int:
+	for index in range(players.size()):
+		if str(players[index].get("player_id", "")) == player_id:
+			return index
+	return -1
+
+
+static func _has_keyword(card: Dictionary, keyword_id: String) -> bool:
+	return EvergreenRules.has_keyword(card, keyword_id)
+
+
+static func _has_status(card: Dictionary, status_id: String) -> bool:
+	return EvergreenRules.has_status(card, status_id)
+
+
+static func _ensure_array(value) -> Array:
+	if typeof(value) == TYPE_ARRAY:
+		return value
+	return []
+
+
+static func _invalid_result(message: String) -> Dictionary:
+	return {
+		"is_valid": false,
+		"errors": [message],
+	}

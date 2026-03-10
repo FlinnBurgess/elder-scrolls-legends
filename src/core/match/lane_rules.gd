@@ -1,9 +1,9 @@
 class_name LaneRules
 extends RefCounted
 
+const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
+const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const CARD_TYPE_CREATURE := "creature"
-const KEYWORD_GUARD := "guard"
-const STATUS_COVER := "cover"
 const ZONE_HAND := "hand"
 const ZONE_LANE := "lane"
 const SHADOW_LANE_ID := "shadow"
@@ -66,6 +66,32 @@ static func summon_from_hand(match_state: Dictionary, player_id: String, instanc
 	var card: Dictionary = player[ZONE_HAND][validation["hand_index"]]
 	player[ZONE_HAND].remove_at(validation["hand_index"])
 	_apply_lane_entry(match_state, player_id, card, validation)
+	var play_event := {
+		"event_type": MatchTiming.EVENT_CARD_PLAYED,
+		"playing_player_id": player_id,
+		"player_id": player_id,
+		"source_instance_id": str(card.get("instance_id", "")),
+		"source_controller_player_id": player_id,
+		"source_zone": ZONE_HAND,
+		"target_zone": ZONE_LANE,
+		"card_type": str(card.get("card_type", "")),
+		"played_cost": int(card.get("cost", 0)),
+	}
+	var summon_event := {
+		"event_type": MatchTiming.EVENT_CREATURE_SUMMONED,
+		"playing_player_id": player_id,
+		"player_id": player_id,
+		"source_instance_id": str(card.get("instance_id", "")),
+		"source_controller_player_id": player_id,
+		"lane_id": lane_id,
+		"slot_index": int(validation.get("slot_index", -1)),
+		"granted_cover": bool(validation.get("granted_cover", false)),
+	}
+	for key in _ensure_dictionary(options.get("play_event_overrides", {})).keys():
+		play_event[key] = options["play_event_overrides"][key]
+	for key in _ensure_dictionary(options.get("summon_event_overrides", {})).keys():
+		summon_event[key] = options["summon_event_overrides"][key]
+	var timing_result := MatchTiming.publish_events(match_state, [play_event, summon_event], _ensure_dictionary(options.get("event_context", {})))
 
 	return {
 		"is_valid": true,
@@ -75,6 +101,8 @@ static func summon_from_hand(match_state: Dictionary, player_id: String, instanc
 		"slot_index": validation["slot_index"],
 		"card": card,
 		"granted_cover": bool(validation.get("granted_cover", false)),
+		"events": timing_result.get("processed_events", []),
+		"trigger_resolutions": timing_result.get("trigger_resolutions", []),
 	}
 
 
@@ -159,6 +187,7 @@ static func _validate_lane_entry(match_state: Dictionary, player_id: String, car
 static func _apply_lane_entry(match_state: Dictionary, player_id: String, card: Dictionary, validation: Dictionary) -> void:
 	var lane: Dictionary = match_state["lanes"][validation["lane_index"]]
 	var player_slots: Array = lane["player_slots"][player_id]
+	EvergreenRules.ensure_card_state(card)
 	card["controller_player_id"] = player_id
 	if not card.has("owner_player_id"):
 		card["owner_player_id"] = player_id
@@ -167,25 +196,20 @@ static func _apply_lane_entry(match_state: Dictionary, player_id: String, card: 
 	card["slot_index"] = validation["slot_index"]
 	card["entered_lane_on_turn"] = int(match_state.get("turn_number", 0))
 	if bool(validation.get("granted_cover", false)):
-		_grant_cover(card, int(match_state.get("turn_number", 0)) + 1)
+		EvergreenRules.grant_cover(card, int(match_state.get("turn_number", 0)) + 1)
 	player_slots[validation["slot_index"]] = card
 
 
 static func _grant_cover(card: Dictionary, cover_expires_on_turn: int) -> void:
-	var status_markers := _ensure_array(card.get("status_markers", []))
-	if not status_markers.has(STATUS_COVER):
-		status_markers.append(STATUS_COVER)
-	card["status_markers"] = status_markers
-	card["cover_expires_on_turn"] = cover_expires_on_turn
-	card["cover_granted_by"] = "shadow_lane_entry"
+	EvergreenRules.grant_cover(card, cover_expires_on_turn)
 
 
 static func _should_grant_cover(match_state: Dictionary, lane: Dictionary, card: Dictionary) -> bool:
 	if str(lane.get("lane_type", lane.get("lane_id", ""))) != SHADOW_LANE_ID:
 		return false
-	if _has_keyword(card, KEYWORD_GUARD):
+	if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_GUARD):
 		return false
-	return not _has_status(card, STATUS_COVER)
+	return not EvergreenRules.has_raw_status(card, EvergreenRules.STATUS_COVER)
 
 
 static func _find_player(players: Array, player_id: String) -> Dictionary:
@@ -248,21 +272,23 @@ static func _is_creature(card: Dictionary) -> bool:
 
 
 static func _has_keyword(card: Dictionary, keyword_id: String) -> bool:
-	for key in ["keywords", "granted_keywords"]:
-		var values := _ensure_array(card.get(key, []))
-		if values.has(keyword_id):
-			return true
-	return false
+	return EvergreenRules.has_keyword(card, keyword_id)
 
 
 static func _has_status(card: Dictionary, status_id: String) -> bool:
-	return _ensure_array(card.get("status_markers", [])).has(status_id)
+	return EvergreenRules.has_status(card, status_id)
 
 
 static func _ensure_array(value) -> Array:
 	if typeof(value) == TYPE_ARRAY:
 		return value
 	return []
+
+
+static func _ensure_dictionary(value) -> Dictionary:
+	if typeof(value) == TYPE_DICTIONARY:
+		return value
+	return {}
 
 
 static func _invalid_result(message: String) -> Dictionary:

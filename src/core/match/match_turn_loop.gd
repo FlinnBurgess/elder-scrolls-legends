@@ -1,6 +1,8 @@
 class_name MatchTurnLoop
 extends RefCounted
 
+const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
+const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const PHASE_READY_FOR_FIRST_TURN := "ready_for_first_turn"
 const PHASE_ACTION := "action"
 const MAX_MAGICKA_CAP := 12
@@ -22,6 +24,12 @@ static func begin_first_turn(match_state: Dictionary) -> Dictionary:
 static func end_turn(match_state: Dictionary, player_id: String) -> Dictionary:
 	if not _validate_action_owner(match_state, player_id, "End turn"):
 		return match_state
+	MatchTiming.publish_events(match_state, [{
+		"event_type": MatchTiming.EVENT_TURN_ENDING,
+		"player_id": player_id,
+		"turn_number": int(match_state.get("turn_number", 0)),
+		"source_controller_player_id": player_id,
+	}])
 
 	var player := _get_player_state(match_state, player_id)
 	player["current_magicka"] = 0
@@ -128,29 +136,58 @@ static func get_available_magicka(player_state: Dictionary) -> int:
 
 static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionary:
 	var player := _get_player_state(match_state, player_id)
+	_refresh_board_state_for_turn(match_state, player_id)
 	player["turns_started"] = int(player.get("turns_started", 0)) + 1
 	player["temporary_magicka"] = 0
 	player["max_magicka"] = mini(MAX_MAGICKA_CAP, int(player.get("max_magicka", 0)) + 1)
 	player["current_magicka"] = int(player["max_magicka"])
 	player["ring_of_magicka_used_this_turn"] = false
 
-	_draw_one_card(player)
-
-	match_state["phase"] = PHASE_ACTION
 	match_state["turn_number"] = int(match_state.get("turn_number", 0)) + 1
 	match_state["priority_player_id"] = player_id
+	var draw_result := MatchTiming.draw_cards(match_state, player_id, 1, {
+		"reason": MatchTiming.EVENT_TURN_STARTED,
+		"source_controller_player_id": player_id,
+	})
+	var events: Array = draw_result.get("events", []).duplicate(true)
+	var drawn_cards: Array = draw_result.get("cards", [])
+	var drawn_instance_id := ""
+	if not drawn_cards.is_empty():
+		drawn_instance_id = str(drawn_cards[0].get("instance_id", ""))
+	if str(match_state.get("winner_player_id", "")).is_empty():
+		match_state["phase"] = PHASE_ACTION
+		events.append({
+			"event_type": MatchTiming.EVENT_TURN_STARTED,
+			"player_id": player_id,
+			"turn_number": int(match_state.get("turn_number", 0)),
+			"source_controller_player_id": player_id,
+			"drawn_instance_id": drawn_instance_id,
+		})
+	else:
+		match_state["phase"] = "complete"
+	if not events.is_empty():
+		MatchTiming.publish_events(match_state, events)
 	return match_state
 
 
-static func _draw_one_card(player: Dictionary) -> void:
-	var deck: Array = player.get("deck", [])
-	if deck.is_empty():
-		push_error("Turn draw from an empty deck is not implemented yet.")
-		return
+static func _refresh_board_state_for_turn(match_state: Dictionary, player_id: String) -> void:
+	var current_turn_number := int(match_state.get("turn_number", 0))
+	for lane in match_state.get("lanes", []):
+		var player_slots_by_id: Dictionary = lane.get("player_slots", {})
+		if not player_slots_by_id.has(player_id):
+			continue
 
-	var drawn_card: Dictionary = deck.pop_back()
-	drawn_card["zone"] = "hand"
-	player["hand"].append(drawn_card)
+		var slots: Array = player_slots_by_id[player_id]
+		for slot_index in range(slots.size()):
+			var card = slots[slot_index]
+			if card == null:
+				continue
+
+			EvergreenRules.refresh_for_controller_turn(card, current_turn_number)
+
+
+static func _expire_shadow_cover_if_needed(card: Dictionary, current_turn_number: int) -> void:
+	EvergreenRules.refresh_for_controller_turn(card, current_turn_number)
 
 
 static func _validate_action_owner(match_state: Dictionary, player_id: String, action_name: String) -> bool:
