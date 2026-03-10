@@ -1,0 +1,199 @@
+{
+  "version": "0.1.0",
+  "attributes": [
+    {
+      "id": "strength",
+      "display_name": "Strength",
+      "kind": "primary",
+      "source_ids": ["uesp_attributes"]
+    },
+    {
+      "id": "intelligence",
+      "display_name": "Intelligence",
+      "kind": "primary",
+      "source_ids": ["uesp_attributes"]
+    },
+    {
+      "id": "willpower",
+      "display_name": "Willpower",
+      "kind": "primary",
+      "source_ids": ["uesp_attributes"]
+    },
+    {
+      "id": "agility",
+      "display_name": "Agility",
+      "kind": "primary",
+      "source_ids": ["uesp_attributes"]
+    },
+    {
+      "id": "endurance",
+      "display_name": "Endurance",
+      "kind": "primary",
+      "source_ids": ["uesp_attributes"]
+    },
+    {
+      "id": "neutral",
+      "display_name": "Neutral",
+      "kind": "neutral",
+      "deck_selectable": false,
+      "notes": "Neutral cards have no attribute requirement and can appear in any legal deck.",
+      "source_ids": ["uesp_attributes"]
+    }
+  ],
+  "dual_classes": [
+    {
+      "id": "archer",
+      "display_name": "Archer",
+      "attribute_ids": ["strength", "agility"],
+      "attribute_tuple_key": "strength+agility",
+      "source_ids": ["uesp_classes"]
+    },
+    {
+      "id": "assassin",
+      "display_name": "Assassin",
+      "attribute_ids": ["intelligence", "agility"],
+      "attribute_tuple_key": "intelligence+agility",
+      "source_ids": ["uesp_classes"]
+    },
+    {
+      "id": "battlemage",
+      "display_name": "Battlemage",
+      "attribute_ids": ["strength", "intelligence"],
+      "attribute_tuple_key": "strength+intelligence",
+      "source_ids": ["uesp_classes"]
+    },
+    {
+      "id": "crusader",
+      "display_name": "Crusader",
+      "attribute_ids": ["strength", "willpower"],
+      "attribute_tuple_key": "strength+willpower",
+      "source_ids": ["uesp_classes"]
+    },
+    {
+      "id": "mage",
+      "display_name": "Mage",
+      "attribute_ids": ["intelligence", "willpower"],
+      "attribute_tuple_key": "intelligence+willpower",
+      "source_ids": ["uesp_classes"]
+    },
+    {
+      "id": "monk",
+      "display_name": "Monk",
+      "attribute_ids": ["willpower", "agility"],
+      "attribute_tuple_key": "willpower+agility",
+      "source_ids": ["uesp_classes"]
+    },
+    {
+      "id": "scout",
+      "display_name": "Scout",
+      "attribute_ids": ["agility", "endurance"],
+      "attribute_tuple_key": "agility+endurance",
+      "source_ids": ["uesp_classes"]
+    },
+    {
+      "id": "sorcerer",
+      "display_name": "Sorcerer",
+      "attribute_ids": ["intelligence", "endurance"],
+      "attribute_tuple_key": "intelligence+endurance",
+      "source_ids": ["uesp_classes"]
+    },
+    {
+      "id": "spellsword",
+      "display_name": "Spellsword",
+      "attribute_ids": ["willpower", "endurance"],
+      "attribute_tuple_key": "willpower+endurance",
+      "source_ids": ["uesp_classes"]
+    },
+    {
+      "id": "warrior",
+      "display_name": "Warrior",
+      "attribute_ids": ["strength", "endurance"],
+      "attribute_tuple_key": "strength+endurance",
+      "source_ids": ["uesp_classes"]
+    }
+  ],
+  "triple_classes": [
+    {
+      "id": "house_redoran",
+      "display_name": "House Redoran",
+      "attribute_ids": ["strength", "willpower", "endurance"],
+      "attribute_tuple_key": "strength+willpower+endurance",
+      "source_ids": ["uesp_classes"]
+    },
+    {
+      "id": "house_telvanni",
+      "display_name": "House Telvanni",
+      "attribute_ids": ["intelligence", "agility", "endurance"],
+      "attribute_tuple_key": "intelligence+agility+endurance",
+      "source_ids": ["uesp_classes"]
+    },
+    {
+      "id": "house_hlaalu",
+      "display_name": "House Hlaalu",
+      "attribute_ids": ["strength", "willpower", "agility"],
+      "attribute_tuple_key": "strength+willpower+agility",
+      "source_ids": ["uesp_classes"]
+    },
+    {
+      "id": "tribunal_temple",
+      "display_name": "Tribunal Temple",
+      "attribute_ids": ["intelligence", "willpower", "endurance"],
+      "attribute_tuple_key": "intelligence+willpower+endurance",
+      "source_ids": ["uesp_classes"]
+    },
+    {
+      "id": "house_dagoth",
+      "display_name": "House Dagoth",
+      "attribute_ids": ["strength", "intelligence", "agility"],
+      "attribute_tuple_key": "strength+intelligence+agility",
+      "source_ids": ["uesp_classes"]
+    },
+    {
+      "id": "ebonheart_pact",
+      "display_name": "Ebonheart Pact",
+      "attribute_ids": ["strength", "agility", "endurance"],
+      "attribute_tuple_key": "strength+agility+endurance",
+      "source_ids": ["uesp_classes"]
+    },
+    {
+      "id": "daggerfall_covenant",
+      "display_name": "Daggerfall Covenant",
+      "attribute_ids": ["strength", "intelligence", "endurance"],
+      "attribute_tuple_key": "strength+intelligence+endurance",
+      "source_ids": ["uesp_classes"]
+    },
+    {
+      "id": "aldmeri_dominion",
+      "display_name": "Aldmeri Dominion",
+      "attribute_ids": ["intelligence", "willpower", "agility"],
+      "attribute_tuple_key": "intelligence+willpower+agility",
+      "source_ids": ["uesp_classes"]
+    },
+    {
+      "id": "guildsworn",
+      "display_name": "The Guildsworn",
+      "attribute_ids": ["strength", "intelligence", "willpower"],
+      "attribute_tuple_key": "strength+intelligence+willpower",
+      "source_ids": ["uesp_classes"]
+    },
+    {
+      "id": "empire_of_cyrodiil",
+      "display_name": "The Empire of Cyrodiil",
+      "attribute_ids": ["willpower", "agility", "endurance"],
+      "attribute_tuple_key": "willpower+agility+endurance",
+      "source_ids": ["uesp_classes"]
+    }
+  ],
+  "deck_construction": {
+    "max_attributes_per_deck": 3,
+    "default_copy_limit": 3,
+    "unique_copy_limit": 1,
+    "deck_size_rules": [
+      { "attribute_count": 0, "min_cards": 50, "max_cards": 100 },
+      { "attribute_count": 1, "min_cards": 50, "max_cards": 100 },
+      { "attribute_count": 2, "min_cards": 50, "max_cards": 100 },
+      { "attribute_count": 3, "min_cards": 75, "max_cards": 100 }
+    ],
+    "source_ids": ["uesp_decks", "uesp_attributes", "uesp_classes"]
+  }
+}

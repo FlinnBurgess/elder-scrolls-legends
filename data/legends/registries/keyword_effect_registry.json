@@ -1,0 +1,90 @@
+{
+  "version": "0.1.0",
+  "keywords": [
+    { "id": "breakthrough", "display_name": "Breakthrough", "implementation_bucket": "mvp_evergreen", "source_ids": ["uesp_card_effects"] },
+    { "id": "charge", "display_name": "Charge", "implementation_bucket": "mvp_evergreen", "source_ids": ["uesp_card_effects"] },
+    { "id": "drain", "display_name": "Drain", "implementation_bucket": "mvp_evergreen", "source_ids": ["uesp_card_effects"] },
+    { "id": "guard", "display_name": "Guard", "implementation_bucket": "mvp_evergreen", "source_ids": ["uesp_card_effects"] },
+    { "id": "lethal", "display_name": "Lethal", "implementation_bucket": "mvp_evergreen", "source_ids": ["uesp_card_effects"] },
+    { "id": "mobilize", "display_name": "Mobilize", "implementation_bucket": "mvp_evergreen", "source_ids": ["uesp_card_effects"] },
+    { "id": "rally", "display_name": "Rally", "implementation_bucket": "mvp_evergreen", "source_ids": ["uesp_card_effects"] },
+    { "id": "regenerate", "display_name": "Regenerate", "implementation_bucket": "mvp_evergreen", "source_ids": ["uesp_card_effects"] },
+    { "id": "ward", "display_name": "Ward", "implementation_bucket": "mvp_evergreen", "source_ids": ["uesp_card_effects"] }
+  ],
+  "effect_families": [
+    { "id": "activate", "display_name": "Activate", "implementation_bucket": "mvp_foundation", "source_ids": ["uesp_card_effects"] },
+    { "id": "banish", "display_name": "Banish", "implementation_bucket": "mvp_foundation", "source_ids": ["uesp_card_effects"] },
+    { "id": "battle", "display_name": "Battle", "implementation_bucket": "mvp_foundation", "source_ids": ["uesp_card_effects"] },
+    { "id": "change", "display_name": "Change", "implementation_bucket": "mvp_foundation", "source_ids": ["uesp_card_effects"] },
+    { "id": "copy", "display_name": "Copy", "implementation_bucket": "mvp_foundation", "source_ids": ["uesp_card_effects"] },
+    { "id": "equip", "display_name": "Equip", "implementation_bucket": "mvp_foundation", "source_ids": ["uesp_card_effects"] },
+    { "id": "heal", "display_name": "Heal", "implementation_bucket": "mvp_foundation", "source_ids": ["uesp_card_effects"] },
+    { "id": "last_gasp", "display_name": "Last Gasp", "implementation_bucket": "mvp_foundation", "source_ids": ["uesp_card_effects"] },
+    { "id": "move", "display_name": "Move", "implementation_bucket": "mvp_foundation", "source_ids": ["uesp_card_effects"] },
+    { "id": "pilfer", "display_name": "Pilfer", "implementation_bucket": "mvp_foundation", "source_ids": ["uesp_card_effects"] },
+    { "id": "prophecy", "display_name": "Prophecy", "implementation_bucket": "mvp_foundation", "source_ids": ["uesp_card_effects"] },
+    { "id": "sacrifice", "display_name": "Sacrifice", "implementation_bucket": "mvp_foundation", "source_ids": ["uesp_card_effects"] },
+    { "id": "shackle", "display_name": "Shackle", "implementation_bucket": "mvp_foundation", "applies_status": "shackled", "source_ids": ["uesp_card_effects"] },
+    { "id": "silence", "display_name": "Silence", "implementation_bucket": "mvp_foundation", "applies_status": "silenced", "source_ids": ["uesp_card_effects"] },
+    { "id": "slay", "display_name": "Slay", "implementation_bucket": "mvp_foundation", "source_ids": ["uesp_card_effects"] },
+    { "id": "steal", "display_name": "Steal", "implementation_bucket": "mvp_foundation", "source_ids": ["uesp_card_effects"] },
+    { "id": "summon", "display_name": "Summon", "implementation_bucket": "mvp_foundation", "source_ids": ["uesp_card_effects"] },
+    { "id": "transform", "display_name": "Transform", "implementation_bucket": "mvp_foundation", "source_ids": ["uesp_card_effects"] },
+    { "id": "unsummon", "display_name": "Unsummon", "implementation_bucket": "mvp_foundation", "source_ids": ["uesp_card_effects"] },
+    { "id": "assemble", "display_name": "Assemble", "implementation_bucket": "extended_pack", "source_ids": ["uesp_card_effects"] },
+    { "id": "beast_form", "display_name": "Beast Form", "implementation_bucket": "extended_pack", "source_ids": ["uesp_card_effects"] },
+    { "id": "betray", "display_name": "Betray", "implementation_bucket": "extended_pack", "source_ids": ["uesp_card_effects"] },
+    { "id": "consume", "display_name": "Consume", "implementation_bucket": "extended_pack", "source_ids": ["uesp_card_effects"] },
+    { "id": "empower", "display_name": "Empower", "implementation_bucket": "extended_pack", "source_ids": ["uesp_card_effects"] },
+    { "id": "exalt", "display_name": "Exalt", "implementation_bucket": "extended_pack", "source_ids": ["uesp_card_effects"] },
+    { "id": "expertise", "display_name": "Expertise", "implementation_bucket": "extended_pack", "source_ids": ["uesp_card_effects"] },
+    { "id": "invade", "display_name": "Invade", "implementation_bucket": "extended_pack", "source_ids": ["uesp_card_effects"] },
+    { "id": "plot", "display_name": "Plot", "implementation_bucket": "extended_pack", "source_ids": ["uesp_card_effects"] },
+    { "id": "shout", "display_name": "Shout", "implementation_bucket": "extended_pack", "source_ids": ["uesp_card_effects"] },
+    { "id": "treasure_hunt", "display_name": "Treasure Hunt", "implementation_bucket": "extended_pack", "source_ids": ["uesp_card_effects"] },
+    { "id": "veteran", "display_name": "Veteran", "implementation_bucket": "extended_pack", "source_ids": ["uesp_card_effects"] },
+    { "id": "wax_and_wane", "display_name": "Wax and Wane", "implementation_bucket": "extended_pack", "source_ids": ["uesp_card_effects"] }
+  ],
+  "status_markers": [
+    {
+      "id": "cover",
+      "display_name": "Cover",
+      "implementation_bucket": "mvp_foundation",
+      "granted_by": ["shadow_lane_entry"],
+      "source_ids": ["uesp_card_effects", "uesp_lanes"]
+    },
+    {
+      "id": "shackled",
+      "display_name": "Shackled",
+      "implementation_bucket": "mvp_foundation",
+      "source_ids": ["uesp_card_effects"]
+    },
+    {
+      "id": "silenced",
+      "display_name": "Silenced",
+      "implementation_bucket": "mvp_foundation",
+      "source_ids": ["uesp_card_effects"]
+    },
+    {
+      "id": "wounded",
+      "display_name": "Wounded",
+      "implementation_bucket": "mvp_foundation",
+      "source_ids": ["uesp_card_effects"]
+    },
+    {
+      "id": "exalted",
+      "display_name": "Exalted",
+      "implementation_bucket": "extended_pack",
+      "source_ids": ["uesp_card_effects"]
+    }
+  ],
+  "rules_tags": [
+    {
+      "id": "double_card",
+      "display_name": "Double Card",
+      "implementation_bucket": "extended_pack",
+      "notes": "Reserved non-keyword flag for late-era cards that span two card records or presentation surfaces.",
+      "source_ids": ["workspace_spec"]
+    }
+  ]
+}
