@@ -189,9 +189,10 @@ func _test_ends_turn_when_only_bad_ring_remains(failures: Array) -> void:
 
 func _assert_policy_pick(match_state: Dictionary, expected_prefix: String, failures: Array, message: String) -> void:
 	var choice := HeuristicMatchPolicy.choose_action(match_state)
-	VerificationAssertions.assert_true(bool(choice.get("is_valid", false)), "%s\nPolicy returned an invalid choice: %s" % [message, str(choice)], failures)
+	var probe := HeuristicMatchPolicy.describe_choice(choice)
+	VerificationAssertions.assert_true(bool(choice.get("is_valid", false)), "%s\nPolicy returned an invalid choice.\n%s" % [message, probe], failures)
 	var action: Dictionary = choice.get("chosen_action", {})
 	var action_id := str(action.get("id", ""))
-	VerificationAssertions.assert_true(action_id.begins_with(expected_prefix), "%s\nExpected prefix: %s\nActual: %s" % [message, expected_prefix, action_id], failures)
+	VerificationAssertions.assert_true(action_id.begins_with(expected_prefix), "%s\nExpected prefix: %s\nActual: %s\n%s" % [message, expected_prefix, action_id, probe], failures)
 	var execution := MatchActionExecutor.clone_and_execute(match_state, action)
-	VerificationAssertions.assert_true(bool(execution.get("is_valid", false)), "%s\nChosen action should remain executable after selection: %s" % [message, action_id], failures)
+	VerificationAssertions.assert_true(bool(execution.get("is_valid", false)), "%s\nChosen action should remain executable after selection: %s\n%s" % [message, action_id, probe], failures)

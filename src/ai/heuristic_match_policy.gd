@@ -20,10 +20,12 @@ static func choose_action(match_state: Dictionary, player_id: String = "", optio
 	if decision_player_id.is_empty() or not str(surface.get("blocked_reason", "")).is_empty():
 		return {"is_valid": false, "surface": surface, "reason": str(surface.get("blocked_reason", "No legal actor could be determined.")), "chosen_action": {}}
 	var baseline := MatchStateEvaluator.evaluate_state(match_state, decision_player_id)
-	var ranked := _rank_actions(match_state, surface, decision_player_id, baseline, _merged_options(options), DEFAULT_LOOKAHEAD_DEPTH)
+	var merged_options := _merged_options(options)
+	var ranked := _rank_actions(match_state, surface, decision_player_id, baseline, merged_options, DEFAULT_LOOKAHEAD_DEPTH)
 	if ranked.is_empty():
 		return {"is_valid": false, "surface": surface, "reason": "No legal actions were available.", "chosen_action": {}}
-	var chosen := _select_final_candidate(ranked, surface, baseline, _merged_options(options))
+	var chosen := _select_final_candidate(ranked, surface, baseline, merged_options)
+	var decision_reason := _decision_reason(chosen, ranked, surface, merged_options)
 	return {
 		"is_valid": true,
 		"surface": surface,
@@ -33,8 +35,27 @@ static func choose_action(match_state: Dictionary, player_id: String = "", optio
 		"chosen_score": float(chosen.get("total_score", -1000000.0)),
 		"projected_gain": float(chosen.get("relative_gain", 0.0)),
 		"reason": str(chosen.get("reason", "highest_score")),
+		"behavior_label": str(chosen.get("behavior_label", "highest_score")),
+		"decision_reason": decision_reason,
+		"action_summary": str(chosen.get("action_summary", _action_summary(chosen.get("action", {})))),
+		"decision_summary": _candidate_summary(chosen, decision_reason),
 		"considered_actions": _considered_summary(ranked),
 	}
+
+
+static func describe_choice(choice: Dictionary, max_candidates: int = 3) -> String:
+	if not bool(choice.get("is_valid", false)):
+		return "invalid_choice reason=%s" % str(choice.get("reason", "unknown"))
+	var sections: Array = [str(choice.get("decision_summary", ""))]
+	var considered: Array = choice.get("considered_actions", [])
+	var limit := mini(max_candidates, considered.size())
+	if limit > 0:
+		var top: Array = []
+		for index in range(limit):
+			var candidate: Dictionary = considered[index]
+			top.append(str(candidate.get("summary", candidate.get("id", ""))))
+		sections.append("top=%s" % " || ".join(top))
+	return " || ".join(sections)
 
 
 static func _rank_actions(match_state: Dictionary, surface: Dictionary, player_id: String, baseline: float, options: Dictionary, lookahead_depth: int) -> Array:
@@ -61,6 +82,7 @@ static func _rank_actions(match_state: Dictionary, surface: Dictionary, player_i
 
 static func _score_action_immediate(match_state: Dictionary, action: Dictionary, player_id: String, baseline: float) -> Dictionary:
 	var execution := MatchActionExecutor.clone_and_execute(match_state, action)
+	var action_summary := _action_summary(action)
 	if not bool(execution.get("is_valid", false)):
 		return {
 			"action": action.duplicate(true),
@@ -68,6 +90,8 @@ static func _score_action_immediate(match_state: Dictionary, action: Dictionary,
 			"total_score": -1000000.0,
 			"relative_gain": -1000000.0,
 			"reason": "illegal_after_simulation",
+			"behavior_label": "illegal_after_simulation",
+			"action_summary": action_summary,
 			"simulated_state": execution.get("match_state", {}),
 		}
 	var simulated_state: Dictionary = execution.get("match_state", {})
@@ -79,6 +103,7 @@ static func _score_action_immediate(match_state: Dictionary, action: Dictionary,
 		reason = "lethal"
 	elif str(action.get("kind", "")) == MatchActionEnumerator.KIND_DECLINE_PROPHECY:
 		reason = "decline_prophecy"
+	var behavior_label := _classify_candidate(match_state, simulated_state, action, player_id, reason)
 	return {
 		"action": action.duplicate(true),
 		"state_score": state_score,
@@ -88,6 +113,8 @@ static func _score_action_immediate(match_state: Dictionary, action: Dictionary,
 		"total_score": total,
 		"relative_gain": total - baseline,
 		"reason": reason,
+		"behavior_label": behavior_label,
+		"action_summary": action_summary,
 		"forced": float(tactical_bonus) >= LETHAL_BONUS or str(simulated_state.get("winner_player_id", "")) == player_id,
 		"simulated_state": simulated_state,
 	}
@@ -215,11 +242,90 @@ static func _considered_summary(ranked: Array) -> Array:
 		summary.append({
 			"id": str(candidate.get("action", {}).get("id", "")),
 			"kind": str(candidate.get("action", {}).get("kind", "")),
+			"action_summary": str(candidate.get("action_summary", _action_summary(candidate.get("action", {})))),
+			"behavior_label": str(candidate.get("behavior_label", "highest_score")),
+			"state_score": float(candidate.get("state_score", 0.0)),
+			"tactical_bonus": float(candidate.get("tactical_bonus", 0.0)),
+			"continuation_gain": float(candidate.get("continuation_gain", 0.0)),
 			"score": float(candidate.get("total_score", 0.0)),
 			"gain": float(candidate.get("relative_gain", 0.0)),
 			"reason": str(candidate.get("reason", "highest_score")),
+			"summary": _candidate_summary(candidate, str(candidate.get("reason", "highest_score"))),
 		})
 	return summary
+
+
+static func _decision_reason(chosen: Dictionary, ranked: Array, surface: Dictionary, options: Dictionary) -> String:
+	if bool(surface.get("has_pending_prophecy", false)):
+		return "prophecy_decline" if str(chosen.get("action", {}).get("kind", "")) == MatchActionEnumerator.KIND_DECLINE_PROPHECY else "prophecy_play"
+	if str(chosen.get("reason", "")) == "lethal" or bool(chosen.get("forced", false)):
+		return "lethal"
+	if _is_pass_action(chosen.get("action", {})):
+		var best_non_pass := _best_non_pass_candidate(ranked)
+		if best_non_pass.is_empty() or float(best_non_pass.get("relative_gain", 0.0)) < float(options.get("min_action_gain", DEFAULT_MIN_ACTION_GAIN)):
+			return "no_profitable_play"
+		return "pass"
+	return str(chosen.get("behavior_label", chosen.get("reason", "highest_score")))
+
+
+static func _classify_candidate(before_state: Dictionary, after_state: Dictionary, action: Dictionary, player_id: String, reason: String) -> String:
+	if reason == "lethal" or str(after_state.get("winner_player_id", "")) == player_id:
+		return "lethal_line"
+	if MatchTiming.has_pending_prophecy(before_state) or str(action.get("response_kind", "")) == MatchTiming.RULE_TAG_PROPHECY:
+		return "prophecy_decline" if str(action.get("kind", "")) == MatchActionEnumerator.KIND_DECLINE_PROPHECY else "prophecy_play"
+	if _is_pass_action(action):
+		return "pass_no_profitable_play"
+	var opponent_id := _opposing_player_id(before_state, player_id)
+	var before_player := _find_player(before_state, player_id)
+	var threat_before := _incoming_face_threat(before_state, player_id)
+	var threat_after := _incoming_face_threat(after_state, player_id)
+	var guard_before := _guard_count(before_state, player_id)
+	var guard_after := _guard_count(after_state, player_id)
+	var enemy_creatures_before := _creature_count(before_state, opponent_id)
+	var enemy_creatures_after := _creature_count(after_state, opponent_id)
+	if threat_after < threat_before or guard_after > guard_before or (int(before_player.get("health", 30)) <= 12 and enemy_creatures_after < enemy_creatures_before):
+		return "defensive_stabilization"
+	var kind := str(action.get("kind", ""))
+	if kind == MatchActionEnumerator.KIND_ATTACK:
+		return "face_pressure" if str(action.get("target", {}).get("kind", "")) == "player" else "board_control"
+	if kind in [
+		MatchActionEnumerator.KIND_RING_USE,
+		MatchActionEnumerator.KIND_SUMMON_CREATURE,
+		MatchActionEnumerator.KIND_PLAY_SUPPORT,
+		MatchActionEnumerator.KIND_PLAY_ITEM,
+		MatchActionEnumerator.KIND_ACTIVATE_SUPPORT,
+		MatchActionEnumerator.KIND_PLAY_ACTION,
+	]:
+		return "tempo_development"
+	return "highest_score"
+
+
+static func _candidate_summary(candidate: Dictionary, decision_reason: String) -> String:
+	return "%s | %s | reason=%s | score=%s gain=%s state=%s tactic=%s follow=%s" % [
+		str(candidate.get("behavior_label", "highest_score")),
+		str(candidate.get("action_summary", _action_summary(candidate.get("action", {})))),
+		decision_reason,
+		_format_score(float(candidate.get("total_score", 0.0))),
+		_format_score(float(candidate.get("relative_gain", 0.0))),
+		_format_score(float(candidate.get("state_score", 0.0))),
+		_format_score(float(candidate.get("tactical_bonus", 0.0))),
+		_format_score(float(candidate.get("continuation_gain", 0.0))),
+	]
+
+
+static func _action_summary(action: Dictionary) -> String:
+	var action_id := str(action.get("id", ""))
+	if not action_id.is_empty():
+		return action_id
+	return "%s:%s:%s" % [
+		str(action.get("kind", "unknown")),
+		str(action.get("player_id", "")),
+		str(action.get("source_instance_id", "")),
+	]
+
+
+static func _format_score(value: float) -> String:
+	return "%0.2f" % value
 
 
 static func _sort_scored_actions(a: Dictionary, b: Dictionary) -> bool:
