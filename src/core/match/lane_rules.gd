@@ -2,6 +2,8 @@ class_name LaneRules
 extends RefCounted
 
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
+const ExtendedMechanicPacks = preload("res://src/core/match/extended_mechanic_packs.gd")
+const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const CARD_TYPE_CREATURE := "creature"
 const ZONE_HAND := "hand"
@@ -61,11 +63,17 @@ static func summon_from_hand(match_state: Dictionary, player_id: String, instanc
 	var validation := validate_summon_from_hand(match_state, player_id, instance_id, lane_id, options)
 	if not validation["is_valid"]:
 		return validation
-
-	var player: Dictionary = match_state["players"][validation["player_index"]]
-	var card: Dictionary = player[ZONE_HAND][validation["hand_index"]]
-	player[ZONE_HAND].remove_at(validation["hand_index"])
-	_apply_lane_entry(match_state, player_id, card, validation)
+	var player_lookup := _find_player(match_state.get("players", []), player_id)
+	if not bool(player_lookup.get("is_valid", false)):
+		return player_lookup
+	var player: Dictionary = player_lookup["player"]
+	var hand_index := _find_card_index(player.get(ZONE_HAND, []), instance_id)
+	if hand_index >= 0:
+		ExtendedMechanicPacks.apply_pre_play_options(player[ZONE_HAND][hand_index], options)
+	var summon_result := MatchMutations.summon_card_to_lane(match_state, player_id, instance_id, lane_id, options)
+	if not bool(summon_result.get("is_valid", false)):
+		return summon_result
+	var card: Dictionary = summon_result["card"]
 	var play_event := {
 		"event_type": MatchTiming.EVENT_CARD_PLAYED,
 		"playing_player_id": player_id,
@@ -84,8 +92,8 @@ static func summon_from_hand(match_state: Dictionary, player_id: String, instanc
 		"source_instance_id": str(card.get("instance_id", "")),
 		"source_controller_player_id": player_id,
 		"lane_id": lane_id,
-		"slot_index": int(validation.get("slot_index", -1)),
-		"granted_cover": bool(validation.get("granted_cover", false)),
+		"slot_index": int(summon_result.get("slot_index", -1)),
+		"granted_cover": bool(summon_result.get("granted_cover", false)),
 	}
 	for key in _ensure_dictionary(options.get("play_event_overrides", {})).keys():
 		play_event[key] = options["play_event_overrides"][key]
@@ -97,10 +105,10 @@ static func summon_from_hand(match_state: Dictionary, player_id: String, instanc
 		"is_valid": true,
 		"errors": [],
 		"lane_id": lane_id,
-		"lane_index": validation["lane_index"],
-		"slot_index": validation["slot_index"],
+		"lane_index": summon_result["lane_index"],
+		"slot_index": summon_result["slot_index"],
 		"card": card,
-		"granted_cover": bool(validation.get("granted_cover", false)),
+		"granted_cover": bool(summon_result.get("granted_cover", false)),
 		"events": timing_result.get("processed_events", []),
 		"trigger_resolutions": timing_result.get("trigger_resolutions", []),
 	}
@@ -128,60 +136,23 @@ static func move_creature(match_state: Dictionary, player_id: String, instance_i
 	var validation := validate_move(match_state, player_id, instance_id, target_lane_id, options)
 	if not validation["is_valid"]:
 		return validation
-
-	var source_lane: Dictionary = match_state["lanes"][validation["source_lane_index"]]
-	var source_slots: Array = source_lane["player_slots"][player_id]
-	var card: Dictionary = source_slots[validation["source_slot_index"]]
-	source_slots[validation["source_slot_index"]] = null
-	_apply_lane_entry(match_state, player_id, card, validation)
+	var move_result := MatchMutations.move_card_between_lanes(match_state, player_id, instance_id, target_lane_id, options)
+	if not bool(move_result.get("is_valid", false)):
+		return move_result
 
 	return {
 		"is_valid": true,
 		"errors": [],
 		"from_lane_id": validation["source_lane_id"],
 		"to_lane_id": target_lane_id,
-		"slot_index": validation["slot_index"],
-		"card": card,
-		"granted_cover": bool(validation.get("granted_cover", false)),
+		"slot_index": move_result["slot_index"],
+		"card": move_result["card"],
+		"granted_cover": bool(move_result.get("granted_cover", false)),
 	}
 
 
 static func _validate_lane_entry(match_state: Dictionary, player_id: String, card: Dictionary, lane_id: String, options: Dictionary = {}) -> Dictionary:
-	if not _is_creature(card):
-		return _invalid_result("Only creature cards can enter lanes.")
-
-	var lane_index := _find_lane_index(match_state.get("lanes", []), lane_id)
-	if lane_index == -1:
-		return _invalid_result("Unknown lane_id: %s" % lane_id)
-
-	var lane: Dictionary = match_state["lanes"][lane_index]
-	var player_slots_by_id: Dictionary = lane.get("player_slots", {})
-	if not player_slots_by_id.has(player_id):
-		return _invalid_result("Lane %s does not track player_id %s." % [lane_id, player_id])
-
-	var player_slots: Array = player_slots_by_id[player_id]
-	var requested_slot := int(options.get("slot_index", -1))
-	var slot_index := requested_slot
-	if requested_slot == -1:
-		slot_index = _find_open_slot(player_slots)
-		if slot_index == -1:
-			return _invalid_result("Lane %s is full for %s." % [lane_id, player_id])
-	else:
-		if requested_slot < 0 or requested_slot >= player_slots.size():
-			return _invalid_result("Requested slot %d is out of range for lane %s." % [requested_slot, lane_id])
-		if player_slots[requested_slot] != null:
-			return _invalid_result("Requested slot %d in lane %s is already occupied." % [requested_slot, lane_id])
-
-	return {
-		"is_valid": true,
-		"errors": [],
-		"lane_id": lane_id,
-		"lane_index": lane_index,
-		"slot_index": slot_index,
-		"lane_type": str(lane.get("lane_type", lane_id)),
-		"lane_rule_payload": lane.get("lane_rule_payload", {}),
-		"granted_cover": _should_grant_cover(match_state, lane, card),
-	}
+	return MatchMutations.validate_lane_entry(match_state, player_id, card, lane_id, options)
 
 
 static func _apply_lane_entry(match_state: Dictionary, player_id: String, card: Dictionary, validation: Dictionary) -> void:

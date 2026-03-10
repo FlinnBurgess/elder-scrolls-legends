@@ -144,6 +144,7 @@ static func _build_player_state(player_id: String, deck_definition_ids: Array, r
 		"rune_thresholds": STANDARD_RUNE_THRESHOLDS.duplicate(),
 		"deck": shuffled_deck,
 		"hand": opening_hand,
+		"support": [],
 		"discard": [],
 		"banished": [],
 		"max_magicka": 0,

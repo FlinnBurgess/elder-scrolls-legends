@@ -2,6 +2,8 @@ class_name MatchTurnLoop
 extends RefCounted
 
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
+const ExtendedMechanicPacks = preload("res://src/core/match/extended_mechanic_packs.gd")
+const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const PHASE_READY_FOR_FIRST_TURN := "ready_for_first_turn"
 const PHASE_ACTION := "action"
@@ -32,6 +34,7 @@ static func end_turn(match_state: Dictionary, player_id: String) -> Dictionary:
 	}])
 
 	var player := _get_player_state(match_state, player_id)
+	ExtendedMechanicPacks.toggle_wax_wane(player)
 	player["current_magicka"] = 0
 	player["temporary_magicka"] = 0
 	player["ring_of_magicka_used_this_turn"] = false
@@ -136,6 +139,8 @@ static func get_available_magicka(player_state: Dictionary) -> int:
 
 static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionary:
 	var player := _get_player_state(match_state, player_id)
+	ExtendedMechanicPacks.ensure_player_state(player)
+	ExtendedMechanicPacks.reset_turn_state(player)
 	_refresh_board_state_for_turn(match_state, player_id)
 	player["turns_started"] = int(player.get("turns_started", 0)) + 1
 	player["temporary_magicka"] = 0
@@ -184,6 +189,12 @@ static func _refresh_board_state_for_turn(match_state: Dictionary, player_id: St
 				continue
 
 			EvergreenRules.refresh_for_controller_turn(card, current_turn_number)
+
+	var player := _get_player_state(match_state, player_id)
+	for support in player.get("support", []):
+		if typeof(support) != TYPE_DICTIONARY:
+			continue
+		PersistentCardRules.refresh_support_for_controller_turn(support)
 
 
 static func _expire_shadow_cover_if_needed(card: Dictionary, current_turn_number: int) -> void:

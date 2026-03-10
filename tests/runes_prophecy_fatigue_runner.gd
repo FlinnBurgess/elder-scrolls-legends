@@ -5,6 +5,7 @@ const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const LaneRules = preload("res://src/core/match/lane_rules.gd")
 const MatchCombat = preload("res://src/core/match/match_combat.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
+const ScenarioFixtures = preload("res://tests/support/scenario_fixtures.gd")
 
 
 func _initialize() -> void:
@@ -165,93 +166,37 @@ func _test_fatigue_uses_out_of_cards_and_eventual_loss() -> bool:
 
 
 func _build_started_match(deck_size: int, first_player_index: int) -> Dictionary:
-	var match_state := MatchBootstrap.create_standard_match([
-		_build_deck("alpha", deck_size),
-		_build_deck("beta", deck_size)
-	], {
+	return ScenarioFixtures.create_started_match({
+		"deck_size": deck_size,
 		"seed": 37,
 		"first_player_index": first_player_index,
 	})
-	if match_state.is_empty():
-		return {}
-	for player in match_state["players"]:
-		MatchBootstrap.apply_mulligan(match_state, player["player_id"], [])
-	MatchTurnLoop.begin_first_turn(match_state)
-	return match_state
 
 
 func _summon_creature(player: Dictionary, match_state: Dictionary, label: String, lane_id: String, power: int, health: int, keywords: Array = [], slot_index := -1, extra: Dictionary = {}) -> Dictionary:
-	var card := _add_hand_card(player, label, {
-		"card_type": "creature",
-		"cost": int(extra.get("cost", 1)),
-		"power": power,
-		"health": health,
-		"keywords": keywords.duplicate(),
-		"triggered_abilities": extra.get("triggered_abilities", []).duplicate(true),
-		"rules_tags": extra.get("rules_tags", []).duplicate(),
-	})
-	var summon_options := {}
-	if slot_index >= 0:
-		summon_options["slot_index"] = slot_index
-	var result := LaneRules.summon_from_hand(match_state, player["player_id"], card["instance_id"], lane_id, summon_options)
-	_assert(result["is_valid"], "Expected summon fixture for %s to succeed." % label)
+	var card := ScenarioFixtures.summon_creature(player, match_state, label, lane_id, power, health, keywords, slot_index, extra)
+	_assert(not card.is_empty(), "Expected summon fixture for %s to succeed." % label)
 	return card
 
 
 func _add_hand_card(player: Dictionary, label: String, extra: Dictionary = {}) -> Dictionary:
-	var card := _make_card(player["player_id"], label, extra)
-	card["zone"] = "hand"
-	player["hand"].append(card)
-	return card
+	return ScenarioFixtures.add_hand_card(player, label, extra)
 
 
 func _make_card(player_id: String, label: String, extra: Dictionary = {}) -> Dictionary:
-	return {
-		"instance_id": "%s_%s" % [player_id, label],
-		"definition_id": "test_%s" % label,
-		"owner_player_id": player_id,
-		"controller_player_id": player_id,
-		"zone": str(extra.get("zone", "hand")),
-		"card_type": str(extra.get("card_type", "creature")),
-		"cost": int(extra.get("cost", 1)),
-		"power": int(extra.get("power", 0)),
-		"health": int(extra.get("health", 0)),
-		"damage_marked": int(extra.get("damage_marked", 0)),
-		"keywords": extra.get("keywords", []).duplicate(),
-		"rules_tags": extra.get("rules_tags", []).duplicate(),
-		"granted_keywords": extra.get("granted_keywords", []).duplicate(),
-		"status_markers": extra.get("status_markers", []).duplicate(),
-		"triggered_abilities": extra.get("triggered_abilities", []).duplicate(true),
-		"power_bonus": int(extra.get("power_bonus", 0)),
-		"health_bonus": int(extra.get("health_bonus", 0)),
-	}
+	return ScenarioFixtures.make_card(player_id, label, extra)
 
 
 func _set_deck_cards(player: Dictionary, cards: Array) -> void:
-	player["deck"] = []
-	for card in cards:
-		card["owner_player_id"] = player["player_id"]
-		card["controller_player_id"] = player["player_id"]
-		card["zone"] = "deck"
-		player["deck"].append(card)
+	ScenarioFixtures.set_deck_cards(player, cards)
 
 
 func _target_ready_for_attack(card: Dictionary, match_state: Dictionary) -> void:
-	card["entered_lane_on_turn"] = int(match_state.get("turn_number", 0)) - 1
-	card["has_attacked_this_turn"] = false
-	var status_markers: Array = card.get("status_markers", [])
-	status_markers.erase("shackled")
-	card["status_markers"] = status_markers
+	ScenarioFixtures.ready_for_attack(card, match_state)
 
 
 func _lane_slot(match_state: Dictionary, lane_id: String, player_id: String, slot_index: int):
-	for lane in match_state.get("lanes", []):
-		if str(lane.get("lane_id", "")) != lane_id:
-			continue
-		var player_slots: Array = lane.get("player_slots", {}).get(player_id, [])
-		if slot_index >= 0 and slot_index < player_slots.size():
-			return player_slots[slot_index]
-	return null
+	return ScenarioFixtures.lane_slot(match_state, lane_id, player_id, slot_index)
 
 
 func _count_out_of_cards(player: Dictionary) -> int:
@@ -277,10 +222,7 @@ func _families_from_resolutions(resolutions: Array) -> Array:
 
 
 func _build_deck(prefix: String, size: int) -> Array:
-	var deck: Array = []
-	for index in range(size):
-		deck.append("%s_card_%02d" % [prefix, index + 1])
-	return deck
+	return ScenarioFixtures.build_deck(prefix, size)
 
 
 func _assert(condition: bool, message: String) -> bool:

@@ -2,6 +2,7 @@ class_name MatchCombat
 extends RefCounted
 
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
+const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const PHASE_ACTION := "action"
 const TARGET_TYPE_CREATURE := "creature"
@@ -256,6 +257,8 @@ static func _resolve_creature_attack(match_state: Dictionary, validation: Dictio
 
 
 static func _validate_attacker_readiness(match_state: Dictionary, attacker: Dictionary) -> Dictionary:
+	if bool(attacker.get("cannot_attack", false)):
+		return _invalid_result("This creature cannot attack.")
 	if EvergreenRules.has_status(attacker, EvergreenRules.STATUS_SHACKLED):
 		return _invalid_result("Shackled creatures cannot attack.")
 
@@ -383,25 +386,20 @@ static func _get_health(card: Dictionary) -> int:
 
 
 static func _destroy_creature(match_state: Dictionary, lookup: Dictionary, destroyed_by_instance_id: String, events: Array) -> void:
-	var lane: Dictionary = match_state["lanes"][lookup["lane_index"]]
-	var player_slots: Array = lane["player_slots"][lookup["player_id"]]
-	var card: Dictionary = player_slots[lookup["slot_index"]]
-	if card == null:
+	var card := MatchMutations.find_card_location(match_state, str(lookup.get("card", {}).get("instance_id", "")))
+	if not bool(card.get("is_valid", false)):
 		return
-
-	player_slots[lookup["slot_index"]] = null
-	card["zone"] = ZONE_DISCARD
-	card.erase("lane_id")
-	card.erase("slot_index")
-	var owner_player_id := str(card.get("owner_player_id", lookup["player_id"]))
-	var owner_player := _get_player_state(match_state, owner_player_id)
-	owner_player[ZONE_DISCARD].append(card)
+	var destroyed_controller_player_id := str(card["card"].get("controller_player_id", ""))
+	var moved := MatchMutations.discard_card(match_state, str(card["card"].get("instance_id", "")))
+	if not bool(moved.get("is_valid", false)):
+		return
+	var destroyed_card: Dictionary = moved["card"]
 	events.append({
 		"event_type": "creature_destroyed",
-		"instance_id": str(card.get("instance_id", "")),
-		"source_instance_id": str(card.get("instance_id", "")),
-		"owner_player_id": owner_player_id,
-		"controller_player_id": str(card.get("controller_player_id", "")),
+		"instance_id": str(destroyed_card.get("instance_id", "")),
+		"source_instance_id": str(destroyed_card.get("instance_id", "")),
+		"owner_player_id": str(destroyed_card.get("owner_player_id", lookup.get("player_id", ""))),
+		"controller_player_id": destroyed_controller_player_id,
 		"destroyed_by_instance_id": destroyed_by_instance_id,
 		"lane_id": str(lookup.get("lane_id", "")),
 		"source_zone": ZONE_LANE,

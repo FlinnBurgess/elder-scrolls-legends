@@ -45,6 +45,8 @@ static func ensure_card_state(card: Dictionary) -> void:
 		card["granted_keywords"] = []
 	if not card.has("status_markers") or typeof(card["status_markers"]) != TYPE_ARRAY:
 		card["status_markers"] = []
+	if not card.has("attached_items") or typeof(card["attached_items"]) != TYPE_ARRAY:
+		card["attached_items"] = []
 	if not card.has("damage_marked"):
 		card["damage_marked"] = 0
 	if not card.has("power_bonus"):
@@ -60,6 +62,11 @@ static func has_keyword(card: Dictionary, keyword_id: String) -> bool:
 	for key in ["keywords", "granted_keywords"]:
 		var values := _ensure_array(card.get(key, []))
 		if values.has(keyword_id):
+			return true
+	for item in get_attached_items(card):
+		if typeof(item) != TYPE_DICTIONARY:
+			continue
+		if _ensure_array(item.get("equip_keywords", [])).has(keyword_id):
 			return true
 	return false
 
@@ -196,6 +203,11 @@ static func apply_stat_bonus(card: Dictionary, power_bonus: int, health_bonus: i
 	}
 
 
+static func sync_derived_state(card: Dictionary) -> void:
+	ensure_card_state(card)
+	_sync_wounded_status(card)
+
+
 static func resolve_rally(match_state: Dictionary, attacker: Dictionary) -> Dictionary:
 	if not has_keyword(attacker, KEYWORD_RALLY):
 		return {"triggered": false}
@@ -265,6 +277,11 @@ static func build_mobilize_recruit(player_id: String, instance_id: String) -> Di
 	return recruit
 
 
+static func get_attached_items(card: Dictionary) -> Array:
+	ensure_card_state(card)
+	return _ensure_array(card.get("attached_items", []))
+
+
 static func is_creature_destroyed(card: Dictionary, destroyed_by_lethal: bool) -> bool:
 	if destroyed_by_lethal:
 		return true
@@ -283,7 +300,7 @@ static func get_power(card: Dictionary) -> int:
 		base_value = int(card.get("current_power", 0))
 	else:
 		base_value = int(card.get("base_power", 0))
-	return max(0, base_value + int(card.get("power_bonus", 0)))
+	return max(0, base_value + int(card.get("power_bonus", 0)) + _sum_attached_item_bonus(card, "equip_power_bonus"))
 
 
 static func get_health(card: Dictionary) -> int:
@@ -294,7 +311,7 @@ static func get_health(card: Dictionary) -> int:
 		base_value = int(card.get("current_health", 0))
 	else:
 		base_value = int(card.get("base_health", 0))
-	return max(0, base_value + int(card.get("health_bonus", 0)))
+	return max(0, base_value + int(card.get("health_bonus", 0)) + _sum_attached_item_bonus(card, "equip_health_bonus"))
 
 
 static func _sync_wounded_status(card: Dictionary) -> void:
@@ -302,6 +319,15 @@ static func _sync_wounded_status(card: Dictionary) -> void:
 		add_status(card, STATUS_WOUNDED)
 	else:
 		remove_status(card, STATUS_WOUNDED)
+
+
+static func _sum_attached_item_bonus(card: Dictionary, field_name: String) -> int:
+	var total := 0
+	for item in get_attached_items(card):
+		if typeof(item) != TYPE_DICTIONARY:
+			continue
+		total += int(item.get(field_name, 0))
+	return total
 
 
 static func _choose_deterministic_candidate_index(match_state: Dictionary, attacker_instance_id: String, candidates: Array) -> int:
