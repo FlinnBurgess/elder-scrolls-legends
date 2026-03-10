@@ -246,76 +246,75 @@ func end_turn_action() -> bool:
 
 
 func _build_ui() -> void:
-	var root := VBoxContainer.new()
+	var root := MarginContainer.new()
+	root.name = "MatchLayout"
+	root.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	root.size_flags_horizontal = SIZE_EXPAND_FILL
 	root.size_flags_vertical = SIZE_EXPAND_FILL
-	root.add_theme_constant_override("separation", 10)
+	root.add_theme_constant_override("margin_left", 24)
+	root.add_theme_constant_override("margin_top", 22)
+	root.add_theme_constant_override("margin_right", 24)
+	root.add_theme_constant_override("margin_bottom", 22)
 	add_child(root)
+	var content := VBoxContainer.new()
+	content.name = "MatchContent"
+	content.size_flags_horizontal = SIZE_EXPAND_FILL
+	content.size_flags_vertical = SIZE_EXPAND_FILL
+	content.add_theme_constant_override("separation", 24)
+	root.add_child(content)
+
+	var top_shell := PanelContainer.new()
+	top_shell.name = "ScenarioBar"
+	top_shell.custom_minimum_size = Vector2(0, 72)
+	content.add_child(top_shell)
 
 	var top_bar := HBoxContainer.new()
-	top_bar.add_theme_constant_override("separation", 8)
-	root.add_child(top_bar)
+	top_bar.add_theme_constant_override("separation", 16)
+	top_bar.size_flags_horizontal = SIZE_EXPAND_FILL
+	var top_bar_padding := MarginContainer.new()
+	top_bar_padding.add_theme_constant_override("margin_left", 16)
+	top_bar_padding.add_theme_constant_override("margin_top", 14)
+	top_bar_padding.add_theme_constant_override("margin_right", 16)
+	top_bar_padding.add_theme_constant_override("margin_bottom", 14)
+	top_bar_padding.size_flags_horizontal = SIZE_EXPAND_FILL
+	top_bar_padding.size_flags_vertical = SIZE_EXPAND_FILL
+	top_shell.add_child(top_bar_padding)
+	top_bar_padding.add_child(top_bar)
 
 	var scenario_label := Label.new()
 	scenario_label.text = "Scenario"
+	scenario_label.add_theme_font_size_override("font_size", 17)
 	top_bar.add_child(scenario_label)
 
 	_scenario_picker = OptionButton.new()
+	_scenario_picker.size_flags_horizontal = SIZE_EXPAND_FILL
+	_scenario_picker.custom_minimum_size = Vector2(0, 44)
+	_scenario_picker.add_theme_font_size_override("font_size", 16)
 	_scenario_picker.item_selected.connect(_on_scenario_selected)
 	top_bar.add_child(_scenario_picker)
 	_populate_scenario_picker()
 
 	_reload_button = Button.new()
 	_reload_button.text = "Reload"
+	_reload_button.custom_minimum_size = Vector2(132, 44)
+	_reload_button.add_theme_font_size_override("font_size", 16)
 	_reload_button.pressed.connect(_on_reload_pressed)
 	top_bar.add_child(_reload_button)
 
-	_play_selected_button = Button.new()
-	_play_selected_button.text = "Play / Act"
-	_play_selected_button.pressed.connect(_on_play_selected_pressed)
-	top_bar.add_child(_play_selected_button)
-
-	_ring_button = Button.new()
-	_ring_button.text = "Use Ring"
-	_ring_button.pressed.connect(_on_ring_pressed)
-	top_bar.add_child(_ring_button)
-
-	_end_turn_button = Button.new()
-	_end_turn_button.text = "End Turn"
-	_end_turn_button.pressed.connect(_on_end_turn_pressed)
-	top_bar.add_child(_end_turn_button)
-
-	_clear_button = Button.new()
-	_clear_button.text = "Clear Selection"
-	_clear_button.pressed.connect(_on_clear_pressed)
-	top_bar.add_child(_clear_button)
-
-	_status_label = Label.new()
-	_status_label.size_flags_horizontal = SIZE_EXPAND_FILL
-	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	top_bar.add_child(_status_label)
-
-	var prompt_panel := PanelContainer.new()
-	root.add_child(prompt_panel)
-	var prompt_box := VBoxContainer.new()
-	prompt_box.add_theme_constant_override("separation", 6)
-	prompt_panel.add_child(prompt_box)
-	_prompt_label = Label.new()
-	_prompt_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	prompt_box.add_child(_prompt_label)
-	_prompt_button_row = HBoxContainer.new()
-	prompt_box.add_child(_prompt_button_row)
-
-	var main_split := HSplitContainer.new()
-	main_split.size_flags_horizontal = SIZE_EXPAND_FILL
-	main_split.size_flags_vertical = SIZE_EXPAND_FILL
-	root.add_child(main_split)
+	var main_row := HBoxContainer.new()
+	main_row.name = "MainRow"
+	main_row.size_flags_horizontal = SIZE_EXPAND_FILL
+	main_row.size_flags_vertical = SIZE_EXPAND_FILL
+	main_row.add_theme_constant_override("separation", 24)
+	content.add_child(main_row)
 
 	var board_column := VBoxContainer.new()
+	board_column.name = "BoardColumn"
 	board_column.size_flags_horizontal = SIZE_EXPAND_FILL
 	board_column.size_flags_vertical = SIZE_EXPAND_FILL
-	board_column.add_theme_constant_override("separation", 10)
-	main_split.add_child(board_column)
+	board_column.size_flags_stretch_ratio = 3.8
+	board_column.add_theme_constant_override("separation", 20)
+	main_row.add_child(board_column)
 
 	for player_id in PLAYER_ORDER:
 		var section := _build_player_section(player_id)
@@ -325,24 +324,127 @@ func _build_ui() -> void:
 			var lanes_panel := _build_lanes_panel()
 			board_column.add_child(lanes_panel)
 
-	var tabs := TabContainer.new()
-	tabs.size_flags_horizontal = SIZE_EXPAND_FILL
-	tabs.size_flags_vertical = SIZE_EXPAND_FILL
-	main_split.add_child(tabs)
+	var utility_column := VBoxContainer.new()
+	utility_column.name = "UtilityColumn"
+	utility_column.custom_minimum_size = Vector2(336, 0)
+	utility_column.size_flags_horizontal = SIZE_FILL
+	utility_column.size_flags_vertical = SIZE_EXPAND_FILL
+	utility_column.add_theme_constant_override("separation", 18)
+	main_row.add_child(utility_column)
 
-	var inspector_tab := VBoxContainer.new()
-	inspector_tab.name = "Inspector"
-	inspector_tab.add_theme_constant_override("separation", 8)
-	tabs.add_child(inspector_tab)
+	_play_selected_button = Button.new()
+	_play_selected_button.text = "Play / Act"
+	_play_selected_button.custom_minimum_size = Vector2(0, 54)
+	_play_selected_button.size_flags_horizontal = SIZE_EXPAND_FILL
+	_play_selected_button.add_theme_font_size_override("font_size", 17)
+	_play_selected_button.pressed.connect(_on_play_selected_pressed)
+
+	_ring_button = Button.new()
+	_ring_button.text = "Use Ring"
+	_ring_button.custom_minimum_size = Vector2(0, 54)
+	_ring_button.size_flags_horizontal = SIZE_EXPAND_FILL
+	_ring_button.add_theme_font_size_override("font_size", 17)
+	_ring_button.pressed.connect(_on_ring_pressed)
+
+	_end_turn_button = Button.new()
+	_end_turn_button.text = "End Turn"
+	_end_turn_button.custom_minimum_size = Vector2(0, 54)
+	_end_turn_button.size_flags_horizontal = SIZE_EXPAND_FILL
+	_end_turn_button.add_theme_font_size_override("font_size", 17)
+	_end_turn_button.pressed.connect(_on_end_turn_pressed)
+
+	_clear_button = Button.new()
+	_clear_button.text = "Clear Selection"
+	_clear_button.custom_minimum_size = Vector2(0, 54)
+	_clear_button.size_flags_horizontal = SIZE_EXPAND_FILL
+	_clear_button.add_theme_font_size_override("font_size", 17)
+	_clear_button.pressed.connect(_on_clear_pressed)
+
+	var prompt_panel := PanelContainer.new()
+	prompt_panel.name = "PromptPanel"
+	prompt_panel.custom_minimum_size = Vector2(0, 126)
+	utility_column.add_child(prompt_panel)
+	var prompt_box := _build_panel_box(prompt_panel, 12, 16)
+	var prompt_title := Label.new()
+	prompt_title.text = "Interrupts / Prophecy"
+	prompt_title.add_theme_font_size_override("font_size", 20)
+	prompt_box.add_child(prompt_title)
+	_prompt_label = Label.new()
+	_prompt_label.size_flags_horizontal = SIZE_EXPAND_FILL
+	_prompt_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_prompt_label.add_theme_font_size_override("font_size", 16)
+	_prompt_label.custom_minimum_size = Vector2(0, 52)
+	prompt_box.add_child(_prompt_label)
+	_prompt_button_row = HBoxContainer.new()
+	_prompt_button_row.add_theme_constant_override("separation", 10)
+	_prompt_button_row.size_flags_horizontal = SIZE_EXPAND_FILL
+	prompt_box.add_child(_prompt_button_row)
+
+	var actions_panel := PanelContainer.new()
+	actions_panel.name = "ActionPanel"
+	actions_panel.custom_minimum_size = Vector2(0, 188)
+	utility_column.add_child(actions_panel)
+	var actions_box := _build_panel_box(actions_panel, 12, 16)
+	var actions_title := Label.new()
+	actions_title.text = "Turn Actions"
+	actions_title.add_theme_font_size_override("font_size", 20)
+	actions_box.add_child(actions_title)
+	var primary_action_row := HBoxContainer.new()
+	primary_action_row.add_theme_constant_override("separation", 10)
+	actions_box.add_child(primary_action_row)
+	primary_action_row.add_child(_play_selected_button)
+	primary_action_row.add_child(_end_turn_button)
+	var utility_action_row := HBoxContainer.new()
+	utility_action_row.add_theme_constant_override("separation", 10)
+	actions_box.add_child(utility_action_row)
+	utility_action_row.add_child(_ring_button)
+	utility_action_row.add_child(_clear_button)
+	_status_label = Label.new()
+	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status_label.add_theme_font_size_override("font_size", 16)
+	_status_label.custom_minimum_size = Vector2(0, 76)
+	actions_box.add_child(_status_label)
+
+	var inspector_panel := PanelContainer.new()
+	inspector_panel.name = "InspectorRailPanel"
+	inspector_panel.custom_minimum_size = Vector2(0, 236)
+	utility_column.add_child(inspector_panel)
+	var inspector_box := _build_panel_box(inspector_panel, 12, 16)
+	var inspector_title := Label.new()
+	inspector_title.text = "Selection / Help"
+	inspector_title.add_theme_font_size_override("font_size", 20)
+	inspector_box.add_child(inspector_title)
 	_inspector_label = Label.new()
 	_inspector_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	inspector_tab.add_child(_inspector_label)
+	_inspector_label.add_theme_font_size_override("font_size", 16)
+	_inspector_label.custom_minimum_size = Vector2(0, 100)
+	inspector_box.add_child(_inspector_label)
 	_keyword_button_row = HBoxContainer.new()
-	_keyword_button_row.add_theme_constant_override("separation", 6)
-	inspector_tab.add_child(_keyword_button_row)
+	_keyword_button_row.add_theme_constant_override("separation", 10)
+	inspector_box.add_child(_keyword_button_row)
 	_help_label = Label.new()
 	_help_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	inspector_tab.add_child(_help_label)
+	_help_label.add_theme_font_size_override("font_size", 16)
+	_help_label.custom_minimum_size = Vector2(0, 88)
+	inspector_box.add_child(_help_label)
+
+	var debug_panel := PanelContainer.new()
+	debug_panel.name = "DebugRailPanel"
+	debug_panel.size_flags_horizontal = SIZE_EXPAND_FILL
+	debug_panel.size_flags_vertical = SIZE_EXPAND_FILL
+	utility_column.add_child(debug_panel)
+	var debug_box := _build_panel_box(debug_panel, 12, 16)
+	var debug_title := Label.new()
+	debug_title.text = "History / Replay / State"
+	debug_title.add_theme_font_size_override("font_size", 19)
+	debug_box.add_child(debug_title)
+
+	var tabs := TabContainer.new()
+	tabs.name = "DebugTabs"
+	tabs.size_flags_horizontal = SIZE_EXPAND_FILL
+	tabs.size_flags_vertical = SIZE_EXPAND_FILL
+	tabs.custom_minimum_size = Vector2(0, 210)
+	debug_box.add_child(tabs)
 
 	_history_text = _build_read_only_text("History")
 	tabs.add_child(_history_text)
@@ -354,30 +456,58 @@ func _build_ui() -> void:
 
 func _build_player_section(player_id: String) -> Dictionary:
 	var panel := PanelContainer.new()
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 6)
-	panel.add_child(box)
+	panel.name = "OpponentBand" if player_id == PLAYER_ORDER[0] else "PlayerBand"
+	panel.custom_minimum_size = Vector2(0, 208)
+	panel.size_flags_horizontal = SIZE_EXPAND_FILL
+	var box := _build_panel_box(panel, 14, 16)
+
+	var title := Label.new()
+	title.text = "Opponent" if player_id == PLAYER_ORDER[0] else "Local Player"
+	title.add_theme_font_size_override("font_size", 21)
+	box.add_child(title)
 
 	var button := Button.new()
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.custom_minimum_size = Vector2(0, 78)
+	button.size_flags_horizontal = SIZE_EXPAND_FILL
+	button.add_theme_font_size_override("font_size", 18)
 	button.pressed.connect(_on_player_pressed.bind(player_id))
 	box.add_child(button)
 
+	var rows := HBoxContainer.new()
+	rows.add_theme_constant_override("separation", 18)
+	rows.size_flags_horizontal = SIZE_EXPAND_FILL
+	box.add_child(rows)
+
+	var support_box := VBoxContainer.new()
+	support_box.custom_minimum_size = Vector2(224, 0)
+	support_box.add_theme_constant_override("separation", 10)
+	rows.add_child(support_box)
+
 	var support_label := Label.new()
 	support_label.text = "Supports"
-	box.add_child(support_label)
+	support_label.add_theme_font_size_override("font_size", 17)
+	support_box.add_child(support_label)
 
 	var support_row := HBoxContainer.new()
-	support_row.add_theme_constant_override("separation", 6)
-	box.add_child(support_row)
+	support_row.add_theme_constant_override("separation", 10)
+	support_row.size_flags_horizontal = SIZE_EXPAND_FILL
+	support_box.add_child(support_row)
+
+	var hand_box := VBoxContainer.new()
+	hand_box.size_flags_horizontal = SIZE_EXPAND_FILL
+	hand_box.add_theme_constant_override("separation", 10)
+	rows.add_child(hand_box)
 
 	var hand_label := Label.new()
 	hand_label.text = "Hand"
-	box.add_child(hand_label)
+	hand_label.add_theme_font_size_override("font_size", 17)
+	hand_box.add_child(hand_label)
 
 	var hand_row := HBoxContainer.new()
-	hand_row.add_theme_constant_override("separation", 6)
-	box.add_child(hand_row)
+	hand_row.add_theme_constant_override("separation", 10)
+	hand_row.size_flags_horizontal = SIZE_EXPAND_FILL
+	hand_box.add_child(hand_row)
 
 	return {
 		"panel": panel,
@@ -389,32 +519,63 @@ func _build_player_section(player_id: String) -> Dictionary:
 
 func _build_lanes_panel() -> Control:
 	var lanes_panel := PanelContainer.new()
+	lanes_panel.name = "BattlefieldPanel"
+	lanes_panel.custom_minimum_size = Vector2(0, 432)
+	lanes_panel.size_flags_horizontal = SIZE_EXPAND_FILL
+	lanes_panel.size_flags_vertical = SIZE_EXPAND_FILL
+	lanes_panel.size_flags_stretch_ratio = 2.3
+	var lanes_box := _build_panel_box(lanes_panel, 18, 18)
+
+	var battlefield_title := Label.new()
+	battlefield_title.text = "Battlefield"
+	battlefield_title.add_theme_font_size_override("font_size", 24)
+	lanes_box.add_child(battlefield_title)
+
 	var lanes_row := HBoxContainer.new()
 	lanes_row.size_flags_horizontal = SIZE_EXPAND_FILL
-	lanes_row.add_theme_constant_override("separation", 10)
-	lanes_panel.add_child(lanes_row)
+	lanes_row.size_flags_vertical = SIZE_EXPAND_FILL
+	lanes_row.add_theme_constant_override("separation", 20)
+	lanes_box.add_child(lanes_row)
 
 	for lane in _lane_entries():
 		var lane_id := str(lane.get("id", ""))
-		var lane_box := VBoxContainer.new()
-		lane_box.size_flags_horizontal = SIZE_EXPAND_FILL
-		lane_box.add_theme_constant_override("separation", 6)
-		lanes_row.add_child(lane_box)
+		var lane_panel := PanelContainer.new()
+		lane_panel.name = "%s_lane_panel" % lane_id
+		lane_panel.custom_minimum_size = Vector2(0, 304)
+		lane_panel.size_flags_horizontal = SIZE_EXPAND_FILL
+		lane_panel.size_flags_vertical = SIZE_EXPAND_FILL
+		lane_panel.size_flags_stretch_ratio = 1.0
+		lanes_row.add_child(lane_panel)
+		var lane_box := _build_panel_box(lane_panel, 14, 14)
 
 		var header := Button.new()
-		header.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		header.name = "%s_lane_header" % lane_id
+		header.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		header.custom_minimum_size = Vector2(0, 72)
+		header.add_theme_font_size_override("font_size", 18)
 		header.pressed.connect(_on_lane_pressed.bind(lane_id))
 		lane_box.add_child(header)
 		_lane_header_buttons[lane_id] = header
 
 		for player_id in PLAYER_ORDER:
+			var row_panel := PanelContainer.new()
+			row_panel.name = "%s_%s_lane_row_panel" % [lane_id, player_id]
+			row_panel.custom_minimum_size = Vector2(0, 132)
+			row_panel.size_flags_horizontal = SIZE_EXPAND_FILL
+			row_panel.size_flags_vertical = SIZE_EXPAND_FILL
+			lane_box.add_child(row_panel)
+			var row_box := _build_panel_box(row_panel, 10, 12)
 			var row_label := Label.new()
-			row_label.text = "%s board" % _player_name(player_id)
-			lane_box.add_child(row_label)
+			row_label.text = "%s lane" % _player_name(player_id)
+			row_label.add_theme_font_size_override("font_size", 16)
+			row_box.add_child(row_label)
 
 			var row := HBoxContainer.new()
-			row.add_theme_constant_override("separation", 6)
-			lane_box.add_child(row)
+			row.name = "%s_%s_lane_row" % [lane_id, player_id]
+			row.alignment = BoxContainer.ALIGNMENT_CENTER
+			row.size_flags_horizontal = SIZE_EXPAND_FILL
+			row.add_theme_constant_override("separation", 14)
+			row_box.add_child(row)
 			_lane_row_containers[_lane_row_key(lane_id, player_id)] = row
 	return lanes_panel
 
@@ -425,8 +586,26 @@ func _build_read_only_text(tab_name: String) -> TextEdit:
 	text.editable = false
 	text.size_flags_horizontal = SIZE_EXPAND_FILL
 	text.size_flags_vertical = SIZE_EXPAND_FILL
-	text.custom_minimum_size = Vector2(300, 160)
+	text.add_theme_font_size_override("font_size", 15)
+	text.custom_minimum_size = Vector2(0, 180)
 	return text
+
+
+func _build_panel_box(panel: PanelContainer, separation: int = 12, padding: int = 16) -> VBoxContainer:
+	var margin := MarginContainer.new()
+	margin.size_flags_horizontal = SIZE_EXPAND_FILL
+	margin.size_flags_vertical = SIZE_EXPAND_FILL
+	margin.add_theme_constant_override("margin_left", padding)
+	margin.add_theme_constant_override("margin_top", padding)
+	margin.add_theme_constant_override("margin_right", padding)
+	margin.add_theme_constant_override("margin_bottom", padding)
+	panel.add_child(margin)
+	var box := VBoxContainer.new()
+	box.size_flags_horizontal = SIZE_EXPAND_FILL
+	box.size_flags_vertical = SIZE_EXPAND_FILL
+	box.add_theme_constant_override("separation", separation)
+	margin.add_child(box)
+	return box
 
 
 func _populate_scenario_picker() -> void:
@@ -463,7 +642,7 @@ func _refresh_player_sections() -> void:
 		var support_row: HBoxContainer = section["support_row"]
 		_clear_children(support_row)
 		for support in player.get("support", []):
-			support_row.add_child(_build_card_button(support, true))
+			support_row.add_child(_build_card_button(support, true, "support"))
 		if support_row.get_child_count() == 0:
 			support_row.add_child(_build_placeholder_label("No supports"))
 
@@ -471,7 +650,7 @@ func _refresh_player_sections() -> void:
 		_clear_children(hand_row)
 		var hand_public := _is_hand_public(player_id)
 		for card in player.get("hand", []):
-			hand_row.add_child(_build_card_button(card, hand_public))
+			hand_row.add_child(_build_card_button(card, hand_public, "hand"))
 		if hand_row.get_child_count() == 0:
 			hand_row.add_child(_build_placeholder_label("Hand empty"))
 
@@ -492,7 +671,7 @@ func _refresh_lanes() -> void:
 			for slot_index in range(slots.size()):
 				var card = slots[slot_index]
 				if typeof(card) == TYPE_DICTIONARY:
-					row.add_child(_build_card_button(card, true))
+					row.add_child(_build_card_button(card, true, "lane"))
 				else:
 					row.add_child(_build_empty_slot_button(lane_id, player_id, slot_index))
 
@@ -508,6 +687,8 @@ func _refresh_inspector() -> void:
 	for term_id in _card_terms(card):
 		var button := Button.new()
 		button.text = _term_label(term_id)
+		button.custom_minimum_size = Vector2(0, 38)
+		button.add_theme_font_size_override("font_size", 15)
 		button.pressed.connect(_on_help_term_pressed.bind(term_id))
 		_keyword_button_row.add_child(button)
 	_help_label.text = _default_help_text() if _keyword_button_row.get_child_count() == 0 else _build_help_text(_card_terms(card)[0])
@@ -527,11 +708,15 @@ func _refresh_prompt_buttons() -> void:
 		var card := _card_from_instance_id(instance_id)
 		var select_button := Button.new()
 		select_button.text = "Select %s" % _card_name(card)
+		select_button.custom_minimum_size = Vector2(0, 42)
+		select_button.add_theme_font_size_override("font_size", 15)
 		select_button.pressed.connect(_on_select_prophecy_pressed.bind(instance_id))
 		_prompt_button_row.add_child(select_button)
 
 		var decline_button := Button.new()
 		decline_button.text = "Decline (%s)" % _player_name(player_id)
+		decline_button.custom_minimum_size = Vector2(0, 42)
+		decline_button.add_theme_font_size_override("font_size", 15)
 		decline_button.pressed.connect(_on_decline_prophecy_pressed.bind(instance_id))
 		_prompt_button_row.add_child(decline_button)
 	if _prompt_button_row.get_child_count() == 0:
@@ -545,10 +730,11 @@ func _refresh_action_buttons() -> void:
 	_end_turn_button.disabled = MatchTiming.has_pending_prophecy(_match_state)
 
 
-func _build_card_button(card: Dictionary, public_view: bool) -> Button:
+func _build_card_button(card: Dictionary, public_view: bool, surface := "default") -> Button:
 	var button := Button.new()
-	button.custom_minimum_size = Vector2(120, 72)
+	button.custom_minimum_size = _surface_button_minimum_size(surface)
 	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	button.add_theme_font_size_override("font_size", _surface_font_size(surface))
 	button.pressed.connect(_on_card_pressed.bind(str(card.get("instance_id", ""))))
 	button.text = _card_button_text(card, public_view)
 	button.tooltip_text = _card_tooltip(card, public_view)
@@ -558,8 +744,9 @@ func _build_card_button(card: Dictionary, public_view: bool) -> Button:
 
 func _build_empty_slot_button(lane_id: String, player_id: String, slot_index: int) -> Button:
 	var button := Button.new()
-	button.custom_minimum_size = Vector2(84, 48)
-	button.text = "Empty %d" % (slot_index + 1)
+	button.custom_minimum_size = Vector2(132, 88)
+	button.add_theme_font_size_override("font_size", 15)
+	button.text = "Open %d" % (slot_index + 1)
 	button.pressed.connect(_on_lane_slot_pressed.bind(lane_id, player_id, slot_index))
 	return button
 
@@ -567,7 +754,36 @@ func _build_empty_slot_button(lane_id: String, player_id: String, slot_index: in
 func _build_placeholder_label(text: String) -> Label:
 	var label := Label.new()
 	label.text = text
+	label.size_flags_horizontal = SIZE_EXPAND_FILL
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.add_theme_font_size_override("font_size", 16)
+	label.custom_minimum_size = Vector2(176, 44)
 	return label
+
+
+func _surface_button_minimum_size(surface: String) -> Vector2:
+	match surface:
+		"lane":
+			return Vector2(168, 104)
+		"hand":
+			return Vector2(148, 92)
+		"support":
+			return Vector2(124, 68)
+		_:
+			return Vector2(132, 80)
+
+
+func _surface_font_size(surface: String) -> int:
+	match surface:
+		"lane":
+			return 16
+		"hand":
+			return 15
+		"support":
+			return 15
+		_:
+			return 15
 
 
 func _on_scenario_selected(index: int) -> void:
@@ -895,7 +1111,7 @@ func _selection_prompt(card: Dictionary) -> String:
 func _prompt_text() -> String:
 	var windows := MatchTiming.get_pending_prophecies(_match_state)
 	if windows.is_empty():
-		return "No open interrupt windows. Use the scenario picker, board, and debug tabs to exercise the match engine."
+		return "No open interrupt windows. Use the scenario picker, battlefield, and right-rail tools to exercise the match engine."
 	var parts: Array = []
 	for window in windows:
 		var card := _card_from_instance_id(str(window.get("instance_id", "")))
@@ -1074,6 +1290,7 @@ func _lane_row_key(lane_id: String, player_id: String) -> String:
 
 func _clear_children(node: Node) -> void:
 	for child in node.get_children():
+		node.remove_child(child)
 		child.queue_free()
 
 
