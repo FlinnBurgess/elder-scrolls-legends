@@ -53,6 +53,8 @@ static func validate_summon_from_hand(match_state: Dictionary, player_id: String
 		return _invalid_result("Card %s is not in %s's hand." % [instance_id, player_id])
 
 	var card: Dictionary = player[ZONE_HAND][hand_index]
+	if not bool(options.get("played_for_free", false)) and int(card.get("cost", 0)) > _get_available_magicka(player):
+		return _invalid_result("Player does not have enough magicka to play %s." % instance_id)
 	var validation := _validate_lane_entry(match_state, player_id, card, lane_id, options)
 	validation["player_index"] = player_lookup["player_index"]
 	validation["hand_index"] = hand_index
@@ -70,6 +72,9 @@ static func summon_from_hand(match_state: Dictionary, player_id: String, instanc
 	var hand_index := _find_card_index(player.get(ZONE_HAND, []), instance_id)
 	if hand_index >= 0:
 		ExtendedMechanicPacks.apply_pre_play_options(player[ZONE_HAND][hand_index], options)
+	var play_cost := 0 if bool(options.get("played_for_free", false)) else int(player.get(ZONE_HAND, [])[hand_index].get("cost", 0))
+	if play_cost > 0:
+		_spend_magicka(match_state, player_id, play_cost)
 	var summon_result := MatchMutations.summon_card_to_lane(match_state, player_id, instance_id, lane_id, options)
 	if not bool(summon_result.get("is_valid", false)):
 		return summon_result
@@ -208,6 +213,25 @@ static func _find_card_index(cards: Array, instance_id: String) -> int:
 		if str(cards[index].get("instance_id", "")) == instance_id:
 			return index
 	return -1
+
+
+static func _get_available_magicka(player: Dictionary) -> int:
+	return maxi(0, int(player.get("current_magicka", 0)) + int(player.get("temporary_magicka", 0)))
+
+
+static func _spend_magicka(match_state: Dictionary, player_id: String, amount: int) -> void:
+	var player_lookup := _find_player(match_state.get("players", []), player_id)
+	if not bool(player_lookup.get("is_valid", false)):
+		return
+	var player: Dictionary = player_lookup["player"]
+	var remaining := amount
+	var temporary_magicka := int(player.get("temporary_magicka", 0))
+	if temporary_magicka > 0:
+		var temporary_spent := mini(temporary_magicka, remaining)
+		player["temporary_magicka"] = temporary_magicka - temporary_spent
+		remaining -= temporary_spent
+	if remaining > 0:
+		player["current_magicka"] = maxi(0, int(player.get("current_magicka", 0)) - remaining)
 
 
 static func _find_creature_on_board(lanes: Array, instance_id: String) -> Dictionary:

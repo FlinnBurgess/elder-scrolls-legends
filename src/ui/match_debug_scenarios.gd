@@ -210,6 +210,7 @@ static func _build_local_match() -> Dictionary:
 	})
 	EvergreenRules.grant_cover(shadow_creature, int(match_state.get("turn_number", 0)) + 1)
 
+	ScenarioFixtures.set_all_magicka(match_state, 6)
 	_clear_logs(match_state)
 	return match_state
 
@@ -266,6 +267,7 @@ static func _build_support_lab() -> Dictionary:
 		"rules_text": "Enemy body for testing board updates.",
 	})
 
+	ScenarioFixtures.set_all_magicka(match_state, 8)
 	_clear_logs(match_state)
 	return match_state
 
@@ -321,6 +323,8 @@ static func _build_prophecy_lab() -> Dictionary:
 	if not bool(damage_result.get("pending_prophecy_opened", false)):
 		push_error("Prophecy lab failed to open a pending Prophecy window.")
 
+	ScenarioFixtures.set_all_magicka(match_state, 6)
+	_clear_logs(match_state)
 	return match_state
 
 

@@ -30,6 +30,7 @@ func _run_all_tests(screen: MatchScreen) -> bool:
 		_test_play_interaction_highlighting(screen) and
 		_test_placeholder_layout_stability(screen) and
 		_test_local_match_flow(screen) and
+			_test_unaffordable_creature_play_is_blocked(screen) and
 		_test_target_highlighting(screen) and
 		_test_combat_feedback(screen) and
 		_test_ring_and_help_affordances(screen) and
@@ -323,6 +324,32 @@ func _test_local_match_flow(screen: MatchScreen) -> bool:
 		_assert(bool(summon_result.get("is_valid", false)), "Creature summon through the match UI should succeed.") and
 		_assert(_lane_contains(screen.get_match_state(), "shadow", str(active_player.get("player_id", "")), str(summon_card.get("instance_id", ""))), "Summoned creature should appear in the chosen lane.") and
 		_assert(screen.get_status_message().contains("Played"), "UI should report a successful summon in the status line.")
+	)
+
+
+func _test_unaffordable_creature_play_is_blocked(screen: MatchScreen) -> bool:
+	if not _assert(screen.load_scenario("local_match"), "Local match scenario should load for unaffordable summon verification."):
+		return false
+	var active_player := _active_player(screen.get_match_state())
+	var expensive_card := _find_hand_card(active_player, "Grand Colossus")
+	if not _assert(not expensive_card.is_empty(), "Expected an expensive creature in hand for affordability verification."):
+		return false
+	var expensive_id := str(expensive_card.get("instance_id", ""))
+	var magicka_before := int(active_player.get("current_magicka", 0))
+	var temporary_before := int(active_player.get("temporary_magicka", 0))
+	var select_ok := screen.select_card(expensive_id)
+	var interaction_state := screen.get_interaction_state()
+	var summon_result := screen.play_selected_to_lane("field", 1)
+	var active_after := _active_player(screen.get_match_state())
+	return (
+		_assert(select_ok, "Selecting an unaffordable creature should still succeed for inspection/feedback.") and
+		_assert(interaction_state.get("selection_mode", "") == "summon", "Unaffordable creatures should still present summon interaction mode.") and
+		_assert(interaction_state.get("valid_lane_slot_keys", []).is_empty(), "Unaffordable creature summons should not advertise any valid lane drop targets.") and
+		_assert(not bool(summon_result.get("is_valid", true)), "UI summon attempts should fail cleanly when the creature is unaffordable.") and
+		_assert(screen.get_status_message().contains("enough magicka"), "UI should surface the affordability failure reason.") and
+		_assert(int(active_after.get("current_magicka", 0)) == magicka_before and int(active_after.get("temporary_magicka", 0)) == temporary_before, "Failed UI summons should not spend magicka.") and
+		_assert(not _find_hand_card(active_after, "Grand Colossus").is_empty(), "Failed UI summons should leave the unaffordable creature in hand.") and
+		_assert(not _lane_contains(screen.get_match_state(), "field", str(active_after.get("player_id", "")), expensive_id), "Failed UI summons should not place the creature onto the board.")
 	)
 
 

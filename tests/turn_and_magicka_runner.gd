@@ -1,6 +1,7 @@
 extends SceneTree
 
 const MatchBootstrap = preload("res://src/core/match/match_bootstrap.gd")
+const LaneRules = preload("res://src/core/match/lane_rules.gd")
 const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 
 
@@ -18,6 +19,8 @@ func _run_all_tests() -> bool:
 		_test_first_turn_start_draws_and_refreshes_resources() and
 		_test_turn_progression_grows_magicka_per_player_up_to_cap() and
 		_test_temporary_magicka_spends_first_and_expires() and
+		_test_creature_summon_spends_temporary_magicka_first() and
+		_test_unaffordable_creature_summon_fails_without_spending() and
 		_test_ring_of_magicka_uses_one_charge_per_turn_and_is_destroyed()
 	)
 
@@ -105,6 +108,49 @@ func _test_temporary_magicka_spends_first_and_expires() -> bool:
 	return _assert(first_player["current_magicka"] == 2 and first_player["temporary_magicka"] == 0, "Temporary magicka should not persist into the controller's next turn.")
 
 
+func _test_creature_summon_spends_temporary_magicka_first() -> bool:
+	var match_state := _prepare_ready_match(12, 0)
+	if not _assert(not match_state.is_empty(), "Expected summon spend fixture to initialize."):
+		return false
+
+	MatchTurnLoop.begin_first_turn(match_state)
+	var first_player: Dictionary = match_state["players"][0]
+	first_player["max_magicka"] = 3
+	first_player["current_magicka"] = 3
+	first_player["temporary_magicka"] = 2
+	var creature := _append_creature_to_hand(first_player, "temp_spend", 4)
+	var summon_result := LaneRules.summon_from_hand(match_state, first_player["player_id"], creature["instance_id"], "field")
+	return (
+		_assert(bool(summon_result.get("is_valid", false)), "Creature summon should succeed when combined current and temporary magicka covers the cost.") and
+		_assert(first_player["temporary_magicka"] == 0, "Creature summon should spend temporary magicka before permanent magicka.") and
+		_assert(first_player["current_magicka"] == 1, "Creature summon should spend only the remaining cost from current magicka.") and
+		_assert(first_player["hand"].find(creature) == -1, "Successful creature summons should remove the card from hand.") and
+		_assert(_lane_contains(match_state, first_player["player_id"], creature["instance_id"]), "Successful creature summons should place the card onto the board.")
+	)
+
+
+func _test_unaffordable_creature_summon_fails_without_spending() -> bool:
+	var match_state := _prepare_ready_match(12, 0)
+	if not _assert(not match_state.is_empty(), "Expected unaffordable summon fixture to initialize."):
+		return false
+
+	MatchTurnLoop.begin_first_turn(match_state)
+	var first_player: Dictionary = match_state["players"][0]
+	first_player["max_magicka"] = 1
+	first_player["current_magicka"] = 1
+	first_player["temporary_magicka"] = 1
+	var creature := _append_creature_to_hand(first_player, "too_expensive", 3)
+	var validation := LaneRules.validate_summon_from_hand(match_state, first_player["player_id"], creature["instance_id"], "field")
+	var summon_result := LaneRules.summon_from_hand(match_state, first_player["player_id"], creature["instance_id"], "field")
+	return (
+		_assert(not bool(validation.get("is_valid", true)), "Summon validation should reject unaffordable creature plays.") and
+		_assert(not bool(summon_result.get("is_valid", true)), "Creature summon should fail when the player cannot afford the card.") and
+		_assert(first_player["temporary_magicka"] == 1 and first_player["current_magicka"] == 1, "Failed creature summons should not spend any magicka.") and
+		_assert(first_player["hand"].find(creature) != -1, "Unaffordable creature summons should leave the card in hand.") and
+		_assert(not _lane_contains(match_state, first_player["player_id"], creature["instance_id"]), "Unaffordable creature summons should not place the card onto the board.")
+	)
+
+
 func _test_ring_of_magicka_uses_one_charge_per_turn_and_is_destroyed() -> bool:
 	var match_state := _prepare_ready_match(14, 0)
 	if not _assert(not match_state.is_empty(), "Expected Ring of Magicka fixture to initialize."):
@@ -173,6 +219,34 @@ func _build_deck(prefix: String, size: int) -> Array:
 	for index in range(size):
 		deck.append("%s_card_%02d" % [prefix, index + 1])
 	return deck
+
+
+func _append_creature_to_hand(player: Dictionary, label: String, cost: int, power := 2, health := 2) -> Dictionary:
+	var player_id: String = player["player_id"]
+	var card := {
+		"instance_id": "%s_%s" % [player_id, label],
+		"definition_id": "test_%s" % label,
+		"owner_player_id": player_id,
+		"controller_player_id": player_id,
+		"zone": "hand",
+		"card_type": "creature",
+		"cost": cost,
+		"power": power,
+		"health": health,
+		"keywords": [],
+		"granted_keywords": [],
+		"status_markers": [],
+	}
+	player["hand"].append(card)
+	return card
+
+
+func _lane_contains(match_state: Dictionary, player_id: String, instance_id: String) -> bool:
+	for lane in match_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(player_id, []):
+			if card != null and str(card.get("instance_id", "")) == instance_id:
+				return true
+	return false
 
 
 func _assert(condition: bool, message: String) -> bool:

@@ -222,6 +222,10 @@ func _build_started_match(deck_size: int, first_player_index: int) -> Dictionary
 	for player in match_state["players"]:
 		MatchBootstrap.apply_mulligan(match_state, player["player_id"], [])
 	MatchTurnLoop.begin_first_turn(match_state)
+	for player in match_state["players"]:
+		player["max_magicka"] = 12
+		player["current_magicka"] = 12
+		player["temporary_magicka"] = 0
 	return match_state
 
 

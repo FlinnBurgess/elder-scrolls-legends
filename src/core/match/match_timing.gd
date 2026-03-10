@@ -325,12 +325,15 @@ static func play_pending_prophecy(match_state: Dictionary, player_id: String, in
 		if lane_id.is_empty():
 			return _invalid_result("Creature Prophecy play requires a lane_id.")
 		var lane_rules: Variant = load("res://src/core/match/lane_rules.gd")
-		var validation: Dictionary = lane_rules.validate_summon_from_hand(match_state, player_id, instance_id, lane_id, options)
+		var validation_options := options.duplicate(true)
+		validation_options["played_for_free"] = true
+		var validation: Dictionary = lane_rules.validate_summon_from_hand(match_state, player_id, instance_id, lane_id, validation_options)
 		if not bool(validation.get("is_valid", false)):
 			return validation
 		_consume_pending_prophecy_window(match_state, window_index)
 		var summon_options := options.duplicate(true)
 		summon_options["event_context"] = {"timing_window": WINDOW_INTERRUPT}
+		summon_options["played_for_free"] = true
 		summon_options["play_event_overrides"] = {
 			"played_for_free": true,
 			"reason": RULE_TAG_PROPHECY,
