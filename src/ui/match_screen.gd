@@ -24,7 +24,7 @@ const DRAW_FEEDBACK_DURATION_MS := 1800
 const RUNE_FEEDBACK_DURATION_MS := 2100
 const TURN_BANNER_DURATION_MS := 1600
 const LOCAL_MATCH_AI_SCENARIO_ID := "local_match"
-const LOCAL_MATCH_AI_STEP_DELAY_FRAMES := 0
+const LOCAL_MATCH_AI_ACTION_DELAY_MS := 320
 const SELECTION_MODE_NONE := "none"
 const SELECTION_MODE_SUMMON := "summon"
 const SELECTION_MODE_ITEM := "item"
@@ -103,7 +103,10 @@ var _replay_text: TextEdit
 var _state_text: TextEdit
 var _last_turn_owner_id := ""
 var _turn_banner_until_ms := 0
-var _queued_ai_step_frames := -1
+var _queued_ai_step_at_ms := -1
+var _paused_ai_step_delay_ms := -1
+var _ai_waiting_for_turn_banner := false
+var _local_match_ai_action_count := 0
 
 
 func _ready() -> void:
@@ -160,6 +163,7 @@ func get_interaction_state() -> Dictionary:
 		"selection_mode": _selected_action_mode(_selected_card()),
 		"local_turn": _is_local_player_turn(),
 		"local_controls_locked": _should_dim_local_interaction_surfaces(),
+		"turn_banner_visible": _is_turn_banner_active(),
 		"valid_lane_slot_keys": _valid_lane_slot_keys(),
 		"valid_lane_ids": _valid_lane_ids(),
 		"valid_target_instance_ids": _valid_card_target_ids(),
@@ -170,6 +174,17 @@ func get_interaction_state() -> Dictionary:
 		"invalid_player_ids": _copy_array(_invalid_feedback.get("player_ids", [])),
 		"drag_active": bool(_drag_state.get("active", false)),
 		"drag_instance_id": str(_drag_state.get("instance_id", "")),
+	}
+
+
+func get_local_match_ai_pacing_state() -> Dictionary:
+	return {
+		"banner_visible": _is_turn_banner_active(),
+		"turn_banner_ms_remaining": _turn_banner_ms_remaining(),
+		"waiting_for_turn_banner": _ai_waiting_for_turn_banner,
+		"queued_delay_ms_remaining": _local_match_ai_delay_remaining_ms(),
+		"paused_delay_ms_remaining": _paused_ai_step_delay_ms,
+		"action_count": _local_match_ai_action_count,
 	}
 
 
@@ -211,6 +226,7 @@ func load_scenario(scenario_id: String) -> bool:
 	_reset_invalid_feedback()
 	_clear_feedback_state()
 	_reset_local_match_ai_queue()
+	_local_match_ai_action_count = 0
 	var next_state: Dictionary = MatchDebugScenarios.build_scenario(scenario_id)
 	if next_state.is_empty():
 		_status_message = "Failed to load scenario %s." % scenario_id
@@ -233,16 +249,35 @@ func load_scenario(scenario_id: String) -> bool:
 
 
 func _process_local_match_ai_turn() -> void:
+	if not _is_local_match_ai_enabled() or _has_match_winner() or _is_local_player_turn():
+		_reset_local_match_ai_queue()
+		return
+	var now_ms := Time.get_ticks_msec()
+	if _is_local_prophecy_interrupt_open():
+		_pause_local_match_ai_queue(now_ms)
+		return
+	_resume_local_match_ai_queue(now_ms)
 	if not _ai_controls_current_decision_window():
 		_reset_local_match_ai_queue()
 		return
-	if _queued_ai_step_frames > 0:
-		_queued_ai_step_frames -= 1
+	if _ai_waiting_for_turn_banner:
+		if _is_turn_banner_active():
+			return
+		_ai_waiting_for_turn_banner = false
+	if _queued_ai_step_at_ms > now_ms:
 		return
-	_queued_ai_step_frames = LOCAL_MATCH_AI_STEP_DELAY_FRAMES
+	_queued_ai_step_at_ms = -1
 	var step := _execute_local_match_ai_step()
 	if not bool(step.get("did_execute", false)):
-		_reset_local_match_ai_queue()
+		if str(step.get("yield_reason", "")) != "waiting_on_local_prophecy":
+			_reset_local_match_ai_queue()
+		return
+	_local_match_ai_action_count += 1
+	var yield_reason := str(step.get("yield_reason", ""))
+	if yield_reason == "continue" or yield_reason == "waiting_on_local_prophecy":
+		_schedule_local_match_ai_step(LOCAL_MATCH_AI_ACTION_DELAY_MS)
+		return
+	_reset_local_match_ai_queue()
 
 
 func _execute_local_match_ai_step() -> Dictionary:
@@ -366,7 +401,48 @@ func _ai_post_action_state() -> String:
 
 
 func _reset_local_match_ai_queue() -> void:
-	_queued_ai_step_frames = -1
+	_queued_ai_step_at_ms = -1
+	_paused_ai_step_delay_ms = -1
+	_ai_waiting_for_turn_banner = false
+
+
+func _schedule_local_match_ai_step(delay_ms: int) -> void:
+	_queued_ai_step_at_ms = Time.get_ticks_msec() + maxi(delay_ms, 0)
+	_paused_ai_step_delay_ms = -1
+
+
+func _pause_local_match_ai_queue(now_ms: int) -> void:
+	if _queued_ai_step_at_ms < 0:
+		return
+	_paused_ai_step_delay_ms = maxi(_queued_ai_step_at_ms - now_ms, 0)
+	_queued_ai_step_at_ms = -1
+
+
+func _resume_local_match_ai_queue(now_ms: int) -> void:
+	if _paused_ai_step_delay_ms < 0 or _queued_ai_step_at_ms >= 0:
+		return
+	_queued_ai_step_at_ms = now_ms + _paused_ai_step_delay_ms
+	_paused_ai_step_delay_ms = -1
+
+
+func _local_match_ai_delay_remaining_ms() -> int:
+	if _queued_ai_step_at_ms < 0:
+		return -1
+	return maxi(_queued_ai_step_at_ms - Time.get_ticks_msec(), 0)
+
+
+func _is_turn_banner_active() -> bool:
+	return _turn_banner_ms_remaining() > 0
+
+
+func _turn_banner_ms_remaining() -> int:
+	return maxi(_turn_banner_until_ms - Time.get_ticks_msec(), 0)
+
+
+func _arm_local_match_ai_turn_pacing() -> void:
+	_reset_local_match_ai_queue()
+	_local_match_ai_action_count = 0
+	_ai_waiting_for_turn_banner = true
 
 
 func select_card(instance_id: String) -> bool:
@@ -3210,6 +3286,10 @@ func _refresh_turn_presentation() -> void:
 	if active_player != _last_turn_owner_id:
 		_last_turn_owner_id = active_player
 		_turn_banner_until_ms = Time.get_ticks_msec() + TURN_BANNER_DURATION_MS
+		if active_player == _ai_player_id() and _is_local_match_ai_enabled():
+			_arm_local_match_ai_turn_pacing()
+		else:
+			_reset_local_match_ai_queue()
 	_top_bar_apply_turn_state_style()
 	if _turn_state_label != null:
 		_turn_state_label.text = _turn_state_text()
