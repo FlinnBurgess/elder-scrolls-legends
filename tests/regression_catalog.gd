@@ -16,6 +16,7 @@ static func core_suites() -> Array:
 		{"id": "mutations", "label": "Zone and state mutations", "script": "res://tests/zone_and_state_runner.gd", "success_token": "ZONE_AND_STATE_OK"},
 		{"id": "persistent_cards", "label": "Items and supports", "script": "res://tests/items_and_supports_runner.gd", "success_token": "ITEMS_AND_SUPPORTS_OK"},
 		{"id": "extended_mechanics", "label": "Extended mechanic packs", "script": "res://tests/extended_mechanics_runner.gd", "success_token": "EXTENDED_MECHANICS_OK"},
+		{"id": "ai_action_enumerator", "label": "AI action enumeration", "script": "res://tests/ai_action_enumerator_runner.gd", "success_token": "AI_ACTION_ENUMERATOR_OK"},
 		{"id": "deckbuilder_ui", "label": "Deckbuilder UI", "script": "res://tests/deckbuilder_ui_runner.gd", "success_token": "DECKBUILDER_UI_OK"},
 		{"id": "golden_match", "label": "Golden scenarios and focused regressions", "script": "res://tests/golden_match_runner.gd", "success_token": "GOLDEN_MATCH_OK"},
 	]
