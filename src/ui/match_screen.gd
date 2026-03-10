@@ -1,6 +1,9 @@
 class_name MatchScreen
 extends Control
 
+const HeuristicMatchPolicy = preload("res://src/ai/heuristic_match_policy.gd")
+const MatchActionEnumerator = preload("res://src/ai/match_action_enumerator.gd")
+const MatchActionExecutor = preload("res://src/ai/match_action_executor.gd")
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const LaneRules = preload("res://src/core/match/lane_rules.gd")
 const MatchCombat = preload("res://src/core/match/match_combat.gd")
@@ -20,6 +23,8 @@ const REMOVAL_FEEDBACK_DURATION_MS := 1280
 const DRAW_FEEDBACK_DURATION_MS := 1800
 const RUNE_FEEDBACK_DURATION_MS := 2100
 const TURN_BANNER_DURATION_MS := 1600
+const LOCAL_MATCH_AI_SCENARIO_ID := "local_match"
+const LOCAL_MATCH_AI_STEP_DELAY_FRAMES := 0
 const SELECTION_MODE_NONE := "none"
 const SELECTION_MODE_SUMMON := "summon"
 const SELECTION_MODE_ITEM := "item"
@@ -98,6 +103,7 @@ var _replay_text: TextEdit
 var _state_text: TextEdit
 var _last_turn_owner_id := ""
 var _turn_banner_until_ms := 0
+var _queued_ai_step_frames := -1
 
 
 func _ready() -> void:
@@ -115,6 +121,7 @@ func _process(_delta: float) -> void:
 	var should_show := _turn_banner_until_ms > Time.get_ticks_msec()
 	if _turn_banner_panel.visible != should_show:
 		_turn_banner_panel.visible = should_show
+	_process_local_match_ai_turn()
 
 
 func get_available_scenarios() -> Array:
@@ -203,6 +210,7 @@ func load_scenario(scenario_id: String) -> bool:
 	_clear_drag_state()
 	_reset_invalid_feedback()
 	_clear_feedback_state()
+	_reset_local_match_ai_queue()
 	var next_state: Dictionary = MatchDebugScenarios.build_scenario(scenario_id)
 	if next_state.is_empty():
 		_status_message = "Failed to load scenario %s." % scenario_id
@@ -222,6 +230,143 @@ func load_scenario(scenario_id: String) -> bool:
 	_status_message = "Loaded %s." % _scenario_label(scenario_id)
 	_refresh_ui()
 	return true
+
+
+func _process_local_match_ai_turn() -> void:
+	if not _ai_controls_current_decision_window():
+		_reset_local_match_ai_queue()
+		return
+	if _queued_ai_step_frames > 0:
+		_queued_ai_step_frames -= 1
+		return
+	_queued_ai_step_frames = LOCAL_MATCH_AI_STEP_DELAY_FRAMES
+	var step := _execute_local_match_ai_step()
+	if not bool(step.get("did_execute", false)):
+		_reset_local_match_ai_queue()
+
+
+func _execute_local_match_ai_step() -> Dictionary:
+	if not _is_local_match_ai_enabled():
+		return {"did_execute": false, "yield_reason": "disabled"}
+	if _has_match_winner():
+		return {"did_execute": false, "yield_reason": "match_complete"}
+	if _is_local_prophecy_interrupt_open():
+		return {"did_execute": false, "yield_reason": "waiting_on_local_prophecy"}
+	if not _ai_controls_current_decision_window():
+		return {"did_execute": false, "yield_reason": "no_ai_window"}
+	var ai_player_id := _ai_player_id()
+	var choice := HeuristicMatchPolicy.choose_action(_match_state, ai_player_id)
+	if not bool(choice.get("is_valid", false)):
+		return {
+			"did_execute": false,
+			"yield_reason": str(choice.get("reason", "invalid_choice")),
+			"choice": choice.duplicate(true),
+		}
+	var action: Dictionary = choice.get("chosen_action", {}).duplicate(true)
+	if action.is_empty():
+		return {
+			"did_execute": false,
+			"yield_reason": "missing_action",
+			"choice": choice.duplicate(true),
+		}
+	var result := MatchActionExecutor.execute_action(_match_state, action)
+	if not bool(result.get("is_valid", false)):
+		_status_message = str(result.get("errors", ["AI action failed."])[0])
+		_refresh_ui()
+		return {
+			"did_execute": false,
+			"yield_reason": "action_failed",
+			"choice": choice.duplicate(true),
+			"action": action.duplicate(true),
+			"result": result.duplicate(true),
+		}
+	_clear_drag_state()
+	_reset_invalid_feedback()
+	_selected_instance_id = ""
+	_record_feedback_from_events(_ai_feedback_events(action, result))
+	_status_message = _ai_action_status_message(action)
+	_refresh_ui()
+	return {
+		"did_execute": true,
+		"yield_reason": _ai_post_action_state(),
+		"choice": choice.duplicate(true),
+		"action": action.duplicate(true),
+		"result": result.duplicate(true),
+	}
+
+
+func _ai_feedback_events(action: Dictionary, result: Dictionary) -> Array:
+	var events := _copy_array(result.get("events", []))
+	if str(action.get("kind", "")) == MatchActionEnumerator.KIND_END_TURN:
+		var timing_result: Dictionary = _match_state.get("last_timing_result", {})
+		var processed_events := _copy_array(timing_result.get("processed_events", []))
+		if not processed_events.is_empty():
+			events = processed_events
+	return events
+
+
+func _ai_action_status_message(action: Dictionary) -> String:
+	var player_name := _player_name(str(action.get("player_id", "")))
+	var source_name := _ai_action_source_name(action)
+	match str(action.get("kind", "")):
+		MatchActionEnumerator.KIND_RING_USE:
+			return "%s used the Ring of Magicka." % player_name
+		MatchActionEnumerator.KIND_END_TURN:
+			return "%s ended the turn." % player_name
+		MatchActionEnumerator.KIND_SUMMON_CREATURE:
+			return "%s played %s." % [player_name, source_name]
+		MatchActionEnumerator.KIND_ATTACK:
+			return "%s attacked %s with %s." % [player_name, _ai_action_target_name(action), source_name]
+		MatchActionEnumerator.KIND_PLAY_SUPPORT:
+			return "%s played %s." % [player_name, source_name]
+		MatchActionEnumerator.KIND_PLAY_ITEM:
+			return "%s used %s on %s." % [player_name, source_name, _ai_action_target_name(action)]
+		MatchActionEnumerator.KIND_ACTIVATE_SUPPORT:
+			return "%s activated %s." % [player_name, source_name]
+		MatchActionEnumerator.KIND_PLAY_ACTION:
+			return "%s resolved %s." % [player_name, source_name]
+		MatchActionEnumerator.KIND_DECLINE_PROPHECY:
+			return "%s declined %s." % [player_name, source_name]
+		_:
+			return "%s acted." % player_name
+
+
+func _ai_action_source_name(action: Dictionary) -> String:
+	var source_card: Dictionary = action.get("source_card", {})
+	if not source_card.is_empty():
+		return _card_name(source_card)
+	return "the current action"
+
+
+func _ai_action_target_name(action: Dictionary) -> String:
+	var target: Dictionary = action.get("target", {})
+	match str(target.get("kind", "")):
+		"player":
+			return _player_name(str(target.get("player_id", "")))
+		"card":
+			return _card_name(target.get("card", {}))
+		"lane_slot":
+			return "%s lane" % _lane_name(str(target.get("lane_id", "")))
+		"mobilize_recruit":
+			return "%s lane recruit" % _lane_name(str(target.get("lane_id", "")))
+		_:
+			return "the target"
+
+
+func _ai_post_action_state() -> String:
+	if _has_match_winner():
+		return "match_complete"
+	if _is_local_prophecy_interrupt_open():
+		return "waiting_on_local_prophecy"
+	if _is_local_player_turn():
+		return "returned_to_local_player"
+	if _ai_controls_current_decision_window():
+		return "continue"
+	return "idle"
+
+
+func _reset_local_match_ai_queue() -> void:
+	_queued_ai_step_frames = -1
 
 
 func select_card(instance_id: String) -> bool:
@@ -2709,10 +2854,7 @@ func _apply_removal_feedback(feedback: Dictionary) -> void:
 	var tween := create_tween()
 	tween.tween_property(toast, "position", Vector2(0, -14), 0.2)
 	tween.parallel().tween_property(toast, "modulate", Color(1, 1, 1, 0), 0.8)
-	tween.finished.connect(func() -> void:
-		if is_instance_valid(toast):
-			toast.queue_free()
-	)
+	tween.finished.connect(_queue_free_weak.bind(weakref(toast)))
 
 
 func _apply_draw_feedback(feedback: Dictionary) -> void:
@@ -2790,10 +2932,7 @@ func _add_feedback_banner(container: Control, name: String, text: String, fill: 
 	var tween := create_tween()
 	tween.tween_interval(0.26)
 	tween.tween_property(banner, "modulate", Color(1, 1, 1, 0), 0.18)
-	tween.finished.connect(func() -> void:
-		if is_instance_valid(banner):
-			banner.queue_free()
-	)
+	tween.finished.connect(_queue_free_weak.bind(weakref(banner)))
 
 
 func _add_feedback_popup(container: Control, name: String, text: String, font_color: Color, top_offset: float) -> void:
@@ -2815,10 +2954,7 @@ func _add_feedback_popup(container: Control, name: String, text: String, font_co
 	tween.tween_property(label, "position", Vector2(0, -24), 0.22)
 	tween.parallel().tween_property(label, "scale", Vector2(1.08, 1.08), 0.18)
 	tween.tween_property(label, "modulate", Color(1, 1, 1, 0), 0.7)
-	tween.finished.connect(func() -> void:
-		if is_instance_valid(label):
-			label.queue_free()
-	)
+	tween.finished.connect(_queue_free_weak.bind(weakref(label)))
 
 
 func _add_feedback_toast(container: Control, name: String, text: String, fill: Color, border: Color, font_color: Color, top_offset: float) -> void:
@@ -2845,10 +2981,7 @@ func _add_feedback_toast(container: Control, name: String, text: String, fill: C
 	tween.tween_interval(0.5)
 	tween.parallel().tween_property(toast, "position", Vector2(0, -10), 0.26)
 	tween.tween_property(toast, "modulate", Color(1, 1, 1, 0), 0.75)
-	tween.finished.connect(func() -> void:
-		if is_instance_valid(toast):
-			toast.queue_free()
-	)
+	tween.finished.connect(_queue_free_weak.bind(weakref(toast)))
 
 
 func _should_reveal_drawn_card(player_id: String, card: Dictionary) -> bool:
@@ -2999,7 +3132,7 @@ func _is_local_player_turn() -> bool:
 
 
 func _should_dim_local_interaction_surfaces() -> bool:
-	return not _is_local_player_turn()
+	return not _is_local_player_turn() and not _is_local_prophecy_interrupt_open()
 
 
 func _should_dim_local_surface(player_id: String) -> bool:
@@ -3008,6 +3141,29 @@ func _should_dim_local_surface(player_id: String) -> bool:
 
 func _has_pending_prophecy_for_player(player_id: String) -> bool:
 	return not MatchTiming.get_pending_prophecies(_match_state, player_id).is_empty()
+
+
+func _is_local_prophecy_interrupt_open() -> bool:
+	return _has_pending_prophecy_for_player(_local_player_id())
+
+
+func _is_local_match_ai_enabled() -> bool:
+	return _scenario_id == LOCAL_MATCH_AI_SCENARIO_ID
+
+
+func _ai_player_id() -> String:
+	return PLAYER_ORDER[0]
+
+
+func _ai_controls_current_decision_window() -> bool:
+	if not _is_local_match_ai_enabled() or _has_match_winner():
+		return false
+	if _is_local_prophecy_interrupt_open():
+		return false
+	var ai_player_id := _ai_player_id()
+	if MatchTiming.has_pending_prophecy(_match_state):
+		return _has_pending_prophecy_for_player(ai_player_id)
+	return _active_player_id() == ai_player_id
 
 
 func _target_lane_player_id() -> String:
@@ -3715,10 +3871,7 @@ func _animate_drag_preview_return() -> void:
 	var tween := create_tween()
 	tween.tween_property(preview, "position", source_position + Vector2(-preview.size.x * 0.5, -preview.size.y * 0.5), 0.14)
 	tween.parallel().tween_property(preview, "scale", Vector2.ONE, 0.14)
-	tween.finished.connect(func() -> void:
-		if is_instance_valid(preview):
-			preview.queue_free()
-	)
+	tween.finished.connect(_queue_free_weak.bind(weakref(preview)))
 
 
 func _clear_drag_state(remove_preview := true) -> void:
@@ -3726,6 +3879,12 @@ func _clear_drag_state(remove_preview := true) -> void:
 	if remove_preview and preview != null and is_instance_valid(preview):
 		preview.queue_free()
 	_drag_state = {}
+
+
+func _queue_free_weak(node_ref: WeakRef) -> void:
+	var node = node_ref.get_ref()
+	if node != null and is_instance_valid(node):
+		node.queue_free()
 
 
 func _drag_drop_descriptor(pointer_position: Vector2) -> Dictionary:
