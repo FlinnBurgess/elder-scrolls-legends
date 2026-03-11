@@ -2,6 +2,7 @@ extends SceneTree
 
 const MatchScreen = preload("res://src/ui/match_screen.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
+const TEST_VIEWPORT_SIZE := Vector2i(2560, 1600)
 
 
 func _initialize() -> void:
@@ -9,10 +10,12 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	root.size = TEST_VIEWPORT_SIZE
 	var screen := MatchScreen.new()
+	screen.size = TEST_VIEWPORT_SIZE
 	root.add_child(screen)
 	await process_frame
-	if not _run_all_tests(screen):
+	if not await _run_all_tests(screen):
 		quit(1)
 		return
 	print("MATCH_UI_OK")
@@ -20,22 +23,35 @@ func _run() -> void:
 
 
 func _run_all_tests(screen: MatchScreen) -> bool:
-	return (
-		_test_layout_hierarchy(screen) and
-			_test_board_presentation_regressions(screen) and
-		_test_player_surface_presentation(screen) and
-		_test_card_frame_presentation(screen) and
-			_test_turn_state_presentation(screen) and
-			_test_feedback_presentation_wave(screen) and
-		_test_play_interaction_highlighting(screen) and
-		_test_placeholder_layout_stability(screen) and
-		_test_local_match_flow(screen) and
-			_test_unaffordable_creature_play_is_blocked(screen) and
-		_test_target_highlighting(screen) and
-		_test_combat_feedback(screen) and
-		_test_ring_and_help_affordances(screen) and
-		_test_prophecy_prompt_flow(screen)
-	)
+	if not _test_layout_hierarchy(screen):
+		return false
+	if not _test_board_presentation_regressions(screen):
+		return false
+	if not _test_player_surface_presentation(screen):
+		return false
+	if not _test_card_frame_presentation(screen):
+		return false
+	if not _test_turn_state_presentation(screen):
+		return false
+	if not _test_feedback_presentation_wave(screen):
+		return false
+	if not _test_play_interaction_highlighting(screen):
+		return false
+	if not _test_placeholder_layout_stability(screen):
+		return false
+	if not await _test_live_lane_click_delivery(screen):
+		return false
+	if not _test_local_match_flow(screen):
+		return false
+	if not _test_unaffordable_creature_play_is_blocked(screen):
+		return false
+	if not _test_target_highlighting(screen):
+		return false
+	if not _test_combat_feedback(screen):
+		return false
+	if not _test_ring_and_help_affordances(screen):
+		return false
+	return _test_prophecy_prompt_flow(screen)
 
 
 func _test_layout_hierarchy(screen: MatchScreen) -> bool:
@@ -118,18 +134,22 @@ func _test_board_presentation_regressions(screen: MatchScreen) -> bool:
 		return false
 	var player_band := screen.find_child("PlayerBand", true, false) as Control
 	var battlefield := screen.find_child("BattlefieldPanel", true, false) as Control
-	var lane_card := screen.find_child("lane_player_2_bone_guard_card", true, false) as Button
-	var lane_rules := screen.find_child("player_2_bone_guard_rules_label", true, false) as Label
+	var turn_banner_overlay := screen.find_child("TurnBannerOverlay", true, false) as Control
+	var turn_banner_row := turn_banner_overlay.get_child(0) as Control if turn_banner_overlay != null and turn_banner_overlay.get_child_count() > 0 else null
+	var lane_card := screen.find_child("lane_player_1_vanguard_card", true, false) as Button
+	var lane_art := screen.find_child("player_1_vanguard_art_region", true, false) as Control
+	var lane_rules := screen.find_child("player_1_vanguard_rules_label", true, false) as Label
 	var lane_content := lane_card.get_meta("content_root", null) as Control if lane_card != null else null
-	if lane_card != null:
-		lane_card.emit_signal("pressed")
 	return (
 		_assert(player_band != null and player_band.get_combined_minimum_size().y <= 360.0, "Player band minimum height should stay compact enough to fit the lower zone on 16:9 layouts.") and
 		_assert(battlefield != null and battlefield.get_combined_minimum_size().y <= 660.0, "Battlefield minimum height should stay compact enough to leave room for both player zones.") and
+		_assert(turn_banner_overlay != null and turn_banner_overlay.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Turn banner overlay should stay mouse-transparent over the battlefield.") and
+		_assert(turn_banner_row != null and turn_banner_row.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Turn banner row should not intercept board clicks while the banner is visible.") and
 		_assert(lane_card != null and lane_card.clip_contents, "Board cards should clip presentation content to the visible card frame.") and
 		_assert(lane_content != null and lane_content.size.y <= lane_card.size.y, "Board card content should stay inside the visible card frame height.") and
-		_assert(lane_rules != null and lane_rules.max_lines_visible == 1, "Board card rules text should use a compact single-line preview.") and
-		_assert(lane_card != null and screen.get_selected_instance_id() == str(lane_card.get_meta("instance_id", "")), "Pressing a visible board card should still select that card.")
+		_assert(lane_art != null and lane_art.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Visible board-card art should not absorb clicks away from the owning button.") and
+		_assert(lane_content != null and _all_controls_ignore_mouse(lane_content), "Visible board-card content should remain mouse-transparent so the button press path stays reachable.") and
+		_assert(lane_rules != null and lane_rules.max_lines_visible == 1, "Board card rules text should use a compact single-line preview.")
 	)
 
 
@@ -402,6 +422,32 @@ func _test_play_interaction_highlighting(screen: MatchScreen) -> bool:
 	)
 
 
+func _test_live_lane_click_delivery(screen: MatchScreen) -> bool:
+	if not _assert(screen.load_scenario("local_match"), "Local match scenario should load for live board-click verification."):
+		return false
+	await _await_frames(3)
+	var attacker := _find_lane_card(screen.get_match_state(), "Vanguard Captain")
+	var defender := _find_lane_card(screen.get_match_state(), "Bone Guard")
+	var attacker_card := screen.find_child("lane_player_1_vanguard_card", true, false) as Button
+	var attacker_click_ok := _click_control(attacker_card)
+	await process_frame
+	var attack_state := screen.get_interaction_state()
+	var defender_card := screen.find_child("lane_player_2_bone_guard_card", true, false) as Button
+	var defender_click_ok := _click_control(defender_card)
+	await process_frame
+	var match_state := screen.get_match_state()
+	return (
+		_assert(not attacker.is_empty(), "Live click verification requires a ready local attacker in the scenario.") and
+		_assert(not defender.is_empty(), "Live click verification requires a legal enemy defender in the scenario.") and
+		_assert(attacker_click_ok, "Real pointer clicks should be deliverable to the ready local lane creature.") and
+		_assert(attack_state.get("selection_mode", "") == "attack", "A real click on the ready local lane creature should enter attack targeting mode.") and
+		_assert(attack_state.get("valid_target_instance_ids", []).has(str(defender.get("instance_id", ""))), "A real lane-creature click should surface valid attack targets.") and
+		_assert(defender_click_ok, "Real pointer clicks should be deliverable to a legal defender target.") and
+		_assert(screen.get_selected_instance_id().is_empty(), "A completed legal attack through the live click path should clear selection afterward.") and
+		_assert(not _lane_contains(match_state, "field", "player_2", str(defender.get("instance_id", ""))), "A legal attack should still resolve through the same live click interaction flow.")
+	)
+
+
 func _test_target_highlighting(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should load for target highlighting."):
 		return false
@@ -420,7 +466,10 @@ func _test_target_highlighting(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should reload for attack highlighting."):
 		return false
 	var attacker := _find_lane_card(screen.get_match_state(), "Vanguard Captain")
-	var attacker_select_ok := screen.select_card(str(attacker.get("instance_id", "")))
+	var attacker_card := screen.find_child("lane_player_1_vanguard_card", true, false) as Button
+	var attacker_select_ok := attacker_card != null
+	if attacker_card != null:
+		attacker_card.emit_signal("pressed")
 	var attack_state := screen.get_interaction_state()
 	var attack_bone_guard := _find_lane_card(screen.get_match_state(), "Bone Guard")
 	var opponent_identity := screen.find_child("player_2_identity_button", true, false) as Button
@@ -435,7 +484,8 @@ func _test_target_highlighting(screen: MatchScreen) -> bool:
 		_assert(item_state.get("valid_target_instance_ids", []).has(str(bone_guard.get("instance_id", ""))), "Item highlights should follow current engine legality, including sandbox enemy targets when legal.") and
 		_assert(invalid_item_state.get("invalid_lane_slot_keys", []).has("field:player_1:1"), "Invalid non-creature item drops should be surfaced for feedback.") and
 		_assert(invalid_item_message.contains("Select a creature"), "Invalid item drop feedback should explain that a creature target is required.") and
-		_assert(attacker_select_ok, "Selecting the sandbox attacker should succeed.") and
+		_assert(attacker_select_ok, "Selecting the sandbox attacker through the visible board-card button should succeed.") and
+		_assert(screen.get_selected_instance_id() == str(attacker.get("instance_id", "")), "Real lane-card clicks should select the ready local attacker.") and
 		_assert(attack_state.get("selection_mode", "") == "attack", "Lane creature selection should enter attack targeting mode.") and
 		_assert(attack_state.get("valid_target_instance_ids", []).has(str(attack_bone_guard.get("instance_id", ""))), "Attack selection should highlight valid enemy defenders.") and
 		_assert(attack_state.get("valid_target_player_ids", []).is_empty(), "Enemy player should not highlight while Guard blocks face attacks.") and
@@ -457,9 +507,15 @@ func _test_combat_feedback(screen: MatchScreen) -> bool:
 	var summoning_label := screen.find_child("player_1_field_guardian_readiness_label", true, false) as Label
 	var attacker := _find_lane_card(screen.get_match_state(), "Vanguard Captain")
 	var defender := _find_lane_card(screen.get_match_state(), "Bone Guard")
-	if not _assert(screen.select_card(str(attacker.get("instance_id", ""))), "Ready attacker should remain selectable for combat feedback verification."):
+	var attacker_card := screen.find_child("lane_player_1_vanguard_card", true, false) as Button
+	var defender_card := screen.find_child("lane_player_2_bone_guard_card", true, false) as Button
+	if not _assert(attacker_card != null, "Combat feedback verification requires the visible local attacker button."):
 		return false
-	var attack_result := screen.target_selected_card(str(defender.get("instance_id", "")))
+	attacker_card.emit_signal("pressed")
+	var attack_state := screen.get_interaction_state()
+	if not _assert(defender_card != null, "Combat feedback verification requires the visible defender button."):
+		return false
+	defender_card.emit_signal("pressed")
 	var feedback_state := screen.get_feedback_state()
 	var attack_banner := _find_node_by_name_prefix(screen, "feedback_attack_")
 	var damage_popup := _find_node_by_name_prefix(screen, "feedback_damage_")
@@ -469,7 +525,8 @@ func _test_combat_feedback(screen: MatchScreen) -> bool:
 		_assert(guard_label != null and guard_label.text == "GUARD", "Guard blockers should keep a persistent GUARD emphasis badge.") and
 		_assert(bool(summon_result.get("is_valid", false)), "Summoning the readiness test creature should succeed.") and
 		_assert(summoning_label != null and summoning_label.text == "SUMMONING SICK", "Freshly summoned creatures should show a distinct summoning-sickness badge.") and
-		_assert(bool(attack_result.get("is_valid", false)), "Attacking the Guard blocker should still resolve through existing combat wiring.") and
+		_assert(attack_state.get("valid_target_instance_ids", []).has(str(defender.get("instance_id", ""))), "The ready local attacker should expose the Guard defender as a valid board target before the click resolves.") and
+		_assert(screen.get_selected_instance_id().is_empty(), "Successful board-button combat should clear selection after the attack resolves.") and
 		_assert(not _lane_contains(screen.get_match_state(), "field", "player_2", str(defender.get("instance_id", ""))), "The damaged Guard blocker should still die through the unchanged combat rules.") and
 		_assert(feedback_state.get("attacks", []).size() >= 1, "Combat feedback should capture an attack presentation payload.") and
 		_assert(feedback_state.get("damage", []).size() >= 2, "Combat feedback should capture visible damage payloads for both creatures.") and
@@ -723,6 +780,43 @@ func _color_reads_green(color: Color) -> bool:
 
 func _color_reads_red(color: Color) -> bool:
 	return color.r > color.g and color.r > color.b
+
+
+func _all_controls_ignore_mouse(node: Node) -> bool:
+	if node is Control and (node as Control).mouse_filter != Control.MOUSE_FILTER_IGNORE:
+		return false
+	for child in node.get_children():
+		if not _all_controls_ignore_mouse(child):
+			return false
+	return true
+
+
+func _click_control(control: Control) -> bool:
+	if control == null:
+		return false
+	var center := control.get_global_rect().position + control.get_global_rect().size * 0.5
+	var motion := InputEventMouseMotion.new()
+	motion.position = center
+	motion.global_position = center
+	root.push_input(motion)
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = center
+	press.global_position = center
+	root.push_input(press)
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = center
+	release.global_position = center
+	root.push_input(release)
+	return true
+
+
+func _await_frames(count: int) -> void:
+	for _i in range(count):
+		await process_frame
 
 
 func _assert(condition: bool, message: String) -> bool:

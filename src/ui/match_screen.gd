@@ -1188,6 +1188,7 @@ func _build_lanes_panel() -> Control:
 	var banner_row := HBoxContainer.new()
 	banner_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	banner_row.size_flags_horizontal = SIZE_EXPAND_FILL
+	banner_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	banner_overlay.add_child(banner_row)
 	_turn_banner_panel = PanelContainer.new()
 	_turn_banner_panel.name = "TurnBannerPanel"
@@ -1903,6 +1904,7 @@ func _populate_card_button_content(button: Button, card: Dictionary, public_view
 		art_label.add_theme_font_size_override("font_size", 11 if surface == "lane" else 12)
 		art_label.add_theme_color_override("font_color", Color(0.92, 0.87, 0.76, 0.94))
 		art_box.add_child(art_label)
+		_set_mouse_passthrough_recursive(margin)
 		return
 	var top_row := HBoxContainer.new()
 	top_row.add_theme_constant_override("separation", 4 if surface == "lane" else 6)
@@ -2009,6 +2011,14 @@ func _populate_card_button_content(button: Button, card: Dictionary, public_view
 		column.add_child(stats_row)
 		stats_row.add_child(_build_value_badge("%s_power" % instance_id, str(EvergreenRules.get_power(card)), Color(0.2, 0.16, 0.11, 0.98), Color(0.71, 0.54, 0.31, 0.96), _stat_color(card, "power"), 13 if surface == "hand" else 12, Vector2(0, 26)))
 		stats_row.add_child(_build_value_badge("%s_health" % instance_id, str(EvergreenRules.get_remaining_health(card)), Color(0.15, 0.1, 0.12, 0.98), Color(0.64, 0.35, 0.31, 0.96), _stat_color(card, "health"), 13 if surface == "hand" else 12, Vector2(0, 26)))
+	_set_mouse_passthrough_recursive(margin)
+
+
+func _set_mouse_passthrough_recursive(node: Node) -> void:
+	if node is Control:
+		(node as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in node.get_children():
+		_set_mouse_passthrough_recursive(child)
 
 
 func _build_value_badge(name_prefix: String, text: String, fill: Color, border: Color, font_color: Color, font_size: int, min_size: Vector2) -> PanelContainer:
