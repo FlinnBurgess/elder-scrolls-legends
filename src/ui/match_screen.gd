@@ -1843,22 +1843,16 @@ func _layout_local_hand_cards(hand_surface: Control, cards: Array[Button], card_
 	var start_x := (overlay_size.x - total_width) * 0.5
 	# Cards sit with the top ~35% peeking above the bottom edge
 	var base_y := overlay_size.y - card_size.y * 0.35
-	var vertical_step := 4.0
 	for index in range(count):
 		var button := cards[index]
-		var offset := float(index) - float(count - 1) * 0.5
-		var y := base_y + absf(offset) * vertical_step
-		var rotation := offset * 2.5
-		var position := Vector2(start_x + overlap_step * index, y)
+		var position := Vector2(start_x + overlap_step * index, base_y)
 		button.size = card_size
 		button.position = position
-		button.pivot_offset = card_size * 0.5
-		button.rotation_degrees = rotation
+		button.rotation_degrees = 0.0
 		button.scale = Vector2.ONE
 		button.z_index = index
 		button.set_meta("hand_index", index)
 		button.set_meta("base_position", position)
-		button.set_meta("base_rotation", rotation)
 	for button in cards:
 		_apply_local_hand_hover_state(button, false)
 
@@ -1907,37 +1901,49 @@ func _on_local_hand_card_mouse_exited(button: Button) -> void:
 func _apply_local_hand_hover_state(button: Button, hovered: bool) -> void:
 	if button == null:
 		return
-	var base_position: Vector2 = button.get_meta("base_position", button.position)
-	var base_rotation := float(button.get_meta("base_rotation", button.rotation_degrees))
+	var content_root: Control = button.get_meta("content_root", null) if button.has_meta("content_root") else null
+	if content_root == null:
+		return
 	var hand_index := int(button.get_meta("hand_index", button.z_index))
 	var selected := str(button.get_meta("instance_id", "")) == _selected_instance_id
 	var locked := bool(button.get_meta("presentation_locked", false))
 	var card_size := button.size
-	# How far the card needs to rise to be fully visible, plus margin from screen bottom
+	# How far the content needs to rise to be fully visible, plus margin from screen bottom
 	var bottom_margin := 24.0
 	var rise_amount := card_size.y * 0.85 + bottom_margin
-	# Reset to resting state
-	button.scale = Vector2.ONE
-	button.position = base_position
-	button.rotation_degrees = base_rotation
-	button.z_index = hand_index
-	button.mouse_filter = Control.MOUSE_FILTER_STOP
-	if locked:
-		return
-	if selected:
-		# Selected card rises but ignores mouse so board clicks go through
-		button.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		button.scale = Vector2(1.05, 1.05)
-		button.position = base_position + Vector2(0.0, -rise_amount)
-		button.rotation_degrees = 0.0
-		button.z_index = 110
-	if hovered:
-		# Hovered card is fully interactive
-		button.mouse_filter = Control.MOUSE_FILTER_STOP
-		button.scale = Vector2(1.1, 1.1) if selected else Vector2(1.05, 1.05)
-		button.position = base_position + Vector2(0.0, -rise_amount - (20.0 if selected else 0.0))
-		button.rotation_degrees = 0.0
-		button.z_index = 120 if selected else 100
+	# Determine target state — button stays fixed, content_root moves
+	var any_selected := not _selected_instance_id.is_empty()
+	var target_content_y := 0.0
+	var target_scale := Vector2.ONE
+	var target_z := hand_index
+	# When any card is selected (placement mode), non-selected hand cards ignore mouse
+	# so they don't block clicks on the board/support surface beneath them
+	var target_filter := Control.MOUSE_FILTER_IGNORE if (any_selected and not selected) else Control.MOUSE_FILTER_STOP
+	if not locked:
+		if selected:
+			target_filter = Control.MOUSE_FILTER_IGNORE
+			target_scale = Vector2(1.05, 1.05)
+			target_content_y = -rise_amount
+			target_z = 110
+		if hovered:
+			target_filter = Control.MOUSE_FILTER_STOP
+			target_scale = Vector2(1.1, 1.1) if selected else Vector2(1.05, 1.05)
+			target_content_y = -rise_amount - (20.0 if selected else 0.0)
+			target_z = 120 if selected else 100
+	# Apply non-animated properties immediately
+	button.z_index = target_z
+	button.mouse_filter = target_filter
+	content_root.pivot_offset = card_size * 0.5
+	content_root.scale = target_scale
+	# Animate content position (the rise/fall) — button stays fixed as hit area
+	var tween_key := "hand_hover_tween"
+	var existing_tween: Tween = button.get_meta(tween_key, null) if button.has_meta(tween_key) else null
+	if existing_tween != null and existing_tween.is_valid():
+		existing_tween.kill()
+	var target_content_pos := Vector2(0.0, target_content_y)
+	var tween := create_tween()
+	tween.tween_property(content_root, "position", target_content_pos, 0.15).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	button.set_meta(tween_key, tween)
 
 
 func _on_lane_card_mouse_entered(button: Button, instance_id: String) -> void:

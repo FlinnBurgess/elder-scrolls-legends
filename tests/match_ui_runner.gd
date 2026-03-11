@@ -296,7 +296,8 @@ func _test_card_frame_presentation(screen: MatchScreen) -> bool:
 	if not _assert(field_guardian_button != null and shadow_raider_button != null and steel_sword_button != null, "Expected named local hand card frames for the fan layout."):
 		return false
 	field_guardian_button.emit_signal("mouse_entered")
-	var hover_scale := field_guardian_button.scale.x
+	var field_guardian_content := field_guardian_button.get_meta("content_root", null) as Control
+	var hover_scale := field_guardian_content.scale.x if field_guardian_content != null else 1.0
 	var hover_z := field_guardian_button.z_index
 	field_guardian_button.emit_signal("mouse_exited")
 	return (
@@ -312,9 +313,8 @@ func _test_card_frame_presentation(screen: MatchScreen) -> bool:
 		_assert(field_guardian_health != null and _color_reads_green(field_guardian_health.get_theme_color("font_color")), "Buffed creature health should color green.") and
 		_assert(shadow_raider_power != null and _color_reads_red(shadow_raider_power.get_theme_color("font_color")), "Reduced creature power should color red.") and
 		_assert(field_guardian_button.position.x + field_guardian_button.size.x > shadow_raider_button.position.x, "Local hand cards should intentionally overlap instead of sitting in a plain row.") and
-		_assert(steel_sword_button.position.y < field_guardian_button.position.y, "Local hand should use an arc/fan treatment with different vertical positions.") and
 		_assert(hover_scale > 1.0 and hover_z > 0, "Local hand hover should enlarge and raise the hovered card.") and
-		_assert(is_equal_approx(field_guardian_button.scale.x, 1.0), "Hover emphasis should reset cleanly after the pointer leaves.") and
+		_assert(field_guardian_content != null and is_equal_approx(field_guardian_content.scale.x, 1.0), "Hover emphasis should reset cleanly after the pointer leaves.") and
 		_assert(grand_colossus_button != null and grand_colossus_button.self_modulate.a < 0.9, "Unaffordable local hand cards should be visually muted.") and
 		_assert(hidden_opponent_button != null and hidden_opponent_button.disabled, "Opponent hand cards should render as hidden backs rather than selectable text frames.") and
 		_assert(hidden_back_label != null and hidden_back_label.text.contains("CARD BACK"), "Opponent hand should visibly read as face-down card backs.")
@@ -509,7 +509,7 @@ func _test_play_interaction_highlighting(screen: MatchScreen) -> bool:
 	var valid_drop := screen.drop_hand_drag_on_node("shadow_lane_header")
 	return (
 		_assert(select_ok, "Selecting a hand creature should expose interaction highlights.") and
-		_assert(field_guardian_button != null and field_guardian_button.scale.x > 1.0, "Selected local hand cards should remain visually lifted for readability.") and
+		_assert(field_guardian_button != null and field_guardian_button.get_meta("content_root", null) != null and (field_guardian_button.get_meta("content_root") as Control).scale.x > 1.0, "Selected local hand cards should remain visually lifted for readability.") and
 		_assert(interaction_state.get("selection_mode", "") == "summon", "Creature hand selection should enter summon interaction mode.") and
 		_assert(interaction_state.get("valid_lane_slot_keys", []).size() >= 2, "Summon selection should highlight multiple valid drop slots.") and
 		_assert(not interaction_state.get("valid_lane_slot_keys", []).has("field:player_2:1"), "Opponent lane slots should not be listed as valid summon drops.") and
