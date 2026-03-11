@@ -13,6 +13,7 @@ const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
 const PLAYER_AVATAR_SCENE := preload("res://scenes/ui/components/PlayerAvatarComponent.tscn")
+const PLAYER_MAGICKA_SCENE := preload("res://scenes/ui/components/PlayerMagickaComponent.tscn")
 
 const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
 const PLAYER_ORDER := ["player_2", "player_1"]
@@ -881,22 +882,17 @@ func _build_player_section(player_id: String) -> Dictionary:
 	resource_row.size_flags_horizontal = SIZE_EXPAND_FILL
 	identity_column.add_child(resource_row)
 
-	var magicka_panel := PanelContainer.new()
-	magicka_panel.name = "%s_magicka_panel" % player_id
-	magicka_panel.custom_minimum_size = Vector2(0, 64)
-	magicka_panel.size_flags_horizontal = SIZE_EXPAND_FILL
-	_apply_panel_style(magicka_panel, Color(0.09, 0.16, 0.24, 0.96) if not is_opponent else Color(0.11, 0.14, 0.21, 0.94), Color(0.31, 0.55, 0.76, 0.92) if not is_opponent else Color(0.28, 0.4, 0.58, 0.9), 1, 10)
-	resource_row.add_child(magicka_panel)
-	var magicka_box := _build_panel_box(magicka_panel, 4, 8)
-	var magicka_label := Label.new()
-	magicka_label.name = "%s_magicka_label" % player_id
-	magicka_label.add_theme_font_size_override("font_size", 14)
-	magicka_label.add_theme_color_override("font_color", Color(0.88, 0.95, 0.99, 1.0))
-	magicka_box.add_child(magicka_label)
-	var magicka_row := HBoxContainer.new()
-	magicka_row.name = "%s_magicka_bar" % player_id
-	magicka_row.add_theme_constant_override("separation", 3)
-	magicka_box.add_child(magicka_row)
+	var magicka_mount := CenterContainer.new()
+	magicka_mount.name = "%s_magicka_mount" % player_id
+	magicka_mount.custom_minimum_size = Vector2(180, 172)
+	magicka_mount.size_flags_horizontal = SIZE_EXPAND_FILL
+	magicka_mount.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	resource_row.add_child(magicka_mount)
+	var magicka_component := PLAYER_MAGICKA_SCENE.instantiate()
+	magicka_component.name = "%s_magicka_component" % player_id
+	magicka_component.custom_minimum_size = Vector2(172, 172)
+	magicka_component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	magicka_mount.add_child(magicka_component)
 
 	var ring_panel := PanelContainer.new()
 	ring_panel.name = "%s_ring_panel" % player_id
@@ -999,8 +995,7 @@ func _build_player_section(player_id: String) -> Dictionary:
 		"panel": panel,
 		"summary_button": button,
 		"avatar_component": avatar_component,
-		"magicka_label": magicka_label,
-		"magicka_row": magicka_row,
+		"magicka_component": magicka_component,
 		"ring_label": ring_label,
 		"ring_row": ring_row,
 		"deck_button": deck_button,
@@ -1505,10 +1500,9 @@ func _refresh_player_sections() -> void:
 		if avatar_component != null:
 			avatar_component.apply_player_state(player, is_opponent)
 
-		var magicka_label: Label = section["magicka_label"]
-		magicka_label.text = _magicka_summary_text(player)
-		var magicka_row: HBoxContainer = section["magicka_row"]
-		_refresh_magicka_row(magicka_row, player, not is_opponent)
+		var magicka_component = section.get("magicka_component")
+		if magicka_component != null:
+			magicka_component.apply_player_state(player)
 
 		var ring_label: Label = section["ring_label"]
 		ring_label.text = _ring_panel_text(player)
@@ -3559,44 +3553,6 @@ func _magicka_summary_text(player: Dictionary) -> String:
 	if temporary > 0:
 		text += " • +%d temp" % temporary
 	return text
-
-
-func _refresh_magicka_row(magicka_row: HBoxContainer, player: Dictionary, emphasize: bool) -> void:
-	_clear_children(magicka_row)
-	var current := maxi(0, int(player.get("current_magicka", 0)))
-	var max_magicka := maxi(0, mini(12, int(player.get("max_magicka", 0))))
-	var temporary := maxi(0, int(player.get("temporary_magicka", 0)))
-	var available := mini(12, current + temporary)
-	for slot_index in range(12):
-		var state := "empty"
-		if slot_index < current:
-			state = "filled"
-		elif slot_index < available:
-			state = "temporary"
-		elif slot_index < max_magicka:
-			state = "spent"
-		magicka_row.add_child(_build_magicka_token(slot_index, state, emphasize))
-
-
-func _build_magicka_token(slot_index: int, state: String, emphasize: bool) -> Control:
-	var panel := PanelContainer.new()
-	panel.name = "magicka_%d" % slot_index
-	panel.custom_minimum_size = Vector2(18, 18) if not emphasize else Vector2(20, 20)
-	var fill := Color(0.08, 0.1, 0.13, 0.94)
-	var border := Color(0.23, 0.29, 0.37, 0.88)
-	match state:
-		"filled":
-			fill = Color(0.21, 0.62, 0.91, 0.98) if emphasize else Color(0.18, 0.5, 0.78, 0.96)
-			border = Color(0.73, 0.9, 0.99, 0.98)
-		"temporary":
-			fill = Color(0.38, 0.52, 0.95, 0.98)
-			border = Color(0.97, 0.9, 0.58, 0.98)
-		"spent":
-			fill = Color(0.12, 0.21, 0.32, 0.92)
-			border = Color(0.36, 0.48, 0.63, 0.9)
-	_apply_panel_style(panel, fill, border, 1, 6)
-	panel.tooltip_text = "Magicka slot %d" % [slot_index + 1]
-	return panel
 
 
 func _ring_panel_text(player: Dictionary) -> String:
