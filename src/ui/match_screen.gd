@@ -1837,8 +1837,8 @@ func _layout_local_hand_cards(hand_surface: Control, cards: Array[Button], card_
 	var overlap_step := card_size.x * 0.45
 	var total_width := card_size.x + overlap_step * float(max(0, count - 1))
 	var start_x := (overlay_size.x - total_width) * 0.5
-	# Cards sit with the top ~25% peeking above the bottom edge
-	var base_y := overlay_size.y - card_size.y * 0.25
+	# Cards sit with the top ~35% peeking above the bottom edge
+	var base_y := overlay_size.y - card_size.y * 0.35
 	var vertical_step := 4.0
 	for index in range(count):
 		var button := cards[index]
@@ -1909,8 +1909,9 @@ func _apply_local_hand_hover_state(button: Button, hovered: bool) -> void:
 	var selected := str(button.get_meta("instance_id", "")) == _selected_instance_id
 	var locked := bool(button.get_meta("presentation_locked", false))
 	var card_size := _surface_button_minimum_size("hand")
-	# How far the card needs to rise to be fully visible
-	var rise_amount := card_size.y * 0.85
+	# How far the card needs to rise to be fully visible, plus margin from screen bottom
+	var bottom_margin := 24.0
+	var rise_amount := card_size.y * 0.85 + bottom_margin
 	# Reset to resting state
 	button.scale = Vector2.ONE
 	button.position = base_position
