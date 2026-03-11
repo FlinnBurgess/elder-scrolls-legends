@@ -1834,6 +1834,10 @@ func _layout_hand_cards(hand_surface: Control, player_id: String) -> void:
 func _layout_local_hand_cards(hand_surface: Control, cards: Array[Button], card_size: Vector2, count: int) -> void:
 	# Cards fan out at the bottom-center of the screen, mostly off the bottom edge.
 	var overlay_size := get_viewport_rect().size
+	# Scale cards to ~30% of viewport height, preserving the card aspect ratio
+	var target_height := overlay_size.y * 0.30
+	var aspect_ratio := card_size.x / card_size.y
+	card_size = Vector2(target_height * aspect_ratio, target_height)
 	var overlap_step := card_size.x * 0.45
 	var total_width := card_size.x + overlap_step * float(max(0, count - 1))
 	var start_x := (overlay_size.x - total_width) * 0.5
@@ -1908,7 +1912,7 @@ func _apply_local_hand_hover_state(button: Button, hovered: bool) -> void:
 	var hand_index := int(button.get_meta("hand_index", button.z_index))
 	var selected := str(button.get_meta("instance_id", "")) == _selected_instance_id
 	var locked := bool(button.get_meta("presentation_locked", false))
-	var card_size := _surface_button_minimum_size("hand")
+	var card_size := button.size
 	# How far the card needs to rise to be fully visible, plus margin from screen bottom
 	var bottom_margin := 24.0
 	var rise_amount := card_size.y * 0.85 + bottom_margin
