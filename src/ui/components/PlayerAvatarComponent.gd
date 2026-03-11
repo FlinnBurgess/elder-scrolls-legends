@@ -405,11 +405,25 @@ func _computed_badge_size(medallion_size: float) -> Vector2:
 func _computed_rune_size(medallion_size: float) -> float:
 	var rune_minimum := 0.0
 	for rune_entry in _rune_entries:
-		var rune_panel := rune_entry.get("panel") as Control
-		if rune_panel != null:
-			var panel_minimum := rune_panel.get_combined_minimum_size()
-			rune_minimum = maxf(rune_minimum, maxf(panel_minimum.x, panel_minimum.y))
+		var panel_minimum := _rune_layout_minimum_size(rune_entry)
+		rune_minimum = maxf(rune_minimum, maxf(panel_minimum.x, panel_minimum.y))
 	return maxf(minf(medallion_size * RUNE_SIZE_RATIO, 28.0), rune_minimum)
+
+
+func _rune_layout_minimum_size(rune_entry: Dictionary) -> Vector2:
+	var minimum := Vector2.ZERO
+	var rune_panel := rune_entry.get("panel") as Control
+	if rune_panel != null:
+		minimum.x = maxf(minimum.x, rune_panel.custom_minimum_size.x)
+		minimum.y = maxf(minimum.y, rune_panel.custom_minimum_size.y)
+	for key in ["inner"]:
+		var control := rune_entry.get(key) as Control
+		if control == null:
+			continue
+		var control_minimum := control.get_combined_minimum_size()
+		minimum.x = maxf(minimum.x, control_minimum.x)
+		minimum.y = maxf(minimum.y, control_minimum.y)
+	return minimum
 
 
 func _build_style_box(fill: Color, border: Color, border_width := 1, corner_radius := 12) -> StyleBoxFlat:

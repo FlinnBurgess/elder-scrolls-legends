@@ -37,7 +37,7 @@ func _run_all_tests(screen: MatchScreen) -> bool:
 		return false
 	if not _test_turn_state_presentation(screen):
 		return false
-	if not _test_feedback_presentation_wave(screen):
+	if not await _test_feedback_presentation_wave(screen):
 		return false
 	if not _test_play_interaction_highlighting(screen):
 		return false
@@ -662,14 +662,29 @@ func _test_feedback_presentation_wave(screen: MatchScreen) -> bool:
 	var affected_hand_row := screen.find_child("%s_hand_row" % normal_draw_player_id, true, false) as Control
 	var draw_toast := _find_direct_child_by_name_prefix(affected_hand_row, "feedback_draw_toast_")
 	var draw_popup := _find_node_by_name_prefix(screen, "feedback_draw_popup_")
+	var has_normal_draw_feedback_surface := draw_popup != null or draw_toast != null
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should reload for explicit rune-break feedback verification."):
 		return false
+	var opponent_avatar := screen.find_child("player_2_avatar_component", true, false) as PlayerAvatarComponent
+	var baseline_rune_signature := _avatar_rune_size_signature(opponent_avatar)
 	var rune_result: Dictionary = MatchTiming.apply_player_damage(screen.get_match_state(), "player_2", 5, {"reason": "ui_test"})
 	screen._record_feedback_from_events(rune_result.get("events", []))
 	screen.clear_selection()
 	var rune_feedback := screen.get_feedback_state()
 	var rune_toast := _find_node_by_name_prefix(screen, "feedback_rune_toast_")
 	var rune_banner := _find_node_by_name_prefix(screen, "feedback_rune_banner_")
+	var has_rune_feedback_surface := rune_toast != null and rune_banner != null
+	var active_rune_signature := _avatar_rune_size_signature(opponent_avatar)
+	for feedback in screen._rune_feedbacks:
+		if typeof(feedback) == TYPE_DICTIONARY:
+			feedback["expires_at_ms"] = 0
+	for feedback in screen._draw_feedbacks:
+		if typeof(feedback) == TYPE_DICTIONARY and bool(feedback.get("from_rune_break", false)):
+			feedback["expires_at_ms"] = 0
+	screen.clear_selection()
+	await _await_frames(2)
+	var post_cycle_rune_signature := _avatar_rune_size_signature(opponent_avatar)
+	var expired_rune_banner := _find_node_by_name_prefix(screen, "feedback_rune_banner_")
 	if not _assert(screen.load_scenario("prophecy_lab"), "Prophecy scenario should reload for rune-break presentation verification."):
 		return false
 	var prophecy_ids := screen.get_pending_prophecy_ids()
@@ -697,12 +712,16 @@ func _test_feedback_presentation_wave(screen: MatchScreen) -> bool:
 	var defeat_title := overlay_title.text if overlay_title != null else ""
 	return (
 		_assert(normal_feedback.get("draws", []).size() >= 1, "Ending a turn should now register a visible draw feedback payload.") and
-		_assert(draw_popup != null or draw_toast != null, "Normal draws should surface visible player-surface feedback instead of updating silently.") and
+		_assert(has_normal_draw_feedback_surface, "Normal draws should surface visible player-surface feedback instead of updating silently.") and
+		_assert(opponent_avatar != null, "Rune-break presentation verification requires the mounted opponent avatar component.") and
 		_assert(rune_feedback.get("runes", []).size() >= 1, "Rune breaks should register a presentation payload for the broken rune.") and
 		_assert(rune_feedback.get("draws", []).size() >= 1, "Rune-break draws should register a visible draw payload.") and
+		_assert(_float_arrays_match(baseline_rune_signature, active_rune_signature), "Rune-break feedback should not inflate avatar rune token size while SHATTER feedback is active.") and
+		_assert(_float_arrays_match(baseline_rune_signature, post_cycle_rune_signature), "Avatar rune tokens should return to and stay at their compact size after the rune-break feedback cycle.") and
 		_assert(prompt_title != null and prompt_title.text.contains("PROPHECY"), "Pending Prophecy interrupts should headline the prompt rail clearly.") and
 		_assert((prophecy_badge != null and prophecy_free_badge != null) or prophecy_card_banner != null, "Pending Prophecy cards should render stronger interrupt badges directly on the card frame.") and
-		_assert(rune_toast != null and rune_banner != null, "Rune breaks should add both a player-surface toast and a shatter-style rune banner.") and
+		_assert(has_rune_feedback_surface, "Rune breaks should add both a player-surface toast and a shatter-style rune banner.") and
+		_assert(expired_rune_banner == null, "Rune-break feedback banners should clear when the transient presentation expires.") and
 		_assert(victory_visible and victory_title == "Victory", "Winning states should show a visible Victory overlay.") and
 		_assert(victory_detail.contains("wins the match"), "Match-end overlays should include clear completion copy.") and
 		_assert(victory_end_turn_disabled, "Match-end presentation should disable turn advancement controls.") and
@@ -913,6 +932,21 @@ func _avatar_orientation_signature(component: PlayerAvatarComponent) -> Array:
 		if rune == null:
 			return []
 		signature.append((rune as Control).position.x - medallion.position.x)
+	return signature
+
+
+func _avatar_rune_size_signature(component: PlayerAvatarComponent) -> Array:
+	if component == null:
+		return []
+	var signature: Array = []
+	for threshold in DISPLAY_RUNE_THRESHOLDS:
+		var rune := component.get_rune_anchor(threshold)
+		if rune == null:
+			return []
+		signature.append_array([
+			(rune as Control).size.x,
+			(rune as Control).size.y,
+		])
 	return signature
 
 

@@ -3036,7 +3036,7 @@ func _apply_rune_feedback(feedback: Dictionary) -> void:
 		_add_feedback_toast(avatar_component, "feedback_rune_toast_%s" % str(feedback.get("feedback_id", "0")), _rune_feedback_toast_text(feedback), Color(0.31, 0.13, 0.11, 0.98), Color(1.0, 0.73, 0.42, 1.0), Color(1.0, 0.95, 0.89, 1.0), 8.0 + float(feedback.get("stack_index", 0)) * 22.0)
 		var token_panel = avatar_component.get_rune_anchor(int(feedback.get("threshold", -1)))
 		if token_panel is Control:
-			_add_feedback_banner(token_panel as Control, "feedback_rune_banner_%s" % str(feedback.get("feedback_id", "0")), "SHATTER", Color(0.39, 0.14, 0.09, 0.99), Color(1.0, 0.78, 0.48, 1.0), Color(1.0, 0.96, 0.9, 1.0), 4.0)
+			_add_feedback_banner_over_target(avatar_component as Control, token_panel as Control, "feedback_rune_banner_%s" % str(feedback.get("feedback_id", "0")), "SHATTER", Color(0.39, 0.14, 0.09, 0.99), Color(1.0, 0.78, 0.48, 1.0), Color(1.0, 0.96, 0.9, 1.0), 4.0)
 
 
 func _apply_card_feedback_decoration(button: Button, card: Dictionary, surface: String) -> void:
@@ -3070,6 +3070,38 @@ func _add_feedback_banner(container: Control, name: String, text: String, fill: 
 	banner.offset_right = -8
 	banner.offset_top = top_offset
 	banner.offset_bottom = top_offset + 20.0
+	banner.z_index = 12
+	_apply_panel_style(banner, fill, border, 1, 6)
+	container.add_child(banner)
+	var box := _build_panel_box(banner, 0, 4)
+	var label := Label.new()
+	label.name = "%s_label" % name
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 9)
+	label.add_theme_color_override("font_color", font_color)
+	label.text = text
+	box.add_child(label)
+	var tween := create_tween()
+	tween.tween_interval(0.26)
+	tween.tween_property(banner, "modulate", Color(1, 1, 1, 0), 0.18)
+	tween.finished.connect(_queue_free_weak.bind(weakref(banner)))
+
+
+func _add_feedback_banner_over_target(container: Control, target: Control, name: String, text: String, fill: Color, border: Color, font_color: Color, top_offset: float) -> void:
+	if container == null or target == null:
+		return
+	var target_origin := container.get_global_transform_with_canvas().affine_inverse() * target.get_global_transform_with_canvas().origin
+	var banner_size := Vector2(maxf(target.size.x + 28.0, 54.0), 20.0)
+	var banner_position := Vector2(target_origin.x + (target.size.x - banner_size.x) * 0.5, target_origin.y + top_offset)
+	if container.size.x > 0.0:
+		banner_position.x = clampf(banner_position.x, 0.0, maxf(container.size.x - banner_size.x, 0.0))
+	if container.size.y > 0.0:
+		banner_position.y = clampf(banner_position.y, 0.0, maxf(container.size.y - banner_size.y, 0.0))
+	var banner := PanelContainer.new()
+	banner.name = name
+	banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	banner.position = banner_position
+	banner.size = banner_size
 	banner.z_index = 12
 	_apply_panel_style(banner, fill, border, 1, 6)
 	container.add_child(banner)
