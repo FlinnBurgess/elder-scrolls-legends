@@ -5,118 +5,118 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "card_id",
-    "name",
-    "card_type",
-    "subtypes",
-    "attributes",
-    "class_id",
-    "rarity",
-    "is_unique",
-    "cost",
-    "base_power",
-    "base_health",
-    "keywords",
-    "effect_ids",
-    "rules_text",
-    "rules_tags",
-    "support_uses",
-    "set_id",
-    "release_group_id",
-    "collectible",
-    "generated_by_rules",
-    "source_ids"
+	"card_id",
+	"name",
+	"card_type",
+	"subtypes",
+	"attributes",
+	"class_id",
+	"rarity",
+	"is_unique",
+	"cost",
+	"base_power",
+	"base_health",
+	"keywords",
+	"effect_ids",
+	"rules_text",
+	"rules_tags",
+	"support_uses",
+	"set_id",
+	"release_group_id",
+	"collectible",
+	"generated_by_rules",
+	"source_ids"
   ],
   "properties": {
-    "card_id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
-    "name": { "type": "string", "minLength": 1 },
-    "card_type": {
-      "type": "string",
-      "enum": ["creature", "action", "item", "support"]
-    },
-    "subtypes": {
-      "type": "array",
-      "items": { "type": "string" },
-      "uniqueItems": true
-    },
-    "attributes": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "enum": [
-          "strength",
-          "intelligence",
-          "willpower",
-          "agility",
-          "endurance"
-        ]
-      },
-      "minItems": 0,
-      "maxItems": 3,
-      "uniqueItems": true
-    },
-    "class_id": {
-      "type": ["string", "null"],
-      "description": "Derived from the attribute tuple for dual/triple-attribute cards; null for single-attribute or neutral cards."
-    },
-    "rarity": {
-      "type": "string",
-      "enum": ["common", "rare", "epic", "legendary", "unobtainable"]
-    },
-    "is_unique": { "type": "boolean" },
-    "cost": { "type": "integer", "minimum": 0 },
-    "base_power": { "type": ["integer", "null"], "minimum": 0 },
-    "base_health": { "type": ["integer", "null"], "minimum": 0 },
-    "keywords": {
-      "type": "array",
-      "items": { "type": "string" },
-      "uniqueItems": true
-    },
-    "effect_ids": {
-      "type": "array",
-      "items": { "type": "string" },
-      "uniqueItems": true
-    },
-    "triggered_abilities": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "description": "Optional generic trigger descriptors consumed by the timing/trigger engine. Shape is intentionally extensible while the subsystem is being proven through headless fixtures."
-      },
-      "default": []
-    },
-    "rules_text": { "type": "string" },
-    "rules_tags": {
-      "type": "array",
-      "items": { "type": "string" },
-      "uniqueItems": true,
-      "description": "Free-form flags for non-keyword card tags such as ongoing, prophecy timing tags, or double-card handling."
-    },
-    "support_uses": { "type": ["integer", "null"], "minimum": 0 },
-    "set_id": {
-      "type": "string",
-      "description": "Historical card-set identifier. May temporarily point at a staging bucket until full card import exists."
-    },
-    "release_group_id": {
-      "type": "string",
-      "description": "References data/legends/registries/content_group_registry.json."
-    },
-    "collectible": { "type": "boolean" },
-    "generated_by_rules": { "type": "boolean" },
-    "source_ids": {
-      "type": "array",
-      "items": { "type": "string" },
-      "minItems": 1,
-      "uniqueItems": true
-    }
+	"card_id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+	"name": { "type": "string", "minLength": 1 },
+	"card_type": {
+	  "type": "string",
+	  "enum": ["creature", "action", "item", "support"]
+	},
+	"subtypes": {
+	  "type": "array",
+	  "items": { "type": "string" },
+	  "uniqueItems": true
+	},
+	"attributes": {
+	  "type": "array",
+	  "items": {
+		"type": "string",
+		"enum": [
+		  "strength",
+		  "intelligence",
+		  "willpower",
+		  "agility",
+		  "endurance"
+		]
+	  },
+	  "minItems": 0,
+	  "maxItems": 3,
+	  "uniqueItems": true
+	},
+	"class_id": {
+	  "type": ["string", "null"],
+	  "description": "Derived from the attribute tuple for dual/triple-attribute cards; null for single-attribute or neutral cards."
+	},
+	"rarity": {
+	  "type": "string",
+	  "enum": ["common", "rare", "epic", "legendary", "unobtainable"]
+	},
+	"is_unique": { "type": "boolean" },
+	"cost": { "type": "integer", "minimum": 0 },
+	"base_power": { "type": ["integer", "null"], "minimum": 0 },
+	"base_health": { "type": ["integer", "null"], "minimum": 0 },
+	"keywords": {
+	  "type": "array",
+	  "items": { "type": "string" },
+	  "uniqueItems": true
+	},
+	"effect_ids": {
+	  "type": "array",
+	  "items": { "type": "string" },
+	  "uniqueItems": true
+	},
+	"triggered_abilities": {
+	  "type": "array",
+	  "items": {
+		"type": "object",
+		"description": "Optional generic trigger descriptors consumed by the timing/trigger engine. Shape is intentionally extensible while the subsystem is being proven through headless fixtures."
+	  },
+	  "default": []
+	},
+	"rules_text": { "type": "string" },
+	"rules_tags": {
+	  "type": "array",
+	  "items": { "type": "string" },
+	  "uniqueItems": true,
+	  "description": "Free-form flags for non-keyword card tags such as ongoing, prophecy timing tags, or double-card handling."
+	},
+	"support_uses": { "type": ["integer", "null"], "minimum": 0 },
+	"set_id": {
+	  "type": "string",
+	  "description": "Historical card-set identifier. May temporarily point at a staging bucket until full card import exists."
+	},
+	"release_group_id": {
+	  "type": "string",
+	  "description": "References data/legends/registries/content_group_registry.json."
+	},
+	"collectible": { "type": "boolean" },
+	"generated_by_rules": { "type": "boolean" },
+	"source_ids": {
+	  "type": "array",
+	  "items": { "type": "string" },
+	  "minItems": 1,
+	  "uniqueItems": true
+	}
   },
   "allOf": [
-    {
-      "if": {
-        "properties": { "card_type": { "const": "creature" } },
-        "required": ["card_type"]
-      },
-      "then": { "required": ["base_power", "base_health"] }
-    }
+	{
+	  "if": {
+		"properties": { "card_type": { "const": "creature" } },
+		"required": ["card_type"]
+	  },
+	  "then": { "required": ["base_power", "base_health"] }
+	}
   ]
 }

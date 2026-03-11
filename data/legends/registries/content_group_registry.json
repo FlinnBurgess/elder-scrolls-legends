@@ -1,40 +1,40 @@
 {
   "version": "0.1.0",
   "release_groups": [
-    {
-      "id": "core_pvp",
-      "display_name": "Core PvP",
-      "notes": "Standard versus ruleset and evergreen mechanics needed for the playable local-match milestone.",
-      "source_ids": ["workspace_spec"]
-    },
-    {
-      "id": "extended_live_sets",
-      "display_name": "Extended Live Sets",
-      "notes": "Later set mechanics intentionally deferred until the evergreen engine and trigger system are stable.",
-      "source_ids": ["workspace_spec", "uesp_card_effects"]
-    },
-    {
-      "id": "special_modes",
-      "display_name": "Special Modes",
-      "notes": "Story, Arena, Chaos, and lane-rule content that should remain additive over the core versus engine.",
-      "source_ids": ["workspace_spec", "uesp_lanes"]
-    },
-    {
-      "id": "system_generated",
-      "display_name": "System Generated",
-      "notes": "Synthetic rules objects such as Out of Cards or other non-collection records created by engine logic.",
-      "source_ids": ["workspace_spec", "uesp_out_of_cards"]
-    }
+	{
+	  "id": "core_pvp",
+	  "display_name": "Core PvP",
+	  "notes": "Standard versus ruleset and evergreen mechanics needed for the playable local-match milestone.",
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "extended_live_sets",
+	  "display_name": "Extended Live Sets",
+	  "notes": "Later set mechanics intentionally deferred until the evergreen engine and trigger system are stable.",
+	  "source_ids": ["workspace_spec", "uesp_card_effects"]
+	},
+	{
+	  "id": "special_modes",
+	  "display_name": "Special Modes",
+	  "notes": "Story, Arena, Chaos, and lane-rule content that should remain additive over the core versus engine.",
+	  "source_ids": ["workspace_spec", "uesp_lanes"]
+	},
+	{
+	  "id": "system_generated",
+	  "display_name": "System Generated",
+	  "notes": "Synthetic rules objects such as Out of Cards or other non-collection records created by engine logic.",
+	  "source_ids": ["workspace_spec", "uesp_out_of_cards"]
+	}
   ],
   "set_record_contract": {
-    "required_fields": [
-      "set_id",
-      "display_name",
-      "release_group_id",
-      "introduced_mechanics",
-      "source_ids"
-    ],
-    "notes": "Actual historical set population is deferred until card import begins; this contract keeps set_id usage stable in card records now.",
-    "source_ids": ["workspace_spec"]
+	"required_fields": [
+	  "set_id",
+	  "display_name",
+	  "release_group_id",
+	  "introduced_mechanics",
+	  "source_ids"
+	],
+	"notes": "Actual historical set population is deferred until card import begins; this contract keeps set_id usage stable in card records now.",
+	"source_ids": ["workspace_spec"]
   }
 }

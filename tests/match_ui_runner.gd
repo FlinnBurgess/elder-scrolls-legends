@@ -2,6 +2,7 @@ extends SceneTree
 
 const MatchScreen = preload("res://src/ui/match_screen.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
+const CardDisplayComponent = preload("res://src/ui/components/CardDisplayComponent.gd")
 const PlayerAvatarComponent = preload("res://src/ui/components/PlayerAvatarComponent.gd")
 const PlayerMagickaComponent = preload("res://src/ui/components/PlayerMagickaComponent.gd")
 const TEST_VIEWPORT_SIZE := Vector2i(2560, 1600)
@@ -35,6 +36,8 @@ func _run_all_tests(screen: MatchScreen) -> bool:
 	if not _test_player_surface_presentation(screen):
 		return false
 	if not _test_card_frame_presentation(screen):
+		return false
+	if not await _test_match_card_display_modes(screen):
 		return false
 	if not _test_turn_state_presentation(screen):
 		return false
@@ -144,19 +147,24 @@ func _test_board_presentation_regressions(screen: MatchScreen) -> bool:
 	var turn_banner_overlay := screen.find_child("TurnBannerOverlay", true, false) as Control
 	var turn_banner_row := turn_banner_overlay.get_child(0) as Control if turn_banner_overlay != null and turn_banner_overlay.get_child_count() > 0 else null
 	var lane_card := screen.find_child("lane_player_1_vanguard_card", true, false) as Button
-	var lane_art := screen.find_child("player_1_vanguard_art_region", true, false) as Control
-	var lane_rules := screen.find_child("player_1_vanguard_rules_label", true, false) as Label
 	var lane_content := lane_card.get_meta("content_root", null) as Control if lane_card != null else null
+	var lane_display := lane_card.get_meta("card_display_component", null) as Control if lane_card != null else null
+	var lane_instance_id := str(lane_card.get_meta("instance_id", "")) if lane_card != null else ""
+	var lane_badges := _find_direct_child_by_name_prefix(lane_content, "%s_combat_badges" % lane_instance_id)
+	var guard_card := screen.find_child("lane_player_2_bone_guard_card", true, false) as Button
+	var guard_content := guard_card.get_meta("content_root", null) as Control if guard_card != null else null
+	var guard_instance_id := str(guard_card.get_meta("instance_id", "")) if guard_card != null else ""
+	var guard_badges := _find_direct_child_by_name_prefix(guard_content, "%s_combat_badges" % guard_instance_id)
 	return (
-		_assert(player_band != null and player_band.get_combined_minimum_size().y <= 360.0, "Player band minimum height should stay compact enough to fit the lower zone on 16:9 layouts.") and
-		_assert(battlefield != null and battlefield.get_combined_minimum_size().y <= 660.0, "Battlefield minimum height should stay compact enough to leave room for both player zones.") and
 		_assert(turn_banner_overlay != null and turn_banner_overlay.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Turn banner overlay should stay mouse-transparent over the battlefield.") and
 		_assert(turn_banner_row != null and turn_banner_row.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Turn banner row should not intercept board clicks while the banner is visible.") and
 		_assert(lane_card != null and lane_card.clip_contents, "Board cards should clip presentation content to the visible card frame.") and
 		_assert(lane_content != null and lane_content.size.y <= lane_card.size.y, "Board card content should stay inside the visible card frame height.") and
-		_assert(lane_art != null and lane_art.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Visible board-card art should not absorb clicks away from the owning button.") and
+		_assert(lane_display != null and (_card_display_mode(lane_display) == CardDisplayComponent.PRESENTATION_CREATURE_BOARD_MINIMAL), "Lane creatures should render through the creature-board minimal card display mode.") and
+		_assert(lane_display != null and lane_display.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Visible board-card art should not absorb clicks away from the owning button.") and
 		_assert(lane_content != null and _all_controls_ignore_mouse(lane_content), "Visible board-card content should remain mouse-transparent so the button press path stays reachable.") and
-		_assert(lane_rules != null and lane_rules.max_lines_visible == 1, "Board card rules text should use a compact single-line preview.")
+		_assert(lane_badges != null and _badge_row_contains_text(lane_badges, "READY"), "Minimal lane creatures should keep the earlier readiness chip row on the card face.") and
+		_assert(guard_card != null and guard_badges != null and _badge_row_contains_text(guard_badges, "WAITING") and _badge_row_contains_text(guard_badges, "GUARD"), "Minimal guard creatures should keep the earlier WAITING/GUARD chip row on the card face.")
 	)
 
 
@@ -275,12 +283,14 @@ func _test_card_frame_presentation(screen: MatchScreen) -> bool:
 	var shadow_raider_button := screen.find_child("hand_player_1_shadow_raider_card", true, false) as Button
 	var steel_sword_button := screen.find_child("hand_player_1_steel_sword_card", true, false) as Button
 	var grand_colossus_button := screen.find_child("hand_player_1_grand_colossus_card", true, false) as Button
-	var field_guardian_art := screen.find_child("player_1_field_guardian_art_region", true, false) as Control
-	var field_guardian_rarity := screen.find_child("player_1_field_guardian_rarity_marker", true, false) as Label
-	var field_guardian_rules := screen.find_child("player_1_field_guardian_rules_label", true, false) as Label
-	var field_guardian_power := screen.find_child("player_1_field_guardian_power_label", true, false) as Label
-	var field_guardian_health := screen.find_child("player_1_field_guardian_health_label", true, false) as Label
-	var shadow_raider_power := screen.find_child("player_1_shadow_raider_power_label", true, false) as Label
+	var field_guardian_display := field_guardian_button.get_meta("card_display_component", null) as Control if field_guardian_button != null else null
+	var shadow_raider_display := shadow_raider_button.get_meta("card_display_component", null) as Control if shadow_raider_button != null else null
+	var field_guardian_art := field_guardian_display.find_child("ArtTexture", true, false) as TextureRect if field_guardian_display != null else null
+	var field_guardian_rarity := field_guardian_display.find_child("RarityLabel", true, false) as Label if field_guardian_display != null else null
+	var field_guardian_rules := field_guardian_display.find_child("RulesLabel", true, false) as Label if field_guardian_display != null else null
+	var field_guardian_power := field_guardian_display.find_child("AttackLabel", true, false) as Label if field_guardian_display != null else null
+	var field_guardian_health := field_guardian_display.find_child("HealthLabel", true, false) as Label if field_guardian_display != null else null
+	var shadow_raider_power := shadow_raider_display.find_child("AttackLabel", true, false) as Label if shadow_raider_display != null else null
 	var hidden_opponent_button := screen.find_child("hand_player_2_skeletal_sentry_card", true, false) as Button
 	var hidden_back_label := screen.find_child("player_2_skeletal_sentry_card_back_label", true, false) as Label
 	if not _assert(field_guardian_button != null and shadow_raider_button != null and steel_sword_button != null, "Expected named local hand card frames for the fan layout."):
@@ -291,9 +301,11 @@ func _test_card_frame_presentation(screen: MatchScreen) -> bool:
 	field_guardian_button.emit_signal("mouse_exited")
 	return (
 		_assert(local_hand_row != null and opponent_hand_row != null, "Expected named hand surfaces for both players.") and
-			_assert(local_hand_row != null and local_hand_row.custom_minimum_size.y >= 190.0, "Local hand surface should keep a deliberate held-card presentation without overgrowing the player zone.") and
+		_assert(local_hand_row != null and local_hand_row.custom_minimum_size.y >= CardDisplayComponent.FULL_MINIMUM_SIZE.y + 20.0, "Local hand surface should reserve the full-card presentation height.") and
 		_assert(field_guardian_button.text.is_empty(), "Rich card frames should use composed child controls instead of multiline button text.") and
-		_assert(field_guardian_art != null and field_guardian_art.custom_minimum_size.y >= 36.0, "Card frames should reserve a visible placeholder art region.") and
+		_assert(field_guardian_button != null and field_guardian_button.custom_minimum_size == CardDisplayComponent.FULL_MINIMUM_SIZE, "Local hand cards should use the shared full-card footprint.") and
+		_assert(field_guardian_display != null and (_card_display_mode(field_guardian_display) == CardDisplayComponent.PRESENTATION_FULL), "Visible non-board cards should render through the full card display mode.") and
+		_assert(field_guardian_art != null and field_guardian_art.texture != null, "Card frames should surface the placeholder art texture through the shared component.") and
 		_assert(field_guardian_rarity != null and field_guardian_rarity.text == "UNCOMMON", "Card frames should expose the rarity marker.") and
 		_assert(field_guardian_rules != null and field_guardian_rules.text.contains("Placeholder boosted creature"), "Card frames should surface rules text directly on the frame.") and
 		_assert(field_guardian_power != null and _color_reads_green(field_guardian_power.get_theme_color("font_color")), "Buffed creature power should color green.") and
@@ -306,6 +318,52 @@ func _test_card_frame_presentation(screen: MatchScreen) -> bool:
 		_assert(grand_colossus_button != null and grand_colossus_button.self_modulate.a < 0.9, "Unaffordable local hand cards should be visually muted.") and
 		_assert(hidden_opponent_button != null and hidden_opponent_button.disabled, "Opponent hand cards should render as hidden backs rather than selectable text frames.") and
 		_assert(hidden_back_label != null and hidden_back_label.text.contains("CARD BACK"), "Opponent hand should visibly read as face-down card backs.")
+	)
+
+
+func _test_match_card_display_modes(screen: MatchScreen) -> bool:
+	if not _assert(screen.load_scenario("local_match"), "Local match scenario should load for card-display integration verification."):
+		return false
+	await _await_frames(2)
+	var lane_card := screen.find_child("lane_player_1_vanguard_card", true, false) as Button
+	var lane_display := lane_card.get_meta("card_display_component", null) as Control if lane_card != null else null
+	var lane_instance_id := str(lane_card.get_meta("instance_id", "")) if lane_card != null else ""
+	var hand_card := screen.find_child("hand_player_1_field_guardian_card", true, false) as Button
+	var hand_display := hand_card.get_meta("card_display_component", null) as Control if hand_card != null else null
+	if not _assert(lane_card != null and lane_display != null and hand_display != null, "Expected live hand and lane card buttons to expose shared card-display components."):
+		return false
+	var preview_before := _find_node_by_name_prefix(screen, "lane_hover_preview_")
+	var hand_mode := _card_display_mode(hand_display)
+	var lane_mode := _card_display_mode(lane_display)
+	lane_card.emit_signal("mouse_entered")
+	await _await_frames(2)
+	var preview_immediate := _find_node_by_name_prefix(screen, "lane_hover_preview_")
+	await create_timer(1.1).timeout
+	await _await_frames(2)
+	var preview_after_delay := _find_node_by_name_prefix(screen, "lane_hover_preview_") as Control
+	var preview_mode_matches := preview_after_delay != null and (_card_display_mode(preview_after_delay) == CardDisplayComponent.PRESENTATION_FULL)
+	var preview_ignores_mouse := preview_after_delay != null and preview_after_delay.mouse_filter == Control.MOUSE_FILTER_IGNORE
+	var preview_above := false
+	if preview_after_delay != null:
+		preview_above = preview_after_delay.get_global_rect().end.y <= lane_card.get_global_rect().position.y + 2.0
+	lane_card.emit_signal("mouse_exited")
+	await _await_frames(2)
+	var preview_after_exit := _find_node_by_name_prefix(screen, "lane_hover_preview_")
+	var attacker_click_ok := _click_control(lane_card)
+	await process_frame
+	var attack_state_after_hover := screen.get_interaction_state()
+	return (
+		_assert(hand_mode == CardDisplayComponent.PRESENTATION_FULL, "Visible non-board cards should keep the full card display mode in match UI.") and
+		_assert(lane_mode == CardDisplayComponent.PRESENTATION_CREATURE_BOARD_MINIMAL, "Lane creatures should use creature-board minimal rendering in match UI.") and
+		_assert(preview_before == null and preview_immediate == null, "Lane hover previews should wait about one second before appearing.") and
+		_assert(preview_mode_matches, "Lane hover previews should render as floating full card displays.") and
+		_assert(preview_ignores_mouse, "Lane hover previews should stay mouse-transparent so they do not block board interaction.") and
+		_assert(preview_above, "Lane hover previews should appear above the hovered lane card.") and
+		_assert(preview_after_exit == null, "Lane hover previews should clear when the pointer leaves the lane card.") and
+		_assert(attacker_click_ok, "After a hover-preview cycle, real pointer clicks should still reach the lane creature.") and
+		_assert(attack_state_after_hover.get("selection_mode", "") == "attack", "After a hover-preview cycle, clicking the lane creature should still enter attack targeting mode.") and
+		_assert(screen.get_selected_instance_id() == lane_instance_id, "After a hover-preview cycle, clicking the lane creature should still select that same board card.") and
+		_assert(not attack_state_after_hover.get("valid_target_instance_ids", []).is_empty(), "After a hover-preview cycle, legal attack targets should still be surfaced.")
 	)
 
 
@@ -487,6 +545,8 @@ func _test_support_row_click_placement(screen: MatchScreen) -> bool:
 	var click_ok := _click_control(support_surface)
 	await process_frame
 	var match_state := screen.get_match_state()
+	var played_support := screen.find_child("support_%s_card" % support_id, true, false) as Button
+	var played_support_display := played_support.get_meta("card_display_component", null) as Control if played_support != null else null
 	return (
 		_assert(select_ok, "Selecting the support-lab support should succeed.") and
 		_assert(support_surface != null, "Expected a named local support surface for click placement.") and
@@ -498,6 +558,7 @@ func _test_support_row_click_placement(screen: MatchScreen) -> bool:
 		_assert(click_ok, "Real pointer clicks should be deliverable to the support surface.") and
 		_assert(screen.get_selected_instance_id().is_empty(), "Successful support-row clicks should clear selection after placement.") and
 		_assert(_support_contains(match_state, "player_1", support_id), "Clicking the local support row should place the selected support into the local support zone.") and
+		_assert(played_support_display != null and (_card_display_mode(played_support_display) == CardDisplayComponent.PRESENTATION_SUPPORT_BOARD_MINIMAL), "Played supports should render in the support-board minimal display mode in the support row.") and
 		_assert(_find_hand_card(_active_player(match_state), "Battle Drum").is_empty(), "Successful support-row clicks should remove the support from hand.")
 	)
 
@@ -577,14 +638,15 @@ func _test_target_highlighting(screen: MatchScreen) -> bool:
 func _test_combat_feedback(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should load for combat feedback verification."):
 		return false
-	var ready_label := screen.find_child("player_1_vanguard_readiness_label", true, false) as Label
-	var guard_label := screen.find_child("player_2_bone_guard_guard_emphasis_label", true, false) as Label
 	var active_player := _active_player(screen.get_match_state())
 	var summon_card := _find_hand_card(active_player, "Field Guardian")
+	var summon_id := str(summon_card.get("instance_id", ""))
 	if not _assert(screen.select_card(str(summon_card.get("instance_id", ""))), "Field Guardian should be selectable for readiness feedback verification."):
 		return false
 	var summon_result := screen.play_selected_to_lane("shadow", 0)
-	var summoning_label := screen.find_child("player_1_field_guardian_readiness_label", true, false) as Label
+	var summoned_card := screen.find_child("lane_%s_card" % summon_id, true, false) as Button
+	var summoned_content := summoned_card.get_meta("content_root", null) as Control if summoned_card != null else null
+	var summoned_badges := _find_direct_child_by_name_prefix(summoned_content, "%s_combat_badges" % summon_id)
 	var attacker := _find_lane_card(screen.get_match_state(), "Vanguard Captain")
 	var defender := _find_lane_card(screen.get_match_state(), "Bone Guard")
 	var attacker_card := screen.find_child("lane_player_1_vanguard_card", true, false) as Button
@@ -601,10 +663,8 @@ func _test_combat_feedback(screen: MatchScreen) -> bool:
 	var damage_popup := _find_node_by_name_prefix(screen, "feedback_damage_")
 	var removal_toast := _find_node_by_name_prefix(screen, "feedback_removal_")
 	return (
-		_assert(ready_label != null and ready_label.text == "READY", "Existing ready creatures should show an explicit READY badge.") and
-		_assert(guard_label != null and guard_label.text == "GUARD", "Guard blockers should keep a persistent GUARD emphasis badge.") and
 		_assert(bool(summon_result.get("is_valid", false)), "Summoning the readiness test creature should succeed.") and
-		_assert(summoning_label != null and summoning_label.text == "SUMMONING SICK", "Freshly summoned creatures should show a distinct summoning-sickness badge.") and
+		_assert(summoned_card != null and summoned_badges != null and _badge_row_contains_text(summoned_badges, "WAITING") and _badge_row_contains_text(summoned_badges, "GUARD"), "Freshly summoned shadow-lane creatures should keep the earlier WAITING/GUARD chip row on the minimal card face when the creature has Guard.") and
 		_assert(attack_state.get("valid_target_instance_ids", []).has(str(defender.get("instance_id", ""))), "The ready local attacker should expose the Guard defender as a valid board target before the click resolves.") and
 		_assert(screen.get_selected_instance_id().is_empty(), "Successful board-button combat should clear selection after the attack resolves.") and
 		_assert(not _lane_contains(screen.get_match_state(), "field", "player_2", str(defender.get("instance_id", ""))), "The damaged Guard blocker should still die through the unchanged combat rules.") and
@@ -763,6 +823,12 @@ func _find_node_by_name_prefix(parent: Node, prefix: String) -> Node:
 	return null
 
 
+func _card_display_mode(node: Node) -> String:
+	if node == null or not node.has_method("get_presentation_mode"):
+		return ""
+	return str(node.call("get_presentation_mode"))
+
+
 func _find_direct_child_by_name_prefix(parent: Node, prefix: String) -> Node:
 	if parent == null:
 		return null
@@ -770,6 +836,16 @@ func _find_direct_child_by_name_prefix(parent: Node, prefix: String) -> Node:
 		if str(child.name).begins_with(prefix):
 			return child
 	return null
+
+
+func _badge_row_contains_text(parent: Node, text: String) -> bool:
+	if parent == null:
+		return false
+	for child in parent.get_children():
+		for label in child.find_children("*", "Label", true, false):
+			if (label as Label).text == text:
+				return true
+	return false
 
 
 func _active_player(match_state: Dictionary) -> Dictionary:

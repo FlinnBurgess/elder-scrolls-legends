@@ -1,89 +1,89 @@
 {
   "version": "0.1.0",
   "sources": [
-    {
-      "id": "workspace_spec",
-      "title": "Workspace Spec",
-      "kind": "workspace_note",
-      "locator": "intent://local/note/spec"
-    },
-    {
-      "id": "uesp_legends_overview",
-      "title": "UESP Legends Overview",
-      "kind": "web",
-      "url": "https://en.uesp.net/wiki/Legends:Legends"
-    },
-    {
-      "id": "uesp_getting_started",
-      "title": "UESP Getting Started",
-      "kind": "web",
-      "url": "https://en.uesp.net/wiki/Legends:Getting_Started"
-    },
-    {
-      "id": "uesp_glossary",
-      "title": "UESP Glossary",
-      "kind": "web",
-      "url": "https://en.uesp.net/wiki/Legends:Glossary"
-    },
-    {
-      "id": "uesp_card_types",
-      "title": "UESP Card Types",
-      "kind": "web",
-      "url": "https://en.uesp.net/wiki/Legends:Card_Types"
-    },
-    {
-      "id": "uesp_card_effects",
-      "title": "UESP Card Effects",
-      "kind": "web",
-      "url": "https://en.uesp.net/w/index.php?title=Legends:Card_Effects&oldid=3246532"
-    },
-    {
-      "id": "uesp_lanes",
-      "title": "UESP Lanes",
-      "kind": "web",
-      "url": "https://en.uesp.net/w/index.php?title=Legends:Lanes&oldid=3009014"
-    },
-    {
-      "id": "uesp_decks",
-      "title": "UESP Decks",
-      "kind": "web",
-      "url": "https://en.uesp.net/wiki/Legends:Decks"
-    },
-    {
-      "id": "uesp_attributes",
-      "title": "UESP Attributes",
-      "kind": "web",
-      "url": "https://en.uesp.net/w/index.php?title=Legends:Attributes&oldid=2742788"
-    },
-    {
-      "id": "uesp_classes",
-      "title": "UESP Classes",
-      "kind": "web",
-      "url": "https://en.uesp.net/w/index.php?title=Legends:Classes&oldid=2893810"
-    },
-    {
-      "id": "uesp_ring_of_magicka",
-      "title": "UESP Ring of Magicka",
-      "kind": "web",
-      "url": "https://en.uesp.net/wiki/Legends:Ring_of_Magicka"
-    },
-    {
-      "id": "uesp_elixir_of_magicka",
-      "title": "UESP Elixir of Magicka",
-      "kind": "web",
-      "url": "https://en.uesp.net/wiki/Legends:Elixir_of_Magicka"
-    },
-    {
-      "id": "uesp_out_of_cards",
-      "title": "UESP Out of Cards",
-      "kind": "web",
-      "url": "https://en.uesp.net/wiki/Legends:Out_of_Cards"
-    },
-    {
-      "id": "uesp_patch",
-      "title": "UESP Patch",
-      "kind": "web",
-      "url": "https://en.uesp.net/wiki/Legends:Patch"
-    }
+	{
+	  "id": "workspace_spec",
+	  "title": "Workspace Spec",
+	  "kind": "workspace_note",
+	  "locator": "intent://local/note/spec"
+	},
+	{
+	  "id": "uesp_legends_overview",
+	  "title": "UESP Legends Overview",
+	  "kind": "web",
+	  "url": "https://en.uesp.net/wiki/Legends:Legends"
+	},
+	{
+	  "id": "uesp_getting_started",
+	  "title": "UESP Getting Started",
+	  "kind": "web",
+	  "url": "https://en.uesp.net/wiki/Legends:Getting_Started"
+	},
+	{
+	  "id": "uesp_glossary",
+	  "title": "UESP Glossary",
+	  "kind": "web",
+	  "url": "https://en.uesp.net/wiki/Legends:Glossary"
+	},
+	{
+	  "id": "uesp_card_types",
+	  "title": "UESP Card Types",
+	  "kind": "web",
+	  "url": "https://en.uesp.net/wiki/Legends:Card_Types"
+	},
+	{
+	  "id": "uesp_card_effects",
+	  "title": "UESP Card Effects",
+	  "kind": "web",
+	  "url": "https://en.uesp.net/w/index.php?title=Legends:Card_Effects&oldid=3246532"
+	},
+	{
+	  "id": "uesp_lanes",
+	  "title": "UESP Lanes",
+	  "kind": "web",
+	  "url": "https://en.uesp.net/w/index.php?title=Legends:Lanes&oldid=3009014"
+	},
+	{
+	  "id": "uesp_decks",
+	  "title": "UESP Decks",
+	  "kind": "web",
+	  "url": "https://en.uesp.net/wiki/Legends:Decks"
+	},
+	{
+	  "id": "uesp_attributes",
+	  "title": "UESP Attributes",
+	  "kind": "web",
+	  "url": "https://en.uesp.net/w/index.php?title=Legends:Attributes&oldid=2742788"
+	},
+	{
+	  "id": "uesp_classes",
+	  "title": "UESP Classes",
+	  "kind": "web",
+	  "url": "https://en.uesp.net/w/index.php?title=Legends:Classes&oldid=2893810"
+	},
+	{
+	  "id": "uesp_ring_of_magicka",
+	  "title": "UESP Ring of Magicka",
+	  "kind": "web",
+	  "url": "https://en.uesp.net/wiki/Legends:Ring_of_Magicka"
+	},
+	{
+	  "id": "uesp_elixir_of_magicka",
+	  "title": "UESP Elixir of Magicka",
+	  "kind": "web",
+	  "url": "https://en.uesp.net/wiki/Legends:Elixir_of_Magicka"
+	},
+	{
+	  "id": "uesp_out_of_cards",
+	  "title": "UESP Out of Cards",
+	  "kind": "web",
+	  "url": "https://en.uesp.net/wiki/Legends:Out_of_Cards"
+	},
+	{
+	  "id": "uesp_patch",
+	  "title": "UESP Patch",
+	  "kind": "web",
+	  "url": "https://en.uesp.net/wiki/Legends:Patch"
+	}
   ]
 }

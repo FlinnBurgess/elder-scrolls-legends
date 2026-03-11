@@ -12,6 +12,8 @@ const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
+const CARD_DISPLAY_COMPONENT_SCRIPT := preload("res://src/ui/components/CardDisplayComponent.gd")
+const CARD_DISPLAY_COMPONENT_SCENE := preload("res://scenes/ui/components/CardDisplayComponent.tscn")
 const PLAYER_AVATAR_SCENE := preload("res://scenes/ui/components/PlayerAvatarComponent.tscn")
 const PLAYER_MAGICKA_SCENE := preload("res://scenes/ui/components/PlayerMagickaComponent.tscn")
 
@@ -25,6 +27,7 @@ const REMOVAL_FEEDBACK_DURATION_MS := 1280
 const DRAW_FEEDBACK_DURATION_MS := 1800
 const RUNE_FEEDBACK_DURATION_MS := 2100
 const TURN_BANNER_DURATION_MS := 1600
+const LANE_CARD_HOVER_PREVIEW_DELAY_MS := 1000
 const LOCAL_MATCH_AI_SCENARIO_ID := "local_match"
 const LOCAL_MATCH_AI_ACTION_DELAY_MS := 320
 const SELECTION_MODE_NONE := "none"
@@ -103,12 +106,17 @@ var _help_label: Label
 var _history_text: TextEdit
 var _replay_text: TextEdit
 var _state_text: TextEdit
+var _lane_hover_preview_layer: Control
+var _lane_hover_preview_pending := {}
+var _lane_hover_preview_instance_id := ""
+var _lane_hover_preview_button_ref: WeakRef
 var _last_turn_owner_id := ""
 var _turn_banner_until_ms := 0
 var _queued_ai_step_at_ms := -1
 var _paused_ai_step_delay_ms := -1
 var _ai_waiting_for_turn_banner := false
 var _local_match_ai_action_count := 0
+var _pending_layout_scale_frames := 0
 
 
 func _ready() -> void:
@@ -126,7 +134,11 @@ func _process(_delta: float) -> void:
 	var should_show := _turn_banner_until_ms > Time.get_ticks_msec()
 	if _turn_banner_panel.visible != should_show:
 		_turn_banner_panel.visible = should_show
+	_process_lane_card_hover_preview()
 	_process_local_match_ai_turn()
+	if _pending_layout_scale_frames > 0:
+		_pending_layout_scale_frames -= 1
+		_apply_match_layout_scale()
 
 
 func get_available_scenarios() -> Array:
@@ -605,6 +617,12 @@ func _build_ui() -> void:
 	content.size_flags_vertical = SIZE_EXPAND_FILL
 	content.add_theme_constant_override("separation", 24)
 	root.add_child(content)
+
+	_lane_hover_preview_layer = Control.new()
+	_lane_hover_preview_layer.name = "LaneHoverPreviewLayer"
+	_lane_hover_preview_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_lane_hover_preview_layer.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	add_child(_lane_hover_preview_layer)
 
 	var top_shell := PanelContainer.new()
 	top_shell.name = "ScenarioBar"
@@ -1447,6 +1465,7 @@ func _populate_scenario_picker() -> void:
 
 func _refresh_ui() -> void:
 	_prune_feedback_state()
+	_clear_lane_card_hover_preview()
 	_card_buttons = {}
 	_lane_slot_buttons = {}
 	_sync_scenario_picker()
@@ -1463,6 +1482,7 @@ func _refresh_ui() -> void:
 	_refresh_action_buttons()
 	_refresh_match_end_overlay()
 	_apply_presentation_feedback()
+	_pending_layout_scale_frames = 2
 
 
 func _apply_match_layout_scale() -> void:
@@ -1472,7 +1492,14 @@ func _apply_match_layout_scale() -> void:
 		return
 	content.pivot_offset = Vector2.ZERO
 	content.scale = Vector2.ONE
-	var available: Vector2 = layout.size - Vector2(48, 44)
+	var window = get_tree().root
+	var layout_size := Vector2(window.size) if window != null else Vector2.ZERO
+	if layout_size.x <= 0.0 or layout_size.y <= 0.0:
+		layout_size = size if size.x > 0.0 and size.y > 0.0 else layout.size
+	var viewport_size := get_viewport_rect().size
+	if viewport_size.x > 0.0 and viewport_size.y > 0.0:
+		layout_size = Vector2(minf(layout_size.x, viewport_size.x), minf(layout_size.y, viewport_size.y))
+	var available: Vector2 = layout_size - Vector2(48, 44)
 	if available.x <= 0.0 or available.y <= 0.0:
 		return
 	var needed: Vector2 = content.get_combined_minimum_size()
@@ -1687,6 +1714,7 @@ func _build_card_button(card: Dictionary, public_view: bool, surface := "default
 	button.pressed.connect(_on_card_pressed.bind(str(card.get("instance_id", ""))))
 	button.tooltip_text = _card_tooltip(card, public_view)
 	button.disabled = hidden
+	button.set_meta("card_display_component", null)
 	_populate_card_button_content(button, card, public_view, surface)
 	_apply_card_feedback_decoration(button, card, surface)
 	_card_buttons[instance_id] = button
@@ -1694,6 +1722,9 @@ func _build_card_button(card: Dictionary, public_view: bool, surface := "default
 		button.mouse_entered.connect(_on_local_hand_card_mouse_entered.bind(button))
 		button.mouse_exited.connect(_on_local_hand_card_mouse_exited.bind(button))
 		button.gui_input.connect(_on_local_hand_card_gui_input.bind(button, instance_id))
+	if surface == "lane" and str(card.get("card_type", "")) == "creature":
+		button.mouse_entered.connect(_on_lane_card_mouse_entered.bind(button, instance_id))
+		button.mouse_exited.connect(_on_lane_card_mouse_exited.bind(instance_id))
 	return button
 
 
@@ -1703,8 +1734,8 @@ func _build_empty_slot_button(lane_id: String, player_id: String, slot_index: in
 	var interaction_state := _lane_slot_interaction_state(lane_id, player_id, slot_index)
 	var locked := _should_dim_local_surface(player_id) and interaction_state == "default"
 	button.name = "%s_%s_slot_%d" % [lane_id, player_id, slot_index]
-	button.custom_minimum_size = Vector2(132, 88)
-	button.add_theme_font_size_override("font_size", 15)
+	button.custom_minimum_size = CARD_DISPLAY_COMPONENT_SCRIPT.CREATURE_BOARD_MINIMUM_SIZE
+	button.add_theme_font_size_override("font_size", int(round(15.0 * _surface_scale_factor("lane"))))
 	button.text = "Open %d" % (slot_index + 1)
 	button.mouse_default_cursor_shape = Control.CURSOR_ARROW if locked else Control.CURSOR_POINTING_HAND
 	button.set_meta("lane_id", lane_id)
@@ -1731,11 +1762,11 @@ func _build_placeholder_label(text: String) -> Label:
 func _surface_button_minimum_size(surface: String) -> Vector2:
 	match surface:
 		"lane":
-			return Vector2(136, 172)
+			return CARD_DISPLAY_COMPONENT_SCRIPT.CREATURE_BOARD_MINIMUM_SIZE
 		"hand":
-			return Vector2(156, 196)
+			return CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
 		"support":
-			return Vector2(140, 152)
+			return CARD_DISPLAY_COMPONENT_SCRIPT.SUPPORT_BOARD_MINIMUM_SIZE
 		_:
 			return Vector2(132, 80)
 
@@ -1765,6 +1796,7 @@ func _on_hand_surface_resized(hand_surface: Control) -> void:
 		_layout_hand_cards(hand_surface, player_id)
 	elif hand_surface.get_child_count() > 0 and hand_surface.get_child(0) is Label:
 		_layout_hand_placeholder(hand_surface, hand_surface.get_child(0) as Label)
+	_apply_match_layout_scale()
 
 
 func _layout_hand_cards(hand_surface: Control, player_id: String) -> void:
@@ -1777,15 +1809,16 @@ func _layout_hand_cards(hand_surface: Control, player_id: String) -> void:
 	var card_size := _surface_button_minimum_size("hand")
 	var count := cards.size()
 	var is_local := player_id == PLAYER_ORDER[1]
-	var overlap_step: float = 78.0 if is_local else 62.0
+	var overlap_step: float = card_size.x * (0.5 if is_local else (62.0 / 156.0))
 	var total_width: float = card_size.x + overlap_step * float(max(0, count - 1))
 	var available_width: float = max(hand_surface.size.x, total_width + 24.0)
 	var start_x: float = max(0.0, (available_width - total_width) * 0.5)
 	var max_y: float = 0.0
+	var vertical_step: float = _surface_scale_factor("hand") * (6.0 if is_local else 3.0)
 	for index in range(count):
 		var button := cards[index]
 		var offset := float(index) - float(count - 1) * 0.5
-		var y := absf(offset) * (6.0 if is_local else 3.0)
+		var y := absf(offset) * vertical_step
 		var rotation := offset * (3.4 if is_local else 1.2)
 		var position := Vector2(start_x + overlap_step * index, y)
 		button.size = card_size
@@ -1827,6 +1860,7 @@ func _apply_local_hand_hover_state(button: Button, hovered: bool) -> void:
 	var hand_index := int(button.get_meta("hand_index", button.z_index))
 	var selected := str(button.get_meta("instance_id", "")) == _selected_instance_id
 	var locked := bool(button.get_meta("presentation_locked", false))
+	var scale_factor := _surface_scale_factor("hand")
 	button.scale = Vector2.ONE
 	button.position = base_position
 	button.rotation_degrees = base_rotation
@@ -1835,34 +1869,123 @@ func _apply_local_hand_hover_state(button: Button, hovered: bool) -> void:
 		return
 	if selected:
 		button.scale = Vector2(1.12, 1.12)
-		button.position = base_position + Vector2(-10, -34)
+		button.position = base_position + Vector2(-10.0, -34.0) * scale_factor
 		button.rotation_degrees = base_rotation * 0.18
 		button.z_index = 110
 	if hovered:
 		button.scale = Vector2(1.14, 1.14) if selected else Vector2(1.08, 1.08)
-		button.position = base_position + Vector2(-10, -40) if selected else base_position + Vector2(-8, -24)
+		button.position = base_position + (Vector2(-10.0, -40.0) if selected else Vector2(-8.0, -24.0)) * scale_factor
 		button.rotation_degrees = base_rotation * 0.12 if selected else base_rotation * 0.35
 		button.z_index = 120 if selected else 100
+
+
+func _on_lane_card_mouse_entered(button: Button, instance_id: String) -> void:
+	_clear_lane_card_hover_preview()
+	_lane_hover_preview_pending = {
+		"instance_id": instance_id,
+		"button_ref": weakref(button),
+		"entered_at_ms": Time.get_ticks_msec(),
+	}
+
+
+func _on_lane_card_mouse_exited(instance_id: String) -> void:
+	if str(_lane_hover_preview_pending.get("instance_id", "")) == instance_id:
+		_lane_hover_preview_pending = {}
+	if _lane_hover_preview_instance_id == instance_id:
+		_clear_lane_card_hover_preview()
+
+
+func _process_lane_card_hover_preview() -> void:
+	if _lane_hover_preview_button_ref != null:
+		var active_button = _lane_hover_preview_button_ref.get_ref() as Button
+		if active_button == null or not is_instance_valid(active_button):
+			_clear_lane_card_hover_preview()
+		elif _lane_hover_preview_instance_id != "":
+			_position_lane_card_hover_preview(active_button)
+	if _lane_hover_preview_pending.is_empty():
+		return
+	if Time.get_ticks_msec() - int(_lane_hover_preview_pending.get("entered_at_ms", 0)) < LANE_CARD_HOVER_PREVIEW_DELAY_MS:
+		return
+	var button_ref := _lane_hover_preview_pending.get("button_ref") as WeakRef
+	var button := button_ref.get_ref() as Button if button_ref != null else null
+	var instance_id := str(_lane_hover_preview_pending.get("instance_id", ""))
+	_lane_hover_preview_pending = {}
+	if button == null or not is_instance_valid(button):
+		return
+	var card := _card_from_instance_id(instance_id)
+	if card.is_empty() or str(card.get("card_type", "")) != "creature":
+		return
+	_show_lane_card_hover_preview(button, card, instance_id)
+
+
+func _show_lane_card_hover_preview(button: Button, card: Dictionary, instance_id: String) -> void:
+	_clear_lane_card_hover_preview()
+	if _lane_hover_preview_layer == null:
+		return
+	var preview = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+	if preview == null:
+		return
+	preview.name = "lane_hover_preview_%s" % instance_id
+	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	preview.z_index = 400
+	preview.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+	preview.size = preview.custom_minimum_size
+	_lane_hover_preview_layer.add_child(preview)
+	_lane_hover_preview_instance_id = instance_id
+	_lane_hover_preview_button_ref = weakref(button)
+	_position_lane_card_hover_preview(button)
+
+
+func _position_lane_card_hover_preview(button: Button) -> void:
+	if button == null or _lane_hover_preview_layer == null:
+		return
+	var preview := _lane_hover_preview_layer.get_node_or_null("lane_hover_preview_%s" % _lane_hover_preview_instance_id) as Control
+	if preview == null:
+		return
+	var preview_size := preview.custom_minimum_size if preview.custom_minimum_size != Vector2.ZERO else preview.size
+	preview.size = preview_size
+	var layer_origin := _lane_hover_preview_layer.get_global_rect().position
+	var button_rect := button.get_global_rect()
+	var target_position := Vector2(
+		button_rect.get_center().x - preview_size.x * 0.5 - layer_origin.x,
+		button_rect.position.y - preview_size.y - 18.0 - layer_origin.y
+	)
+	target_position.x = clampf(target_position.x, 0.0, maxf(_lane_hover_preview_layer.size.x - preview_size.x, 0.0))
+	target_position.y = clampf(target_position.y, 0.0, maxf(_lane_hover_preview_layer.size.y - preview_size.y, 0.0))
+	preview.position = target_position
+
+
+func _clear_lane_card_hover_preview() -> void:
+	_lane_hover_preview_pending = {}
+	_lane_hover_preview_instance_id = ""
+	_lane_hover_preview_button_ref = null
+	if _lane_hover_preview_layer == null:
+		return
+	for child in _lane_hover_preview_layer.get_children():
+		child.queue_free()
 
 
 func _populate_card_button_content(button: Button, card: Dictionary, public_view: bool, surface: String) -> void:
 	var hidden := not public_view and not _is_pending_prophecy_card(card)
 	var instance_id := str(card.get("instance_id", ""))
-	var margin := MarginContainer.new()
-	margin.name = "%s_content_root" % instance_id
-	margin.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", _surface_content_padding(surface))
-	margin.add_theme_constant_override("margin_top", _surface_content_padding(surface))
-	margin.add_theme_constant_override("margin_right", _surface_content_padding(surface))
-	margin.add_theme_constant_override("margin_bottom", _surface_content_padding(surface))
-	button.add_child(margin)
-	button.set_meta("content_root", margin)
-	var column := VBoxContainer.new()
-	column.size_flags_horizontal = SIZE_EXPAND_FILL
-	column.size_flags_vertical = SIZE_EXPAND_FILL
-	column.add_theme_constant_override("separation", 2 if surface == "lane" else 6)
-	margin.add_child(column)
+	var content_root := Control.new()
+	content_root.name = "%s_content_root" % instance_id
+	content_root.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	button.add_child(content_root)
+	button.set_meta("content_root", content_root)
 	if hidden:
+		var margin := MarginContainer.new()
+		margin.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		margin.add_theme_constant_override("margin_left", _surface_content_padding(surface))
+		margin.add_theme_constant_override("margin_top", _surface_content_padding(surface))
+		margin.add_theme_constant_override("margin_right", _surface_content_padding(surface))
+		margin.add_theme_constant_override("margin_bottom", _surface_content_padding(surface))
+		content_root.add_child(margin)
+		var column := VBoxContainer.new()
+		column.size_flags_horizontal = SIZE_EXPAND_FILL
+		column.size_flags_vertical = SIZE_EXPAND_FILL
+		column.add_theme_constant_override("separation", 2 if surface == "lane" else 6)
+		margin.add_child(column)
 		var card_back_label := Label.new()
 		card_back_label.name = "%s_card_back_label" % instance_id
 		card_back_label.text = "CARD BACK"
@@ -1885,114 +2008,91 @@ func _populate_card_button_content(button: Button, card: Dictionary, public_view
 		art_label.add_theme_font_size_override("font_size", 11 if surface == "lane" else 12)
 		art_label.add_theme_color_override("font_color", Color(0.92, 0.87, 0.76, 0.94))
 		art_box.add_child(art_label)
-		_set_mouse_passthrough_recursive(margin)
+		_set_mouse_passthrough_recursive(content_root)
 		return
-	var top_row := HBoxContainer.new()
-	top_row.add_theme_constant_override("separation", 4 if surface == "lane" else 6)
-	column.add_child(top_row)
-	var cost_badge := _build_value_badge("%s_cost" % instance_id, str(int(card.get("cost", 0))), Color(0.18, 0.22, 0.31, 0.98), Color(0.68, 0.82, 0.98, 0.98), Color(0.95, 0.98, 1.0, 1.0), 12 if surface == "lane" else 15, Vector2(34, 24))
-	top_row.add_child(cost_badge)
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = SIZE_EXPAND_FILL
-	top_row.add_child(spacer)
-	var rarity_marker := Label.new()
-	rarity_marker.name = "%s_rarity_marker" % instance_id
-	rarity_marker.text = _card_rarity_text(card).to_upper()
-	rarity_marker.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	rarity_marker.add_theme_font_size_override("font_size", 10 if surface == "lane" else 11)
-	rarity_marker.add_theme_color_override("font_color", _rarity_color(card))
-	top_row.add_child(rarity_marker)
+	var component := _build_card_display_component(card, surface, instance_id)
+	if component != null:
+		content_root.add_child(component)
+		button.set_meta("card_display_component", component)
+	_add_card_overlay_badges(content_root, card, public_view, surface, instance_id)
+	_set_mouse_passthrough_recursive(content_root)
+
+
+func _build_card_display_component(card: Dictionary, surface: String, instance_id: String) -> Control:
+	var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+	if component == null:
+		return null
+	component.name = "%s_card_display" % instance_id
+	component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	component.apply_card(card, _card_presentation_mode(card, surface))
+	return component
+
+
+func _card_presentation_mode(card: Dictionary, surface: String) -> String:
+	match surface:
+		"lane":
+			return CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_CREATURE_BOARD_MINIMAL if str(card.get("card_type", "")) == "creature" else CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL
+		"support":
+			return CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_SUPPORT_BOARD_MINIMAL if str(card.get("card_type", "")) == "support" else CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL
+		_:
+			return CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL
+
+
+func _add_card_overlay_badges(content_root: Control, card: Dictionary, public_view: bool, surface: String, instance_id: String) -> void:
+	if surface == "lane":
+		var lane_badges := _build_lane_status_badges(card, instance_id)
+		if lane_badges != null:
+			content_root.add_child(lane_badges)
+	if surface == "hand":
+		var hand_badges := _build_hand_emphasis_badges(card, public_view, surface, instance_id)
+		if hand_badges != null:
+			content_root.add_child(hand_badges)
+
+
+func _build_lane_status_badges(card: Dictionary, instance_id: String) -> HBoxContainer:
+	if str(card.get("card_type", "")) != "creature":
+		return null
+	var row := HBoxContainer.new()
+	row.name = "%s_combat_badges" % instance_id
+	row.position = Vector2(8, 8)
+	row.add_theme_constant_override("separation", 4)
+	row.add_child(_build_text_badge("%s_readiness" % instance_id, _lane_readiness_badge_text(card), Color(0.17, 0.2, 0.27, 0.99), Color(0.55, 0.67, 0.84, 0.94), Color(0.9, 0.94, 0.99, 1.0), 9, Vector2(0, 20)))
+	if _lane_readiness_badge_text(card) == "READY":
+		var readiness_badge := row.get_child(0) as PanelContainer
+		_apply_panel_style(readiness_badge, Color(0.16, 0.28, 0.18, 0.99), Color(0.58, 0.92, 0.61, 0.98), 1, 8)
+	if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_GUARD):
+		row.add_child(_build_text_badge("%s_guard" % instance_id, "GUARD", Color(0.31, 0.22, 0.1, 0.99), Color(0.95, 0.78, 0.4, 0.98), Color(1.0, 0.96, 0.88, 1.0), 9, Vector2(0, 20)))
+	if EvergreenRules.is_cover_active(_match_state, card):
+		row.add_child(_build_text_badge("%s_cover" % instance_id, "COVER", Color(0.17, 0.15, 0.28, 0.99), Color(0.77, 0.67, 0.97, 0.98), Color(0.98, 0.95, 1.0, 1.0), 9, Vector2(0, 20)))
+	return row
+
+
+func _lane_readiness_badge_text(card: Dictionary) -> String:
+	if str(card.get("controller_player_id", "")) != _active_player_id():
+		return "WAITING"
+	if bool(card.get("cannot_attack", false)) or EvergreenRules.has_status(card, EvergreenRules.STATUS_SHACKLED):
+		return "WAITING"
+	if bool(card.get("has_attacked_this_turn", false)):
+		return "WAITING"
+	if _entered_lane_this_turn(card) and not EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_CHARGE):
+		return "WAITING"
+	return "READY"
+
+
+func _build_hand_emphasis_badges(card: Dictionary, public_view: bool, surface: String, instance_id: String) -> HBoxContainer:
 	var draw_feedback := _active_draw_feedback_for_instance(instance_id)
-	if _is_pending_prophecy_card(card) or (surface == "hand" and public_view and not draw_feedback.is_empty()):
-		var emphasis_row := HBoxContainer.new()
-		emphasis_row.name = "%s_emphasis_row" % instance_id
-		emphasis_row.add_theme_constant_override("separation", 4)
-		column.add_child(emphasis_row)
-		if _is_pending_prophecy_card(card):
-			emphasis_row.add_child(_build_text_badge("%s_prophecy_window" % instance_id, "PROPHECY", Color(0.28, 0.14, 0.34, 0.99), Color(0.94, 0.75, 0.98, 1.0), Color(1.0, 0.96, 1.0, 1.0), 9 if surface == "lane" else 10, Vector2(0, 22)))
-			emphasis_row.add_child(_build_text_badge("%s_prophecy_free" % instance_id, "FREE INTERRUPT", Color(0.18, 0.12, 0.3, 0.99), Color(0.72, 0.84, 1.0, 0.98), Color(0.95, 0.98, 1.0, 1.0), 9 if surface == "lane" else 10, Vector2(0, 22)))
-		if surface == "hand" and public_view and not draw_feedback.is_empty():
-			emphasis_row.add_child(_build_text_badge("%s_draw_feedback" % instance_id, _draw_feedback_badge_text(draw_feedback), _draw_feedback_badge_fill(draw_feedback), _draw_feedback_badge_border(draw_feedback), Color(1.0, 0.97, 0.92, 1.0), 9 if surface == "lane" else 10, Vector2(0, 22)))
-	var art_panel := PanelContainer.new()
-	art_panel.name = "%s_art_region" % instance_id
-	art_panel.custom_minimum_size = Vector2(0, _surface_art_height(surface))
-	art_panel.size_flags_horizontal = SIZE_EXPAND_FILL
-	_apply_panel_style(art_panel, _surface_art_fill(surface), _surface_art_border(surface), 1, 8)
-	column.add_child(art_panel)
-	var art_box := _build_panel_box(art_panel, 4, 8)
-	var art_title := Label.new()
-	art_title.text = "ART" if surface == "lane" else "Illustration Placeholder"
-	art_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	art_title.add_theme_font_size_override("font_size", 11 if surface == "lane" else 12)
-	art_title.add_theme_color_override("font_color", Color(0.95, 0.89, 0.76, 0.96))
-	art_box.add_child(art_title)
-	if surface != "lane":
-		var art_caption := Label.new()
-		art_caption.text = "Reserved frame for future card art"
-		art_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		art_caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		art_caption.add_theme_font_size_override("font_size", 11)
-		art_caption.add_theme_color_override("font_color", Color(0.84, 0.84, 0.9, 0.88))
-		art_box.add_child(art_caption)
-	var name_label := Label.new()
-	name_label.name = "%s_name_label" % instance_id
-	name_label.text = _card_name(card)
-	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	name_label.max_lines_visible = 1 if surface == "lane" else -1
-	name_label.add_theme_font_size_override("font_size", _surface_name_font_size(surface))
-	name_label.add_theme_color_override("font_color", Color(0.97, 0.95, 0.9, 1.0))
-	column.add_child(name_label)
-	if surface != "lane":
-		var type_label := Label.new()
-		type_label.name = "%s_type_label" % instance_id
-		type_label.text = _card_type_line(card, surface)
-		type_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		type_label.max_lines_visible = -1
-		type_label.add_theme_font_size_override("font_size", _surface_meta_font_size(surface))
-		type_label.add_theme_color_override("font_color", Color(0.84, 0.88, 0.96, 0.92))
-		column.add_child(type_label)
-	var rules_label := Label.new()
-	rules_label.name = "%s_rules_label" % instance_id
-	rules_label.text = _card_rules_preview(card, surface)
-	rules_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	rules_label.max_lines_visible = 1 if surface == "lane" else -1
-	rules_label.add_theme_font_size_override("font_size", _surface_rules_font_size(surface))
-	rules_label.add_theme_color_override("font_color", Color(0.88, 0.89, 0.94, 0.96))
-	column.add_child(rules_label)
-	var tags := _card_tag_text(card)
-	if not tags.is_empty() and surface != "lane":
-		var tags_label := Label.new()
-		tags_label.name = "%s_tags_label" % instance_id
-		tags_label.text = tags
-		tags_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		tags_label.add_theme_font_size_override("font_size", 10 if surface == "lane" else 11)
-		tags_label.add_theme_color_override("font_color", Color(0.86, 0.78, 0.6, 0.94))
-		column.add_child(tags_label)
-	if str(card.get("card_type", "")) == "creature":
-		var combat_badges := HBoxContainer.new()
-		combat_badges.name = "%s_combat_badges" % instance_id
-		combat_badges.add_theme_constant_override("separation", 4)
-		column.add_child(combat_badges)
-		var readiness_state := _creature_readiness_state(card)
-		combat_badges.add_child(_build_text_badge(
-			"%s_readiness" % instance_id,
-			str(readiness_state.get("label", "READY")),
-			readiness_state.get("fill", Color(0.16, 0.28, 0.18, 0.98)),
-			readiness_state.get("border", Color(0.58, 0.9, 0.62, 0.96)),
-			readiness_state.get("font", Color(0.95, 0.99, 0.96, 1.0)),
-			9 if surface == "lane" else 10,
-			Vector2(0, 22)
-		))
-		if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_GUARD):
-			combat_badges.add_child(_build_text_badge("%s_guard_emphasis" % instance_id, "GUARD", Color(0.34, 0.24, 0.08, 0.99), Color(0.99, 0.85, 0.42, 1.0), Color(1.0, 0.97, 0.84, 1.0), 9 if surface == "lane" else 10, Vector2(0, 22)))
-		if EvergreenRules.is_cover_active(_match_state, card):
-			combat_badges.add_child(_build_text_badge("%s_cover_state" % instance_id, "COVER", Color(0.18, 0.18, 0.3, 0.98), Color(0.7, 0.76, 1.0, 0.96), Color(0.94, 0.96, 1.0, 1.0), 9 if surface == "lane" else 10, Vector2(0, 22)))
-		var stats_row := HBoxContainer.new()
-		stats_row.add_theme_constant_override("separation", 6)
-		column.add_child(stats_row)
-		stats_row.add_child(_build_value_badge("%s_power" % instance_id, str(EvergreenRules.get_power(card)), Color(0.2, 0.16, 0.11, 0.98), Color(0.71, 0.54, 0.31, 0.96), _stat_color(card, "power"), 13 if surface == "hand" else 12, Vector2(0, 26)))
-		stats_row.add_child(_build_value_badge("%s_health" % instance_id, str(EvergreenRules.get_remaining_health(card)), Color(0.15, 0.1, 0.12, 0.98), Color(0.64, 0.35, 0.31, 0.96), _stat_color(card, "health"), 13 if surface == "hand" else 12, Vector2(0, 26)))
-	_set_mouse_passthrough_recursive(margin)
+	if not _is_pending_prophecy_card(card) and not (public_view and not draw_feedback.is_empty()):
+		return null
+	var row := HBoxContainer.new()
+	row.name = "%s_emphasis_row" % instance_id
+	row.position = Vector2(16, 54)
+	row.add_theme_constant_override("separation", 4)
+	if _is_pending_prophecy_card(card):
+		row.add_child(_build_text_badge("%s_prophecy_window" % instance_id, "PROPHECY", Color(0.28, 0.14, 0.34, 0.99), Color(0.94, 0.75, 0.98, 1.0), Color(1.0, 0.96, 1.0, 1.0), 10, Vector2(0, 22)))
+		row.add_child(_build_text_badge("%s_prophecy_free" % instance_id, "FREE INTERRUPT", Color(0.18, 0.12, 0.3, 0.99), Color(0.72, 0.84, 1.0, 0.98), Color(0.95, 0.98, 1.0, 1.0), 10, Vector2(0, 22)))
+	if public_view and not draw_feedback.is_empty():
+		row.add_child(_build_text_badge("%s_draw_feedback" % instance_id, _draw_feedback_badge_text(draw_feedback), _draw_feedback_badge_fill(draw_feedback), _draw_feedback_badge_border(draw_feedback), Color(1.0, 0.97, 0.92, 1.0), 10, Vector2(0, 22)))
+	return row
 
 
 func _set_mouse_passthrough_recursive(node: Node) -> void:
@@ -2037,11 +2137,11 @@ func _draw_feedback_badge_border(feedback: Dictionary) -> Color:
 func _surface_content_padding(surface: String) -> int:
 	match surface:
 		"lane":
-			return 4
+			return int(round(4.0 * _surface_scale_factor(surface)))
 		"hand":
-			return 8
+			return int(round(8.0 * _surface_scale_factor(surface)))
 		"support":
-			return 6
+			return int(round(6.0 * _surface_scale_factor(surface)))
 		_:
 			return 6
 
@@ -2049,13 +2149,25 @@ func _surface_content_padding(surface: String) -> int:
 func _surface_art_height(surface: String) -> float:
 	match surface:
 		"lane":
-			return 18.0
+			return 18.0 * _surface_scale_factor(surface)
 		"hand":
-			return 64.0
+			return 64.0 * _surface_scale_factor(surface)
 		"support":
-			return 48.0
+			return 48.0 * _surface_scale_factor(surface)
 		_:
 			return 40.0
+
+
+func _surface_scale_factor(surface: String) -> float:
+	match surface:
+		"lane":
+			return CARD_DISPLAY_COMPONENT_SCRIPT.CREATURE_BOARD_MINIMUM_SIZE.x / 136.0
+		"hand":
+			return CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE.x / 156.0
+		"support":
+			return CARD_DISPLAY_COMPONENT_SCRIPT.SUPPORT_BOARD_MINIMUM_SIZE.x / 96.0
+		_:
+			return 1.0
 
 
 func _surface_name_font_size(surface: String) -> int:

@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/ui/components/CardDisplayComponent.gd" id="1_card_display"]
+
+[node name="CardDisplayComponent" type="Control"]
+custom_minimum_size = Vector2(156, 196)
+layout_mode = 3
+anchors_preset = 0
+offset_right = 156.0
+offset_bottom = 196.0
+script = ExtResource("1_card_display")
