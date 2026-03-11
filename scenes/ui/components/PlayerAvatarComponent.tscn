@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3 uid="uid://b1a8jbhjsiyuk"]
+
+[ext_resource type="Script" uid="uid://7oeddwucmbcm" path="res://src/ui/components/PlayerAvatarComponent.gd" id="1_avatar"]
+
+[node name="PlayerAvatarComponent" type="Control"]
+custom_minimum_size = Vector2(188, 176)
+layout_mode = 3
+anchors_preset = 0
+offset_right = 188.0
+offset_bottom = 176.0
+script = ExtResource("1_avatar")

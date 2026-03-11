@@ -12,6 +12,7 @@ const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
+const PLAYER_AVATAR_SCENE := preload("res://scenes/ui/components/PlayerAvatarComponent.tscn")
 
 const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
 const PLAYER_ORDER := ["player_2", "player_1"]
@@ -855,29 +856,11 @@ func _build_player_section(player_id: String) -> Dictionary:
 	hero_row.size_flags_horizontal = SIZE_EXPAND_FILL
 	content_row.add_child(hero_row)
 
-	var art_panel := PanelContainer.new()
-	art_panel.name = "%s_art_placeholder" % player_id
-	art_panel.custom_minimum_size = Vector2(160, 92)
-	_apply_panel_style(art_panel, Color(0.2, 0.16, 0.13, 0.78), Color(0.58, 0.45, 0.28, 0.82), 1, 10)
-	hero_row.add_child(art_panel)
-	var art_box := _build_panel_box(art_panel, 4, 10)
-	var art_label := Label.new()
-	art_label.text = "Portrait / Art"
-	art_label.add_theme_font_size_override("font_size", 15)
-	art_label.add_theme_color_override("font_color", Color(0.95, 0.89, 0.76, 1.0))
-	art_box.add_child(art_label)
-	var art_frame := Label.new()
-	art_frame.text = "Avatar placeholder"
-	art_frame.add_theme_font_size_override("font_size", 16)
-	art_frame.add_theme_color_override("font_color", Color(0.94, 0.86, 0.72, 0.96))
-	art_box.add_child(art_frame)
-	var art_caption := Label.new()
-	art_caption.text = "Reserved frame for hero portrait and faction treatment"
-	art_caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	art_caption.max_lines_visible = 2
-	art_caption.add_theme_font_size_override("font_size", 11)
-	art_caption.add_theme_color_override("font_color", Color(0.8, 0.8, 0.85, 0.9))
-	art_box.add_child(art_caption)
+	var avatar_component := PLAYER_AVATAR_SCENE.instantiate()
+	avatar_component.name = "%s_avatar_component" % player_id
+	avatar_component.custom_minimum_size = Vector2(188, 176)
+	avatar_component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hero_row.add_child(avatar_component)
 
 	var identity_column := VBoxContainer.new()
 	identity_column.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -897,44 +880,6 @@ func _build_player_section(player_id: String) -> Dictionary:
 	resource_row.add_theme_constant_override("separation", 10)
 	resource_row.size_flags_horizontal = SIZE_EXPAND_FILL
 	identity_column.add_child(resource_row)
-
-	var identity_stats_row := HBoxContainer.new()
-	identity_stats_row.add_theme_constant_override("separation", 12)
-	identity_stats_row.size_flags_horizontal = SIZE_EXPAND_FILL
-	resource_row.add_child(identity_stats_row)
-
-	var health_panel := PanelContainer.new()
-	health_panel.name = "%s_health_panel" % player_id
-	health_panel.custom_minimum_size = Vector2(96, 72)
-	_apply_panel_style(health_panel, Color(0.28, 0.12, 0.12, 0.98), Color(0.73, 0.37, 0.25, 0.96), 1, 10)
-	identity_stats_row.add_child(health_panel)
-	var health_box := _build_panel_box(health_panel, 2, 8)
-	var health_value := Label.new()
-	health_value.name = "%s_health_value" % player_id
-	health_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	health_value.add_theme_font_size_override("font_size", 30)
-	health_value.add_theme_color_override("font_color", Color(0.98, 0.91, 0.86, 1.0))
-	health_box.add_child(health_value)
-	var health_caption := Label.new()
-	health_caption.text = "HEALTH"
-	health_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	health_caption.add_theme_font_size_override("font_size", 11)
-	health_caption.add_theme_color_override("font_color", Color(0.95, 0.78, 0.68, 0.96))
-	health_box.add_child(health_caption)
-
-	var rune_box := VBoxContainer.new()
-	rune_box.size_flags_horizontal = SIZE_EXPAND_FILL
-	rune_box.add_theme_constant_override("separation", 8)
-	identity_stats_row.add_child(rune_box)
-	var rune_label := Label.new()
-	rune_label.text = "Runes"
-	rune_label.add_theme_font_size_override("font_size", 13)
-	rune_label.add_theme_color_override("font_color", Color(0.95, 0.88, 0.74, 0.98))
-	rune_box.add_child(rune_label)
-	var rune_row := HBoxContainer.new()
-	rune_row.name = "%s_rune_row" % player_id
-	rune_row.add_theme_constant_override("separation", 8)
-	rune_box.add_child(rune_row)
 
 	var magicka_panel := PanelContainer.new()
 	magicka_panel.name = "%s_magicka_panel" % player_id
@@ -1053,9 +998,7 @@ func _build_player_section(player_id: String) -> Dictionary:
 		"player_id": player_id,
 		"panel": panel,
 		"summary_button": button,
-		"health_panel": health_panel,
-		"health_value": health_value,
-		"rune_row": rune_row,
+		"avatar_component": avatar_component,
 		"magicka_label": magicka_label,
 		"magicka_row": magicka_row,
 		"ring_label": ring_label,
@@ -1558,13 +1501,9 @@ func _refresh_player_sections() -> void:
 		summary_button.tooltip_text = _player_summary_tooltip(player)
 		_apply_player_summary_style(summary_button, player_id, is_opponent)
 
-		var health_panel: PanelContainer = section["health_panel"]
-		_apply_panel_style(health_panel, _health_panel_fill(player, is_opponent), _health_panel_border(player, is_opponent), 1, 10)
-		var health_value: Label = section["health_value"]
-		health_value.text = str(int(player.get("health", 0)))
-
-		var rune_row: HBoxContainer = section["rune_row"]
-		_refresh_rune_row(rune_row, player, player_id, is_opponent)
+		var avatar_component = section.get("avatar_component")
+		if avatar_component != null:
+			avatar_component.apply_player_state(player, is_opponent)
 
 		var magicka_label: Label = section["magicka_label"]
 		magicka_label.text = _magicka_summary_text(player)
@@ -3000,7 +2939,7 @@ func _apply_presentation_feedback() -> void:
 func _clear_feedback_overlays() -> void:
 	for section in _player_sections.values():
 		_clear_feedback_children(section.get("summary_button"))
-		_clear_feedback_children(section.get("rune_row"))
+		_clear_feedback_children(section.get("avatar_component"))
 		_clear_feedback_children(section.get("hand_row"))
 	for row_panel in _lane_row_panels.values():
 		_clear_feedback_children(row_panel)
@@ -3012,6 +2951,8 @@ func _clear_feedback_children(node) -> void:
 	for child in (node as Node).get_children():
 		if str(child.name).begins_with("feedback_"):
 			child.queue_free()
+		else:
+			_clear_feedback_children(child)
 
 
 func _apply_attack_feedback(feedback: Dictionary) -> void:
@@ -3090,12 +3031,11 @@ func _apply_rune_feedback(feedback: Dictionary) -> void:
 	var summary_button: Button = section.get("summary_button")
 	if summary_button != null:
 		_add_feedback_popup(summary_button, "feedback_rune_popup_%s" % str(feedback.get("feedback_id", "0")), "RUNE BREAK", Color(1.0, 0.79, 0.45, 1.0), 12.0 + float(feedback.get("stack_index", 0)) * 18.0)
-	var rune_row: Control = section.get("rune_row")
-	if rune_row != null:
-		_add_feedback_toast(rune_row, "feedback_rune_toast_%s" % str(feedback.get("feedback_id", "0")), _rune_feedback_toast_text(feedback), Color(0.31, 0.13, 0.11, 0.98), Color(1.0, 0.73, 0.42, 1.0), Color(1.0, 0.95, 0.89, 1.0), 8.0 + float(feedback.get("stack_index", 0)) * 22.0)
-		var token_name := "%s_rune_%d" % [player_id, int(feedback.get("threshold", -1))]
-		var token_panel: Node = rune_row.get_node_or_null(token_name)
-		if token_panel is PanelContainer:
+	var avatar_component = section.get("avatar_component")
+	if avatar_component != null:
+		_add_feedback_toast(avatar_component, "feedback_rune_toast_%s" % str(feedback.get("feedback_id", "0")), _rune_feedback_toast_text(feedback), Color(0.31, 0.13, 0.11, 0.98), Color(1.0, 0.73, 0.42, 1.0), Color(1.0, 0.95, 0.89, 1.0), 8.0 + float(feedback.get("stack_index", 0)) * 22.0)
+		var token_panel = avatar_component.get_rune_anchor(int(feedback.get("threshold", -1)))
+		if token_panel is Control:
 			_add_feedback_banner(token_panel as Control, "feedback_rune_banner_%s" % str(feedback.get("feedback_id", "0")), "SHATTER", Color(0.39, 0.14, 0.09, 0.99), Color(1.0, 0.78, 0.48, 1.0), Color(1.0, 0.96, 0.9, 1.0), 4.0)
 
 

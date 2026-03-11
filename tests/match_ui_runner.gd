@@ -2,7 +2,9 @@ extends SceneTree
 
 const MatchScreen = preload("res://src/ui/match_screen.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
+const PlayerAvatarComponent = preload("res://src/ui/components/PlayerAvatarComponent.gd")
 const TEST_VIEWPORT_SIZE := Vector2i(2560, 1600)
+const DISPLAY_RUNE_THRESHOLDS := [25, 20, 15, 10, 5]
 
 
 func _initialize() -> void:
@@ -24,6 +26,8 @@ func _run() -> void:
 
 func _run_all_tests(screen: MatchScreen) -> bool:
 	if not _test_layout_hierarchy(screen):
+		return false
+	if not await _test_avatar_band_containment(screen):
 		return false
 	if not _test_board_presentation_regressions(screen):
 		return false
@@ -67,8 +71,8 @@ func _test_layout_hierarchy(screen: MatchScreen) -> bool:
 	var battlefield := screen.find_child("BattlefieldPanel", true, false)
 	var opponent_band := screen.find_child("OpponentBand", true, false)
 	var player_band := screen.find_child("PlayerBand", true, false)
-	var opponent_art := screen.find_child("player_2_art_placeholder", true, false) as Control
-	var player_art := screen.find_child("player_1_art_placeholder", true, false) as Control
+	var opponent_avatar := screen.find_child("player_2_avatar_component", true, false) as PlayerAvatarComponent
+	var player_avatar := screen.find_child("player_1_avatar_component", true, false) as PlayerAvatarComponent
 	var inspector_panel := screen.find_child("InspectorRailPanel", true, false)
 	var debug_panel := screen.find_child("DebugRailPanel", true, false)
 	var debug_tabs := screen.find_child("DebugTabs", true, false)
@@ -93,7 +97,7 @@ func _test_layout_hierarchy(screen: MatchScreen) -> bool:
 		_assert(battlefield != null, "Expected a named battlefield panel for the recomposed layout.") and
 		_assert(opponent_band != null, "Expected a named opponent band for the recomposed layout.") and
 		_assert(player_band != null, "Expected a named local-player band for the recomposed layout.") and
-			_assert(opponent_art != null and player_art != null, "Expected both combatants to reserve portrait/art placeholder space.") and
+			_assert(opponent_avatar != null and player_avatar != null, "Expected both combatants to mount the reusable avatar component in the player bands.") and
 		_assert(inspector_panel != null, "Expected a compact inspector/help panel in the utility rail.") and
 		_assert(debug_panel != null and debug_tabs != null, "Expected secondary history/state tabs in the utility rail.") and
 		_assert(is_equal_approx(match_layout.anchor_right, 1.0) and is_equal_approx(match_layout.anchor_bottom, 1.0), "Match layout should anchor to the full screen rect.") and
@@ -109,7 +113,7 @@ func _test_layout_hierarchy(screen: MatchScreen) -> bool:
 		_assert(inspector_panel.get_index() < debug_panel.get_index(), "Compact inspector/help should appear before the lower-priority debug tabs.") and
 			_assert(board_column.get_theme_constant("separation") >= 22, "Board column should have larger separation between major regions.") and
 			_assert(opponent_band.custom_minimum_size.y >= 210.0 and player_band.custom_minimum_size.y >= 210.0, "Player bands should reserve taller presentation space for identity and placeholders.") and
-				_assert(opponent_art.custom_minimum_size.x >= 150.0 and player_art.custom_minimum_size.x >= 150.0, "Portrait/art placeholders should reserve meaningful width without dominating the band.") and
+				_assert(opponent_avatar.custom_minimum_size.x >= 180.0 and player_avatar.custom_minimum_size.x >= 180.0 and opponent_avatar.custom_minimum_size.x <= 200.0 and player_avatar.custom_minimum_size.x <= 200.0, "Avatar components should reserve meaningful width without dominating the band.") and
 			_assert(utility_column.custom_minimum_size.x >= 300.0, "Utility rail should remain accessible while staying secondary to the board.") and
 				_assert(battlefield.custom_minimum_size.y >= 340.0, "Battlefield panel should still reserve primary board space after the fit rebalance.") and
 			_assert(field_lane_panel != null and shadow_lane_panel != null, "Expected named Field and Shadow lane panels.") and
@@ -155,6 +159,37 @@ func _test_board_presentation_regressions(screen: MatchScreen) -> bool:
 	)
 
 
+func _test_avatar_band_containment(screen: MatchScreen) -> bool:
+	var compact_size := Vector2i(1600, 900)
+	root.size = compact_size
+	screen.size = compact_size
+	await _await_frames(2)
+	var result := false
+	if _assert(screen.load_scenario("local_match"), "Local match scenario should load for avatar containment verification."):
+		await _await_frames(2)
+		var opponent_band := screen.find_child("OpponentBand", true, false) as Control
+		var player_band := screen.find_child("PlayerBand", true, false) as Control
+		var opponent_avatar := screen.find_child("player_2_avatar_component", true, false) as PlayerAvatarComponent
+		var player_avatar := screen.find_child("player_1_avatar_component", true, false) as PlayerAvatarComponent
+		result = (
+			_assert(opponent_band != null and player_band != null, "Expected both player bands during avatar containment verification.") and
+			_assert(opponent_avatar != null and player_avatar != null, "Expected both avatar components during avatar containment verification.") and
+			_assert(opponent_band != null and opponent_avatar != null and _control_fits_inside(opponent_band, opponent_avatar), "Opponent avatar root should stay inside the opponent band on a 16:9 layout.") and
+			_assert(player_band != null and player_avatar != null and _control_fits_inside(player_band, player_avatar), "Local avatar root should stay inside the local player band on a 16:9 layout.") and
+			_assert(opponent_band != null and opponent_avatar != null and _controls_fit_inside(opponent_band, _avatar_layout_controls(opponent_avatar)), "Opponent avatar medallion, badge, and runes should stay inside the opponent band on a 16:9 layout.") and
+			_assert(player_band != null and player_avatar != null and _controls_fit_inside(player_band, _avatar_layout_controls(player_avatar)), "Local avatar medallion, badge, and runes should stay inside the local player band on a 16:9 layout.") and
+			_assert(opponent_avatar != null and _avatar_badge_is_on_left(opponent_avatar), "Opponent avatar should keep the health badge on the left-hand side.") and
+			_assert(player_avatar != null and _avatar_badge_is_on_left(player_avatar), "Local avatar should keep the health badge on the left-hand side.") and
+			_assert(opponent_avatar != null and _avatar_runes_deplete_right_to_left(opponent_avatar), "Opponent avatar should keep rune depletion ordered from right to left.") and
+			_assert(player_avatar != null and _avatar_runes_deplete_right_to_left(player_avatar), "Local avatar should keep rune depletion ordered from right to left.") and
+			_assert(opponent_avatar != null and player_avatar != null and _float_arrays_match(_avatar_orientation_signature(opponent_avatar), _avatar_orientation_signature(player_avatar)), "Opponent/top presentation should not horizontally mirror the avatar badge or rune ordering.")
+		)
+	root.size = TEST_VIEWPORT_SIZE
+	screen.size = TEST_VIEWPORT_SIZE
+	await _await_frames(2)
+	return result
+
+
 func _test_placeholder_layout_stability(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should reload for placeholder verification."):
 		return false
@@ -191,10 +226,11 @@ func _test_placeholder_layout_stability(screen: MatchScreen) -> bool:
 func _test_player_surface_presentation(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should load for player-surface verification."):
 		return false
-	var opponent_health := screen.find_child("player_2_health_value", true, false) as Label
-	var player_health := screen.find_child("player_1_health_value", true, false) as Label
-	var opponent_rune_row := screen.find_child("player_2_rune_row", true, false) as HBoxContainer
-	var player_rune_row := screen.find_child("player_1_rune_row", true, false) as HBoxContainer
+	var match_state := screen.get_match_state()
+	var opponent_state := _player_state(match_state, "player_2")
+	var player_state := _player_state(match_state, "player_1")
+	var opponent_avatar := screen.find_child("player_2_avatar_component", true, false) as PlayerAvatarComponent
+	var player_avatar := screen.find_child("player_1_avatar_component", true, false) as PlayerAvatarComponent
 	var player_magicka_label := screen.find_child("player_1_magicka_label", true, false) as Label
 	var player_magicka_bar := screen.find_child("player_1_magicka_bar", true, false) as HBoxContainer
 	var opponent_ring_label := screen.find_child("player_2_ring_label", true, false) as Label
@@ -205,13 +241,13 @@ func _test_player_surface_presentation(screen: MatchScreen) -> bool:
 	player_discard_button.emit_signal("pressed")
 	var discard_inspector := screen.get_inspector_text()
 	return (
-		_assert(opponent_health != null and player_health != null, "Expected prominent health labels for both players.") and
-		_assert(opponent_health != null and opponent_health.get_theme_font_size("font_size") >= 30, "Opponent health should use large display typography.") and
-		_assert(player_health != null and player_health.get_theme_font_size("font_size") >= 30, "Local player health should use large display typography.") and
-		_assert(opponent_health != null and opponent_health.text == "12", "Opponent health surface should reflect the scenario health total.") and
-		_assert(player_health != null and player_health.text == "18", "Local player health surface should reflect the scenario health total.") and
-		_assert(opponent_rune_row != null and opponent_rune_row.get_child_count() == 5, "Opponent rune row should show all five rune surfaces.") and
-		_assert(player_rune_row != null and player_rune_row.get_child_count() == 5, "Local player rune row should show all five rune surfaces.") and
+		_assert(opponent_avatar != null and player_avatar != null, "Expected mounted avatar components for both players.") and
+		_assert(opponent_avatar != null and opponent_avatar.health == int(opponent_state.get("health", 0)), "Opponent avatar should reflect the scenario health total through the component root API.") and
+		_assert(player_avatar != null and player_avatar.health == int(player_state.get("health", 0)), "Local avatar should reflect the scenario health total through the component root API.") and
+		_assert(opponent_avatar != null and opponent_avatar.get_rune_states() == _expected_rune_states(opponent_state), "Opponent avatar runes should reflect the scenario rune thresholds through the component root API.") and
+		_assert(player_avatar != null and player_avatar.get_rune_states() == _expected_rune_states(player_state), "Local avatar runes should reflect the scenario rune thresholds through the component root API.") and
+		_assert(opponent_avatar != null and opponent_avatar.is_opponent(), "Opponent avatar should use opponent/top presentation.") and
+		_assert(player_avatar != null and not player_avatar.is_opponent(), "Local avatar should use local/bottom presentation.") and
 		_assert(player_magicka_label != null and player_magicka_label.text.contains("6 / 6"), "Local player magicka summary should be readable and count-based.") and
 		_assert(player_magicka_bar != null and player_magicka_bar.get_child_count() == 12, "Local player magicka bar should reserve room for all 12 magicka slots.") and
 		_assert(opponent_ring_label != null and opponent_ring_label.text.contains("3 / 3"), "Ring surface should show the opponent's remaining Ring charges.") and
@@ -714,6 +750,21 @@ func _active_player(match_state: Dictionary) -> Dictionary:
 	return {}
 
 
+func _player_state(match_state: Dictionary, player_id: String) -> Dictionary:
+	for player in match_state.get("players", []):
+		if str(player.get("player_id", "")) == player_id:
+			return player
+	return {}
+
+
+func _expected_rune_states(player: Dictionary) -> Array:
+	var rune_thresholds: Array = player.get("rune_thresholds", [])
+	var states: Array = []
+	for threshold in DISPLAY_RUNE_THRESHOLDS:
+		states.append(rune_thresholds.has(threshold))
+	return states
+
+
 func _lane_contains(match_state: Dictionary, lane_id: String, player_id: String, instance_id: String) -> bool:
 	for lane in match_state.get("lanes", []):
 		if str(lane.get("lane_id", "")) != lane_id:
@@ -833,6 +884,86 @@ func _all_controls_ignore_mouse(node: Node) -> bool:
 		return false
 	for child in node.get_children():
 		if not _all_controls_ignore_mouse(child):
+			return false
+	return true
+
+
+func _avatar_layout_controls(component: PlayerAvatarComponent) -> Array:
+	if component == null:
+		return []
+	var controls: Array = [
+		component.find_child("MedallionOuter", true, false) as Control,
+		component.find_child("HealthBadge", true, false) as Control,
+	]
+	for threshold in DISPLAY_RUNE_THRESHOLDS:
+		controls.append(component.get_rune_anchor(threshold))
+	return controls
+
+
+func _avatar_orientation_signature(component: PlayerAvatarComponent) -> Array:
+	if component == null:
+		return []
+	var medallion := component.find_child("MedallionOuter", true, false) as Control
+	var badge := component.find_child("HealthBadge", true, false) as Control
+	if medallion == null or badge == null:
+		return []
+	var signature: Array = [badge.position.x - medallion.position.x]
+	for threshold in DISPLAY_RUNE_THRESHOLDS:
+		var rune := component.get_rune_anchor(threshold)
+		if rune == null:
+			return []
+		signature.append((rune as Control).position.x - medallion.position.x)
+	return signature
+
+
+func _avatar_badge_is_on_left(component: PlayerAvatarComponent) -> bool:
+	if component == null:
+		return false
+	var medallion := component.find_child("MedallionOuter", true, false) as Control
+	var badge := component.find_child("HealthBadge", true, false) as Control
+	if medallion == null or badge == null:
+		return false
+	return badge.get_global_rect().get_center().x < medallion.get_global_rect().get_center().x
+
+
+func _avatar_runes_deplete_right_to_left(component: PlayerAvatarComponent) -> bool:
+	if component == null:
+		return false
+	var previous_center_x := INF
+	for threshold in DISPLAY_RUNE_THRESHOLDS:
+		var rune := component.get_rune_anchor(threshold)
+		if rune == null:
+			return false
+		var center_x := (rune as Control).get_global_rect().get_center().x
+		if center_x >= previous_center_x:
+			return false
+		previous_center_x = center_x
+	return true
+
+
+func _float_arrays_match(left: Array, right: Array, tolerance := 0.5) -> bool:
+	if left.size() != right.size():
+		return false
+	for index in range(left.size()):
+		if absf(float(left[index]) - float(right[index])) > tolerance:
+			return false
+	return true
+
+
+func _control_fits_inside(container: Control, target: Control) -> bool:
+	if container == null or target == null:
+		return false
+	return container.get_global_rect().grow(0.5).encloses(target.get_global_rect())
+
+
+func _controls_fit_inside(container: Control, controls: Array) -> bool:
+	if container == null:
+		return false
+	var container_rect := container.get_global_rect().grow(0.5)
+	for control in controls:
+		if not (control is Control):
+			return false
+		if not container_rect.encloses((control as Control).get_global_rect()):
 			return false
 	return true
 
