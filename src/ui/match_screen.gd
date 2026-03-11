@@ -1007,10 +1007,27 @@ func _build_player_section(player_id: String) -> Dictionary:
 	support_label.add_theme_font_size_override("font_size", 17)
 	support_box.add_child(support_label)
 
+	var support_surface := PanelContainer.new()
+	support_surface.name = "%s_support_surface" % player_id
+	support_surface.custom_minimum_size = Vector2(0, 156)
+	support_surface.size_flags_horizontal = SIZE_EXPAND_FILL
+	support_surface.focus_mode = Control.FOCUS_NONE
+	support_surface.gui_input.connect(_on_support_surface_gui_input.bind(player_id))
+	support_box.add_child(support_surface)
+
+	var support_margin := MarginContainer.new()
+	support_margin.add_theme_constant_override("margin_left", 8)
+	support_margin.add_theme_constant_override("margin_top", 8)
+	support_margin.add_theme_constant_override("margin_right", 8)
+	support_margin.add_theme_constant_override("margin_bottom", 8)
+	support_surface.add_child(support_margin)
+
 	var support_row := HBoxContainer.new()
+	support_row.name = "%s_support_row" % player_id
 	support_row.add_theme_constant_override("separation", 8)
 	support_row.size_flags_horizontal = SIZE_EXPAND_FILL
-	support_box.add_child(support_row)
+	support_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	support_margin.add_child(support_row)
 
 	var hand_box := VBoxContainer.new()
 	hand_box.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -1045,6 +1062,7 @@ func _build_player_section(player_id: String) -> Dictionary:
 		"ring_row": ring_row,
 		"deck_button": deck_button,
 		"discard_button": discard_button,
+		"support_surface": support_surface,
 		"support_row": support_row,
 		"hand_row": hand_row,
 	}
@@ -1390,6 +1408,24 @@ func _apply_lane_row_panel_style(panel: PanelContainer, lane_id: String, player_
 	_apply_panel_style(panel, fill, border, 2 if interaction_state != "default" else 1, 10)
 
 
+func _apply_support_surface_style(panel: PanelContainer, player_id: String) -> void:
+	if panel == null:
+		return
+	var fill := Color(0.1, 0.15, 0.15, 0.96)
+	var border := Color(0.34, 0.55, 0.54, 0.9)
+	var interaction_state := _support_surface_interaction_state(player_id)
+	if _should_dim_local_surface(player_id) and interaction_state == "default":
+		fill = fill.darkened(0.18)
+		border = border.darkened(0.14)
+	if interaction_state == "valid":
+		fill = fill.lightened(0.06)
+		border = Color(0.74, 0.94, 0.68, 1.0)
+	elif interaction_state == "invalid":
+		fill = fill.lerp(Color(0.28, 0.12, 0.14, 0.98), 0.56)
+		border = Color(0.98, 0.48, 0.44, 1.0)
+	_apply_panel_style(panel, fill, border, 2 if interaction_state != "default" else 1, 10)
+
+
 func _apply_player_summary_style(button: Button, player_id: String, is_opponent: bool) -> void:
 	if button == null:
 		return
@@ -1548,12 +1584,19 @@ func _refresh_player_sections() -> void:
 		discard_button.text = _pile_button_text("Discard", player.get("discard", []).size())
 		discard_button.tooltip_text = _pile_button_tooltip(player, MatchMutations.ZONE_DISCARD)
 
+		var support_surface: PanelContainer = section["support_surface"]
+		_apply_support_surface_style(support_surface, player_id)
+		support_surface.tooltip_text = _support_surface_tooltip(player_id)
+		support_surface.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if _support_surface_interaction_state(player_id) == "valid" else Control.CURSOR_ARROW
+
 		var support_row: HBoxContainer = section["support_row"]
 		_clear_children(support_row)
 		for support in player.get("support", []):
 			support_row.add_child(_build_card_button(support, true, "support"))
 		if support_row.get_child_count() == 0:
-			support_row.add_child(_build_placeholder_label("No supports"))
+			var placeholder := _build_placeholder_label("No supports")
+			placeholder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			support_row.add_child(placeholder)
 
 		var hand_row: Control = section["hand_row"]
 		_clear_children(hand_row)
@@ -1680,7 +1723,12 @@ func _refresh_action_buttons() -> void:
 		_ring_button.tooltip_text = "Match complete. Ring actions are no longer available."
 		_end_turn_button.tooltip_text = "Match complete. No further turn actions are available."
 		return
-	_play_selected_button.tooltip_text = "Resolve the selected card through the existing match command wiring."
+	if not _selected_support_row_target_player_id(selected_card).is_empty():
+		_play_selected_button.tooltip_text = "Click your support row to place the selected support, or use Play / Act as a fallback."
+	elif _selected_support_uses_card_targets(selected_card):
+		_play_selected_button.tooltip_text = "Activate the selected support directly, or click a legal target on the board if it needs one."
+	else:
+		_play_selected_button.tooltip_text = "Resolve the selected card through the existing match command wiring."
 	_ring_button.tooltip_text = "Use the Ring of Magicka during your turn when a charge is available."
 
 
@@ -2352,9 +2400,22 @@ func _on_card_pressed(instance_id: String) -> void:
 	if _selected_instance_id == instance_id:
 		clear_selection()
 		return
+	var target_card := _card_from_instance_id(instance_id)
+	if _try_resolve_selected_support_row_card(target_card):
+		return
 	if _try_resolve_selected_card_target(instance_id):
 		return
 	select_card(instance_id)
+
+
+func _on_support_surface_gui_input(event: InputEvent, player_id: String) -> void:
+	if not (event is InputEventMouseButton):
+		return
+	var button_event := event as InputEventMouseButton
+	if button_event.button_index != MOUSE_BUTTON_LEFT or not button_event.pressed:
+		return
+	if _try_resolve_selected_support_surface(player_id):
+		accept_event()
 
 
 func _on_lane_pressed(lane_id: String) -> void:
@@ -2527,7 +2588,7 @@ func _selected_action_consumes_card_click(target_card: Dictionary) -> bool:
 		SELECTION_MODE_ITEM:
 			return target_zone == MatchMutations.ZONE_LANE
 		SELECTION_MODE_SUPPORT:
-			return target_zone == MatchMutations.ZONE_LANE
+			return _selected_support_uses_card_targets(selected_card) and target_zone == MatchMutations.ZONE_LANE
 		SELECTION_MODE_ATTACK:
 			return target_zone == MatchMutations.ZONE_LANE and str(target_card.get("controller_player_id", "")) != str(selected_card.get("controller_player_id", ""))
 	return false
@@ -2559,6 +2620,8 @@ func _is_card_target_valid_for_selected(target_instance_id: String) -> bool:
 			var item_state: Dictionary = _match_state.duplicate(true)
 			return bool(PersistentCardRules.play_item_from_hand(item_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"target_instance_id": target_instance_id}).get("is_valid", false))
 		SELECTION_MODE_SUPPORT:
+			if not _selected_support_uses_card_targets(selected_card):
+				return false
 			var location := MatchMutations.find_card_location(_match_state, target_instance_id)
 			return bool(location.get("is_valid", false)) and str(location.get("zone", "")) == MatchMutations.ZONE_LANE
 		SELECTION_MODE_ATTACK:
@@ -2628,12 +2691,39 @@ func _valid_player_target_ids() -> Array:
 	return ids
 
 
+func _support_surface_interaction_state(player_id: String) -> String:
+	var card := _selected_card()
+	var target_player_id := _selected_support_row_target_player_id(card)
+	if target_player_id.is_empty():
+		return "default"
+	if player_id != target_player_id:
+		return "invalid"
+	return "valid" if bool(_validate_selected_support_play(player_id).get("is_valid", false)) else "invalid"
+
+
+func _support_surface_tooltip(player_id: String) -> String:
+	var card := _selected_card()
+	var target_player_id := _selected_support_row_target_player_id(card)
+	if target_player_id.is_empty():
+		if player_id == _local_player_id():
+			return "Your persistent support cards remain in play here. Select a support card from hand, then click here to place it."
+		return "Persistent support cards remain in play here."
+	if player_id != target_player_id:
+		return "%s can only be placed into %s's support row." % [_card_name(card), _player_name(target_player_id)]
+	var validation := _validate_selected_support_play(player_id)
+	if bool(validation.get("is_valid", false)):
+		return "Click to place %s into %s's support row." % [_card_name(card), _player_name(player_id)]
+	return str(validation.get("message", "Cannot place this support there."))
+
+
 func _card_interaction_state(card: Dictionary, surface: String) -> String:
 	var instance_id := str(card.get("instance_id", ""))
 	if _copy_array(_invalid_feedback.get("instance_ids", [])).has(instance_id):
 		return "invalid"
 	var mode := _selected_action_mode(_selected_card())
-	if (mode == SELECTION_MODE_ITEM or mode == SELECTION_MODE_SUPPORT) and surface == "lane":
+	if mode == SELECTION_MODE_ITEM and surface == "lane":
+		return "valid" if _is_card_target_valid_for_selected(instance_id) else "invalid"
+	if mode == SELECTION_MODE_SUPPORT and surface == "lane" and _selected_support_uses_card_targets(_selected_card()):
 		return "valid" if _is_card_target_valid_for_selected(instance_id) else "invalid"
 	if mode == SELECTION_MODE_ATTACK and surface == "lane":
 		var selected_card := _selected_card()
@@ -2693,6 +2783,42 @@ func _can_resolve_selected_action(card: Dictionary) -> bool:
 		_status_message = "Only the active player's public cards can act right now."
 		return false
 	return true
+
+
+func _selected_support_row_target_player_id(card: Dictionary) -> String:
+	if card.is_empty() or str(card.get("card_type", "")) != "support":
+		return ""
+	if _is_pending_prophecy_card(card):
+		return str(card.get("controller_player_id", ""))
+	var location := MatchMutations.find_card_location(_match_state, str(card.get("instance_id", "")))
+	if not bool(location.get("is_valid", false)):
+		return ""
+	return str(card.get("controller_player_id", "")) if str(location.get("zone", "")) == MatchMutations.ZONE_HAND else ""
+
+
+func _selected_card_wants_support_row(card: Dictionary, player_id: String) -> bool:
+	return not player_id.is_empty() and _selected_support_row_target_player_id(card) == player_id
+
+
+func _selected_support_uses_card_targets(card: Dictionary) -> bool:
+	if card.is_empty() or _selected_action_mode(card) != SELECTION_MODE_SUPPORT or _is_pending_prophecy_card(card):
+		return false
+	var location := MatchMutations.find_card_location(_match_state, str(card.get("instance_id", "")))
+	return bool(location.get("is_valid", false)) and str(location.get("zone", "")) == MatchMutations.ZONE_SUPPORT
+
+
+func _validate_selected_support_play(player_id: String) -> Dictionary:
+	var card := _selected_card()
+	var target_player_id := _selected_support_row_target_player_id(card)
+	if target_player_id.is_empty():
+		return {"is_valid": false, "message": "Select a support card from hand to place it here."}
+	if not _selected_card_wants_support_row(card, player_id):
+		return {"is_valid": false, "message": "%s can only be placed into %s's support row." % [_card_name(card), _player_name(target_player_id)]}
+	if _is_pending_prophecy_card(card):
+		var prophecy_state: Dictionary = _match_state.duplicate(true)
+		return MatchTiming.play_pending_prophecy(prophecy_state, str(card.get("controller_player_id", "")), _selected_instance_id)
+	var support_state: Dictionary = _match_state.duplicate(true)
+	return PersistentCardRules.play_support_from_hand(support_state, str(card.get("controller_player_id", "")), _selected_instance_id)
 
 
 func _finalize_engine_result(result: Dictionary, success_message: String, clear_selection_on_success := true) -> Dictionary:
@@ -3650,11 +3776,11 @@ func _selection_prompt(card: Dictionary) -> String:
 				"item":
 					return "Selected %s. Click a friendly creature to equip it." % _card_name(card)
 				"support":
-					return "Selected %s. Use Play / Act to place it into your support row." % _card_name(card)
+					return "Selected %s. Click your support row to place it, or use Play / Act as a fallback." % _card_name(card)
 				_:
 					return "Selected %s." % _card_name(card)
 		MatchMutations.ZONE_SUPPORT:
-			return "Selected %s. Click a target or use Play / Act if the support has no target." % _card_name(card)
+				return "Selected %s. Click a target to activate it, or use Play / Act if it has no target." % _card_name(card)
 		MatchMutations.ZONE_LANE:
 			return "Selected %s. Click an opposing creature or player to attack if legal." % _card_name(card)
 		_:
@@ -3843,6 +3969,36 @@ func _card_supports_direct_drag(instance_id: String) -> bool:
 		return false
 	var mode := _selected_action_mode(card)
 	return mode == SELECTION_MODE_SUMMON or mode == SELECTION_MODE_ITEM
+
+
+func _try_resolve_selected_support_surface(player_id: String) -> bool:
+	if _selected_support_row_target_player_id(_selected_card()).is_empty():
+		return false
+	_play_selected_to_support_row(player_id)
+	return true
+
+
+func _try_resolve_selected_support_row_card(target_card: Dictionary) -> bool:
+	if _selected_support_row_target_player_id(_selected_card()).is_empty() or target_card.is_empty():
+		return false
+	var target_location := MatchMutations.find_card_location(_match_state, str(target_card.get("instance_id", "")))
+	if not bool(target_location.get("is_valid", false)) or str(target_location.get("zone", "")) != MatchMutations.ZONE_SUPPORT:
+		return false
+	_play_selected_to_support_row(str(target_card.get("controller_player_id", "")))
+	return true
+
+
+func _play_selected_to_support_row(player_id: String) -> Dictionary:
+	var card := _selected_card()
+	var validation := _validate_selected_support_play(player_id)
+	if not bool(validation.get("is_valid", false)):
+		return _report_invalid_interaction(str(validation.get("errors", [validation.get("message", "Cannot place this support there.")])[0]))
+	var result := {}
+	if _is_pending_prophecy_card(card):
+		result = MatchTiming.play_pending_prophecy(_match_state, str(card.get("controller_player_id", "")), _selected_instance_id)
+		return _finalize_engine_result(result, "Played %s into %s's support row." % [_card_name(card), _player_name(player_id)])
+	result = PersistentCardRules.play_support_from_hand(_match_state, str(card.get("controller_player_id", "")), _selected_instance_id)
+	return _finalize_engine_result(result, "Placed %s into %s's support row." % [_card_name(card), _player_name(player_id)])
 
 
 func _drag_source_position(instance_id: String) -> Vector2:

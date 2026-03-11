@@ -39,6 +39,8 @@ func _run_all_tests(screen: MatchScreen) -> bool:
 		return false
 	if not _test_placeholder_layout_stability(screen):
 		return false
+	if not await _test_support_row_click_placement(screen):
+		return false
 	if not await _test_live_lane_click_delivery(screen):
 		return false
 	if not _test_local_match_flow(screen):
@@ -422,6 +424,40 @@ func _test_play_interaction_highlighting(screen: MatchScreen) -> bool:
 	)
 
 
+func _test_support_row_click_placement(screen: MatchScreen) -> bool:
+	if not _assert(screen.load_scenario("support_lab"), "Support lab should load for support-row click verification."):
+		return false
+	await _await_frames(2)
+	var active_player := _active_player(screen.get_match_state())
+	var support_card := _find_hand_card(active_player, "Battle Drum")
+	if not _assert(not support_card.is_empty(), "Support lab should expose a hand support for click placement verification."):
+		return false
+	var support_id := str(support_card.get("instance_id", ""))
+	var select_ok := screen.select_card(support_id)
+	await process_frame
+	var interaction_state := screen.get_interaction_state()
+	var support_surface := screen.find_child("player_1_support_surface", true, false) as Control
+	var prompt_before := screen.get_status_message()
+	var tooltip_before := support_surface.tooltip_text if support_surface != null else ""
+	var cursor_before := support_surface.mouse_default_cursor_shape if support_surface != null else Control.CURSOR_ARROW
+	var click_ok := _click_control(support_surface)
+	await process_frame
+	var match_state := screen.get_match_state()
+	return (
+		_assert(select_ok, "Selecting the support-lab support should succeed.") and
+		_assert(support_surface != null, "Expected a named local support surface for click placement.") and
+		_assert(interaction_state.get("selection_mode", "") == "support", "Hand support selection should enter support interaction mode.") and
+		_assert(interaction_state.get("valid_target_instance_ids", []).is_empty(), "Hand support placement should not mis-highlight lane cards as support targets.") and
+		_assert(prompt_before.contains("Click your support row"), "Support prompts should explain the click-to-place support-row flow.") and
+		_assert(tooltip_before.contains("Click to place"), "Support surface tooltip should advertise the click-to-place affordance.") and
+		_assert(cursor_before == Control.CURSOR_POINTING_HAND, "Support surface should advertise itself as an interactive placement target.") and
+		_assert(click_ok, "Real pointer clicks should be deliverable to the support surface.") and
+		_assert(screen.get_selected_instance_id().is_empty(), "Successful support-row clicks should clear selection after placement.") and
+		_assert(_support_contains(match_state, "player_1", support_id), "Clicking the local support row should place the selected support into the local support zone.") and
+		_assert(_find_hand_card(_active_player(match_state), "Battle Drum").is_empty(), "Successful support-row clicks should remove the support from hand.")
+	)
+
+
 func _test_live_lane_click_delivery(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should load for live board-click verification."):
 		return false
@@ -683,6 +719,16 @@ func _lane_contains(match_state: Dictionary, lane_id: String, player_id: String,
 		if str(lane.get("lane_id", "")) != lane_id:
 			continue
 		for card in lane.get("player_slots", {}).get(player_id, []):
+			if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) == instance_id:
+				return true
+	return false
+
+
+func _support_contains(match_state: Dictionary, player_id: String, instance_id: String) -> bool:
+	for player in match_state.get("players", []):
+		if str(player.get("player_id", "")) != player_id:
+			continue
+		for card in player.get("support", []):
 			if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) == instance_id:
 				return true
 	return false
