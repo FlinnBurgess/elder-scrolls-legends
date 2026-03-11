@@ -106,6 +106,7 @@ var _help_label: Label
 var _history_text: TextEdit
 var _replay_text: TextEdit
 var _state_text: TextEdit
+var _local_hand_overlay: Control
 var _lane_hover_preview_layer: Control
 var _lane_hover_preview_pending := {}
 var _lane_hover_preview_instance_id := ""
@@ -624,6 +625,13 @@ func _build_ui() -> void:
 	_lane_hover_preview_layer.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(_lane_hover_preview_layer)
 
+	_local_hand_overlay = Control.new()
+	_local_hand_overlay.name = "LocalHandOverlay"
+	_local_hand_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_local_hand_overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	add_child(_local_hand_overlay)
+
+
 	var top_shell := PanelContainer.new()
 	top_shell.name = "ScenarioBar"
 	top_shell.custom_minimum_size = Vector2(0, 72)
@@ -988,25 +996,33 @@ func _build_player_section(player_id: String) -> Dictionary:
 	support_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	support_margin.add_child(support_row)
 
-	var hand_box := VBoxContainer.new()
-	hand_box.size_flags_horizontal = SIZE_EXPAND_FILL
-	hand_box.custom_minimum_size = Vector2(0, 214)
-	hand_box.add_theme_constant_override("separation", 8)
-	rows.add_child(hand_box)
-
-	var hand_label := Label.new()
-	hand_label.text = "Hand"
-	hand_label.add_theme_font_size_override("font_size", 17)
-	hand_box.add_child(hand_label)
-
 	var hand_row := Control.new()
 	hand_row.name = "%s_hand_row" % player_id
 	hand_row.clip_contents = false
-	hand_row.size_flags_horizontal = SIZE_EXPAND_FILL
-	hand_row.custom_minimum_size = Vector2(0, 192)
 	hand_row.set_meta("player_id", player_id)
-	hand_row.resized.connect(_on_hand_surface_resized.bind(hand_row))
-	hand_box.add_child(hand_row)
+
+	if not is_opponent and _local_hand_overlay != null:
+		# Local hand floats at the bottom of the screen, separate from the band layout
+		hand_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hand_row.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		_local_hand_overlay.add_child(hand_row)
+		# Re-layout hand cards when the viewport/overlay resizes
+		_local_hand_overlay.resized.connect(_on_hand_surface_resized.bind(hand_row))
+	else:
+		# Opponent hand stays embedded in their band
+		var hand_box := VBoxContainer.new()
+		hand_box.size_flags_horizontal = SIZE_EXPAND_FILL
+		hand_box.custom_minimum_size = Vector2(0, 210)
+		hand_box.add_theme_constant_override("separation", 8)
+		rows.add_child(hand_box)
+		var hand_label := Label.new()
+		hand_label.text = "Hand"
+		hand_label.add_theme_font_size_override("font_size", 17)
+		hand_box.add_child(hand_label)
+		hand_row.size_flags_horizontal = SIZE_EXPAND_FILL
+		hand_row.custom_minimum_size = Vector2(0, 192)
+		hand_row.resized.connect(_on_hand_surface_resized.bind(hand_row))
+		hand_box.add_child(hand_row)
 
 	return {
 		"player_id": player_id,
@@ -1809,17 +1825,52 @@ func _layout_hand_cards(hand_surface: Control, player_id: String) -> void:
 	var card_size := _surface_button_minimum_size("hand")
 	var count := cards.size()
 	var is_local := player_id == PLAYER_ORDER[1]
-	var overlap_step: float = card_size.x * (0.5 if is_local else (62.0 / 156.0))
+	if is_local:
+		_layout_local_hand_cards(hand_surface, cards, card_size, count)
+	else:
+		_layout_opponent_hand_cards(hand_surface, cards, card_size, count)
+
+
+func _layout_local_hand_cards(hand_surface: Control, cards: Array[Button], card_size: Vector2, count: int) -> void:
+	# Cards fan out at the bottom-center of the screen, mostly off the bottom edge.
+	var overlay_size := get_viewport_rect().size
+	var overlap_step := card_size.x * 0.45
+	var total_width := card_size.x + overlap_step * float(max(0, count - 1))
+	var start_x := (overlay_size.x - total_width) * 0.5
+	# Cards sit with the top ~25% peeking above the bottom edge
+	var base_y := overlay_size.y - card_size.y * 0.25
+	var vertical_step := 4.0
+	for index in range(count):
+		var button := cards[index]
+		var offset := float(index) - float(count - 1) * 0.5
+		var y := base_y + absf(offset) * vertical_step
+		var rotation := offset * 2.5
+		var position := Vector2(start_x + overlap_step * index, y)
+		button.size = card_size
+		button.position = position
+		button.pivot_offset = card_size * 0.5
+		button.rotation_degrees = rotation
+		button.scale = Vector2.ONE
+		button.z_index = index
+		button.set_meta("hand_index", index)
+		button.set_meta("base_position", position)
+		button.set_meta("base_rotation", rotation)
+	for button in cards:
+		_apply_local_hand_hover_state(button, false)
+
+
+func _layout_opponent_hand_cards(hand_surface: Control, cards: Array[Button], card_size: Vector2, count: int) -> void:
+	var overlap_step: float = card_size.x * (62.0 / 156.0)
 	var total_width: float = card_size.x + overlap_step * float(max(0, count - 1))
 	var available_width: float = max(hand_surface.size.x, total_width + 24.0)
 	var start_x: float = max(0.0, (available_width - total_width) * 0.5)
 	var max_y: float = 0.0
-	var vertical_step: float = _surface_scale_factor("hand") * (6.0 if is_local else 3.0)
+	var vertical_step: float = _surface_scale_factor("hand") * 3.0
 	for index in range(count):
 		var button := cards[index]
 		var offset := float(index) - float(count - 1) * 0.5
 		var y := absf(offset) * vertical_step
-		var rotation := offset * (3.4 if is_local else 1.2)
+		var rotation := offset * 1.2
 		var position := Vector2(start_x + overlap_step * index, y)
 		button.size = card_size
 		button.position = position
@@ -1832,9 +1883,6 @@ func _layout_hand_cards(hand_surface: Control, player_id: String) -> void:
 		button.set_meta("base_rotation", rotation)
 		max_y = max(max_y, y)
 	hand_surface.custom_minimum_size = Vector2(max(total_width + 24.0, 240.0), card_size.y + max_y + 20.0)
-	if is_local:
-		for button in cards:
-			_apply_local_hand_hover_state(button, false)
 
 
 func _layout_hand_placeholder(hand_surface: Control, placeholder: Label) -> void:
@@ -1860,22 +1908,30 @@ func _apply_local_hand_hover_state(button: Button, hovered: bool) -> void:
 	var hand_index := int(button.get_meta("hand_index", button.z_index))
 	var selected := str(button.get_meta("instance_id", "")) == _selected_instance_id
 	var locked := bool(button.get_meta("presentation_locked", false))
-	var scale_factor := _surface_scale_factor("hand")
+	var card_size := _surface_button_minimum_size("hand")
+	# How far the card needs to rise to be fully visible
+	var rise_amount := card_size.y * 0.85
+	# Reset to resting state
 	button.scale = Vector2.ONE
 	button.position = base_position
 	button.rotation_degrees = base_rotation
 	button.z_index = hand_index
+	button.mouse_filter = Control.MOUSE_FILTER_STOP
 	if locked:
 		return
 	if selected:
-		button.scale = Vector2(1.12, 1.12)
-		button.position = base_position + Vector2(-10.0, -34.0) * scale_factor
-		button.rotation_degrees = base_rotation * 0.18
+		# Selected card rises but ignores mouse so board clicks go through
+		button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.scale = Vector2(1.05, 1.05)
+		button.position = base_position + Vector2(0.0, -rise_amount)
+		button.rotation_degrees = 0.0
 		button.z_index = 110
 	if hovered:
-		button.scale = Vector2(1.14, 1.14) if selected else Vector2(1.08, 1.08)
-		button.position = base_position + (Vector2(-10.0, -40.0) if selected else Vector2(-8.0, -24.0)) * scale_factor
-		button.rotation_degrees = base_rotation * 0.12 if selected else base_rotation * 0.35
+		# Hovered card is fully interactive
+		button.mouse_filter = Control.MOUSE_FILTER_STOP
+		button.scale = Vector2(1.1, 1.1) if selected else Vector2(1.05, 1.05)
+		button.position = base_position + Vector2(0.0, -rise_amount - (20.0 if selected else 0.0))
+		button.rotation_degrees = 0.0
 		button.z_index = 120 if selected else 100
 
 

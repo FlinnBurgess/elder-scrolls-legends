@@ -7,7 +7,7 @@ const PRESENTATION_FULL := "full"
 const PRESENTATION_CREATURE_BOARD_MINIMAL := "creature_board_minimal"
 const PRESENTATION_SUPPORT_BOARD_MINIMAL := "support_board_minimal"
 
-const FULL_LAYOUT_BASE_SIZE := Vector2(156, 196)
+const FULL_LAYOUT_BASE_SIZE := Vector2(220, 320)
 const CREATURE_BOARD_LAYOUT_BASE_SIZE := Vector2(136, 172)
 const SUPPORT_BOARD_LAYOUT_BASE_SIZE := Vector2(96, 96)
 const PRESENTATION_SCALE := 1.0
@@ -130,28 +130,31 @@ func _build_internal_nodes() -> void:
 	_inner_frame.clip_contents = true
 	_content_root.add_child(_inner_frame)
 
-	_name_banner = PanelContainer.new()
-	_name_banner.name = "NameBanner"
-	_name_banner.clip_contents = true
-	_content_root.add_child(_name_banner)
-	var name_box := _build_panel_box(_name_banner, 2, 8, BoxContainer.ALIGNMENT_BEGIN)
-	_name_label = Label.new()
-	_name_label.name = "NameLabel"
-	_name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_name_label.max_lines_visible = 1
-	_name_label.add_theme_font_size_override("font_size", 14)
-	name_box.add_child(_name_label)
-	_subtype_label = Label.new()
-	_subtype_label.name = "SubtypeLabel"
-	_subtype_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_subtype_label.max_lines_visible = 1
-	_subtype_label.add_theme_font_size_override("font_size", 10)
-	name_box.add_child(_subtype_label)
-
 	_art_frame = PanelContainer.new()
 	_art_frame.name = "ArtFrame"
 	_art_frame.clip_contents = true
 	_content_root.add_child(_art_frame)
+
+	# Name banner added AFTER art so it renders on top as an overlay
+	_name_banner = PanelContainer.new()
+	_name_banner.name = "NameBanner"
+	_name_banner.clip_contents = true
+	_content_root.add_child(_name_banner)
+	var name_box := _build_panel_box(_name_banner, 0, 4, BoxContainer.ALIGNMENT_CENTER)
+	_name_label = Label.new()
+	_name_label.name = "NameLabel"
+	_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_name_label.max_lines_visible = 1
+	_name_label.add_theme_font_size_override("font_size", 13)
+	name_box.add_child(_name_label)
+	_subtype_label = Label.new()
+	_subtype_label.name = "SubtypeLabel"
+	_subtype_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_subtype_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_subtype_label.max_lines_visible = 1
+	_subtype_label.add_theme_font_size_override("font_size", 9)
+	name_box.add_child(_subtype_label)
 	_art_texture = TextureRect.new()
 	_art_texture.name = "ArtTexture"
 	_art_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -164,9 +167,10 @@ func _build_internal_nodes() -> void:
 	_rules_panel.name = "RulesPanel"
 	_rules_panel.clip_contents = true
 	_content_root.add_child(_rules_panel)
-	var rules_box := _build_panel_box(_rules_panel, 4, 8, BoxContainer.ALIGNMENT_BEGIN)
+	var rules_box := _build_panel_box(_rules_panel, 2, 6, BoxContainer.ALIGNMENT_CENTER)
 	_rules_label = Label.new()
 	_rules_label.name = "RulesLabel"
+	_rules_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_rules_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_rules_label.add_theme_font_size_override("font_size", 10)
 	rules_box.add_child(_rules_label)
@@ -216,7 +220,7 @@ func _refresh_content() -> void:
 	_name_label.text = _card_name(_card_data)
 	_subtype_label.text = _subtype_line(_card_data)
 	_rules_label.text = _rules_preview(_card_data)
-	_rarity_label.text = _card_rarity_text(_card_data).to_upper()
+	_rarity_label.text = ""
 	if _is_creature(_card_data):
 		_attack_label.text = str(EvergreenRules.get_power(_card_data))
 		_health_label.text = str(EvergreenRules.get_remaining_health(_card_data))
@@ -232,15 +236,26 @@ func _refresh_styles() -> void:
 	_apply_font_sizes(scale)
 	var accent := _attribute_tint(_card_data)
 	var muted_accent := accent.darkened(0.28)
-	_apply_panel_style(_outer_frame, COLOR_FRAME_DARK, accent, _scaled_border_width(3, scale), _panel_radius(_outer_frame, _scaled_int(14, scale)))
-	_apply_panel_style(_inner_frame, COLOR_FRAME_INNER, muted_accent, _scaled_border_width(1, scale), _panel_radius(_inner_frame, _scaled_int(10, scale)))
-	_apply_panel_style(_name_banner, accent.darkened(0.5), accent.lightened(0.08), _scaled_border_width(2, scale), _panel_radius(_name_banner, _scaled_int(8, scale)))
-	_apply_panel_style(_art_frame, _art_fill(_presentation_mode), accent.lerp(Color(0.78, 0.64, 0.4, 1.0), 0.42), _scaled_border_width(2 if _presentation_mode == PRESENTATION_FULL else 1, scale), _panel_radius(_art_frame, _scaled_int(8, scale)))
-	_apply_panel_style(_rules_panel, Color(0.13, 0.11, 0.1, 0.96), muted_accent, _scaled_border_width(1, scale), _panel_radius(_rules_panel, _scaled_int(8, scale)))
-	_apply_panel_style(_rarity_marker, Color(0.17, 0.14, 0.11, 0.98), _rarity_color(_card_data), _scaled_border_width(1, scale), _panel_radius(_rarity_marker, _scaled_int(8, scale)))
-	_apply_panel_style(_cost_badge, Color(0.15, 0.21, 0.32, 0.99), Color(0.72, 0.84, 0.98, 1.0), _scaled_border_width(2, scale), _panel_radius(_cost_badge, _scaled_int(12, scale)))
-	_apply_panel_style(_attack_badge, Color(0.2, 0.16, 0.11, 0.98), Color(0.71, 0.54, 0.31, 0.96), _scaled_border_width(1, scale), _panel_radius(_attack_badge, _scaled_int(8, scale)))
-	_apply_panel_style(_health_badge, Color(0.15, 0.1, 0.12, 0.98), Color(0.64, 0.35, 0.31, 0.96), _scaled_border_width(1, scale), _panel_radius(_health_badge, _scaled_int(8, scale)))
+	# Outer frame – dark with accent border (ESL-style card edge)
+	_apply_panel_style(_outer_frame, COLOR_FRAME_DARK, accent, _scaled_border_width(3, scale), _scaled_int(6, scale))
+	# Inner frame – slightly lighter
+	_apply_panel_style(_inner_frame, COLOR_FRAME_INNER, muted_accent, _scaled_border_width(1, scale), _scaled_int(4, scale))
+	# Name banner – semi-transparent dark overlay on top of art
+	_apply_panel_style(_name_banner, Color(0.0, 0.0, 0.0, 0.55), Color(0.0, 0.0, 0.0, 0.0), 0, 0)
+	# Art frame – the main card image area
+	_apply_panel_style(_art_frame, _art_fill(_presentation_mode), accent.lerp(Color(0.78, 0.64, 0.4, 1.0), 0.42), _scaled_border_width(2 if _presentation_mode == PRESENTATION_FULL else 1, scale), _scaled_int(4, scale))
+	# Rules panel – dark with attribute-tinted color (like the maroon panel in ESL)
+	var rules_bg := accent.darkened(0.7)
+	rules_bg.a = 0.96
+	_apply_panel_style(_rules_panel, rules_bg, muted_accent, _scaled_border_width(1, scale), _scaled_int(2, scale))
+	# Rarity gem – small diamond, filled with rarity color
+	_apply_panel_style(_rarity_marker, _rarity_color(_card_data).darkened(0.3), _rarity_color(_card_data), _scaled_border_width(1, scale), _scaled_int(2, scale))
+	# Cost badge – dark circle
+	_apply_panel_style(_cost_badge, Color(0.12, 0.14, 0.18, 0.99), Color(0.72, 0.84, 0.98, 1.0), _scaled_border_width(2, scale), _scaled_int(17, scale))
+	# Attack badge – diamond shape (low corner radius)
+	_apply_panel_style(_attack_badge, Color(0.08, 0.06, 0.04, 0.98), Color(0.72, 0.62, 0.42, 0.96), _scaled_border_width(2, scale), _scaled_int(4, scale))
+	# Health badge – circular (corner radius = half the badge side)
+	_apply_panel_style(_health_badge, Color(0.08, 0.06, 0.04, 0.98), Color(0.72, 0.62, 0.42, 0.96), _scaled_border_width(2, scale), _scaled_int(15, scale))
 	_name_label.add_theme_color_override("font_color", COLOR_TEXT)
 	_subtype_label.add_theme_color_override("font_color", COLOR_TEXT_MUTED)
 	_rules_label.add_theme_color_override("font_color", COLOR_RULES_TEXT)
@@ -287,27 +302,44 @@ func _layout_internal_nodes() -> void:
 
 func _layout_full(inner_rect: Rect2) -> void:
 	var scale := _layout_scale(PRESENTATION_FULL)
-	var content_padding := 10.0 * scale
+	var content_padding := 6.0 * scale
 	var content_width := maxf(inner_rect.size.x - content_padding * 2.0, 0.0)
-	var header_height := 42.0 * scale
-	var cost_size := Vector2.ONE * (38.0 * scale)
-	var cost_overlap := Vector2.ONE * (8.0 * scale)
-	var rarity_size := Vector2(90.0 * scale, 22.0 * scale)
-	_name_banner.position = inner_rect.position + Vector2(content_padding, 10.0 * scale)
-	_name_banner.size = Vector2(content_width, header_height)
+
+	# Cost badge – circular, top-left overlapping the frame
+	var cost_size := Vector2.ONE * (34.0 * scale)
 	_cost_badge.size = cost_size
-	_cost_badge.position = _outer_frame.position - cost_overlap
-	var art_y := _name_banner.position.y + _name_banner.size.y + 10.0 * scale
-	var art_height := clampf(inner_rect.size.y * 0.38, 72.0 * scale, maxf(inner_rect.size.y - 122.0 * scale, 56.0 * scale))
-	_art_frame.position = Vector2(inner_rect.position.x + content_padding, art_y)
+	_cost_badge.position = _outer_frame.position + Vector2(-4.0 * scale, -4.0 * scale)
+
+	# Art frame – dominates the card (~58% of inner height)
+	var art_top := inner_rect.position.y + content_padding
+	var art_height := inner_rect.size.y * 0.58
+	_art_frame.position = Vector2(inner_rect.position.x + content_padding, art_top)
 	_art_frame.size = Vector2(content_width, art_height)
-	_layout_stat_badges(inner_rect, Rect2(_art_frame.position, _art_frame.size), scale)
-	_rarity_marker.size = rarity_size
-	_rarity_marker.position = Vector2(inner_rect.position.x + (inner_rect.size.x - rarity_size.x) * 0.5, inner_rect.position.y + inner_rect.size.y - rarity_size.y - 8.0 * scale)
-	var rules_y := _art_frame.position.y + _art_frame.size.y + 12.0 * scale
-	var rules_bottom := _rarity_marker.position.y - 8.0 * scale
+
+	# Name banner – overlays top of art, semi-transparent
+	var banner_height := 40.0 * scale
+	_name_banner.position = Vector2(inner_rect.position.x + content_padding, art_top)
+	_name_banner.size = Vector2(content_width, banner_height)
+
+	# Stat badges – attack diamond + health circle, straddling art bottom edge
+	_layout_stat_badges(inner_rect, Rect2(_art_frame.position, _art_frame.size), scale, true)
+
+	# Rules panel – bottom portion of card below art, with gap for stat badges
+	var rules_y := _art_frame.position.y + _art_frame.size.y + 16.0 * scale
+	var rules_bottom := inner_rect.position.y + inner_rect.size.y - content_padding
 	_rules_panel.position = Vector2(inner_rect.position.x + content_padding, rules_y)
 	_rules_panel.size = Vector2(content_width, maxf(rules_bottom - rules_y, 40.0 * scale))
+
+	# Rarity gem – small diamond centered at the boundary between art and rules
+	var gem_side := 12.0 * scale
+	var gem_size := Vector2(gem_side, gem_side)
+	_rarity_marker.size = gem_size
+	_rarity_marker.pivot_offset = gem_size * 0.5
+	_rarity_marker.rotation_degrees = 45.0
+	_rarity_marker.position = Vector2(
+		inner_rect.position.x + (inner_rect.size.x - gem_size.x) * 0.5,
+		rules_y - gem_size.y * 0.5
+	)
 
 
 func _layout_creature_board_minimal(inner_rect: Rect2) -> void:
@@ -371,23 +403,57 @@ func _resolve_art_texture(card: Dictionary) -> Texture2D:
 	return _get_default_art_texture()
 
 
-func _layout_stat_badges(inner_rect: Rect2, art_rect: Rect2, scale: float) -> void:
-	var badge_size := Vector2(maxf(28.0 * scale, 28.0), maxf(24.0 * scale, 24.0))
+func _layout_stat_badges(inner_rect: Rect2, art_rect: Rect2, scale: float, esl_style := false) -> void:
+	var badge_side := maxf(30.0 * scale, 30.0)
+	var badge_size := Vector2(badge_side, badge_side)
 	var badge_margin := 6.0 * scale
-	var badge_top := art_rect.position.y + art_rect.size.y - badge_size.y - badge_margin
-	badge_top = clampf(badge_top, art_rect.position.y, maxf(art_rect.position.y + art_rect.size.y - badge_size.y, art_rect.position.y))
 	_attack_badge.size = badge_size
 	_health_badge.size = badge_size
-	_attack_badge.position = Vector2(art_rect.position.x + badge_margin, badge_top)
-	_health_badge.position = Vector2(art_rect.position.x + art_rect.size.x - badge_size.x - badge_margin, badge_top)
-	_attack_badge.pivot_offset = _attack_badge.size * 0.5
-	_health_badge.pivot_offset = _health_badge.size * 0.5
-	_attack_badge.rotation_degrees = 0.0
-	_health_badge.rotation_degrees = 0.0
-	_attack_label.pivot_offset = _attack_badge.size * 0.5
-	_health_label.pivot_offset = _health_badge.size * 0.5
-	_attack_label.rotation_degrees = 0.0
-	_health_label.rotation_degrees = 0.0
+	_attack_badge.pivot_offset = badge_size * 0.5
+	_health_badge.pivot_offset = badge_size * 0.5
+	if esl_style:
+		# Attack: diamond (rotated 45°), Health: circle (no rotation, high corner radius)
+		var badge_center_y := art_rect.position.y + art_rect.size.y
+		var badge_inset := 8.0 * scale
+		# Attack diamond
+		_attack_badge.rotation_degrees = 45.0
+		_attack_badge.position = Vector2(
+			art_rect.position.x + badge_inset,
+			badge_center_y - badge_side
+		)
+		# Health circle — no rotation, positioned symmetrically
+		_health_badge.rotation_degrees = 0.0
+		_health_badge.position = Vector2(
+			art_rect.position.x + art_rect.size.x - badge_inset - badge_side,
+			badge_center_y - badge_side
+		)
+		# Attack label needs counter-rotation since badge is rotated
+		_attack_label.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		_attack_label.pivot_offset = badge_size * 0.5
+		_attack_label.rotation_degrees = -45.0
+		# Health label stays upright
+		_health_label.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		_health_label.pivot_offset = badge_size * 0.5
+		_health_label.rotation_degrees = 0.0
+	else:
+		# Flat rectangular badges inset on art
+		_attack_badge.rotation_degrees = 0.0
+		_health_badge.rotation_degrees = 0.0
+		var rect_size := Vector2(maxf(28.0 * scale, 28.0), maxf(24.0 * scale, 24.0))
+		_attack_badge.size = rect_size
+		_health_badge.size = rect_size
+		_attack_badge.pivot_offset = rect_size * 0.5
+		_health_badge.pivot_offset = rect_size * 0.5
+		var badge_top := art_rect.position.y + art_rect.size.y - rect_size.y - badge_margin
+		badge_top = clampf(badge_top, art_rect.position.y, maxf(art_rect.position.y + art_rect.size.y - rect_size.y, art_rect.position.y))
+		_attack_badge.position = Vector2(art_rect.position.x + badge_margin, badge_top)
+		_health_badge.position = Vector2(art_rect.position.x + art_rect.size.x - rect_size.x - badge_margin, badge_top)
+		_attack_label.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		_health_label.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		_attack_label.pivot_offset = rect_size * 0.5
+		_health_label.pivot_offset = rect_size * 0.5
+		_attack_label.rotation_degrees = 0.0
+		_health_label.rotation_degrees = 0.0
 
 
 func _get_default_art_texture() -> Texture2D:
@@ -617,8 +683,10 @@ func _apply_panel_style(panel: PanelContainer, fill: Color, border: Color, borde
 func _refresh_corner_radii() -> void:
 	for panel in [_outer_frame, _inner_frame, _name_banner, _art_frame, _rules_panel, _rarity_marker, _cost_badge]:
 		_set_panel_corner_radius(panel, _panel_radius(panel, 8))
-	_set_panel_corner_radius(_attack_badge, _panel_radius(_attack_badge, 8))
-	_set_panel_corner_radius(_health_badge, _panel_radius(_health_badge, 8))
+	_set_panel_corner_radius(_attack_badge, _panel_radius(_attack_badge, 4))
+	# Health badge: keep circular — use half the badge dimension as radius
+	var health_radius := maxi(2, int(round(minf(_health_badge.size.x, _health_badge.size.y) * 0.5)))
+	_set_panel_corner_radius(_health_badge, health_radius)
 
 
 func _set_panel_corner_radius(panel: PanelContainer, corner_radius: int) -> void:
