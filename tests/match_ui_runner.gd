@@ -479,7 +479,7 @@ func _test_play_interaction_highlighting(screen: MatchScreen) -> bool:
 	summon_card = _find_hand_card(active_player, "Field Guardian")
 	summon_id = str(summon_card.get("instance_id", ""))
 	var drag_started := screen.start_hand_drag(summon_id)
-	var invalid_drop := screen.drop_hand_drag_on_node("player_2_identity_button")
+	var invalid_drop := screen.drop_hand_drag_on_node("player_2_avatar_component")
 	var drag_invalid_state := screen.get_interaction_state()
 	var invalid_drag_message := screen.get_status_message()
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should reload for valid drag verification."):
@@ -595,9 +595,12 @@ func _test_target_highlighting(screen: MatchScreen) -> bool:
 		attacker_card.emit_signal("pressed")
 	var attack_state := screen.get_interaction_state()
 	var attack_bone_guard := _find_lane_card(screen.get_match_state(), "Bone Guard")
-	var opponent_identity := screen.find_child("player_2_identity_button", true, false) as Button
-	if opponent_identity != null:
-		opponent_identity.emit_signal("pressed")
+	var opponent_avatar := screen.find_child("player_2_avatar_component", true, false) as Control
+	if opponent_avatar != null:
+		var click_event := InputEventMouseButton.new()
+		click_event.pressed = true
+		click_event.button_index = MOUSE_BUTTON_LEFT
+		opponent_avatar.gui_input.emit(click_event)
 	var invalid_attack_state := screen.get_interaction_state()
 	var invalid_attack_message := screen.get_status_message()
 	return (

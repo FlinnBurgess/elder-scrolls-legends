@@ -72,7 +72,6 @@ var _portrait_material: ShaderMaterial
 
 
 func _ready() -> void:
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if custom_minimum_size == Vector2.ZERO:
 		custom_minimum_size = RECOMMENDED_MINIMUM_SIZE
 	if size == Vector2.ZERO:

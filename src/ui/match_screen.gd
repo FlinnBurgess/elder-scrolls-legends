@@ -827,23 +827,14 @@ func _build_player_section(player_id: String) -> Dictionary:
 	var avatar_component := PLAYER_AVATAR_SCENE.instantiate()
 	avatar_component.name = "%s_avatar_component" % player_id
 	avatar_component.custom_minimum_size = Vector2(188, 176)
-	avatar_component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	avatar_component.mouse_filter = Control.MOUSE_FILTER_STOP
+	avatar_component.gui_input.connect(_on_avatar_gui_input.bind(player_id))
 	hero_row.add_child(avatar_component)
 
 	var identity_column := VBoxContainer.new()
 	identity_column.size_flags_horizontal = SIZE_EXPAND_FILL
 	identity_column.add_theme_constant_override("separation", 8)
 	hero_row.add_child(identity_column)
-
-	var button := Button.new()
-	button.name = "%s_identity_button" % player_id
-	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	button.custom_minimum_size = Vector2(0, 52)
-	button.size_flags_horizontal = SIZE_EXPAND_FILL
-	button.add_theme_font_size_override("font_size", 16)
-	_apply_button_style(button, Color(0.17, 0.18, 0.22, 0.98), Color(0.45, 0.47, 0.55, 0.92), Color(0.95, 0.96, 0.98, 1.0), 1, 10)
-	button.pressed.connect(_on_player_pressed.bind(player_id))
-	identity_column.add_child(button)
 	var resource_row := HBoxContainer.new()
 	resource_row.add_theme_constant_override("separation", 10)
 	resource_row.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -1039,7 +1030,6 @@ func _build_player_section(player_id: String) -> Dictionary:
 	return {
 		"player_id": player_id,
 		"panel": panel,
-		"summary_button": button,
 		"avatar_component": avatar_component,
 		"magicka_component": magicka_component,
 		"ring_label": ring_label,
@@ -1410,26 +1400,6 @@ func _apply_support_surface_style(panel: PanelContainer, player_id: String) -> v
 	_apply_panel_style(panel, fill, border, 2 if interaction_state != "default" else 1, 10)
 
 
-func _apply_player_summary_style(button: Button, player_id: String, is_opponent: bool) -> void:
-	if button == null:
-		return
-	var fill := Color(0.18, 0.14, 0.14, 0.98) if is_opponent else Color(0.12, 0.17, 0.14, 0.98)
-	var border := Color(0.66, 0.42, 0.42, 0.92) if is_opponent else Color(0.42, 0.64, 0.46, 0.92)
-	var font_color := Color(0.98, 0.97, 0.94, 1.0)
-	var interaction_state := _player_button_interaction_state(player_id)
-	if _should_dim_local_surface(player_id) and interaction_state == "default":
-		fill = fill.darkened(0.2)
-		border = border.darkened(0.12)
-		font_color = Color(0.82, 0.84, 0.88, 0.96)
-	if interaction_state == "valid":
-		fill = fill.lightened(0.08)
-		border = Color(0.74, 0.94, 0.68, 1.0)
-	elif interaction_state == "invalid":
-		fill = fill.lerp(Color(0.31, 0.12, 0.13, 0.99), 0.64)
-		border = Color(0.98, 0.48, 0.44, 1.0)
-	_apply_button_style(button, fill, border, font_color, 2 if interaction_state != "default" else 1, 10)
-	button.self_modulate = Color(0.86, 0.88, 0.94, 0.8) if _should_dim_local_surface(player_id) and interaction_state == "default" else Color(1, 1, 1, 1)
-
 
 func _locked_surface_modulate(locked: bool, muted: bool) -> Color:
 	if locked:
@@ -1537,11 +1507,6 @@ func _refresh_player_sections() -> void:
 		var is_opponent: bool = player_id == PLAYER_ORDER[0]
 		var panel: PanelContainer = section["panel"]
 		panel.self_modulate = Color(0.82, 0.84, 0.9, 0.78) if _should_dim_local_surface(player_id) else Color(1, 1, 1, 1)
-		var summary_button: Button = section["summary_button"]
-		summary_button.text = _player_summary_text(player)
-		summary_button.tooltip_text = _player_summary_tooltip(player)
-		_apply_player_summary_style(summary_button, player_id, is_opponent)
-
 		var avatar_component = section.get("avatar_component")
 		if avatar_component != null:
 			avatar_component.apply_player_state(player, is_opponent)
@@ -2554,11 +2519,16 @@ func _on_lane_slot_pressed(lane_id: String, player_id: String, slot_index: int) 
 	})
 
 
+func _on_avatar_gui_input(event: InputEvent, player_id: String) -> void:
+	if event is InputEventMouseButton and (event as InputEventMouseButton).pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		_on_player_pressed(player_id)
+
+
 func _on_player_pressed(player_id: String) -> void:
 	if _try_resolve_selected_player_target(player_id):
 		return
 	_clear_pile_selection()
-	_status_message = "%s selected. Click an enemy player with an attacker to strike face." % _player_name(player_id)
+	_status_message = "%s selected." % _player_name(player_id)
 	_refresh_ui()
 
 
@@ -2855,15 +2825,6 @@ func _lane_row_interaction_state(lane_id: String, player_id: String) -> String:
 	return "valid" if _valid_lane_ids().has(lane_id) else "invalid"
 
 
-func _player_button_interaction_state(player_id: String) -> String:
-	if _copy_array(_invalid_feedback.get("player_ids", [])).has(player_id):
-		return "invalid"
-	if _valid_player_target_ids().has(player_id):
-		return "valid"
-	if _selected_action_mode(_selected_card()) == SELECTION_MODE_ATTACK and player_id != _active_player_id():
-		return "invalid"
-	return "default"
-
 
 func _can_resolve_selected_action(card: Dictionary) -> bool:
 	if card.is_empty():
@@ -3095,7 +3056,6 @@ func _apply_presentation_feedback() -> void:
 
 func _clear_feedback_overlays() -> void:
 	for section in _player_sections.values():
-		_clear_feedback_children(section.get("summary_button"))
 		_clear_feedback_children(section.get("avatar_component"))
 		_clear_feedback_children(section.get("hand_row"))
 	for row_panel in _lane_row_panels.values():
@@ -3132,9 +3092,9 @@ func _apply_damage_feedback(feedback: Dictionary) -> void:
 			_add_feedback_popup(target_button, "feedback_damage_%s" % str(feedback.get("feedback_id", "0")), str(feedback.get("text", "-0")), feedback.get("color", Color(1, 1, 1, 1)), 10.0 + float(feedback.get("stack_index", 0)) * 18.0)
 	elif target_kind == MatchCombat.TARGET_TYPE_PLAYER:
 		var section: Dictionary = _player_sections.get(str(feedback.get("target_player_id", "")), {})
-		var summary_button: Button = section.get("summary_button")
-		if summary_button != null:
-			_add_feedback_popup(summary_button, "feedback_damage_%s" % str(feedback.get("feedback_id", "0")), str(feedback.get("text", "-0")), feedback.get("color", Color(1, 1, 1, 1)), 12.0 + float(feedback.get("stack_index", 0)) * 18.0)
+		var avatar: Control = section.get("avatar_component")
+		if avatar != null:
+			_add_feedback_popup(avatar, "feedback_damage_%s" % str(feedback.get("feedback_id", "0")), str(feedback.get("text", "-0")), feedback.get("color", Color(1, 1, 1, 1)), 12.0 + float(feedback.get("stack_index", 0)) * 18.0)
 
 
 func _apply_removal_feedback(feedback: Dictionary) -> void:
@@ -3170,9 +3130,9 @@ func _apply_removal_feedback(feedback: Dictionary) -> void:
 func _apply_draw_feedback(feedback: Dictionary) -> void:
 	var player_id := str(feedback.get("player_id", ""))
 	var section: Dictionary = _player_sections.get(player_id, {})
-	var summary_button: Button = section.get("summary_button")
-	if summary_button != null:
-		_add_feedback_popup(summary_button, "feedback_draw_popup_%s" % str(feedback.get("feedback_id", "0")), _draw_feedback_popup_text(feedback), _draw_feedback_popup_color(feedback), 14.0 + float(feedback.get("stack_index", 0)) * 18.0)
+	var avatar: Control = section.get("avatar_component")
+	if avatar != null:
+		_add_feedback_popup(avatar, "feedback_draw_popup_%s" % str(feedback.get("feedback_id", "0")), _draw_feedback_popup_text(feedback), _draw_feedback_popup_color(feedback), 14.0 + float(feedback.get("stack_index", 0)) * 18.0)
 	var hand_row: Control = section.get("hand_row")
 	if hand_row != null:
 		_add_feedback_toast(hand_row, "feedback_draw_toast_%s" % str(feedback.get("feedback_id", "0")), _draw_feedback_toast_text(feedback), _draw_feedback_toast_fill(feedback), _draw_feedback_toast_border(feedback), Color(1.0, 0.97, 0.93, 1.0), 10.0 + float(feedback.get("stack_index", 0)) * 24.0)
@@ -3185,9 +3145,6 @@ func _apply_draw_feedback(feedback: Dictionary) -> void:
 func _apply_rune_feedback(feedback: Dictionary) -> void:
 	var player_id := str(feedback.get("player_id", ""))
 	var section: Dictionary = _player_sections.get(player_id, {})
-	var summary_button: Button = section.get("summary_button")
-	if summary_button != null:
-		_add_feedback_popup(summary_button, "feedback_rune_popup_%s" % str(feedback.get("feedback_id", "0")), "RUNE BREAK", Color(1.0, 0.79, 0.45, 1.0), 12.0 + float(feedback.get("stack_index", 0)) * 18.0)
 	var avatar_component = section.get("avatar_component")
 	if avatar_component != null:
 		_add_feedback_toast(avatar_component, "feedback_rune_toast_%s" % str(feedback.get("feedback_id", "0")), _rune_feedback_toast_text(feedback), Color(0.31, 0.13, 0.11, 0.98), Color(1.0, 0.73, 0.42, 1.0), Color(1.0, 0.95, 0.89, 1.0), 8.0 + float(feedback.get("stack_index", 0)) * 22.0)
@@ -3622,23 +3579,6 @@ func _match_end_detail_text(winner_player_id: String) -> String:
 		return "%s has fallen. %s wins the match." % [_player_name(loser_player_id), _player_name(winner_player_id)]
 	return "%s wins the match. %s is out of actions." % [_player_name(winner_player_id), _player_name(_local_player_id())]
 
-
-func _player_summary_text(player: Dictionary) -> String:
-	var lines: Array = []
-	lines.append("%s%s" % [_player_name(str(player.get("player_id", ""))), " • Active" if str(player.get("player_id", "")) == _active_player_id() else ""])
-	lines.append("Inspect combatant • attackers can target enemy face here")
-	return _join_parts(lines, "\n")
-
-
-func _player_summary_tooltip(player: Dictionary) -> String:
-	var runes: Array = player.get("rune_thresholds", [])
-	var lines := [
-		"Health %d" % int(player.get("health", 0)),
-		"Remaining rune thresholds: %s" % [runes],
-		_magicka_summary_text(player),
-		"Deck %d • Discard %d • Ring %s" % [player.get("deck", []).size(), player.get("discard", []).size(), _ring_summary(player)],
-	]
-	return _join_parts(lines, "\n")
 
 
 func _ring_summary(player: Dictionary) -> String:
@@ -4247,8 +4187,8 @@ func _drag_drop_descriptor(pointer_position: Vector2) -> Dictionary:
 			if card_button != null and card_button.get_global_rect().has_point(pointer_position) and str(card_button.get_meta("surface", "")) == "lane":
 				return {"kind": "invalid", "message": "Select a lane slot to summon this creature.", "feedback": {"instance_ids": [instance_id]}}
 		for section in _player_sections.values():
-			var summary_button: Button = section.get("summary_button")
-			if summary_button != null and summary_button.get_global_rect().has_point(pointer_position):
+			var avatar: Control = section.get("avatar_component")
+			if avatar != null and (avatar as Control).get_global_rect().has_point(pointer_position):
 				return {"kind": "invalid", "message": "Select a lane slot to summon this creature.", "feedback": {"player_ids": [str(section.get("player_id", ""))]}}
 	elif mode == SELECTION_MODE_ITEM:
 		for instance_id in _card_buttons.keys():
