@@ -247,7 +247,7 @@ func _refresh_styles() -> void:
 	# Rules panel – transparent so text renders over the inner frame background
 	_apply_panel_style(_rules_panel, Color.TRANSPARENT, Color.TRANSPARENT, 0, 0)
 	# Rarity gem – small diamond, filled with rarity color
-	_apply_panel_style(_rarity_marker, _rarity_color(_card_data).darkened(0.3), _rarity_color(_card_data), _scaled_border_width(1, scale), _scaled_int(2, scale))
+	_apply_panel_style(_rarity_marker, _rarity_color(_card_data).darkened(0.3), Color.BLACK, _scaled_border_width(2, scale), _scaled_int(2, scale))
 	# Cost badge – dark circle
 	_apply_panel_style(_cost_badge, Color(0.12, 0.14, 0.18, 0.99), Color(0.72, 0.84, 0.98, 1.0), _scaled_border_width(2, scale), _scaled_int(17, scale))
 	# Attack badge – diamond shape (low corner radius)
