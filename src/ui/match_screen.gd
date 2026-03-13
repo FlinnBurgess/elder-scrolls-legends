@@ -1728,7 +1728,7 @@ func _build_card_button(card: Dictionary, public_view: bool, surface := "default
 	button.set_meta("presentation_locked", locked)
 	_apply_surface_button_style(button, surface, hidden, selected, muted, interaction_state, card, locked)
 	button.pressed.connect(_on_card_pressed.bind(str(card.get("instance_id", ""))))
-	button.tooltip_text = _card_tooltip(card, public_view)
+	button.tooltip_text = ""
 	button.disabled = hidden
 	button.set_meta("card_display_component", null)
 	_populate_card_button_content(button, card, public_view, surface)
