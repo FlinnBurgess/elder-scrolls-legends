@@ -69,7 +69,6 @@ func _test_layout_hierarchy(screen: MatchScreen) -> bool:
 		return false
 	var match_layout := screen.find_child("MatchLayout", true, false) as Control
 	var match_content := screen.find_child("MatchContent", true, false) as Control
-	var scenario_bar := screen.find_child("ScenarioBar", true, false) as Control
 	var board_column := screen.find_child("BoardColumn", true, false)
 	var utility_column := screen.find_child("UtilityColumn", true, false)
 	var battlefield := screen.find_child("BattlefieldPanel", true, false)
@@ -95,7 +94,6 @@ func _test_layout_hierarchy(screen: MatchScreen) -> bool:
 	return (
 		_assert(match_layout != null, "Expected a named match layout root.") and
 		_assert(match_layout is MarginContainer and match_content != null, "Expected the refreshed layout to use a padded margin shell.") and
-		_assert(scenario_bar != null, "Expected a named scenario bar in the refreshed layout.") and
 		_assert(board_column != null, "Expected a named board column for the recomposed layout.") and
 		_assert(utility_column != null, "Expected a named utility column for the recomposed layout.") and
 		_assert(battlefield != null, "Expected a named battlefield panel for the recomposed layout.") and
@@ -107,10 +105,8 @@ func _test_layout_hierarchy(screen: MatchScreen) -> bool:
 		_assert(is_equal_approx(match_layout.anchor_right, 1.0) and is_equal_approx(match_layout.anchor_bottom, 1.0), "Match layout should anchor to the full screen rect.") and
 		_assert(match_layout.get_theme_constant("margin_left") >= 20 and match_layout.get_theme_constant("margin_right") >= 20, "Layout shell should add visible outer horizontal padding.") and
 		_assert(match_layout.get_theme_constant("margin_top") >= 20 and match_layout.get_theme_constant("margin_bottom") >= 20, "Layout shell should add visible outer vertical padding.") and
-		_assert(_panel_has_padding(scenario_bar, 14), "Scenario bar should include inner padding instead of sitting flush to its panel edges.") and
-			_assert(_panel_has_padding(battlefield, 12), "Battlefield panel should preserve clear inner padding.") and
+		_assert(_panel_has_padding(battlefield, 12), "Battlefield panel should preserve clear inner padding.") and
 		_assert(_panel_has_padding(inspector_panel, 16), "Inspector rail should include stronger internal padding.") and
-		_assert(scenario_bar.custom_minimum_size.y >= 56.0, "Scenario bar should have more breathing room in the refreshed layout.") and
 		_assert(board_column.get_index() < utility_column.get_index(), "Board column should precede the utility column.") and
 		_assert(opponent_band.get_index() < battlefield.get_index(), "Opponent band should render above the battlefield.") and
 		_assert(battlefield.get_index() < player_band.get_index(), "Battlefield should render above the local-player band.") and
@@ -369,16 +365,11 @@ func _test_match_card_display_modes(screen: MatchScreen) -> bool:
 func _test_turn_state_presentation(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should load for turn-state verification."):
 		return false
-	var turn_state_panel := screen.find_child("TurnStatePanel", true, false) as Control
-	var turn_state_label := screen.find_child("TurnStateLabel", true, false) as Label
-	var turn_state_detail := screen.find_child("TurnStateDetailLabel", true, false) as Label
 	var turn_banner_panel := screen.find_child("TurnBannerPanel", true, false) as Control
 	var turn_banner_label := screen.find_child("TurnBannerLabel", true, false) as Label
 	var end_turn_button := _find_button_with_text(screen, "End Turn")
 	var player_band := screen.find_child("PlayerBand", true, false) as Control
 	var initial_state := screen.get_interaction_state()
-	var initial_turn_text := turn_state_label.text if turn_state_label != null else ""
-	var initial_turn_detail := turn_state_detail.text if turn_state_detail != null else ""
 	var initial_banner_visible := turn_banner_panel.visible if turn_banner_panel != null else false
 	var initial_banner_text := turn_banner_label.text if turn_banner_label != null else ""
 	var initial_end_turn_disabled := end_turn_button.disabled if end_turn_button != null else true
@@ -387,22 +378,18 @@ func _test_turn_state_presentation(screen: MatchScreen) -> bool:
 	if not _assert(screen.end_turn_action(), "Advancing the scenario turn should succeed for turn-state verification."):
 		return false
 	var next_state := screen.get_interaction_state()
-	var next_turn_text := turn_state_label.text if turn_state_label != null else ""
 	var next_banner_visible := turn_banner_panel.visible if turn_banner_panel != null else false
 	var next_banner_text := turn_banner_label.text if turn_banner_label != null else ""
 	var next_end_turn_disabled := end_turn_button.disabled if end_turn_button != null else true
 	var next_border_width := _button_border_width(end_turn_button, "disabled" if next_end_turn_disabled else "normal")
 	var next_brightness := _button_background_brightness(end_turn_button, "disabled" if next_end_turn_disabled else "normal")
 	var next_hand_button := screen.find_child("hand_player_1_field_guardian_card", true, false) as Button
-	var ready_text := initial_turn_text if bool(initial_state.get("local_turn", false)) else next_turn_text
-	var ready_detail := initial_turn_detail if bool(initial_state.get("local_turn", false)) else (turn_state_detail.text if turn_state_detail != null else "")
 	var ready_banner_visible := initial_banner_visible if bool(initial_state.get("local_turn", false)) else next_banner_visible
 	var ready_banner_text := initial_banner_text if bool(initial_state.get("local_turn", false)) else next_banner_text
 	var ready_end_turn_disabled := initial_end_turn_disabled if bool(initial_state.get("local_turn", false)) else next_end_turn_disabled
 	var ready_border_width := initial_border_width if bool(initial_state.get("local_turn", false)) else next_border_width
 	var ready_brightness := initial_brightness if bool(initial_state.get("local_turn", false)) else next_brightness
 	var ready_state := initial_state if bool(initial_state.get("local_turn", false)) else next_state
-	var locked_text := initial_turn_text if not bool(initial_state.get("local_turn", false)) else next_turn_text
 	var locked_banner_visible := initial_banner_visible if not bool(initial_state.get("local_turn", false)) else next_banner_visible
 	var locked_banner_text := initial_banner_text if not bool(initial_state.get("local_turn", false)) else next_banner_text
 	var locked_end_turn_disabled := initial_end_turn_disabled if not bool(initial_state.get("local_turn", false)) else next_end_turn_disabled
@@ -413,15 +400,11 @@ func _test_turn_state_presentation(screen: MatchScreen) -> bool:
 	if not bool(initial_state.get("local_turn", false)):
 		locked_hand_button = screen.find_child("hand_player_1_field_guardian_card", true, false) as Button
 	return (
-		_assert(turn_state_panel != null, "Expected a persistent turn-state panel in the scenario bar.") and
-		_assert(ready_text == "Your Turn", "Persistent turn-state copy should clearly identify the local player's action window.") and
-		_assert(ready_detail.contains("end the turn"), "Persistent turn-state detail should explain the local player's action window.") and
 		_assert(ready_banner_visible, "A transient turn banner should appear when the local player becomes active.") and
 		_assert(ready_banner_text == "Your Turn", "Transient turn banner should clearly announce the local turn owner.") and
 		_assert(bool(ready_state.get("local_turn", false)) and not bool(ready_state.get("local_controls_locked", true)), "Interaction state should report the opening turn as locally actionable.") and
 		_assert(not ready_end_turn_disabled, "End Turn should be usable on the local player's turn.") and
 		_assert(ready_border_width >= 2, "End Turn should gain a stronger CTA border treatment when it is ready.") and
-		_assert(locked_text == "Opponent's Turn", "Persistent turn-state copy should clearly identify the opponent turn.") and
 		_assert(locked_banner_visible, "A transient turn banner should appear when the opponent becomes active.") and
 		_assert(locked_banner_text == "Opponent's Turn", "Transient turn banner should clearly announce the opponent turn owner.") and
 		_assert(not bool(locked_state.get("local_turn", true)) and bool(locked_state.get("local_controls_locked", false)), "Interaction state should report local controls as presentation-locked on the opponent turn.") and

@@ -64,9 +64,7 @@ var _lane_registry := {}
 var _keyword_display_names := {}
 var _status_display_names := {}
 
-var _scenario_picker: OptionButton
 var _play_selected_button: Button
-var _reload_button: Button
 var _ring_button: Button
 var _end_turn_button: Button
 var _clear_button: Button
@@ -75,9 +73,6 @@ var _prompt_panel: PanelContainer
 var _prompt_title_label: Label
 var _prompt_label: Label
 var _prompt_button_row: HBoxContainer
-var _turn_state_panel: PanelContainer
-var _turn_state_label: Label
-var _turn_state_detail_label: Label
 var _turn_banner_panel: PanelContainer
 var _turn_banner_label: Label
 var _turn_banner_detail_label: Label
@@ -632,67 +627,6 @@ func _build_ui() -> void:
 	add_child(_local_hand_overlay)
 
 
-	var top_shell := PanelContainer.new()
-	top_shell.name = "ScenarioBar"
-	top_shell.custom_minimum_size = Vector2(0, 72)
-	_apply_panel_style(top_shell, Color(0.11, 0.12, 0.16, 0.96), Color(0.34, 0.36, 0.43, 0.9), 1, 10)
-	content.add_child(top_shell)
-
-	var top_bar := HBoxContainer.new()
-	top_bar.add_theme_constant_override("separation", 16)
-	top_bar.size_flags_horizontal = SIZE_EXPAND_FILL
-	var top_bar_padding := MarginContainer.new()
-	top_bar_padding.add_theme_constant_override("margin_left", 16)
-	top_bar_padding.add_theme_constant_override("margin_top", 14)
-	top_bar_padding.add_theme_constant_override("margin_right", 16)
-	top_bar_padding.add_theme_constant_override("margin_bottom", 14)
-	top_bar_padding.size_flags_horizontal = SIZE_EXPAND_FILL
-	top_bar_padding.size_flags_vertical = SIZE_EXPAND_FILL
-	top_shell.add_child(top_bar_padding)
-	top_bar_padding.add_child(top_bar)
-
-	var scenario_label := Label.new()
-	scenario_label.text = "Scenario"
-	scenario_label.add_theme_font_size_override("font_size", 17)
-	top_bar.add_child(scenario_label)
-
-	_scenario_picker = OptionButton.new()
-	_scenario_picker.size_flags_horizontal = SIZE_EXPAND_FILL
-	_scenario_picker.custom_minimum_size = Vector2(0, 44)
-	_scenario_picker.add_theme_font_size_override("font_size", 16)
-	_apply_button_style(_scenario_picker, Color(0.16, 0.17, 0.21, 0.96), Color(0.36, 0.39, 0.48, 0.92), Color(0.92, 0.93, 0.97, 1.0))
-	_scenario_picker.item_selected.connect(_on_scenario_selected)
-	top_bar.add_child(_scenario_picker)
-	_populate_scenario_picker()
-
-	_reload_button = Button.new()
-	_reload_button.text = "Reload"
-	_reload_button.custom_minimum_size = Vector2(132, 44)
-	_reload_button.add_theme_font_size_override("font_size", 16)
-	_apply_button_style(_reload_button, Color(0.18, 0.19, 0.23, 0.96), Color(0.39, 0.41, 0.5, 0.92), Color(0.92, 0.93, 0.97, 1.0))
-	_reload_button.pressed.connect(_on_reload_pressed)
-	top_bar.add_child(_reload_button)
-
-	_turn_state_panel = PanelContainer.new()
-	_turn_state_panel.name = "TurnStatePanel"
-	_turn_state_panel.custom_minimum_size = Vector2(252, 44)
-	_turn_state_panel.size_flags_horizontal = SIZE_SHRINK_END
-	_top_bar_apply_turn_state_style()
-	top_bar.add_child(_turn_state_panel)
-	var turn_state_box := _build_panel_box(_turn_state_panel, 8, 12)
-	var turn_state_column := VBoxContainer.new()
-	turn_state_column.add_theme_constant_override("separation", 2)
-	turn_state_box.add_child(turn_state_column)
-	_turn_state_label = Label.new()
-	_turn_state_label.name = "TurnStateLabel"
-	_turn_state_label.add_theme_font_size_override("font_size", 20)
-	turn_state_column.add_child(_turn_state_label)
-	_turn_state_detail_label = Label.new()
-	_turn_state_detail_label.name = "TurnStateDetailLabel"
-	_turn_state_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_turn_state_detail_label.add_theme_font_size_override("font_size", 12)
-	turn_state_column.add_child(_turn_state_detail_label)
-
 	var main_row := HBoxContainer.new()
 	main_row.name = "MainRow"
 	main_row.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -707,6 +641,15 @@ func _build_ui() -> void:
 	board_column.size_flags_stretch_ratio = 4.4
 	board_column.add_theme_constant_override("separation", 22)
 	main_row.add_child(board_column)
+
+	# Create end turn button early so it can be placed in the player section
+	_end_turn_button = Button.new()
+	_end_turn_button.text = "End Turn"
+	_end_turn_button.custom_minimum_size = Vector2(0, 54)
+	_end_turn_button.size_flags_horizontal = SIZE_EXPAND_FILL
+	_end_turn_button.add_theme_font_size_override("font_size", 17)
+	_apply_button_style(_end_turn_button, Color(0.25, 0.14, 0.13, 0.98), Color(0.69, 0.35, 0.27, 0.94), Color(0.98, 0.93, 0.9, 1.0))
+	_end_turn_button.pressed.connect(_on_end_turn_pressed)
 
 	for player_id in PLAYER_ORDER:
 		var section := _build_player_section(player_id)
@@ -739,14 +682,6 @@ func _build_ui() -> void:
 	_ring_button.add_theme_font_size_override("font_size", 17)
 	_apply_button_style(_ring_button, Color(0.14, 0.17, 0.23, 0.98), Color(0.33, 0.47, 0.63, 0.94), Color(0.92, 0.95, 0.98, 1.0))
 	_ring_button.pressed.connect(_on_ring_pressed)
-
-	_end_turn_button = Button.new()
-	_end_turn_button.text = "End Turn"
-	_end_turn_button.custom_minimum_size = Vector2(0, 54)
-	_end_turn_button.size_flags_horizontal = SIZE_EXPAND_FILL
-	_end_turn_button.add_theme_font_size_override("font_size", 17)
-	_apply_button_style(_end_turn_button, Color(0.25, 0.14, 0.13, 0.98), Color(0.69, 0.35, 0.27, 0.94), Color(0.98, 0.93, 0.9, 1.0))
-	_end_turn_button.pressed.connect(_on_end_turn_pressed)
 
 	_clear_button = Button.new()
 	_clear_button.text = "Clear Selection"
@@ -793,7 +728,6 @@ func _build_ui() -> void:
 	primary_action_row.add_theme_constant_override("separation", 10)
 	actions_box.add_child(primary_action_row)
 	primary_action_row.add_child(_play_selected_button)
-	primary_action_row.add_child(_end_turn_button)
 	var utility_action_row := HBoxContainer.new()
 	utility_action_row.add_theme_constant_override("separation", 10)
 	actions_box.add_child(utility_action_row)
@@ -995,6 +929,15 @@ func _build_player_section(player_id: String) -> Dictionary:
 	support_row.size_flags_horizontal = SIZE_EXPAND_FILL
 	support_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	support_margin.add_child(support_row)
+
+	# End turn button – bottom-left of local player section
+	if not is_opponent:
+		var end_turn_row := HBoxContainer.new()
+		end_turn_row.size_flags_horizontal = SIZE_SHRINK_END
+		_end_turn_button.size_flags_horizontal = 0
+		_end_turn_button.custom_minimum_size = Vector2(140, 54)
+		end_turn_row.add_child(_end_turn_button)
+		box.add_child(end_turn_row)
 
 	var hand_row := Control.new()
 	hand_row.name = "%s_hand_row" % player_id
@@ -1470,21 +1413,12 @@ func _lane_marker_color(lane_id: String) -> Color:
 	return Color(0.82, 0.8, 0.98, 0.96) if lane_id == "shadow" else Color(0.9, 0.88, 0.74, 0.96)
 
 
-func _populate_scenario_picker() -> void:
-	_scenario_picker.clear()
-	var index := 0
-	for scenario in MatchDebugScenarios.list_scenarios():
-		_scenario_picker.add_item(str(scenario.get("label", scenario.get("id", ""))))
-		_scenario_picker.set_item_metadata(index, str(scenario.get("id", "")))
-		index += 1
-
 
 func _refresh_ui() -> void:
 	_prune_feedback_state()
 	_clear_lane_card_hover_preview()
 	_card_buttons = {}
 	_lane_slot_buttons = {}
-	_sync_scenario_picker()
 	_refresh_turn_presentation()
 	_status_label.text = _status_message
 	_prompt_label.text = _prompt_text()
@@ -2462,14 +2396,6 @@ func _clear_pile_selection() -> void:
 	_selected_pile_zone = ""
 
 
-func _on_scenario_selected(index: int) -> void:
-	var scenario_id := str(_scenario_picker.get_item_metadata(index))
-	load_scenario(scenario_id)
-
-
-func _on_reload_pressed() -> void:
-	load_scenario(_scenario_id)
-
 
 func _on_play_selected_pressed() -> void:
 	play_or_activate_selected()
@@ -2627,12 +2553,6 @@ func _load_registries() -> void:
 		if typeof(parsed) == TYPE_DICTIONARY:
 			_lane_registry = parsed
 
-
-func _sync_scenario_picker() -> void:
-	for index in range(_scenario_picker.item_count):
-		if str(_scenario_picker.get_item_metadata(index)) == _scenario_id:
-			_scenario_picker.select(index)
-			return
 
 
 func _selected_card() -> Dictionary:
@@ -3560,13 +3480,6 @@ func _turn_state_text() -> String:
 	return "Your Turn" if _is_local_player_turn() else "Opponent's Turn"
 
 
-func _turn_state_detail_text() -> String:
-	if _is_local_player_turn():
-		return "Play cards, attack, use the Ring, or end the turn when you are ready."
-	if _has_pending_prophecy_for_player(_local_player_id()):
-		return "Waiting on the opponent, but your interrupt window is available."
-	return "Waiting for the opponent to finish acting."
-
 
 func _turn_state_fill() -> Color:
 	return Color(0.34, 0.19, 0.09, 0.98) if _is_local_player_turn() else Color(0.12, 0.17, 0.28, 0.97)
@@ -3591,13 +3504,6 @@ func _refresh_turn_presentation() -> void:
 			_arm_local_match_ai_turn_pacing()
 		else:
 			_reset_local_match_ai_queue()
-	_top_bar_apply_turn_state_style()
-	if _turn_state_label != null:
-		_turn_state_label.text = _turn_state_text()
-		_turn_state_label.add_theme_color_override("font_color", _turn_state_font_color())
-	if _turn_state_detail_label != null:
-		_turn_state_detail_label.text = _turn_state_detail_text()
-		_turn_state_detail_label.add_theme_color_override("font_color", _turn_state_font_color().lerp(Color(0.78, 0.82, 0.9, 0.96), 0.28))
 	if _turn_banner_panel != null:
 		_apply_panel_style(_turn_banner_panel, _turn_state_fill(), _turn_state_border(), 2, 14)
 		_turn_banner_panel.visible = _turn_banner_until_ms > Time.get_ticks_msec()
@@ -3608,11 +3514,6 @@ func _refresh_turn_presentation() -> void:
 		_turn_banner_detail_label.text = _player_name(active_player)
 		_turn_banner_detail_label.add_theme_color_override("font_color", _turn_state_font_color().lerp(Color(0.8, 0.84, 0.92, 0.96), 0.32))
 
-
-func _top_bar_apply_turn_state_style() -> void:
-	if _turn_state_panel == null:
-		return
-	_apply_panel_style(_turn_state_panel, _turn_state_fill(), _turn_state_border(), 2 if _is_local_player_turn() else 1, 12)
 
 
 func _refresh_match_end_overlay() -> void:
@@ -3640,7 +3541,7 @@ func _refresh_end_turn_button_style(has_pending_prophecy: bool) -> void:
 	var border_width := 1
 	var font_size := 17
 	_end_turn_button.text = "End Turn"
-	_end_turn_button.custom_minimum_size = Vector2(0, 54)
+	_end_turn_button.custom_minimum_size = Vector2(140, 54)
 	_end_turn_button.self_modulate = Color(0.92, 0.92, 0.96, 0.95)
 	if _has_match_winner():
 		_end_turn_button.tooltip_text = "Match complete. No further turn actions are available."
@@ -3650,7 +3551,7 @@ func _refresh_end_turn_button_style(has_pending_prophecy: bool) -> void:
 		font_color = Color(1.0, 0.97, 0.92, 1.0)
 		border_width = 2
 		font_size = 18
-		_end_turn_button.custom_minimum_size = Vector2(0, 62)
+		_end_turn_button.custom_minimum_size = Vector2(140, 62)
 		_end_turn_button.tooltip_text = "Your turn is live. End the turn when you are finished acting."
 		_end_turn_button.self_modulate = Color(1, 1, 1, 1)
 	elif has_pending_prophecy and _is_local_player_turn():
