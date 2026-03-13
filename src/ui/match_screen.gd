@@ -65,7 +65,6 @@ var _keyword_display_names := {}
 var _status_display_names := {}
 
 var _play_selected_button: Button
-var _ring_button: Button
 var _end_turn_button: Button
 var _clear_button: Button
 var _status_label: Label
@@ -682,14 +681,6 @@ func _build_ui() -> void:
 	_apply_button_style(_play_selected_button, Color(0.21, 0.19, 0.14, 0.98), Color(0.58, 0.44, 0.22, 0.94), Color(0.97, 0.94, 0.86, 1.0))
 	_play_selected_button.pressed.connect(_on_play_selected_pressed)
 
-	_ring_button = Button.new()
-	_ring_button.text = "Use Ring"
-	_ring_button.custom_minimum_size = Vector2(0, 54)
-	_ring_button.size_flags_horizontal = SIZE_EXPAND_FILL
-	_ring_button.add_theme_font_size_override("font_size", 17)
-	_apply_button_style(_ring_button, Color(0.14, 0.17, 0.23, 0.98), Color(0.33, 0.47, 0.63, 0.94), Color(0.92, 0.95, 0.98, 1.0))
-	_ring_button.pressed.connect(_on_ring_pressed)
-
 	_clear_button = Button.new()
 	_clear_button.text = "Clear Selection"
 	_clear_button.custom_minimum_size = Vector2(0, 54)
@@ -738,7 +729,6 @@ func _build_ui() -> void:
 	var utility_action_row := HBoxContainer.new()
 	utility_action_row.add_theme_constant_override("separation", 10)
 	actions_box.add_child(utility_action_row)
-	utility_action_row.add_child(_ring_button)
 	utility_action_row.add_child(_clear_button)
 	_status_label = Label.new()
 	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -864,6 +854,10 @@ func _build_player_section(player_id: String) -> Dictionary:
 	ring_panel.custom_minimum_size = Vector2(0, 54)
 	ring_panel.size_flags_horizontal = 0
 	_apply_panel_style(ring_panel, Color(0.18, 0.14, 0.08, 0.96), Color(0.63, 0.53, 0.26, 0.94), 1, 10)
+	if not is_opponent:
+		ring_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+		ring_panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		ring_panel.gui_input.connect(_on_ring_panel_input)
 	resource_row.add_child(ring_panel)
 	var ring_box := _build_panel_box(ring_panel, 4, 8)
 	var ring_label := Label.new()
@@ -1680,12 +1674,10 @@ func _refresh_action_buttons() -> void:
 	var match_complete := _has_match_winner()
 	var selected_pending_prophecy := _is_pending_prophecy_card(selected_card)
 	_play_selected_button.disabled = match_complete or selected_card.is_empty() or (not local_turn and not selected_pending_prophecy)
-	_ring_button.disabled = match_complete or not local_turn or not MatchTurnLoop.can_activate_ring_of_magicka(_match_state, _local_player_id()) or has_pending_prophecy
 	_end_turn_button.disabled = match_complete or not local_turn or has_pending_prophecy
 	_refresh_end_turn_button_style(has_pending_prophecy)
 	if match_complete:
 		_play_selected_button.tooltip_text = "Match complete. Reload or switch scenarios to continue exploring the UI."
-		_ring_button.tooltip_text = "Match complete. Ring actions are no longer available."
 		_end_turn_button.tooltip_text = "Match complete. No further turn actions are available."
 		return
 	if not _selected_support_row_target_player_id(selected_card).is_empty():
@@ -1694,7 +1686,6 @@ func _refresh_action_buttons() -> void:
 		_play_selected_button.tooltip_text = "Activate the selected support directly, or click a legal target on the board if it needs one."
 	else:
 		_play_selected_button.tooltip_text = "Resolve the selected card through the existing match command wiring."
-	_ring_button.tooltip_text = "Use the Ring of Magicka during your turn when a charge is available."
 
 
 func _build_card_button(card: Dictionary, public_view: bool, surface := "default") -> Button:
@@ -2431,8 +2422,9 @@ func _on_play_selected_pressed() -> void:
 	play_or_activate_selected()
 
 
-func _on_ring_pressed() -> void:
-	use_ring()
+func _on_ring_panel_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		use_ring()
 
 
 func _on_end_turn_pressed() -> void:
