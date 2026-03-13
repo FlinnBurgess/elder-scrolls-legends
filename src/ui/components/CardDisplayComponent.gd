@@ -198,13 +198,19 @@ func _build_internal_nodes() -> void:
 	_attack_badge = PanelContainer.new()
 	_attack_badge.name = "AttackBadge"
 	_content_root.add_child(_attack_badge)
-	_attack_label = _build_centered_label("AttackLabel", 13)
-	_attack_badge.add_child(_attack_label)
+	_attack_label = _build_centered_label("AttackLabel", 18)
+	var bold_font := SystemFont.new()
+	bold_font.font_weight = 700
+	_attack_label.add_theme_font_override("font", bold_font)
+	_content_root.add_child(_attack_label)
 
 	_health_badge = PanelContainer.new()
 	_health_badge.name = "HealthBadge"
 	_content_root.add_child(_health_badge)
-	_health_label = _build_centered_label("HealthLabel", 13)
+	_health_label = _build_centered_label("HealthLabel", 18)
+	var bold_font_h := SystemFont.new()
+	bold_font_h.font_weight = 700
+	_health_label.add_theme_font_override("font", bold_font_h)
 	_health_badge.add_child(_health_label)
 
 	_set_mouse_passthrough_recursive(_content_root)
@@ -258,8 +264,8 @@ func _refresh_styles() -> void:
 	_apply_panel_style(_rarity_marker, _rarity_color(_card_data).darkened(0.3), Color.BLACK, _scaled_border_width(2, scale), _scaled_int(2, scale))
 	# Cost badge – dark circle
 	_apply_panel_style(_cost_badge, Color(0.12, 0.14, 0.18, 0.99), Color(0.72, 0.84, 0.98, 1.0), _scaled_border_width(2, scale), _scaled_int(17, scale))
-	# Attack badge – diamond shape (low corner radius)
-	_apply_panel_style(_attack_badge, Color(0.08, 0.06, 0.04, 0.98), Color(0.72, 0.62, 0.42, 0.96), _scaled_border_width(2, scale), _scaled_int(4, scale))
+	# Attack badge – diamond shape (square corners)
+	_apply_panel_style(_attack_badge, Color(0.08, 0.06, 0.04, 0.98), Color(0.72, 0.62, 0.42, 0.96), _scaled_border_width(2, scale), 0)
 	# Health badge – circular (corner radius = half the badge side)
 	_apply_panel_style(_health_badge, Color(0.08, 0.06, 0.04, 0.98), Color(0.72, 0.62, 0.42, 0.96), _scaled_border_width(2, scale), _scaled_int(15, scale))
 	_name_label.add_theme_color_override("font_color", COLOR_TEXT)
@@ -410,7 +416,7 @@ func _resolve_art_texture(card: Dictionary) -> Texture2D:
 
 
 func _layout_stat_badges(inner_rect: Rect2, art_rect: Rect2, scale: float, esl_style := false) -> void:
-	var badge_side := maxf(30.0 * scale, 30.0)
+	var badge_side := maxf(40.0 * scale, 40.0)
 	var badge_size := Vector2(badge_side, badge_side)
 	var badge_margin := 6.0 * scale
 	_attack_badge.size = badge_size
@@ -433,10 +439,11 @@ func _layout_stat_badges(inner_rect: Rect2, art_rect: Rect2, scale: float, esl_s
 			art_rect.position.x + art_rect.size.x - badge_inset - badge_side,
 			badge_center_y - badge_side
 		)
-		# Attack label needs counter-rotation since badge is rotated
-		_attack_label.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		_attack_label.pivot_offset = badge_size * 0.5
-		_attack_label.rotation_degrees = -45.0
+		# Attack label positioned over the badge center (not a child, so no inherited rotation)
+		var attack_center := _attack_badge.position + _attack_badge.pivot_offset
+		_attack_label.size = badge_size
+		_attack_label.position = attack_center - badge_size * 0.5
+		_attack_label.rotation_degrees = 0.0
 		# Health label stays upright
 		_health_label.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 		_health_label.pivot_offset = badge_size * 0.5
@@ -454,11 +461,11 @@ func _layout_stat_badges(inner_rect: Rect2, art_rect: Rect2, scale: float, esl_s
 		badge_top = clampf(badge_top, art_rect.position.y, maxf(art_rect.position.y + art_rect.size.y - rect_size.y, art_rect.position.y))
 		_attack_badge.position = Vector2(art_rect.position.x + badge_margin, badge_top)
 		_health_badge.position = Vector2(art_rect.position.x + art_rect.size.x - rect_size.x - badge_margin, badge_top)
-		_attack_label.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		_health_label.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		_attack_label.pivot_offset = rect_size * 0.5
-		_health_label.pivot_offset = rect_size * 0.5
+		_attack_label.size = rect_size
+		_attack_label.position = _attack_badge.position
 		_attack_label.rotation_degrees = 0.0
+		_health_label.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		_health_label.pivot_offset = rect_size * 0.5
 		_health_label.rotation_degrees = 0.0
 
 
@@ -710,8 +717,8 @@ func _apply_font_sizes(scale: float) -> void:
 	_rules_label.add_theme_font_size_override("bold_font_size", _scaled_int(18, scale))
 	_rarity_label.add_theme_font_size_override("font_size", _scaled_int(9, scale))
 	_cost_label.add_theme_font_size_override("font_size", _scaled_int(16, scale))
-	_attack_label.add_theme_font_size_override("font_size", _scaled_int(13, scale))
-	_health_label.add_theme_font_size_override("font_size", _scaled_int(13, scale))
+	_attack_label.add_theme_font_size_override("font_size", _scaled_int(18, scale))
+	_health_label.add_theme_font_size_override("font_size", _scaled_int(18, scale))
 
 
 func _set_full_rect(control: Control) -> void:
@@ -745,7 +752,7 @@ func _refresh_corner_radii() -> void:
 	_set_panel_corner_radius(_inner_frame, 0)
 	for panel in [_name_banner, _rules_panel, _rarity_marker, _cost_badge]:
 		_set_panel_corner_radius(panel, _panel_radius(panel, 8))
-	_set_panel_corner_radius(_attack_badge, _panel_radius(_attack_badge, 4))
+	_set_panel_corner_radius(_attack_badge, 0)
 	# Health badge: keep circular — use half the badge dimension as radius
 	var health_radius := maxi(2, int(round(minf(_health_badge.size.x, _health_badge.size.y) * 0.5)))
 	_set_panel_corner_radius(_health_badge, health_radius)
