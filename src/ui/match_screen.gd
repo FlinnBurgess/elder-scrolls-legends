@@ -854,12 +854,19 @@ func _build_player_section(player_id: String) -> Dictionary:
 	magicka_mount.custom_minimum_size = Vector2(180, 172)
 	magicka_mount.size_flags_horizontal = SIZE_EXPAND_FILL
 	magicka_mount.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	resource_row.add_child(magicka_mount)
 	var magicka_component := PLAYER_MAGICKA_SCENE.instantiate()
 	magicka_component.name = "%s_magicka_component" % player_id
 	magicka_component.custom_minimum_size = Vector2(172, 172)
 	magicka_component.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	magicka_mount.add_child(magicka_component)
+
+	resource_row.add_child(magicka_mount)
+
+	# Overlay for repositioned magicka (populated after panel is built)
+	var magicka_overlay := Control.new()
+	magicka_overlay.name = "%s_magicka_overlay" % player_id
+	magicka_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	magicka_overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 
 	var ring_panel := PanelContainer.new()
 	ring_panel.name = "%s_ring_panel" % player_id
@@ -937,7 +944,7 @@ func _build_player_section(player_id: String) -> Dictionary:
 	support_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	support_margin.add_child(support_row)
 
-	# End turn button – bottom-left of local player section
+	# End turn button – bottom-right of local player section
 	if not is_opponent:
 		var end_turn_row := HBoxContainer.new()
 		end_turn_row.size_flags_horizontal = SIZE_SHRINK_END
@@ -963,7 +970,34 @@ func _build_player_section(player_id: String) -> Dictionary:
 		hand_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		hand_row.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 		_opponent_hand_overlay.add_child(hand_row)
-		_opponent_hand_overlay.resized.connect(_on_hand_surface_resized.bind(hand_row))
+
+	# Reposition magicka into an absolute overlay on the panel so it doesn't
+	# affect the flow layout that other tests depend on.
+	panel.add_child(magicka_overlay)
+	magicka_mount.reparent(magicka_overlay)
+	magicka_mount.size_flags_horizontal = 0
+	magicka_mount.size_flags_vertical = 0
+	if is_opponent:
+		# Top-right of opponent section
+		magicka_mount.anchor_left = 1.0
+		magicka_mount.anchor_right = 1.0
+		magicka_mount.anchor_top = 0.0
+		magicka_mount.anchor_bottom = 0.0
+		magicka_mount.offset_left = -magicka_mount.custom_minimum_size.x - 14
+		magicka_mount.offset_right = -14.0
+		magicka_mount.offset_top = 14.0
+		magicka_mount.offset_bottom = magicka_mount.custom_minimum_size.y + 14
+	else:
+		# Bottom-right, left of end turn button
+		magicka_mount.anchor_left = 1.0
+		magicka_mount.anchor_right = 1.0
+		magicka_mount.anchor_top = 1.0
+		magicka_mount.anchor_bottom = 1.0
+		var end_turn_width := 140.0 + 12.0
+		magicka_mount.offset_left = -magicka_mount.custom_minimum_size.x - 14 - end_turn_width
+		magicka_mount.offset_right = -14.0 - end_turn_width
+		magicka_mount.offset_top = -magicka_mount.custom_minimum_size.y - 14
+		magicka_mount.offset_bottom = -14.0
 
 	return {
 		"player_id": player_id,

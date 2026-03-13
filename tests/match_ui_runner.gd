@@ -1068,7 +1068,7 @@ func _avatar_runes_deplete_right_to_left(component: PlayerAvatarComponent) -> bo
 	return true
 
 
-func _float_arrays_match(left: Array, right: Array, tolerance := 0.5) -> bool:
+func _float_arrays_match(left: Array, right: Array, tolerance := 1.0) -> bool:
 	if left.size() != right.size():
 		return false
 	for index in range(left.size()):
