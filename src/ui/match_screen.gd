@@ -1848,11 +1848,18 @@ func _layout_local_hand_cards(hand_surface: Control, cards: Array[Button], card_
 		var position := Vector2(start_x + overlap_step * index, base_y)
 		button.size = card_size
 		button.position = position
+		button.pivot_offset = card_size * 0.5
 		button.rotation_degrees = 0.0
 		button.scale = Vector2.ONE
 		button.z_index = index
 		button.set_meta("hand_index", index)
 		button.set_meta("base_position", position)
+		button.set_meta("card_size", card_size)
+		# Make button background transparent — the CardDisplayComponent provides
+		# all visual framing, and the button may extend beyond the card as a hit zone
+		var empty_style := StyleBoxEmpty.new()
+		for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+			button.add_theme_stylebox_override(state, empty_style)
 	for button in cards:
 		_apply_local_hand_hover_state(button, false)
 
@@ -1901,48 +1908,61 @@ func _on_local_hand_card_mouse_exited(button: Button) -> void:
 func _apply_local_hand_hover_state(button: Button, hovered: bool) -> void:
 	if button == null:
 		return
-	var content_root: Control = button.get_meta("content_root", null) if button.has_meta("content_root") else null
-	if content_root == null:
-		return
+	var base_position: Vector2 = button.get_meta("base_position", button.position)
 	var hand_index := int(button.get_meta("hand_index", button.z_index))
 	var selected := str(button.get_meta("instance_id", "")) == _selected_instance_id
 	var locked := bool(button.get_meta("presentation_locked", false))
-	var card_size := button.size
-	# How far the content needs to rise to be fully visible, plus margin from screen bottom
+	var card_size: Vector2 = button.get_meta("card_size", button.size)
+	# How far the card needs to rise to be fully visible, plus margin from screen bottom
 	var bottom_margin := 24.0
 	var rise_amount := card_size.y * 0.85 + bottom_margin
-	# Determine target state — button stays fixed, content_root moves
+	# Determine target state
 	var any_selected := not _selected_instance_id.is_empty()
-	var target_content_y := 0.0
+	var target_position := base_position
+	var target_size := card_size
 	var target_scale := Vector2.ONE
 	var target_z := hand_index
 	# When any card is selected (placement mode), non-selected hand cards ignore mouse
 	# so they don't block clicks on the board/support surface beneath them
 	var target_filter := Control.MOUSE_FILTER_IGNORE if (any_selected and not selected) else Control.MOUSE_FILTER_STOP
+	var raised := false
 	if not locked:
 		if selected:
 			target_filter = Control.MOUSE_FILTER_IGNORE
 			target_scale = Vector2(1.05, 1.05)
-			target_content_y = -rise_amount
+			target_position = base_position + Vector2(0.0, -rise_amount)
 			target_z = 110
+			raised = true
 		if hovered:
 			target_filter = Control.MOUSE_FILTER_STOP
 			target_scale = Vector2(1.1, 1.1) if selected else Vector2(1.05, 1.05)
-			target_content_y = -rise_amount - (20.0 if selected else 0.0)
+			target_position = base_position + Vector2(0.0, -rise_amount - (20.0 if selected else 0.0))
 			target_z = 120 if selected else 100
+			raised = true
+	# When raised, extend button height downward to create an invisible hit zone
+	# that prevents hover oscillation when the card moves away from the cursor
+	if raised:
+		var extend := base_position.y - target_position.y
+		target_size = Vector2(card_size.x, card_size.y + extend)
 	# Apply non-animated properties immediately
 	button.z_index = target_z
 	button.mouse_filter = target_filter
-	content_root.pivot_offset = card_size * 0.5
-	content_root.scale = target_scale
-	# Animate content position (the rise/fall) — button stays fixed as hit area
+	button.scale = target_scale
+	button.pivot_offset = card_size * 0.5
+	button.size = target_size
+	# Pin content to original card dimensions at the top of the (possibly taller) button
+	var content_root: Control = button.get_meta("content_root", null) if button.has_meta("content_root") else null
+	if content_root != null:
+		content_root.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+		content_root.position = Vector2.ZERO
+		content_root.size = card_size
+	# Animate position (the rise/fall)
 	var tween_key := "hand_hover_tween"
 	var existing_tween: Tween = button.get_meta(tween_key, null) if button.has_meta(tween_key) else null
 	if existing_tween != null and existing_tween.is_valid():
 		existing_tween.kill()
-	var target_content_pos := Vector2(0.0, target_content_y)
 	var tween := create_tween()
-	tween.tween_property(content_root, "position", target_content_pos, 0.15).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	tween.tween_property(button, "position", target_position, 0.15).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
 	button.set_meta(tween_key, tween)
 
 
