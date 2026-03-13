@@ -179,8 +179,8 @@ func _build_internal_nodes() -> void:
 	_rules_label.fit_content = true
 	_rules_label.scroll_active = false
 	_rules_label.size_flags_horizontal = SIZE_EXPAND_FILL
-	_rules_label.add_theme_font_size_override("normal_font_size", 10)
-	_rules_label.add_theme_font_size_override("bold_font_size", 10)
+	_rules_label.add_theme_font_size_override("normal_font_size", 18)
+	_rules_label.add_theme_font_size_override("bold_font_size", 18)
 	rules_box.add_child(_rules_label)
 
 	_rarity_marker = PanelContainer.new()
@@ -706,8 +706,8 @@ func _build_centered_label(name: String, font_size: int) -> Label:
 func _apply_font_sizes(scale: float) -> void:
 	_name_label.add_theme_font_size_override("font_size", _scaled_int(14, scale))
 	_subtype_label.add_theme_font_size_override("font_size", _scaled_int(10, scale))
-	_rules_label.add_theme_font_size_override("normal_font_size", _scaled_int(14, scale))
-	_rules_label.add_theme_font_size_override("bold_font_size", _scaled_int(14, scale))
+	_rules_label.add_theme_font_size_override("normal_font_size", _scaled_int(18, scale))
+	_rules_label.add_theme_font_size_override("bold_font_size", _scaled_int(18, scale))
 	_rarity_label.add_theme_font_size_override("font_size", _scaled_int(9, scale))
 	_cost_label.add_theme_font_size_override("font_size", _scaled_int(16, scale))
 	_attack_label.add_theme_font_size_override("font_size", _scaled_int(13, scale))
