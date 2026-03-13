@@ -7,7 +7,7 @@ const PRESENTATION_FULL := "full"
 const PRESENTATION_CREATURE_BOARD_MINIMAL := "creature_board_minimal"
 const PRESENTATION_SUPPORT_BOARD_MINIMAL := "support_board_minimal"
 
-const FULL_LAYOUT_BASE_SIZE := Vector2(220, 320)
+const FULL_LAYOUT_BASE_SIZE := Vector2(220, 384)
 const CREATURE_BOARD_LAYOUT_BASE_SIZE := Vector2(136, 172)
 const SUPPORT_BOARD_LAYOUT_BASE_SIZE := Vector2(96, 96)
 const PRESENTATION_SCALE := 1.0
@@ -237,9 +237,9 @@ func _refresh_styles() -> void:
 	var accent := _attribute_tint(_card_data)
 	var muted_accent := accent.darkened(0.28)
 	# Outer frame – dark with accent border (ESL-style card edge)
-	_apply_panel_style(_outer_frame, COLOR_FRAME_DARK, accent, _scaled_border_width(3, scale), _scaled_int(6, scale))
+	_apply_panel_style(_outer_frame, COLOR_FRAME_DARK, accent, _scaled_border_width(3, scale), 0)
 	# Inner frame – slightly lighter
-	_apply_panel_style(_inner_frame, COLOR_FRAME_INNER, muted_accent, _scaled_border_width(1, scale), _scaled_int(4, scale))
+	_apply_panel_style(_inner_frame, COLOR_FRAME_INNER, muted_accent, _scaled_border_width(1, scale), 0)
 	# Name banner – semi-transparent dark overlay on top of art
 	_apply_panel_style(_name_banner, Color(0.0, 0.0, 0.0, 0.55), Color(0.0, 0.0, 0.0, 0.0), 0, 0)
 	# Art frame – the main card image area
@@ -312,7 +312,7 @@ func _layout_full(inner_rect: Rect2) -> void:
 
 	# Art frame – dominates the card (~58% of inner height)
 	var art_top := inner_rect.position.y + content_padding
-	var art_height := inner_rect.size.y * 0.58
+	var art_height := inner_rect.size.y * 0.70
 	_art_frame.position = Vector2(inner_rect.position.x + content_padding, art_top)
 	_art_frame.size = Vector2(content_width, art_height)
 
@@ -681,7 +681,9 @@ func _apply_panel_style(panel: PanelContainer, fill: Color, border: Color, borde
 
 
 func _refresh_corner_radii() -> void:
-	for panel in [_outer_frame, _inner_frame, _name_banner, _art_frame, _rules_panel, _rarity_marker, _cost_badge]:
+	_set_panel_corner_radius(_outer_frame, 0)
+	_set_panel_corner_radius(_inner_frame, 0)
+	for panel in [_name_banner, _art_frame, _rules_panel, _rarity_marker, _cost_badge]:
 		_set_panel_corner_radius(panel, _panel_radius(panel, 8))
 	_set_panel_corner_radius(_attack_badge, _panel_radius(_attack_badge, 4))
 	# Health badge: keep circular — use half the badge dimension as radius
