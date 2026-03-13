@@ -262,7 +262,7 @@ func _test_player_surface_presentation(screen: MatchScreen) -> bool:
 			_assert(player_magicka_component != null and player_magicka_component.get_display_text() == _expected_magicka_text(player_state), "Local magicka component should reflect spendable/max text through the root API.") and
 			_assert(opponent_magicka_component != null and opponent_magicka_component.get_segment_states() == _expected_magicka_states(opponent_state), "Opponent magicka component should reflect the current unlocked/spent/locked state.") and
 			_assert(player_magicka_component != null and player_magicka_component.get_segment_states() == _expected_magicka_states(player_state), "Local magicka component should reflect the current unlocked/spent/locked state.") and
-		_assert(player_ring_label != null and player_ring_label.text.contains("3 / 3"), "Ring surface should show the local player's remaining Ring charges.") and
+		_assert(player_ring_label != null and player_ring_label.text.contains("Ring of Magicka"), "Ring surface should show the Ring of Magicka label.") and
 		_assert(player_deck_button != null and player_deck_button.text.contains("Deck"), "Deck pile surface should be visible and labeled.") and
 		_assert(player_discard_button.text.contains("Discard"), "Discard pile surface should be visible and labeled.") and
 		_assert(discard_inspector.contains("Player One Discard"), "Discard inspection should route into the inspector rail.") and
@@ -676,7 +676,7 @@ func _test_ring_and_help_affordances(screen: MatchScreen) -> bool:
 	return (
 		_assert(ring_ok, "Active local player should be able to use the Ring of Magicka.") and
 		_assert(charges_after == charges_before - 1, "Ring usage should spend exactly one charge.") and
-		_assert(player_ring_label != null and player_ring_label.text.contains("2 / 3"), "Ring surface should update after a Ring charge is spent.") and
+		_assert(player_ring_label != null and player_ring_label.text.contains("Ring of Magicka"), "Ring surface should still display after a Ring charge is spent.") and
 			_assert(player_magicka_component != null and player_magicka_component.get_display_text() == _expected_magicka_text(active_after), "Magicka component text should update after Ring-granted temporary magicka.") and
 			_assert(player_magicka_component != null and player_magicka_component.get_segment_states() == _expected_magicka_states(active_after), "Magicka component segments should show the live temporary-magicka state after Ring usage.") and
 			_assert(player_magicka_component != null and player_magicka_component.get_segment_states().has(PlayerMagickaComponent.STATE_TEMPORARY), "Ring usage should surface a yellow temporary-magicka segment while the temp resource is active.") and

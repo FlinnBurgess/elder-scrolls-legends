@@ -1036,12 +1036,11 @@ func _build_player_section(player_id: String) -> Dictionary:
 		discard_button.offset_top = pile_center_y + pile_gap * 0.5
 		discard_button.offset_bottom = pile_center_y + pile_gap * 0.5 + pile_btn_height
 		# Ring panel – left of deck/discard stack, vertically centered on magicka
-		var ring_w := 108.0
 		var ring_h := 54.0
-		var ring_left := deck_left - pile_gap - ring_w
+		var ring_right := deck_left - pile_gap
 		ring_panel.set_anchors_preset(PRESET_BOTTOM_RIGHT)
-		ring_panel.offset_left = ring_left
-		ring_panel.offset_right = ring_left + ring_w
+		ring_panel.offset_right = ring_right
+		ring_panel.offset_left = ring_right - ring_panel.get_combined_minimum_size().x
 		ring_panel.offset_top = pile_center_y - ring_h * 0.5
 		ring_panel.offset_bottom = pile_center_y + ring_h * 0.5
 
@@ -3660,11 +3659,8 @@ func _magicka_summary_text(player: Dictionary) -> String:
 	return text
 
 
-func _ring_panel_text(player: Dictionary) -> String:
-	var charges := maxi(0, int(player.get("ring_of_magicka_charges", 0)))
-	if charges > 0 or bool(player.get("has_ring_of_magicka", false)):
-		return "Ring of Magicka • %d / 3" % charges
-	return "Ring of Magicka • None"
+func _ring_panel_text(_player: Dictionary) -> String:
+	return "Ring of Magicka"
 
 
 func _refresh_ring_row(ring_row: HBoxContainer, player: Dictionary) -> void:
