@@ -1036,11 +1036,12 @@ func _build_player_section(player_id: String) -> Dictionary:
 		discard_button.offset_top = pile_center_y + pile_gap * 0.5
 		discard_button.offset_bottom = pile_center_y + pile_gap * 0.5 + pile_btn_height
 		# Ring panel – left of deck/discard stack, vertically centered on magicka
+		var ring_w := 130.0
 		var ring_h := 54.0
 		var ring_right := deck_left - pile_gap
 		ring_panel.set_anchors_preset(PRESET_BOTTOM_RIGHT)
+		ring_panel.offset_left = ring_right - ring_w
 		ring_panel.offset_right = ring_right
-		ring_panel.offset_left = ring_right - ring_panel.get_combined_minimum_size().x
 		ring_panel.offset_top = pile_center_y - ring_h * 0.5
 		ring_panel.offset_bottom = pile_center_y + ring_h * 0.5
 
