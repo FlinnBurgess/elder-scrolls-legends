@@ -240,7 +240,7 @@ func _test_player_surface_presentation(screen: MatchScreen) -> bool:
 	var player_magicka_component := screen.find_child("player_1_magicka_component", true, false) as PlayerMagickaComponent
 	var old_player_magicka_label := screen.find_child("player_1_magicka_label", true, false)
 	var old_player_magicka_bar := screen.find_child("player_1_magicka_bar", true, false)
-	var opponent_ring_label := screen.find_child("player_2_ring_label", true, false) as Label
+	var player_ring_label := screen.find_child("player_1_ring_label", true, false) as Label
 	var player_deck_button := screen.find_child("player_1_deck_button", true, false) as Button
 	var player_discard_button := screen.find_child("player_1_discard_button", true, false) as Button
 	if not _assert(player_discard_button != null, "Expected a visible discard pile surface for the local player."):
@@ -262,7 +262,7 @@ func _test_player_surface_presentation(screen: MatchScreen) -> bool:
 			_assert(player_magicka_component != null and player_magicka_component.get_display_text() == _expected_magicka_text(player_state), "Local magicka component should reflect spendable/max text through the root API.") and
 			_assert(opponent_magicka_component != null and opponent_magicka_component.get_segment_states() == _expected_magicka_states(opponent_state), "Opponent magicka component should reflect the current unlocked/spent/locked state.") and
 			_assert(player_magicka_component != null and player_magicka_component.get_segment_states() == _expected_magicka_states(player_state), "Local magicka component should reflect the current unlocked/spent/locked state.") and
-		_assert(opponent_ring_label != null and opponent_ring_label.text.contains("3 / 3"), "Ring surface should show the opponent's remaining Ring charges.") and
+		_assert(player_ring_label != null and player_ring_label.text.contains("3 / 3"), "Ring surface should show the local player's remaining Ring charges.") and
 		_assert(player_deck_button != null and player_deck_button.text.contains("Deck"), "Deck pile surface should be visible and labeled.") and
 		_assert(player_discard_button.text.contains("Discard"), "Discard pile surface should be visible and labeled.") and
 		_assert(discard_inspector.contains("Player One Discard"), "Discard inspection should route into the inspector rail.") and
@@ -665,23 +665,21 @@ func _test_combat_feedback(screen: MatchScreen) -> bool:
 func _test_ring_and_help_affordances(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should reload for ring verification."):
 		return false
-	if not _assert(screen.end_turn_action(), "Ending the first player's turn should succeed."):
-		return false
 	var active_player := _active_player(screen.get_match_state())
 	var charges_before := int(active_player.get("ring_of_magicka_charges", 0))
 	var ring_ok := screen.use_ring()
 	var active_after := _active_player(screen.get_match_state())
 	var charges_after := int(active_after.get("ring_of_magicka_charges", 0))
-	var opponent_ring_label := screen.find_child("player_2_ring_label", true, false) as Label
-	var opponent_magicka_component := screen.find_child("player_2_magicka_component", true, false) as PlayerMagickaComponent
+	var player_ring_label := screen.find_child("player_1_ring_label", true, false) as Label
+	var player_magicka_component := screen.find_child("player_1_magicka_component", true, false) as PlayerMagickaComponent
 	var guard_help := screen.get_help_text("guard")
 	return (
-		_assert(ring_ok, "Active second player should be able to use the Ring of Magicka.") and
+		_assert(ring_ok, "Active local player should be able to use the Ring of Magicka.") and
 		_assert(charges_after == charges_before - 1, "Ring usage should spend exactly one charge.") and
-		_assert(opponent_ring_label != null and opponent_ring_label.text.contains("2 / 3"), "Ring surface should update after a Ring charge is spent.") and
-			_assert(opponent_magicka_component != null and opponent_magicka_component.get_display_text() == _expected_magicka_text(active_after), "Magicka component text should update after Ring-granted temporary magicka.") and
-			_assert(opponent_magicka_component != null and opponent_magicka_component.get_segment_states() == _expected_magicka_states(active_after), "Magicka component segments should show the live temporary-magicka state after Ring usage.") and
-			_assert(opponent_magicka_component != null and opponent_magicka_component.get_segment_states().has(PlayerMagickaComponent.STATE_TEMPORARY), "Ring usage should surface a yellow temporary-magicka segment while the temp resource is active.") and
+		_assert(player_ring_label != null and player_ring_label.text.contains("2 / 3"), "Ring surface should update after a Ring charge is spent.") and
+			_assert(player_magicka_component != null and player_magicka_component.get_display_text() == _expected_magicka_text(active_after), "Magicka component text should update after Ring-granted temporary magicka.") and
+			_assert(player_magicka_component != null and player_magicka_component.get_segment_states() == _expected_magicka_states(active_after), "Magicka component segments should show the live temporary-magicka state after Ring usage.") and
+			_assert(player_magicka_component != null and player_magicka_component.get_segment_states().has(PlayerMagickaComponent.STATE_TEMPORARY), "Ring usage should surface a yellow temporary-magicka segment while the temp resource is active.") and
 		_assert(guard_help.contains("Guard creatures"), "Keyword help text should expose glossary guidance.")
 	)
 

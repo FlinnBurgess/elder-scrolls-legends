@@ -57,6 +57,12 @@ static func _build_local_match() -> Dictionary:
 	_set_player_health(player_one, 18)
 	_set_player_health(player_two, 12)
 
+	# Give the ring to the local player (player_one) for sandbox visibility
+	player_one["has_ring_of_magicka"] = true
+	player_one["ring_of_magicka_charges"] = 3
+	player_two["has_ring_of_magicka"] = false
+	player_two["ring_of_magicka_charges"] = 0
+
 	_set_deck(player_one, [
 		_build_named_card(player_one["player_id"], "deck_a", {
 			"name": "Battlefield Reserve",
