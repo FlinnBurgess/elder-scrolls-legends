@@ -971,33 +971,70 @@ func _build_player_section(player_id: String) -> Dictionary:
 		hand_row.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 		_opponent_hand_overlay.add_child(hand_row)
 
-	# Reposition magicka into an absolute overlay on the panel so it doesn't
-	# affect the flow layout that other tests depend on.
+	# Reposition magicka and pile buttons into an absolute overlay on the panel
+	# so they don't affect the flow layout that other tests depend on.
 	panel.add_child(magicka_overlay)
 	magicka_mount.reparent(magicka_overlay)
 	magicka_mount.size_flags_horizontal = 0
 	magicka_mount.size_flags_vertical = 0
+	deck_button.reparent(magicka_overlay)
+	discard_button.reparent(magicka_overlay)
+	var pile_btn_width := 108.0
+	var pile_btn_height := 48.0
+	var pile_gap := 8.0
+	var magicka_w := magicka_mount.custom_minimum_size.x
+	var magicka_h := magicka_mount.custom_minimum_size.y
 	if is_opponent:
-		# Top-right of opponent section
+		# Top-right of opponent section: magicka, then deck, then discard to the left
+		var margin := 14.0
 		magicka_mount.anchor_left = 1.0
 		magicka_mount.anchor_right = 1.0
 		magicka_mount.anchor_top = 0.0
 		magicka_mount.anchor_bottom = 0.0
-		magicka_mount.offset_left = -magicka_mount.custom_minimum_size.x - 14
-		magicka_mount.offset_right = -14.0
-		magicka_mount.offset_top = 14.0
-		magicka_mount.offset_bottom = magicka_mount.custom_minimum_size.y + 14
+		magicka_mount.offset_left = -magicka_w - margin
+		magicka_mount.offset_right = -margin
+		magicka_mount.offset_top = margin
+		magicka_mount.offset_bottom = magicka_h + margin
+		# Deck button – left of magicka, vertically centered on magicka
+		var deck_left := magicka_mount.offset_left - pile_gap - pile_btn_width
+		var pile_center_y := margin + magicka_h * 0.5
+		deck_button.set_anchors_preset(PRESET_TOP_RIGHT)
+		deck_button.offset_left = deck_left
+		deck_button.offset_right = deck_left + pile_btn_width
+		deck_button.offset_top = pile_center_y - pile_btn_height - pile_gap * 0.5
+		deck_button.offset_bottom = pile_center_y - pile_gap * 0.5
+		# Discard button – left of deck
+		discard_button.set_anchors_preset(PRESET_TOP_RIGHT)
+		discard_button.offset_left = deck_left
+		discard_button.offset_right = deck_left + pile_btn_width
+		discard_button.offset_top = pile_center_y + pile_gap * 0.5
+		discard_button.offset_bottom = pile_center_y + pile_gap * 0.5 + pile_btn_height
 	else:
 		# Bottom-right, left of end turn button
+		var margin := 14.0
+		var end_turn_width := 140.0 + 12.0
 		magicka_mount.anchor_left = 1.0
 		magicka_mount.anchor_right = 1.0
 		magicka_mount.anchor_top = 1.0
 		magicka_mount.anchor_bottom = 1.0
-		var end_turn_width := 140.0 + 12.0
-		magicka_mount.offset_left = -magicka_mount.custom_minimum_size.x - 14 - end_turn_width
-		magicka_mount.offset_right = -14.0 - end_turn_width
-		magicka_mount.offset_top = -magicka_mount.custom_minimum_size.y - 14
-		magicka_mount.offset_bottom = -14.0
+		magicka_mount.offset_left = -magicka_w - margin - end_turn_width
+		magicka_mount.offset_right = -margin - end_turn_width
+		magicka_mount.offset_top = -magicka_h - margin
+		magicka_mount.offset_bottom = -margin
+		# Deck button – left of magicka, vertically centered on magicka
+		var deck_left := magicka_mount.offset_left - pile_gap - pile_btn_width
+		var pile_center_y := -margin - magicka_h * 0.5
+		deck_button.set_anchors_preset(PRESET_BOTTOM_RIGHT)
+		deck_button.offset_left = deck_left
+		deck_button.offset_right = deck_left + pile_btn_width
+		deck_button.offset_top = pile_center_y - pile_btn_height - pile_gap * 0.5
+		deck_button.offset_bottom = pile_center_y - pile_gap * 0.5
+		# Discard button – below deck
+		discard_button.set_anchors_preset(PRESET_BOTTOM_RIGHT)
+		discard_button.offset_left = deck_left
+		discard_button.offset_right = deck_left + pile_btn_width
+		discard_button.offset_top = pile_center_y + pile_gap * 0.5
+		discard_button.offset_bottom = pile_center_y + pile_gap * 0.5 + pile_btn_height
 
 	return {
 		"player_id": player_id,
