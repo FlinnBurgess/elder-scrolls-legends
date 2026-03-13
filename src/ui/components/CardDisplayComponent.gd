@@ -243,11 +243,9 @@ func _refresh_styles() -> void:
 	# Name banner – semi-transparent dark overlay on top of art
 	_apply_panel_style(_name_banner, Color(0.0, 0.0, 0.0, 0.55), Color(0.0, 0.0, 0.0, 0.0), 0, 0)
 	# Art frame – the main card image area
-	_apply_panel_style(_art_frame, _art_fill(_presentation_mode), accent.lerp(Color(0.78, 0.64, 0.4, 1.0), 0.42), _scaled_border_width(2 if _presentation_mode == PRESENTATION_FULL else 1, scale), _scaled_int(4, scale))
-	# Rules panel – dark with attribute-tinted color (like the maroon panel in ESL)
-	var rules_bg := accent.darkened(0.7)
-	rules_bg.a = 0.96
-	_apply_panel_style(_rules_panel, rules_bg, muted_accent, _scaled_border_width(1, scale), _scaled_int(2, scale))
+	_apply_panel_style(_art_frame, _art_fill(_presentation_mode), accent.lerp(Color(0.78, 0.64, 0.4, 1.0), 0.42), _scaled_border_width(2 if _presentation_mode == PRESENTATION_FULL else 1, scale), 0)
+	# Rules panel – transparent so text renders over the inner frame background
+	_apply_panel_style(_rules_panel, Color.TRANSPARENT, Color.TRANSPARENT, 0, 0)
 	# Rarity gem – small diamond, filled with rarity color
 	_apply_panel_style(_rarity_marker, _rarity_color(_card_data).darkened(0.3), _rarity_color(_card_data), _scaled_border_width(1, scale), _scaled_int(2, scale))
 	# Cost badge – dark circle
@@ -325,12 +323,12 @@ func _layout_full(inner_rect: Rect2) -> void:
 	_layout_stat_badges(inner_rect, Rect2(_art_frame.position, _art_frame.size), scale, true)
 
 	# Rules panel – bottom portion of card below art, with gap for stat badges
-	var rules_y := _art_frame.position.y + _art_frame.size.y + 16.0 * scale
+	var rules_y := _art_frame.position.y + _art_frame.size.y + 4.0 * scale
 	var rules_bottom := inner_rect.position.y + inner_rect.size.y - content_padding
 	_rules_panel.position = Vector2(inner_rect.position.x + content_padding, rules_y)
 	_rules_panel.size = Vector2(content_width, maxf(rules_bottom - rules_y, 40.0 * scale))
 
-	# Rarity gem – small diamond centered at the boundary between art and rules
+	# Rarity gem – small diamond centered at the bottom edge of the card
 	var gem_side := 12.0 * scale
 	var gem_size := Vector2(gem_side, gem_side)
 	_rarity_marker.size = gem_size
@@ -338,7 +336,7 @@ func _layout_full(inner_rect: Rect2) -> void:
 	_rarity_marker.rotation_degrees = 45.0
 	_rarity_marker.position = Vector2(
 		inner_rect.position.x + (inner_rect.size.x - gem_size.x) * 0.5,
-		rules_y - gem_size.y * 0.5
+		inner_rect.position.y + inner_rect.size.y - gem_size.y * 0.5
 	)
 
 
@@ -683,7 +681,7 @@ func _apply_panel_style(panel: PanelContainer, fill: Color, border: Color, borde
 func _refresh_corner_radii() -> void:
 	_set_panel_corner_radius(_outer_frame, 0)
 	_set_panel_corner_radius(_inner_frame, 0)
-	for panel in [_name_banner, _art_frame, _rules_panel, _rarity_marker, _cost_badge]:
+	for panel in [_name_banner, _rules_panel, _rarity_marker, _cost_badge]:
 		_set_panel_corner_radius(panel, _panel_radius(panel, 8))
 	_set_panel_corner_radius(_attack_badge, _panel_radius(_attack_badge, 4))
 	# Health badge: keep circular — use half the badge dimension as radius

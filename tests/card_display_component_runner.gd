@@ -93,7 +93,7 @@ func _run() -> void:
 	if not _assert(rarity_label != null, "Full mode should have a rarity label node."):
 		quit(1)
 		return
-	if not _assert(rarity_marker != null and absf(rarity_marker.get_global_rect().get_center().x - component.get_global_rect().get_center().x) <= 8.0, "Rarity marker should stay centered near the bottom of the full card."):
+	if not _assert(rarity_marker != null and absf(rarity_marker.get_global_rect().get_center().x - component.get_global_rect().get_center().x) <= 8.0 and rarity_marker.position.y + rarity_marker.size.y * 0.5 >= component.size.y * 0.85, "Rarity marker should be horizontally centered at the bottom edge of the full card."):
 		quit(1)
 		return
 	if not _assert(attack_badge != null and absf(attack_badge.rotation_degrees - 45.0) < 1.0, "Full mode attack badge should be diamond-shaped (rotated 45 degrees)."):
