@@ -862,7 +862,7 @@ func _build_player_section(player_id: String) -> Dictionary:
 	var ring_panel := PanelContainer.new()
 	ring_panel.name = "%s_ring_panel" % player_id
 	ring_panel.custom_minimum_size = Vector2(0, 54)
-	ring_panel.size_flags_horizontal = SIZE_EXPAND_FILL
+	ring_panel.size_flags_horizontal = 0
 	_apply_panel_style(ring_panel, Color(0.18, 0.14, 0.08, 0.96), Color(0.63, 0.53, 0.26, 0.94), 1, 10)
 	resource_row.add_child(ring_panel)
 	var ring_box := _build_panel_box(ring_panel, 4, 8)
@@ -874,6 +874,7 @@ func _build_player_section(player_id: String) -> Dictionary:
 	var ring_row := HBoxContainer.new()
 	ring_row.name = "%s_ring_row" % player_id
 	ring_row.add_theme_constant_override("separation", 4)
+	ring_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	ring_box.add_child(ring_row)
 
 	var pile_column := VBoxContainer.new()
@@ -970,6 +971,7 @@ func _build_player_section(player_id: String) -> Dictionary:
 	magicka_mount.size_flags_vertical = 0
 	deck_button.reparent(magicka_overlay)
 	discard_button.reparent(magicka_overlay)
+	ring_panel.reparent(magicka_overlay)
 	var pile_btn_width := 108.0
 	var pile_btn_height := 48.0
 	var pile_gap := 8.0
@@ -1000,6 +1002,13 @@ func _build_player_section(player_id: String) -> Dictionary:
 		discard_button.offset_right = deck_left + pile_btn_width
 		discard_button.offset_top = pile_center_y + pile_gap * 0.5
 		discard_button.offset_bottom = pile_center_y + pile_gap * 0.5 + pile_btn_height
+		# Ring panel – below magicka
+		var ring_w := pile_btn_width
+		ring_panel.set_anchors_preset(PRESET_TOP_RIGHT)
+		ring_panel.offset_left = magicka_mount.offset_left
+		ring_panel.offset_right = magicka_mount.offset_right
+		ring_panel.offset_top = magicka_mount.offset_bottom + pile_gap
+		ring_panel.offset_bottom = magicka_mount.offset_bottom + pile_gap + 54.0
 	else:
 		# Bottom-right, left of end turn button
 		var margin := 14.0
@@ -1026,12 +1035,22 @@ func _build_player_section(player_id: String) -> Dictionary:
 		discard_button.offset_right = deck_left + pile_btn_width
 		discard_button.offset_top = pile_center_y + pile_gap * 0.5
 		discard_button.offset_bottom = pile_center_y + pile_gap * 0.5 + pile_btn_height
+		# Ring panel – left of deck/discard stack, vertically centered on magicka
+		var ring_w := 108.0
+		var ring_h := 54.0
+		var ring_left := deck_left - pile_gap - ring_w
+		ring_panel.set_anchors_preset(PRESET_BOTTOM_RIGHT)
+		ring_panel.offset_left = ring_left
+		ring_panel.offset_right = ring_left + ring_w
+		ring_panel.offset_top = pile_center_y - ring_h * 0.5
+		ring_panel.offset_bottom = pile_center_y + ring_h * 0.5
 
 	return {
 		"player_id": player_id,
 		"panel": panel,
 		"avatar_component": avatar_component,
 		"magicka_component": magicka_component,
+		"ring_panel": ring_panel,
 		"ring_label": ring_label,
 		"ring_row": ring_row,
 		"deck_button": deck_button,
@@ -1515,6 +1534,8 @@ func _refresh_player_sections() -> void:
 		if magicka_component != null:
 			magicka_component.apply_player_state(player)
 
+		var ring_panel: PanelContainer = section["ring_panel"]
+		ring_panel.visible = bool(player.get("has_ring_of_magicka", false))
 		var ring_label: Label = section["ring_label"]
 		ring_label.text = _ring_panel_text(player)
 		var ring_row: HBoxContainer = section["ring_row"]
