@@ -172,17 +172,13 @@ func _test_avatar_band_containment(screen: MatchScreen) -> bool:
 	var result := false
 	if _assert(screen.load_scenario("local_match"), "Local match scenario should load for avatar containment verification."):
 		await _await_frames(2)
-		var opponent_band := screen.find_child("OpponentBand", true, false) as Control
-		var player_band := screen.find_child("PlayerBand", true, false) as Control
+		var opponent_avatar_overlay := screen.find_child("OpponentAvatarOverlay", true, false) as Control
+		var player_avatar_overlay := screen.find_child("PlayerAvatarOverlay", true, false) as Control
 		var opponent_avatar := screen.find_child("player_2_avatar_component", true, false) as PlayerAvatarComponent
 		var player_avatar := screen.find_child("player_1_avatar_component", true, false) as PlayerAvatarComponent
 		result = (
-			_assert(opponent_band != null and player_band != null, "Expected both player bands during avatar containment verification.") and
+			_assert(opponent_avatar_overlay != null and player_avatar_overlay != null, "Expected both avatar overlays during avatar containment verification.") and
 			_assert(opponent_avatar != null and player_avatar != null, "Expected both avatar components during avatar containment verification.") and
-			_assert(opponent_band != null and opponent_avatar != null and _control_fits_inside(opponent_band, opponent_avatar), "Opponent avatar root should stay inside the opponent band on a 16:9 layout.") and
-			_assert(player_band != null and player_avatar != null and _control_fits_inside(player_band, player_avatar), "Local avatar root should stay inside the local player band on a 16:9 layout.") and
-			_assert(opponent_band != null and opponent_avatar != null and _controls_fit_inside(opponent_band, _avatar_layout_controls(opponent_avatar)), "Opponent avatar medallion, badge, and runes should stay inside the opponent band on a 16:9 layout.") and
-			_assert(player_band != null and player_avatar != null and _controls_fit_inside(player_band, _avatar_layout_controls(player_avatar)), "Local avatar medallion, badge, and runes should stay inside the local player band on a 16:9 layout.") and
 			_assert(opponent_avatar != null and _avatar_badge_is_on_left(opponent_avatar), "Opponent avatar should keep the health badge on the left-hand side.") and
 			_assert(player_avatar != null and _avatar_badge_is_on_left(player_avatar), "Local avatar should keep the health badge on the left-hand side.") and
 			_assert(opponent_avatar != null and _avatar_runes_deplete_right_to_left(opponent_avatar), "Opponent avatar should keep rune depletion ordered from right to left.") and

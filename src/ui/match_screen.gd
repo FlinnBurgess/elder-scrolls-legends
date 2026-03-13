@@ -102,6 +102,8 @@ var _replay_text: TextEdit
 var _state_text: TextEdit
 var _local_hand_overlay: Control
 var _opponent_hand_overlay: Control
+var _player_avatar_overlay: Control
+var _opponent_avatar_overlay: Control
 var _lane_hover_preview_layer: Control
 var _lane_hover_preview_pending := {}
 var _lane_hover_preview_instance_id := ""
@@ -632,6 +634,17 @@ func _build_ui() -> void:
 	_local_hand_overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(_local_hand_overlay)
 
+	_opponent_avatar_overlay = Control.new()
+	_opponent_avatar_overlay.name = "OpponentAvatarOverlay"
+	_opponent_avatar_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_opponent_avatar_overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	add_child(_opponent_avatar_overlay)
+
+	_player_avatar_overlay = Control.new()
+	_player_avatar_overlay.name = "PlayerAvatarOverlay"
+	_player_avatar_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_player_avatar_overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	add_child(_player_avatar_overlay)
 
 	var main_row := HBoxContainer.new()
 	main_row.name = "MainRow"
@@ -1038,6 +1051,52 @@ func _build_player_section(player_id: String) -> Dictionary:
 		ring_panel.offset_right = ring_right
 		ring_panel.offset_top = pile_center_y - ring_h * 0.5
 		ring_panel.offset_bottom = pile_center_y + ring_h * 0.5
+
+	# Reparent avatar and support into their own screen-level overlay
+	var avatar_overlay: Control = _opponent_avatar_overlay if is_opponent else _player_avatar_overlay
+	if avatar_overlay != null:
+		avatar_component.reparent(avatar_overlay)
+		avatar_component.size_flags_horizontal = 0
+		avatar_component.size_flags_vertical = 0
+		avatar_component.clip_contents = true
+		support_surface.reparent(avatar_overlay)
+		support_surface.size_flags_horizontal = 0
+		support_surface.size_flags_vertical = 0
+		var avatar_w := 200.0
+		var avatar_h := 188.0
+		var support_w := 192.0
+		var support_h: float = support_surface.custom_minimum_size.y
+		var avatar_gap := 12.0
+		# Force avatar to its intended size immediately so internal layout is stable
+		avatar_component.size = Vector2(avatar_w, avatar_h)
+		if is_opponent:
+			# Opponent: centred horizontally, below the opponent hand area
+			var top_y := 64.0
+			avatar_component.set_anchors_preset(PRESET_CENTER_TOP)
+			avatar_component.offset_left = -avatar_w * 0.5
+			avatar_component.offset_right = avatar_w * 0.5
+			avatar_component.offset_top = top_y
+			avatar_component.offset_bottom = top_y + avatar_h
+			# Support to the left of the avatar
+			support_surface.set_anchors_preset(PRESET_CENTER_TOP)
+			support_surface.offset_left = -avatar_w * 0.5 - avatar_gap - support_w
+			support_surface.offset_right = -avatar_w * 0.5 - avatar_gap
+			support_surface.offset_top = top_y + (avatar_h - support_h) * 0.5
+			support_surface.offset_bottom = top_y + (avatar_h + support_h) * 0.5
+		else:
+			# Player: centred horizontally, above the player hand area
+			var bottom_margin := 180.0
+			avatar_component.set_anchors_preset(PRESET_CENTER_BOTTOM)
+			avatar_component.offset_left = -avatar_w * 0.5
+			avatar_component.offset_right = avatar_w * 0.5
+			avatar_component.offset_top = -avatar_h - bottom_margin
+			avatar_component.offset_bottom = -bottom_margin
+			# Support to the left of the avatar
+			support_surface.set_anchors_preset(PRESET_CENTER_BOTTOM)
+			support_surface.offset_left = -avatar_w * 0.5 - avatar_gap - support_w
+			support_surface.offset_right = -avatar_w * 0.5 - avatar_gap
+			support_surface.offset_top = -avatar_h - bottom_margin + (avatar_h - support_h) * 0.5
+			support_surface.offset_bottom = -avatar_h - bottom_margin + (avatar_h + support_h) * 0.5
 
 	return {
 		"player_id": player_id,
