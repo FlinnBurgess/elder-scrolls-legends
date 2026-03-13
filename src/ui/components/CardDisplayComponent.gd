@@ -50,6 +50,7 @@ var _outer_frame: PanelContainer
 var _inner_frame: PanelContainer
 var _name_banner: PanelContainer
 var _name_label: Label
+var _subtype_banner: PanelContainer
 var _subtype_label: Label
 var _art_frame: PanelContainer
 var _art_texture: TextureRect
@@ -153,13 +154,19 @@ func _build_internal_nodes() -> void:
 	_name_label.max_lines_visible = 1
 	_name_label.add_theme_font_size_override("font_size", 13)
 	name_box.add_child(_name_label)
+	# Subtype banner – separate box overlaying the bottom of the name banner
+	_subtype_banner = PanelContainer.new()
+	_subtype_banner.name = "SubtypeBanner"
+	_subtype_banner.clip_contents = true
+	_content_root.add_child(_subtype_banner)
+	var subtype_box := _build_panel_box(_subtype_banner, 0, 4, BoxContainer.ALIGNMENT_CENTER)
 	_subtype_label = Label.new()
 	_subtype_label.name = "SubtypeLabel"
 	_subtype_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_subtype_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_subtype_label.max_lines_visible = 1
 	_subtype_label.add_theme_font_size_override("font_size", 9)
-	name_box.add_child(_subtype_label)
+	subtype_box.add_child(_subtype_label)
 	_art_texture = TextureRect.new()
 	_art_texture.name = "ArtTexture"
 	_art_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -254,8 +261,14 @@ func _refresh_styles() -> void:
 	_apply_panel_style(_outer_frame, COLOR_FRAME_DARK, accent, _scaled_border_width(3, scale), 0)
 	# Inner frame – slightly lighter
 	_apply_panel_style(_inner_frame, COLOR_FRAME_INNER, muted_accent, _scaled_border_width(1, scale), 0)
-	# Name banner – semi-transparent dark overlay on top of art
-	_apply_panel_style(_name_banner, Color(0.0, 0.0, 0.0, 0.55), Color(0.0, 0.0, 0.0, 0.0), 0, 0)
+	# Name banner – opaque dark overlay on top of art, thin bottom border matching art frame
+	var art_border_color := accent.lerp(Color(0.78, 0.64, 0.4, 1.0), 0.42)
+	_apply_panel_style(_name_banner, Color(0.0, 0.0, 0.0, 0.95), art_border_color, 0, 0)
+	var name_style := _name_banner.get_theme_stylebox("panel") as StyleBoxFlat
+	if name_style:
+		name_style.border_width_bottom = _scaled_border_width(2, scale)
+	# Subtype banner – dark opaque, no rounding, 1px border
+	_apply_panel_style(_subtype_banner, Color(0.0, 0.0, 0.0, 0.95), art_border_color, 1, 0)
 	# Art frame – the main card image area
 	_apply_panel_style(_art_frame, _art_fill(_presentation_mode), accent.lerp(Color(0.78, 0.64, 0.4, 1.0), 0.42), _scaled_border_width(2 if _presentation_mode == PRESENTATION_FULL else 1, scale), 0)
 	# Rules panel – transparent so text renders over the inner frame background
@@ -284,6 +297,7 @@ func _refresh_visibility() -> void:
 	var creature_minimal := _presentation_mode == PRESENTATION_CREATURE_BOARD_MINIMAL
 	var is_creature := _is_creature(_card_data)
 	_name_banner.visible = full
+	_subtype_banner.visible = full
 	_rules_panel.visible = full
 	_rarity_marker.visible = full
 	_cost_badge.visible = full
@@ -328,10 +342,19 @@ func _layout_full(inner_rect: Rect2) -> void:
 	_art_frame.position = Vector2(inner_rect.position.x + content_padding, art_top)
 	_art_frame.size = Vector2(content_width, art_height)
 
-	# Name banner – overlays top of art, semi-transparent
-	var banner_height := 40.0 * scale
-	_name_banner.position = Vector2(inner_rect.position.x + content_padding, art_top)
-	_name_banner.size = Vector2(content_width, banner_height)
+	# Name banner – opaque, inset within the art frame border
+	var art_border_w := float(_scaled_border_width(2, scale))
+	var banner_height := 28.0 * scale
+	_name_banner.position = _art_frame.position + Vector2(art_border_w, art_border_w)
+	_name_banner.size = Vector2(_art_frame.size.x - art_border_w * 2.0, banner_height)
+	# Subtype banner – centered horizontally, overlapping bottom of name banner
+	var subtype_height := 12.0 * scale
+	var subtype_width := _art_frame.size.x * 0.45
+	_subtype_banner.position = Vector2(
+		_art_frame.position.x + (_art_frame.size.x - subtype_width) * 0.5,
+		_name_banner.position.y + banner_height - subtype_height * 0.5
+	)
+	_subtype_banner.size = Vector2(subtype_width, subtype_height)
 
 	# Stat badges – attack diamond + health circle, straddling art bottom edge
 	_layout_stat_badges(inner_rect, Rect2(_art_frame.position, _art_frame.size), scale, true)
@@ -362,6 +385,8 @@ func _layout_creature_board_minimal(inner_rect: Rect2) -> void:
 	_layout_stat_badges(inner_rect, Rect2(_art_frame.position, _art_frame.size), scale)
 	_name_banner.position = Vector2.ZERO
 	_name_banner.size = Vector2.ZERO
+	_subtype_banner.position = Vector2.ZERO
+	_subtype_banner.size = Vector2.ZERO
 	_rules_panel.position = Vector2.ZERO
 	_rules_panel.size = Vector2.ZERO
 	_rarity_marker.position = Vector2.ZERO
@@ -378,6 +403,8 @@ func _layout_support_board_minimal(inner_rect: Rect2) -> void:
 	_art_frame.size = Vector2.ONE * maxf(square_size - 12.0 * scale, 0.0)
 	_name_banner.position = Vector2.ZERO
 	_name_banner.size = Vector2.ZERO
+	_subtype_banner.position = Vector2.ZERO
+	_subtype_banner.size = Vector2.ZERO
 	_rules_panel.position = Vector2.ZERO
 	_rules_panel.size = Vector2.ZERO
 	_rarity_marker.position = Vector2.ZERO
@@ -752,7 +779,7 @@ func _apply_panel_style(panel: PanelContainer, fill: Color, border: Color, borde
 func _refresh_corner_radii() -> void:
 	_set_panel_corner_radius(_outer_frame, 0)
 	_set_panel_corner_radius(_inner_frame, 0)
-	for panel in [_name_banner, _rules_panel, _rarity_marker, _cost_badge]:
+	for panel in [_rules_panel, _rarity_marker, _cost_badge]:
 		_set_panel_corner_radius(panel, _panel_radius(panel, 8))
 	_set_panel_corner_radius(_attack_badge, 0)
 	# Health badge: keep circular — use half the badge dimension as radius
