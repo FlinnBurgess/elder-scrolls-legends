@@ -48,7 +48,7 @@ func _run() -> void:
 	var placeholder_load_ok := placeholder_image.load(ProjectSettings.globalize_path(CardDisplayComponent.DEFAULT_ART_PATH)) == OK
 	var name_label := component.find_child("NameLabel", true, false) as Label
 	var subtype_label := component.find_child("SubtypeLabel", true, false) as Label
-	var rules_label := component.find_child("RulesLabel", true, false) as Label
+	var rules_label := component.find_child("RulesLabel", true, false) as RichTextLabel
 	var rarity_marker := component.find_child("RarityMarker", true, false) as Control
 	var rarity_label := component.find_child("RarityLabel", true, false) as Label
 	var cost_badge := component.find_child("CostBadge", true, false) as Control
@@ -81,7 +81,7 @@ func _run() -> void:
 	if not _assert(subtype_label != null and subtype_label.text.contains("Creature") and subtype_label.text.contains("Soldier"), "Full mode should surface both card type and subtype metadata beneath the name."):
 		quit(1)
 		return
-	if not _assert(rules_label != null and rules_label.text.contains("Placeholder boosted creature"), "Full mode should render rules text in the text box."):
+	if not _assert(rules_label != null and rules_label.text.contains("Guard") and rules_label.text.contains("Placeholder boosted creature") and rules_label.text.find("Guard") < rules_label.text.find("Placeholder"), "Full mode should render keywords above the remaining rules text."):
 		quit(1)
 		return
 	if not _assert(cost_badge != null and cost_badge.visible and cost_label != null and cost_label.text == "2", "Full mode should render the overlapping cost badge."):

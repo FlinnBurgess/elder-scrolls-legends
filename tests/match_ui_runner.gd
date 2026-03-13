@@ -287,7 +287,7 @@ func _test_card_frame_presentation(screen: MatchScreen) -> bool:
 	var shadow_raider_display := shadow_raider_button.get_meta("card_display_component", null) as Control if shadow_raider_button != null else null
 	var field_guardian_art := field_guardian_display.find_child("ArtTexture", true, false) as TextureRect if field_guardian_display != null else null
 	var field_guardian_rarity := field_guardian_display.find_child("RarityLabel", true, false) as Label if field_guardian_display != null else null
-	var field_guardian_rules := field_guardian_display.find_child("RulesLabel", true, false) as Label if field_guardian_display != null else null
+	var field_guardian_rules := field_guardian_display.find_child("RulesLabel", true, false) as RichTextLabel if field_guardian_display != null else null
 	var field_guardian_power := field_guardian_display.find_child("AttackLabel", true, false) as Label if field_guardian_display != null else null
 	var field_guardian_health := field_guardian_display.find_child("HealthLabel", true, false) as Label if field_guardian_display != null else null
 	var shadow_raider_power := shadow_raider_display.find_child("AttackLabel", true, false) as Label if shadow_raider_display != null else null

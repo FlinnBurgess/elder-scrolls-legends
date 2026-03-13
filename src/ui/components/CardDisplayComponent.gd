@@ -18,6 +18,11 @@ const SUPPORT_BOARD_MINIMUM_SIZE := SUPPORT_BOARD_LAYOUT_BASE_SIZE * PRESENTATIO
 
 const DEFAULT_ART_PATH := "res://assets/images/cards/placeholder.png"
 
+const KEYWORD_NAMES := [
+	"breakthrough", "charge", "drain", "guard",
+	"lethal", "mobilize", "rally", "regenerate", "ward",
+]
+
 const COLOR_FRAME_DARK := Color(0.07, 0.08, 0.1, 0.98)
 const COLOR_FRAME_INNER := Color(0.15, 0.13, 0.11, 0.98)
 const COLOR_TEXT := Color(0.97, 0.95, 0.9, 1.0)
@@ -49,7 +54,7 @@ var _subtype_label: Label
 var _art_frame: PanelContainer
 var _art_texture: TextureRect
 var _rules_panel: PanelContainer
-var _rules_label: Label
+var _rules_label: RichTextLabel
 var _rarity_marker: PanelContainer
 var _rarity_label: Label
 var _cost_badge: PanelContainer
@@ -168,11 +173,14 @@ func _build_internal_nodes() -> void:
 	_rules_panel.clip_contents = true
 	_content_root.add_child(_rules_panel)
 	var rules_box := _build_panel_box(_rules_panel, 2, 6, BoxContainer.ALIGNMENT_CENTER)
-	_rules_label = Label.new()
+	_rules_label = RichTextLabel.new()
 	_rules_label.name = "RulesLabel"
-	_rules_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_rules_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_rules_label.add_theme_font_size_override("font_size", 10)
+	_rules_label.bbcode_enabled = true
+	_rules_label.fit_content = true
+	_rules_label.scroll_active = false
+	_rules_label.size_flags_horizontal = SIZE_EXPAND_FILL
+	_rules_label.add_theme_font_size_override("normal_font_size", 10)
+	_rules_label.add_theme_font_size_override("bold_font_size", 10)
 	rules_box.add_child(_rules_label)
 
 	_rarity_marker = PanelContainer.new()
@@ -219,7 +227,7 @@ func _refresh_content() -> void:
 	_cost_label.text = str(int(_card_data.get("cost", 0)))
 	_name_label.text = _card_name(_card_data)
 	_subtype_label.text = _subtype_line(_card_data)
-	_rules_label.text = _rules_preview(_card_data)
+	_rules_label.text = _rules_bbcode(_card_data)
 	_rarity_label.text = ""
 	if _is_creature(_card_data):
 		_attack_label.text = str(EvergreenRules.get_power(_card_data))
@@ -256,7 +264,7 @@ func _refresh_styles() -> void:
 	_apply_panel_style(_health_badge, Color(0.08, 0.06, 0.04, 0.98), Color(0.72, 0.62, 0.42, 0.96), _scaled_border_width(2, scale), _scaled_int(15, scale))
 	_name_label.add_theme_color_override("font_color", COLOR_TEXT)
 	_subtype_label.add_theme_color_override("font_color", COLOR_TEXT_MUTED)
-	_rules_label.add_theme_color_override("font_color", COLOR_RULES_TEXT)
+	_rules_label.add_theme_color_override("default_color", COLOR_RULES_TEXT)
 	_rarity_label.add_theme_color_override("font_color", _rarity_color(_card_data))
 	_cost_label.add_theme_color_override("font_color", Color(0.96, 0.98, 1.0, 1.0))
 	_attack_label.add_theme_color_override("font_color", _stat_color(_card_data, "power"))
@@ -540,9 +548,62 @@ func _subtype_line(card: Dictionary) -> String:
 
 func _rules_preview(card: Dictionary) -> String:
 	var rules_text := str(card.get("rules_text", "")).strip_edges().replace("\n", " ")
-	if not rules_text.is_empty():
+	if rules_text.is_empty():
+		return "No final rules text yet. Placeholder frame keeps the card readable."
+	# Only extract keywords that appear as standalone entries at the start of the
+	# rules text (e.g. "Guard." or "Guard, Charge. Deal 2 damage."). Keywords
+	# embedded in sentences ("Give a creature Guard") must not be extracted.
+	var keywords: Array[String] = []
+	var remaining := rules_text
+	while not remaining.is_empty():
+		var matched := false
+		for kw in KEYWORD_NAMES:
+			var pattern := RegEx.new()
+			pattern.compile("(?i)^" + kw + "(?=[.,;\\s]|$)")
+			var m := pattern.search(remaining)
+			if m:
+				keywords.append(kw.substr(0, 1).to_upper() + kw.substr(1))
+				remaining = remaining.substr(m.get_end()).strip_edges()
+				# Strip leading punctuation/separators after the keyword
+				while not remaining.is_empty() and remaining[0] in [",", ".", ";", " "]:
+					remaining = remaining.substr(1)
+				remaining = remaining.strip_edges()
+				matched = true
+				break
+		if not matched:
+			break
+	if keywords.is_empty():
 		return rules_text
-	return "No final rules text yet. Placeholder frame keeps the card readable."
+	var keyword_line := ", ".join(keywords)
+	if remaining.is_empty():
+		return keyword_line
+	return keyword_line + "\n" + remaining
+
+
+func _rules_bbcode(card: Dictionary) -> String:
+	var plain := _rules_preview(card)
+	var newline_pos := plain.find("\n")
+	if newline_pos < 0:
+		# No newline means either no keywords or keywords-only
+		var has_keywords := _has_extracted_keywords(card)
+		if has_keywords:
+			return "[center][b]" + plain + "[/b][/center]"
+		return "[center]" + plain + "[/center]"
+	var keyword_line := plain.substr(0, newline_pos)
+	var rest := plain.substr(newline_pos + 1)
+	return "[center][b]" + keyword_line + "[/b]\n" + rest + "[/center]"
+
+
+func _has_extracted_keywords(card: Dictionary) -> bool:
+	var rules_text := str(card.get("rules_text", "")).strip_edges().replace("\n", " ")
+	if rules_text.is_empty():
+		return false
+	for kw in KEYWORD_NAMES:
+		var pattern := RegEx.new()
+		pattern.compile("(?i)^" + kw + "(?=[.,;\\s]|$)")
+		if pattern.search(rules_text):
+			return true
+	return false
 
 
 func _card_rarity_text(card: Dictionary) -> String:
@@ -645,7 +706,8 @@ func _build_centered_label(name: String, font_size: int) -> Label:
 func _apply_font_sizes(scale: float) -> void:
 	_name_label.add_theme_font_size_override("font_size", _scaled_int(14, scale))
 	_subtype_label.add_theme_font_size_override("font_size", _scaled_int(10, scale))
-	_rules_label.add_theme_font_size_override("font_size", _scaled_int(10, scale))
+	_rules_label.add_theme_font_size_override("normal_font_size", _scaled_int(14, scale))
+	_rules_label.add_theme_font_size_override("bold_font_size", _scaled_int(14, scale))
 	_rarity_label.add_theme_font_size_override("font_size", _scaled_int(9, scale))
 	_cost_label.add_theme_font_size_override("font_size", _scaled_int(16, scale))
 	_attack_label.add_theme_font_size_override("font_size", _scaled_int(13, scale))
