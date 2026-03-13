@@ -102,6 +102,7 @@ var _history_text: TextEdit
 var _replay_text: TextEdit
 var _state_text: TextEdit
 var _local_hand_overlay: Control
+var _opponent_hand_overlay: Control
 var _lane_hover_preview_layer: Control
 var _lane_hover_preview_pending := {}
 var _lane_hover_preview_instance_id := ""
@@ -620,6 +621,12 @@ func _build_ui() -> void:
 	_lane_hover_preview_layer.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(_lane_hover_preview_layer)
 
+	_opponent_hand_overlay = Control.new()
+	_opponent_hand_overlay.name = "OpponentHandOverlay"
+	_opponent_hand_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_opponent_hand_overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	add_child(_opponent_hand_overlay)
+
 	_local_hand_overlay = Control.new()
 	_local_hand_overlay.name = "LocalHandOverlay"
 	_local_hand_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -951,21 +958,12 @@ func _build_player_section(player_id: String) -> Dictionary:
 		_local_hand_overlay.add_child(hand_row)
 		# Re-layout hand cards when the viewport/overlay resizes
 		_local_hand_overlay.resized.connect(_on_hand_surface_resized.bind(hand_row))
-	else:
-		# Opponent hand stays embedded in their band
-		var hand_box := VBoxContainer.new()
-		hand_box.size_flags_horizontal = SIZE_EXPAND_FILL
-		hand_box.custom_minimum_size = Vector2(0, 210)
-		hand_box.add_theme_constant_override("separation", 8)
-		rows.add_child(hand_box)
-		var hand_label := Label.new()
-		hand_label.text = "Hand"
-		hand_label.add_theme_font_size_override("font_size", 17)
-		hand_box.add_child(hand_label)
-		hand_row.size_flags_horizontal = SIZE_EXPAND_FILL
-		hand_row.custom_minimum_size = Vector2(0, 192)
-		hand_row.resized.connect(_on_hand_surface_resized.bind(hand_row))
-		hand_box.add_child(hand_row)
+	elif is_opponent and _opponent_hand_overlay != null:
+		# Opponent hand floats at the top of the screen, separate from the band layout
+		hand_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hand_row.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		_opponent_hand_overlay.add_child(hand_row)
+		_opponent_hand_overlay.resized.connect(_on_hand_surface_resized.bind(hand_row))
 
 	return {
 		"player_id": player_id,
@@ -1799,29 +1797,33 @@ func _layout_local_hand_cards(hand_surface: Control, cards: Array[Button], card_
 
 
 func _layout_opponent_hand_cards(hand_surface: Control, cards: Array[Button], card_size: Vector2, count: int) -> void:
-	var overlap_step: float = card_size.x * (62.0 / 156.0)
-	var total_width: float = card_size.x + overlap_step * float(max(0, count - 1))
-	var available_width: float = max(hand_surface.size.x, total_width + 24.0)
-	var start_x: float = max(0.0, (available_width - total_width) * 0.5)
-	var max_y: float = 0.0
-	var vertical_step: float = _surface_scale_factor("hand") * 3.0
+	# Cards peek from the top edge of the screen, mirroring the local hand at the bottom.
+	var overlay_size := get_viewport_rect().size
+	var target_height := overlay_size.y * 0.30
+	var aspect_ratio := card_size.x / card_size.y
+	card_size = Vector2(target_height * aspect_ratio, target_height)
+	var overlap_step := card_size.x * 0.45
+	var total_width := card_size.x + overlap_step * float(max(0, count - 1))
+	var start_x := (overlay_size.x - total_width) * 0.5
+	# Cards sit with only a sliver (~10%) peeking below the top edge
+	var base_y := -(card_size.y * 0.90)
 	for index in range(count):
 		var button := cards[index]
-		var offset := float(index) - float(count - 1) * 0.5
-		var y := absf(offset) * vertical_step
-		var rotation := offset * 1.2
-		var position := Vector2(start_x + overlap_step * index, y)
+		var position := Vector2(start_x + overlap_step * index, base_y)
 		button.size = card_size
 		button.position = position
-		button.pivot_offset = card_size * 0.5
-		button.rotation_degrees = rotation
+		# Pivot at bottom-center so the fan radiates toward us (opponent faces the player)
+		button.pivot_offset = Vector2(card_size.x * 0.5, card_size.y)
+		var fan_offset := float(index) - float(count - 1) * 0.5
+		button.rotation_degrees = fan_offset * -1.5
 		button.scale = Vector2.ONE
 		button.z_index = index
 		button.set_meta("hand_index", index)
 		button.set_meta("base_position", position)
-		button.set_meta("base_rotation", rotation)
-		max_y = max(max_y, y)
-	hand_surface.custom_minimum_size = Vector2(max(total_width + 24.0, 240.0), card_size.y + max_y + 20.0)
+		button.set_meta("card_size", card_size)
+		var empty_style := StyleBoxEmpty.new()
+		for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+			button.add_theme_stylebox_override(state, empty_style)
 
 
 func _layout_hand_placeholder(hand_surface: Control, placeholder: Label) -> void:
@@ -1995,40 +1997,11 @@ func _populate_card_button_content(button: Button, card: Dictionary, public_view
 	button.add_child(content_root)
 	button.set_meta("content_root", content_root)
 	if hidden:
-		var margin := MarginContainer.new()
-		margin.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		margin.add_theme_constant_override("margin_left", _surface_content_padding(surface))
-		margin.add_theme_constant_override("margin_top", _surface_content_padding(surface))
-		margin.add_theme_constant_override("margin_right", _surface_content_padding(surface))
-		margin.add_theme_constant_override("margin_bottom", _surface_content_padding(surface))
-		content_root.add_child(margin)
-		var column := VBoxContainer.new()
-		column.size_flags_horizontal = SIZE_EXPAND_FILL
-		column.size_flags_vertical = SIZE_EXPAND_FILL
-		column.add_theme_constant_override("separation", 2 if surface == "lane" else 6)
-		margin.add_child(column)
-		var card_back_label := Label.new()
-		card_back_label.name = "%s_card_back_label" % instance_id
-		card_back_label.text = "CARD BACK"
-		card_back_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		card_back_label.add_theme_font_size_override("font_size", 12 if surface == "lane" else 14)
-		card_back_label.add_theme_color_override("font_color", Color(0.87, 0.8, 0.62, 0.96))
-		column.add_child(card_back_label)
-		var art_back := PanelContainer.new()
-		art_back.name = "%s_art_region" % instance_id
-		art_back.custom_minimum_size = Vector2(0, _surface_art_height(surface))
-		art_back.size_flags_horizontal = SIZE_EXPAND_FILL
-		_apply_panel_style(art_back, Color(0.17, 0.12, 0.1, 0.98), Color(0.57, 0.44, 0.27, 0.92), 1, 8)
-		column.add_child(art_back)
-		var art_box := _build_panel_box(art_back, 4, 8)
-		var art_label := Label.new()
-		art_label.text = "Hidden opponent hand"
-		art_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		art_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		art_label.max_lines_visible = 1 if surface == "lane" else -1
-		art_label.add_theme_font_size_override("font_size", 11 if surface == "lane" else 12)
-		art_label.add_theme_color_override("font_color", Color(0.92, 0.87, 0.76, 0.94))
-		art_box.add_child(art_label)
+		var card_back := PanelContainer.new()
+		card_back.name = "%s_card_back" % instance_id
+		card_back.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		_apply_panel_style(card_back, Color(0.35, 0.22, 0.12, 0.98), Color(0.57, 0.44, 0.27, 0.92), 2, 0)
+		content_root.add_child(card_back)
 		_set_mouse_passthrough_recursive(content_root)
 		return
 	var component := _build_card_display_component(card, surface, instance_id)

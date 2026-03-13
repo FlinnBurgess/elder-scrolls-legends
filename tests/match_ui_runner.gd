@@ -288,7 +288,7 @@ func _test_card_frame_presentation(screen: MatchScreen) -> bool:
 	var field_guardian_health := field_guardian_display.find_child("HealthLabel", true, false) as Label if field_guardian_display != null else null
 	var shadow_raider_power := shadow_raider_display.find_child("AttackLabel", true, false) as Label if shadow_raider_display != null else null
 	var hidden_opponent_button := screen.find_child("hand_player_2_skeletal_sentry_card", true, false) as Button
-	var hidden_back_label := screen.find_child("player_2_skeletal_sentry_card_back_label", true, false) as Label
+	var hidden_card_back := screen.find_child("player_2_skeletal_sentry_card_back", true, false) as PanelContainer
 	if not _assert(field_guardian_button != null and shadow_raider_button != null and steel_sword_button != null, "Expected named local hand card frames for the fan layout."):
 		return false
 	field_guardian_button.emit_signal("mouse_entered")
@@ -312,7 +312,7 @@ func _test_card_frame_presentation(screen: MatchScreen) -> bool:
 		_assert(is_equal_approx(field_guardian_button.scale.x, 1.0), "Hover emphasis should reset cleanly after the pointer leaves.") and
 		_assert(grand_colossus_button != null and grand_colossus_button.self_modulate.a < 0.9, "Unaffordable local hand cards should be visually muted.") and
 		_assert(hidden_opponent_button != null and hidden_opponent_button.disabled, "Opponent hand cards should render as hidden backs rather than selectable text frames.") and
-		_assert(hidden_back_label != null and hidden_back_label.text.contains("CARD BACK"), "Opponent hand should visibly read as face-down card backs.")
+		_assert(hidden_card_back != null, "Opponent hand should render a card back panel.")
 	)
 
 
