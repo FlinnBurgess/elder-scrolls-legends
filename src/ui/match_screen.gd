@@ -1174,6 +1174,7 @@ func _build_lanes_panel() -> Control:
 		lane_panel.size_flags_vertical = SIZE_EXPAND_FILL
 		lane_panel.size_flags_stretch_ratio = 1.0
 		_apply_panel_style(lane_panel, _lane_panel_fill(lane_id), _lane_panel_border(lane_id), 2, 12)
+		lane_panel.gui_input.connect(_on_lane_panel_gui_input.bind(lane_id))
 		lanes_row.add_child(lane_panel)
 		_lane_panels[lane_id] = lane_panel
 		var lane_box := _build_panel_box(lane_panel, 8, 10)
@@ -2610,6 +2611,35 @@ func _on_support_surface_gui_input(event: InputEvent, player_id: String) -> void
 		return
 	if _try_resolve_selected_support_surface(player_id):
 		accept_event()
+
+
+func _on_lane_panel_gui_input(event: InputEvent, lane_id: String) -> void:
+	if not (event is InputEventMouseButton):
+		return
+	var button_event := event as InputEventMouseButton
+	if button_event.button_index != MOUSE_BUTTON_LEFT or not button_event.pressed:
+		return
+	var card := _selected_card()
+	if card.is_empty():
+		return
+	if not _selected_support_row_target_player_id(card).is_empty():
+		_play_selected_to_support_row(_selected_support_row_target_player_id(card))
+		accept_event()
+		return
+	var target_player := _target_lane_player_id()
+	if _selected_card_wants_lane(card, target_player):
+		var slot_index := _first_open_slot_index(lane_id, target_player)
+		if slot_index >= 0:
+			var validation := _validate_selected_lane_play(lane_id, target_player, slot_index)
+			if bool(validation.get("is_valid", false)):
+				play_selected_to_lane(lane_id, slot_index)
+				accept_event()
+			else:
+				_report_invalid_interaction(validation.get("message", "Cannot play into %s." % _lane_name(lane_id)), {
+					"lane_ids": [lane_id],
+					"lane_slot_keys": [_lane_slot_key(lane_id, target_player, slot_index)],
+				})
+				accept_event()
 
 
 func _on_lane_pressed(lane_id: String) -> void:
