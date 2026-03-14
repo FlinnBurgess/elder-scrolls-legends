@@ -1574,7 +1574,7 @@ func _refresh_player_sections() -> void:
 		discard_button.tooltip_text = _pile_button_tooltip(player, MatchMutations.ZONE_DISCARD)
 
 		var support_surface: Control = section["support_surface"]
-		support_surface.tooltip_text = _support_surface_tooltip(player_id)
+		support_surface.tooltip_text = ""
 		support_surface.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if _support_surface_interaction_state(player_id) == "valid" else Control.CURSOR_ARROW
 
 		var support_row: HBoxContainer = section["support_row"]
@@ -2913,20 +2913,6 @@ func _support_surface_interaction_state(player_id: String) -> String:
 		return "invalid"
 	return "valid" if bool(_validate_selected_support_play(player_id).get("is_valid", false)) else "invalid"
 
-
-func _support_surface_tooltip(player_id: String) -> String:
-	var card := _selected_card()
-	var target_player_id := _selected_support_row_target_player_id(card)
-	if target_player_id.is_empty():
-		if player_id == _local_player_id():
-			return "Your persistent support cards remain in play here. Select a support card from hand, then click here to place it."
-		return "Persistent support cards remain in play here."
-	if player_id != target_player_id:
-		return "%s can only be placed into %s's support row." % [_card_name(card), _player_name(target_player_id)]
-	var validation := _validate_selected_support_play(player_id)
-	if bool(validation.get("is_valid", false)):
-		return "Click to place %s into %s's support row." % [_card_name(card), _player_name(player_id)]
-	return str(validation.get("message", "Cannot place this support there."))
 
 
 func _card_interaction_state(card: Dictionary, surface: String) -> String:
