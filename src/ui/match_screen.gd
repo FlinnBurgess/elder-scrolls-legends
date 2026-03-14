@@ -2196,20 +2196,8 @@ func _lane_readiness_badge_text(card: Dictionary) -> String:
 	return "READY"
 
 
-func _build_hand_emphasis_badges(card: Dictionary, public_view: bool, surface: String, instance_id: String) -> HBoxContainer:
-	var draw_feedback := _active_draw_feedback_for_instance(instance_id)
-	if not _is_pending_prophecy_card(card) and not (public_view and not draw_feedback.is_empty()):
-		return null
-	var row := HBoxContainer.new()
-	row.name = "%s_emphasis_row" % instance_id
-	row.position = Vector2(16, 54)
-	row.add_theme_constant_override("separation", 4)
-	if _is_pending_prophecy_card(card):
-		row.add_child(_build_text_badge("%s_prophecy_window" % instance_id, "PROPHECY", Color(0.28, 0.14, 0.34, 0.99), Color(0.94, 0.75, 0.98, 1.0), Color(1.0, 0.96, 1.0, 1.0), 10, Vector2(0, 22)))
-		row.add_child(_build_text_badge("%s_prophecy_free" % instance_id, "FREE INTERRUPT", Color(0.18, 0.12, 0.3, 0.99), Color(0.72, 0.84, 1.0, 0.98), Color(0.95, 0.98, 1.0, 1.0), 10, Vector2(0, 22)))
-	if public_view and not draw_feedback.is_empty():
-		row.add_child(_build_text_badge("%s_draw_feedback" % instance_id, _draw_feedback_badge_text(draw_feedback), _draw_feedback_badge_fill(draw_feedback), _draw_feedback_badge_border(draw_feedback), Color(1.0, 0.97, 0.92, 1.0), 10, Vector2(0, 22)))
-	return row
+func _build_hand_emphasis_badges(_card: Dictionary, _public_view: bool, _surface: String, _instance_id: String) -> HBoxContainer:
+	return null
 
 
 func _set_mouse_passthrough_recursive(node: Node) -> void:
@@ -3305,14 +3293,7 @@ func _apply_card_feedback_decoration(button: Button, card: Dictionary, surface: 
 				applied_damage = true
 				break
 	if surface == "hand":
-		var draw_feedback := _active_draw_feedback_for_instance(instance_id)
-		var can_reveal_draw := _should_reveal_drawn_card(str(card.get("controller_player_id", "")), card)
-		if can_reveal_draw and not draw_feedback.is_empty():
-			modulate_color = Color(1.0, 0.98, 0.94, 1.0) if bool(draw_feedback.get("from_rune_break", false)) else Color(0.95, 0.99, 1.0, 1.0)
-			_add_feedback_banner(button, "feedback_hand_draw_%s" % instance_id, _draw_feedback_badge_text(draw_feedback), _draw_feedback_toast_fill(draw_feedback), _draw_feedback_toast_border(draw_feedback), Color(1.0, 0.97, 0.92, 1.0), 8.0)
-		if _is_pending_prophecy_card(card):
-			modulate_color = Color(1.0, 0.97, 1.0, 1.0)
-			_add_feedback_banner(button, "feedback_hand_prophecy_%s" % instance_id, "PROPHECY", Color(0.28, 0.14, 0.34, 0.99), Color(0.94, 0.75, 0.98, 1.0), Color(1.0, 0.96, 1.0, 1.0), 30.0 if not applied_damage else 8.0)
+		pass
 	button.modulate = modulate_color
 
 
