@@ -64,10 +64,7 @@ var _lane_registry := {}
 var _keyword_display_names := {}
 var _status_display_names := {}
 
-var _play_selected_button: Button
 var _end_turn_button: Button
-var _clear_button: Button
-var _status_label: Label
 var _turn_banner_panel: PanelContainer
 var _turn_banner_label: Label
 var _turn_banner_detail_label: Label
@@ -705,46 +702,6 @@ func _build_ui() -> void:
 	utility_column.size_flags_vertical = SIZE_EXPAND_FILL
 	utility_column.add_theme_constant_override("separation", 16)
 	main_row.add_child(utility_column)
-
-	_play_selected_button = Button.new()
-	_play_selected_button.text = "Play / Act"
-	_play_selected_button.custom_minimum_size = Vector2(0, 54)
-	_play_selected_button.size_flags_horizontal = SIZE_EXPAND_FILL
-	_play_selected_button.add_theme_font_size_override("font_size", 17)
-	_apply_button_style(_play_selected_button, Color(0.21, 0.19, 0.14, 0.98), Color(0.58, 0.44, 0.22, 0.94), Color(0.97, 0.94, 0.86, 1.0))
-	_play_selected_button.pressed.connect(_on_play_selected_pressed)
-
-	_clear_button = Button.new()
-	_clear_button.text = "Clear Selection"
-	_clear_button.custom_minimum_size = Vector2(0, 54)
-	_clear_button.size_flags_horizontal = SIZE_EXPAND_FILL
-	_clear_button.add_theme_font_size_override("font_size", 17)
-	_apply_button_style(_clear_button, Color(0.15, 0.16, 0.2, 0.98), Color(0.34, 0.36, 0.46, 0.94), Color(0.9, 0.92, 0.96, 1.0))
-	_clear_button.pressed.connect(_on_clear_pressed)
-
-	var actions_panel := PanelContainer.new()
-	actions_panel.name = "ActionPanel"
-	actions_panel.custom_minimum_size = Vector2(0, 188)
-	_apply_panel_style(actions_panel, Color(0.12, 0.13, 0.17, 0.96), Color(0.31, 0.34, 0.42, 0.88), 1, 10)
-	utility_column.add_child(actions_panel)
-	var actions_box := _build_panel_box(actions_panel, 12, 16)
-	var actions_title := Label.new()
-	actions_title.text = "Turn Actions"
-	actions_title.add_theme_font_size_override("font_size", 20)
-	actions_box.add_child(actions_title)
-	var primary_action_row := HBoxContainer.new()
-	primary_action_row.add_theme_constant_override("separation", 10)
-	actions_box.add_child(primary_action_row)
-	primary_action_row.add_child(_play_selected_button)
-	var utility_action_row := HBoxContainer.new()
-	utility_action_row.add_theme_constant_override("separation", 10)
-	actions_box.add_child(utility_action_row)
-	utility_action_row.add_child(_clear_button)
-	_status_label = Label.new()
-	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status_label.add_theme_font_size_override("font_size", 16)
-	_status_label.custom_minimum_size = Vector2(0, 76)
-	actions_box.add_child(_status_label)
 
 	var inspector_panel := PanelContainer.new()
 	inspector_panel.name = "InspectorRailPanel"
@@ -1470,14 +1427,13 @@ func _refresh_ui() -> void:
 	_card_buttons = {}
 	_lane_slot_buttons = {}
 	_refresh_turn_presentation()
-	_status_label.text = _status_message
 	_refresh_prophecy_overlay()
 	_refresh_player_sections()
 	_refresh_lanes()
 	_refresh_inspector()
 	_apply_match_layout_scale()
 	_refresh_debug_tabs()
-	_refresh_action_buttons()
+	_refresh_end_turn_button()
 	_refresh_match_end_overlay()
 	_apply_presentation_feedback()
 	if not _detached_card_state.is_empty():
@@ -1803,25 +1759,14 @@ func _animate_enemy_prophecy_resolution(action: Dictionary, _result: Dictionary)
 		)
 
 
-func _refresh_action_buttons() -> void:
-	var selected_card := _selected_card()
+func _refresh_end_turn_button() -> void:
 	var has_pending_prophecy := MatchTiming.has_pending_prophecy(_match_state)
 	var local_turn := _is_local_player_turn()
 	var match_complete := _has_match_winner()
-	var selected_pending_prophecy := _is_pending_prophecy_card(selected_card)
-	_play_selected_button.disabled = match_complete or selected_card.is_empty() or (not local_turn and not selected_pending_prophecy)
 	_end_turn_button.disabled = match_complete or not local_turn or has_pending_prophecy
 	_refresh_end_turn_button_style(has_pending_prophecy)
 	if match_complete:
-		_play_selected_button.tooltip_text = "Match complete. Reload or switch scenarios to continue exploring the UI."
 		_end_turn_button.tooltip_text = "Match complete. No further turn actions are available."
-		return
-	if not _selected_support_row_target_player_id(selected_card).is_empty():
-		_play_selected_button.tooltip_text = "Click your support row to place the selected support, or use Play / Act as a fallback."
-	elif _selected_support_uses_card_targets(selected_card):
-		_play_selected_button.tooltip_text = "Activate the selected support directly, or click a legal target on the board if it needs one."
-	else:
-		_play_selected_button.tooltip_text = "Resolve the selected card through the existing match command wiring."
 
 
 func _build_card_button(card: Dictionary, public_view: bool, surface := "default") -> Button:
@@ -2659,10 +2604,6 @@ func _clear_pile_selection() -> void:
 
 
 
-func _on_play_selected_pressed() -> void:
-	play_or_activate_selected()
-
-
 func _on_ring_panel_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		use_ring()
@@ -2670,10 +2611,6 @@ func _on_ring_panel_input(event: InputEvent) -> void:
 
 func _on_end_turn_pressed() -> void:
 	end_turn_action()
-
-
-func _on_clear_pressed() -> void:
-	clear_selection()
 
 
 func _input(event: InputEvent) -> void:
@@ -4122,11 +4059,11 @@ func _selection_prompt(card: Dictionary) -> String:
 				"item":
 					return "Selected %s. Click a friendly creature to equip it." % _card_name(card)
 				"support":
-					return "Selected %s. Click your support row to place it, or use Play / Act as a fallback." % _card_name(card)
+					return "Selected %s. Click your support row to place it." % _card_name(card)
 				_:
 					return "Selected %s." % _card_name(card)
 		MatchMutations.ZONE_SUPPORT:
-				return "Selected %s. Click a target to activate it, or use Play / Act if it has no target." % _card_name(card)
+				return "Selected %s. Click a target to activate it." % _card_name(card)
 		MatchMutations.ZONE_LANE:
 			return "Selected %s. Click an opposing creature or player to attack if legal." % _card_name(card)
 		_:
