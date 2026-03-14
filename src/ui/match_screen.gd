@@ -2050,11 +2050,19 @@ func _add_hover_preview_to_layer(card: Dictionary, instance_id: String, name_pre
 	var empty_style := StyleBoxEmpty.new()
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
 		preview.add_theme_stylebox_override(state, empty_style)
-	# The CardDisplayComponent uses PRESET_FULL_RECT anchoring but lays out
-	# based on its own size property, which may not resolve correctly before
-	# entering the tree. Explicitly set its size and re-trigger layout.
+	# The content_root and CardDisplayComponent use PRESET_FULL_RECT anchoring,
+	# which means their size is resolved from the parent during tree entry —
+	# often at the wrong value. Switch to PRESET_TOP_LEFT with explicit sizes
+	# so the anchor system cannot override them.
+	var content_root = preview.get_meta("content_root", null) as Control
+	if content_root != null:
+		content_root.set_anchors_and_offsets_preset(PRESET_TOP_LEFT)
+		content_root.position = Vector2.ZERO
+		content_root.size = preview_size
 	var component = preview.get_meta("card_display_component", null) as Control
 	if component != null:
+		component.set_anchors_and_offsets_preset(PRESET_TOP_LEFT)
+		component.position = Vector2.ZERO
 		component.size = preview_size
 		component.set_card(card)
 	_set_mouse_passthrough_recursive(preview)
