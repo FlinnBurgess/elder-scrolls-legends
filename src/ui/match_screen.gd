@@ -1713,7 +1713,7 @@ func _refresh_action_buttons() -> void:
 		_play_selected_button.tooltip_text = "Resolve the selected card through the existing match command wiring."
 
 
-func _build_card_button(card: Dictionary, public_view: bool, surface := "default") -> Button:
+func _build_card_button(card: Dictionary, public_view: bool, surface := "default", size_override := Vector2.ZERO) -> Button:
 	var button := Button.new()
 	var instance_id := str(card.get("instance_id", ""))
 	var hidden := not public_view and not _is_pending_prophecy_card(card)
@@ -1722,7 +1722,8 @@ func _build_card_button(card: Dictionary, public_view: bool, surface := "default
 	var interaction_state := _card_interaction_state(card, surface)
 	var locked := _should_dim_card_for_turn(card, surface, interaction_state)
 	button.name = "%s_%s_card" % [surface, instance_id]
-	button.custom_minimum_size = _surface_button_minimum_size(surface)
+	button.custom_minimum_size = size_override if size_override != Vector2.ZERO else _surface_button_minimum_size(surface)
+	button.size = button.custom_minimum_size
 	button.clip_contents = surface != "hand"
 	button.text = ""
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -2025,7 +2026,11 @@ func _hover_preview_card_size() -> Vector2:
 
 
 func _add_hover_preview_to_layer(card: Dictionary, instance_id: String, name_prefix: String) -> Button:
-	var preview := _build_card_button(card, true, "hand")
+	var preview_size := _hover_preview_card_size()
+	# Build the card button at the final preview size so the
+	# CardDisplayComponent lays out correctly on first render
+	var existing_button = _card_buttons.get(instance_id)
+	var preview := _build_card_button(card, true, "hand", preview_size)
 	preview.name = "%s_%s" % [name_prefix, instance_id]
 	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	preview.z_index = 400
@@ -2035,23 +2040,25 @@ func _add_hover_preview_to_layer(card: Dictionary, instance_id: String, name_pre
 	for sig_name in ["pressed", "mouse_entered", "mouse_exited", "gui_input"]:
 		for connection in preview.get_signal_connection_list(sig_name):
 			preview.disconnect(sig_name, connection["callable"])
-	# Remove from _card_buttons so it doesn't interfere with real cards
-	if _card_buttons.get(instance_id) == preview:
+	# Restore the real card button reference that _build_card_button overwrote
+	if existing_button != null:
+		_card_buttons[instance_id] = existing_button
+	else:
 		_card_buttons.erase(instance_id)
-	# Add to tree first so PRESET_FULL_RECT children resize with the button
-	_card_hover_preview_layer.add_child(preview)
-	# Resize to match hand card dimensions — this propagates through the
-	# anchor system to content_root and CardDisplayComponent, triggering
-	# NOTIFICATION_RESIZED and a full internal re-layout
-	var preview_size := _hover_preview_card_size()
-	preview.size = preview_size
-	preview.custom_minimum_size = preview_size
 	# Clear button background so only the CardDisplayComponent renders,
 	# matching how _layout_local_hand_cards styles hand card buttons
 	var empty_style := StyleBoxEmpty.new()
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
 		preview.add_theme_stylebox_override(state, empty_style)
+	# The CardDisplayComponent uses PRESET_FULL_RECT anchoring but lays out
+	# based on its own size property, which may not resolve correctly before
+	# entering the tree. Explicitly set its size and re-trigger layout.
+	var component = preview.get_meta("card_display_component", null) as Control
+	if component != null:
+		component.size = preview_size
+		component.set_card(card)
 	_set_mouse_passthrough_recursive(preview)
+	_card_hover_preview_layer.add_child(preview)
 	return preview
 
 
