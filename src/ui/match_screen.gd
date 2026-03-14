@@ -1161,23 +1161,6 @@ func _build_lanes_panel() -> Control:
 		_lane_panels[lane_id] = lane_panel
 		var lane_box := _build_panel_box(lane_panel, 8, 10)
 
-		var marker := Label.new()
-		marker.name = "%s_lane_marker" % lane_id
-		marker.text = _lane_marker_text(lane_id)
-		marker.add_theme_font_size_override("font_size", 12)
-		marker.add_theme_color_override("font_color", _lane_marker_color(lane_id))
-		lane_box.add_child(marker)
-
-		var header := Button.new()
-		header.name = "%s_lane_header" % lane_id
-		header.alignment = HORIZONTAL_ALIGNMENT_CENTER
-		header.custom_minimum_size = Vector2(0, 56)
-		header.add_theme_font_size_override("font_size", 17)
-		_apply_button_style(header, _lane_header_fill(lane_id), _lane_panel_border(lane_id), Color(0.96, 0.96, 0.98, 1.0), 1, 10)
-		header.pressed.connect(_on_lane_pressed.bind(lane_id))
-		lane_box.add_child(header)
-		_lane_header_buttons[lane_id] = header
-
 		for player_id in PLAYER_ORDER:
 			var row_panel := PanelContainer.new()
 			row_panel.name = "%s_%s_lane_row_panel" % [lane_id, player_id]
