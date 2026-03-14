@@ -911,7 +911,7 @@ func _build_player_section(player_id: String) -> Dictionary:
 	var support_surface := Control.new()
 	support_surface.name = "%s_support_surface" % player_id
 	support_surface.focus_mode = Control.FOCUS_NONE
-	support_surface.gui_input.connect(_on_support_surface_gui_input.bind(player_id))
+	support_surface.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	rows.add_child(support_surface)
 
 	var support_row := HBoxContainer.new()
@@ -1579,10 +1579,6 @@ func _refresh_player_sections() -> void:
 		var discard_button: Button = section["discard_button"]
 		discard_button.text = _pile_button_text("Discard", player.get("discard", []).size())
 		discard_button.tooltip_text = _pile_button_tooltip(player, MatchMutations.ZONE_DISCARD)
-
-		var support_surface: Control = section["support_surface"]
-		support_surface.tooltip_text = ""
-		support_surface.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if _support_surface_interaction_state(player_id) == "valid" else Control.CURSOR_ARROW
 
 		var support_row: HBoxContainer = section["support_row"]
 		_clear_children(support_row)
@@ -2609,15 +2605,6 @@ func _on_card_pressed(instance_id: String) -> void:
 	select_card(instance_id)
 
 
-func _on_support_surface_gui_input(event: InputEvent, player_id: String) -> void:
-	if not (event is InputEventMouseButton):
-		return
-	var button_event := event as InputEventMouseButton
-	if button_event.button_index != MOUSE_BUTTON_LEFT or not button_event.pressed:
-		return
-	if _try_resolve_selected_support_surface(player_id):
-		accept_event()
-
 
 func _on_lane_row_gui_input(event: InputEvent, lane_id: String, player_id: String) -> void:
 	if not (event is InputEventMouseButton):
@@ -2960,15 +2947,6 @@ func _valid_player_target_ids() -> Array:
 			ids.append(player_id)
 	return ids
 
-
-func _support_surface_interaction_state(player_id: String) -> String:
-	var card := _selected_card()
-	var target_player_id := _selected_support_row_target_player_id(card)
-	if target_player_id.is_empty():
-		return "default"
-	if player_id != target_player_id:
-		return "invalid"
-	return "valid" if bool(_validate_selected_support_play(player_id).get("is_valid", false)) else "invalid"
 
 
 
@@ -4245,12 +4223,6 @@ func _try_resolve_detached_card_via_lane(target_instance_id: String) -> void:
 					"lane_slot_keys": [_lane_slot_key(lane_id, target_player, slot_index)],
 				})
 
-
-func _try_resolve_selected_support_surface(player_id: String) -> bool:
-	if _selected_support_row_target_player_id(_selected_card()).is_empty():
-		return false
-	_play_selected_to_support_row(player_id)
-	return true
 
 
 func _try_resolve_selected_support_row_card(target_card: Dictionary) -> bool:

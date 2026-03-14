@@ -503,37 +503,31 @@ func _test_play_interaction_highlighting(screen: MatchScreen) -> bool:
 
 
 func _test_support_row_click_placement(screen: MatchScreen) -> bool:
-	if not _assert(screen.load_scenario("support_lab"), "Support lab should load for support-row click verification."):
+	if not _assert(screen.load_scenario("support_lab"), "Support lab should load for support play verification."):
 		return false
 	await _await_frames(2)
 	var active_player := _active_player(screen.get_match_state())
 	var support_card := _find_hand_card(active_player, "Battle Drum")
-	if not _assert(not support_card.is_empty(), "Support lab should expose a hand support for click placement verification."):
+	if not _assert(not support_card.is_empty(), "Support lab should expose a hand support for play verification."):
 		return false
 	var support_id := str(support_card.get("instance_id", ""))
 	var select_ok := screen.select_card(support_id)
 	await process_frame
 	var interaction_state := screen.get_interaction_state()
-	var support_surface := screen.find_child("player_1_support_surface", true, false) as Control
-	var prompt_before := screen.get_status_message()
-	var cursor_before := support_surface.mouse_default_cursor_shape if support_surface != null else Control.CURSOR_ARROW
-	var click_ok := _click_control(support_surface)
+	var play_result := screen.play_or_activate_selected()
 	await process_frame
 	var match_state := screen.get_match_state()
 	var played_support := screen.find_child("support_%s_card" % support_id, true, false) as Button
 	var played_support_display := played_support.get_meta("card_display_component", null) as Control if played_support != null else null
 	return (
 		_assert(select_ok, "Selecting the support-lab support should succeed.") and
-		_assert(support_surface != null, "Expected a named local support surface for click placement.") and
 		_assert(interaction_state.get("selection_mode", "") == "support", "Hand support selection should enter support interaction mode.") and
 		_assert(interaction_state.get("valid_target_instance_ids", []).is_empty(), "Hand support placement should not mis-highlight lane cards as support targets.") and
-		_assert(prompt_before.contains("Click your support row"), "Support prompts should explain the click-to-place support-row flow.") and
-		_assert(cursor_before == Control.CURSOR_POINTING_HAND, "Support surface should advertise itself as an interactive placement target.") and
-		_assert(click_ok, "Real pointer clicks should be deliverable to the support surface.") and
-		_assert(screen.get_selected_instance_id().is_empty(), "Successful support-row clicks should clear selection after placement.") and
-		_assert(_support_contains(match_state, "player_1", support_id), "Clicking the local support row should place the selected support into the local support zone.") and
+		_assert(bool(play_result.get("is_valid", false)), "Playing a selected support should succeed.") and
+		_assert(screen.get_selected_instance_id().is_empty(), "Successful support plays should clear selection after placement.") and
+		_assert(_support_contains(match_state, "player_1", support_id), "Playing a support should place it into the local support zone.") and
 		_assert(played_support_display != null and (_card_display_mode(played_support_display) == CardDisplayComponent.PRESENTATION_SUPPORT_BOARD_MINIMAL), "Played supports should render in the support-board minimal display mode in the support row.") and
-		_assert(_find_hand_card(_active_player(match_state), "Battle Drum").is_empty(), "Successful support-row clicks should remove the support from hand.")
+		_assert(_find_hand_card(_active_player(match_state), "Battle Drum").is_empty(), "Successful support plays should remove the support from hand.")
 	)
 
 
