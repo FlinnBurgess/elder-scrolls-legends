@@ -1713,7 +1713,7 @@ func _refresh_action_buttons() -> void:
 		_play_selected_button.tooltip_text = "Resolve the selected card through the existing match command wiring."
 
 
-func _build_card_button(card: Dictionary, public_view: bool, surface := "default", size_override := Vector2.ZERO) -> Button:
+func _build_card_button(card: Dictionary, public_view: bool, surface := "default") -> Button:
 	var button := Button.new()
 	var instance_id := str(card.get("instance_id", ""))
 	var hidden := not public_view and not _is_pending_prophecy_card(card)
@@ -1722,8 +1722,7 @@ func _build_card_button(card: Dictionary, public_view: bool, surface := "default
 	var interaction_state := _card_interaction_state(card, surface)
 	var locked := _should_dim_card_for_turn(card, surface, interaction_state)
 	button.name = "%s_%s_card" % [surface, instance_id]
-	button.custom_minimum_size = size_override if size_override != Vector2.ZERO else _surface_button_minimum_size(surface)
-	button.size = button.custom_minimum_size
+	button.custom_minimum_size = _surface_button_minimum_size(surface)
 	button.clip_contents = surface != "hand"
 	button.text = ""
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -2025,49 +2024,20 @@ func _hover_preview_card_size() -> Vector2:
 	return Vector2(target_height * aspect_ratio, target_height)
 
 
-func _add_hover_preview_to_layer(card: Dictionary, instance_id: String, name_prefix: String) -> Button:
+func _add_hover_preview_to_layer(card: Dictionary, instance_id: String, name_prefix: String) -> Control:
 	var preview_size := _hover_preview_card_size()
-	# Build the card button at the final preview size so the
-	# CardDisplayComponent lays out correctly on first render
-	var existing_button = _card_buttons.get(instance_id)
-	var preview := _build_card_button(card, true, "hand", preview_size)
-	preview.name = "%s_%s" % [name_prefix, instance_id]
-	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	preview.z_index = 400
-	preview.disabled = false
-	preview.focus_mode = Control.FOCUS_NONE
-	# Remove signal connections that _build_card_button added
-	for sig_name in ["pressed", "mouse_entered", "mouse_exited", "gui_input"]:
-		for connection in preview.get_signal_connection_list(sig_name):
-			preview.disconnect(sig_name, connection["callable"])
-	# Restore the real card button reference that _build_card_button overwrote
-	if existing_button != null:
-		_card_buttons[instance_id] = existing_button
-	else:
-		_card_buttons.erase(instance_id)
-	# Clear button background so only the CardDisplayComponent renders,
-	# matching how _layout_local_hand_cards styles hand card buttons
-	var empty_style := StyleBoxEmpty.new()
-	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
-		preview.add_theme_stylebox_override(state, empty_style)
-	# The content_root and CardDisplayComponent use PRESET_FULL_RECT anchoring,
-	# which means their size is resolved from the parent during tree entry —
-	# often at the wrong value. Switch to PRESET_TOP_LEFT with explicit sizes
-	# so the anchor system cannot override them.
-	var content_root = preview.get_meta("content_root", null) as Control
-	if content_root != null:
-		content_root.set_anchors_and_offsets_preset(PRESET_TOP_LEFT)
-		content_root.position = Vector2.ZERO
-		content_root.size = preview_size
-	var component = preview.get_meta("card_display_component", null) as Control
-	if component != null:
-		component.set_anchors_and_offsets_preset(PRESET_TOP_LEFT)
-		component.position = Vector2.ZERO
-		component.size = preview_size
-		component.set_card(card)
-	_set_mouse_passthrough_recursive(preview)
-	_card_hover_preview_layer.add_child(preview)
-	return preview
+	# Build the CardDisplayComponent directly at the target size so that
+	# the first (and only) apply_card call computes fonts, styles, and
+	# layout in one consistent pass — no intermediate resize triggers.
+	var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+	component.name = "%s_%s" % [name_prefix, instance_id]
+	component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	component.z_index = 400
+	component.custom_minimum_size = preview_size
+	component.size = preview_size
+	component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+	_card_hover_preview_layer.add_child(component)
+	return component
 
 
 func _show_lane_card_hover_preview(button: Button, card: Dictionary, instance_id: String) -> void:

@@ -326,8 +326,7 @@ func _test_match_card_display_modes(screen: MatchScreen) -> bool:
 	await create_timer(1.1).timeout
 	await _await_frames(2)
 	var preview_after_delay := _find_node_by_name_prefix(screen, "lane_hover_preview_") as Control
-	var preview_display = preview_after_delay.get_meta("card_display_component", null) if preview_after_delay != null else null
-	var preview_mode_matches := preview_display != null and (_card_display_mode(preview_display) == CardDisplayComponent.PRESENTATION_FULL)
+	var preview_mode_matches := preview_after_delay != null and (_card_display_mode(preview_after_delay) == CardDisplayComponent.PRESENTATION_FULL)
 	var preview_ignores_mouse := preview_after_delay != null and preview_after_delay.mouse_filter == Control.MOUSE_FILTER_IGNORE
 	var preview_overlays := false
 	if preview_after_delay != null:
