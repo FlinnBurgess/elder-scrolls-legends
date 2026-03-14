@@ -68,10 +68,6 @@ var _play_selected_button: Button
 var _end_turn_button: Button
 var _clear_button: Button
 var _status_label: Label
-var _prompt_panel: PanelContainer
-var _prompt_title_label: Label
-var _prompt_label: Label
-var _prompt_button_row: HBoxContainer
 var _turn_banner_panel: PanelContainer
 var _turn_banner_label: Label
 var _turn_banner_detail_label: Label
@@ -89,6 +85,8 @@ var _invalid_feedback := {}
 var _detached_card_state := {}
 var _targeting_arrow_state := {}
 var _targeting_arrow: Line2D
+var _prophecy_overlay_state := {}
+var _prophecy_card_overlay: Control
 var _attack_feedbacks: Array = []
 var _damage_feedbacks: Array = []
 var _removal_feedbacks: Array = []
@@ -235,6 +233,7 @@ func is_card_detached() -> bool:
 
 func load_scenario(scenario_id: String) -> bool:
 	_cancel_detached_card_silent()
+	_dismiss_prophecy_overlay()
 	_reset_invalid_feedback()
 	_clear_feedback_state()
 	_reset_local_match_ai_queue()
@@ -332,7 +331,10 @@ func _execute_local_match_ai_step() -> Dictionary:
 	_selected_instance_id = ""
 	_record_feedback_from_events(_ai_feedback_events(action, result))
 	_status_message = _ai_action_status_message(action)
-	_refresh_ui()
+	if not _prophecy_overlay_state.is_empty() and not bool(_prophecy_overlay_state.get("is_local", true)):
+		_animate_enemy_prophecy_resolution(action, result)
+	else:
+		_refresh_ui()
 	return {
 		"did_execute": true,
 		"yield_reason": _ai_post_action_state(),
@@ -650,6 +652,13 @@ func _build_ui() -> void:
 	_local_hand_overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(_local_hand_overlay)
 
+	_prophecy_card_overlay = Control.new()
+	_prophecy_card_overlay.name = "ProphecyCardOverlay"
+	_prophecy_card_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_prophecy_card_overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	_prophecy_card_overlay.z_index = 450
+	add_child(_prophecy_card_overlay)
+
 	var main_row := HBoxContainer.new()
 	main_row.name = "MainRow"
 	main_row.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -705,29 +714,6 @@ func _build_ui() -> void:
 	_clear_button.add_theme_font_size_override("font_size", 17)
 	_apply_button_style(_clear_button, Color(0.15, 0.16, 0.2, 0.98), Color(0.34, 0.36, 0.46, 0.94), Color(0.9, 0.92, 0.96, 1.0))
 	_clear_button.pressed.connect(_on_clear_pressed)
-
-	_prompt_panel = PanelContainer.new()
-	_prompt_panel.name = "PromptPanel"
-	_prompt_panel.custom_minimum_size = Vector2(0, 126)
-	_apply_panel_style(_prompt_panel, Color(0.11, 0.12, 0.16, 0.96), Color(0.29, 0.33, 0.41, 0.88), 1, 10)
-	utility_column.add_child(_prompt_panel)
-	var prompt_panel := _prompt_panel
-	var prompt_box := _build_panel_box(prompt_panel, 12, 16)
-	_prompt_title_label = Label.new()
-	_prompt_title_label.name = "PromptTitleLabel"
-	_prompt_title_label.text = "Interrupts / Prophecy"
-	_prompt_title_label.add_theme_font_size_override("font_size", 20)
-	prompt_box.add_child(_prompt_title_label)
-	_prompt_label = Label.new()
-	_prompt_label.size_flags_horizontal = SIZE_EXPAND_FILL
-	_prompt_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_prompt_label.add_theme_font_size_override("font_size", 16)
-	_prompt_label.custom_minimum_size = Vector2(0, 52)
-	prompt_box.add_child(_prompt_label)
-	_prompt_button_row = HBoxContainer.new()
-	_prompt_button_row.add_theme_constant_override("separation", 10)
-	_prompt_button_row.size_flags_horizontal = SIZE_EXPAND_FILL
-	prompt_box.add_child(_prompt_button_row)
 
 	var actions_panel := PanelContainer.new()
 	actions_panel.name = "ActionPanel"
@@ -1478,9 +1464,7 @@ func _refresh_ui() -> void:
 	_lane_slot_buttons = {}
 	_refresh_turn_presentation()
 	_status_label.text = _status_message
-	_prompt_label.text = _prompt_text()
-	_refresh_prompt_presentation()
-	_refresh_prompt_buttons()
+	_refresh_prophecy_overlay()
 	_refresh_player_sections()
 	_refresh_lanes()
 	_refresh_inspector()
@@ -1494,14 +1478,14 @@ func _refresh_ui() -> void:
 		var detached_button: Button = _card_buttons.get(detached_id)
 		if detached_button != null:
 			detached_button.visible = false
-		else:
+		elif not _has_active_prophecy_overlay(detached_id):
 			_cancel_detached_card_silent()
 	if not _targeting_arrow_state.is_empty():
 		var arrow_id: String = str(_targeting_arrow_state.get("instance_id", ""))
 		var arrow_button: Button = _card_buttons.get(arrow_id)
 		if arrow_button != null:
 			arrow_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		else:
+		elif not _has_active_prophecy_overlay(arrow_id):
 			_cancel_targeting_mode_silent()
 	_pending_layout_scale_frames = 2
 
@@ -1571,6 +1555,8 @@ func _refresh_player_sections() -> void:
 		_clear_children(hand_row)
 		var hand_public := _is_hand_public(player_id)
 		for card in player.get("hand", []):
+			if _has_active_prophecy_overlay(str(card.get("instance_id", ""))):
+				continue
 			hand_row.add_child(_build_card_button(card, hand_public, "hand"))
 		if hand_row.get_child_count() == 0:
 			var placeholder := _build_placeholder_label("Hand empty")
@@ -1610,7 +1596,7 @@ func _refresh_inspector() -> void:
 	var card := _selected_card()
 	_clear_children(_keyword_button_row)
 	if card.is_empty() and _selected_pile_zone.is_empty():
-		_inspector_label.text = "Select a visible card or Prophecy prompt to inspect details and available actions."
+		_inspector_label.text = "Select a visible card to inspect details and available actions."
 		_help_label.text = _default_help_text()
 		return
 	if card.is_empty():
@@ -1634,47 +1620,180 @@ func _refresh_debug_tabs() -> void:
 	_state_text.text = JSON.stringify(_match_state, "  ")
 
 
-func _refresh_prompt_presentation() -> void:
-	if _prompt_panel == null:
-		return
-	var has_pending_prophecy := MatchTiming.has_pending_prophecy(_match_state)
-	if has_pending_prophecy:
-		_apply_panel_style(_prompt_panel, Color(0.16, 0.1, 0.22, 0.98), Color(0.86, 0.66, 0.96, 0.98), 2, 10)
-		if _prompt_title_label != null:
-			_prompt_title_label.text = "INTERRUPT • PROPHECY"
-			_prompt_title_label.add_theme_color_override("font_color", Color(0.98, 0.92, 1.0, 1.0))
-		_prompt_label.add_theme_color_override("font_color", Color(0.94, 0.88, 1.0, 0.98))
-		return
-	_apply_panel_style(_prompt_panel, Color(0.11, 0.12, 0.16, 0.96), Color(0.29, 0.33, 0.41, 0.88), 1, 10)
-	if _prompt_title_label != null:
-		_prompt_title_label.text = "Interrupts / Prophecy"
-		_prompt_title_label.add_theme_color_override("font_color", Color(1, 1, 1, 1))
-	_prompt_label.add_theme_color_override("font_color", Color(1, 1, 1, 1))
+func _refresh_prophecy_overlay() -> void:
+	var has_prophecy := MatchTiming.has_pending_prophecy(_match_state)
+	var overlay_active := not _prophecy_overlay_state.is_empty()
+	if has_prophecy and not overlay_active:
+		var windows := MatchTiming.get_pending_prophecies(_match_state)
+		if not windows.is_empty():
+			var window: Dictionary = windows[0]
+			var instance_id := str(window.get("instance_id", ""))
+			var player_id := str(window.get("player_id", ""))
+			if player_id == _local_player_id():
+				_show_local_prophecy_overlay(instance_id)
+			else:
+				_show_enemy_prophecy_overlay(instance_id)
+	elif not has_prophecy and overlay_active:
+		var phase: String = str(_prophecy_overlay_state.get("phase", ""))
+		if phase != "animating":
+			_dismiss_prophecy_overlay()
 
 
-func _refresh_prompt_buttons() -> void:
-	_clear_children(_prompt_button_row)
-	for window in MatchTiming.get_pending_prophecies(_match_state):
-		var instance_id := str(window.get("instance_id", ""))
-		var player_id := str(window.get("player_id", ""))
+func _show_local_prophecy_overlay(instance_id: String) -> void:
+	_dismiss_prophecy_overlay()
+	var card := _card_from_instance_id(instance_id)
+	if card.is_empty():
+		return
+	var card_size := _hand_card_display_size()
+	var viewport_size := get_viewport_rect().size
+	var hand_top_y := viewport_size.y - card_size.y * 0.35
+
+	var vbox := VBoxContainer.new()
+	vbox.name = "prophecy_local_vbox"
+	vbox.mouse_filter = Control.MOUSE_FILTER_PASS
+	vbox.add_theme_constant_override("separation", 12)
+	vbox.alignment = BoxContainer.ALIGNMENT_END
+
+	var card_wrapper := Control.new()
+	card_wrapper.name = "prophecy_card_wrapper"
+	card_wrapper.custom_minimum_size = card_size
+	card_wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+	component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+	card_wrapper.add_child(component)
+	vbox.add_child(card_wrapper)
+
+	var button_row := HBoxContainer.new()
+	button_row.name = "prophecy_button_row"
+	button_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	button_row.add_theme_constant_override("separation", 16)
+
+	var play_button := Button.new()
+	play_button.text = "Play"
+	play_button.custom_minimum_size = Vector2(card_size.x * 0.45, 46)
+	play_button.add_theme_font_size_override("font_size", 17)
+	_apply_button_style(play_button, Color(0.21, 0.12, 0.29, 0.99), Color(0.92, 0.72, 0.98, 1.0), Color(0.99, 0.96, 1.0, 1.0), 2, 10)
+	play_button.pressed.connect(_on_prophecy_play_pressed.bind(instance_id))
+	button_row.add_child(play_button)
+
+	var keep_button := Button.new()
+	keep_button.text = "Keep"
+	keep_button.custom_minimum_size = Vector2(card_size.x * 0.45, 46)
+	keep_button.add_theme_font_size_override("font_size", 17)
+	_apply_button_style(keep_button, Color(0.22, 0.11, 0.14, 0.98), Color(0.78, 0.45, 0.47, 0.96), Color(0.99, 0.95, 0.95, 1.0), 1, 10)
+	keep_button.pressed.connect(_on_prophecy_keep_pressed.bind(instance_id))
+	button_row.add_child(keep_button)
+
+	vbox.add_child(button_row)
+
+	var total_height := card_size.y + 12.0 + 46.0
+	var top_y := hand_top_y - total_height - 16.0
+	vbox.position = Vector2((viewport_size.x - card_size.x) * 0.5, top_y)
+	vbox.size = Vector2(card_size.x, total_height)
+
+	_prophecy_card_overlay.add_child(vbox)
+	_prophecy_overlay_state = {
+		"instance_id": instance_id,
+		"player_id": _local_player_id(),
+		"is_local": true,
+		"vbox": vbox,
+		"card_wrapper": card_wrapper,
+		"component": component,
+		"phase": "active",
+	}
+	_selected_instance_id = instance_id
+
+
+func _show_enemy_prophecy_overlay(instance_id: String) -> void:
+	_dismiss_prophecy_overlay()
+	var card_size := _hand_card_display_size()
+	var viewport_size := get_viewport_rect().size
+
+	var card_back := PanelContainer.new()
+	card_back.name = "prophecy_enemy_card_back"
+	card_back.custom_minimum_size = card_size
+	card_back.size = card_size
+	_apply_panel_style(card_back, Color(0.35, 0.22, 0.12, 0.98), Color(0.57, 0.44, 0.27, 0.92), 2, 0)
+
+	var pos_x := (viewport_size.x - card_size.x) * 0.5
+	var pos_y := viewport_size.y * 0.10 + 12.0
+	card_back.position = Vector2(pos_x, pos_y)
+
+	_prophecy_card_overlay.add_child(card_back)
+	_prophecy_overlay_state = {
+		"instance_id": instance_id,
+		"player_id": _pending_prophecy_player_id(instance_id),
+		"is_local": false,
+		"card_back": card_back,
+		"phase": "active",
+	}
+
+
+func _dismiss_prophecy_overlay() -> void:
+	if _prophecy_overlay_state.is_empty():
+		return
+	var vbox: Control = _prophecy_overlay_state.get("vbox")
+	if vbox != null and is_instance_valid(vbox):
+		vbox.queue_free()
+	var card_back: Control = _prophecy_overlay_state.get("card_back")
+	if card_back != null and is_instance_valid(card_back):
+		card_back.queue_free()
+	_prophecy_overlay_state = {}
+
+
+func _has_active_prophecy_overlay(instance_id: String) -> bool:
+	if _prophecy_overlay_state.is_empty():
+		return false
+	return str(_prophecy_overlay_state.get("instance_id", "")) == instance_id
+
+
+func _animate_enemy_prophecy_resolution(action: Dictionary, _result: Dictionary) -> void:
+	var card_back: PanelContainer = _prophecy_overlay_state.get("card_back")
+	if card_back == null or not is_instance_valid(card_back):
+		_dismiss_prophecy_overlay()
+		_refresh_ui()
+		return
+	var action_kind := str(action.get("kind", ""))
+	var is_play := action_kind == MatchActionEnumerator.KIND_SUMMON_CREATURE or action_kind == MatchActionEnumerator.KIND_PLAY_ACTION or action_kind == MatchActionEnumerator.KIND_PLAY_ITEM
+	_prophecy_overlay_state["phase"] = "animating"
+	if is_play:
+		# Flip animation: scale X to 0, swap to card face, scale back
+		var instance_id := str(_prophecy_overlay_state.get("instance_id", ""))
 		var card := _card_from_instance_id(instance_id)
-		var select_button := Button.new()
-		select_button.text = "Select %s" % _card_name(card)
-		select_button.custom_minimum_size = Vector2(0, 42)
-		select_button.add_theme_font_size_override("font_size", 15)
-		_apply_button_style(select_button, Color(0.21, 0.12, 0.29, 0.99), Color(0.92, 0.72, 0.98, 1.0), Color(0.99, 0.96, 1.0, 1.0), 2, 10)
-		select_button.pressed.connect(_on_select_prophecy_pressed.bind(instance_id))
-		_prompt_button_row.add_child(select_button)
-
-		var decline_button := Button.new()
-		decline_button.text = "Decline (%s)" % _player_name(player_id)
-		decline_button.custom_minimum_size = Vector2(0, 42)
-		decline_button.add_theme_font_size_override("font_size", 15)
-		_apply_button_style(decline_button, Color(0.22, 0.11, 0.14, 0.98), Color(0.78, 0.45, 0.47, 0.96), Color(0.99, 0.95, 0.95, 1.0), 1, 10)
-		decline_button.pressed.connect(_on_decline_prophecy_pressed.bind(instance_id))
-		_prompt_button_row.add_child(decline_button)
-	if _prompt_button_row.get_child_count() == 0:
-		_prompt_button_row.add_child(_build_placeholder_label("No pending Prophecy windows."))
+		card_back.pivot_offset = Vector2(card_back.size.x * 0.5, card_back.size.y * 0.5)
+		var tween := create_tween()
+		tween.tween_property(card_back, "scale:x", 0.0, 0.2)
+		tween.tween_callback(func():
+			# Replace card back content with card face
+			for child in card_back.get_children():
+				child.queue_free()
+			if not card.is_empty():
+				var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+				component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+				component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+				card_back.add_child(component)
+		)
+		tween.tween_property(card_back, "scale:x", 1.0, 0.2)
+		tween.tween_interval(0.4)
+		tween.tween_callback(func():
+			_dismiss_prophecy_overlay()
+			_refresh_ui()
+		)
+	else:
+		# Decline: slide up into opponent hand area
+		card_back.pivot_offset = Vector2(card_back.size.x * 0.5, card_back.size.y * 0.5)
+		var tween := create_tween()
+		tween.set_parallel(true)
+		tween.tween_property(card_back, "position:y", -card_back.size.y, 0.3).set_ease(Tween.EASE_IN)
+		tween.tween_property(card_back, "scale", Vector2(0.6, 0.6), 0.3).set_ease(Tween.EASE_IN)
+		tween.set_parallel(false)
+		tween.tween_callback(func():
+			_dismiss_prophecy_overlay()
+			_refresh_ui()
+		)
 
 
 func _refresh_action_buttons() -> void:
@@ -2738,11 +2857,23 @@ func _on_pile_pressed(player_id: String, zone: String) -> void:
 	_refresh_ui()
 
 
-func _on_select_prophecy_pressed(instance_id: String) -> void:
-	select_card(instance_id)
+func _on_prophecy_play_pressed(instance_id: String) -> void:
+	var card := _card_from_instance_id(instance_id)
+	if card.is_empty():
+		return
+	_selected_instance_id = instance_id
+	var mode := _selected_action_mode(card)
+	match mode:
+		SELECTION_MODE_SUMMON:
+			_detach_prophecy_card(instance_id)
+		SELECTION_MODE_ITEM, SELECTION_MODE_ACTION:
+			_enter_prophecy_targeting_mode(instance_id)
+		_:
+			play_or_activate_selected()
 
 
-func _on_decline_prophecy_pressed(instance_id: String) -> void:
+func _on_prophecy_keep_pressed(instance_id: String) -> void:
+	_dismiss_prophecy_overlay()
 	decline_prophecy(instance_id)
 
 
@@ -3079,6 +3210,7 @@ func _finalize_engine_result(result: Dictionary, success_message: String, clear_
 	if bool(result.get("is_valid", false)):
 		_cancel_detached_card_silent()
 		_cancel_targeting_mode_silent()
+		_dismiss_prophecy_overlay()
 		_reset_invalid_feedback()
 		if clear_selection_on_success:
 			_selected_instance_id = ""
@@ -3972,7 +4104,7 @@ func _pending_prophecy_player_id(instance_id: String) -> String:
 func _selection_prompt(card: Dictionary) -> String:
 	var location := MatchMutations.find_card_location(_match_state, str(card.get("instance_id", "")))
 	if _is_pending_prophecy_card(card):
-		return "Selected %s. It is pending Prophecy; play it for free or decline it from the prompt." % _card_name(card)
+		return "Selected %s. It is pending Prophecy; play it for free or keep it in hand." % _card_name(card)
 	if not bool(location.get("is_valid", false)):
 		return "Inspecting %s." % _card_name(card)
 	match str(location.get("zone", "")):
@@ -3992,17 +4124,6 @@ func _selection_prompt(card: Dictionary) -> String:
 			return "Selected %s. Click an opposing creature or player to attack if legal." % _card_name(card)
 		_:
 			return "Selected %s." % _card_name(card)
-
-
-func _prompt_text() -> String:
-	var windows := MatchTiming.get_pending_prophecies(_match_state)
-	if windows.is_empty():
-		return "No open interrupt windows. Use the scenario picker, battlefield, and right-rail tools to exercise the match engine."
-	var parts: Array = []
-	for window in windows:
-		var card := _card_from_instance_id(str(window.get("instance_id", "")))
-		parts.append("%s may respond with %s." % [_player_name(str(window.get("player_id", ""))), _card_name(card)])
-	return "Pending Prophecy: %s" % _join_parts(parts, " ")
 
 
 func _default_help_text() -> String:
@@ -4207,6 +4328,64 @@ func _detach_hand_card(instance_id: String) -> void:
 		"preview": wrapper,
 		"card_data": card.duplicate(true),
 	}
+
+
+func _detach_prophecy_card(instance_id: String) -> void:
+	_cancel_detached_card_silent()
+	_selected_instance_id = instance_id
+	var card := _card_from_instance_id(instance_id)
+	var preview_size := _hand_card_display_size()
+	var base_size := CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+	var wrapper := Control.new()
+	wrapper.name = "detached_prophecy_card_%s" % instance_id
+	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrapper.z_index = 500
+	wrapper.size = base_size
+	wrapper.custom_minimum_size = base_size
+	var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+	component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+	wrapper.add_child(component)
+	add_child(wrapper)
+	wrapper.custom_minimum_size = preview_size
+	wrapper.size = preview_size
+	var mouse_pos := get_viewport().get_mouse_position()
+	wrapper.position = mouse_pos + Vector2(-preview_size.x * 0.5, -preview_size.y * 0.62)
+	_detached_card_state = {
+		"instance_id": instance_id,
+		"preview": wrapper,
+		"card_data": card.duplicate(true),
+	}
+	# Hide the prophecy overlay while dragging — it rebuilds on cancel via _refresh_ui
+	var vbox: Control = _prophecy_overlay_state.get("vbox")
+	if vbox != null and is_instance_valid(vbox):
+		vbox.visible = false
+	_status_message = "Click a friendly lane slot to summon %s." % _card_name(card)
+	_refresh_ui()
+
+
+func _enter_prophecy_targeting_mode(instance_id: String) -> void:
+	_cancel_targeting_mode_silent()
+	_selected_instance_id = instance_id
+	var card := _card_from_instance_id(instance_id)
+	# Use the prophecy card wrapper position as arrow origin
+	var card_wrapper: Control = _prophecy_overlay_state.get("card_wrapper")
+	var arrow_origin := Vector2.ZERO
+	if card_wrapper != null and is_instance_valid(card_wrapper):
+		var card_size := card_wrapper.size
+		arrow_origin = card_wrapper.global_position + Vector2(card_size.x * 0.5, 0.0)
+	else:
+		var viewport_size := get_viewport_rect().size
+		arrow_origin = Vector2(viewport_size.x * 0.5, viewport_size.y * 0.5)
+	_targeting_arrow = _create_targeting_arrow()
+	_targeting_arrow_state = {
+		"instance_id": instance_id,
+		"origin": arrow_origin,
+		"button": null,
+	}
+	_status_message = "Select a target for %s." % _card_name(card)
+	_refresh_ui()
 
 
 func _cancel_detached_card() -> void:

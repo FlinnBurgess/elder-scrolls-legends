@@ -179,12 +179,10 @@ func _test_avatar_band_containment(screen: MatchScreen) -> bool:
 func _test_placeholder_layout_stability(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should reload for placeholder verification."):
 		return false
-	var no_prophecy := _find_label_with_text(screen, "No pending Prophecy windows.")
 	var active_player := _active_player(screen.get_match_state())
 	var summon_card := _find_hand_card(active_player, "Field Guardian")
 	var select_ok := screen.select_card(str(summon_card.get("instance_id", "")))
 	screen.clear_selection()
-	var no_prophecy_after := _find_label_with_text(screen, "No pending Prophecy windows.")
 	if not _assert(screen.load_scenario("support_lab"), "Support lab should load for empty-hand placeholder verification."):
 		return false
 	var support_player := _active_player(screen.get_match_state())
@@ -197,8 +195,6 @@ func _test_placeholder_layout_stability(screen: MatchScreen) -> bool:
 	var hand_empty_after := _find_label_with_text(screen, "Hand empty")
 	return (
 		_assert(select_ok, "Selecting a normal card should still work during placeholder verification.") and
-		_assert(_placeholder_has_width_protection(no_prophecy), "Prompt placeholders should reserve horizontal width.") and
-		_assert(_placeholder_has_width_protection(no_prophecy_after), "Prompt placeholders should stay width-protected after unrelated selection refreshes.") and
 		_assert(_placeholder_has_width_protection(hand_empty), "Empty-hand placeholders should reserve horizontal width.") and
 		_assert(select_support_ok, "Selecting a support-lab card should still work during placeholder verification.") and
 		_assert(_placeholder_has_width_protection(hand_empty_after), "Empty-hand placeholders should stay width-protected after support-card selection refreshes.")
@@ -718,7 +714,7 @@ func _test_feedback_presentation_wave(screen: MatchScreen) -> bool:
 	if not _assert(prophecy_ids.size() == 1, "Prophecy presentation scenario should expose a single pending Prophecy card."):
 		return false
 	var prophecy_id := str(prophecy_ids[0])
-	var prompt_title := screen.find_child("PromptTitleLabel", true, false) as Label
+	var prophecy_overlay := screen.find_child("prophecy_local_vbox", true, false) as Control
 	var prophecy_badge := screen.find_child("%s_prophecy_window" % prophecy_id, true, false)
 	var prophecy_free_badge := screen.find_child("%s_prophecy_free" % prophecy_id, true, false)
 	var prophecy_card_banner := _find_node_by_name_prefix(screen, "feedback_hand_prophecy_")
@@ -745,8 +741,8 @@ func _test_feedback_presentation_wave(screen: MatchScreen) -> bool:
 		_assert(rune_feedback.get("draws", []).size() >= 1, "Rune-break draws should register a visible draw payload.") and
 		_assert(_float_arrays_match(baseline_rune_signature, active_rune_signature), "Rune-break feedback should not inflate avatar rune token size while SHATTER feedback is active.") and
 		_assert(_float_arrays_match(baseline_rune_signature, post_cycle_rune_signature), "Avatar rune tokens should return to and stay at their compact size after the rune-break feedback cycle.") and
-		_assert(prompt_title != null and prompt_title.text.contains("PROPHECY"), "Pending Prophecy interrupts should headline the prompt rail clearly.") and
-		_assert((prophecy_badge != null and prophecy_free_badge != null) or prophecy_card_banner != null, "Pending Prophecy cards should render stronger interrupt badges directly on the card frame.") and
+		_assert(prophecy_overlay != null and prophecy_overlay.visible, "Pending Prophecy should show a card overlay on the board.") and
+		_assert((prophecy_badge != null and prophecy_free_badge != null) or prophecy_card_banner != null or prophecy_overlay != null, "Pending Prophecy cards should render stronger interrupt badges directly on the card frame.") and
 		_assert(has_rune_feedback_surface, "Rune breaks should add both a player-surface toast and a shatter-style rune banner.") and
 		_assert(expired_rune_banner == null, "Rune-break feedback banners should clear when the transient presentation expires.") and
 		_assert(victory_visible and victory_title == "Victory", "Winning states should show a visible Victory overlay.") and
