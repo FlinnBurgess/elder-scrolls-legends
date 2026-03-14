@@ -2152,7 +2152,10 @@ func _build_card_display_component(card: Dictionary, surface: String, instance_i
 		return null
 	component.name = "%s_card_display" % instance_id
 	component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	component.apply_card(card, _card_presentation_mode(card, surface))
+	var display_card := card.duplicate(true)
+	if surface == "lane" and EvergreenRules.is_cover_active(_match_state, card):
+		display_card["_cover_active"] = true
+	component.apply_card(display_card, _card_presentation_mode(card, surface))
 	return component
 
 
@@ -2177,22 +2180,8 @@ func _add_card_overlay_badges(content_root: Control, card: Dictionary, public_vi
 			content_root.add_child(hand_badges)
 
 
-func _build_lane_status_badges(card: Dictionary, instance_id: String) -> HBoxContainer:
-	if str(card.get("card_type", "")) != "creature":
-		return null
-	var row := HBoxContainer.new()
-	row.name = "%s_combat_badges" % instance_id
-	row.position = Vector2(8, 8)
-	row.add_theme_constant_override("separation", 4)
-	row.add_child(_build_text_badge("%s_readiness" % instance_id, _lane_readiness_badge_text(card), Color(0.17, 0.2, 0.27, 0.99), Color(0.55, 0.67, 0.84, 0.94), Color(0.9, 0.94, 0.99, 1.0), 9, Vector2(0, 20)))
-	if _lane_readiness_badge_text(card) == "READY":
-		var readiness_badge := row.get_child(0) as PanelContainer
-		_apply_panel_style(readiness_badge, Color(0.16, 0.28, 0.18, 0.99), Color(0.58, 0.92, 0.61, 0.98), 1, 8)
-	if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_GUARD):
-		row.add_child(_build_text_badge("%s_guard" % instance_id, "GUARD", Color(0.31, 0.22, 0.1, 0.99), Color(0.95, 0.78, 0.4, 0.98), Color(1.0, 0.96, 0.88, 1.0), 9, Vector2(0, 20)))
-	if EvergreenRules.is_cover_active(_match_state, card):
-		row.add_child(_build_text_badge("%s_cover" % instance_id, "COVER", Color(0.17, 0.15, 0.28, 0.99), Color(0.77, 0.67, 0.97, 0.98), Color(0.98, 0.95, 1.0, 1.0), 9, Vector2(0, 20)))
-	return row
+func _build_lane_status_badges(_card: Dictionary, _instance_id: String) -> HBoxContainer:
+	return null
 
 
 func _lane_readiness_badge_text(card: Dictionary) -> String:

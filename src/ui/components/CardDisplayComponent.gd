@@ -283,6 +283,17 @@ func _refresh_styles() -> void:
 	_apply_panel_style(_attack_badge, Color(0.08, 0.06, 0.04, 0.98), Color(0.72, 0.62, 0.42, 0.96), _scaled_border_width(2, scale), 0)
 	# Health badge – circular (corner radius = half the badge side)
 	_apply_panel_style(_health_badge, Color(0.08, 0.06, 0.04, 0.98), Color(0.72, 0.62, 0.42, 0.96), _scaled_border_width(2, scale), _scaled_int(15, scale))
+	# Guard: thick dark brown top border on outer frame
+	if EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_GUARD):
+		var outer_style := _outer_frame.get_theme_stylebox("panel") as StyleBoxFlat
+		if outer_style:
+			outer_style.border_width_top = _scaled_border_width(8, scale)
+			outer_style.border_color = Color(0.36, 0.22, 0.08, 1.0)
+	# Cover: dark purplish hue on card art
+	if bool(_card_data.get("_cover_active", false)):
+		_art_texture.modulate = Color(0.6, 0.4, 0.7, 1.0)
+	else:
+		_art_texture.modulate = Color.WHITE
 	_name_label.add_theme_color_override("font_color", COLOR_TEXT)
 	_subtype_label.add_theme_color_override("font_color", COLOR_TEXT_MUTED)
 	_rules_label.add_theme_color_override("default_color", COLOR_RULES_TEXT)

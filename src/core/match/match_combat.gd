@@ -53,6 +53,10 @@ static func resolve_attack(match_state: Dictionary, player_id: String, attacker_
 
 	var attacker: Dictionary = validation["attacker"]
 	attacker["has_attacked_this_turn"] = true
+	if EvergreenRules.has_raw_status(attacker, EvergreenRules.STATUS_COVER):
+		EvergreenRules.remove_status(attacker, EvergreenRules.STATUS_COVER)
+		attacker.erase("cover_expires_on_turn")
+		attacker.erase("cover_granted_by")
 
 	var events: Array = []
 	events.append({
