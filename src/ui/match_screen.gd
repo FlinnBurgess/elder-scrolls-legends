@@ -957,7 +957,7 @@ func _build_player_section(player_id: String) -> Dictionary:
 		var avatar_w := 300.0
 		var avatar_h := 282.0
 		var avatar_gap := 12.0
-		var support_h := 96.0
+		var support_h := 144.0
 		# Force avatar to its intended size immediately so internal layout is stable
 		avatar_component.size = Vector2(avatar_w, avatar_h)
 		if is_opponent:
