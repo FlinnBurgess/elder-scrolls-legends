@@ -2024,30 +2024,13 @@ func _hover_preview_card_size() -> Vector2:
 	return Vector2(target_height * aspect_ratio, target_height)
 
 
-func _build_hover_preview_button(card: Dictionary, instance_id: String, name_prefix: String) -> Button:
-	var preview_size := _hover_preview_card_size()
+func _add_hover_preview_to_layer(card: Dictionary, instance_id: String, name_prefix: String) -> Button:
 	var preview := _build_card_button(card, true, "hand")
 	preview.name = "%s_%s" % [name_prefix, instance_id]
 	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	preview.z_index = 400
 	preview.disabled = false
 	preview.focus_mode = Control.FOCUS_NONE
-	preview.size = preview_size
-	preview.custom_minimum_size = preview_size
-	# The CardDisplayComponent laid out at the original button size during
-	# _build_card_button. Force it to re-layout at the preview size now.
-	var content_root = preview.get_meta("content_root", null) as Control
-	if content_root != null:
-		content_root.set_anchors_and_offsets_preset(PRESET_TOP_LEFT)
-		content_root.position = Vector2.ZERO
-		content_root.size = preview_size
-	var component = preview.get_meta("card_display_component", null) as Control
-	if component != null:
-		component.set_anchors_and_offsets_preset(PRESET_TOP_LEFT)
-		component.position = Vector2.ZERO
-		component.size = preview_size
-		component.set_card(card)
-	_set_mouse_passthrough_recursive(preview)
 	# Remove signal connections that _build_card_button added
 	for sig_name in ["pressed", "mouse_entered", "mouse_exited", "gui_input"]:
 		for connection in preview.get_signal_connection_list(sig_name):
@@ -2055,6 +2038,20 @@ func _build_hover_preview_button(card: Dictionary, instance_id: String, name_pre
 	# Remove from _card_buttons so it doesn't interfere with real cards
 	if _card_buttons.get(instance_id) == preview:
 		_card_buttons.erase(instance_id)
+	# Add to tree first so PRESET_FULL_RECT children resize with the button
+	_card_hover_preview_layer.add_child(preview)
+	# Resize to match hand card dimensions — this propagates through the
+	# anchor system to content_root and CardDisplayComponent, triggering
+	# NOTIFICATION_RESIZED and a full internal re-layout
+	var preview_size := _hover_preview_card_size()
+	preview.size = preview_size
+	preview.custom_minimum_size = preview_size
+	# Clear button background so only the CardDisplayComponent renders,
+	# matching how _layout_local_hand_cards styles hand card buttons
+	var empty_style := StyleBoxEmpty.new()
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		preview.add_theme_stylebox_override(state, empty_style)
+	_set_mouse_passthrough_recursive(preview)
 	return preview
 
 
@@ -2062,8 +2059,7 @@ func _show_lane_card_hover_preview(button: Button, card: Dictionary, instance_id
 	_clear_lane_card_hover_preview()
 	if _card_hover_preview_layer == null:
 		return
-	var preview := _build_hover_preview_button(card, instance_id, "lane_hover_preview")
-	_card_hover_preview_layer.add_child(preview)
+	var preview := _add_hover_preview_to_layer(card, instance_id, "lane_hover_preview")
 	_lane_hover_preview_instance_id = instance_id
 	_lane_hover_preview_button_ref = weakref(button)
 	_position_lane_card_hover_preview(button)
@@ -2141,8 +2137,7 @@ func _show_support_card_hover_preview(button: Button, card: Dictionary, instance
 	_clear_support_card_hover_preview()
 	if _card_hover_preview_layer == null:
 		return
-	var preview := _build_hover_preview_button(card, instance_id, "support_hover_preview")
-	_card_hover_preview_layer.add_child(preview)
+	var preview := _add_hover_preview_to_layer(card, instance_id, "support_hover_preview")
 	_support_hover_preview_instance_id = instance_id
 	_support_hover_preview_button_ref = weakref(button)
 	_position_support_card_hover_preview(button)
