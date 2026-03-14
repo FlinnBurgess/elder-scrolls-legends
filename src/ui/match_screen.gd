@@ -1473,7 +1473,7 @@ func _refresh_player_sections() -> void:
 
 
 func _refresh_lanes() -> void:
-	_clear_insertion_preview()
+	_clear_insertion_preview(false)
 	for lane in _lane_entries():
 		var lane_id := str(lane.get("id", ""))
 		var lane_panel: PanelContainer = _lane_panels.get(lane_id)
@@ -4205,9 +4205,16 @@ func _compute_insertion_index(row: HBoxContainer, mouse_global_x: float) -> int:
 
 func _set_insertion_preview(lane_id: String, player_id: String, index: int, row: HBoxContainer) -> void:
 	if not _insertion_preview.is_empty():
-		if str(_insertion_preview.get("lane_id", "")) == lane_id and str(_insertion_preview.get("player_id", "")) == player_id and int(_insertion_preview.get("index", -1)) == index:
+		var same_lane := str(_insertion_preview.get("lane_id", "")) == lane_id and str(_insertion_preview.get("player_id", "")) == player_id
+		if same_lane and int(_insertion_preview.get("index", -1)) == index:
 			return
-		_clear_insertion_preview()
+		if same_lane:
+			var spacer: Control = _insertion_preview.get("spacer")
+			if spacer != null and is_instance_valid(spacer) and spacer.get_parent() == row:
+				row.move_child(spacer, index)
+				_insertion_preview["index"] = index
+				return
+		_clear_insertion_preview(false)
 	var spacer := Control.new()
 	spacer.name = "insertion_spacer"
 	spacer.set_meta("is_insertion_spacer", true)
@@ -4227,18 +4234,25 @@ func _set_insertion_preview(lane_id: String, player_id: String, index: int, row:
 	}
 
 
-func _clear_insertion_preview() -> void:
+func _clear_insertion_preview(animate := true) -> void:
 	if _insertion_preview.is_empty():
 		return
 	var spacer: Control = _insertion_preview.get("spacer")
 	var tween: Tween = _insertion_preview.get("tween")
 	if tween != null and tween.is_valid():
 		tween.kill()
-	if spacer != null and is_instance_valid(spacer):
+	_insertion_preview = {}
+	if spacer == null or not is_instance_valid(spacer):
+		return
+	if not animate or spacer.get_parent() == null:
 		if spacer.get_parent() != null:
 			spacer.get_parent().remove_child(spacer)
 		spacer.queue_free()
-	_insertion_preview = {}
+		return
+	var out_tween := create_tween()
+	out_tween.tween_property(spacer, "custom_minimum_size:x", 0.0, 0.1).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+	var spacer_ref: WeakRef = weakref(spacer)
+	out_tween.finished.connect(_queue_free_weak.bind(spacer_ref))
 
 
 func _get_insertion_index_or_default(lane_id: String, player_id: String) -> int:
