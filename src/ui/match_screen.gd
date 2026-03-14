@@ -1138,34 +1138,14 @@ func _build_match_end_overlay() -> PanelContainer:
 
 
 func _build_lanes_panel() -> Control:
-	var lanes_panel := PanelContainer.new()
-	lanes_panel.name = "BattlefieldPanel"
-	lanes_panel.custom_minimum_size = Vector2(0, 360)
-	lanes_panel.size_flags_horizontal = SIZE_EXPAND_FILL
-	lanes_panel.size_flags_vertical = SIZE_EXPAND_FILL
-	lanes_panel.size_flags_stretch_ratio = 2.8
-	_apply_panel_style(lanes_panel, Color(0.09, 0.1, 0.12, 0.98), Color(0.49, 0.4, 0.25, 0.92), 2, 14)
-	var lanes_box := _build_panel_box(lanes_panel, 12, 14)
-
-	var battlefield_title := Label.new()
-	battlefield_title.text = "Battlefield"
-	battlefield_title.add_theme_font_size_override("font_size", 26)
-	battlefield_title.add_theme_color_override("font_color", Color(0.97, 0.9, 0.76, 1.0))
-	lanes_box.add_child(battlefield_title)
-
-	var battlefield_caption := Label.new()
-	battlefield_caption.text = "Field stays neutral. Shadow keeps the darker cover lane identity."
-	battlefield_caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	battlefield_caption.max_lines_visible = 2
-	battlefield_caption.add_theme_font_size_override("font_size", 14)
-	battlefield_caption.add_theme_color_override("font_color", Color(0.82, 0.84, 0.88, 0.92))
-	lanes_box.add_child(battlefield_caption)
-
 	var lanes_row := HBoxContainer.new()
+	lanes_row.name = "BattlefieldPanel"
+	lanes_row.custom_minimum_size = Vector2(0, 360)
+	lanes_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	lanes_row.size_flags_horizontal = SIZE_EXPAND_FILL
 	lanes_row.size_flags_vertical = SIZE_EXPAND_FILL
+	lanes_row.size_flags_stretch_ratio = 2.8
 	lanes_row.add_theme_constant_override("separation", 18)
-	lanes_box.add_child(lanes_row)
 
 	for lane in _lane_entries():
 		var lane_id := str(lane.get("id", ""))
@@ -1237,18 +1217,18 @@ func _build_lanes_panel() -> Control:
 	banner_overlay.add_theme_constant_override("margin_right", 48)
 	banner_overlay.add_theme_constant_override("margin_bottom", 24)
 	banner_overlay.z_index = 40
-	lanes_panel.add_child(banner_overlay)
-	var banner_row := HBoxContainer.new()
-	banner_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	banner_row.size_flags_horizontal = SIZE_EXPAND_FILL
-	banner_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	banner_overlay.add_child(banner_row)
+	add_child(banner_overlay)
+	var banner_center := CenterContainer.new()
+	banner_center.size_flags_horizontal = SIZE_EXPAND_FILL
+	banner_center.size_flags_vertical = SIZE_EXPAND_FILL
+	banner_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	banner_overlay.add_child(banner_center)
 	_turn_banner_panel = PanelContainer.new()
 	_turn_banner_panel.name = "TurnBannerPanel"
 	_turn_banner_panel.visible = false
 	_turn_banner_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_turn_banner_panel.custom_minimum_size = Vector2(336, 72)
-	banner_row.add_child(_turn_banner_panel)
+	banner_center.add_child(_turn_banner_panel)
 	var banner_box := _build_panel_box(_turn_banner_panel, 10, 16)
 	var banner_column := VBoxContainer.new()
 	banner_column.add_theme_constant_override("separation", 3)
@@ -1263,7 +1243,7 @@ func _build_lanes_panel() -> Control:
 	_turn_banner_detail_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_turn_banner_detail_label.add_theme_font_size_override("font_size", 13)
 	banner_column.add_child(_turn_banner_detail_label)
-	return lanes_panel
+	return lanes_row
 
 
 func _build_read_only_text(tab_name: String) -> TextEdit:

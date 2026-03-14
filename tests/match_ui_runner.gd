@@ -87,7 +87,6 @@ func _test_layout_hierarchy(screen: MatchScreen) -> bool:
 	var field_lane_header := screen.find_child("field_lane_header", true, false) as Button
 	var field_player_row_panel := screen.find_child("field_player_1_lane_row_panel", true, false)
 	var field_player_row := screen.find_child("field_player_1_lane_row", true, false) as HBoxContainer
-	var battlefield_title := _find_label_with_text(screen, "Battlefield")
 	var actions_title := _find_label_with_text(screen, "Turn Actions")
 	var row_label := _find_first_label(field_player_row_panel)
 	return (
@@ -104,7 +103,6 @@ func _test_layout_hierarchy(screen: MatchScreen) -> bool:
 		_assert(is_equal_approx(match_layout.anchor_right, 1.0) and is_equal_approx(match_layout.anchor_bottom, 1.0), "Match layout should anchor to the full screen rect.") and
 		_assert(match_layout.get_theme_constant("margin_left") >= 20 and match_layout.get_theme_constant("margin_right") >= 20, "Layout shell should add visible outer horizontal padding.") and
 		_assert(match_layout.get_theme_constant("margin_top") >= 20 and match_layout.get_theme_constant("margin_bottom") >= 20, "Layout shell should add visible outer vertical padding.") and
-		_assert(_panel_has_padding(battlefield, 12), "Battlefield panel should preserve clear inner padding.") and
 		_assert(_panel_has_padding(inspector_panel, 16), "Inspector rail should include stronger internal padding.") and
 		_assert(board_column.get_index() < utility_column.get_index(), "Board column should precede the utility column.") and
 		_assert(opponent_band.get_index() < battlefield.get_index(), "Opponent band should render above the battlefield.") and
@@ -120,7 +118,6 @@ func _test_layout_hierarchy(screen: MatchScreen) -> bool:
 			_assert(field_lane_marker != null and field_lane_marker.text.contains("FIELD"), "Field lane marker should stay explicitly readable.") and
 			_assert(shadow_lane_marker != null and shadow_lane_marker.text.contains("SHADOW"), "Shadow lane marker should stay always visible.") and
 			_assert(_panel_background_brightness(shadow_lane_panel) < _panel_background_brightness(field_lane_panel), "Shadow lane should keep a darker ambient treatment than the Field lane.") and
-			_assert(battlefield_title != null and battlefield_title.get_theme_font_size("font_size") >= 24, "Battlefield heading should use stronger typography.") and
 		_assert(actions_title != null and actions_title.get_theme_font_size("font_size") >= 20, "Action heading should use stronger typography.") and
 		_assert(row_label != null and row_label.get_theme_font_size("font_size") >= 13, "Lane row labels should stay readable after the compact battlefield rebalance.") and
 		_assert(play_button != null and play_button.get_theme_font_size("font_size") >= 17, "Primary action buttons should use larger type.") and
