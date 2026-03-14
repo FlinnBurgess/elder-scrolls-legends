@@ -663,7 +663,6 @@ func _build_ui() -> void:
 	board_column.name = "BoardColumn"
 	board_column.size_flags_horizontal = SIZE_EXPAND_FILL
 	board_column.size_flags_vertical = SIZE_EXPAND_FILL
-	board_column.size_flags_stretch_ratio = 4.4
 	board_column.add_theme_constant_override("separation", 22)
 	main_row.add_child(board_column)
 
@@ -684,31 +683,31 @@ func _build_ui() -> void:
 			var lanes_panel := _build_lanes_panel()
 			board_column.add_child(lanes_panel)
 
-	var utility_column := VBoxContainer.new()
-	utility_column.name = "UtilityColumn"
-	utility_column.custom_minimum_size = Vector2(304, 0)
-	utility_column.size_flags_horizontal = SIZE_FILL
-	utility_column.size_flags_vertical = SIZE_EXPAND_FILL
-	utility_column.add_theme_constant_override("separation", 16)
-	main_row.add_child(utility_column)
+	_match_end_overlay = _build_match_end_overlay()
+	root.add_child(_match_end_overlay)
 
-	var debug_panel := PanelContainer.new()
-	debug_panel.name = "DebugRailPanel"
-	debug_panel.size_flags_horizontal = SIZE_EXPAND_FILL
-	debug_panel.size_flags_vertical = SIZE_EXPAND_FILL
-	_apply_panel_style(debug_panel, Color(0.1, 0.11, 0.14, 0.94), Color(0.24, 0.27, 0.34, 0.82), 1, 10)
-	utility_column.add_child(debug_panel)
-	var debug_box := _build_panel_box(debug_panel, 12, 16)
-	var debug_title := Label.new()
-	debug_title.text = "History / Replay / State"
-	debug_title.add_theme_font_size_override("font_size", 19)
-	debug_box.add_child(debug_title)
+	var debug_overlay := PanelContainer.new()
+	debug_overlay.name = "DebugOverlay"
+	debug_overlay.mouse_filter = Control.MOUSE_FILTER_PASS
+	debug_overlay.custom_minimum_size = Vector2(360, 240)
+	debug_overlay.set_anchors_and_offsets_preset(PRESET_BOTTOM_LEFT)
+	debug_overlay.anchor_left = 0.0
+	debug_overlay.anchor_top = 1.0
+	debug_overlay.anchor_right = 0.0
+	debug_overlay.anchor_bottom = 1.0
+	debug_overlay.offset_left = 24
+	debug_overlay.offset_top = -264
+	debug_overlay.offset_right = 384
+	debug_overlay.offset_bottom = -24
+	_apply_panel_style(debug_overlay, Color(0.08, 0.09, 0.12, 0.92), Color(0.24, 0.27, 0.34, 0.72), 1, 10)
+	add_child(debug_overlay)
+
+	var debug_box := _build_panel_box(debug_overlay, 8, 10)
 
 	var tabs := TabContainer.new()
 	tabs.name = "DebugTabs"
 	tabs.size_flags_horizontal = SIZE_EXPAND_FILL
 	tabs.size_flags_vertical = SIZE_EXPAND_FILL
-	tabs.custom_minimum_size = Vector2(0, 210)
 	debug_box.add_child(tabs)
 
 	_history_text = _build_read_only_text("History")
@@ -717,9 +716,6 @@ func _build_ui() -> void:
 	tabs.add_child(_replay_text)
 	_state_text = _build_read_only_text("State")
 	tabs.add_child(_state_text)
-
-	_match_end_overlay = _build_match_end_overlay()
-	root.add_child(_match_end_overlay)
 
 
 func _build_player_section(player_id: String) -> Dictionary:
@@ -1157,8 +1153,8 @@ func _build_read_only_text(tab_name: String) -> TextEdit:
 	text.editable = false
 	text.size_flags_horizontal = SIZE_EXPAND_FILL
 	text.size_flags_vertical = SIZE_EXPAND_FILL
-	text.add_theme_font_size_override("font_size", 15)
-	text.custom_minimum_size = Vector2(0, 180)
+	text.add_theme_font_size_override("font_size", 13)
+	text.custom_minimum_size = Vector2(0, 0)
 	return text
 
 

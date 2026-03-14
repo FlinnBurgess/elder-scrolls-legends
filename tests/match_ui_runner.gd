@@ -70,45 +70,38 @@ func _test_layout_hierarchy(screen: MatchScreen) -> bool:
 	var match_layout := screen.find_child("MatchLayout", true, false) as Control
 	var match_content := screen.find_child("MatchContent", true, false) as Control
 	var board_column := screen.find_child("BoardColumn", true, false)
-	var utility_column := screen.find_child("UtilityColumn", true, false)
 	var battlefield := screen.find_child("BattlefieldPanel", true, false)
 	var opponent_band := screen.find_child("OpponentBand", true, false)
 	var player_band := screen.find_child("PlayerBand", true, false)
 	var opponent_avatar := screen.find_child("player_2_avatar_component", true, false) as PlayerAvatarComponent
 	var player_avatar := screen.find_child("player_1_avatar_component", true, false) as PlayerAvatarComponent
-	var debug_panel := screen.find_child("DebugRailPanel", true, false)
+	var debug_overlay := screen.find_child("DebugOverlay", true, false)
 	var debug_tabs := screen.find_child("DebugTabs", true, false)
 	var field_lane_panel := screen.find_child("field_lane_panel", true, false) as Control
 	var shadow_lane_panel := screen.find_child("shadow_lane_panel", true, false) as Control
-	var field_player_row_panel := screen.find_child("field_player_1_lane_row_panel", true, false)
 	var field_player_row := screen.find_child("field_player_1_lane_row", true, false) as HBoxContainer
 	return (
 		_assert(match_layout != null, "Expected a named match layout root.") and
 		_assert(match_layout is MarginContainer and match_content != null, "Expected the refreshed layout to use a padded margin shell.") and
 		_assert(board_column != null, "Expected a named board column for the recomposed layout.") and
-		_assert(utility_column != null, "Expected a named utility column for the recomposed layout.") and
 		_assert(battlefield != null, "Expected a named battlefield panel for the recomposed layout.") and
 		_assert(opponent_band != null, "Expected a named opponent band for the recomposed layout.") and
 		_assert(player_band != null, "Expected a named local-player band for the recomposed layout.") and
-			_assert(opponent_avatar != null and player_avatar != null, "Expected both combatants to mount the reusable avatar component in the player bands.") and
-		_assert(debug_panel != null and debug_tabs != null, "Expected secondary history/state tabs in the utility rail.") and
+		_assert(opponent_avatar != null and player_avatar != null, "Expected both combatants to mount the reusable avatar component in the player bands.") and
+		_assert(debug_overlay != null and debug_tabs != null, "Expected debug overlay with history/state tabs.") and
 		_assert(is_equal_approx(match_layout.anchor_right, 1.0) and is_equal_approx(match_layout.anchor_bottom, 1.0), "Match layout should anchor to the full screen rect.") and
 		_assert(match_layout.get_theme_constant("margin_left") >= 20 and match_layout.get_theme_constant("margin_right") >= 20, "Layout shell should add visible outer horizontal padding.") and
 		_assert(match_layout.get_theme_constant("margin_top") >= 20 and match_layout.get_theme_constant("margin_bottom") >= 20, "Layout shell should add visible outer vertical padding.") and
-		_assert(board_column.get_index() < utility_column.get_index(), "Board column should precede the utility column.") and
 		_assert(opponent_band.get_index() < battlefield.get_index(), "Opponent band should render above the battlefield.") and
 		_assert(battlefield.get_index() < player_band.get_index(), "Battlefield should render above the local-player band.") and
 		_assert(board_column.get_theme_constant("separation") >= 22, "Board column should have larger separation between major regions.") and
-			_assert(opponent_band.custom_minimum_size.y >= 210.0 and player_band.custom_minimum_size.y >= 210.0, "Player bands should reserve taller presentation space for identity and placeholders.") and
-				_assert(opponent_avatar.custom_minimum_size.x >= 180.0 and player_avatar.custom_minimum_size.x >= 180.0 and opponent_avatar.custom_minimum_size.x <= 200.0 and player_avatar.custom_minimum_size.x <= 200.0, "Avatar components should reserve meaningful width without dominating the band.") and
-			_assert(utility_column.custom_minimum_size.x >= 300.0, "Utility rail should remain accessible while staying secondary to the board.") and
-				_assert(battlefield.custom_minimum_size.y >= 340.0, "Battlefield panel should still reserve primary board space after the fit rebalance.") and
-			_assert(field_lane_panel != null and shadow_lane_panel != null, "Expected named Field and Shadow lane panels.") and
+		_assert(opponent_band.custom_minimum_size.y >= 210.0 and player_band.custom_minimum_size.y >= 210.0, "Player bands should reserve taller presentation space for identity and placeholders.") and
+		_assert(opponent_avatar.custom_minimum_size.x >= 180.0 and player_avatar.custom_minimum_size.x >= 180.0 and opponent_avatar.custom_minimum_size.x <= 200.0 and player_avatar.custom_minimum_size.x <= 200.0, "Avatar components should reserve meaningful width without dominating the band.") and
+		_assert(battlefield.custom_minimum_size.y >= 340.0, "Battlefield panel should still reserve primary board space after the fit rebalance.") and
+		_assert(field_lane_panel != null and shadow_lane_panel != null, "Expected named Field and Shadow lane panels.") and
 		_assert(field_player_row != null and field_player_row.alignment == BoxContainer.ALIGNMENT_CENTER, "Lane rows should center their slot groups instead of bunching into a corner.") and
 		_assert(field_player_row != null and field_player_row.get_theme_constant("separation") >= 14, "Lane rows should use wider slot spacing.") and
-		_assert(board_column.size.x > utility_column.size.x, "Board column should be wider than the utility column.") and
-		_assert(battlefield.size.y >= opponent_band.size.y and battlefield.size.y >= player_band.size.y, "Battlefield should receive at least as much vertical emphasis as each player band.") and
-		_assert(debug_panel.size.y < board_column.size.y, "Debug rail should read as secondary compared with the full board column.")
+		_assert(battlefield.size.y >= opponent_band.size.y and battlefield.size.y >= player_band.size.y, "Battlefield should receive at least as much vertical emphasis as each player band.")
 	)
 
 
