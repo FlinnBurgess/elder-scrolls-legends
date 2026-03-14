@@ -85,7 +85,6 @@ func _test_layout_hierarchy(screen: MatchScreen) -> bool:
 	var field_player_row_panel := screen.find_child("field_player_1_lane_row_panel", true, false)
 	var field_player_row := screen.find_child("field_player_1_lane_row", true, false) as HBoxContainer
 	var actions_title := _find_label_with_text(screen, "Turn Actions")
-	var row_label := _find_first_label(field_player_row_panel)
 	return (
 		_assert(match_layout != null, "Expected a named match layout root.") and
 		_assert(match_layout is MarginContainer and match_content != null, "Expected the refreshed layout to use a padded margin shell.") and
@@ -111,9 +110,7 @@ func _test_layout_hierarchy(screen: MatchScreen) -> bool:
 			_assert(utility_column.custom_minimum_size.x >= 300.0, "Utility rail should remain accessible while staying secondary to the board.") and
 				_assert(battlefield.custom_minimum_size.y >= 340.0, "Battlefield panel should still reserve primary board space after the fit rebalance.") and
 			_assert(field_lane_panel != null and shadow_lane_panel != null, "Expected named Field and Shadow lane panels.") and
-			_assert(_panel_background_brightness(shadow_lane_panel) < _panel_background_brightness(field_lane_panel), "Shadow lane should keep a darker ambient treatment than the Field lane.") and
 		_assert(actions_title != null and actions_title.get_theme_font_size("font_size") >= 20, "Action heading should use stronger typography.") and
-		_assert(row_label != null and row_label.get_theme_font_size("font_size") >= 13, "Lane row labels should stay readable after the compact battlefield rebalance.") and
 		_assert(play_button != null and play_button.get_theme_font_size("font_size") >= 17, "Primary action buttons should use larger type.") and
 		_assert(field_player_row != null and field_player_row.alignment == BoxContainer.ALIGNMENT_CENTER, "Lane rows should center their slot groups instead of bunching into a corner.") and
 		_assert(field_player_row != null and field_player_row.get_theme_constant("separation") >= 14, "Lane rows should use wider slot spacing.") and

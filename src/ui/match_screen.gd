@@ -1147,7 +1147,10 @@ func _build_lanes_panel() -> Control:
 	lanes_row.size_flags_stretch_ratio = 2.8
 	lanes_row.add_theme_constant_override("separation", 18)
 
-	for lane in _lane_entries():
+	var lane_list := _lane_entries()
+	for i in lane_list.size():
+		lanes_row.add_child(_build_lane_separator())
+		var lane = lane_list[i]
 		var lane_id := str(lane.get("id", ""))
 		var lane_panel := PanelContainer.new()
 		lane_panel.name = "%s_lane_panel" % lane_id
@@ -1155,7 +1158,7 @@ func _build_lanes_panel() -> Control:
 		lane_panel.size_flags_horizontal = SIZE_EXPAND_FILL
 		lane_panel.size_flags_vertical = SIZE_EXPAND_FILL
 		lane_panel.size_flags_stretch_ratio = 1.0
-		_apply_panel_style(lane_panel, _lane_panel_fill(lane_id), _lane_panel_border(lane_id), 2, 12)
+		_apply_panel_style(lane_panel, Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 0)
 		lane_panel.gui_input.connect(_on_lane_panel_gui_input.bind(lane_id))
 		lanes_row.add_child(lane_panel)
 		_lane_panels[lane_id] = lane_panel
@@ -1167,7 +1170,7 @@ func _build_lanes_panel() -> Control:
 			row_panel.custom_minimum_size = Vector2(0, 144)
 			row_panel.size_flags_horizontal = SIZE_EXPAND_FILL
 			row_panel.size_flags_vertical = SIZE_EXPAND_FILL
-			_apply_panel_style(row_panel, _lane_row_fill(lane_id), _lane_row_border(lane_id), 1, 10)
+			_apply_panel_style(row_panel, Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 0)
 			row_panel.gui_input.connect(_on_lane_row_gui_input.bind(lane_id, player_id))
 			lane_box.add_child(row_panel)
 			_lane_row_panels[_lane_row_key(lane_id, player_id)] = row_panel
@@ -1175,13 +1178,6 @@ func _build_lanes_panel() -> Control:
 			# Let clicks on non-button children fall through to the row panel
 			row_panel.get_child(0).mouse_filter = Control.MOUSE_FILTER_IGNORE
 			row_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			var row_label := Label.new()
-			row_label.text = "Opponent side" if player_id == PLAYER_ORDER[0] else "Your side"
-			row_label.add_theme_font_size_override("font_size", 13)
-			row_label.add_theme_color_override("font_color", Color(0.88, 0.9, 0.94, 1.0))
-			row_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			row_box.add_child(row_label)
-
 			var row := HBoxContainer.new()
 			row.name = "%s_%s_lane_row" % [lane_id, player_id]
 			row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1190,6 +1186,8 @@ func _build_lanes_panel() -> Control:
 			row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			row_box.add_child(row)
 			_lane_row_containers[_lane_row_key(lane_id, player_id)] = row
+
+	lanes_row.add_child(_build_lane_separator())
 
 	var banner_overlay := MarginContainer.new()
 	banner_overlay.name = "TurnBannerOverlay"
@@ -1227,6 +1225,15 @@ func _build_lanes_panel() -> Control:
 	_turn_banner_detail_label.add_theme_font_size_override("font_size", 13)
 	banner_column.add_child(_turn_banner_detail_label)
 	return lanes_row
+
+
+func _build_lane_separator() -> ColorRect:
+	var sep := ColorRect.new()
+	sep.color = Color(0.3, 0.45, 0.75, 0.8)
+	sep.custom_minimum_size = Vector2(2, 0)
+	sep.size_flags_vertical = SIZE_EXPAND_FILL
+	sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return sep
 
 
 func _build_read_only_text(tab_name: String) -> TextEdit:
@@ -1361,16 +1368,19 @@ func _apply_lane_slot_style(button: Button, lane_id: String, interaction_state :
 func _apply_lane_panel_style(panel: PanelContainer, lane_id: String) -> void:
 	if panel == null:
 		return
-	var fill := _lane_panel_fill(lane_id)
-	var border := _lane_panel_border(lane_id)
+	var fill := Color(0, 0, 0, 0)
+	var border := Color(0, 0, 0, 0)
+	var border_width := 0
 	var interaction_state := _lane_panel_interaction_state(lane_id)
 	if interaction_state == "valid":
-		fill = fill.lightened(0.05)
+		fill = _lane_panel_fill(lane_id).lightened(0.05)
 		border = Color(0.74, 0.94, 0.68, 1.0)
+		border_width = 2
 	elif interaction_state == "invalid":
-		fill = fill.lerp(Color(0.27, 0.12, 0.14, 0.98), 0.58)
+		fill = _lane_panel_fill(lane_id).lerp(Color(0.27, 0.12, 0.14, 0.98), 0.58)
 		border = Color(0.98, 0.48, 0.44, 1.0)
-	_apply_panel_style(panel, fill, border, 2, 12)
+		border_width = 2
+	_apply_panel_style(panel, fill, border, border_width, 12)
 
 
 func _apply_lane_header_style(button: Button, lane_id: String) -> void:
@@ -1391,19 +1401,19 @@ func _apply_lane_header_style(button: Button, lane_id: String) -> void:
 func _apply_lane_row_panel_style(panel: PanelContainer, lane_id: String, player_id: String) -> void:
 	if panel == null:
 		return
-	var fill := _lane_row_fill(lane_id)
-	var border := _lane_row_border(lane_id)
+	var fill := Color(0, 0, 0, 0)
+	var border := Color(0, 0, 0, 0)
+	var border_width := 0
 	var interaction_state := _lane_row_interaction_state(lane_id, player_id)
-	if _should_dim_local_surface(player_id) and interaction_state == "default":
-		fill = fill.darkened(0.18)
-		border = border.darkened(0.14)
 	if interaction_state == "valid":
-		fill = fill.lightened(0.05)
+		fill = _lane_row_fill(lane_id).lightened(0.05)
 		border = Color(0.74, 0.94, 0.68, 1.0)
+		border_width = 2
 	elif interaction_state == "invalid":
-		fill = fill.lerp(Color(0.28, 0.12, 0.14, 0.98), 0.56)
+		fill = _lane_row_fill(lane_id).lerp(Color(0.28, 0.12, 0.14, 0.98), 0.56)
 		border = Color(0.98, 0.48, 0.44, 1.0)
-	_apply_panel_style(panel, fill, border, 2 if interaction_state != "default" else 1, 10)
+		border_width = 2
+	_apply_panel_style(panel, fill, border, border_width, 10)
 
 
 
