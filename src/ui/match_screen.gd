@@ -2026,16 +2026,19 @@ func _hover_preview_card_size() -> Vector2:
 
 func _add_hover_preview_to_layer(card: Dictionary, instance_id: String, name_prefix: String) -> Control:
 	var preview_size := _hover_preview_card_size()
-	# Build the CardDisplayComponent directly at the target size so that
-	# the first (and only) apply_card call computes fonts, styles, and
-	# layout in one consistent pass — no intermediate resize triggers.
+	# Build the CardDisplayComponent at FULL_MINIMUM_SIZE (220x384) so that
+	# fonts and styles match hand cards, which are also built at base size.
+	# The component is then scaled up to preview_size via Control.scale,
+	# matching how hand cards work (component at base size, button stretched).
+	var base_size := CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
 	var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
 	component.name = "%s_%s" % [name_prefix, instance_id]
 	component.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	component.z_index = 400
-	component.custom_minimum_size = preview_size
-	component.size = preview_size
+	component.custom_minimum_size = base_size
+	component.size = base_size
 	component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+	component.scale = preview_size / base_size
 	_card_hover_preview_layer.add_child(component)
 	return component
 
@@ -2056,15 +2059,15 @@ func _position_lane_card_hover_preview(button: Button) -> void:
 	var preview := _card_hover_preview_layer.get_node_or_null("lane_hover_preview_%s" % _lane_hover_preview_instance_id) as Control
 	if preview == null:
 		return
-	var preview_size := preview.size if preview.size != Vector2.ZERO else preview.custom_minimum_size
+	var visual_size := preview.size * preview.scale
 	var layer_origin := _card_hover_preview_layer.get_global_rect().position
 	var button_rect := button.get_global_rect()
 	var target_position := Vector2(
-		button_rect.get_center().x - preview_size.x * 0.5 - layer_origin.x,
-		button_rect.get_center().y - preview_size.y * 0.5 - layer_origin.y
+		button_rect.get_center().x - visual_size.x * 0.5 - layer_origin.x,
+		button_rect.get_center().y - visual_size.y * 0.5 - layer_origin.y
 	)
-	target_position.x = clampf(target_position.x, 0.0, maxf(_card_hover_preview_layer.size.x - preview_size.x, 0.0))
-	target_position.y = clampf(target_position.y, 0.0, maxf(_card_hover_preview_layer.size.y - preview_size.y, 0.0))
+	target_position.x = clampf(target_position.x, 0.0, maxf(_card_hover_preview_layer.size.x - visual_size.x, 0.0))
+	target_position.y = clampf(target_position.y, 0.0, maxf(_card_hover_preview_layer.size.y - visual_size.y, 0.0))
 	preview.position = target_position
 
 
@@ -2134,15 +2137,15 @@ func _position_support_card_hover_preview(button: Button) -> void:
 	var preview := _card_hover_preview_layer.get_node_or_null("support_hover_preview_%s" % _support_hover_preview_instance_id) as Control
 	if preview == null:
 		return
-	var preview_size := preview.size if preview.size != Vector2.ZERO else preview.custom_minimum_size
+	var visual_size := preview.size * preview.scale
 	var layer_origin := _card_hover_preview_layer.get_global_rect().position
 	var button_rect := button.get_global_rect()
 	var target_position := Vector2(
-		button_rect.get_center().x - preview_size.x * 0.5 - layer_origin.x,
-		button_rect.get_center().y - preview_size.y * 0.5 - layer_origin.y
+		button_rect.get_center().x - visual_size.x * 0.5 - layer_origin.x,
+		button_rect.get_center().y - visual_size.y * 0.5 - layer_origin.y
 	)
-	target_position.x = clampf(target_position.x, 0.0, maxf(_card_hover_preview_layer.size.x - preview_size.x, 0.0))
-	target_position.y = clampf(target_position.y, 0.0, maxf(_card_hover_preview_layer.size.y - preview_size.y, 0.0))
+	target_position.x = clampf(target_position.x, 0.0, maxf(_card_hover_preview_layer.size.x - visual_size.x, 0.0))
+	target_position.y = clampf(target_position.y, 0.0, maxf(_card_hover_preview_layer.size.y - visual_size.y, 0.0))
 	preview.position = target_position
 
 
