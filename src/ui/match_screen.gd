@@ -4235,6 +4235,8 @@ func _clear_insertion_preview() -> void:
 	if tween != null and tween.is_valid():
 		tween.kill()
 	if spacer != null and is_instance_valid(spacer):
+		if spacer.get_parent() != null:
+			spacer.get_parent().remove_child(spacer)
 		spacer.queue_free()
 	_insertion_preview = {}
 
