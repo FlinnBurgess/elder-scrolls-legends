@@ -619,18 +619,6 @@ func _build_ui() -> void:
 	_card_hover_preview_layer.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(_card_hover_preview_layer)
 
-	_opponent_hand_overlay = Control.new()
-	_opponent_hand_overlay.name = "OpponentHandOverlay"
-	_opponent_hand_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_opponent_hand_overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	add_child(_opponent_hand_overlay)
-
-	_local_hand_overlay = Control.new()
-	_local_hand_overlay.name = "LocalHandOverlay"
-	_local_hand_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_local_hand_overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	add_child(_local_hand_overlay)
-
 	_opponent_avatar_overlay = Control.new()
 	_opponent_avatar_overlay.name = "OpponentAvatarOverlay"
 	_opponent_avatar_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -642,6 +630,18 @@ func _build_ui() -> void:
 	_player_avatar_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_player_avatar_overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(_player_avatar_overlay)
+
+	_opponent_hand_overlay = Control.new()
+	_opponent_hand_overlay.name = "OpponentHandOverlay"
+	_opponent_hand_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_opponent_hand_overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	add_child(_opponent_hand_overlay)
+
+	_local_hand_overlay = Control.new()
+	_local_hand_overlay.name = "LocalHandOverlay"
+	_local_hand_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_local_hand_overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	add_child(_local_hand_overlay)
 
 	var main_row := HBoxContainer.new()
 	main_row.name = "MainRow"
