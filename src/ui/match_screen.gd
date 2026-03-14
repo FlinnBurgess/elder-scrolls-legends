@@ -2024,20 +2024,32 @@ func _hover_preview_card_size() -> Vector2:
 	return Vector2(target_height * aspect_ratio, target_height)
 
 
+func _build_hover_preview_button(card: Dictionary, instance_id: String, name_prefix: String) -> Button:
+	var preview := _build_card_button(card, true, "hand")
+	preview.name = "%s_%s" % [name_prefix, instance_id]
+	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	preview.z_index = 400
+	preview.disabled = false
+	preview.focus_mode = Control.FOCUS_NONE
+	var preview_size := _hover_preview_card_size()
+	preview.size = preview_size
+	preview.custom_minimum_size = preview_size
+	_set_mouse_passthrough_recursive(preview)
+	# Remove signal connections that _build_card_button added
+	for sig_name in ["pressed", "mouse_entered", "mouse_exited", "gui_input"]:
+		for connection in preview.get_signal_connection_list(sig_name):
+			preview.disconnect(sig_name, connection["callable"])
+	# Remove from _card_buttons so it doesn't interfere with real cards
+	if _card_buttons.get(instance_id) == preview:
+		_card_buttons.erase(instance_id)
+	return preview
+
+
 func _show_lane_card_hover_preview(button: Button, card: Dictionary, instance_id: String) -> void:
 	_clear_lane_card_hover_preview()
 	if _card_hover_preview_layer == null:
 		return
-	var preview = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
-	if preview == null:
-		return
-	preview.name = "lane_hover_preview_%s" % instance_id
-	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	preview.z_index = 400
-	var preview_size := _hover_preview_card_size()
-	preview.size = preview_size
-	preview.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
-	preview.size = preview_size
+	var preview := _build_hover_preview_button(card, instance_id, "lane_hover_preview")
 	_card_hover_preview_layer.add_child(preview)
 	_lane_hover_preview_instance_id = instance_id
 	_lane_hover_preview_button_ref = weakref(button)
@@ -2116,16 +2128,7 @@ func _show_support_card_hover_preview(button: Button, card: Dictionary, instance
 	_clear_support_card_hover_preview()
 	if _card_hover_preview_layer == null:
 		return
-	var preview = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
-	if preview == null:
-		return
-	preview.name = "support_hover_preview_%s" % instance_id
-	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	preview.z_index = 400
-	var preview_size := _hover_preview_card_size()
-	preview.size = preview_size
-	preview.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
-	preview.size = preview_size
+	var preview := _build_hover_preview_button(card, instance_id, "support_hover_preview")
 	_card_hover_preview_layer.add_child(preview)
 	_support_hover_preview_instance_id = instance_id
 	_support_hover_preview_button_ref = weakref(button)
