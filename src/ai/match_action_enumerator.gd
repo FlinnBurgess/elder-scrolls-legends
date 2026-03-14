@@ -163,18 +163,20 @@ static func _enumerate_creature_prophecy_plays(match_state: Dictionary, player_i
 	for lane in match_state.get("lanes", []):
 		var lane_id := str(lane.get("lane_id", ""))
 		var slots: Array = lane.get("player_slots", {}).get(player_id, [])
-		for slot_index in range(slots.size()):
-			var descriptor := _build_descriptor(KIND_SUMMON_CREATURE, match_state, player_id, card, {
-				"lane_id": lane_id,
-				"slot_index": slot_index,
-			}, {
-				"timing_window": TIMING_INTERRUPT,
-				"response_kind": MatchTiming.RULE_TAG_PROPHECY,
-				"played_for_free": true,
-				"order_key": ACTION_KIND_ORDER[KIND_SUMMON_CREATURE],
-			})
-			if action_is_legal(match_state, descriptor):
-				actions.append(descriptor)
+		var slot_capacity := int(lane.get("slot_capacity", 0))
+		if slots.size() >= slot_capacity:
+			continue
+		var descriptor := _build_descriptor(KIND_SUMMON_CREATURE, match_state, player_id, card, {
+			"lane_id": lane_id,
+			"slot_index": -1,
+		}, {
+			"timing_window": TIMING_INTERRUPT,
+			"response_kind": MatchTiming.RULE_TAG_PROPHECY,
+			"played_for_free": true,
+			"order_key": ACTION_KIND_ORDER[KIND_SUMMON_CREATURE],
+		})
+		if action_is_legal(match_state, descriptor):
+			actions.append(descriptor)
 	return actions
 
 
@@ -195,17 +197,19 @@ static func _enumerate_creature_summons(match_state: Dictionary, player_id: Stri
 		for lane in match_state.get("lanes", []):
 			var lane_id := str(lane.get("lane_id", ""))
 			var slots: Array = lane.get("player_slots", {}).get(player_id, [])
-			for slot_index in range(slots.size()):
-				var descriptor := _build_descriptor(KIND_SUMMON_CREATURE, match_state, player_id, card, {
-					"lane_id": lane_id,
-					"slot_index": slot_index,
-				}, {
-					"timing_window": TIMING_ACTION,
-					"played_for_free": played_for_free,
-					"order_key": ACTION_KIND_ORDER[KIND_SUMMON_CREATURE + ":turn"],
-				})
-				if action_is_legal(match_state, descriptor):
-					actions.append(descriptor)
+			var slot_capacity := int(lane.get("slot_capacity", 0))
+			if slots.size() >= slot_capacity:
+				continue
+			var descriptor := _build_descriptor(KIND_SUMMON_CREATURE, match_state, player_id, card, {
+				"lane_id": lane_id,
+				"slot_index": -1,
+			}, {
+				"timing_window": TIMING_ACTION,
+				"played_for_free": played_for_free,
+				"order_key": ACTION_KIND_ORDER[KIND_SUMMON_CREATURE + ":turn"],
+			})
+			if action_is_legal(match_state, descriptor):
+				actions.append(descriptor)
 	return actions
 
 

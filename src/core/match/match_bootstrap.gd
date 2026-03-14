@@ -200,11 +200,8 @@ static func _build_lanes(board_profile: Dictionary, players: Array) -> Array:
 	return lanes
 
 
-static func _build_empty_slots(slot_capacity: int) -> Array:
-	var slots: Array = []
-	for _slot_index in range(slot_capacity):
-		slots.append(null)
-	return slots
+static func _build_empty_slots(_slot_capacity: int) -> Array:
+	return []
 
 
 static func _load_board_profile(profile_id: String) -> Dictionary:

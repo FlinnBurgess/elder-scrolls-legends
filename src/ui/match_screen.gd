@@ -80,6 +80,7 @@ var _card_buttons := {}
 var _lane_slot_buttons := {}
 var _invalid_feedback := {}
 var _detached_card_state := {}
+var _insertion_preview := {}
 var _targeting_arrow_state := {}
 var _targeting_arrow: Line2D
 var _prophecy_overlay_state := {}
@@ -1093,7 +1094,7 @@ func _build_lanes_panel() -> Control:
 			row.name = "%s_%s_lane_row" % [lane_id, player_id]
 			row.alignment = BoxContainer.ALIGNMENT_CENTER
 			row.size_flags_horizontal = SIZE_EXPAND_FILL
-			row.add_theme_constant_override("separation", 24)
+			row.add_theme_constant_override("separation", 34)
 			row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			row_box.add_child(row)
 			_lane_row_containers[_lane_row_key(lane_id, player_id)] = row
@@ -1256,24 +1257,6 @@ func _apply_surface_button_style(button: Button, surface: String, hidden := fals
 		fill = fill.lightened(0.04)
 	_apply_button_style(button, fill, border, font_color, 2 if selected else 1, 10 if surface == "hand" else 8)
 	button.self_modulate = _locked_surface_modulate(locked, muted)
-
-
-func _apply_lane_slot_style(button: Button, lane_id: String, interaction_state := "default", locked := false) -> void:
-	var fill := _lane_row_fill(lane_id).darkened(0.04)
-	var border := _lane_panel_border(lane_id)
-	var font_color := Color(0.9, 0.92, 0.96, 1.0)
-	if locked and interaction_state == "default":
-		fill = fill.darkened(0.24)
-		border = border.darkened(0.18)
-		font_color = Color(0.74, 0.76, 0.82, 0.9)
-	if interaction_state == "valid":
-		fill = fill.lerp(Color(0.21, 0.33, 0.24, 0.98), 0.48)
-		border = Color(0.74, 0.94, 0.68, 1.0)
-	elif interaction_state == "invalid":
-		fill = fill.lerp(Color(0.32, 0.13, 0.15, 0.98), 0.72)
-		border = Color(0.98, 0.48, 0.44, 1.0)
-	_apply_button_style(button, fill, border, font_color, 2 if interaction_state != "default" else 1, 8)
-	button.self_modulate = Color(0.82, 0.84, 0.9, 0.72) if locked and interaction_state == "default" else Color(1, 1, 1, 1)
 
 
 func _apply_lane_panel_style(panel: PanelContainer, lane_id: String) -> void:
@@ -1490,6 +1473,7 @@ func _refresh_player_sections() -> void:
 
 
 func _refresh_lanes() -> void:
+	_clear_insertion_preview()
 	for lane in _lane_entries():
 		var lane_id := str(lane.get("id", ""))
 		var lane_panel: PanelContainer = _lane_panels.get(lane_id)
@@ -1507,12 +1491,9 @@ func _refresh_lanes() -> void:
 				continue
 			_clear_children(row)
 			var slots := _lane_slots(lane_id, player_id)
-			for slot_index in range(slots.size()):
-				var card = slots[slot_index]
+			for card in slots:
 				if typeof(card) == TYPE_DICTIONARY:
 					row.add_child(_build_card_button(card, true, "lane"))
-				else:
-					row.add_child(_build_empty_slot_button(lane_id, player_id, slot_index))
 
 
 func _refresh_debug_tabs() -> void:
@@ -1742,25 +1723,6 @@ func _build_card_button(card: Dictionary, public_view: bool, surface := "default
 	if surface == "support":
 		button.mouse_entered.connect(_on_support_card_mouse_entered.bind(button, instance_id))
 		button.mouse_exited.connect(_on_support_card_mouse_exited.bind(instance_id))
-	return button
-
-
-func _build_empty_slot_button(lane_id: String, player_id: String, slot_index: int) -> Button:
-	var button := Button.new()
-	var slot_key := _lane_slot_key(lane_id, player_id, slot_index)
-	var interaction_state := _lane_slot_interaction_state(lane_id, player_id, slot_index)
-	var locked := _should_dim_local_surface(player_id) and interaction_state == "default"
-	button.name = "%s_%s_slot_%d" % [lane_id, player_id, slot_index]
-	button.custom_minimum_size = CARD_DISPLAY_COMPONENT_SCRIPT.CREATURE_BOARD_MINIMUM_SIZE
-	button.add_theme_font_size_override("font_size", int(round(15.0 * _surface_scale_factor("lane"))))
-	button.text = "Open %d" % (slot_index + 1)
-	button.mouse_default_cursor_shape = Control.CURSOR_ARROW if locked else Control.CURSOR_POINTING_HAND
-	button.set_meta("lane_id", lane_id)
-	button.set_meta("player_id", player_id)
-	button.set_meta("slot_index", slot_index)
-	_apply_lane_slot_style(button, lane_id, interaction_state, locked)
-	button.pressed.connect(_on_lane_slot_pressed.bind(lane_id, player_id, slot_index))
-	_lane_slot_buttons[slot_key] = button
 	return button
 
 
@@ -2558,6 +2520,7 @@ func _input(event: InputEvent) -> void:
 			var preview: Control = _detached_card_state.get("preview")
 			if preview != null and is_instance_valid(preview):
 				preview.position = mouse_pos + Vector2(-preview.size.x * 0.5, -preview.size.y * 0.62)
+			_update_insertion_preview_from_mouse(mouse_pos)
 		if not _targeting_arrow_state.is_empty():
 			_update_targeting_arrow(mouse_pos)
 	elif event is InputEventMouseButton:
@@ -2624,7 +2587,7 @@ func _on_lane_row_gui_input(event: InputEvent, lane_id: String, player_id: Strin
 		accept_event()
 		return
 	if _selected_card_wants_lane(card, _target_lane_player_id()):
-		var slot_index := _first_open_slot_index(lane_id, _target_lane_player_id())
+		var slot_index := _get_insertion_index_or_default(lane_id, _target_lane_player_id())
 		if slot_index >= 0:
 			var validation := _validate_selected_lane_play(lane_id, _target_lane_player_id(), slot_index)
 			if bool(validation.get("is_valid", false)):
@@ -2633,7 +2596,6 @@ func _on_lane_row_gui_input(event: InputEvent, lane_id: String, player_id: Strin
 			else:
 				_report_invalid_interaction(validation.get("message", "Cannot play into %s." % _lane_name(lane_id)), {
 					"lane_ids": [lane_id],
-					"lane_slot_keys": [_lane_slot_key(lane_id, _target_lane_player_id(), slot_index)],
 				})
 				accept_event()
 
@@ -2657,7 +2619,7 @@ func _on_lane_panel_gui_input(event: InputEvent, lane_id: String) -> void:
 		return
 	var target_player := _target_lane_player_id()
 	if _selected_card_wants_lane(card, target_player):
-		var slot_index := _first_open_slot_index(lane_id, target_player)
+		var slot_index := _get_insertion_index_or_default(lane_id, target_player)
 		if slot_index >= 0:
 			var validation := _validate_selected_lane_play(lane_id, target_player, slot_index)
 			if bool(validation.get("is_valid", false)):
@@ -2666,7 +2628,6 @@ func _on_lane_panel_gui_input(event: InputEvent, lane_id: String) -> void:
 			else:
 				_report_invalid_interaction(validation.get("message", "Cannot play into %s." % _lane_name(lane_id)), {
 					"lane_ids": [lane_id],
-					"lane_slot_keys": [_lane_slot_key(lane_id, target_player, slot_index)],
 				})
 				accept_event()
 
@@ -2680,7 +2641,7 @@ func _on_lane_pressed(lane_id: String) -> void:
 	if not _selected_support_row_target_player_id(card).is_empty():
 		_play_selected_to_support_row(_selected_support_row_target_player_id(card))
 		return
-	var slot_index := _first_open_slot_index(lane_id, target_player)
+	var slot_index := _get_insertion_index_or_default(lane_id, target_player)
 	if slot_index >= 0 and _selected_card_wants_lane(card, target_player):
 		var validation := _validate_selected_lane_play(lane_id, target_player, slot_index)
 		if bool(validation.get("is_valid", false)):
@@ -2688,35 +2649,12 @@ func _on_lane_pressed(lane_id: String) -> void:
 		else:
 			_report_invalid_interaction(validation.get("message", "Cannot play into %s." % _lane_name(lane_id)), {
 				"lane_ids": [lane_id],
-				"lane_slot_keys": [_lane_slot_key(lane_id, target_player, slot_index)],
 			})
 		return
 	_status_message = "Lane details: %s." % _lane_name(lane_id)
 	_refresh_ui()
 
 
-func _on_lane_slot_pressed(lane_id: String, player_id: String, slot_index: int) -> void:
-	var card := _selected_card()
-	if not _targeting_arrow_state.is_empty() and _selected_action_mode(card) == SELECTION_MODE_ACTION:
-		_play_action_to_lane(lane_id)
-		return
-	if not _selected_support_row_target_player_id(card).is_empty():
-		_play_selected_to_support_row(_selected_support_row_target_player_id(card))
-		return
-	if _selected_card_wants_lane(card, player_id):
-		var validation := _validate_selected_lane_play(lane_id, player_id, slot_index)
-		if bool(validation.get("is_valid", false)):
-			play_selected_to_lane(lane_id, slot_index)
-		else:
-			_report_invalid_interaction(validation.get("message", "Cannot play into %s." % _lane_name(lane_id)), {
-				"lane_ids": [lane_id],
-				"lane_slot_keys": [_lane_slot_key(lane_id, player_id, slot_index)],
-			})
-		return
-	_report_invalid_interaction("Select a creature that can be summoned into %s." % _lane_name(lane_id), {
-		"lane_ids": [lane_id],
-		"lane_slot_keys": [_lane_slot_key(lane_id, player_id, slot_index)],
-	})
 
 
 func _on_avatar_gui_input(event: InputEvent, player_id: String) -> void:
@@ -2944,12 +2882,15 @@ func _valid_lane_slot_keys() -> Array:
 	var keys: Array = []
 	if _selected_action_mode(_selected_card()) != SELECTION_MODE_SUMMON:
 		return keys
+	var player_id := _target_lane_player_id()
 	for lane in _lane_entries():
 		var lane_id := str(lane.get("id", ""))
-		var player_id := _target_lane_player_id()
-		for slot_index in range(_lane_slots(lane_id, player_id).size()):
-			if bool(_validate_selected_lane_play(lane_id, player_id, slot_index).get("is_valid", false)):
-				keys.append(_lane_slot_key(lane_id, player_id, slot_index))
+		var slots := _lane_slots(lane_id, player_id)
+		var slot_capacity := _lane_slot_capacity(lane_id)
+		if slots.size() < slot_capacity:
+			var append_index := slots.size()
+			if bool(_validate_selected_lane_play(lane_id, player_id, append_index).get("is_valid", false)):
+				keys.append(_lane_slot_key(lane_id, player_id, append_index))
 	return keys
 
 
@@ -3004,17 +2945,6 @@ func _card_interaction_state(card: Dictionary, surface: String) -> String:
 		if not selected_card.is_empty() and str(card.get("controller_player_id", "")) != str(selected_card.get("controller_player_id", "")):
 			return "valid" if _is_card_target_valid_for_selected(instance_id) else "invalid"
 	return "default"
-
-
-func _lane_slot_interaction_state(lane_id: String, player_id: String, slot_index: int) -> String:
-	var slot_key := _lane_slot_key(lane_id, player_id, slot_index)
-	if _copy_array(_invalid_feedback.get("lane_slot_keys", [])).has(slot_key):
-		return "invalid"
-	if _selected_action_mode(_selected_card()) != SELECTION_MODE_SUMMON:
-		return "default"
-	if player_id != _target_lane_player_id():
-		return "invalid"
-	return "valid" if bool(_validate_selected_lane_play(lane_id, player_id, slot_index).get("is_valid", false)) else "invalid"
 
 
 func _lane_panel_interaction_state(lane_id: String) -> String:
@@ -3914,19 +3844,22 @@ func _lane_slots(lane_id: String, player_id: String) -> Array:
 	return []
 
 
+func _lane_slot_capacity(lane_id: String) -> int:
+	for lane in _match_state.get("lanes", []):
+		if str(lane.get("lane_id", "")) == lane_id:
+			return int(lane.get("slot_capacity", 0))
+	return 0
+
+
 func _occupied_slots(lane_id: String, player_id: String) -> int:
-	var total := 0
-	for card in _lane_slots(lane_id, player_id):
-		if typeof(card) == TYPE_DICTIONARY:
-			total += 1
-	return total
+	return _lane_slots(lane_id, player_id).size()
 
 
 func _first_open_slot_index(lane_id: String, player_id: String) -> int:
 	var slots := _lane_slots(lane_id, player_id)
-	for slot_index in range(slots.size()):
-		if typeof(slots[slot_index]) != TYPE_DICTIONARY:
-			return slot_index
+	var slot_capacity := _lane_slot_capacity(lane_id)
+	if slots.size() < slot_capacity:
+		return slots.size()
 	return -1
 
 
@@ -4210,6 +4143,7 @@ func _enter_prophecy_targeting_mode(instance_id: String) -> void:
 
 
 func _cancel_detached_card() -> void:
+	_clear_insertion_preview()
 	var preview: Control = _detached_card_state.get("preview")
 	if preview != null and is_instance_valid(preview):
 		preview.queue_free()
@@ -4219,10 +4153,96 @@ func _cancel_detached_card() -> void:
 
 
 func _cancel_detached_card_silent() -> void:
+	_clear_insertion_preview()
 	var preview: Control = _detached_card_state.get("preview")
 	if preview != null and is_instance_valid(preview):
 		preview.queue_free()
 	_detached_card_state = {}
+
+
+func _update_insertion_preview_from_mouse(mouse_pos: Vector2) -> void:
+	var card := _selected_card()
+	if card.is_empty() or _selected_action_mode(card) != SELECTION_MODE_SUMMON:
+		_clear_insertion_preview()
+		return
+	var target_player := _target_lane_player_id()
+	var found_lane := ""
+	var found_row: HBoxContainer = null
+	for lane in _lane_entries():
+		var lane_id := str(lane.get("id", ""))
+		var row_key := _lane_row_key(lane_id, target_player)
+		var row_panel: PanelContainer = _lane_row_panels.get(row_key)
+		if row_panel == null or not is_instance_valid(row_panel):
+			continue
+		var panel_rect := Rect2(row_panel.global_position, row_panel.size)
+		if panel_rect.has_point(mouse_pos):
+			var slots := _lane_slots(lane_id, target_player)
+			var slot_capacity := _lane_slot_capacity(lane_id)
+			if slots.size() < slot_capacity:
+				found_lane = lane_id
+				found_row = _lane_row_containers.get(row_key)
+			break
+	if found_lane.is_empty() or found_row == null:
+		_clear_insertion_preview()
+		return
+	var insertion_index := _compute_insertion_index(found_row, mouse_pos.x)
+	_set_insertion_preview(found_lane, target_player, insertion_index, found_row)
+
+
+func _compute_insertion_index(row: HBoxContainer, mouse_global_x: float) -> int:
+	var card_children: Array = []
+	for child in row.get_children():
+		if child.has_meta("is_insertion_spacer"):
+			continue
+		card_children.append(child)
+	for i in range(card_children.size()):
+		var child: Control = card_children[i]
+		var center_x := child.global_position.x + child.size.x * 0.5
+		if mouse_global_x < center_x:
+			return i
+	return card_children.size()
+
+
+func _set_insertion_preview(lane_id: String, player_id: String, index: int, row: HBoxContainer) -> void:
+	if not _insertion_preview.is_empty():
+		if str(_insertion_preview.get("lane_id", "")) == lane_id and str(_insertion_preview.get("player_id", "")) == player_id and int(_insertion_preview.get("index", -1)) == index:
+			return
+		_clear_insertion_preview()
+	var spacer := Control.new()
+	spacer.name = "insertion_spacer"
+	spacer.set_meta("is_insertion_spacer", true)
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	spacer.custom_minimum_size = Vector2(0, 0)
+	row.add_child(spacer)
+	row.move_child(spacer, index)
+	var target_width: float = CARD_DISPLAY_COMPONENT_SCRIPT.CREATURE_BOARD_MINIMUM_SIZE.x
+	var tween := create_tween()
+	tween.tween_property(spacer, "custom_minimum_size:x", target_width, 0.12).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	_insertion_preview = {
+		"lane_id": lane_id,
+		"player_id": player_id,
+		"index": index,
+		"spacer": spacer,
+		"tween": tween,
+	}
+
+
+func _clear_insertion_preview() -> void:
+	if _insertion_preview.is_empty():
+		return
+	var spacer: Control = _insertion_preview.get("spacer")
+	var tween: Tween = _insertion_preview.get("tween")
+	if tween != null and tween.is_valid():
+		tween.kill()
+	if spacer != null and is_instance_valid(spacer):
+		spacer.queue_free()
+	_insertion_preview = {}
+
+
+func _get_insertion_index_or_default(lane_id: String, player_id: String) -> int:
+	if not _insertion_preview.is_empty() and str(_insertion_preview.get("lane_id", "")) == lane_id and str(_insertion_preview.get("player_id", "")) == player_id:
+		return int(_insertion_preview.get("index", -1))
+	return _first_open_slot_index(lane_id, player_id)
 
 
 func _create_targeting_arrow() -> Line2D:
@@ -4326,7 +4346,7 @@ func _try_resolve_detached_card_via_lane(target_instance_id: String) -> void:
 	var lane_id := str(target_location.get("lane_id", ""))
 	var target_player := _target_lane_player_id()
 	if _selected_card_wants_lane(selected_card, target_player):
-		var slot_index := _first_open_slot_index(lane_id, target_player)
+		var slot_index := _get_insertion_index_or_default(lane_id, target_player)
 		if slot_index >= 0:
 			var validation := _validate_selected_lane_play(lane_id, target_player, slot_index)
 			if bool(validation.get("is_valid", false)):
@@ -4334,7 +4354,6 @@ func _try_resolve_detached_card_via_lane(target_instance_id: String) -> void:
 			else:
 				_report_invalid_interaction(validation.get("message", "Cannot play into %s." % _lane_name(lane_id)), {
 					"lane_ids": [lane_id],
-					"lane_slot_keys": [_lane_slot_key(lane_id, target_player, slot_index)],
 				})
 
 

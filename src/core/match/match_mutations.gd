@@ -166,17 +166,18 @@ static func validate_lane_entry(match_state: Dictionary, player_id: String, card
 	if not player_slots_by_id.has(player_id):
 		return _invalid_result("Lane %s does not track player_id %s." % [lane_id, player_id])
 	var player_slots: Array = player_slots_by_id[player_id]
+	var slot_capacity := int(lane.get("slot_capacity", 0))
 	var requested_slot := int(options.get("slot_index", -1))
 	var slot_index := requested_slot
 	if requested_slot == -1:
-		slot_index = _find_open_slot(player_slots)
+		slot_index = _find_open_slot(player_slots, slot_capacity)
 		if slot_index == -1:
 			return _invalid_result("Lane %s is full for %s." % [lane_id, player_id])
 	else:
-		if requested_slot < 0 or requested_slot >= player_slots.size():
+		if requested_slot < 0 or requested_slot > player_slots.size():
 			return _invalid_result("Requested slot %d is out of range for lane %s." % [requested_slot, lane_id])
-		if player_slots[requested_slot] != null:
-			return _invalid_result("Requested slot %d in lane %s is already occupied." % [requested_slot, lane_id])
+		if player_slots.size() >= slot_capacity:
+			return _invalid_result("Lane %s is full for %s." % [lane_id, player_id])
 	return {
 		"is_valid": true,
 		"errors": [],
@@ -379,11 +380,8 @@ static func steal_card(match_state: Dictionary, controller_player_id: String, in
 		return location
 	var current_zone := str(location.get("zone", ""))
 	if current_zone == ZONE_LANE:
-		var preferred_slot := int(options.get("slot_index", -1))
-		if preferred_slot == -1 and _is_lane_slot_open(match_state, str(location.get("lane_id", "")), controller_player_id, int(location.get("slot_index", -1))):
-			preferred_slot = int(location.get("slot_index", -1))
 		var result := move_card_between_lanes(match_state, str(location.get("player_id", "")), instance_id, str(location.get("lane_id", "")), {
-			"slot_index": preferred_slot,
+			"slot_index": -1,
 			"apply_shadow_cover": false,
 			"preserve_entered_lane_on_turn": true,
 			"override_controller_player_id": controller_player_id,
@@ -564,7 +562,8 @@ static func _apply_lane_entry(match_state: Dictionary, controller_player_id: Str
 	if bool(validation.get("granted_cover", false)):
 		EvergreenRules.grant_cover(card, int(match_state.get("turn_number", 0)) + 1)
 	_sync_attached_item_controllers(card)
-	player_slots[validation["slot_index"]] = card
+	player_slots.insert(validation["slot_index"], card)
+	_reindex_player_slots(player_slots)
 
 
 static func _detach_card(match_state: Dictionary, location: Dictionary) -> void:
@@ -584,7 +583,8 @@ static func _detach_card(match_state: Dictionary, location: Dictionary) -> void:
 	if str(location.get("location_type", "")) == "lane_slot":
 		var lane: Dictionary = match_state["lanes"][int(location.get("lane_index", -1))]
 		var player_slots: Array = lane["player_slots"][str(location.get("player_id", ""))]
-		player_slots[int(location.get("slot_index", -1))] = null
+		player_slots.remove_at(int(location.get("slot_index", -1)))
+		_reindex_player_slots(player_slots)
 
 
 static func _apply_identity(card: Dictionary, template: Dictionary) -> void:
@@ -759,14 +759,23 @@ static func _is_lane_slot_open(match_state: Dictionary, lane_id: String, player_
 	if not player_slots_by_id.has(player_id):
 		return false
 	var slots: Array = player_slots_by_id[player_id]
-	return slot_index < slots.size() and slots[slot_index] == null
+	var slot_capacity := int(lane.get("slot_capacity", 0))
+	return slots.size() < slot_capacity and slot_index <= slots.size()
 
 
-static func _find_open_slot(slots: Array) -> int:
-	for index in range(slots.size()):
-		if slots[index] == null:
-			return index
+static func _find_open_slot(slots: Array, slot_capacity: int = -1) -> int:
+	if slot_capacity == -1:
+		# Legacy fallback — should not be needed with packed arrays
+		return slots.size()
+	if slots.size() < slot_capacity:
+		return slots.size()
 	return -1
+
+
+static func _reindex_player_slots(player_slots: Array) -> void:
+	for i in range(player_slots.size()):
+		if typeof(player_slots[i]) == TYPE_DICTIONARY:
+			player_slots[i]["slot_index"] = i
 
 
 static func _clone_variant(value):

@@ -22,20 +22,19 @@ static func get_lane_occupancy(match_state: Dictionary, lane_id: String, player_
 		return _invalid_result("Lane %s does not track player_id %s." % [lane_id, player_id])
 
 	var player_slots: Array = player_slots_by_id[player_id]
-	var occupied := 0
+	var occupied := player_slots.size()
+	var slot_capacity := int(lane.get("slot_capacity", 0))
 	var open_slot_indices: Array = []
-	for slot_index in range(player_slots.size()):
-		if player_slots[slot_index] == null:
-			open_slot_indices.append(slot_index)
-		else:
-			occupied += 1
+	if occupied < slot_capacity:
+		for open_index in range(occupied + 1):
+			open_slot_indices.append(open_index)
 
 	return {
 		"is_valid": true,
 		"errors": [],
 		"lane_id": lane_id,
 		"lane_type": str(lane.get("lane_type", lane_id)),
-		"slot_capacity": int(lane.get("slot_capacity", player_slots.size())),
+		"slot_capacity": slot_capacity,
 		"occupancy": occupied,
 		"open_slot_indices": open_slot_indices,
 		"lane_rule_payload": lane.get("lane_rule_payload", {}),
@@ -173,7 +172,8 @@ static func _apply_lane_entry(match_state: Dictionary, player_id: String, card: 
 	card["entered_lane_on_turn"] = int(match_state.get("turn_number", 0))
 	if bool(validation.get("granted_cover", false)):
 		EvergreenRules.grant_cover(card, int(match_state.get("turn_number", 0)) + 1)
-	player_slots[validation["slot_index"]] = card
+	player_slots.insert(validation["slot_index"], card)
+	MatchMutations._reindex_player_slots(player_slots)
 
 
 static func _grant_cover(card: Dictionary, cover_expires_on_turn: int) -> void:
@@ -242,7 +242,7 @@ static func _find_creature_on_board(lanes: Array, instance_id: String) -> Dictio
 			var slots: Array = player_slots_by_id[player_id]
 			for slot_index in range(slots.size()):
 				var card = slots[slot_index]
-				if card != null and str(card.get("instance_id", "")) == instance_id:
+				if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) == instance_id:
 					return {
 						"is_valid": true,
 						"errors": [],
@@ -255,11 +255,9 @@ static func _find_creature_on_board(lanes: Array, instance_id: String) -> Dictio
 	return _invalid_result("Creature %s is not on the board." % instance_id)
 
 
-static func _find_open_slot(slots: Array) -> int:
-	for index in range(slots.size()):
-		if slots[index] == null:
-			return index
-	return -1
+static func _find_open_slot(_slots: Array) -> int:
+	# With packed arrays, this function is unused — open slot is always at size()
+	return _slots.size()
 
 
 static func _is_creature(card: Dictionary) -> bool:

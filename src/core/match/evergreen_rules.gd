@@ -243,20 +243,15 @@ static func get_mobilize_lane_options(match_state: Dictionary, player_id: String
 		if not player_slots_by_id.has(player_id):
 			continue
 		var player_slots: Array = player_slots_by_id[player_id]
-		var occupancy := 0
-		var open_slot_indices: Array = []
-		for slot_index in range(player_slots.size()):
-			if player_slots[slot_index] == null:
-				open_slot_indices.append(slot_index)
-			else:
-				occupancy += 1
-		if occupancy == 0 and not open_slot_indices.is_empty():
+		var occupancy := player_slots.size()
+		var slot_capacity := int(lane.get("slot_capacity", 0))
+		if occupancy == 0 and slot_capacity > 0:
 			options.append({
 				"lane_id": str(lane.get("lane_id", "")),
 				"lane_index": lane_index,
 				"lane_type": str(lane.get("lane_type", lane.get("lane_id", ""))),
-				"slot_index": int(open_slot_indices[0]),
-				"open_slot_indices": open_slot_indices,
+				"slot_index": 0,
+				"open_slot_indices": [0],
 			})
 	return options
 
