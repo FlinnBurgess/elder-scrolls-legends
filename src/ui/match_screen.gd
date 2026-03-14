@@ -34,6 +34,7 @@ const SELECTION_MODE_SUMMON := "summon"
 const SELECTION_MODE_ITEM := "item"
 const SELECTION_MODE_SUPPORT := "support"
 const SELECTION_MODE_ATTACK := "attack"
+const SELECTION_MODE_ACTION := "action"
 const HELP_TEXT := {
 	"guard": "Guard creatures must be attacked before other legal targets in the same lane.",
 	"charge": "Charge creatures can attack immediately instead of waiting a turn cycle.",
@@ -86,6 +87,8 @@ var _card_buttons := {}
 var _lane_slot_buttons := {}
 var _invalid_feedback := {}
 var _detached_card_state := {}
+var _targeting_arrow_state := {}
+var _targeting_arrow: Line2D
 var _attack_feedbacks: Array = []
 var _damage_feedbacks: Array = []
 var _removal_feedbacks: Array = []
@@ -512,6 +515,8 @@ func play_or_activate_selected() -> Dictionary:
 				return _invalid_ui_result("Select a lane to summon this creature.")
 			"item":
 				return _invalid_ui_result("Select a friendly creature to equip this item.")
+			"action":
+				result = MatchTiming.play_action_from_hand(_match_state, _active_player_id(), _selected_instance_id)
 			_:
 				return _invalid_ui_result("Selected card cannot be played from the UI yet.")
 	elif bool(location.get("is_valid", false)) and str(location.get("zone", "")) == MatchMutations.ZONE_SUPPORT:
@@ -535,6 +540,8 @@ func target_selected_card(target_instance_id: String) -> Dictionary:
 	var result := {}
 	if bool(selected_location.get("is_valid", false)) and str(selected_location.get("zone", "")) == MatchMutations.ZONE_HAND and str(selected_card.get("card_type", "")) == "item":
 		result = PersistentCardRules.play_item_from_hand(_match_state, _active_player_id(), _selected_instance_id, {"target_instance_id": target_instance_id})
+	elif bool(selected_location.get("is_valid", false)) and str(selected_location.get("zone", "")) == MatchMutations.ZONE_HAND and str(selected_card.get("card_type", "")) == "action":
+		result = MatchTiming.play_action_from_hand(_match_state, _active_player_id(), _selected_instance_id, {"target_instance_id": target_instance_id})
 	elif bool(selected_location.get("is_valid", false)) and str(selected_location.get("zone", "")) == MatchMutations.ZONE_SUPPORT:
 		result = PersistentCardRules.activate_support(_match_state, _active_player_id(), _selected_instance_id, {"target_instance_id": target_instance_id})
 	elif bool(selected_location.get("is_valid", false)) and str(selected_location.get("zone", "")) == MatchMutations.ZONE_LANE:
@@ -1521,6 +1528,13 @@ func _refresh_ui() -> void:
 			detached_button.visible = false
 		else:
 			_cancel_detached_card_silent()
+	if not _targeting_arrow_state.is_empty():
+		var arrow_id: String = str(_targeting_arrow_state.get("instance_id", ""))
+		var arrow_button: Button = _card_buttons.get(arrow_id)
+		if arrow_button != null:
+			arrow_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		else:
+			_cancel_targeting_mode_silent()
 	_pending_layout_scale_frames = 2
 
 
@@ -2570,19 +2584,30 @@ func _on_clear_pressed() -> void:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
+		var mouse_pos := (event as InputEventMouseMotion).position
 		if not _detached_card_state.is_empty():
 			var preview: Control = _detached_card_state.get("preview")
 			if preview != null and is_instance_valid(preview):
-				var mouse_pos := (event as InputEventMouseMotion).position
 				preview.position = mouse_pos + Vector2(-preview.size.x * 0.5, -preview.size.y * 0.62)
+		if not _targeting_arrow_state.is_empty():
+			_update_targeting_arrow(mouse_pos)
 	elif event is InputEventMouseButton:
 		var button_event := event as InputEventMouseButton
-		if button_event.button_index == MOUSE_BUTTON_RIGHT and button_event.pressed and not _detached_card_state.is_empty():
-			_cancel_detached_card()
-			get_viewport().set_input_as_handled()
+		if button_event.button_index == MOUSE_BUTTON_RIGHT and button_event.pressed:
+			if not _targeting_arrow_state.is_empty():
+				_cancel_targeting_mode()
+				get_viewport().set_input_as_handled()
+			elif not _detached_card_state.is_empty():
+				_cancel_detached_card()
+				get_viewport().set_input_as_handled()
 
 
 func _on_card_pressed(instance_id: String) -> void:
+	if not _targeting_arrow_state.is_empty():
+		if _try_resolve_selected_card_target(instance_id):
+			return
+		_report_invalid_interaction("Not a valid target.", {"instance_ids": [instance_id]})
+		return
 	if not _detached_card_state.is_empty():
 		var target_card := _card_from_instance_id(instance_id)
 		if _try_resolve_selected_support_row_card(target_card):
@@ -2594,7 +2619,10 @@ func _on_card_pressed(instance_id: String) -> void:
 	if _is_local_hand_card(instance_id):
 		var card := _card_from_instance_id(instance_id)
 		var mode := _selected_action_mode(card)
-		if mode != SELECTION_MODE_NONE:
+		if mode == SELECTION_MODE_ITEM or mode == SELECTION_MODE_ACTION:
+			_enter_targeting_mode(instance_id)
+			return
+		elif mode != SELECTION_MODE_NONE:
 			_detach_hand_card(instance_id)
 			return
 	var target_card := _card_from_instance_id(instance_id)
@@ -2614,6 +2642,10 @@ func _on_lane_row_gui_input(event: InputEvent, lane_id: String, player_id: Strin
 		return
 	var card := _selected_card()
 	if card.is_empty():
+		return
+	if not _targeting_arrow_state.is_empty() and _selected_action_mode(card) == SELECTION_MODE_ACTION:
+		_play_action_to_lane(lane_id)
+		accept_event()
 		return
 	if not _selected_support_row_target_player_id(card).is_empty():
 		_play_selected_to_support_row(_selected_support_row_target_player_id(card))
@@ -2643,6 +2675,10 @@ func _on_lane_panel_gui_input(event: InputEvent, lane_id: String) -> void:
 	var card := _selected_card()
 	if card.is_empty():
 		return
+	if not _targeting_arrow_state.is_empty() and _selected_action_mode(card) == SELECTION_MODE_ACTION:
+		_play_action_to_lane(lane_id)
+		accept_event()
+		return
 	if not _selected_support_row_target_player_id(card).is_empty():
 		_play_selected_to_support_row(_selected_support_row_target_player_id(card))
 		accept_event()
@@ -2665,6 +2701,9 @@ func _on_lane_panel_gui_input(event: InputEvent, lane_id: String) -> void:
 
 func _on_lane_pressed(lane_id: String) -> void:
 	var card := _selected_card()
+	if not _targeting_arrow_state.is_empty() and _selected_action_mode(card) == SELECTION_MODE_ACTION:
+		_play_action_to_lane(lane_id)
+		return
 	var target_player := _target_lane_player_id()
 	if not _selected_support_row_target_player_id(card).is_empty():
 		_play_selected_to_support_row(_selected_support_row_target_player_id(card))
@@ -2687,6 +2726,9 @@ func _on_lane_pressed(lane_id: String) -> void:
 
 func _on_lane_slot_pressed(lane_id: String, player_id: String, slot_index: int) -> void:
 	var card := _selected_card()
+	if not _targeting_arrow_state.is_empty() and _selected_action_mode(card) == SELECTION_MODE_ACTION:
+		_play_action_to_lane(lane_id)
+		return
 	if not _selected_support_row_target_player_id(card).is_empty():
 		_play_selected_to_support_row(_selected_support_row_target_player_id(card))
 		return
@@ -2773,6 +2815,8 @@ func _selected_action_mode(card: Dictionary) -> String:
 			return SELECTION_MODE_ITEM
 		if prophecy_type == "support":
 			return SELECTION_MODE_SUPPORT
+		if prophecy_type == "action":
+			return SELECTION_MODE_ACTION
 		return SELECTION_MODE_NONE
 	if str(card.get("controller_player_id", "")) != _active_player_id():
 		return SELECTION_MODE_NONE
@@ -2788,6 +2832,8 @@ func _selected_action_mode(card: Dictionary) -> String:
 					return SELECTION_MODE_ITEM
 				"support":
 					return SELECTION_MODE_SUPPORT
+				"action":
+					return SELECTION_MODE_ACTION
 		MatchMutations.ZONE_SUPPORT:
 			return SELECTION_MODE_SUPPORT
 		MatchMutations.ZONE_LANE:
@@ -2818,6 +2864,16 @@ func _try_resolve_selected_player_target(player_id: String) -> bool:
 	if mode == SELECTION_MODE_SUMMON:
 		_report_invalid_interaction("Select a lane slot to summon this creature.", {"player_ids": [player_id]})
 		return true
+	if mode == SELECTION_MODE_ACTION and not _targeting_arrow_state.is_empty():
+		var action_state: Dictionary = _match_state.duplicate(true)
+		var validation := MatchTiming.play_action_from_hand(action_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"target_player_id": player_id})
+		if bool(validation.get("is_valid", false)):
+			_reset_invalid_feedback()
+			var result := MatchTiming.play_action_from_hand(_match_state, _active_player_id(), _selected_instance_id, {"target_player_id": player_id})
+			_finalize_engine_result(result, "%s targeted %s." % [_card_name(selected_card), _player_name(player_id)])
+		else:
+			_report_invalid_interaction("%s can't target %s right now." % [_card_name(selected_card), _player_name(player_id)], {"player_ids": [player_id]})
+		return true
 	if mode != SELECTION_MODE_ATTACK or player_id == _active_player_id():
 		return false
 	if _is_player_target_valid_for_selected(player_id):
@@ -2839,6 +2895,8 @@ func _selected_action_consumes_card_click(target_card: Dictionary) -> bool:
 	var target_zone := str(target_location.get("zone", ""))
 	match mode:
 		SELECTION_MODE_ITEM:
+			return target_zone == MatchMutations.ZONE_LANE
+		SELECTION_MODE_ACTION:
 			return target_zone == MatchMutations.ZONE_LANE
 		SELECTION_MODE_SUPPORT:
 			return _selected_support_uses_card_targets(selected_card) and target_zone == MatchMutations.ZONE_LANE
@@ -2872,6 +2930,9 @@ func _is_card_target_valid_for_selected(target_instance_id: String) -> bool:
 		SELECTION_MODE_ITEM:
 			var item_state: Dictionary = _match_state.duplicate(true)
 			return bool(PersistentCardRules.play_item_from_hand(item_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"target_instance_id": target_instance_id}).get("is_valid", false))
+		SELECTION_MODE_ACTION:
+			var action_state: Dictionary = _match_state.duplicate(true)
+			return bool(MatchTiming.play_action_from_hand(action_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"target_instance_id": target_instance_id}).get("is_valid", false))
 		SELECTION_MODE_SUPPORT:
 			if not _selected_support_uses_card_targets(selected_card):
 				return false
@@ -3049,6 +3110,7 @@ func _validate_selected_support_play(player_id: String) -> Dictionary:
 func _finalize_engine_result(result: Dictionary, success_message: String, clear_selection_on_success := true) -> Dictionary:
 	if bool(result.get("is_valid", false)):
 		_cancel_detached_card_silent()
+		_cancel_targeting_mode_silent()
 		_reset_invalid_feedback()
 		if clear_selection_on_success:
 			_selected_instance_id = ""
@@ -4193,6 +4255,90 @@ func _cancel_detached_card_silent() -> void:
 	if preview != null and is_instance_valid(preview):
 		preview.queue_free()
 	_detached_card_state = {}
+
+
+func _create_targeting_arrow() -> Line2D:
+	var arrow := Line2D.new()
+	arrow.width = 6.0
+	arrow.default_color = Color(1.0, 0.85, 0.2, 0.9)
+	arrow.z_index = 500
+	arrow.antialiased = true
+	add_child(arrow)
+	return arrow
+
+
+func _update_targeting_arrow(mouse_pos: Vector2) -> void:
+	if _targeting_arrow == null or not is_instance_valid(_targeting_arrow):
+		return
+	var origin: Vector2 = _targeting_arrow_state.get("origin", Vector2.ZERO)
+	var start := origin
+	var end_point := mouse_pos
+	var mid := (start + end_point) * 0.5
+	var diff := end_point - start
+	var perp := Vector2(-diff.y, diff.x).normalized()
+	var control := mid + perp * diff.length() * 0.25
+	var points := PackedVector2Array()
+	var segments := 20
+	for i in range(segments + 1):
+		var t := float(i) / float(segments)
+		var p := (1.0 - t) * (1.0 - t) * start + 2.0 * (1.0 - t) * t * control + t * t * end_point
+		points.append(p)
+	# Arrowhead
+	var tip := points[points.size() - 1]
+	var prev := points[points.size() - 2]
+	var arrow_dir := (tip - prev).normalized()
+	var arrow_perp := Vector2(-arrow_dir.y, arrow_dir.x)
+	var arrow_size := 14.0
+	points.append(tip - arrow_dir * arrow_size + arrow_perp * arrow_size * 0.5)
+	points.append(tip)
+	points.append(tip - arrow_dir * arrow_size - arrow_perp * arrow_size * 0.5)
+	points.append(tip)
+	_targeting_arrow.points = points
+
+
+func _enter_targeting_mode(instance_id: String) -> void:
+	_cancel_targeting_mode_silent()
+	select_card(instance_id)
+	var button: Button = _card_buttons.get(instance_id)
+	if button == null:
+		return
+	# Card is now raised because select_card sets _selected_instance_id and _refresh_ui
+	# applies the raised state. Set mouse_filter to ignore so the card doesn't intercept clicks.
+	button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var card_pos := button.global_position
+	var card_size: Vector2 = button.get_meta("card_size", button.size)
+	var arrow_origin := card_pos + Vector2(card_size.x * 0.5, 0.0)
+	_targeting_arrow = _create_targeting_arrow()
+	_targeting_arrow_state = {
+		"instance_id": instance_id,
+		"origin": arrow_origin,
+		"button": button,
+	}
+
+
+func _play_action_to_lane(lane_id: String) -> void:
+	var card := _selected_card()
+	if card.is_empty():
+		return
+	var options := {"lane_id": lane_id}
+	var result := MatchTiming.play_action_from_hand(_match_state, _active_player_id(), _selected_instance_id, options)
+	_finalize_engine_result(result, "Played %s." % _card_name(card))
+
+
+func _cancel_targeting_mode() -> void:
+	if _targeting_arrow != null and is_instance_valid(_targeting_arrow):
+		_targeting_arrow.queue_free()
+	_targeting_arrow = null
+	_targeting_arrow_state = {}
+	_selected_instance_id = ""
+	_refresh_ui()
+
+
+func _cancel_targeting_mode_silent() -> void:
+	if _targeting_arrow != null and is_instance_valid(_targeting_arrow):
+		_targeting_arrow.queue_free()
+	_targeting_arrow = null
+	_targeting_arrow_state = {}
 
 
 func _queue_free_weak(node_ref: WeakRef) -> void:

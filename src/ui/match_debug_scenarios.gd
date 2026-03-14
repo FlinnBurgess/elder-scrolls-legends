@@ -161,6 +161,18 @@ static func _build_local_match() -> Dictionary:
 			"effects": [{"op": "grant_keyword", "target": "event_target", "keyword_id": EvergreenRules.KEYWORD_GUARD}],
 		}],
 	})
+	ScenarioFixtures.add_hand_card(player_one, "piercing_javelin", {
+		"name": "Piercing Javelin",
+		"card_type": "action",
+		"cost": 5,
+		"rarity": "common",
+		"rules_text": "Destroy a creature.",
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"required_zone": "discard",
+			"effects": [{"op": "sacrifice", "target": "event_target"}],
+		}],
+	})
 	ScenarioFixtures.add_hand_card(player_one, "battle_drum", {
 		"name": "Battle Drum",
 		"card_type": "support",
