@@ -829,7 +829,7 @@ func _build_player_section(player_id: String) -> Dictionary:
 
 	var support_row := HBoxContainer.new()
 	support_row.name = "%s_support_row" % player_id
-	support_row.add_theme_constant_override("separation", 8)
+	support_row.add_theme_constant_override("separation", 16)
 	support_row.alignment = BoxContainer.ALIGNMENT_END
 	support_row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	support_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1051,7 +1051,7 @@ func _build_match_end_overlay() -> PanelContainer:
 func _build_lanes_panel() -> Control:
 	var lanes_row := HBoxContainer.new()
 	lanes_row.name = "BattlefieldPanel"
-	lanes_row.custom_minimum_size = Vector2(0, 360)
+	lanes_row.custom_minimum_size = Vector2(0, 740)
 	lanes_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	lanes_row.size_flags_horizontal = SIZE_EXPAND_FILL
 	lanes_row.size_flags_vertical = SIZE_EXPAND_FILL
@@ -1078,7 +1078,7 @@ func _build_lanes_panel() -> Control:
 		for player_id in PLAYER_ORDER:
 			var row_panel := PanelContainer.new()
 			row_panel.name = "%s_%s_lane_row_panel" % [lane_id, player_id]
-			row_panel.custom_minimum_size = Vector2(0, 144)
+			row_panel.custom_minimum_size = Vector2(0, 352)
 			row_panel.size_flags_horizontal = SIZE_EXPAND_FILL
 			row_panel.size_flags_vertical = SIZE_EXPAND_FILL
 			_apply_panel_style(row_panel, Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 0)
@@ -1093,7 +1093,7 @@ func _build_lanes_panel() -> Control:
 			row.name = "%s_%s_lane_row" % [lane_id, player_id]
 			row.alignment = BoxContainer.ALIGNMENT_CENTER
 			row.size_flags_horizontal = SIZE_EXPAND_FILL
-			row.add_theme_constant_override("separation", 14)
+			row.add_theme_constant_override("separation", 24)
 			row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			row_box.add_child(row)
 			_lane_row_containers[_lane_row_key(lane_id, player_id)] = row
