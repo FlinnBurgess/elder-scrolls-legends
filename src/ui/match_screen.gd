@@ -2031,18 +2031,25 @@ func _add_hover_preview_to_layer(card: Dictionary, instance_id: String, name_pre
 	# the component enters the tree, NOTIFICATION_RESIZED fires and updates
 	# geometry to the container size, while fonts stay at the base scale —
 	# exactly matching the hand card rendering path.
+	var base_size := CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
 	var wrapper := Control.new()
 	wrapper.name = "%s_%s" % [name_prefix, instance_id]
 	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	wrapper.z_index = 400
-	wrapper.size = preview_size
-	wrapper.custom_minimum_size = preview_size
+	# Start at base size so component._ready() sets fonts at scale 1.0
+	wrapper.size = base_size
+	wrapper.custom_minimum_size = base_size
 	var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
 	component.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
 	wrapper.add_child(component)
+	# Add to tree — _ready() fires with base size, fonts set at scale 1.0
 	_card_hover_preview_layer.add_child(wrapper)
+	# Now resize to preview size — NOTIFICATION_RESIZED updates geometry only,
+	# fonts stay at scale 1.0, matching exactly how hand cards render
+	wrapper.custom_minimum_size = preview_size
+	wrapper.size = preview_size
 	return wrapper
 
 
