@@ -328,9 +328,11 @@ func _test_match_card_display_modes(screen: MatchScreen) -> bool:
 	var preview_after_delay := _find_node_by_name_prefix(screen, "lane_hover_preview_") as Control
 	var preview_mode_matches := preview_after_delay != null and (_card_display_mode(preview_after_delay) == CardDisplayComponent.PRESENTATION_FULL)
 	var preview_ignores_mouse := preview_after_delay != null and preview_after_delay.mouse_filter == Control.MOUSE_FILTER_IGNORE
-	var preview_above := false
+	var preview_overlays := false
 	if preview_after_delay != null:
-		preview_above = preview_after_delay.get_global_rect().end.y <= lane_card.get_global_rect().position.y + 2.0
+		var preview_center := preview_after_delay.get_global_rect().get_center()
+		var card_center := lane_card.get_global_rect().get_center()
+		preview_overlays = absf(preview_center.x - card_center.x) < preview_after_delay.size.x * 0.5 and absf(preview_center.y - card_center.y) < preview_after_delay.size.y * 0.5
 	lane_card.emit_signal("mouse_exited")
 	await _await_frames(2)
 	var preview_after_exit := _find_node_by_name_prefix(screen, "lane_hover_preview_")
@@ -343,7 +345,7 @@ func _test_match_card_display_modes(screen: MatchScreen) -> bool:
 		_assert(preview_before == null and preview_immediate == null, "Lane hover previews should wait about one second before appearing.") and
 		_assert(preview_mode_matches, "Lane hover previews should render as floating full card displays.") and
 		_assert(preview_ignores_mouse, "Lane hover previews should stay mouse-transparent so they do not block board interaction.") and
-		_assert(preview_above, "Lane hover previews should appear above the hovered lane card.") and
+		_assert(preview_overlays, "Lane hover previews should overlay the hovered lane card.") and
 		_assert(preview_after_exit == null, "Lane hover previews should clear when the pointer leaves the lane card.") and
 		_assert(attacker_click_ok, "After a hover-preview cycle, real pointer clicks should still reach the lane creature.") and
 		_assert(attack_state_after_hover.get("selection_mode", "") == "attack", "After a hover-preview cycle, clicking the lane creature should still enter attack targeting mode.") and

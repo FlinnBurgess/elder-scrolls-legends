@@ -27,7 +27,7 @@ const REMOVAL_FEEDBACK_DURATION_MS := 1280
 const DRAW_FEEDBACK_DURATION_MS := 1800
 const RUNE_FEEDBACK_DURATION_MS := 2100
 const TURN_BANNER_DURATION_MS := 1600
-const LANE_CARD_HOVER_PREVIEW_DELAY_MS := 1000
+const CARD_HOVER_PREVIEW_DELAY_MS := 1000
 const LOCAL_MATCH_AI_SCENARIO_ID := "local_match"
 const LOCAL_MATCH_AI_ACTION_DELAY_MS := 320
 const SELECTION_MODE_NONE := "none"
@@ -104,10 +104,13 @@ var _local_hand_overlay: Control
 var _opponent_hand_overlay: Control
 var _player_avatar_overlay: Control
 var _opponent_avatar_overlay: Control
-var _lane_hover_preview_layer: Control
+var _card_hover_preview_layer: Control
 var _lane_hover_preview_pending := {}
 var _lane_hover_preview_instance_id := ""
 var _lane_hover_preview_button_ref: WeakRef
+var _support_hover_preview_pending := {}
+var _support_hover_preview_instance_id := ""
+var _support_hover_preview_button_ref: WeakRef
 var _last_turn_owner_id := ""
 var _turn_banner_until_ms := 0
 var _queued_ai_step_at_ms := -1
@@ -133,6 +136,7 @@ func _process(_delta: float) -> void:
 	if _turn_banner_panel.visible != should_show:
 		_turn_banner_panel.visible = should_show
 	_process_lane_card_hover_preview()
+	_process_support_card_hover_preview()
 	_process_local_match_ai_turn()
 	if _pending_layout_scale_frames > 0:
 		_pending_layout_scale_frames -= 1
@@ -616,11 +620,11 @@ func _build_ui() -> void:
 	content.add_theme_constant_override("separation", 24)
 	root.add_child(content)
 
-	_lane_hover_preview_layer = Control.new()
-	_lane_hover_preview_layer.name = "LaneHoverPreviewLayer"
-	_lane_hover_preview_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_lane_hover_preview_layer.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	add_child(_lane_hover_preview_layer)
+	_card_hover_preview_layer = Control.new()
+	_card_hover_preview_layer.name = "CardHoverPreviewLayer"
+	_card_hover_preview_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_card_hover_preview_layer.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	add_child(_card_hover_preview_layer)
 
 	_opponent_hand_overlay = Control.new()
 	_opponent_hand_overlay.name = "OpponentHandOverlay"
@@ -1494,6 +1498,7 @@ func _lane_marker_color(lane_id: String) -> Color:
 func _refresh_ui() -> void:
 	_prune_feedback_state()
 	_clear_lane_card_hover_preview()
+	_clear_support_card_hover_preview()
 	_card_buttons = {}
 	_lane_slot_buttons = {}
 	_refresh_turn_presentation()
@@ -1741,6 +1746,9 @@ func _build_card_button(card: Dictionary, public_view: bool, surface := "default
 	if surface == "lane" and str(card.get("card_type", "")) == "creature":
 		button.mouse_entered.connect(_on_lane_card_mouse_entered.bind(button, instance_id))
 		button.mouse_exited.connect(_on_lane_card_mouse_exited.bind(instance_id))
+	if surface == "support":
+		button.mouse_entered.connect(_on_support_card_mouse_entered.bind(button, instance_id))
+		button.mouse_exited.connect(_on_support_card_mouse_exited.bind(instance_id))
 	return button
 
 
@@ -1995,7 +2003,7 @@ func _process_lane_card_hover_preview() -> void:
 			_position_lane_card_hover_preview(active_button)
 	if _lane_hover_preview_pending.is_empty():
 		return
-	if Time.get_ticks_msec() - int(_lane_hover_preview_pending.get("entered_at_ms", 0)) < LANE_CARD_HOVER_PREVIEW_DELAY_MS:
+	if Time.get_ticks_msec() - int(_lane_hover_preview_pending.get("entered_at_ms", 0)) < CARD_HOVER_PREVIEW_DELAY_MS:
 		return
 	var button_ref := _lane_hover_preview_pending.get("button_ref") as WeakRef
 	var button := button_ref.get_ref() as Button if button_ref != null else null
@@ -2011,7 +2019,7 @@ func _process_lane_card_hover_preview() -> void:
 
 func _show_lane_card_hover_preview(button: Button, card: Dictionary, instance_id: String) -> void:
 	_clear_lane_card_hover_preview()
-	if _lane_hover_preview_layer == null:
+	if _card_hover_preview_layer == null:
 		return
 	var preview = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
 	if preview == null:
@@ -2021,28 +2029,28 @@ func _show_lane_card_hover_preview(button: Button, card: Dictionary, instance_id
 	preview.z_index = 400
 	preview.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
 	preview.size = preview.custom_minimum_size
-	_lane_hover_preview_layer.add_child(preview)
+	_card_hover_preview_layer.add_child(preview)
 	_lane_hover_preview_instance_id = instance_id
 	_lane_hover_preview_button_ref = weakref(button)
 	_position_lane_card_hover_preview(button)
 
 
 func _position_lane_card_hover_preview(button: Button) -> void:
-	if button == null or _lane_hover_preview_layer == null:
+	if button == null or _card_hover_preview_layer == null:
 		return
-	var preview := _lane_hover_preview_layer.get_node_or_null("lane_hover_preview_%s" % _lane_hover_preview_instance_id) as Control
+	var preview := _card_hover_preview_layer.get_node_or_null("lane_hover_preview_%s" % _lane_hover_preview_instance_id) as Control
 	if preview == null:
 		return
 	var preview_size := preview.custom_minimum_size if preview.custom_minimum_size != Vector2.ZERO else preview.size
 	preview.size = preview_size
-	var layer_origin := _lane_hover_preview_layer.get_global_rect().position
+	var layer_origin := _card_hover_preview_layer.get_global_rect().position
 	var button_rect := button.get_global_rect()
 	var target_position := Vector2(
 		button_rect.get_center().x - preview_size.x * 0.5 - layer_origin.x,
-		button_rect.position.y - preview_size.y - 18.0 - layer_origin.y
+		button_rect.get_center().y - preview_size.y * 0.5 - layer_origin.y
 	)
-	target_position.x = clampf(target_position.x, 0.0, maxf(_lane_hover_preview_layer.size.x - preview_size.x, 0.0))
-	target_position.y = clampf(target_position.y, 0.0, maxf(_lane_hover_preview_layer.size.y - preview_size.y, 0.0))
+	target_position.x = clampf(target_position.x, 0.0, maxf(_card_hover_preview_layer.size.x - preview_size.x, 0.0))
+	target_position.y = clampf(target_position.y, 0.0, maxf(_card_hover_preview_layer.size.y - preview_size.y, 0.0))
 	preview.position = target_position
 
 
@@ -2050,10 +2058,98 @@ func _clear_lane_card_hover_preview() -> void:
 	_lane_hover_preview_pending = {}
 	_lane_hover_preview_instance_id = ""
 	_lane_hover_preview_button_ref = null
-	if _lane_hover_preview_layer == null:
+	if _card_hover_preview_layer == null:
 		return
-	for child in _lane_hover_preview_layer.get_children():
-		child.queue_free()
+	for child in _card_hover_preview_layer.get_children():
+		if str(child.name).begins_with("lane_hover_preview_"):
+			child.queue_free()
+
+
+func _on_support_card_mouse_entered(button: Button, instance_id: String) -> void:
+	_clear_support_card_hover_preview()
+	_support_hover_preview_pending = {
+		"instance_id": instance_id,
+		"button_ref": weakref(button),
+		"entered_at_ms": Time.get_ticks_msec(),
+	}
+
+
+func _on_support_card_mouse_exited(instance_id: String) -> void:
+	if str(_support_hover_preview_pending.get("instance_id", "")) == instance_id:
+		_support_hover_preview_pending = {}
+	if _support_hover_preview_instance_id == instance_id:
+		_clear_support_card_hover_preview()
+
+
+func _process_support_card_hover_preview() -> void:
+	if _support_hover_preview_button_ref != null:
+		var active_button = _support_hover_preview_button_ref.get_ref() as Button
+		if active_button == null or not is_instance_valid(active_button):
+			_clear_support_card_hover_preview()
+		elif _support_hover_preview_instance_id != "":
+			_position_support_card_hover_preview(active_button)
+	if _support_hover_preview_pending.is_empty():
+		return
+	if Time.get_ticks_msec() - int(_support_hover_preview_pending.get("entered_at_ms", 0)) < CARD_HOVER_PREVIEW_DELAY_MS:
+		return
+	var button_ref := _support_hover_preview_pending.get("button_ref") as WeakRef
+	var button := button_ref.get_ref() as Button if button_ref != null else null
+	var instance_id := str(_support_hover_preview_pending.get("instance_id", ""))
+	_support_hover_preview_pending = {}
+	if button == null or not is_instance_valid(button):
+		return
+	var card := _card_from_instance_id(instance_id)
+	if card.is_empty():
+		return
+	_show_support_card_hover_preview(button, card, instance_id)
+
+
+func _show_support_card_hover_preview(button: Button, card: Dictionary, instance_id: String) -> void:
+	_clear_support_card_hover_preview()
+	if _card_hover_preview_layer == null:
+		return
+	var preview = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+	if preview == null:
+		return
+	preview.name = "support_hover_preview_%s" % instance_id
+	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	preview.z_index = 400
+	preview.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+	preview.size = preview.custom_minimum_size
+	_card_hover_preview_layer.add_child(preview)
+	_support_hover_preview_instance_id = instance_id
+	_support_hover_preview_button_ref = weakref(button)
+	_position_support_card_hover_preview(button)
+
+
+func _position_support_card_hover_preview(button: Button) -> void:
+	if button == null or _card_hover_preview_layer == null:
+		return
+	var preview := _card_hover_preview_layer.get_node_or_null("support_hover_preview_%s" % _support_hover_preview_instance_id) as Control
+	if preview == null:
+		return
+	var preview_size := preview.custom_minimum_size if preview.custom_minimum_size != Vector2.ZERO else preview.size
+	preview.size = preview_size
+	var layer_origin := _card_hover_preview_layer.get_global_rect().position
+	var button_rect := button.get_global_rect()
+	var target_position := Vector2(
+		button_rect.get_center().x - preview_size.x * 0.5 - layer_origin.x,
+		button_rect.get_center().y - preview_size.y * 0.5 - layer_origin.y
+	)
+	target_position.x = clampf(target_position.x, 0.0, maxf(_card_hover_preview_layer.size.x - preview_size.x, 0.0))
+	target_position.y = clampf(target_position.y, 0.0, maxf(_card_hover_preview_layer.size.y - preview_size.y, 0.0))
+	preview.position = target_position
+
+
+func _clear_support_card_hover_preview() -> void:
+	_support_hover_preview_pending = {}
+	_support_hover_preview_instance_id = ""
+	_support_hover_preview_button_ref = null
+	if _card_hover_preview_layer == null:
+		return
+	for child in _card_hover_preview_layer.get_children():
+		if str(child.name).begins_with("support_hover_preview_"):
+			child.queue_free()
 
 
 func _populate_card_button_content(button: Button, card: Dictionary, public_view: bool, surface: String) -> void:
