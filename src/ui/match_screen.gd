@@ -1203,13 +1203,18 @@ func _build_lanes_panel() -> Control:
 			row_panel.size_flags_horizontal = SIZE_EXPAND_FILL
 			row_panel.size_flags_vertical = SIZE_EXPAND_FILL
 			_apply_panel_style(row_panel, _lane_row_fill(lane_id), _lane_row_border(lane_id), 1, 10)
+			row_panel.gui_input.connect(_on_lane_row_gui_input.bind(lane_id, player_id))
 			lane_box.add_child(row_panel)
 			_lane_row_panels[_lane_row_key(lane_id, player_id)] = row_panel
 			var row_box := _build_panel_box(row_panel, 4, 6)
+			# Let clicks on non-button children fall through to the row panel
+			row_panel.get_child(0).mouse_filter = Control.MOUSE_FILTER_IGNORE
+			row_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			var row_label := Label.new()
 			row_label.text = "Opponent side" if player_id == PLAYER_ORDER[0] else "Your side"
 			row_label.add_theme_font_size_override("font_size", 13)
 			row_label.add_theme_color_override("font_color", Color(0.88, 0.9, 0.94, 1.0))
+			row_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			row_box.add_child(row_label)
 
 			var row := HBoxContainer.new()
@@ -1217,6 +1222,7 @@ func _build_lanes_panel() -> Control:
 			row.alignment = BoxContainer.ALIGNMENT_CENTER
 			row.size_flags_horizontal = SIZE_EXPAND_FILL
 			row.add_theme_constant_override("separation", 14)
+			row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			row_box.add_child(row)
 			_lane_row_containers[_lane_row_key(lane_id, player_id)] = row
 
@@ -2611,6 +2617,34 @@ func _on_support_surface_gui_input(event: InputEvent, player_id: String) -> void
 		return
 	if _try_resolve_selected_support_surface(player_id):
 		accept_event()
+
+
+func _on_lane_row_gui_input(event: InputEvent, lane_id: String, player_id: String) -> void:
+	if not (event is InputEventMouseButton):
+		return
+	var button_event := event as InputEventMouseButton
+	if button_event.button_index != MOUSE_BUTTON_LEFT or not button_event.pressed:
+		return
+	var card := _selected_card()
+	if card.is_empty():
+		return
+	if not _selected_support_row_target_player_id(card).is_empty():
+		_play_selected_to_support_row(_selected_support_row_target_player_id(card))
+		accept_event()
+		return
+	if _selected_card_wants_lane(card, _target_lane_player_id()):
+		var slot_index := _first_open_slot_index(lane_id, _target_lane_player_id())
+		if slot_index >= 0:
+			var validation := _validate_selected_lane_play(lane_id, _target_lane_player_id(), slot_index)
+			if bool(validation.get("is_valid", false)):
+				play_selected_to_lane(lane_id, slot_index)
+				accept_event()
+			else:
+				_report_invalid_interaction(validation.get("message", "Cannot play into %s." % _lane_name(lane_id)), {
+					"lane_ids": [lane_id],
+					"lane_slot_keys": [_lane_slot_key(lane_id, _target_lane_player_id(), slot_index)],
+				})
+				accept_event()
 
 
 func _on_lane_panel_gui_input(event: InputEvent, lane_id: String) -> void:
