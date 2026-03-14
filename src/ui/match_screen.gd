@@ -2017,6 +2017,13 @@ func _process_lane_card_hover_preview() -> void:
 	_show_lane_card_hover_preview(button, card, instance_id)
 
 
+func _hover_preview_card_size() -> Vector2:
+	var base := CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+	var target_height := get_viewport_rect().size.y * 0.30
+	var aspect_ratio := base.x / base.y
+	return Vector2(target_height * aspect_ratio, target_height)
+
+
 func _show_lane_card_hover_preview(button: Button, card: Dictionary, instance_id: String) -> void:
 	_clear_lane_card_hover_preview()
 	if _card_hover_preview_layer == null:
@@ -2027,8 +2034,10 @@ func _show_lane_card_hover_preview(button: Button, card: Dictionary, instance_id
 	preview.name = "lane_hover_preview_%s" % instance_id
 	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	preview.z_index = 400
+	var preview_size := _hover_preview_card_size()
+	preview.size = preview_size
 	preview.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
-	preview.size = preview.custom_minimum_size
+	preview.size = preview_size
 	_card_hover_preview_layer.add_child(preview)
 	_lane_hover_preview_instance_id = instance_id
 	_lane_hover_preview_button_ref = weakref(button)
@@ -2041,8 +2050,7 @@ func _position_lane_card_hover_preview(button: Button) -> void:
 	var preview := _card_hover_preview_layer.get_node_or_null("lane_hover_preview_%s" % _lane_hover_preview_instance_id) as Control
 	if preview == null:
 		return
-	var preview_size := preview.custom_minimum_size if preview.custom_minimum_size != Vector2.ZERO else preview.size
-	preview.size = preview_size
+	var preview_size := preview.size if preview.size != Vector2.ZERO else preview.custom_minimum_size
 	var layer_origin := _card_hover_preview_layer.get_global_rect().position
 	var button_rect := button.get_global_rect()
 	var target_position := Vector2(
@@ -2114,8 +2122,10 @@ func _show_support_card_hover_preview(button: Button, card: Dictionary, instance
 	preview.name = "support_hover_preview_%s" % instance_id
 	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	preview.z_index = 400
+	var preview_size := _hover_preview_card_size()
+	preview.size = preview_size
 	preview.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
-	preview.size = preview.custom_minimum_size
+	preview.size = preview_size
 	_card_hover_preview_layer.add_child(preview)
 	_support_hover_preview_instance_id = instance_id
 	_support_hover_preview_button_ref = weakref(button)
@@ -2128,8 +2138,7 @@ func _position_support_card_hover_preview(button: Button) -> void:
 	var preview := _card_hover_preview_layer.get_node_or_null("support_hover_preview_%s" % _support_hover_preview_instance_id) as Control
 	if preview == null:
 		return
-	var preview_size := preview.custom_minimum_size if preview.custom_minimum_size != Vector2.ZERO else preview.size
-	preview.size = preview_size
+	var preview_size := preview.size if preview.size != Vector2.ZERO else preview.custom_minimum_size
 	var layer_origin := _card_hover_preview_layer.get_global_rect().position
 	var button_rect := button.get_global_rect()
 	var target_position := Vector2(
