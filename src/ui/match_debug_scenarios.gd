@@ -64,17 +64,6 @@ static func _build_local_match() -> Dictionary:
 	player_two["ring_of_magicka_charges"] = 0
 
 	_set_deck(player_one, [
-		_build_named_card(player_one["player_id"], "deck_prophecy", {
-			"name": "Foresight Guardian",
-			"card_type": "creature",
-			"cost": 3,
-			"power": 3,
-			"health": 4,
-			"rarity": "epic",
-			"keywords": [EvergreenRules.KEYWORD_GUARD],
-			"rules_tags": ["prophecy"],
-			"rules_text": "Prophecy. Guard.",
-		}),
 		_build_named_card(player_one["player_id"], "deck_a", {
 			"name": "Battlefield Reserve",
 			"card_type": "creature",
@@ -88,19 +77,19 @@ static func _build_local_match() -> Dictionary:
 			"cost": 2,
 			"rules_text": "Placeholder action for deck-count visibility.",
 		}),
-	])
-	_set_deck(player_two, [
-		_build_named_card(player_two["player_id"], "deck_prophecy", {
-			"name": "Fate Weaver",
+		_build_named_card(player_one["player_id"], "deck_prophecy", {
+			"name": "Foresight Guardian",
 			"card_type": "creature",
-			"cost": 2,
-			"power": 2,
-			"health": 3,
-			"rarity": "rare",
+			"cost": 3,
+			"power": 3,
+			"health": 4,
+			"rarity": "epic",
 			"keywords": [EvergreenRules.KEYWORD_GUARD],
 			"rules_tags": ["prophecy"],
 			"rules_text": "Prophecy. Guard.",
 		}),
+	])
+	_set_deck(player_two, [
 		_build_named_card(player_two["player_id"], "deck_a", {
 			"name": "Graveborn Soldier",
 			"card_type": "creature",
@@ -114,6 +103,17 @@ static func _build_local_match() -> Dictionary:
 			"cost": 3,
 			"power": 3,
 			"health": 2,
+		}),
+		_build_named_card(player_two["player_id"], "deck_prophecy", {
+			"name": "Fate Weaver",
+			"card_type": "creature",
+			"cost": 2,
+			"power": 2,
+			"health": 3,
+			"rarity": "rare",
+			"keywords": [EvergreenRules.KEYWORD_GUARD],
+			"rules_tags": ["prophecy"],
+			"rules_text": "Prophecy. Guard.",
 		}),
 	])
 	player_one["discard"] = [
