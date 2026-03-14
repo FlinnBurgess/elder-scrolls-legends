@@ -2612,15 +2612,20 @@ func _on_support_surface_gui_input(event: InputEvent, player_id: String) -> void
 
 
 func _on_lane_pressed(lane_id: String) -> void:
-	var slot_index := _first_open_slot_index(lane_id, _target_lane_player_id())
-	if slot_index >= 0 and _selected_card_wants_lane(_selected_card(), _target_lane_player_id()):
-		var validation := _validate_selected_lane_play(lane_id, _target_lane_player_id(), slot_index)
+	var card := _selected_card()
+	var target_player := _target_lane_player_id()
+	if not _selected_support_row_target_player_id(card).is_empty():
+		_play_selected_to_support_row(_selected_support_row_target_player_id(card))
+		return
+	var slot_index := _first_open_slot_index(lane_id, target_player)
+	if slot_index >= 0 and _selected_card_wants_lane(card, target_player):
+		var validation := _validate_selected_lane_play(lane_id, target_player, slot_index)
 		if bool(validation.get("is_valid", false)):
 			play_selected_to_lane(lane_id, slot_index)
 		else:
 			_report_invalid_interaction(validation.get("message", "Cannot play into %s." % _lane_name(lane_id)), {
 				"lane_ids": [lane_id],
-				"lane_slot_keys": [_lane_slot_key(lane_id, _target_lane_player_id(), slot_index)],
+				"lane_slot_keys": [_lane_slot_key(lane_id, target_player, slot_index)],
 			})
 		return
 	_help_label.text = _lane_description(lane_id)
@@ -2629,7 +2634,11 @@ func _on_lane_pressed(lane_id: String) -> void:
 
 
 func _on_lane_slot_pressed(lane_id: String, player_id: String, slot_index: int) -> void:
-	if _selected_card_wants_lane(_selected_card(), player_id):
+	var card := _selected_card()
+	if not _selected_support_row_target_player_id(card).is_empty():
+		_play_selected_to_support_row(_selected_support_row_target_player_id(card))
+		return
+	if _selected_card_wants_lane(card, player_id):
 		var validation := _validate_selected_lane_play(lane_id, player_id, slot_index)
 		if bool(validation.get("is_valid", false)):
 			play_selected_to_lane(lane_id, slot_index)
@@ -2854,6 +2863,10 @@ func _valid_lane_slot_keys() -> Array:
 
 func _valid_lane_ids() -> Array:
 	var ids: Array = []
+	if not _selected_support_row_target_player_id(_selected_card()).is_empty():
+		for lane in _lane_entries():
+			ids.append(str(lane.get("id", "")))
+		return ids
 	for slot_key in _valid_lane_slot_keys():
 		var lane_id := str(slot_key).split(":")[0]
 		if not ids.has(lane_id):
