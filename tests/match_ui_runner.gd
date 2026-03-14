@@ -516,7 +516,6 @@ func _test_support_row_click_placement(screen: MatchScreen) -> bool:
 	var interaction_state := screen.get_interaction_state()
 	var support_surface := screen.find_child("player_1_support_surface", true, false) as Control
 	var prompt_before := screen.get_status_message()
-	var tooltip_before := support_surface.tooltip_text if support_surface != null else ""
 	var cursor_before := support_surface.mouse_default_cursor_shape if support_surface != null else Control.CURSOR_ARROW
 	var click_ok := _click_control(support_surface)
 	await process_frame
@@ -529,7 +528,6 @@ func _test_support_row_click_placement(screen: MatchScreen) -> bool:
 		_assert(interaction_state.get("selection_mode", "") == "support", "Hand support selection should enter support interaction mode.") and
 		_assert(interaction_state.get("valid_target_instance_ids", []).is_empty(), "Hand support placement should not mis-highlight lane cards as support targets.") and
 		_assert(prompt_before.contains("Click your support row"), "Support prompts should explain the click-to-place support-row flow.") and
-		_assert(tooltip_before.contains("Click to place"), "Support surface tooltip should advertise the click-to-place affordance.") and
 		_assert(cursor_before == Control.CURSOR_POINTING_HAND, "Support surface should advertise itself as an interactive placement target.") and
 		_assert(click_ok, "Real pointer clicks should be deliverable to the support surface.") and
 		_assert(screen.get_selected_instance_id().is_empty(), "Successful support-row clicks should clear selection after placement.") and

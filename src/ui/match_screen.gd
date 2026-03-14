@@ -2586,6 +2586,7 @@ func _on_card_pressed(instance_id: String) -> void:
 			return
 		if _try_resolve_selected_card_target(instance_id):
 			return
+		_try_resolve_detached_card_via_lane(instance_id)
 		return
 	if _is_local_hand_card(instance_id):
 		var card := _card_from_instance_id(instance_id)
@@ -4156,6 +4157,29 @@ func _queue_free_weak(node_ref: WeakRef) -> void:
 	var node = node_ref.get_ref()
 	if node != null and is_instance_valid(node):
 		node.queue_free()
+
+
+func _try_resolve_detached_card_via_lane(target_instance_id: String) -> void:
+	var target_location := MatchMutations.find_card_location(_match_state, target_instance_id)
+	if not bool(target_location.get("is_valid", false)) or str(target_location.get("zone", "")) != MatchMutations.ZONE_LANE:
+		return
+	var selected_card := _selected_card()
+	if not _selected_support_row_target_player_id(selected_card).is_empty():
+		_play_selected_to_support_row(_selected_support_row_target_player_id(selected_card))
+		return
+	var lane_id := str(target_location.get("lane_id", ""))
+	var target_player := _target_lane_player_id()
+	if _selected_card_wants_lane(selected_card, target_player):
+		var slot_index := _first_open_slot_index(lane_id, target_player)
+		if slot_index >= 0:
+			var validation := _validate_selected_lane_play(lane_id, target_player, slot_index)
+			if bool(validation.get("is_valid", false)):
+				play_selected_to_lane(lane_id, slot_index)
+			else:
+				_report_invalid_interaction(validation.get("message", "Cannot play into %s." % _lane_name(lane_id)), {
+					"lane_ids": [lane_id],
+					"lane_slot_keys": [_lane_slot_key(lane_id, target_player, slot_index)],
+				})
 
 
 func _try_resolve_selected_support_surface(player_id: String) -> bool:
