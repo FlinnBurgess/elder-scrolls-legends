@@ -20,7 +20,6 @@ const PLAYER_MAGICKA_SCENE := preload("res://scenes/ui/components/PlayerMagickaC
 const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
 const PLAYER_ORDER := ["player_2", "player_1"]
 const DISPLAY_RUNE_THRESHOLDS := [25, 20, 15, 10, 5]
-const HAND_DRAG_THRESHOLD := 18.0
 const ATTACK_FEEDBACK_DURATION_MS := 520
 const DAMAGE_FEEDBACK_DURATION_MS := 1050
 const REMOVAL_FEEDBACK_DURATION_MS := 1280
@@ -86,8 +85,7 @@ var _lane_header_buttons := {}
 var _card_buttons := {}
 var _lane_slot_buttons := {}
 var _invalid_feedback := {}
-var _drag_state := {}
-var _suppressed_card_press_instance_id := ""
+var _detached_card_state := {}
 var _attack_feedbacks: Array = []
 var _damage_feedbacks: Array = []
 var _removal_feedbacks: Array = []
@@ -188,8 +186,8 @@ func get_interaction_state() -> Dictionary:
 		"invalid_lane_ids": _copy_array(_invalid_feedback.get("lane_ids", [])),
 		"invalid_target_instance_ids": _copy_array(_invalid_feedback.get("instance_ids", [])),
 		"invalid_player_ids": _copy_array(_invalid_feedback.get("player_ids", [])),
-		"drag_active": bool(_drag_state.get("active", false)),
-		"drag_instance_id": str(_drag_state.get("instance_id", "")),
+		"detached_active": not _detached_card_state.is_empty(),
+		"detached_instance_id": str(_detached_card_state.get("instance_id", "")),
 	}
 
 
@@ -215,30 +213,25 @@ func get_feedback_state() -> Dictionary:
 	}
 
 
-func start_hand_drag(instance_id: String) -> bool:
-	return _start_hand_drag_for_instance(instance_id, _drag_source_position(instance_id))
+func detach_hand_card(instance_id: String) -> bool:
+	if not _is_local_hand_card(instance_id):
+		return false
+	var card := _card_from_instance_id(instance_id)
+	if card.is_empty():
+		return false
+	var mode := _selected_action_mode(card)
+	if mode == SELECTION_MODE_NONE:
+		return false
+	_detach_hand_card(instance_id)
+	return true
 
 
-func drop_hand_drag_on_node(node_name: String) -> Dictionary:
-	if not bool(_drag_state.get("active", false)):
-		return _invalid_ui_result("No active hand drag.")
-	var target := find_child(node_name, true, false) as Control
-	if target == null:
-		return _invalid_ui_result("Drop target %s is not available." % node_name)
-	var rect := target.get_global_rect()
-	return _finish_hand_drag(rect.position + rect.size * 0.5)
-
-
-func cancel_hand_drag() -> void:
-	_cancel_active_hand_drag()
-
-
-func is_hand_drag_active() -> bool:
-	return bool(_drag_state.get("active", false))
+func is_card_detached() -> bool:
+	return not _detached_card_state.is_empty()
 
 
 func load_scenario(scenario_id: String) -> bool:
-	_clear_drag_state()
+	_cancel_detached_card_silent()
 	_reset_invalid_feedback()
 	_clear_feedback_state()
 	_reset_local_match_ai_queue()
@@ -331,7 +324,7 @@ func _execute_local_match_ai_step() -> Dictionary:
 			"action": action.duplicate(true),
 			"result": result.duplicate(true),
 		}
-	_clear_drag_state()
+	_cancel_detached_card_silent()
 	_reset_invalid_feedback()
 	_selected_instance_id = ""
 	_record_feedback_from_events(_ai_feedback_events(action, result))
@@ -476,7 +469,7 @@ func select_card(instance_id: String) -> bool:
 
 
 func clear_selection() -> void:
-	_clear_drag_state()
+	_cancel_detached_card_silent()
 	_reset_invalid_feedback()
 	_selected_instance_id = ""
 	_clear_pile_selection()
@@ -1514,6 +1507,13 @@ func _refresh_ui() -> void:
 	_refresh_action_buttons()
 	_refresh_match_end_overlay()
 	_apply_presentation_feedback()
+	if not _detached_card_state.is_empty():
+		var detached_id: String = str(_detached_card_state.get("instance_id", ""))
+		var detached_button: Button = _card_buttons.get(detached_id)
+		if detached_button != null:
+			detached_button.visible = false
+		else:
+			_cancel_detached_card_silent()
 	_pending_layout_scale_frames = 2
 
 
@@ -1742,7 +1742,6 @@ func _build_card_button(card: Dictionary, public_view: bool, surface := "default
 	if surface == "hand" and public_view and str(card.get("controller_player_id", "")) == PLAYER_ORDER[1]:
 		button.mouse_entered.connect(_on_local_hand_card_mouse_entered.bind(button))
 		button.mouse_exited.connect(_on_local_hand_card_mouse_exited.bind(button))
-		button.gui_input.connect(_on_local_hand_card_gui_input.bind(button, instance_id))
 	if surface == "lane" and str(card.get("card_type", "")) == "creature":
 		button.mouse_entered.connect(_on_lane_card_mouse_entered.bind(button, instance_id))
 		button.mouse_exited.connect(_on_lane_card_mouse_exited.bind(instance_id))
@@ -1842,10 +1841,7 @@ func _layout_hand_cards(hand_surface: Control, player_id: String) -> void:
 func _layout_local_hand_cards(hand_surface: Control, cards: Array[Button], card_size: Vector2, count: int) -> void:
 	# Cards fan out at the bottom-center of the screen, mostly off the bottom edge.
 	var overlay_size := get_viewport_rect().size
-	# Scale cards to ~30% of viewport height, preserving the card aspect ratio
-	var target_height := overlay_size.y * 0.30
-	var aspect_ratio := card_size.x / card_size.y
-	card_size = Vector2(target_height * aspect_ratio, target_height)
+	card_size = _hand_card_display_size()
 	var overlap_step := card_size.x * 0.45
 	var total_width := card_size.x + overlap_step * float(max(0, count - 1))
 	var start_x := (overlay_size.x - total_width) * 0.5
@@ -2017,7 +2013,7 @@ func _process_lane_card_hover_preview() -> void:
 	_show_lane_card_hover_preview(button, card, instance_id)
 
 
-func _hover_preview_card_size() -> Vector2:
+func _hand_card_display_size() -> Vector2:
 	var base := CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
 	var target_height := get_viewport_rect().size.y * 0.30
 	var aspect_ratio := base.x / base.y
@@ -2025,7 +2021,7 @@ func _hover_preview_card_size() -> Vector2:
 
 
 func _add_hover_preview_to_layer(card: Dictionary, instance_id: String, name_prefix: String) -> Control:
-	var preview_size := _hover_preview_card_size()
+	var preview_size := _hand_card_display_size()
 	# Replicate how hand cards render: a CardDisplayComponent built at base
 	# size (220x384) with PRESET_FULL_RECT inside a larger container. When
 	# the component enters the tree, NOTIFICATION_RESIZED fires and updates
@@ -2571,49 +2567,32 @@ func _on_clear_pressed() -> void:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
-		var motion := event as InputEventMouseMotion
-		if bool(_drag_state.get("pending", false)) and not bool(_drag_state.get("active", false)):
-			if motion.position.distance_to(_drag_state.get("start_position", motion.position)) >= HAND_DRAG_THRESHOLD:
-				_start_hand_drag_for_instance(str(_drag_state.get("instance_id", "")), motion.position)
-		elif bool(_drag_state.get("active", false)):
-			_update_hand_drag_preview(motion.position)
+		if not _detached_card_state.is_empty():
+			var preview: Control = _detached_card_state.get("preview")
+			if preview != null and is_instance_valid(preview):
+				var mouse_pos := (event as InputEventMouseMotion).position
+				preview.position = mouse_pos + Vector2(-preview.size.x * 0.5, -preview.size.y * 0.62)
 	elif event is InputEventMouseButton:
 		var button_event := event as InputEventMouseButton
-		if button_event.button_index != MOUSE_BUTTON_LEFT or button_event.pressed:
-			return
-		if bool(_drag_state.get("active", false)):
-			_finish_hand_drag(button_event.position)
-		elif bool(_drag_state.get("pending", false)):
-			_clear_drag_state(false)
-
-
-func _on_local_hand_card_gui_input(event: InputEvent, button: Button, instance_id: String) -> void:
-	if not _card_supports_direct_drag(instance_id):
-		return
-	if event is InputEventMouseButton:
-		var button_event := event as InputEventMouseButton
-		if button_event.button_index == MOUSE_BUTTON_LEFT:
-			if button_event.pressed:
-				_drag_state = {
-					"pending": true,
-					"active": false,
-					"instance_id": instance_id,
-					"start_position": button.get_global_mouse_position(),
-					"source_position": _drag_source_position(instance_id),
-					"source_button": button,
-				}
-			else:
-				if bool(_drag_state.get("pending", false)) and str(_drag_state.get("instance_id", "")) == instance_id:
-					_clear_drag_state(false)
+		if button_event.button_index == MOUSE_BUTTON_RIGHT and button_event.pressed and not _detached_card_state.is_empty():
+			_cancel_detached_card()
+			get_viewport().set_input_as_handled()
 
 
 func _on_card_pressed(instance_id: String) -> void:
-	if _suppressed_card_press_instance_id == instance_id:
-		_suppressed_card_press_instance_id = ""
+	if not _detached_card_state.is_empty():
+		var target_card := _card_from_instance_id(instance_id)
+		if _try_resolve_selected_support_row_card(target_card):
+			return
+		if _try_resolve_selected_card_target(instance_id):
+			return
 		return
-	if _selected_instance_id == instance_id:
-		clear_selection()
-		return
+	if _is_local_hand_card(instance_id):
+		var card := _card_from_instance_id(instance_id)
+		var mode := _selected_action_mode(card)
+		if mode != SELECTION_MODE_NONE:
+			_detach_hand_card(instance_id)
+			return
 	var target_card := _card_from_instance_id(instance_id)
 	if _try_resolve_selected_support_row_card(target_card):
 		return
@@ -3013,7 +2992,7 @@ func _validate_selected_support_play(player_id: String) -> Dictionary:
 
 func _finalize_engine_result(result: Dictionary, success_message: String, clear_selection_on_success := true) -> Dictionary:
 	if bool(result.get("is_valid", false)):
-		_clear_drag_state()
+		_cancel_detached_card_silent()
 		_reset_invalid_feedback()
 		if clear_selection_on_success:
 			_selected_instance_id = ""
@@ -4105,12 +4084,65 @@ func _identifier_to_name(value: String) -> String:
 	return _join_parts(titled, " ")
 
 
-func _card_supports_direct_drag(instance_id: String) -> bool:
-	var card := _card_from_instance_id(instance_id)
-	if card.is_empty() or str(card.get("controller_player_id", "")) != PLAYER_ORDER[1]:
+func _is_local_hand_card(instance_id: String) -> bool:
+	var location := MatchMutations.find_card_location(_match_state, instance_id)
+	if not bool(location.get("is_valid", false)):
 		return false
-	var mode := _selected_action_mode(card)
-	return mode == SELECTION_MODE_SUMMON or mode == SELECTION_MODE_ITEM
+	return str(location.get("zone", "")) == MatchMutations.ZONE_HAND and str(location.get("player_id", "")) == PLAYER_ORDER[1]
+
+
+func _detach_hand_card(instance_id: String) -> void:
+	_cancel_detached_card_silent()
+	select_card(instance_id)
+	var button: Button = _card_buttons.get(instance_id)
+	if button != null:
+		button.visible = false
+	var card := _card_from_instance_id(instance_id)
+	var preview_size := _hand_card_display_size()
+	var base_size := CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+	var wrapper := Control.new()
+	wrapper.name = "detached_hand_card_%s" % instance_id
+	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrapper.z_index = 500
+	wrapper.size = base_size
+	wrapper.custom_minimum_size = base_size
+	var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+	component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+	wrapper.add_child(component)
+	add_child(wrapper)
+	wrapper.custom_minimum_size = preview_size
+	wrapper.size = preview_size
+	var mouse_pos := get_viewport().get_mouse_position()
+	wrapper.position = mouse_pos + Vector2(-preview_size.x * 0.5, -preview_size.y * 0.62)
+	_detached_card_state = {
+		"instance_id": instance_id,
+		"preview": wrapper,
+		"card_data": card.duplicate(true),
+	}
+
+
+func _cancel_detached_card() -> void:
+	var preview: Control = _detached_card_state.get("preview")
+	if preview != null and is_instance_valid(preview):
+		preview.queue_free()
+	_detached_card_state = {}
+	_selected_instance_id = ""
+	_refresh_ui()
+
+
+func _cancel_detached_card_silent() -> void:
+	var preview: Control = _detached_card_state.get("preview")
+	if preview != null and is_instance_valid(preview):
+		preview.queue_free()
+	_detached_card_state = {}
+
+
+func _queue_free_weak(node_ref: WeakRef) -> void:
+	var node = node_ref.get_ref()
+	if node != null and is_instance_valid(node):
+		node.queue_free()
 
 
 func _try_resolve_selected_support_surface(player_id: String) -> bool:
@@ -4143,202 +4175,6 @@ func _play_selected_to_support_row(player_id: String) -> Dictionary:
 	return _finalize_engine_result(result, "Placed %s into %s's support row." % [_card_name(card), _player_name(player_id)])
 
 
-func _drag_source_position(instance_id: String) -> Vector2:
-	var button: Button = _card_buttons.get(instance_id)
-	if button != null:
-		var rect := button.get_global_rect()
-		return rect.position + rect.size * 0.5
-	return Vector2(320, 520)
-
-
-func _start_hand_drag_for_instance(instance_id: String, start_position: Vector2) -> bool:
-	if instance_id.is_empty() or not _card_supports_direct_drag(instance_id):
-		return false
-	var card := _card_from_instance_id(instance_id)
-	if card.is_empty():
-		return false
-	if _selected_instance_id != instance_id:
-		select_card(instance_id)
-		card = _selected_card()
-	var preview := _build_drag_preview(card)
-	add_child(preview)
-	_suppressed_card_press_instance_id = instance_id
-	_drag_state = {
-		"pending": false,
-		"active": true,
-		"instance_id": instance_id,
-		"preview": preview,
-		"source_position": _drag_source_position(instance_id),
-		"last_position": start_position,
-	}
-	_update_hand_drag_preview(start_position)
-	return true
-
-
-func _build_drag_preview(card: Dictionary) -> PanelContainer:
-	var preview := PanelContainer.new()
-	preview.name = "hand_drag_preview"
-	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	preview.custom_minimum_size = _surface_button_minimum_size("hand")
-	preview.size = preview.custom_minimum_size
-	preview.z_index = 500
-	_apply_panel_style(preview, Color(0.17, 0.19, 0.24, 0.98), Color(0.98, 0.88, 0.58, 1.0), 2, 10)
-	var box := _build_panel_box(preview, 6, 10)
-	var title := Label.new()
-	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	title.add_theme_font_size_override("font_size", 16)
-	title.text = _card_name(card)
-	box.add_child(title)
-	var subtitle := Label.new()
-	subtitle.add_theme_font_size_override("font_size", 13)
-	subtitle.modulate = Color(0.86, 0.89, 0.96, 0.92)
-	subtitle.text = "%s • %d cost" % [_identifier_to_name(str(card.get("card_type", "card"))), int(card.get("cost", 0))]
-	box.add_child(subtitle)
-	var stats := _card_stat_line(card)
-	if not stats.is_empty():
-		var stats_label := Label.new()
-		stats_label.add_theme_font_size_override("font_size", 13)
-		stats_label.modulate = Color(0.92, 0.94, 0.98, 0.9)
-		stats_label.text = stats
-		box.add_child(stats_label)
-	preview.scale = Vector2(1.04, 1.04)
-	return preview
-
-
-func _update_hand_drag_preview(pointer_position: Vector2) -> void:
-	var preview: Control = _drag_state.get("preview")
-	if preview == null or not is_instance_valid(preview):
-		return
-	_drag_state["last_position"] = pointer_position
-	preview.position = pointer_position + Vector2(-preview.size.x * 0.5, -preview.size.y * 0.62)
-
-
-func _finish_hand_drag(pointer_position: Vector2) -> Dictionary:
-	if not bool(_drag_state.get("active", false)):
-		return _invalid_ui_result("No active hand drag.")
-	var descriptor := _drag_drop_descriptor(pointer_position)
-	if descriptor.is_empty():
-		_cancel_active_hand_drag()
-		return {"is_valid": false, "errors": ["Interaction cancelled."]}
-	match str(descriptor.get("kind", "")):
-		"lane_slot":
-			if bool(descriptor.get("valid", false)):
-				_clear_drag_state()
-				return play_selected_to_lane(str(descriptor.get("lane_id", "")), int(descriptor.get("slot_index", -1)))
-			_animate_drag_preview_return()
-			return _report_invalid_interaction(str(descriptor.get("message", "Cannot play there.")), {
-				"lane_ids": [str(descriptor.get("lane_id", ""))],
-				"lane_slot_keys": [_lane_slot_key(str(descriptor.get("lane_id", "")), str(descriptor.get("player_id", "")), int(descriptor.get("slot_index", -1)))],
-			})
-		"card":
-			if bool(descriptor.get("valid", false)):
-				_clear_drag_state()
-				return target_selected_card(str(descriptor.get("instance_id", "")))
-			_animate_drag_preview_return()
-			return _report_invalid_interaction(str(descriptor.get("message", "That isn't a valid target.")), {"instance_ids": [str(descriptor.get("instance_id", ""))]})
-		"invalid":
-			_animate_drag_preview_return()
-			return _report_invalid_interaction(str(descriptor.get("message", "That isn't a valid drop zone.")), descriptor.get("feedback", {}))
-	_cancel_active_hand_drag()
-	return {"is_valid": false, "errors": ["Interaction cancelled."]}
-
-
-func _cancel_active_hand_drag() -> void:
-	if not bool(_drag_state.get("active", false)):
-		_clear_drag_state(false)
-		return
-	_animate_drag_preview_return()
-
-
-func _animate_drag_preview_return() -> void:
-	var preview: Control = _drag_state.get("preview")
-	var source_position: Vector2 = _drag_state.get("source_position", Vector2.ZERO)
-	_drag_state = {}
-	if preview == null or not is_instance_valid(preview):
-		return
-	var tween := create_tween()
-	tween.tween_property(preview, "position", source_position + Vector2(-preview.size.x * 0.5, -preview.size.y * 0.5), 0.14)
-	tween.parallel().tween_property(preview, "scale", Vector2.ONE, 0.14)
-	tween.finished.connect(_queue_free_weak.bind(weakref(preview)))
-
-
-func _clear_drag_state(remove_preview := true) -> void:
-	var preview: Control = _drag_state.get("preview")
-	if remove_preview and preview != null and is_instance_valid(preview):
-		preview.queue_free()
-	_drag_state = {}
-
-
-func _queue_free_weak(node_ref: WeakRef) -> void:
-	var node = node_ref.get_ref()
-	if node != null and is_instance_valid(node):
-		node.queue_free()
-
-
-func _drag_drop_descriptor(pointer_position: Vector2) -> Dictionary:
-	var mode := _selected_action_mode(_selected_card())
-	if mode == SELECTION_MODE_SUMMON:
-		for slot_key in _lane_slot_buttons.keys():
-			var slot_button: Button = _lane_slot_buttons.get(slot_key)
-			if slot_button != null and slot_button.get_global_rect().has_point(pointer_position):
-				var lane_id := str(slot_button.get_meta("lane_id", ""))
-				var player_id := str(slot_button.get_meta("player_id", ""))
-				var slot_index := int(slot_button.get_meta("slot_index", -1))
-				var validation := _validate_selected_lane_play(lane_id, player_id, slot_index)
-				return {
-					"kind": "lane_slot",
-					"lane_id": lane_id,
-					"player_id": player_id,
-					"slot_index": slot_index,
-					"valid": bool(validation.get("is_valid", false)),
-					"message": str(validation.get("message", "Cannot play there.")),
-				}
-		for lane in _lane_entries():
-			var lane_id := str(lane.get("id", ""))
-			var player_id := _target_lane_player_id()
-			var header: Button = _lane_header_buttons.get(lane_id)
-			var lane_panel: PanelContainer = _lane_panels.get(lane_id)
-			var row_panel: PanelContainer = _lane_row_panels.get(_lane_row_key(lane_id, player_id))
-			if (header != null and header.get_global_rect().has_point(pointer_position)) or (lane_panel != null and lane_panel.get_global_rect().has_point(pointer_position)) or (row_panel != null and row_panel.get_global_rect().has_point(pointer_position)):
-				var slot_index := _first_valid_lane_slot_index(lane_id, player_id)
-				if slot_index < 0:
-					slot_index = _first_open_slot_index(lane_id, player_id)
-				var validation := _validate_selected_lane_play(lane_id, player_id, slot_index)
-				return {
-					"kind": "lane_slot",
-					"lane_id": lane_id,
-					"player_id": player_id,
-					"slot_index": slot_index,
-					"valid": slot_index >= 0 and bool(validation.get("is_valid", false)),
-					"message": str(validation.get("message", "Cannot play there.")),
-				}
-		for instance_id in _card_buttons.keys():
-			var card_button: Button = _card_buttons.get(instance_id)
-			if card_button != null and card_button.get_global_rect().has_point(pointer_position) and str(card_button.get_meta("surface", "")) == "lane":
-				return {"kind": "invalid", "message": "Select a lane slot to summon this creature.", "feedback": {"instance_ids": [instance_id]}}
-		for section in _player_sections.values():
-			var avatar: Control = section.get("avatar_component")
-			if avatar != null and (avatar as Control).get_global_rect().has_point(pointer_position):
-				return {"kind": "invalid", "message": "Select a lane slot to summon this creature.", "feedback": {"player_ids": [str(section.get("player_id", ""))]}}
-	elif mode == SELECTION_MODE_ITEM:
-		for instance_id in _card_buttons.keys():
-			var card_button: Button = _card_buttons.get(instance_id)
-			if card_button != null and card_button.get_global_rect().has_point(pointer_position) and str(card_button.get_meta("surface", "")) == "lane":
-				return {
-					"kind": "card",
-					"instance_id": instance_id,
-					"valid": _is_card_target_valid_for_selected(instance_id),
-					"message": "%s can't target %s right now." % [_card_name(_selected_card()), _card_name(_card_from_instance_id(instance_id))],
-				}
-		for slot_button in _lane_slot_buttons.values():
-			if slot_button != null and slot_button.get_global_rect().has_point(pointer_position):
-				return {"kind": "invalid", "message": "Drop this item onto a creature.", "feedback": {}}
-		for lane_id in _lane_header_buttons.keys():
-			var header: Button = _lane_header_buttons.get(lane_id)
-			var lane_panel: PanelContainer = _lane_panels.get(lane_id)
-			if (header != null and header.get_global_rect().has_point(pointer_position)) or (lane_panel != null and lane_panel.get_global_rect().has_point(pointer_position)):
-				return {"kind": "invalid", "message": "Drop this item onto a creature.", "feedback": {"lane_ids": [lane_id]}}
-	return {}
 
 
 func _first_valid_lane_slot_index(lane_id: String, player_id: String) -> int:

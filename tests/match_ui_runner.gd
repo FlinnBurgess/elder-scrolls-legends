@@ -466,22 +466,24 @@ func _test_play_interaction_highlighting(screen: MatchScreen) -> bool:
 		opponent_slot_button.emit_signal("pressed")
 	var invalid_state := screen.get_interaction_state()
 	var invalid_slot_message := screen.get_status_message()
-	if not _assert(screen.load_scenario("local_match"), "Local match scenario should reload for drag verification."):
+	if not _assert(screen.load_scenario("local_match"), "Local match scenario should reload for detach verification."):
 		return false
 	active_player = _active_player(screen.get_match_state())
 	summon_card = _find_hand_card(active_player, "Field Guardian")
 	summon_id = str(summon_card.get("instance_id", ""))
-	var drag_started := screen.start_hand_drag(summon_id)
-	var invalid_drop := screen.drop_hand_drag_on_node("player_2_avatar_component")
-	var drag_invalid_state := screen.get_interaction_state()
-	var invalid_drag_message := screen.get_status_message()
-	if not _assert(screen.load_scenario("local_match"), "Local match scenario should reload for valid drag verification."):
+	var detach_ok := screen.detach_hand_card(summon_id)
+	var detach_state := screen.get_interaction_state()
+	var detached_button := screen.find_child("hand_player_1_field_guardian_card", true, false) as Button
+	var detached_button_hidden := detached_button != null and not detached_button.visible
+	screen.clear_selection()
+	var after_cancel_state := screen.get_interaction_state()
+	if not _assert(screen.load_scenario("local_match"), "Local match scenario should reload for detach play verification."):
 		return false
 	active_player = _active_player(screen.get_match_state())
 	summon_card = _find_hand_card(active_player, "Field Guardian")
 	summon_id = str(summon_card.get("instance_id", ""))
-	var valid_drag_started := screen.start_hand_drag(summon_id)
-	var valid_drop := screen.drop_hand_drag_on_node("shadow_lane_header")
+	var detach_play_ok := screen.detach_hand_card(summon_id)
+	var play_result := screen.play_selected_to_lane("shadow", 0)
 	return (
 		_assert(select_ok, "Selecting a hand creature should expose interaction highlights.") and
 		_assert(field_guardian_button != null and field_guardian_button.scale.x > 1.0, "Selected local hand cards should remain visually lifted for readability.") and
@@ -490,14 +492,13 @@ func _test_play_interaction_highlighting(screen: MatchScreen) -> bool:
 		_assert(not interaction_state.get("valid_lane_slot_keys", []).has("field:player_2:1"), "Opponent lane slots should not be listed as valid summon drops.") and
 		_assert(invalid_state.get("invalid_lane_slot_keys", []).has("field:player_2:1"), "Clicking an invalid drop slot should record invalid slot feedback.") and
 		_assert(invalid_slot_message.contains("Select a creature that can be summoned"), "Invalid summon target feedback should explain the required drop zone.") and
-		_assert(drag_started, "Playable hand creatures should support drag-style direct manipulation.") and
-		_assert(not bool(invalid_drop.get("is_valid", true)), "Dragging onto an invalid surface should fail cleanly.") and
-		_assert(drag_invalid_state.get("invalid_player_ids", []).has("player_2"), "Invalid drag drops should identify the blocked surface for feedback.") and
-		_assert(invalid_drag_message.contains("Select a lane slot"), "Invalid drag drops should explain the correct drop surface.") and
-		_assert(not screen.is_hand_drag_active(), "Invalid drag drops should settle and end the drag interaction.") and
-		_assert(valid_drag_started, "Valid drag verification should start successfully.") and
-		_assert(bool(valid_drop.get("is_valid", false)), "Dragging a creature onto a highlighted lane should resolve through the existing command wiring.") and
-		_assert(_lane_contains(screen.get_match_state(), "shadow", str(active_player.get("player_id", "")), summon_id), "Successful drag drops should place the card into the requested lane.")
+		_assert(detach_ok, "Playable hand creatures should support detach-and-follow interaction.") and
+		_assert(bool(detach_state.get("detached_active", false)), "Detaching a hand card should activate detached state.") and
+		_assert(detached_button_hidden, "Detached card button should be hidden in the hand.") and
+		_assert(not bool(after_cancel_state.get("detached_active", false)), "Clearing selection should cancel detached state.") and
+		_assert(detach_play_ok, "Detach for play verification should start successfully.") and
+		_assert(bool(play_result.get("is_valid", false)), "Playing a detached card to a lane should resolve successfully.") and
+		_assert(_lane_contains(screen.get_match_state(), "shadow", str(active_player.get("player_id", "")), summon_id), "Successful detach-and-play should place the card into the requested lane.")
 	)
 
 
