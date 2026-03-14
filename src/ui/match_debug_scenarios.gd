@@ -161,6 +161,20 @@ static func _build_local_match() -> Dictionary:
 			"effects": [{"op": "grant_keyword", "target": "event_target", "keyword_id": EvergreenRules.KEYWORD_GUARD}],
 		}],
 	})
+	ScenarioFixtures.add_hand_card(player_one, "battle_drum", {
+		"name": "Battle Drum",
+		"card_type": "support",
+		"cost": 2,
+		"rarity": "rare",
+		"activation_cost": 1,
+		"support_uses": 3,
+		"rules_text": "Activate: Give a creature Guard.",
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ACTIVATE,
+			"required_zone": "support",
+			"effects": [{"op": "grant_keyword", "target": "event_target", "keyword_id": EvergreenRules.KEYWORD_GUARD}],
+		}],
+	})
 	ScenarioFixtures.add_hand_card(player_one, "grand_colossus", {
 		"name": "Grand Colossus",
 		"card_type": "creature",

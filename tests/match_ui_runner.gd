@@ -89,7 +89,6 @@ func _test_layout_hierarchy(screen: MatchScreen) -> bool:
 	var field_player_row := screen.find_child("field_player_1_lane_row", true, false) as HBoxContainer
 	var battlefield_title := _find_label_with_text(screen, "Battlefield")
 	var actions_title := _find_label_with_text(screen, "Turn Actions")
-	var supports_title := _find_label_with_text(screen, "Supports")
 	var row_label := _find_first_label(field_player_row_panel)
 	return (
 		_assert(match_layout != null, "Expected a named match layout root.") and
@@ -123,8 +122,7 @@ func _test_layout_hierarchy(screen: MatchScreen) -> bool:
 			_assert(_panel_background_brightness(shadow_lane_panel) < _panel_background_brightness(field_lane_panel), "Shadow lane should keep a darker ambient treatment than the Field lane.") and
 			_assert(battlefield_title != null and battlefield_title.get_theme_font_size("font_size") >= 24, "Battlefield heading should use stronger typography.") and
 		_assert(actions_title != null and actions_title.get_theme_font_size("font_size") >= 20, "Action heading should use stronger typography.") and
-		_assert(supports_title != null and supports_title.get_theme_font_size("font_size") >= 17, "Section labels should be more readable than the previous pass.") and
-			_assert(row_label != null and row_label.get_theme_font_size("font_size") >= 13, "Lane row labels should stay readable after the compact battlefield rebalance.") and
+		_assert(row_label != null and row_label.get_theme_font_size("font_size") >= 13, "Lane row labels should stay readable after the compact battlefield rebalance.") and
 		_assert(play_button != null and play_button.get_theme_font_size("font_size") >= 17, "Primary action buttons should use larger type.") and
 			_assert(field_lane_header != null and field_lane_header.get_theme_font_size("font_size") >= 17, "Lane headers should stay readable after the compact battlefield rebalance.") and
 		_assert(field_player_row != null and field_player_row.alignment == BoxContainer.ALIGNMENT_CENTER, "Lane rows should center their slot groups instead of bunching into a corner.") and
@@ -194,13 +192,11 @@ func _test_avatar_band_containment(screen: MatchScreen) -> bool:
 func _test_placeholder_layout_stability(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should reload for placeholder verification."):
 		return false
-	var no_supports := _find_label_with_text(screen, "No supports")
 	var no_prophecy := _find_label_with_text(screen, "No pending Prophecy windows.")
 	var active_player := _active_player(screen.get_match_state())
 	var summon_card := _find_hand_card(active_player, "Field Guardian")
 	var select_ok := screen.select_card(str(summon_card.get("instance_id", "")))
 	screen.clear_selection()
-	var no_supports_after := _find_label_with_text(screen, "No supports")
 	var no_prophecy_after := _find_label_with_text(screen, "No pending Prophecy windows.")
 	if not _assert(screen.load_scenario("support_lab"), "Support lab should load for empty-hand placeholder verification."):
 		return false
@@ -214,9 +210,7 @@ func _test_placeholder_layout_stability(screen: MatchScreen) -> bool:
 	var hand_empty_after := _find_label_with_text(screen, "Hand empty")
 	return (
 		_assert(select_ok, "Selecting a normal card should still work during placeholder verification.") and
-		_assert(_placeholder_has_width_protection(no_supports), "Support placeholders should reserve horizontal width.") and
 		_assert(_placeholder_has_width_protection(no_prophecy), "Prompt placeholders should reserve horizontal width.") and
-		_assert(_placeholder_has_width_protection(no_supports_after), "Support placeholders should stay width-protected after unrelated selection refreshes.") and
 		_assert(_placeholder_has_width_protection(no_prophecy_after), "Prompt placeholders should stay width-protected after unrelated selection refreshes.") and
 		_assert(_placeholder_has_width_protection(hand_empty), "Empty-hand placeholders should reserve horizontal width.") and
 		_assert(select_support_ok, "Selecting a support-lab card should still work during placeholder verification.") and

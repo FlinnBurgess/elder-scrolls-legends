@@ -911,37 +911,19 @@ func _build_player_section(player_id: String) -> Dictionary:
 	rows.size_flags_vertical = SIZE_SHRINK_CENTER
 	content_row.add_child(rows)
 
-	var support_box := VBoxContainer.new()
-	support_box.custom_minimum_size = Vector2(192, 0)
-	support_box.add_theme_constant_override("separation", 8)
-	rows.add_child(support_box)
-
-	var support_label := Label.new()
-	support_label.text = "Supports"
-	support_label.add_theme_font_size_override("font_size", 17)
-	support_box.add_child(support_label)
-
-	var support_surface := PanelContainer.new()
+	var support_surface := Control.new()
 	support_surface.name = "%s_support_surface" % player_id
-	support_surface.custom_minimum_size = Vector2(0, 156)
-	support_surface.size_flags_horizontal = SIZE_EXPAND_FILL
 	support_surface.focus_mode = Control.FOCUS_NONE
 	support_surface.gui_input.connect(_on_support_surface_gui_input.bind(player_id))
-	support_box.add_child(support_surface)
-
-	var support_margin := MarginContainer.new()
-	support_margin.add_theme_constant_override("margin_left", 8)
-	support_margin.add_theme_constant_override("margin_top", 8)
-	support_margin.add_theme_constant_override("margin_right", 8)
-	support_margin.add_theme_constant_override("margin_bottom", 8)
-	support_surface.add_child(support_margin)
+	rows.add_child(support_surface)
 
 	var support_row := HBoxContainer.new()
 	support_row.name = "%s_support_row" % player_id
 	support_row.add_theme_constant_override("separation", 8)
-	support_row.size_flags_horizontal = SIZE_EXPAND_FILL
+	support_row.alignment = BoxContainer.ALIGNMENT_END
+	support_row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	support_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	support_margin.add_child(support_row)
+	support_surface.add_child(support_row)
 
 	# End turn button – bottom-right of local player section
 	if not is_opponent:
@@ -1064,9 +1046,8 @@ func _build_player_section(player_id: String) -> Dictionary:
 		support_surface.size_flags_vertical = 0
 		var avatar_w := 200.0
 		var avatar_h := 188.0
-		var support_w := 192.0
-		var support_h: float = support_surface.custom_minimum_size.y
 		var avatar_gap := 12.0
+		var support_h := 96.0
 		# Force avatar to its intended size immediately so internal layout is stable
 		avatar_component.size = Vector2(avatar_w, avatar_h)
 		if is_opponent:
@@ -1077,10 +1058,11 @@ func _build_player_section(player_id: String) -> Dictionary:
 			avatar_component.offset_right = avatar_w * 0.5
 			avatar_component.offset_top = top_y
 			avatar_component.offset_bottom = top_y + avatar_h
-			# Support to the left of the avatar
+			# Supports row to the left of the avatar, right-aligned to grow leftward
+			var support_right := -avatar_w * 0.5 - avatar_gap
 			support_surface.set_anchors_preset(PRESET_CENTER_TOP)
-			support_surface.offset_left = -avatar_w * 0.5 - avatar_gap - support_w
-			support_surface.offset_right = -avatar_w * 0.5 - avatar_gap
+			support_surface.offset_right = support_right
+			support_surface.offset_left = support_right - 600.0
 			support_surface.offset_top = top_y + (avatar_h - support_h) * 0.5
 			support_surface.offset_bottom = top_y + (avatar_h + support_h) * 0.5
 		else:
@@ -1091,10 +1073,11 @@ func _build_player_section(player_id: String) -> Dictionary:
 			avatar_component.offset_right = avatar_w * 0.5
 			avatar_component.offset_top = -avatar_h - bottom_margin
 			avatar_component.offset_bottom = -bottom_margin
-			# Support to the left of the avatar
+			# Supports row to the left of the avatar, right-aligned to grow leftward
+			var support_right := -avatar_w * 0.5 - avatar_gap
 			support_surface.set_anchors_preset(PRESET_CENTER_BOTTOM)
-			support_surface.offset_left = -avatar_w * 0.5 - avatar_gap - support_w
-			support_surface.offset_right = -avatar_w * 0.5 - avatar_gap
+			support_surface.offset_right = support_right
+			support_surface.offset_left = support_right - 600.0
 			support_surface.offset_top = -avatar_h - bottom_margin + (avatar_h - support_h) * 0.5
 			support_surface.offset_bottom = -avatar_h - bottom_margin + (avatar_h + support_h) * 0.5
 
@@ -1454,23 +1437,6 @@ func _apply_lane_row_panel_style(panel: PanelContainer, lane_id: String, player_
 	_apply_panel_style(panel, fill, border, 2 if interaction_state != "default" else 1, 10)
 
 
-func _apply_support_surface_style(panel: PanelContainer, player_id: String) -> void:
-	if panel == null:
-		return
-	var fill := Color(0.1, 0.15, 0.15, 0.96)
-	var border := Color(0.34, 0.55, 0.54, 0.9)
-	var interaction_state := _support_surface_interaction_state(player_id)
-	if _should_dim_local_surface(player_id) and interaction_state == "default":
-		fill = fill.darkened(0.18)
-		border = border.darkened(0.14)
-	if interaction_state == "valid":
-		fill = fill.lightened(0.06)
-		border = Color(0.74, 0.94, 0.68, 1.0)
-	elif interaction_state == "invalid":
-		fill = fill.lerp(Color(0.28, 0.12, 0.14, 0.98), 0.56)
-		border = Color(0.98, 0.48, 0.44, 1.0)
-	_apply_panel_style(panel, fill, border, 2 if interaction_state != "default" else 1, 10)
-
 
 
 func _locked_surface_modulate(locked: bool, muted: bool) -> Color:
@@ -1602,8 +1568,7 @@ func _refresh_player_sections() -> void:
 		discard_button.text = _pile_button_text("Discard", player.get("discard", []).size())
 		discard_button.tooltip_text = _pile_button_tooltip(player, MatchMutations.ZONE_DISCARD)
 
-		var support_surface: PanelContainer = section["support_surface"]
-		_apply_support_surface_style(support_surface, player_id)
+		var support_surface: Control = section["support_surface"]
 		support_surface.tooltip_text = _support_surface_tooltip(player_id)
 		support_surface.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if _support_surface_interaction_state(player_id) == "valid" else Control.CURSOR_ARROW
 
@@ -1611,10 +1576,6 @@ func _refresh_player_sections() -> void:
 		_clear_children(support_row)
 		for support in player.get("support", []):
 			support_row.add_child(_build_card_button(support, true, "support"))
-		if support_row.get_child_count() == 0:
-			var placeholder := _build_placeholder_label("No supports")
-			placeholder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			support_row.add_child(placeholder)
 
 		var hand_row: Control = section["hand_row"]
 		_clear_children(hand_row)
