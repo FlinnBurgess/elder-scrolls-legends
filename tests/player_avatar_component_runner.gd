@@ -2,7 +2,7 @@ extends SceneTree
 
 const PlayerAvatarComponent = preload("res://src/ui/components/PlayerAvatarComponent.gd")
 const PLAYER_AVATAR_SCENE := preload("res://scenes/ui/components/PlayerAvatarComponent.tscn")
-const COMPACT_COMPONENT_SIZE := Vector2(188, 176)
+const COMPACT_COMPONENT_SIZE := Vector2(282, 264)
 
 
 func _initialize() -> void:

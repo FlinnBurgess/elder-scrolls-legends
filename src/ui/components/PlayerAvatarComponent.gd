@@ -5,8 +5,8 @@ const DEFAULT_RUNE_THRESHOLDS := [25, 20, 15, 10, 5]
 const DEFAULT_PORTRAIT := preload("res://assets/images/portraits/placeholder.png")
 const PRESENTATION_LOCAL_BOTTOM := 0
 const PRESENTATION_OPPONENT_TOP := 1
-const RECOMMENDED_MINIMUM_SIZE := Vector2(188, 176)
-const MEDALLION_MAX_SIZE := 188.0
+const RECOMMENDED_MINIMUM_SIZE := Vector2(282, 264)
+const MEDALLION_MAX_SIZE := 282.0
 const BADGE_WIDTH_RATIO := 0.48
 const BADGE_HEIGHT_RATIO := 0.34
 const RUNE_SIZE_RATIO := 0.17
@@ -179,13 +179,13 @@ func _build_internal_nodes() -> void:
 	_health_value_label.name = "HealthValue"
 	_health_value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_health_value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_health_value_label.add_theme_font_size_override("font_size", 26)
+	_health_value_label.add_theme_font_size_override("font_size", 39)
 	badge_box.add_child(_health_value_label)
 	_health_caption_label = Label.new()
 	_health_caption_label.name = "HealthCaption"
 	_health_caption_label.text = "HEALTH"
 	_health_caption_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_health_caption_label.add_theme_font_size_override("font_size", 10)
+	_health_caption_label.add_theme_font_size_override("font_size", 15)
 	badge_box.add_child(_health_caption_label)
 
 	_rune_entries.clear()
@@ -206,7 +206,7 @@ func _build_internal_nodes() -> void:
 		crack.text = "×"
 		crack.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		crack.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		crack.add_theme_font_size_override("font_size", 14)
+		crack.add_theme_font_size_override("font_size", 21)
 		_set_full_rect(crack)
 		rune_panel.add_child(crack)
 

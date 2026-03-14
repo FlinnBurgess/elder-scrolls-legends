@@ -739,7 +739,7 @@ func _build_player_section(player_id: String) -> Dictionary:
 
 	var avatar_component := PLAYER_AVATAR_SCENE.instantiate()
 	avatar_component.name = "%s_avatar_component" % player_id
-	avatar_component.custom_minimum_size = Vector2(188, 176)
+	avatar_component.custom_minimum_size = Vector2(282, 264)
 	avatar_component.mouse_filter = Control.MOUSE_FILTER_STOP
 	avatar_component.gui_input.connect(_on_avatar_gui_input.bind(player_id))
 	hero_row.add_child(avatar_component)
@@ -954,8 +954,8 @@ func _build_player_section(player_id: String) -> Dictionary:
 		support_surface.reparent(avatar_overlay)
 		support_surface.size_flags_horizontal = 0
 		support_surface.size_flags_vertical = 0
-		var avatar_w := 200.0
-		var avatar_h := 188.0
+		var avatar_w := 300.0
+		var avatar_h := 282.0
 		var avatar_gap := 12.0
 		var support_h := 96.0
 		# Force avatar to its intended size immediately so internal layout is stable
