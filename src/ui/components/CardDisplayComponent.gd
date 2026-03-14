@@ -183,9 +183,10 @@ func _build_internal_nodes() -> void:
 	_rules_label = RichTextLabel.new()
 	_rules_label.name = "RulesLabel"
 	_rules_label.bbcode_enabled = true
-	_rules_label.fit_content = true
+	_rules_label.fit_content = false
 	_rules_label.scroll_active = false
 	_rules_label.size_flags_horizontal = SIZE_EXPAND_FILL
+	_rules_label.size_flags_vertical = SIZE_EXPAND_FILL
 	_rules_label.add_theme_font_size_override("normal_font_size", 18)
 	_rules_label.add_theme_font_size_override("bold_font_size", 18)
 	rules_box.add_child(_rules_label)
@@ -242,6 +243,7 @@ func _refresh_content() -> void:
 	_subtype_label.text = _subtype_line(_card_data)
 	_rules_label.text = _rules_bbcode(_card_data)
 	_rarity_label.text = ""
+	_rarity_label.visible = false
 	if _is_creature(_card_data):
 		_attack_label.text = str(EvergreenRules.get_power(_card_data))
 		_health_label.text = str(EvergreenRules.get_remaining_health(_card_data))
@@ -362,8 +364,10 @@ func _layout_full(inner_rect: Rect2) -> void:
 	# Rules panel – bottom portion of card below art, with gap for stat badges
 	var rules_y := _art_frame.position.y + _art_frame.size.y + 4.0 * scale
 	var rules_bottom := inner_rect.position.y + inner_rect.size.y - content_padding
+	var rules_size := Vector2(content_width, maxf(rules_bottom - rules_y, 40.0 * scale))
+	_rules_panel.custom_minimum_size = Vector2.ZERO
 	_rules_panel.position = Vector2(inner_rect.position.x + content_padding, rules_y)
-	_rules_panel.size = Vector2(content_width, maxf(rules_bottom - rules_y, 40.0 * scale))
+	_rules_panel.size = rules_size
 
 	# Rarity gem – small diamond centered at the bottom edge of the card
 	var gem_side := 12.0 * scale
