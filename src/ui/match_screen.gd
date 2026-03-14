@@ -2541,6 +2541,12 @@ func _on_card_pressed(instance_id: String) -> void:
 	if not _targeting_arrow_state.is_empty():
 		if _try_resolve_selected_card_target(instance_id):
 			return
+		# Allow switching to another card that can target
+		var switch_card := _card_from_instance_id(instance_id)
+		var switch_mode := _selected_action_mode(switch_card)
+		if switch_mode == SELECTION_MODE_ITEM or switch_mode == SELECTION_MODE_ACTION or switch_mode == SELECTION_MODE_ATTACK or (switch_mode == SELECTION_MODE_SUPPORT and _selected_support_uses_card_targets(switch_card)):
+			_enter_targeting_mode(instance_id)
+			return
 		_report_invalid_interaction("Not a valid target.", {"instance_ids": [instance_id]})
 		return
 	if not _detached_card_state.is_empty():
@@ -2564,6 +2570,12 @@ func _on_card_pressed(instance_id: String) -> void:
 	if _try_resolve_selected_support_row_card(target_card):
 		return
 	if _try_resolve_selected_card_target(instance_id):
+		return
+	# Board cards that can target (attackers, supports with card targets) enter targeting mode
+	var board_card := _card_from_instance_id(instance_id)
+	var board_mode := _selected_action_mode(board_card)
+	if board_mode == SELECTION_MODE_ATTACK or (board_mode == SELECTION_MODE_SUPPORT and _selected_support_uses_card_targets(board_card)):
+		_enter_targeting_mode(instance_id)
 		return
 	select_card(instance_id)
 
@@ -4274,7 +4286,14 @@ func _create_targeting_arrow() -> Line2D:
 func _update_targeting_arrow(mouse_pos: Vector2) -> void:
 	if _targeting_arrow == null or not is_instance_valid(_targeting_arrow):
 		return
+	# Dynamically compute origin from the card button's current position so the
+	# arrow tracks the card through tween animations and layout changes.
 	var origin: Vector2 = _targeting_arrow_state.get("origin", Vector2.ZERO)
+	var arrow_instance_id: String = str(_targeting_arrow_state.get("instance_id", ""))
+	var arrow_button: Button = _card_buttons.get(arrow_instance_id)
+	if arrow_button != null and is_instance_valid(arrow_button):
+		var card_size: Vector2 = arrow_button.get_meta("card_size", arrow_button.size)
+		origin = arrow_button.global_position + Vector2(card_size.x * 0.5, 0.0)
 	var start := origin
 	var end_point := mouse_pos
 	var mid := (start + end_point) * 0.5
