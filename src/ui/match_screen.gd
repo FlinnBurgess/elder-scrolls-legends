@@ -813,14 +813,9 @@ func _build_player_section(player_id: String) -> Dictionary:
 	panel.name = "OpponentBand" if is_opponent else "PlayerBand"
 	panel.custom_minimum_size = Vector2(0, 220)
 	panel.size_flags_horizontal = SIZE_EXPAND_FILL
-	_apply_panel_style(panel, Color(0.14, 0.11, 0.13, 0.96) if is_opponent else Color(0.12, 0.14, 0.17, 0.96), Color(0.47, 0.34, 0.27, 0.88) if is_opponent else Color(0.31, 0.42, 0.51, 0.88), 2, 12)
+	_apply_panel_style(panel, Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 0)
 	var box := _build_panel_box(panel, 12, 14)
 
-	var title := Label.new()
-	title.text = "Opponent" if is_opponent else "You"
-	title.add_theme_font_size_override("font_size", 20)
-	title.add_theme_color_override("font_color", Color(0.95, 0.89, 0.76, 1.0))
-	box.add_child(title)
 	var content_row := HBoxContainer.new()
 	content_row.add_theme_constant_override("separation", 16)
 	content_row.size_flags_horizontal = SIZE_EXPAND_FILL
