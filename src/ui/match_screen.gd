@@ -2025,15 +2025,28 @@ func _hover_preview_card_size() -> Vector2:
 
 
 func _build_hover_preview_button(card: Dictionary, instance_id: String, name_prefix: String) -> Button:
+	var preview_size := _hover_preview_card_size()
 	var preview := _build_card_button(card, true, "hand")
 	preview.name = "%s_%s" % [name_prefix, instance_id]
 	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	preview.z_index = 400
 	preview.disabled = false
 	preview.focus_mode = Control.FOCUS_NONE
-	var preview_size := _hover_preview_card_size()
 	preview.size = preview_size
 	preview.custom_minimum_size = preview_size
+	# The CardDisplayComponent laid out at the original button size during
+	# _build_card_button. Force it to re-layout at the preview size now.
+	var content_root = preview.get_meta("content_root", null) as Control
+	if content_root != null:
+		content_root.set_anchors_and_offsets_preset(PRESET_TOP_LEFT)
+		content_root.position = Vector2.ZERO
+		content_root.size = preview_size
+	var component = preview.get_meta("card_display_component", null) as Control
+	if component != null:
+		component.set_anchors_and_offsets_preset(PRESET_TOP_LEFT)
+		component.position = Vector2.ZERO
+		component.size = preview_size
+		component.set_card(card)
 	_set_mouse_passthrough_recursive(preview)
 	# Remove signal connections that _build_card_button added
 	for sig_name in ["pressed", "mouse_entered", "mouse_exited", "gui_input"]:
