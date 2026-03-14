@@ -2631,6 +2631,9 @@ func _input(event: InputEvent) -> void:
 			elif not _detached_card_state.is_empty():
 				_cancel_detached_card()
 				get_viewport().set_input_as_handled()
+			elif not _selected_instance_id.is_empty():
+				clear_selection()
+				get_viewport().set_input_as_handled()
 
 
 func _on_card_pressed(instance_id: String) -> void:
