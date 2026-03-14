@@ -76,7 +76,6 @@ func _test_layout_hierarchy(screen: MatchScreen) -> bool:
 	var player_band := screen.find_child("PlayerBand", true, false)
 	var opponent_avatar := screen.find_child("player_2_avatar_component", true, false) as PlayerAvatarComponent
 	var player_avatar := screen.find_child("player_1_avatar_component", true, false) as PlayerAvatarComponent
-	var inspector_panel := screen.find_child("InspectorRailPanel", true, false)
 	var debug_panel := screen.find_child("DebugRailPanel", true, false)
 	var debug_tabs := screen.find_child("DebugTabs", true, false)
 	var field_lane_panel := screen.find_child("field_lane_panel", true, false) as Control
@@ -92,17 +91,14 @@ func _test_layout_hierarchy(screen: MatchScreen) -> bool:
 		_assert(opponent_band != null, "Expected a named opponent band for the recomposed layout.") and
 		_assert(player_band != null, "Expected a named local-player band for the recomposed layout.") and
 			_assert(opponent_avatar != null and player_avatar != null, "Expected both combatants to mount the reusable avatar component in the player bands.") and
-		_assert(inspector_panel != null, "Expected a compact inspector/help panel in the utility rail.") and
 		_assert(debug_panel != null and debug_tabs != null, "Expected secondary history/state tabs in the utility rail.") and
 		_assert(is_equal_approx(match_layout.anchor_right, 1.0) and is_equal_approx(match_layout.anchor_bottom, 1.0), "Match layout should anchor to the full screen rect.") and
 		_assert(match_layout.get_theme_constant("margin_left") >= 20 and match_layout.get_theme_constant("margin_right") >= 20, "Layout shell should add visible outer horizontal padding.") and
 		_assert(match_layout.get_theme_constant("margin_top") >= 20 and match_layout.get_theme_constant("margin_bottom") >= 20, "Layout shell should add visible outer vertical padding.") and
-		_assert(_panel_has_padding(inspector_panel, 16), "Inspector rail should include stronger internal padding.") and
 		_assert(board_column.get_index() < utility_column.get_index(), "Board column should precede the utility column.") and
 		_assert(opponent_band.get_index() < battlefield.get_index(), "Opponent band should render above the battlefield.") and
 		_assert(battlefield.get_index() < player_band.get_index(), "Battlefield should render above the local-player band.") and
-		_assert(inspector_panel.get_index() < debug_panel.get_index(), "Compact inspector/help should appear before the lower-priority debug tabs.") and
-			_assert(board_column.get_theme_constant("separation") >= 22, "Board column should have larger separation between major regions.") and
+		_assert(board_column.get_theme_constant("separation") >= 22, "Board column should have larger separation between major regions.") and
 			_assert(opponent_band.custom_minimum_size.y >= 210.0 and player_band.custom_minimum_size.y >= 210.0, "Player bands should reserve taller presentation space for identity and placeholders.") and
 				_assert(opponent_avatar.custom_minimum_size.x >= 180.0 and player_avatar.custom_minimum_size.x >= 180.0 and opponent_avatar.custom_minimum_size.x <= 200.0 and player_avatar.custom_minimum_size.x <= 200.0, "Avatar components should reserve meaningful width without dominating the band.") and
 			_assert(utility_column.custom_minimum_size.x >= 300.0, "Utility rail should remain accessible while staying secondary to the board.") and
@@ -215,7 +211,6 @@ func _test_player_surface_presentation(screen: MatchScreen) -> bool:
 	if not _assert(player_discard_button != null, "Expected a visible discard pile surface for the local player."):
 		return false
 	player_discard_button.emit_signal("pressed")
-	var discard_inspector := screen.get_inspector_text()
 	return (
 		_assert(opponent_avatar != null and player_avatar != null, "Expected mounted avatar components for both players.") and
 		_assert(opponent_avatar != null and opponent_avatar.health == int(opponent_state.get("health", 0)), "Opponent avatar should reflect the scenario health total through the component root API.") and
@@ -233,9 +228,7 @@ func _test_player_surface_presentation(screen: MatchScreen) -> bool:
 			_assert(player_magicka_component != null and player_magicka_component.get_segment_states() == _expected_magicka_states(player_state), "Local magicka component should reflect the current unlocked/spent/locked state.") and
 		_assert(player_ring_label != null and player_ring_label.text.contains("Ring of Magicka"), "Ring surface should show the Ring of Magicka label.") and
 		_assert(player_deck_button != null and player_deck_button.text.contains("Deck"), "Deck pile surface should be visible and labeled.") and
-		_assert(player_discard_button.text.contains("Discard"), "Discard pile surface should be visible and labeled.") and
-		_assert(discard_inspector.contains("Player One Discard"), "Discard inspection should route into the inspector rail.") and
-		_assert(discard_inspector.contains("Spent Torchbearer"), "Discard inspection should list public discard contents.")
+		_assert(player_discard_button.text.contains("Discard"), "Discard pile surface should be visible and labeled.")
 	)
 
 
@@ -637,15 +630,13 @@ func _test_ring_and_help_affordances(screen: MatchScreen) -> bool:
 	var charges_after := int(active_after.get("ring_of_magicka_charges", 0))
 	var player_ring_label := screen.find_child("player_1_ring_label", true, false) as Label
 	var player_magicka_component := screen.find_child("player_1_magicka_component", true, false) as PlayerMagickaComponent
-	var guard_help := screen.get_help_text("guard")
 	return (
 		_assert(ring_ok, "Active local player should be able to use the Ring of Magicka.") and
 		_assert(charges_after == charges_before - 1, "Ring usage should spend exactly one charge.") and
 		_assert(player_ring_label != null and player_ring_label.text.contains("Ring of Magicka"), "Ring surface should still display after a Ring charge is spent.") and
 			_assert(player_magicka_component != null and player_magicka_component.get_display_text() == _expected_magicka_text(active_after), "Magicka component text should update after Ring-granted temporary magicka.") and
 			_assert(player_magicka_component != null and player_magicka_component.get_segment_states() == _expected_magicka_states(active_after), "Magicka component segments should show the live temporary-magicka state after Ring usage.") and
-			_assert(player_magicka_component != null and player_magicka_component.get_segment_states().has(PlayerMagickaComponent.STATE_TEMPORARY), "Ring usage should surface a yellow temporary-magicka segment while the temp resource is active.") and
-		_assert(guard_help.contains("Guard creatures"), "Keyword help text should expose glossary guidance.")
+			_assert(player_magicka_component != null and player_magicka_component.get_segment_states().has(PlayerMagickaComponent.STATE_TEMPORARY), "Ring usage should surface a yellow temporary-magicka segment while the temp resource is active.")
 	)
 
 
@@ -657,7 +648,6 @@ func _test_prophecy_prompt_flow(screen: MatchScreen) -> bool:
 		return false
 	var prophecy_id := str(pending_ids[0])
 	var select_ok := screen.select_card(prophecy_id)
-	var inspector_before := screen.get_inspector_text()
 	var play_result := screen.play_selected_to_lane("field", 1)
 	var active_prophecy_ids := screen.get_pending_prophecy_ids()
 	var responding_player_id := "player_2"
@@ -665,8 +655,7 @@ func _test_prophecy_prompt_flow(screen: MatchScreen) -> bool:
 		_assert(select_ok, "Selecting the pending Prophecy card should succeed.") and
 		_assert(bool(play_result.get("is_valid", false)), "Playing the pending Prophecy creature through the UI should succeed.") and
 		_assert(active_prophecy_ids.is_empty(), "Prophecy window should close after the free play resolves.") and
-		_assert(_lane_contains(screen.get_match_state(), "field", responding_player_id, prophecy_id), "Prophecy creature should land in the requested lane.") and
-		_assert(inspector_before.contains("Prophecy"), "Inspector should reflect selected-card rules text before the play resolves.")
+		_assert(_lane_contains(screen.get_match_state(), "field", responding_player_id, prophecy_id), "Prophecy creature should land in the requested lane.")
 	)
 
 

@@ -90,9 +90,6 @@ var _removal_feedbacks: Array = []
 var _draw_feedbacks: Array = []
 var _rune_feedbacks: Array = []
 var _feedback_sequence := 0
-var _inspector_label: Label
-var _keyword_button_row: HBoxContainer
-var _help_label: Label
 var _history_text: TextEdit
 var _replay_text: TextEdit
 var _state_text: TextEdit
@@ -153,14 +150,6 @@ func get_status_message() -> String:
 
 func get_selected_instance_id() -> String:
 	return _selected_instance_id
-
-
-func get_inspector_text() -> String:
-	return _inspector_label.text if _inspector_label != null else ""
-
-
-func get_help_text(term_id: String) -> String:
-	return _build_help_text(term_id)
 
 
 func get_pending_prophecy_ids() -> Array:
@@ -702,30 +691,6 @@ func _build_ui() -> void:
 	utility_column.size_flags_vertical = SIZE_EXPAND_FILL
 	utility_column.add_theme_constant_override("separation", 16)
 	main_row.add_child(utility_column)
-
-	var inspector_panel := PanelContainer.new()
-	inspector_panel.name = "InspectorRailPanel"
-	inspector_panel.custom_minimum_size = Vector2(0, 236)
-	_apply_panel_style(inspector_panel, Color(0.11, 0.12, 0.16, 0.96), Color(0.28, 0.32, 0.39, 0.86), 1, 10)
-	utility_column.add_child(inspector_panel)
-	var inspector_box := _build_panel_box(inspector_panel, 12, 16)
-	var inspector_title := Label.new()
-	inspector_title.text = "Selection / Help"
-	inspector_title.add_theme_font_size_override("font_size", 20)
-	inspector_box.add_child(inspector_title)
-	_inspector_label = Label.new()
-	_inspector_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_inspector_label.add_theme_font_size_override("font_size", 16)
-	_inspector_label.custom_minimum_size = Vector2(0, 100)
-	inspector_box.add_child(_inspector_label)
-	_keyword_button_row = HBoxContainer.new()
-	_keyword_button_row.add_theme_constant_override("separation", 10)
-	inspector_box.add_child(_keyword_button_row)
-	_help_label = Label.new()
-	_help_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_help_label.add_theme_font_size_override("font_size", 16)
-	_help_label.custom_minimum_size = Vector2(0, 88)
-	inspector_box.add_child(_help_label)
 
 	var debug_panel := PanelContainer.new()
 	debug_panel.name = "DebugRailPanel"
@@ -1430,7 +1395,6 @@ func _refresh_ui() -> void:
 	_refresh_prophecy_overlay()
 	_refresh_player_sections()
 	_refresh_lanes()
-	_refresh_inspector()
 	_apply_match_layout_scale()
 	_refresh_debug_tabs()
 	_refresh_end_turn_button()
@@ -1553,28 +1517,6 @@ func _refresh_lanes() -> void:
 					row.add_child(_build_card_button(card, true, "lane"))
 				else:
 					row.add_child(_build_empty_slot_button(lane_id, player_id, slot_index))
-
-
-func _refresh_inspector() -> void:
-	var card := _selected_card()
-	_clear_children(_keyword_button_row)
-	if card.is_empty() and _selected_pile_zone.is_empty():
-		_inspector_label.text = "Select a visible card to inspect details and available actions."
-		_help_label.text = _default_help_text()
-		return
-	if card.is_empty():
-		_inspector_label.text = _pile_inspector_text(_selected_pile_player_id, _selected_pile_zone)
-		_help_label.text = _pile_help_text(_selected_pile_zone)
-		return
-	_inspector_label.text = _card_inspector_text(card)
-	for term_id in _card_terms(card):
-		var button := Button.new()
-		button.text = _term_label(term_id)
-		button.custom_minimum_size = Vector2(0, 38)
-		button.add_theme_font_size_override("font_size", 15)
-		button.pressed.connect(_on_help_term_pressed.bind(term_id))
-		_keyword_button_row.add_child(button)
-	_help_label.text = _default_help_text() if _keyword_button_row.get_child_count() == 0 else _build_help_text(_card_terms(card)[0])
 
 
 func _refresh_debug_tabs() -> void:
@@ -2753,7 +2695,6 @@ func _on_lane_pressed(lane_id: String) -> void:
 				"lane_slot_keys": [_lane_slot_key(lane_id, target_player, slot_index)],
 			})
 		return
-	_help_label.text = _lane_description(lane_id)
 	_status_message = "Lane details: %s." % _lane_name(lane_id)
 	_refresh_ui()
 
@@ -2822,10 +2763,6 @@ func _on_prophecy_play_pressed(instance_id: String) -> void:
 func _on_prophecy_keep_pressed(instance_id: String) -> void:
 	_dismiss_prophecy_overlay()
 	decline_prophecy(instance_id)
-
-
-func _on_help_term_pressed(term_id: String) -> void:
-	_help_label.text = _build_help_text(term_id)
 
 
 func _load_registries() -> void:
@@ -3946,37 +3883,6 @@ func _pile_button_tooltip(player: Dictionary, zone: String) -> String:
 	return "%s's deck has %d card(s) remaining. Click to inspect the count surface." % [_player_name(str(player.get("player_id", ""))), count]
 
 
-func _pile_inspector_text(player_id: String, zone: String) -> String:
-	var player := _player_state(player_id)
-	if player.is_empty():
-		return "Selected pile is unavailable."
-	var cards: Array = player.get(zone, [])
-	var lines: Array = [
-		"%s %s" % [_player_name(player_id), _identifier_to_name(zone)],
-		"Count %d" % cards.size(),
-	]
-	if zone == MatchMutations.ZONE_DISCARD:
-		if cards.is_empty():
-			lines.append("No discarded cards yet.")
-		else:
-			var names: Array = []
-			for card in cards.slice(0, 6):
-				if typeof(card) == TYPE_DICTIONARY:
-					names.append("- %s" % _card_name(card))
-			lines.append(_join_parts(names, "\n"))
-			if cards.size() > 6:
-				lines.append("+%d more" % (cards.size() - 6))
-	else:
-		lines.append("Deck contents stay abstract in this presentation surface; use the count for board reading.")
-	return _join_parts(lines, "\n")
-
-
-func _pile_help_text(zone: String) -> String:
-	if zone == MatchMutations.ZONE_DISCARD:
-		return "Discard inspection is presentation-only and lists public graveyard contents without changing match logic."
-	return "Deck surface is count-first. Full deck truth still lives in the debug/state rail and engine data."
-
-
 func _lane_entries() -> Array:
 	return _lane_registry.get("lanes", [
 		{"id": "field", "display_name": "Field Lane", "description": "Default combat lane."},
@@ -4073,10 +3979,6 @@ func _selection_prompt(card: Dictionary) -> String:
 			return "Selected %s." % _card_name(card)
 
 
-func _default_help_text() -> String:
-	return "Keyword and lane help appears here. Select a card or click a keyword chip to inspect its rules meaning."
-
-
 func _card_name(card: Dictionary) -> String:
 	if card.is_empty():
 		return "Unknown Card"
@@ -4146,22 +4048,6 @@ func _card_tag_text(card: Dictionary) -> String:
 	return _join_parts(_unique_terms(terms), ", ")
 
 
-func _card_terms(card: Dictionary) -> Array:
-	var terms: Array = []
-	for keyword in card.get("keywords", []):
-		terms.append(str(keyword))
-	for keyword in card.get("granted_keywords", []):
-		terms.append(str(keyword))
-	for status in card.get("status_markers", []):
-		var status_id := str(status)
-		if status_id == EvergreenRules.STATUS_COVER and not EvergreenRules.is_cover_active(_match_state, card):
-			continue
-		terms.append(status_id)
-	for rule_tag in card.get("rules_tags", []):
-		terms.append(str(rule_tag))
-	return _unique_terms(terms)
-
-
 func _term_label(term_id: String) -> String:
 	if _keyword_display_names.has(term_id):
 		return str(_keyword_display_names[term_id])
@@ -4172,14 +4058,6 @@ func _term_label(term_id: String) -> String:
 	return _identifier_to_name(term_id)
 
 
-func _build_help_text(term_id: String) -> String:
-	var title := _term_label(term_id)
-	var body := str(HELP_TEXT.get(term_id, "No extra glossary entry is available for this term yet."))
-	if _status_display_names.has(term_id):
-		body = "%s\nStatus marker from the evergreen rules registry." % body
-	elif _keyword_display_names.has(term_id):
-		body = "%s\nKeyword from the evergreen rules registry." % body
-	return "%s\n%s" % [title, body]
 
 
 func _history_text_value() -> String:
