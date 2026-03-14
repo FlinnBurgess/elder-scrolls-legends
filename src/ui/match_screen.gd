@@ -260,8 +260,15 @@ func load_scenario(scenario_id: String) -> bool:
 
 
 func _process_local_match_ai_turn() -> void:
-	if not _is_local_match_ai_enabled() or _has_match_winner() or _is_local_player_turn():
+	if not _is_local_match_ai_enabled() or _has_match_winner():
 		_reset_local_match_ai_queue()
+		return
+	var ai_has_prophecy := _has_pending_prophecy_for_player(_ai_player_id())
+	if _is_local_player_turn() and not ai_has_prophecy:
+		_reset_local_match_ai_queue()
+		return
+	if ai_has_prophecy and _queued_ai_step_at_ms < 0 and _paused_ai_step_delay_ms < 0:
+		_schedule_local_match_ai_step(LOCAL_MATCH_AI_ACTION_DELAY_MS * 3)
 		return
 	var now_ms := Time.get_ticks_msec()
 	if _is_local_prophecy_interrupt_open():
