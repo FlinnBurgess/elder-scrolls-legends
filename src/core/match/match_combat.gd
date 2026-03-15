@@ -128,7 +128,7 @@ static func _validate_creature_attack_target(match_state: Dictionary, attacker_l
 		return _invalid_result("Creatures can only attack enemy creatures in the same lane.")
 
 	var defender: Dictionary = defender_lookup["card"]
-	if _is_cover_active(match_state, defender):
+	if _is_cover_active(match_state, defender) and not _has_keyword(defender, EvergreenRules.KEYWORD_GUARD):
 		return _invalid_result("Covered creatures cannot be attacked by enemy creatures.")
 
 	if not enemy_guards.is_empty() and not _has_keyword(defender, EvergreenRules.KEYWORD_GUARD):
