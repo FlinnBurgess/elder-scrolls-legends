@@ -213,6 +213,22 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 						break
 				if not has_higher:
 					return false
+	# Require controller took no player damage this turn
+	if bool(descriptor.get("require_no_player_damage_this_turn", false)):
+		var controller_id := str(trigger.get("controller_player_id", ""))
+		var took_damage := false
+		var elog: Array = match_state.get("event_log", [])
+		for i in range(elog.size() - 1, -1, -1):
+			var logged = elog[i]
+			if typeof(logged) != TYPE_DICTIONARY:
+				continue
+			if str(logged.get("event_type", "")) == "turn_started":
+				break
+			if str(logged.get("event_type", "")) == "damage_resolved" and str(logged.get("target_type", "")) == "player" and str(logged.get("target_player_id", "")) == controller_id:
+				took_damage = true
+				break
+		if took_damage:
+			return false
 	# Minimum destroyed enemy runes condition
 	var min_runes := int(descriptor.get("min_destroyed_enemy_runes", 0))
 	if min_runes > 0:
