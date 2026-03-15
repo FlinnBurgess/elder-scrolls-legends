@@ -2811,8 +2811,8 @@
       "collectible": true,
       "keywords": [],
       "has_prophecy": false,
-      "effect_ids": [],
-      "status": "created"
+      "effect_ids": ["destroy", "summon"],
+      "status": "effects_done"
     },
     {
       "card_id": "int_staff_of_sparks",

@@ -103,6 +103,10 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Elixir of Vigor** — WIRED (see Previously Fixed).
 - **Elixir of Conflict** — WIRED (see Previously Fixed).
 
+### Needs "summon random creature by cost" mechanic
+
+- **Desperate Conjuring** — Sacrifice a creature to summon a random creature that costs 2 more. Needs a new `summon_random_from_catalog` variant that filters by cost relative to the sacrificed creature.
+
 ### Needs complex / unique mechanics
 
 - **Thieves Guild Recruit** — WIRED (see Previously Fixed).
