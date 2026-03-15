@@ -348,6 +348,8 @@ static func _enumerate_action_plays(match_state: Dictionary, player_id: String, 
 			var variant_card: Dictionary = variant.get("card", card).duplicate(true)
 			var base_parameters: Dictionary = variant.get("parameters", {}).duplicate(true)
 			var requirements := _collect_target_requirements(_play_triggers(variant_card))
+			requirements["action_target_mode"] = str(variant_card.get("action_target_mode", ""))
+			requirements["controller_player_id"] = player_id
 			for target_parameters in _expand_target_parameter_sets(match_state, requirements):
 				var parameters := base_parameters.duplicate(true)
 				for key in target_parameters.keys():
@@ -464,9 +466,19 @@ static func _expand_target_parameter_sets(match_state: Dictionary, requirements:
 				expanded_player_sets.append(next_parameters)
 		parameter_sets = expanded_player_sets
 	if bool(requirements.get("needs_card_target", false)):
+		var atm := str(requirements.get("action_target_mode", ""))
+		var atm_controller := str(requirements.get("controller_player_id", ""))
 		var expanded_card_sets: Array = []
 		for parameters in parameter_sets:
 			for card in _all_lane_cards(match_state):
+				if not atm.is_empty() and not atm_controller.is_empty():
+					var card_controller := str(card.get("controller_player_id", ""))
+					if atm == "friendly_creature" or atm == "another_friendly_creature":
+						if card_controller != atm_controller:
+							continue
+					elif atm == "enemy_creature":
+						if card_controller == atm_controller:
+							continue
 				var next_parameters: Dictionary = parameters.duplicate(true)
 				next_parameters["target_instance_id"] = str(card.get("instance_id", ""))
 				expanded_card_sets.append(next_parameters)

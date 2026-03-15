@@ -209,6 +209,9 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 		card["equip_power_bonus"] = int(definition.get("equip_power_bonus", 0))
 		card["equip_health_bonus"] = int(definition.get("equip_health_bonus", 0))
 		card["equip_keywords"] = definition.get("equip_keywords", []).duplicate(true)
+	var action_target_mode := str(definition.get("action_target_mode", ""))
+	if not action_target_mode.is_empty():
+		card["action_target_mode"] = action_target_mode
 	var triggered: Array = definition.get("triggered_abilities", [])
 	if not triggered.is_empty():
 		card["triggered_abilities"] = triggered.duplicate(true)
@@ -2948,6 +2951,8 @@ func _is_card_target_valid_for_selected(target_instance_id: String) -> bool:
 			var item_state: Dictionary = _match_state.duplicate(true)
 			return bool(PersistentCardRules.play_item_from_hand(item_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"target_instance_id": target_instance_id}).get("is_valid", false))
 		SELECTION_MODE_ACTION:
+			if not _action_target_mode_allows(selected_card, target_instance_id):
+				return false
 			var action_state: Dictionary = _match_state.duplicate(true)
 			return bool(MatchTiming.play_action_from_hand(action_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"target_instance_id": target_instance_id}).get("is_valid", false))
 		SELECTION_MODE_SUPPORT:
@@ -2958,6 +2963,25 @@ func _is_card_target_valid_for_selected(target_instance_id: String) -> bool:
 		SELECTION_MODE_ATTACK:
 			return bool(MatchCombat.validate_attack(_match_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"type": "creature", "instance_id": target_instance_id}).get("is_valid", false))
 	return false
+
+
+func _action_target_mode_allows(action_card: Dictionary, target_instance_id: String) -> bool:
+	var atm := str(action_card.get("action_target_mode", ""))
+	if atm.is_empty():
+		return true  # No restriction
+	var controller_id := str(action_card.get("controller_player_id", ""))
+	var target_card := _card_from_instance_id(target_instance_id)
+	if target_card.is_empty():
+		return false
+	var target_controller := str(target_card.get("controller_player_id", ""))
+	match atm:
+		"friendly_creature", "another_friendly_creature":
+			return target_controller == controller_id
+		"enemy_creature":
+			return target_controller != controller_id
+		"any_creature", "another_creature":
+			return true
+	return true
 
 
 func _is_player_target_valid_for_selected(player_id: String) -> bool:

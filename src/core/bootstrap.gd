@@ -8,6 +8,7 @@ const DECKS_DIR := "res://data/decks/"
 
 var _main_menu: Control
 var _active_screen: Control
+var _pause_overlay: Control
 
 
 func _ready() -> void:
@@ -85,7 +86,71 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		get_viewport().set_input_as_handled()
-		_show_main_menu()
+		if _pause_overlay != null:
+			_dismiss_pause_menu()
+		else:
+			_show_pause_menu()
+
+
+func _show_pause_menu() -> void:
+	if _pause_overlay != null:
+		return
+
+	_pause_overlay = Control.new()
+	_pause_overlay.name = "PauseOverlay"
+	_pause_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_pause_overlay.z_index = 500
+	add_child(_pause_overlay)
+
+	# Semi-transparent background that blocks clicks
+	var bg := ColorRect.new()
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.color = Color(0, 0, 0, 0.6)
+	_pause_overlay.add_child(bg)
+
+	var panel := PanelContainer.new()
+	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	panel.custom_minimum_size = Vector2(320, 0)
+	_pause_overlay.add_child(panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 16)
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 24)
+	margin.add_theme_constant_override("margin_right", 24)
+	margin.add_theme_constant_override("margin_top", 24)
+	margin.add_theme_constant_override("margin_bottom", 24)
+	margin.add_child(vbox)
+	panel.add_child(margin)
+
+	var title := Label.new()
+	title.text = "Paused"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 24)
+	vbox.add_child(title)
+
+	var resume_button := Button.new()
+	resume_button.text = "Resume"
+	resume_button.custom_minimum_size = Vector2(0, 44)
+	resume_button.pressed.connect(_dismiss_pause_menu)
+	vbox.add_child(resume_button)
+
+	var main_menu_button := Button.new()
+	main_menu_button.text = "Return to Main Menu"
+	main_menu_button.custom_minimum_size = Vector2(0, 44)
+	main_menu_button.pressed.connect(_on_pause_main_menu_pressed)
+	vbox.add_child(main_menu_button)
+
+
+func _dismiss_pause_menu() -> void:
+	if _pause_overlay != null:
+		_pause_overlay.queue_free()
+		_pause_overlay = null
+
+
+func _on_pause_main_menu_pressed() -> void:
+	_dismiss_pause_menu()
+	_show_main_menu()
 
 
 func _load_random_decks() -> Array:
