@@ -41,7 +41,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Frenzied Witchman** (`neu_frenzied_witchman`) — "Summon: Give a creature +2/+1." Needs player to choose a creature target.
 - **Allena Benoch** (`dual_allena_benoch`) — "Lethal. Summon: Deal 1 damage." Needs player to choose a target.
 - **Skywatch Vindicator** (`dual_skywatch_vindicator`) — "Summon: Deal 2 damage to a creature, or give a creature +2/+2." Needs target choice + modal selection.
-- **Queen Barenziah** (`dual_queen_barenziah`) — "Drain. Summon: Give other creatures in this lane Guard." Needs lane-mate targeting.
 
 ### Needs ongoing aura mechanic
 
@@ -61,7 +60,7 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Murkwater Goblin** (`agi_murkwater_goblin`) — "Has +2/+0 on your turn." Ongoing turn-phase conditional.
 - **Preserver of the Root** (`end_preserver_of_the_root`) — "+2/+2 and Guard while 7+ max magicka." Ongoing conditional.
 - **Thieves' Den** (`agi_thieves_den`) — "Ongoing. Friendly creatures have Pilfer: +1/+1." Support ongoing pilfer aura.
-- **Bone Colossus** (`end_bone_colossus`) — "Other friendly Skeletons have +1/+1." Ongoing subtype aura (also needs summon fill lane).
+- **Bone Colossus** (`end_bone_colossus`) — "Other friendly Skeletons have +1/+1." Ongoing subtype aura (summon fill lane NOW WIRED; aura part still unfixed).
 
 ### Needs "on damage taken" / reactive trigger families
 
@@ -80,9 +79,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 - **Fifth Legion Trainer** is wired but others need the trigger family:
 - **Helgen Squad Leader** (`wil_helgen_squad_leader`) — "When another friendly creature attacks, gains +1/+0." Actually needs `on_friendly_attack` trigger.
-- **Dawnstar Healer** (`wil_dawnstar_healer`) — "After enemy rune destroyed, gain 3 health." Needs `on_enemy_rune_destroyed` trigger.
-- **Morthal Executioner** (`wil_morthal_executioner`) — "When enemy rune destroyed, gains +2/+0." Needs `on_enemy_rune_destroyed` trigger.
-- **Relentless Raider** (`str_relentless_raider`) — "When enemy rune destroyed, deal 1 damage." Needs `on_enemy_rune_destroyed` trigger.
 - **Haafingar Marauder** (`wil_haafingar_marauder`) — "When friendly destroys enemy rune, equip random item." Needs `on_enemy_rune_destroyed` trigger + equip-from-catalog op.
 
 ### Needs "on attack" trigger family
@@ -206,7 +202,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 - **Rapid Shot** (`str_rapid_shot`) — "Deal 1 damage to a creature. If it survives, draw a card." Needs conditional draw.
 - **Brilliant Experiment** (`int_brilliant_experiment`) — "Draw a copy of a friendly creature." Needs copy-to-hand op.
-- **Ice Spike** (`int_ice_spike`) — "Deal 2 damage to opponent. Draw a card." Action needs damage + draw combo.
 - **Abecean Navigator** (`int_abecean_navigator`) — "Summon: If top card is action, draw it." Needs top-deck condition + draw.
 - **Nahkriin, Dragon Priest** (`int_nahkriin_dragon_priest`) — "Summon: Draw a card and reduce cost to 0." Needs draw + cost modification.
 - **Blackmail** (`wil_blackmail`) — "Draw a copy from opponent's deck." Action needs copy-from-opponent.
@@ -246,11 +241,10 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Arenthia Swindler** (`agi_arenthia_swindler`) — "Summon: Steal all items from enemy creature." Needs steal-items op.
 - **Camoran Scout Leader** (`agi_camoran_scout_leader`) — "Summon: Summon 2/2 Scouts per Wounded enemy lane." Conditional multi-summon.
 - **Necrom Mastermind** (`agi_necrom_mastermind`) — "Summon: Trigger Last Gasp of each friendly creature." Needs re-trigger op.
-- **Renowned Legate** (`wil_renowned_legate`) — "Summon: Summon 1/1 Grunt, gain health per friendly." Multi-op summon.
+- **Renowned Legate** (`wil_renowned_legate`) — "Summon: Summon 1/1 Grunt, gain health per friendly." Multi-op summon (summon Imperial Grunt NOW WIRED; heal-per-friendly part still unfixed).
 - **Miraak, Dragonborn** (`wil_miraak_dragonborn`) — "Summon: Steal an enemy creature." Needs steal op.
 - **Wild Beastcaller** (`agi_wild_beastcaller`) — "Summon: Summon a random Animal." Needs summon-random-by-subtype.
 - **Ungolim the Listener** (`agi_ungolim_the_listener`) — "Summon: Shuffle three Brotherhood Assassins into deck." Needs shuffle-into-deck op.
-- **Stronghold Eradicator** (`neu_stronghold_eradicator`) — "Summon: Give all enemy creatures in lane Guard." Needs all-enemies-in-lane + grant_keyword.
 - **Ahnassi** (`dual_ahnassi`) — "Summon: Steal all Keywords from enemy creatures." Needs steal-keywords op.
 - **Ayrenn** (`dual_ayrenn`) — "Summon: Draw random action from discard. Actions cost 1 less." Multi-mechanic.
 - **Merric-at-Aswala** (`dual_merricataswala`) — "Summon: Equip each friendly in lane with random item." Needs equip-from-catalog.
@@ -265,9 +259,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Healing Hands** (`end_healing_hands`) — "Heal a creature, then give +1/+1." Action needs target + heal + modify_stats.
 - **Plea to Kynareth** (`end_plea_to_kynareth`) — "Heal all friendly in lane, then give +1/+1." Needs all-friendly-in-lane + heal + modify_stats.
 - **Green-Touched Spriggan** (`agi_greentouched_spriggan`) — "When you gain health, gains that much power." Needs `on_health_gained` trigger.
-- **Ransack** (`agi_ransack`) — "Prophecy. Deal 3 damage and gain 3 health." Action needs target + damage + heal.
-- **Thievery** (`agi_thievery`) — "Deal 3 damage to opponent and gain 3 health." Action needs player damage + heal.
-- **Healing Potion** (`wil_healing_potion`) — "Prophecy. Gain 5 health." Action needs heal op.
 - **War Cry** (`wil_war_cry`) — "Give friendly creatures in lane +2/+0 this turn." Action needs all-friendly-in-lane + modify_stats.
 - **Suppress** (`end_suppress`) — "Silence a creature." Action needs target + silence op.
 - **Dwarven Sphere** (`neu_dwarven_sphere`) — "Summon: Shackle an enemy creature." Needs target choice + shackle.
@@ -277,7 +268,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Alfe Fyr / Beyte Fyr / Delte Fyr / Uupse Fyr** (`int_alfe_fyr`, `int_beyte_fyr`, `int_delte_fyr`, `int_uupse_fyr`) — "Summon: Deal 6 damage to random enemy." Need summon + random target damage.
 - **Cavern Spinner** (`agi_cavern_spinner`) — "Summon: Shackle random enemy." Needs summon + random target + shackle.
 - **Corpse Curse** (`end_corpse_curse`) — "Shackle all enemies in one lane." Action needs all-enemies-in-lane + shackle.
-- **Drain Life** (`end_drain_life`) — "Deal 5 damage to opponent, gain 5 health." Action needs player damage + heal.
 - **Sweet Roll** (`neu_sweet_roll`) — "If creature eats Sweet Roll, heal them." Needs heal-on-eat mechanic.
 - **Ancient Giant** (`neu_ancient_giant`) — Passive cost/stats equal max magicka. Needs dynamic stat calculation.
 
@@ -287,3 +277,4 @@ Cards that have been successfully wired with triggered_abilities:
 - Chaurus Reaper, Thieves Guild Recruit (draw only), Northpoint Captain, Tree Minder, Stalwart Ally, Resolute Ally, Tome of Alteration, Assassin's Bow, Grahtwood Ambusher, Fifth Legion Trainer, Imperial Siege Engine, Riften Pillager (summon/modify_stats), Bruma Armorer, Dragontail Savior, Flesh Atronach, Gloom Wraith, Wrothgar Kingpin, Murkwater Savage, Supreme Atromancer, Bruma Profiteer, Imperial Reinforcements, Scouting Patrol, Midnight Sweep, Slaughterfish Spawning
 - Afflicted Alit, Blighted Alit, Mighty Ally, Vigilant Giant, Camlorn Hero, Fate Weaver (summon draw only; prophecy play-for-free not implemented), Indoril Archmage, Studium Headmaster, Elusive Schemer (summon draw only; last_gasp shuffle-copy not implemented), Descendant of Alkosh, Priest of the Moons, Rajhini Highwayman, Riverhold Escort, Baandari Bruiser, Daring Cutpurse, Deshaan Avenger, House Kinsman, Mournhold Traitor, Nimble Ally, Pahmar-raht Renegade, Quin'rawl Burglar, Tazkad the Packmaster, Tenmar Swiftclaw (pilfer +1/+1 only; extra attack not implemented), Varanis Courier, Snake Tooth Necklace, Archein Venomtongue, Deathless Draugr, Restless Templar, Enchanted Plate, Dark Harvester, Spider Worker, Slaughterfish, Sadras Agent, Thorn Histmage (summon +1 max magicka only; modify_stats on magicka increase not implemented), Brotherhood Assassin
 - Bangkorai Butcher (summon conditional +2/+2 if another Orc), Silvenar Tracker (summon conditional Charge if wounded enemy in lane), Triumphant Jarl (summon conditional draw 2 if more health), Wood Orc Headhunter (summon conditional Charge if another Orc), Golden Saint (summon conditional summon Golden Saint in other lane if more health), Ravenous Hunger (summon conditional Drain if enemy in lane), Pack Wolf (summon Young Wolf in other lane), Green Pact Stalker (summon conditional +2/+2 if wounded enemy in lane), Rift Thane (summon conditional buffs based on health comparison)
+- Relentless Raider (rune_break → damage opponent 1), Morthal Executioner (rune_break → +2/+0), Dawnstar Healer (rune_break → heal 3), Ice Spike (on_play → damage opponent 2 + draw 1), Healing Potion (on_play → heal 5), Ransack (on_play → damage opponent 3 + heal 3), Thievery (on_play → damage opponent 3 + heal 3), Drain Life (token; on_play → damage opponent 5 + heal 5), Bone Colossus (summon fill lane with Skeletons only; aura still unfixed), Renowned Legate (summon Imperial Grunt only; heal-per-friendly still unfixed), Queen Barenziah (summon → grant Guard to all friendly in lane), Stronghold Eradicator (summon → grant Guard to all enemies in lane)
