@@ -845,31 +845,41 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					})
 					generated_events.append_array(move_result.get("events", []))
 			"summon_from_effect":
-				var summon_lane_id := str(effect.get("lane_id", effect.get("target_lane_id", event.get("lane_id", ""))))
 				var summon_players := _resolve_player_targets(trigger, event, effect)
-				if summon_lane_id.is_empty() or summon_players.is_empty():
+				if summon_players.is_empty():
 					continue
+				var summon_lane_ids: Array = []
+				if bool(effect.get("all_lanes", false)):
+					for lane in match_state.get("lanes", []):
+						summon_lane_ids.append(str(lane.get("lane_id", "")))
+				else:
+					var single_lane_id := str(effect.get("lane_id", effect.get("target_lane_id", event.get("lane_id", ""))))
+					if single_lane_id.is_empty():
+						continue
+					summon_lane_ids.append(single_lane_id)
 				var summon_template: Dictionary = effect.get("card_template", {})
 				if summon_template.is_empty():
 					for source_card in _resolve_card_targets_by_name(match_state, trigger, event, str(effect.get("source_target", "event_source"))):
-						var summon_existing := MatchMutations.summon_card_to_lane(match_state, summon_players[0], str(source_card.get("instance_id", "")), summon_lane_id, {
-							"slot_index": int(effect.get("slot_index", -1)),
-						})
-						if not bool(summon_existing.get("is_valid", false)):
-							continue
-						generated_events.append_array(summon_existing.get("events", []))
-						generated_events.append(_build_summon_event(summon_existing["card"], summon_players[0], summon_lane_id, int(summon_existing.get("slot_index", -1)), reason))
+						for s_lane_id in summon_lane_ids:
+							var summon_existing := MatchMutations.summon_card_to_lane(match_state, summon_players[0], str(source_card.get("instance_id", "")), s_lane_id, {
+								"slot_index": int(effect.get("slot_index", -1)),
+							})
+							if not bool(summon_existing.get("is_valid", false)):
+								continue
+							generated_events.append_array(summon_existing.get("events", []))
+							generated_events.append(_build_summon_event(summon_existing["card"], summon_players[0], s_lane_id, int(summon_existing.get("slot_index", -1)), reason))
 				else:
 					for player_id in summon_players:
-						var generated_card := MatchMutations.build_generated_card(match_state, player_id, summon_template)
-						var summon_result := MatchMutations.summon_card_to_lane(match_state, player_id, generated_card, summon_lane_id, {
-							"slot_index": int(effect.get("slot_index", -1)),
-							"source_zone": MatchMutations.ZONE_GENERATED,
-						})
-						if not bool(summon_result.get("is_valid", false)):
-							continue
-						generated_events.append_array(summon_result.get("events", []))
-						generated_events.append(_build_summon_event(summon_result["card"], player_id, summon_lane_id, int(summon_result.get("slot_index", -1)), reason))
+						for s_lane_id in summon_lane_ids:
+							var generated_card := MatchMutations.build_generated_card(match_state, player_id, summon_template)
+							var summon_result := MatchMutations.summon_card_to_lane(match_state, player_id, generated_card, s_lane_id, {
+								"slot_index": int(effect.get("slot_index", -1)),
+								"source_zone": MatchMutations.ZONE_GENERATED,
+							})
+							if not bool(summon_result.get("is_valid", false)):
+								continue
+							generated_events.append_array(summon_result.get("events", []))
+							generated_events.append(_build_summon_event(summon_result["card"], player_id, s_lane_id, int(summon_result.get("slot_index", -1)), reason))
 			"summon_copies_to_lane":
 				var copies_lane_id := str(effect.get("lane_id", effect.get("target_lane_id", event.get("lane_id", ""))))
 				var copies_players := _resolve_player_targets(trigger, event, effect)
