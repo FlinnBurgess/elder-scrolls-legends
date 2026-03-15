@@ -533,6 +533,9 @@ static func rebuild_trigger_registry(match_state: Dictionary) -> Array:
 			for slot_index in range(slots.size()):
 				var card = slots[slot_index]
 				_append_card_triggers(registry, card, ZONE_LANE, str(player_id), lane_index, slot_index)
+				if typeof(card) == TYPE_DICTIONARY:
+					for attached_item in card.get("attached_items", []):
+						_append_card_triggers(registry, attached_item, ZONE_LANE, str(player_id), lane_index, slot_index)
 	match_state["trigger_registry"] = registry.duplicate(true)
 	return registry
 
@@ -826,6 +829,38 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"target_player_id": player_id,
 						"amount": gain,
 					})
+			"deal_damage":
+				var damage_amount := int(effect.get("amount", 0))
+				var damage_source_id := str(trigger.get("source_instance_id", ""))
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					if damage_amount <= 0:
+						continue
+					var damage_result := EvergreenRules.apply_damage_to_creature(card, damage_amount)
+					var applied := int(damage_result.get("applied", 0))
+					generated_events.append({
+						"event_type": "damage_resolved",
+						"source_instance_id": damage_source_id,
+						"target_instance_id": str(card.get("instance_id", "")),
+						"target_type": "creature",
+						"amount": applied,
+						"reason": reason,
+					})
+					if EvergreenRules.is_creature_destroyed(card, false):
+						var card_location := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
+						if bool(card_location.get("is_valid", false)):
+							var controller_pid := str(card.get("controller_player_id", ""))
+							var moved := MatchMutations.discard_card(match_state, str(card.get("instance_id", "")))
+							if bool(moved.get("is_valid", false)):
+								generated_events.append({
+									"event_type": "creature_destroyed",
+									"instance_id": str(card.get("instance_id", "")),
+									"source_instance_id": str(card.get("instance_id", "")),
+									"owner_player_id": str(card.get("owner_player_id", "")),
+									"controller_player_id": controller_pid,
+									"destroyed_by_instance_id": damage_source_id,
+									"lane_id": str(card_location.get("lane_id", "")),
+									"source_zone": ZONE_LANE,
+								})
 			"draw_cards":
 				for player_id in _resolve_player_targets(match_state, trigger, event, effect):
 						var draw_result := draw_cards(match_state, player_id, int(effect.get("count", 1)), {

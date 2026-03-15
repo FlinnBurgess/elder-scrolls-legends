@@ -331,11 +331,17 @@ static func _check_missing_effects(card: Dictionary) -> void:
 		# "last_gasp" maps to both "last_gasp" and "on_death" families
 		if id == "last_gasp" and ("last_gasp" in configured_families or "on_death" in configured_families):
 			continue
+		# "summon" on items maps to "on_play" family
+		if id == "summon" and is_item and "on_play" in configured_families:
+			continue
 		# Covered by an op in a triggered ability
 		if id in OP_EFFECT_IDS and id in configured_ops:
 			continue
 		# "draw" maps to "draw_cards" op
 		if id == "draw" and "draw_cards" in configured_ops:
+			continue
+		# "damage" also maps to "deal_damage" op
+		if id == "damage" and "deal_damage" in configured_ops:
 			continue
 		# "destroy" maps to "destroy" op or "lethal" keyword
 		if id == "destroy" and ("destroy" in configured_ops or "lethal" in keywords):
