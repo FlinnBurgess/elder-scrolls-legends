@@ -1629,6 +1629,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					if _is_immune_to_effect(match_state, card, "shackle"):
 						continue
 					EvergreenRules.add_status(card, EvergreenRules.STATUS_SHACKLED)
+					card["shackle_expires_on_turn"] = int(match_state.get("turn_number", 0)) + 1
 					generated_events.append({"event_type": "status_granted", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "status_id": "shackled", "reason": reason})
 			"destroy_creature":
 				var destroy_source_id := str(trigger.get("source_instance_id", ""))

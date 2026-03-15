@@ -462,6 +462,7 @@ static func silence_card(card: Dictionary, options: Dictionary = {}, match_state
 	card.erase("aura")
 	card.erase("cover_expires_on_turn")
 	card.erase("cover_granted_by")
+	card.erase("shackle_expires_on_turn")
 	EvergreenRules.sync_derived_state(card)
 	return {
 		"is_valid": true,

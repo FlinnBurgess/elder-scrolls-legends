@@ -154,8 +154,9 @@ static func refresh_for_controller_turn(card: Dictionary, current_turn_number: i
 		card.erase("cover_expires_on_turn")
 		card.erase("cover_granted_by")
 		result["cover_expired"] = true
-	if has_raw_status(card, STATUS_SHACKLED):
+	if has_raw_status(card, STATUS_SHACKLED) and int(card.get("shackle_expires_on_turn", -1)) <= current_turn_number:
 		remove_status(card, STATUS_SHACKLED)
+		card.erase("shackle_expires_on_turn")
 		result["shackle_cleared"] = true
 	if has_keyword(card, KEYWORD_REGENERATE):
 		result["regenerate_healed"] = restore_health(card)
