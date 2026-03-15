@@ -1,5 +1,6 @@
 shader_type canvas_item;
 
+uniform float elapsed_time = 0.0;
 uniform float scroll_speed_1 : hint_range(0.01, 0.5) = 0.08;
 uniform float scroll_speed_2 : hint_range(0.01, 0.5) = 0.05;
 uniform vec4 mist_color : source_color = vec4(0.45, 0.72, 0.95, 1.0);
@@ -41,8 +42,8 @@ void fragment() {
 	vec2 uv = UV;
 
 	// Two noise layers scrolling in different directions
-	float n1 = fbm(uv * noise_scale_1 + vec2(TIME * scroll_speed_1, TIME * scroll_speed_1 * 0.7));
-	float n2 = fbm(uv * noise_scale_2 + vec2(-TIME * scroll_speed_2 * 0.8, TIME * scroll_speed_2));
+	float n1 = fbm(uv * noise_scale_1 + vec2(elapsed_time * scroll_speed_1, elapsed_time * scroll_speed_1 * 0.7));
+	float n2 = fbm(uv * noise_scale_2 + vec2(-elapsed_time * scroll_speed_2 * 0.8, elapsed_time * scroll_speed_2));
 
 	// Blend noise layers for swirling mist
 	float mist = (n1 + n2) * 0.5;

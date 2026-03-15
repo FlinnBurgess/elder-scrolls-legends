@@ -81,7 +81,9 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	if _ward_overlay != null and _ward_overlay.visible:
-		_ward_overlay.queue_redraw()
+		var mat := _ward_overlay.material as ShaderMaterial
+		if mat:
+			mat.set_shader_parameter("elapsed_time", Time.get_ticks_msec() / 1000.0)
 
 
 func _notification(what: int) -> void:
