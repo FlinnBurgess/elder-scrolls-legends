@@ -10,11 +10,13 @@ const FAMILY_EFFECT_IDS := ["summon", "slay", "last_gasp", "pilfer", "veteran", 
 const OP_EFFECT_IDS := ["damage", "heal", "draw", "silence", "destroy", "unsummon", "steal", "transform", "banish", "discard", "sacrifice", "copy"]
 
 static var _file: FileAccess = null
+static var _active_match_state: Dictionary = {}
 static var _missing_effect_cards: Array = []
 
 
 static func start_match(match_state: Dictionary) -> void:
 	_missing_effect_cards = []
+	_active_match_state = match_state
 	_file = FileAccess.open(LOG_PATH, FileAccess.WRITE)
 	if _file == null:
 		push_error("GameLogger: Failed to open log file at %s" % LOG_PATH)
@@ -38,7 +40,7 @@ static func start_match(match_state: Dictionary) -> void:
 
 
 static func log_event(match_state: Dictionary, event: Dictionary) -> void:
-	if _file == null:
+	if _file == null or not is_same(match_state, _active_match_state):
 		return
 	var event_type := str(event.get("event_type", ""))
 	match event_type:
@@ -71,7 +73,7 @@ static func log_event(match_state: Dictionary, event: Dictionary) -> void:
 
 
 static func log_trigger_resolution(match_state: Dictionary, resolution: Dictionary, trigger: Dictionary) -> void:
-	if _file == null:
+	if _file == null or not is_same(match_state, _active_match_state):
 		return
 	var source_id := str(resolution.get("source_instance_id", ""))
 	var card := _find_card(match_state, source_id)
@@ -105,6 +107,7 @@ static func log_trigger_resolution(match_state: Dictionary, resolution: Dictiona
 
 
 static func close() -> void:
+	_active_match_state = {}
 	if _file != null:
 		_file.flush()
 		_file.close()
