@@ -109,7 +109,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 ### Needs "at start of turn" trigger (non-active player too)
 
-- **Blighted Alit** (`str_blighted_alit`) — "At start of your turn, deals 2 damage to you." Needs `start_of_turn` trigger + self-damage.
 - **Trebuchet** (`str_trebuchet`) — "At start of your turn, deal 4 damage to random enemy." Needs `start_of_turn` trigger + random enemy target.
 - **Gladiator Arena** (`str_gladiator_arena`) — "Ongoing. At start of each turn, deal 2 damage to that player." Support start_of_turn + each player.
 - **Blackrose Herbalist** (`end_blackrose_herbalist`) — "At start of turn, heal another random friendly." Needs `start_of_turn` + random friendly target.
@@ -122,22 +121,14 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 ### Needs pilfer trigger family
 
-- **Daring Cutpurse** (`agi_daring_cutpurse`) — "Prophecy. Pilfer: +1/+1." Needs `pilfer` family wired.
-- **Baandari Bruiser** (`agi_baandari_bruiser`) — "Pilfer: +3/+0." Needs `pilfer` family.
 - **Goblin Skulk** (`agi_goblin_skulk`) — "Pilfer: Draw a random 0-cost card." Needs `pilfer` + filtered draw.
-- **Quin'rawl Burglar** (`agi_quinrawl_burglar`) — "Drain. Pilfer: +4/+4." Needs `pilfer` family.
-- **Tenmar Swiftclaw** (`agi_tenmar_swiftclaw`) — "Pilfer: +1/+1. May attack extra time." Needs `pilfer` + extra attack.
+- **Tenmar Swiftclaw** (`agi_tenmar_swiftclaw`) — "Pilfer: +1/+1. May attack extra time." Pilfer +1/+1 wired; extra attack NOT implemented.
 - **Torval Crook** (`agi_torval_crook`) — "Charge. Pilfer: Gain 2 magicka." Needs `pilfer` + gain_magicka op.
-- **Rajhini Highwayman** (`wil_rajhini_highwayman`) — "Pilfer: Draw a card." Needs `pilfer` family.
 - **Dagi-raht Mystic** (`wil_dagiraht_mystic`) — "Pilfer: Draw a random support from deck." Needs `pilfer` + filtered draw.
-- **Descendant of Alkosh** (`wil_descendant_of_alkosh`) — "Pilfer: +1/+1 and random Keyword." Needs `pilfer` + grant_random_keyword.
-- **Riverhold Escort** (`wil_riverhold_escort`) — "Guard. Pilfer: Move." Needs `pilfer` + move op.
 
 ### Needs slay trigger family
 
 - **Child of Hircine** (`str_child_of_hircine`) — "Slay: May attack again this turn." Needs `slay` + extra attack.
-- **Pahmar-raht Renegade** (`agi_pahmarraht_renegade`) — "Slay: Draw a card." Needs `slay` family.
-- **Archein Venomtongue** (`end_archein_venomtongue`) — "Lethal. Slay: Gain +1 max magicka." Needs `slay` family.
 - **Blood Magic Lord** (`end_blood_magic_lord`) — "Summon and Slay: Put Blood Magic Spell into hand." Needs `slay` + generate card.
 - **Night Talon Lord** (`end_night_talon_lord`) — "Drain. Slay: Summon the slain creature." Needs `slay` + summon-from-event op.
 - **Dawnbreaker** (`wil_dawnbreaker`) — "+4/+4. Slay: Banish if Undead." Item needs `slay` + conditional banish.
@@ -148,19 +139,10 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Balmora Spymaster** (`int_balmora_spymaster`) — "Last Gasp: Summon random creature." Needs `last_gasp` + summon random.
 - **Brutal Ashlander** (`int_brutal_ashlander`) — "Last Gasp: Deal 3 damage to random enemy." Needs `last_gasp` + random target.
 - **Telvanni Arcanist** (`int_telvanni_arcanist`) — "Last Gasp: Put random action into hand." Needs `last_gasp` + generate card.
-- **Elusive Schemer** (`int_elusive_schemer`) — "Summon: Draw. Last Gasp: Shuffle 0-cost copy." Needs `last_gasp` + shuffle-copy op (summon/draw also missing).
+- **Elusive Schemer** (`int_elusive_schemer`) — "Summon: Draw. Last Gasp: Shuffle 0-cost copy." Summon draw wired; last_gasp shuffle-copy NOT implemented.
 - **Heirloom Greatsword** (`int_heirloom_greatsword`) — "Last Gasp: Returns to hand." Item needs `last_gasp` + return-to-hand op.
-- **Indoril Archmage** (`int_indoril_archmage`) — "Guard. Last Gasp: Deal 6 damage to all enemies in lane." Needs `last_gasp` + AoE damage.
-- **Deshaan Avenger** (`agi_deshaan_avenger`) — "Last Gasp: Summon 3/3 Deshaan Sneak." Needs `last_gasp` + summon_from_effect.
-- **House Kinsman** (`agi_house_kinsman`) — "Last Gasp: Deal 3 to opponent, gain 3 health." Needs `last_gasp` + damage + heal.
-- **Mournhold Traitor** (`agi_mournhold_traitor`) — "Last Gasp: Opponent summons 2/1 Guardian with Guard." Needs `last_gasp` + summon for opponent.
-- **Tazkad the Packmaster** (`agi_tazkad_the_packmaster`) — "Last Gasp: Summon 4/4 Durzog." Needs `last_gasp` + summon_from_effect.
-- **Varanis Courier** (`agi_varanis_courier`) — "Guard. Last Gasp: Draw a card." Needs `last_gasp` + draw.
 - **Spider Daedra** (`agi_spider_daedra`) — "Summon: Fill with Spiderlings. Last Gasp: Destroy Spiderlings." Needs `last_gasp` + destroy-by-subtype + summon fill lane.
-- **Deathless Draugr** (`end_deathless_draugr`) — "Last Gasp: Summon 1/1 Skeleton." Needs `last_gasp` + summon_from_effect.
 - **Haunting Spirit** (`end_haunting_spirit`) — "Last Gasp: Give random friendly +3/+3." Needs `last_gasp` + random friendly target.
-- **Restless Templar** (`end_restless_templar`) — "Last Gasp: Gain 5 health." Needs `last_gasp` + heal.
-- **Sadras Agent** (`dual_sadras_agent`) — "Guard. Last Gasp: Summon 2/1 Mournhold Guardian." Needs `last_gasp` + summon_from_effect.
 
 ### Needs "all creatures in lane" target (both sides)
 
@@ -169,8 +151,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 ### Needs item equip lane context
 
 - **Yew Shield** (`end_yew_shield`) — "Summon: +1/+1 for each enemy creature in this lane." Item cards don't have lane context in triggers.
-- **Snake Tooth Necklace** (`agi_snake_tooth_necklace`) — "+1/+1. Summon: Give wielder Drain this turn." Item needs on_play to grant status.
-- **Enchanted Plate** (`end_enchanted_plate`) — "+0/+3. Summon: Draw a card." Item needs on_play to draw.
 
 ### Needs "put card into hand" mechanic
 
@@ -192,8 +172,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 - **Bangkorai Butcher** (`str_bangkorai_butcher`) — "Summon: +2/+2 if you have another Orc." Needs subtype-check condition.
 - **Silvenar Tracker** (`str_silvenar_tracker`) — "Summon: Gains Charge if Wounded enemy in lane." Needs wounded-enemy-in-lane condition.
-- **Mighty Ally** (`str_mighty_ally`) — "Summon: +3/+0 and Breakthrough if top deck is Strength." Needs `required_top_deck_attribute` (exists) + multi-effect.
-- **Nimble Ally** (`agi_nimble_ally`) — "Summon: +1/+1 and Lethal if top deck is Agility." Same as above.
 - **Aldmeri Patriot** (`wil_aldmeri_patriot`) — "Summon: +1/+1 if you have an action in hand." Needs hand-contents condition.
 - **Feasting Vulture** (`agi_feasting_vulture`) — "Summon: +2/+2 if a creature died this turn." Needs creature-died-this-turn condition.
 - **Angry Grahl** (`end_angry_grahl`) — "Summon: +2/+2 if opponent has more cards." Needs hand-size comparison condition.
@@ -238,15 +216,11 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Brilliant Experiment** (`int_brilliant_experiment`) — "Draw a copy of a friendly creature." Needs copy-to-hand op.
 - **Ice Spike** (`int_ice_spike`) — "Deal 2 damage to opponent. Draw a card." Action needs damage + draw combo.
 - **Abecean Navigator** (`int_abecean_navigator`) — "Summon: If top card is action, draw it." Needs top-deck condition + draw.
-- **Fate Weaver** (`int_fate_weaver`) — "Prophecy. Summon: Draw a card." Needs basic summon draw.
 - **Nahkriin, Dragon Priest** (`int_nahkriin_dragon_priest`) — "Summon: Draw a card and reduce cost to 0." Needs draw + cost modification.
-- **Studium Headmaster** (`int_studium_headmaster`) — "Summon: Each player draws two cards." Needs multi-player draw.
 - **Blackmail** (`wil_blackmail`) — "Draw a copy from opponent's deck." Action needs copy-from-opponent.
 - **Eastmarch Crusader** (`wil_eastmarch_crusader`) — "Summon: Draw card if enemy rune destroyed." Needs rune-destroyed condition.
 - **Summerset Orrery** (`int_summerset_orrery`) — "Activate: Shuffle Prophecy cards, draw that many." Support needs complex draw.
 - **Orb of Vaermina** (`neu_orb_of_vaermina`) — "Activate: Draw copy from opponent's deck." Support needs copy-from-opponent.
-- **Vigilant Giant** (`str_vigilant_giant`) — "Summon: Draw a card." Needs basic summon draw.
-- **Spider Worker** (`neu_spider_worker`) — "Prophecy. Summon: Draw a card." Needs basic summon draw.
 - **Leafwater Blessing** (`agi_leafwater_blessing`) — "Give +1/+1. When gain health, draw from discard." Action needs complex effect.
 - **Militant Chieftain** (`dual_militant_chieftain`) — "Summon: Draw random Orc from discard. Other Orcs +1/+1." Needs filtered draw + subtype aura.
 
@@ -272,9 +246,7 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Baron of Tear** (`int_baron_of_tear`) — "Summon: Give friendly Int creatures +1/+0 and Guard." Needs attribute-filtered targeting.
 - **Burn and Pillage** (`str_burn_and_pillage`) — "Deal 1 damage per destroyed rune." Needs rune-count-based scaling.
 - **Riften Pillager** (`str_riften_pillager`) — "Summon: +1/+1 per destroyed enemy rune." Summon/modify_stats wired; `destroy` uncovered (rune count reference).
-- **Camlorn Hero** (`int_camlorn_hero`) — "Summon: Deal 2 damage to opponent." Needs player-target damage.
 - **Divayth Fyr** (`int_divayth_fyr`) — "Summon: Deal 6 damage to random enemy. Start of turn: summon Daughter." Multi-trigger.
-- **Afflicted Alit** (`str_afflicted_alit`) — "Summon: Deal 2 damage to each player." Needs each_player target (partially exists).
 - **Cruel Firebloom** (`int_cruel_firebloom`) — "Sacrifice a creature to deal 5 damage to random enemy." Needs sacrifice + random target.
 - **Mentor's Ring** (`int_mentors_ring`) — "Summon: Give Keywords to each other friendly creature." Item needs keyword-copy op.
 - **Master of Arms** (`int_master_of_arms`) — "Summon: Equip two highest cost items from discard." Needs equip-from-discard.
@@ -287,14 +259,12 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Miraak, Dragonborn** (`wil_miraak_dragonborn`) — "Summon: Steal an enemy creature." Needs steal op.
 - **Wild Beastcaller** (`agi_wild_beastcaller`) — "Summon: Summon a random Animal." Needs summon-random-by-subtype.
 - **Ungolim the Listener** (`agi_ungolim_the_listener`) — "Summon: Shuffle three Brotherhood Assassins into deck." Needs shuffle-into-deck op.
-- **Dark Harvester** (`neu_dark_harvester`) — "Prophecy, Guard. Summon: Gain 4 health." Needs summon heal.
-- **Priest of the Moons** (`wil_priest_of_the_moons`) — "Prophecy. Summon: Gain 2 health." Needs summon heal.
 - **Stronghold Eradicator** (`neu_stronghold_eradicator`) — "Summon: Give all enemy creatures in lane Guard." Needs all-enemies-in-lane + grant_keyword.
 - **Ahnassi** (`dual_ahnassi`) — "Summon: Steal all Keywords from enemy creatures." Needs steal-keywords op.
 - **Ayrenn** (`dual_ayrenn`) — "Summon: Draw random action from discard. Actions cost 1 less." Multi-mechanic.
 - **Merric-at-Aswala** (`dual_merricataswala`) — "Summon: Equip each friendly in lane with random item." Needs equip-from-catalog.
 - **High King Emeric** (`dual_high_king_emeric`) — "Ward. Summon: Deal 2 damage per friendly with Ward." Needs ward-count scaling.
-- **Thorn Histmage** (`dual_thorn_histmage`) — "Guard. Summon: Gain +1 max magicka. +1/+0 on max magicka increase." Multi-trigger.
+- **Thorn Histmage** (`dual_thorn_histmage`) — "Guard. Summon: Gain +1 max magicka. +1/+0 on max magicka increase." Summon +1 max magicka wired; modify_stats on magicka increase NOT implemented.
 - **General Tullius** (`dual_general_tullius`) — "Summon: Summon Troopers. When friendly dies, +1/+1." Summon wired; modify_stats uncovered (needs on_friendly_death trigger).
 - **Hidden Trail** (`agi_hidden_trail`) — "Ongoing. Summon: All Field Lanes become Shadow. +1/+0." Lane modification + aura.
 - **Halls of the Dwemer** (`neu_halls_of_the_dwemer`) — "Ongoing. Summon: Put Dwarven Spider into hand. Dwemer +3/+0." Multi-mechanic support.
@@ -314,11 +284,9 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 ### Token / created cards with missing effects
 
 - **Alfe Fyr / Beyte Fyr / Delte Fyr / Uupse Fyr** (`int_alfe_fyr`, `int_beyte_fyr`, `int_delte_fyr`, `int_uupse_fyr`) — "Summon: Deal 6 damage to random enemy." Need summon + random target damage.
-- **Brotherhood Assassin** (`agi_brotherhood_assassin`) — "Lethal. Summon: Draw a card." Needs summon draw.
 - **Cavern Spinner** (`agi_cavern_spinner`) — "Summon: Shackle random enemy." Needs summon + random target + shackle.
 - **Corpse Curse** (`end_corpse_curse`) — "Shackle all enemies in one lane." Action needs all-enemies-in-lane + shackle.
 - **Drain Life** (`end_drain_life`) — "Deal 5 damage to opponent, gain 5 health." Action needs player damage + heal.
-- **Slaughterfish** (`neu_slaughterfish`) — "Gains +2/+0 at start of your turn." Needs start_of_turn trigger.
 - **Sweet Roll** (`neu_sweet_roll`) — "If creature eats Sweet Roll, heal them." Needs heal-on-eat mechanic.
 - **Ancient Giant** (`neu_ancient_giant`) — Passive cost/stats equal max magicka. Needs dynamic stat calculation.
 
@@ -326,3 +294,4 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 Cards that have been successfully wired with triggered_abilities:
 - Chaurus Reaper, Thieves Guild Recruit (draw only), Northpoint Captain, Tree Minder, Stalwart Ally, Resolute Ally, Tome of Alteration, Assassin's Bow, Grahtwood Ambusher, Fifth Legion Trainer, Imperial Siege Engine, Riften Pillager (summon/modify_stats), Bruma Armorer, Dragontail Savior, Flesh Atronach, Gloom Wraith, Wrothgar Kingpin, Murkwater Savage, Supreme Atromancer, Bruma Profiteer, Imperial Reinforcements, Scouting Patrol, Midnight Sweep, Slaughterfish Spawning
+- Afflicted Alit, Blighted Alit, Mighty Ally, Vigilant Giant, Camlorn Hero, Fate Weaver (summon draw only; prophecy play-for-free not implemented), Indoril Archmage, Studium Headmaster, Elusive Schemer (summon draw only; last_gasp shuffle-copy not implemented), Descendant of Alkosh, Priest of the Moons, Rajhini Highwayman, Riverhold Escort, Baandari Bruiser, Daring Cutpurse, Deshaan Avenger, House Kinsman, Mournhold Traitor, Nimble Ally, Pahmar-raht Renegade, Quin'rawl Burglar, Tazkad the Packmaster, Tenmar Swiftclaw (pilfer +1/+1 only; extra attack not implemented), Varanis Courier, Snake Tooth Necklace, Archein Venomtongue, Deathless Draugr, Restless Templar, Enchanted Plate, Dark Harvester, Spider Worker, Slaughterfish, Sadras Agent, Thorn Histmage (summon +1 max magicka only; modify_stats on magicka increase not implemented), Brotherhood Assassin
