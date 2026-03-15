@@ -1,0 +1,117 @@
+{
+  "name": "Band of Survivors",
+  "attribute_ids": [
+    "strength",
+    "willpower"
+  ],
+  "cards": [
+    {
+      "card_id": "str_fiery_imp",
+      "quantity": 1
+    },
+    {
+      "card_id": "str_morthal_watchman",
+      "quantity": 2
+    },
+    {
+      "card_id": "str_scuttler",
+      "quantity": 2
+    },
+    {
+      "card_id": "wil_sunhold_medic",
+      "quantity": 3
+    },
+    {
+      "card_id": "str_jerall_forager",
+      "quantity": 2
+    },
+    {
+      "card_id": "wil_kvatch_soldier",
+      "quantity": 3
+    },
+    {
+      "card_id": "str_orc_clan_captain",
+      "quantity": 2
+    },
+    {
+      "card_id": "wil_ravenous_hunger",
+      "quantity": 1
+    },
+    {
+      "card_id": "wil_skingrad_patroller",
+      "quantity": 3
+    },
+    {
+      "card_id": "str_battlerage_orc",
+      "quantity": 1
+    },
+    {
+      "card_id": "neu_crushing_blow",
+      "quantity": 3
+    },
+    {
+      "card_id": "wil_imperial_legionnaire",
+      "quantity": 3
+    },
+    {
+      "card_id": "str_mighty_ally",
+      "quantity": 1
+    },
+    {
+      "card_id": "wil_resolute_ally",
+      "quantity": 1
+    },
+    {
+      "card_id": "str_valenwood_huntsman",
+      "quantity": 3
+    },
+    {
+      "card_id": "str_heavy_battleaxe",
+      "quantity": 3
+    },
+    {
+      "card_id": "wil_hive_defender",
+      "quantity": 2
+    },
+    {
+      "card_id": "neu_vicious_dreugh",
+      "quantity": 2
+    },
+    {
+      "card_id": "str_whiterun_trooper",
+      "quantity": 3
+    },
+    {
+      "card_id": "wil_divine_fervor",
+      "quantity": 1
+    },
+    {
+      "card_id": "str_grahtwood_ambusher",
+      "quantity": 1
+    },
+    {
+      "card_id": "wil_loyal_housecarl",
+      "quantity": 1
+    },
+    {
+      "card_id": "wil_piercing_javelin",
+      "quantity": 1
+    },
+    {
+      "card_id": "wil_tusked_bristleback",
+      "quantity": 2
+    },
+    {
+      "card_id": "wil_golden_saint",
+      "quantity": 1
+    },
+    {
+      "card_id": "wil_senchetiger",
+      "quantity": 1
+    },
+    {
+      "card_id": "str_triumphant_jarl",
+      "quantity": 1
+    }
+  ]
+}

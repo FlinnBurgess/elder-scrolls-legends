@@ -1,0 +1,117 @@
+{
+  "name": "Black Marsh Smugglers",
+  "attribute_ids": [
+    "agility",
+    "endurance"
+  ],
+  "cards": [
+    {
+      "card_id": "end_daedric_dagger",
+      "quantity": 2
+    },
+    {
+      "card_id": "agi_dune_stalker",
+      "quantity": 2
+    },
+    {
+      "card_id": "agi_helstrom_footpad",
+      "quantity": 2
+    },
+    {
+      "card_id": "end_hist_speaker",
+      "quantity": 3
+    },
+    {
+      "card_id": "end_oldgate_warden",
+      "quantity": 3
+    },
+    {
+      "card_id": "end_stormhold_henchman",
+      "quantity": 3
+    },
+    {
+      "card_id": "agi_thieves_guild_recruit",
+      "quantity": 3
+    },
+    {
+      "card_id": "agi_blacksap_protector",
+      "quantity": 2
+    },
+    {
+      "card_id": "end_imperial_armor",
+      "quantity": 1
+    },
+    {
+      "card_id": "agi_skooma_racketeer",
+      "quantity": 2
+    },
+    {
+      "card_id": "end_stalwart_ally",
+      "quantity": 2
+    },
+    {
+      "card_id": "agi_swift_strike",
+      "quantity": 1
+    },
+    {
+      "card_id": "agi_thievery",
+      "quantity": 2
+    },
+    {
+      "card_id": "end_tree_minder",
+      "quantity": 3
+    },
+    {
+      "card_id": "agi_anxileel_invader",
+      "quantity": 2
+    },
+    {
+      "card_id": "end_archein_elite",
+      "quantity": 2
+    },
+    {
+      "card_id": "end_northpoint_captain",
+      "quantity": 2
+    },
+    {
+      "card_id": "end_preserver_of_the_root",
+      "quantity": 1
+    },
+    {
+      "card_id": "neu_slaughterfish_spawning",
+      "quantity": 2
+    },
+    {
+      "card_id": "agi_territorial_viper",
+      "quantity": 1
+    },
+    {
+      "card_id": "agi_cliff_racer",
+      "quantity": 1
+    },
+    {
+      "card_id": "dual_thorn_histmage",
+      "quantity": 1
+    },
+    {
+      "card_id": "end_black_worm_necromancer",
+      "quantity": 1
+    },
+    {
+      "card_id": "agi_soulrest_marshal",
+      "quantity": 1
+    },
+    {
+      "card_id": "agi_wild_beastcaller",
+      "quantity": 1
+    },
+    {
+      "card_id": "agi_chaurus_reaper",
+      "quantity": 2
+    },
+    {
+      "card_id": "end_swamp_leviathan",
+      "quantity": 2
+    }
+  ]
+}

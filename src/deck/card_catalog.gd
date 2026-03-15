@@ -83,7 +83,11 @@ static func _seed(card_id: String, name: String, attributes: Array, card_type: S
 
 static func _card_seeds() -> Array:
 	return [
-		# ── STRENGTH (62 cards) ──
+		# ── STRENGTH (66 cards) ──
+		_seed("str_jerall_forager", "Jerall Forager", ["strength"], "creature", 2, 2, 2, {"subtypes": ["Nord"]}),
+		_seed("str_morthal_watchman", "Morthal Watchman", ["strength"], "creature", 1, 2, 1, {"subtypes": ["Nord"]}),
+		_seed("str_scuttler", "Scuttler", ["strength"], "creature", 1, 1, 2, {"subtypes": ["Reptile"]}),
+		_seed("str_whiterun_trooper", "Whiterun Trooper", ["strength"], "creature", 4, 6, 2, {"subtypes": ["Nord"]}),
 		_seed("str_afflicted_alit", "Afflicted Alit", ["strength"], "creature", 2, 3, 1, {"rarity": "rare", "effect_ids": ["damage", "summon"], "subtypes": ["Reptile"], "rules_text": "Summon: Deal 2 damage to each player."}),
 		_seed("str_alikr_survivalist", "Alik'r Survivalist", ["strength"], "creature", 4, 3, 4, {"rarity": "epic", "effect_ids": ["modify_stats", "summon"], "subtypes": ["Redguard"], "rules_text": "Summon: Put a Steel Dagger into your hand.\nWhen Alik'r Survivalist equips an item, he gains +1/+1."}),
 		_seed("str_assassins_bow", "Assassin's Bow", ["strength"], "item", 3, 0, 0, {"rarity": "rare", "effect_ids": ["equip", "modify_stats", "summon"], "rules_text": "+3/+0\nSummon: Give the wielder Cover at the end of turn."}),
@@ -214,7 +218,8 @@ static func _card_seeds() -> Array:
 		_seed("int_wisdom_of_ancients", "Wisdom of Ancients", ["intelligence"], "action", 2, 0, 0, {"rarity": "epic", "rules_tags": ["prophecy"], "rules_text": "Prophecy\nGive each friendly creature a random Keyword."}),
 		_seed("int_wispmother", "Wispmother", ["intelligence"], "creature", 7, 5, 5, {"rarity": "epic", "subtypes": ["Spirit"], "rules_text": "When you summon a creature that costs 2 or less, summon a copy of that creature in the other lane."}),
 
-		# ── WILLPOWER (63 cards) ──
+		# ── WILLPOWER (64 cards) ──
+		_seed("wil_skingrad_patroller", "Skingrad Patroller", ["willpower"], "creature", 2, 3, 2, {"subtypes": ["Imperial"]}),
 		_seed("wil_aldmeri_patriot", "Aldmeri Patriot", ["willpower"], "creature", 1, 1, 2, {"rarity": "rare", "effect_ids": ["modify_stats", "summon"], "subtypes": ["High Elf"], "rules_text": "Summon: +1/+1 if you have an action in your hand."}),
 		_seed("wil_alpha_wolf", "Alpha Wolf", ["willpower"], "creature", 4, 3, 1, {"rarity": "epic", "effect_ids": ["modify_stats"], "subtypes": ["Wolf"], "rules_text": "Other friendly Wolves have +2/+0."}),
 		_seed("wil_arrow_storm", "Arrow Storm", ["willpower"], "action", 3, 0, 0, {"rarity": "rare", "effect_ids": ["destroy"], "rules_text": "Destroy all enemy creatures with 2 power or less in a lane."}),

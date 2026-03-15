@@ -1,0 +1,129 @@
+{
+  "name": "Imperial Might",
+  "attribute_ids": [
+    "willpower",
+    "endurance"
+  ],
+  "cards": [
+    {
+      "card_id": "end_suppress",
+      "quantity": 1
+    },
+    {
+      "card_id": "wil_cheydinhal_sapper",
+      "quantity": 3
+    },
+    {
+      "card_id": "end_deadly_draugr",
+      "quantity": 3
+    },
+    {
+      "card_id": "wil_scouting_patrol",
+      "quantity": 3
+    },
+    {
+      "card_id": "wil_bruma_profiteer",
+      "quantity": 2
+    },
+    {
+      "card_id": "end_fharun_defender",
+      "quantity": 3
+    },
+    {
+      "card_id": "wil_fifth_legion_trainer",
+      "quantity": 2
+    },
+    {
+      "card_id": "wil_healing_potion",
+      "quantity": 3
+    },
+    {
+      "card_id": "wil_imprison",
+      "quantity": 2
+    },
+    {
+      "card_id": "wil_kvatch_soldier",
+      "quantity": 1
+    },
+    {
+      "card_id": "wil_skingrad_patroller",
+      "quantity": 1
+    },
+    {
+      "card_id": "neu_barded_guar",
+      "quantity": 2
+    },
+    {
+      "card_id": "end_bruma_armorer",
+      "quantity": 2
+    },
+    {
+      "card_id": "wil_imperial_legionnaire",
+      "quantity": 1
+    },
+    {
+      "card_id": "wil_twomoons_contemplation",
+      "quantity": 1
+    },
+    {
+      "card_id": "end_cursed_spectre",
+      "quantity": 1
+    },
+    {
+      "card_id": "dual_edict_of_azura",
+      "quantity": 1
+    },
+    {
+      "card_id": "wil_imperial_reinforcements",
+      "quantity": 2
+    },
+    {
+      "card_id": "end_midnight_sweep",
+      "quantity": 2
+    },
+    {
+      "card_id": "wil_war_cry",
+      "quantity": 2
+    },
+    {
+      "card_id": "end_disciple_of_namira",
+      "quantity": 1
+    },
+    {
+      "card_id": "wil_imperial_siege_engine",
+      "quantity": 2
+    },
+    {
+      "card_id": "wil_piercing_javelin",
+      "quantity": 1
+    },
+    {
+      "card_id": "end_watch_commander",
+      "quantity": 1
+    },
+    {
+      "card_id": "end_black_worm_necromancer",
+      "quantity": 1
+    },
+    {
+      "card_id": "wil_golden_saint",
+      "quantity": 1
+    },
+    {
+      "card_id": "end_night_shadow",
+      "quantity": 1
+    },
+    {
+      "card_id": "wil_legion_praefect",
+      "quantity": 2
+    },
+    {
+      "card_id": "wil_renowned_legate",
+      "quantity": 1
+    },
+    {
+      "card_id": "end_night_talon_lord",
+      "quantity": 1
+    }
+  ]
+}

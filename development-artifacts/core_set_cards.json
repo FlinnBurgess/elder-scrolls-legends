@@ -9779,8 +9779,118 @@
       "has_prophecy": false,
       "effect_ids": [],
       "status": "created"
+    },
+    {
+      "card_id": "str_jerall_forager",
+      "name": "Jerall Forager",
+      "card_type": "creature",
+      "subtypes": [
+        "Nord"
+      ],
+      "attributes": [
+        "strength"
+      ],
+      "cost": 2,
+      "power": 2,
+      "health": 2,
+      "rarity": "common",
+      "rules_text": "",
+      "is_unique": false,
+      "collectible": true,
+      "keywords": [],
+      "has_prophecy": false,
+      "effect_ids": [],
+      "status": "created"
+    },
+    {
+      "card_id": "str_morthal_watchman",
+      "name": "Morthal Watchman",
+      "card_type": "creature",
+      "subtypes": [
+        "Nord"
+      ],
+      "attributes": [
+        "strength"
+      ],
+      "cost": 1,
+      "power": 2,
+      "health": 1,
+      "rarity": "common",
+      "rules_text": "",
+      "is_unique": false,
+      "collectible": true,
+      "keywords": [],
+      "has_prophecy": false,
+      "effect_ids": [],
+      "status": "created"
+    },
+    {
+      "card_id": "str_scuttler",
+      "name": "Scuttler",
+      "card_type": "creature",
+      "subtypes": [
+        "Reptile"
+      ],
+      "attributes": [
+        "strength"
+      ],
+      "cost": 1,
+      "power": 1,
+      "health": 2,
+      "rarity": "common",
+      "rules_text": "",
+      "is_unique": false,
+      "collectible": true,
+      "keywords": [],
+      "has_prophecy": false,
+      "effect_ids": [],
+      "status": "created"
+    },
+    {
+      "card_id": "str_whiterun_trooper",
+      "name": "Whiterun Trooper",
+      "card_type": "creature",
+      "subtypes": [
+        "Nord"
+      ],
+      "attributes": [
+        "strength"
+      ],
+      "cost": 4,
+      "power": 6,
+      "health": 2,
+      "rarity": "common",
+      "rules_text": "",
+      "is_unique": false,
+      "collectible": true,
+      "keywords": [],
+      "has_prophecy": false,
+      "effect_ids": [],
+      "status": "created"
+    },
+    {
+      "card_id": "wil_skingrad_patroller",
+      "name": "Skingrad Patroller",
+      "card_type": "creature",
+      "subtypes": [
+        "Imperial"
+      ],
+      "attributes": [
+        "willpower"
+      ],
+      "cost": 2,
+      "power": 3,
+      "health": 2,
+      "rarity": "common",
+      "rules_text": "",
+      "is_unique": false,
+      "collectible": true,
+      "keywords": [],
+      "has_prophecy": false,
+      "effect_ids": [],
+      "status": "created"
     }
   ],
-  "total": 407,
-  "created": 407
+  "total": 412,
+  "created": 412
 }

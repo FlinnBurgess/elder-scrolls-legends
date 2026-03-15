@@ -1,0 +1,133 @@
+{
+  "name": "Warriors of Hammerfell",
+  "attribute_ids": [
+    "strength",
+    "intelligence"
+  ],
+  "cards": [
+    {
+      "card_id": "neu_maple_shield",
+      "quantity": 2
+    },
+    {
+      "card_id": "str_nord_firebrand",
+      "quantity": 2
+    },
+    {
+      "card_id": "int_crown_quartermaster",
+      "quantity": 3
+    },
+    {
+      "card_id": "str_fiery_imp",
+      "quantity": 2
+    },
+    {
+      "card_id": "str_steel_scimitar",
+      "quantity": 2
+    },
+    {
+      "card_id": "str_bone_bow",
+      "quantity": 2
+    },
+    {
+      "card_id": "int_dunmer_nightblade",
+      "quantity": 1
+    },
+    {
+      "card_id": "int_evermore_steward",
+      "quantity": 2
+    },
+    {
+      "card_id": "int_high_rock_summoner",
+      "quantity": 2
+    },
+    {
+      "card_id": "str_plunder",
+      "quantity": 1
+    },
+    {
+      "card_id": "int_skilled_blacksmith",
+      "quantity": 2
+    },
+    {
+      "card_id": "str_assassins_bow",
+      "quantity": 2
+    },
+    {
+      "card_id": "int_mace_of_encumbrance",
+      "quantity": 2
+    },
+    {
+      "card_id": "str_rihad_battlemage",
+      "quantity": 3
+    },
+    {
+      "card_id": "str_skaven_pyromancer",
+      "quantity": 2
+    },
+    {
+      "card_id": "str_alikr_survivalist",
+      "quantity": 1
+    },
+    {
+      "card_id": "int_ash_servant",
+      "quantity": 1
+    },
+    {
+      "card_id": "neu_ferocious_dreugh",
+      "quantity": 2
+    },
+    {
+      "card_id": "str_rampaging_minotaur",
+      "quantity": 2
+    },
+    {
+      "card_id": "int_royal_sage",
+      "quantity": 1
+    },
+    {
+      "card_id": "dual_sentinel_battlemace",
+      "quantity": 1
+    },
+    {
+      "card_id": "int_tome_of_alteration",
+      "quantity": 3
+    },
+    {
+      "card_id": "int_dragonstar_rider",
+      "quantity": 1
+    },
+    {
+      "card_id": "neu_stronghold_incubator",
+      "quantity": 1
+    },
+    {
+      "card_id": "int_winters_grasp",
+      "quantity": 1
+    },
+    {
+      "card_id": "str_child_of_hircine",
+      "quantity": 1
+    },
+    {
+      "card_id": "int_master_of_arms",
+      "quantity": 1
+    },
+    {
+      "card_id": "str_triumphant_jarl",
+      "quantity": 1
+    },
+    {
+      "card_id": "str_whirling_duelist",
+      "quantity": 1
+    },
+    {
+      "card_id": "str_vigilant_giant",
+      "quantity": 1
+    },
+    {
+      "card_id": "int_supreme_atromancer",
+      "quantity": 1
+    }
+  ]
+}

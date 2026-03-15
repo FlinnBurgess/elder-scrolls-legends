@@ -1,0 +1,125 @@
+{
+  "name": "Dunmer Avengers",
+  "attribute_ids": [
+    "intelligence",
+    "agility"
+  ],
+  "cards": [
+    {
+      "card_id": "int_cruel_firebloom",
+      "quantity": 2
+    },
+    {
+      "card_id": "agi_arrow_in_the_knee",
+      "quantity": 2
+    },
+    {
+      "card_id": "int_brutal_ashlander",
+      "quantity": 3
+    },
+    {
+      "card_id": "int_firebolt",
+      "quantity": 3
+    },
+    {
+      "card_id": "int_dunmer_nightblade",
+      "quantity": 2
+    },
+    {
+      "card_id": "agi_finish_off",
+      "quantity": 2
+    },
+    {
+      "card_id": "neu_lurking_crocodile",
+      "quantity": 2
+    },
+    {
+      "card_id": "int_redoran_enforcer",
+      "quantity": 3
+    },
+    {
+      "card_id": "int_soul_split",
+      "quantity": 2
+    },
+    {
+      "card_id": "int_steel_sword",
+      "quantity": 1
+    },
+    {
+      "card_id": "int_camlorn_sentinel",
+      "quantity": 3
+    },
+    {
+      "card_id": "int_cunning_ally",
+      "quantity": 2
+    },
+    {
+      "card_id": "neu_frenzied_witchman",
+      "quantity": 1
+    },
+    {
+      "card_id": "agi_giant_bat",
+      "quantity": 1
+    },
+    {
+      "card_id": "agi_house_kinsman",
+      "quantity": 1
+    },
+    {
+      "card_id": "agi_nimble_ally",
+      "quantity": 2
+    },
+    {
+      "card_id": "agi_varanis_courier",
+      "quantity": 2
+    },
+    {
+      "card_id": "int_baron_of_tear",
+      "quantity": 1
+    },
+    {
+      "card_id": "agi_deshaan_avenger",
+      "quantity": 2
+    },
+    {
+      "card_id": "int_dres_renegade",
+      "quantity": 2
+    },
+    {
+      "card_id": "int_elusive_schemer",
+      "quantity": 1
+    },
+    {
+      "card_id": "agi_moonlight_werebat",
+      "quantity": 1
+    },
+    {
+      "card_id": "int_royal_sage",
+      "quantity": 1
+    },
+    {
+      "card_id": "dual_sadras_agent",
+      "quantity": 1
+    },
+    {
+      "card_id": "int_fate_weaver",
+      "quantity": 1
+    },
+    {
+      "card_id": "agi_quinrawl_burglar",
+      "quantity": 1
+    },
+    {
+      "card_id": "agi_ransack",
+      "quantity": 2
+    },
+    {
+      "card_id": "agi_soulrest_marshal",
+      "quantity": 1
+    },
+    {
+      "card_id": "int_shocking_wamasu",
+      "quantity": 2
+    }
+  ]
+}
