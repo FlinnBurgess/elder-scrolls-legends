@@ -37,7 +37,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 ### Needs "on creature summoned" trigger family
 
 - **Fifth Legion Trainer** is wired but others need the trigger family:
-- **Helgen Squad Leader** (`wil_helgen_squad_leader`) — "When another friendly creature attacks, gains +1/+0." Actually needs `on_friendly_attack` trigger.
 - **Haafingar Marauder** (`wil_haafingar_marauder`) — "When friendly destroys enemy rune, equip random item." Needs `on_enemy_rune_destroyed` trigger + equip-from-catalog op.
 
 ### Needs "on attack" trigger family
@@ -64,7 +63,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 - **Child of Hircine** (`str_child_of_hircine`) — "Slay: May attack again this turn." Needs `slay` + extra attack.
 - **Blood Magic Lord** (`end_blood_magic_lord`) — "Summon and Slay: Put Blood Magic Spell into hand." Needs `slay` + generate card.
-- **Night Talon Lord** (`end_night_talon_lord`) — "Drain. Slay: Summon the slain creature." Needs `slay` + summon-from-event op.
 - **Dawnbreaker** (`wil_dawnbreaker`) — "+4/+4. Slay: Banish if Undead." Item needs `slay` + conditional banish.
 - **Lucien Lachance** (`end_lucien_lachance`) — "Lethal. When another friendly Slays, give it +2/+2." Needs `on_friendly_slay` trigger.
 
@@ -89,7 +87,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 ### Needs conditional summon buffs
 
 - **Feasting Vulture** (`agi_feasting_vulture`) — "Summon: +2/+2 if a creature died this turn." Needs creature-died-this-turn condition.
-- **Angry Grahl** (`end_angry_grahl`) — "Summon: +2/+2 if opponent has more cards." Needs hand-size comparison condition.
 
 ### Needs "deal damage to all enemies" target type
 
@@ -106,14 +103,12 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 ### Needs "move" mechanic
 
-- **Dune Smuggler** (`agi_dune_smuggler`) — "Summon: Move friendly creature. When moves, +1/+1." Needs move op + on_move trigger.
-- **Shadow Shift** (`agi_shadow_shift`) — "Move a friendly creature. Draw a card." Action needs move + draw.
+- **Dune Smuggler** (`agi_dune_smuggler`) — "Summon: Move friendly creature. When moves, +1/+1." Summon target choice move wired; `on_move` +1/+1 trigger still unfixed.
 
 ### Needs "draw with special conditions" mechanic
 
 - **Rapid Shot** (`str_rapid_shot`) — "Deal 1 damage to a creature. If it survives, draw a card." Needs conditional draw.
 - **Brilliant Experiment** (`int_brilliant_experiment`) — "Draw a copy of a friendly creature." Needs copy-to-hand op.
-- **Abecean Navigator** (`int_abecean_navigator`) — "Summon: If top card is action, draw it." Needs top-deck condition + draw.
 - **Nahkriin, Dragon Priest** (`int_nahkriin_dragon_priest`) — "Summon: Draw a card and reduce cost to 0." Needs draw + cost modification.
 - **Blackmail** (`wil_blackmail`) — "Draw a copy from opponent's deck." Action needs copy-from-opponent.
 - **Summerset Orrery** (`int_summerset_orrery`) — "Activate: Shuffle Prophecy cards, draw that many." Support needs complex draw.
@@ -182,3 +177,4 @@ Cards that have been successfully wired with triggered_abilities:
 - Sharpshooter Scout (summon → target choice creature_or_player → deal_damage 1), Valenwood Huntsman (summon → target choice creature_or_player → deal_damage 1), Morkul Gatekeeper (summon → target choice any_creature → modify_stats +2/+0), Savage Ogre (summon → target choice any_creature → modify_stats +5/+0), Earthbone Spinner (summon → target choice another_creature → silence + deal_damage 1), Ash Servant (summon → target choice enemy_creature → deal_damage 2), Shocking Wamasu (summon → target choice enemy_creature → deal_damage 4), Shrieking Harpy (summon → target choice enemy_creature → shackle), Wardcrafter (summon → target choice any_creature → grant_keyword ward), Sunhold Medic (summon → target choice any_creature → modify_stats +0/+2), Loyal Housecarl (summon → target choice any_creature → modify_stats +2/+2 + grant_keyword guard), Cloudrest Illusionist (summon → target choice any_creature → modify_stats -4/0), Mantikora (summon → target choice enemy_creature_in_lane → destroy_creature), Spiteful Dremora (summon → target choice any_creature filtered max_power 2 → destroy_creature), Pillaging Tribune (summon → target choice friendly_creature → grant_keyword drain), Skooma Racketeer (summon → target choice any_creature → grant_keyword lethal), Murkwater Witch (summon → target choice any_creature → modify_stats -1/-1), Leaflurker (summon → target choice any_creature filtered wounded → destroy_creature), Cursed Spectre (summon → target choice another_creature → silence), Shadowfen Priest (summon → multi target choice: another_creature → silence, enemy_support → destroy), Wrothgar Artisan (summon → target choice any_creature → modify_stats +1/+1), Barded Guar (summon → target choice any_creature → grant_keyword guard), Frenzied Witchman (summon → target choice any_creature → modify_stats +2/+1), Dwarven Sphere (summon → target choice enemy_creature → shackle), Vicious Dreugh (summon → target choice enemy_support → destroy_creature), Ravenous Crocodile (summon → target choice friendly_creature → deal_damage 2), Allena Benoch (summon → target choice creature_or_player → deal_damage 1)
 - Crushing Blow (on_play → deal_damage 3), Firebolt (on_play → deal_damage 2), Piercing Javelin (on_play → destroy_creature), Suppress (on_play → silence), Cast Out (on_play → unsummon), Arrow in the Knee (on_play → shackle + deal_damage 1), Lightning Bolt (on_play → deal_damage 4), Finish Off (on_play → destroy_creature wounded), Winter's Grasp (on_play → shackle all_enemies), Ice Storm (on_play → deal_damage 3 to all creatures), Belligerent Giant (summon → multi: unsummon creature OR destroy support), Forsworn Guide (summon → unsummon friendly + self +2/+2), Skywatch Vindicator (summon → multi: damage enemy creature OR buff friendly creature), Edict of Azura (on_play → destroy creature/support), Cunning Ally (summon → generate Firebolt to hand conditional), Alik'r Survivalist (fully fixed: on_equip +1/+1 + summon generate dagger to hand)
 - Execute (on_play → target choice destroy_creature filtered max_power 2), Imprisoned Deathlord (on_opponent_summon → shackle self), Fearless Northlander (on_damage_taken → self +2/+0), Royal Sage (summon conditional more health → grant_random_keyword all_friendly), Falinesti Reaver (summon → destroy all wounded enemies in lane), Dune Stalker (summon → target choice move friendly creature), Spider Daedra (summon fill lane with Spiderlings only; last_gasp destroy Spiderlings still unfixed)
+- Helgen Squad Leader (on_attack controller → self +1/+0), Abecean Navigator (summon conditional top deck is action → draw), Angry Grahl (summon conditional opponent more cards → +2/+2), Shadow Shift (on_play → move event_target + draw), Dune Smuggler (summon → target choice move friendly creature only; on_move +1/+1 still unfixed), Night Talon Lord (slay → summon the slain creature)

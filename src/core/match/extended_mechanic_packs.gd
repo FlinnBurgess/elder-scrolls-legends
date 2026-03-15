@@ -151,6 +151,24 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 	if bool(descriptor.get("required_enemy_in_lane", false)):
 		if not _has_enemy_in_lane(match_state, trigger):
 			return false
+	# Required top deck card type condition (e.g., "action")
+	var required_top_deck_type := str(descriptor.get("required_top_deck_card_type", ""))
+	if not required_top_deck_type.is_empty():
+		var deck: Array = controller.get("deck", [])
+		if deck.is_empty():
+			return false
+		var top_card = deck.back()
+		if typeof(top_card) != TYPE_DICTIONARY or str(top_card.get("card_type", "")) != required_top_deck_type:
+			return false
+	# Required opponent has more cards in hand condition
+	if bool(descriptor.get("required_opponent_more_cards", false)):
+		var opponent := _get_opponent(match_state, str(trigger.get("controller_player_id", "")))
+		if controller.is_empty() or opponent.is_empty():
+			return false
+		var my_hand: Array = controller.get("hand", [])
+		var opp_hand: Array = opponent.get("hand", [])
+		if opp_hand.size() <= my_hand.size():
+			return false
 	# Required card type in hand condition
 	var required_hand_card_type := str(descriptor.get("required_card_type_in_hand", ""))
 	if not required_hand_card_type.is_empty():
