@@ -10,6 +10,7 @@ const MatchCombat = preload("res://src/core/match/match_combat.gd")
 const MatchDebugScenarios = preload("res://src/ui/match_debug_scenarios.gd")
 const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
+const MatchBootstrap = preload("res://src/core/match/match_bootstrap.gd")
 const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
 const CARD_DISPLAY_COMPONENT_SCRIPT := preload("res://src/ui/components/CardDisplayComponent.gd")
@@ -114,6 +115,9 @@ var _local_match_ai_action_count := 0
 var _pending_layout_scale_frames := 0
 
 
+var _ai_enabled := false
+
+
 func _ready() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	set_process(true)
@@ -121,6 +125,40 @@ func _ready() -> void:
 	_build_ui()
 	resized.connect(_apply_match_layout_scale)
 	load_scenario(_scenario_id)
+
+
+func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array) -> bool:
+	_cancel_detached_card_silent()
+	_dismiss_prophecy_overlay()
+	_reset_invalid_feedback()
+	_clear_feedback_state()
+	_reset_local_match_ai_queue()
+	_local_match_ai_action_count = 0
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var match_state := MatchBootstrap.create_standard_match(
+		[deck_one_ids, deck_two_ids],
+		{"seed": rng.randi(), "first_player_index": rng.randi_range(0, 1)}
+	)
+	if match_state.is_empty():
+		_status_message = "Failed to create match."
+		_refresh_ui()
+		return false
+	for player in match_state.get("players", []):
+		MatchBootstrap.apply_mulligan(match_state, str(player.get("player_id", "")), [])
+	MatchTurnLoop.begin_first_turn(match_state)
+	_ai_enabled = true
+	_scenario_id = LOCAL_MATCH_AI_SCENARIO_ID
+	_match_state = match_state
+	_selected_instance_id = ""
+	_last_turn_owner_id = ""
+	_turn_banner_until_ms = 0
+	_clear_pile_selection()
+	var scenario_events := _recent_presentation_events_from_history()
+	_record_feedback_from_events(scenario_events)
+	_status_message = "Match started."
+	_refresh_ui()
+	return true
 
 
 func _process(_delta: float) -> void:
@@ -3568,7 +3606,7 @@ func _is_local_prophecy_interrupt_open() -> bool:
 
 
 func _is_local_match_ai_enabled() -> bool:
-	return _scenario_id == LOCAL_MATCH_AI_SCENARIO_ID
+	return _ai_enabled or _scenario_id == LOCAL_MATCH_AI_SCENARIO_ID
 
 
 func _ai_player_id() -> String:

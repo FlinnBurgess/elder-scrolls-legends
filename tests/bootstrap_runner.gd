@@ -15,17 +15,13 @@ func _initialize() -> void:
 
 
 func _verify(instance: Node) -> void:
-	var tabs := instance.get_node_or_null("Screens")
-	if tabs == null:
-		push_error("Bootstrap should create a tab container named `Screens`.")
+	var main_menu := instance.get_node_or_null("MainMenu")
+	if main_menu == null:
+		push_error("Bootstrap should create a main menu named `MainMenu`.")
 		quit(1)
 		return
-	if tabs.get_child_count() < 2:
-		push_error("Bootstrap should expose both match and deckbuilder tabs.")
-		quit(1)
-		return
-	if tabs.get_child(0).name != "Match" or tabs.get_child(1).name != "Deckbuilder":
-		push_error("Bootstrap tab order should be Match then Deckbuilder.")
+	if not main_menu.visible:
+		push_error("Main menu should be visible on launch.")
 		quit(1)
 		return
 	print("BOOTSTRAP_SMOKE_OK")
