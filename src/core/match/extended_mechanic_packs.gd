@@ -151,6 +151,26 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 	if bool(descriptor.get("required_enemy_in_lane", false)):
 		if not _has_enemy_in_lane(match_state, trigger):
 			return false
+	# Required card type in hand condition
+	var required_hand_card_type := str(descriptor.get("required_card_type_in_hand", ""))
+	if not required_hand_card_type.is_empty():
+		var hand: Array = controller.get("hand", [])
+		var found := false
+		for card in hand:
+			if typeof(card) == TYPE_DICTIONARY and str(card.get("card_type", "")) == required_hand_card_type:
+				found = true
+				break
+		if not found:
+			return false
+	# Minimum destroyed enemy runes condition
+	var min_runes := int(descriptor.get("min_destroyed_enemy_runes", 0))
+	if min_runes > 0:
+		var opponent := _get_opponent(match_state, str(trigger.get("controller_player_id", "")))
+		var max_runes := int(opponent.get("max_rune_count", 5))
+		var current_runes := int(opponent.get("rune_count", max_runes))
+		var destroyed_runes := max_runes - current_runes
+		if destroyed_runes < min_runes:
+			return false
 	return true
 
 

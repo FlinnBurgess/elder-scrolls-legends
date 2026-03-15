@@ -14,7 +14,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Bone Bow** (`str_bone_bow`) — "+1/+0. Summon: Silence another creature." Item, needs target choice for silence on equip.
 - **Skooma Racketeer** (`agi_skooma_racketeer`) — "Summon: Give a creature Lethal." Needs player to choose a creature target.
 - **Murkwater Witch** (`agi_murkwater_witch`) — "Summon: Give a creature -1/-1." Needs player to choose a creature target.
-- **Murkwater Skirmisher** (`agi_murkwater_skirmisher`) — "Summon: Give all other friendly Goblins +2/+2." Needs subtype-based targeting.
 - **Crushing Blow** (`neu_crushing_blow`) — "Deal 3 damage." Action card needs player to choose a creature or player target.
 - **Loyal Housecarl** (`wil_loyal_housecarl`) — "Prophecy. Summon: Give a creature +2/+2 and Guard." Needs player to choose a creature target.
 - **Sunhold Medic** (`wil_sunhold_medic`) — "Summon: Give a creature +0/+2." Needs player to choose a creature target.
@@ -33,7 +32,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Vicious Dreugh** (`neu_vicious_dreugh`) — "Summon: Destroy an enemy support." Needs player to choose a support target.
 - **Cursed Spectre** (`end_cursed_spectre`) — "Prophecy. Summon: Silence another creature." Needs player to choose a creature target.
 - **Shadowfen Priest** (`end_shadowfen_priest`) — "Summon: Silence another creature, or destroy an enemy support." Needs target choice with modal selection.
-- **Watch Commander** (`end_watch_commander`) — "Summon: Give all friendly Guards +1/+2." Needs keyword-based targeting.
 - **Wrothgar Artisan** (`end_wrothgar_artisan`) — "Summon: Give a creature +1/+1." Needs player to choose a creature target.
 - **Ravenous Crocodile** (`neu_ravenous_crocodile`) — "Summon: Deal 2 damage to a friendly creature." Needs player to choose a friendly creature target.
 - **Barded Guar** (`neu_barded_guar`) — "Summon: Give a creature Guard." Needs player to choose a creature target.
@@ -98,7 +96,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 ### Needs "at end of turn" condition-checked trigger
 
-- **Shimmerene Peddler** (`int_shimmerene_peddler`) — "At end of turn, if you played two actions, draw a card." Needs `end_of_turn` trigger + action counter condition.
 - **Disciple of Namira** (`end_disciple_of_namira`) — "At end of turn, draw per friendly creature that died." Needs `end_of_turn` trigger + death counter.
 
 ### Needs "at start of turn" trigger (non-active player too)
@@ -148,13 +145,11 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 ### Needs conditional summon buffs
 
-- **Aldmeri Patriot** (`wil_aldmeri_patriot`) — "Summon: +1/+1 if you have an action in hand." Needs hand-contents condition.
 - **Feasting Vulture** (`agi_feasting_vulture`) — "Summon: +2/+2 if a creature died this turn." Needs creature-died-this-turn condition.
 - **Angry Grahl** (`end_angry_grahl`) — "Summon: +2/+2 if opponent has more cards." Needs hand-size comparison condition.
 
 ### Needs "deal damage to all enemies" target type
 
-- **Fireball** (`str_fireball`) — "Deal 1 damage to all enemies." Action needs all-enemies target.
 - **Fire Storm** (`int_fire_storm`) — "Prophecy. Deal 2 damage to all creatures in a lane." Needs all-creatures-in-lane target.
 - **Ice Storm** (`int_ice_storm`) — "Deal 3 damage to all creatures." Needs all-creatures target.
 - **Lightning Bolt** (`int_lightning_bolt`) — "Prophecy. Deal 4 damage." Action needs target choice.
@@ -187,11 +182,10 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Abecean Navigator** (`int_abecean_navigator`) — "Summon: If top card is action, draw it." Needs top-deck condition + draw.
 - **Nahkriin, Dragon Priest** (`int_nahkriin_dragon_priest`) — "Summon: Draw a card and reduce cost to 0." Needs draw + cost modification.
 - **Blackmail** (`wil_blackmail`) — "Draw a copy from opponent's deck." Action needs copy-from-opponent.
-- **Eastmarch Crusader** (`wil_eastmarch_crusader`) — "Summon: Draw card if enemy rune destroyed." Needs rune-destroyed condition.
 - **Summerset Orrery** (`int_summerset_orrery`) — "Activate: Shuffle Prophecy cards, draw that many." Support needs complex draw.
 - **Orb of Vaermina** (`neu_orb_of_vaermina`) — "Activate: Draw copy from opponent's deck." Support needs copy-from-opponent.
 - **Leafwater Blessing** (`agi_leafwater_blessing`) — "Give +1/+1. When gain health, draw from discard." Action needs complex effect.
-- **Militant Chieftain** (`dual_militant_chieftain`) — "Summon: Draw random Orc from discard. Other Orcs +1/+1." Needs filtered draw + subtype aura.
+- **Militant Chieftain** (`dual_militant_chieftain`) — "Summon: Draw random Orc from discard. Other Orcs +1/+1." Summon +1/+1 to all friendly Orcs wired; draw Orc from discard NOT implemented.
 
 ### Needs "unsummon" mechanic
 
@@ -212,7 +206,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 - **Thieves Guild Recruit** (`agi_thieves_guild_recruit`) — Draw is wired, but cost reduction ("If costs 7+, reduce by 1") not implemented.
 - **Dremora Markynaz** (`str_dremora_markynaz`) — "Summon: Double a creature's power and health." Needs double-stats op.
-- **Baron of Tear** (`int_baron_of_tear`) — "Summon: Give friendly Int creatures +1/+0 and Guard." Needs attribute-filtered targeting.
 - **Burn and Pillage** (`str_burn_and_pillage`) — "Deal 1 damage per destroyed rune." Needs rune-count-based scaling.
 - **Riften Pillager** (`str_riften_pillager`) — "Summon: +1/+1 per destroyed enemy rune." Summon/modify_stats wired; `destroy` uncovered (rune count reference).
 - **Divayth Fyr** (`int_divayth_fyr`) — "Summon: Deal 6 damage to random enemy. Start of turn: summon Daughter." Summon deal 6 damage wired; start_of_turn summon Daughter NOT implemented.
@@ -259,3 +252,4 @@ Cards that have been successfully wired with triggered_abilities:
 - Relentless Raider (rune_break → damage opponent 1), Morthal Executioner (rune_break → +2/+0), Dawnstar Healer (rune_break → heal 3), Ice Spike (on_play → damage opponent 2 + draw 1), Healing Potion (on_play → heal 5), Ransack (on_play → damage opponent 3 + heal 3), Thievery (on_play → damage opponent 3 + heal 3), Drain Life (token; on_play → damage opponent 5 + heal 5), Bone Colossus (summon fill lane with Skeletons only; aura still unfixed), Renowned Legate (summon Imperial Grunt only; heal-per-friendly still unfixed), Queen Barenziah (summon → grant Guard to all friendly in lane), Stronghold Eradicator (summon → grant Guard to all enemies in lane)
 - Odahviing (summon → deal 4 damage to all enemies both lanes), Skaven Pyromancer (summon → deal 1 damage to all other creatures in lane), Giant Snake (summon → shackle all enemies in lane), Red Bramman (summon → silence + shackle all enemies in lane), Legion Praefect (summon → +1/+1 to all friendly both lanes), Yew Shield (on_play → +1/+1 per enemy in lane on wielder), Corpse Curse (token; on_play → shackle all enemies in lane)
 - Trebuchet (start_of_turn → deal 4 damage to random enemy), Reachman Shaman (start_of_turn → +1/+1 to random friendly), Brutal Ashlander (last_gasp → deal 3 damage to random enemy), Haunting Spirit (last_gasp → +3/+3 to random friendly), Alfe Fyr (summon → deal 6 damage to random enemy), Beyte Fyr (summon → deal 6 damage to random enemy), Delte Fyr (summon → deal 6 damage to random enemy), Uupse Fyr (summon → deal 6 damage to random enemy), Cavern Spinner (summon → shackle random enemy), Crown Quartermaster (summon → generate Steel Dagger to hand), Dunmer Nightblade (last_gasp → generate Iron Sword to hand), Divayth Fyr (summon deal 6 damage to random enemy only; start_of_turn summon Daughter not implemented)
+- Murkwater Skirmisher (summon → +2/+2 to all friendly Goblins, filtered by subtype), Watch Commander (summon → +1/+2 to all friendly Guards, filtered by keyword), Baron of Tear (summon → +1/+0 and Guard to all friendly Intelligence creatures, filtered by attribute), Eastmarch Crusader (summon → draw if enemy rune destroyed, conditional), Shimmerene Peddler (end_of_turn → draw if played 2 actions), Fireball (on_play → deal 1 damage to all enemies + opponent), Aldmeri Patriot (summon → +1/+1 if action in hand, conditional), Militant Chieftain (summon +1/+1 to all friendly Orcs only; draw Orc from discard not implemented)

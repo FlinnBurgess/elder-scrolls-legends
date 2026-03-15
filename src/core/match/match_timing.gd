@@ -1088,7 +1088,31 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 
 static func _resolve_card_targets(match_state: Dictionary, trigger: Dictionary, event: Dictionary, effect: Dictionary) -> Array:
 	var target := str(effect.get("target", "self"))
-	return _resolve_card_targets_by_name(match_state, trigger, event, target)
+	var targets := _resolve_card_targets_by_name(match_state, trigger, event, target)
+	var filter_subtype := str(effect.get("target_filter_subtype", ""))
+	if not filter_subtype.is_empty():
+		var filtered: Array = []
+		for card in targets:
+			var subtypes: Array = card.get("subtypes", [])
+			if typeof(subtypes) == TYPE_ARRAY and subtypes.has(filter_subtype):
+				filtered.append(card)
+		targets = filtered
+	var filter_keyword := str(effect.get("target_filter_keyword", ""))
+	if not filter_keyword.is_empty():
+		var filtered: Array = []
+		for card in targets:
+			if EvergreenRules.has_keyword(card, filter_keyword):
+				filtered.append(card)
+		targets = filtered
+	var filter_attribute := str(effect.get("target_filter_attribute", ""))
+	if not filter_attribute.is_empty():
+		var filtered: Array = []
+		for card in targets:
+			var attrs: Array = card.get("attributes", [])
+			if typeof(attrs) == TYPE_ARRAY and attrs.has(filter_attribute):
+				filtered.append(card)
+		targets = filtered
+	return targets
 
 
 static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dictionary, event: Dictionary, target: String) -> Array:
