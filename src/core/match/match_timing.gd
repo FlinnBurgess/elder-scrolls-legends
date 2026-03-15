@@ -53,6 +53,12 @@ const FAMILY_VETERAN := "veteran"
 const FAMILY_EXPERTISE := "expertise"
 const FAMILY_PLOT := "plot"
 const FAMILY_RUNE_BREAK := "rune_break"
+const FAMILY_ON_FRIENDLY_DEATH := "on_friendly_death"
+const FAMILY_ON_ATTACK := "on_attack"
+const FAMILY_ON_EQUIP := "on_equip"
+const FAMILY_AFTER_ACTION_PLAYED := "after_action_played"
+
+const EVENT_CARD_EQUIPPED := "card_equipped"
 
 const PLAYER_ZONE_ORDER := [ZONE_HAND, ZONE_SUPPORT, ZONE_DISCARD, ZONE_BANISHED, ZONE_DECK]
 const RANDOM_KEYWORD_POOL := ["breakthrough", "charge", "drain", "guard", "lethal", "regenerate", "ward"]
@@ -81,6 +87,10 @@ const FAMILY_SPECS := {
 	FAMILY_EXPERTISE: {"event_type": EVENT_CARD_PLAYED, "window": WINDOW_AFTER, "match_role": "controller", "min_played_cost": 5},
 	FAMILY_PLOT: {"event_type": EVENT_TURN_ENDING, "window": WINDOW_AFTER, "match_role": "controller"},
 	FAMILY_RUNE_BREAK: {"event_type": EVENT_RUNE_BROKEN, "window": WINDOW_INTERRUPT, "match_role": "controller"},
+	FAMILY_ON_FRIENDLY_DEATH: {"event_type": EVENT_CREATURE_DESTROYED, "window": WINDOW_AFTER, "match_role": "controller"},
+	FAMILY_ON_ATTACK: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "source", "damage_kind": "combat"},
+	FAMILY_ON_EQUIP: {"event_type": EVENT_CARD_EQUIPPED, "window": WINDOW_AFTER, "match_role": "controller"},
+	FAMILY_AFTER_ACTION_PLAYED: {"event_type": EVENT_CARD_PLAYED, "window": WINDOW_AFTER, "match_role": "controller", "required_played_card_type": "action"},
 }
 
 
@@ -126,6 +136,10 @@ static func get_supported_trigger_families() -> Array:
 		FAMILY_EXPERTISE,
 		FAMILY_PLOT,
 		FAMILY_RUNE_BREAK,
+		FAMILY_ON_FRIENDLY_DEATH,
+		FAMILY_ON_ATTACK,
+		FAMILY_ON_EQUIP,
+		FAMILY_AFTER_ACTION_PLAYED,
 	]
 
 
@@ -642,8 +656,11 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 	var require_survived := bool(descriptor.get("require_survived", family_spec.get("require_survived", false)))
 	if require_survived and bool(event.get("target_destroyed", false)):
 		return false
-	var required_damage_kind := str(descriptor.get("damage_kind", ""))
+	var required_damage_kind := str(descriptor.get("damage_kind", family_spec.get("damage_kind", "")))
 	if not required_damage_kind.is_empty() and str(event.get("damage_kind", "")) != required_damage_kind:
+		return false
+	var required_played_card_type := str(descriptor.get("required_played_card_type", family_spec.get("required_played_card_type", "")))
+	if not required_played_card_type.is_empty() and str(event.get("card_type", "")) != required_played_card_type:
 		return false
 	if bool(descriptor.get("exclude_self", false)):
 		var event_source_id := str(event.get("source_instance_id", event.get("subject_instance_id", "")))

@@ -66,12 +66,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Auroran Sentry** (`wil_auroran_sentry`) — "Guard. When dealt damage, you gain that much health." Needs `on_damage_taken` trigger + heal equal to damage.
 - **Imprisoned Deathlord** (`end_imprisoned_deathlord`) — "When enemy summoned, Shackle self." Needs `on_enemy_summon` trigger + shackle op.
 
-### Needs "after action played" trigger family
-
-- **Crystal Tower Crafter** (`int_crystal_tower_crafter`) — "After you play an action, gains +1/+1." Needs `after_action_played` trigger.
-- **Lillandril Hexmage** (`int_lillandril_hexmage`) — "After you play an action, deal 1 damage to opponent." Needs `after_action_played` trigger.
-- **Artaeum Savant** (`wil_artaeum_savant`) — "After you play an action, give random friendly +1/+1." Needs `after_action_played` trigger.
-
 ### Needs "on creature summoned" trigger family
 
 - **Fifth Legion Trainer** is wired but others need the trigger family:
@@ -80,19 +74,11 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 ### Needs "on attack" trigger family
 
-- **Fiery Imp** (`str_fiery_imp`) — "When Fiery Imp attacks, deal 2 damage to your opponent." Needs `on_attack` trigger.
 - **Reive, Blademaster** (`str_reive_blademaster`) — "When attacks, deal 2 damage to opponent (escalating)." Needs `on_attack` trigger + escalating counter.
-- **Staff of Sparks** (`int_staff_of_sparks`) — "+3/+0. When wielder attacks, deals 1 damage to all enemies in lane." Item needs `on_attack` trigger.
 
 ### Needs "on equip" trigger family
 
-- **Alik'r Survivalist** (`str_alikr_survivalist`) — "When equipped, +1/+1." Needs `on_equip` trigger.
-- **Whirling Duelist** (`str_whirling_duelist`) — "When equips item, deal 1 damage to all enemies in lane." Needs `on_equip` trigger.
-- **Dragonstar Rider** (`int_dragonstar_rider`) — "When equips item, draw a card." Needs `on_equip` trigger.
-
-### Needs "on support played/activated" trigger
-
-- **Craglorn Scavenger** (`int_craglorn_scavenger`) — "When you play or activate a support, gains +1/+1." Needs `on_support_played` trigger.
+- **Alik'r Survivalist** (`str_alikr_survivalist`) — on_equip → +1/+1 is NOW WIRED. Summon: put Steel Dagger into hand is NOT wired (needs put-card-into-hand mechanic).
 
 ### Needs "at end of turn" condition-checked trigger
 
@@ -102,11 +88,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 - **Gladiator Arena** (`str_gladiator_arena`) — "Ongoing. At start of each turn, deal 2 damage to that player." Support start_of_turn + each player.
 - **Blackrose Herbalist** (`end_blackrose_herbalist`) — "At start of turn, heal another random friendly." Needs `start_of_turn` + random friendly target.
-
-### Needs "on creature death" trigger (not Last Gasp)
-
-- **Grim Champion** (`end_grim_champion`) — "When creature in lane dies, gains +1/+1." Needs `on_creature_death_in_lane` trigger.
-- **Necromancer's Amulet** (`end_necromancers_amulet`) — "Ongoing. When friendly creature dies, gain 1 health." Support, needs `on_friendly_death` trigger.
 
 ### Needs pilfer trigger family
 
@@ -225,7 +206,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Merric-at-Aswala** (`dual_merricataswala`) — "Summon: Equip each friendly in lane with random item." Needs equip-from-catalog.
 - **High King Emeric** (`dual_high_king_emeric`) — "Ward. Summon: Deal 2 damage per friendly with Ward." Needs ward-count scaling.
 - **Thorn Histmage** (`dual_thorn_histmage`) — "Guard. Summon: Gain +1 max magicka. +1/+0 on max magicka increase." Summon +1 max magicka wired; modify_stats on magicka increase NOT implemented.
-- **General Tullius** (`dual_general_tullius`) — "Summon: Summon Troopers. When friendly dies, +1/+1." Summon wired; modify_stats uncovered (needs on_friendly_death trigger).
 - **Hidden Trail** (`agi_hidden_trail`) — "Ongoing. Summon: All Field Lanes become Shadow. +1/+0." Lane modification + aura.
 - **Halls of the Dwemer** (`neu_halls_of_the_dwemer`) — "Ongoing. Summon: Put Dwarven Spider into hand. Dwemer +3/+0." Multi-mechanic support.
 - **Dres Renegade** (`int_dres_renegade`) — "Guard. Other friendly creatures immune to Shackle." Needs immunity mechanic.
@@ -253,3 +233,4 @@ Cards that have been successfully wired with triggered_abilities:
 - Odahviing (summon → deal 4 damage to all enemies both lanes), Skaven Pyromancer (summon → deal 1 damage to all other creatures in lane), Giant Snake (summon → shackle all enemies in lane), Red Bramman (summon → silence + shackle all enemies in lane), Legion Praefect (summon → +1/+1 to all friendly both lanes), Yew Shield (on_play → +1/+1 per enemy in lane on wielder), Corpse Curse (token; on_play → shackle all enemies in lane)
 - Trebuchet (start_of_turn → deal 4 damage to random enemy), Reachman Shaman (start_of_turn → +1/+1 to random friendly), Brutal Ashlander (last_gasp → deal 3 damage to random enemy), Haunting Spirit (last_gasp → +3/+3 to random friendly), Alfe Fyr (summon → deal 6 damage to random enemy), Beyte Fyr (summon → deal 6 damage to random enemy), Delte Fyr (summon → deal 6 damage to random enemy), Uupse Fyr (summon → deal 6 damage to random enemy), Cavern Spinner (summon → shackle random enemy), Crown Quartermaster (summon → generate Steel Dagger to hand), Dunmer Nightblade (last_gasp → generate Iron Sword to hand), Divayth Fyr (summon deal 6 damage to random enemy only; start_of_turn summon Daughter not implemented)
 - Murkwater Skirmisher (summon → +2/+2 to all friendly Goblins, filtered by subtype), Watch Commander (summon → +1/+2 to all friendly Guards, filtered by keyword), Baron of Tear (summon → +1/+0 and Guard to all friendly Intelligence creatures, filtered by attribute), Eastmarch Crusader (summon → draw if enemy rune destroyed, conditional), Shimmerene Peddler (end_of_turn → draw if played 2 actions), Fireball (on_play → deal 1 damage to all enemies + opponent), Aldmeri Patriot (summon → +1/+1 if action in hand, conditional), Militant Chieftain (summon +1/+1 to all friendly Orcs only; draw Orc from discard not implemented)
+- Fiery Imp (on_attack → damage opponent 2), Staff of Sparks (on_attack → deal 1 damage to all enemies in lane, item), Crystal Tower Crafter (after_action_played → +1/+1), Lillandril Hexmage (after_action_played → damage opponent 1), Artaeum Savant (after_action_played → +1/+1 to random friendly), Grim Champion (on_friendly_death + opponent death → +1/+1 both sides), Necromancer's Amulet (on_friendly_death → heal 1), Alik'r Survivalist (on_equip → +1/+1 only; summon put-dagger-in-hand not implemented), Dragonstar Rider (on_equip → draw), Whirling Duelist (on_equip → deal 1 damage to all enemies in lane), Craglorn Scavenger (on_play support + activate → +1/+1), General Tullius (on_friendly_death → +1/+1; summon was already wired, now fully fixed)
