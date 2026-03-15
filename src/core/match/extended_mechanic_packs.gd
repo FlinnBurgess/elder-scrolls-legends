@@ -355,6 +355,43 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			var srfc_events: Array = srfc_result.get("events", []).duplicate()
 			srfc_events.append(_timing_rules()._build_summon_event(srfc_result["card"], srfc_controller_id, srfc_lane_id, int(srfc_result.get("slot_index", -1)), "summon_from_catalog"))
 			return {"handled": true, "events": srfc_events}
+		"generate_random_to_hand":
+			var grth_filter_raw = effect.get("filter", {})
+			var grth_filter: Dictionary = grth_filter_raw if typeof(grth_filter_raw) == TYPE_DICTIONARY else {}
+			var grth_seeds: Array = CardCatalog._card_seeds()
+			var grth_candidates: Array = []
+			var grth_controller_id := str(trigger.get("controller_player_id", ""))
+			var grth_player := _get_player_state(match_state, grth_controller_id)
+			if grth_player.is_empty():
+				return {"handled": true, "events": []}
+			var grth_max_cost := int(grth_filter.get("max_cost", -1))
+			var grth_req_card_type := str(grth_filter.get("card_type", ""))
+			var grth_req_subtype := str(grth_filter.get("required_subtype", ""))
+			for seed in grth_seeds:
+				if typeof(seed) != TYPE_DICTIONARY:
+					continue
+				if not bool(seed.get("collectible", true)):
+					continue
+				if not grth_req_card_type.is_empty() and str(seed.get("card_type", "")) != grth_req_card_type:
+					continue
+				if grth_max_cost >= 0 and int(seed.get("cost", 0)) > grth_max_cost:
+					continue
+				if not grth_req_subtype.is_empty():
+					var subtypes = seed.get("subtypes", [])
+					if typeof(subtypes) != TYPE_ARRAY or not subtypes.has(grth_req_subtype):
+						continue
+				grth_candidates.append(seed)
+			if grth_candidates.is_empty():
+				return {"handled": true, "events": []}
+			var grth_seq := str(match_state.get("generated_card_sequence", 0))
+			var grth_pick: Dictionary = grth_candidates[_timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_grth_" + grth_seq, grth_candidates.size())]
+			var grth_template: Dictionary = grth_pick.duplicate(true)
+			grth_template["definition_id"] = str(grth_template.get("card_id", ""))
+			var grth_gen := MatchMutations.build_generated_card(match_state, grth_controller_id, grth_template)
+			grth_gen["zone"] = MatchMutations.ZONE_HAND
+			var grth_hand: Array = grth_player.get(MatchMutations.ZONE_HAND, [])
+			grth_hand.append(grth_gen)
+			return {"handled": true, "events": [{"event_type": "card_drawn", "player_id": grth_controller_id, "source_instance_id": str(trigger.get("source_instance_id", "")), "drawn_instance_id": str(grth_gen.get("instance_id", "")), "source_zone": MatchMutations.ZONE_GENERATED, "target_zone": MatchMutations.ZONE_HAND, "reason": "generate_random_to_hand"}]}
 		"equip_random_item_from_catalog":
 			var erfc_seeds: Array = CardCatalog._card_seeds()
 			var erfc_items: Array = []

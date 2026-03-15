@@ -2844,6 +2844,10 @@ func _on_card_pressed(instance_id: String) -> void:
 	if board_mode == SELECTION_MODE_ATTACK or (board_mode == SELECTION_MODE_SUPPORT and _selected_support_uses_card_targets(board_card)):
 		_enter_targeting_mode(instance_id)
 		return
+	# Ignore clicks on lane creatures that cannot act (spent, shackled, etc.)
+	var board_location: Dictionary = board_card.get("location", {})
+	if str(board_location.get("zone", "")) == MatchMutations.ZONE_LANE and board_mode == SELECTION_MODE_NONE:
+		return
 	select_card(instance_id)
 
 
