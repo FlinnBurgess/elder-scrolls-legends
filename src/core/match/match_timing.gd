@@ -897,6 +897,10 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					var silence_result := MatchMutations.silence_card(card, {"reason": reason})
 					generated_events.append_array(silence_result.get("events", []))
+			"shackle":
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					EvergreenRules.add_status(card, EvergreenRules.STATUS_SHACKLED)
+					generated_events.append({"event_type": "status_granted", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "status_id": "shackled", "reason": reason})
 			"change":
 				var change_template := _resolve_effect_template(match_state, trigger, event, effect)
 				if change_template.is_empty():
@@ -1096,6 +1100,32 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 				for card in slots:
 					if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) != self_id:
 						targets.append(card)
+		"all_enemies":
+			var controller_id := str(trigger.get("controller_player_id", ""))
+			var opponent_id := _get_opposing_player_id(match_state.get("players", []), controller_id)
+			for lane in match_state.get("lanes", []):
+				var slots = lane.get("player_slots", {}).get(opponent_id, [])
+				for card in slots:
+					if typeof(card) == TYPE_DICTIONARY:
+						targets.append(card)
+		"all_friendly":
+			var controller_id := str(trigger.get("controller_player_id", ""))
+			var self_id := str(trigger.get("source_instance_id", ""))
+			for lane in match_state.get("lanes", []):
+				var slots = lane.get("player_slots", {}).get(controller_id, [])
+				for card in slots:
+					if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) != self_id:
+						targets.append(card)
+		"all_creatures_in_lane":
+			var lane_index := int(trigger.get("lane_index", -1))
+			var self_id := str(trigger.get("source_instance_id", ""))
+			var lanes: Array = match_state.get("lanes", [])
+			if lane_index >= 0 and lane_index < lanes.size():
+				var player_slots: Dictionary = lanes[lane_index].get("player_slots", {})
+				for pid in player_slots.keys():
+					for card in player_slots[pid]:
+						if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) != self_id:
+							targets.append(card)
 	return targets
 
 

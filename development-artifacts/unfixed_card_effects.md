@@ -19,7 +19,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Loyal Housecarl** (`wil_loyal_housecarl`) — "Prophecy. Summon: Give a creature +2/+2 and Guard." Needs player to choose a creature target.
 - **Sunhold Medic** (`wil_sunhold_medic`) — "Summon: Give a creature +0/+2." Needs player to choose a creature target.
 - **Cloudrest Illusionist** (`wil_cloudrest_illusionist`) — "Prophecy. Summon: Give a creature -4/-0 this turn." Needs player to choose a creature target.
-- **Legion Praefect** (`wil_legion_praefect`) — "Summon: Give other friendly creatures +1/+1." Needs `all_friendly` target type.
 - **Pillaging Tribune** (`wil_pillaging_tribune`) — "Summon: Give a friendly creature Drain this turn." Needs player to choose a friendly creature target.
 - **Ash Servant** (`int_ash_servant`) — "Summon: Deal 2 damage to a creature." Needs player to choose a creature target.
 - **Shocking Wamasu** (`int_shocking_wamasu`) — "Summon: Deal 4 damage to a creature." Needs player to choose a creature target.
@@ -139,14 +138,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Spider Daedra** (`agi_spider_daedra`) — "Summon: Fill with Spiderlings. Last Gasp: Destroy Spiderlings." Needs `last_gasp` + destroy-by-subtype + summon fill lane.
 - **Haunting Spirit** (`end_haunting_spirit`) — "Last Gasp: Give random friendly +3/+3." Needs `last_gasp` + random friendly target.
 
-### Needs "all creatures in lane" target (both sides)
-
-- **Skaven Pyromancer** (`str_skaven_pyromancer`) — "Summon: Deal 1 damage to all other creatures in this lane." Needs all-creatures-in-lane target excluding self.
-
-### Needs item equip lane context
-
-- **Yew Shield** (`end_yew_shield`) — "Summon: +1/+1 for each enemy creature in this lane." Item cards don't have lane context in triggers.
-
 ### Needs "put card into hand" mechanic
 
 - **Dunmer Nightblade** (`int_dunmer_nightblade`) — "Last Gasp: Put an Iron Sword into your hand." Needs generate-card-to-hand op.
@@ -173,12 +164,9 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Fire Storm** (`int_fire_storm`) — "Prophecy. Deal 2 damage to all creatures in a lane." Needs all-creatures-in-lane target.
 - **Ice Storm** (`int_ice_storm`) — "Deal 3 damage to all creatures." Needs all-creatures target.
 - **Lightning Bolt** (`int_lightning_bolt`) — "Prophecy. Deal 4 damage." Action needs target choice.
-- **Odahviing** (`neu_odahviing`) — "Summon: Deal 4 damage to all enemy creatures." Needs all-enemies target.
-- **Giant Snake** (`agi_giant_snake`) — "Summon: Shackle all enemies in lane." Needs all-enemies-in-lane + shackle.
 - **Winter's Grasp** (`int_winters_grasp`) — "Shackle all enemy creatures." Action needs all-enemies + shackle.
 - **Arrow in the Knee** (`agi_arrow_in_the_knee`) — "Shackle a creature and deal 1 damage." Action needs target choice + shackle + damage.
 - **Dread Clannfear** (`str_dread_clannfear`) — "Summon: All enemy creatures lose Guard." Needs all-enemies + remove_keyword op.
-- **Red Bramman** (`dual_red_bramman`) — "Summon: Silence and Shackle all enemies in lane." Needs all-enemies-in-lane + silence + shackle.
 - **Arrow Storm** (`wil_arrow_storm`) — "Destroy all enemies with 2 power or less in a lane." Needs conditional mass destroy.
 - **Dawn's Wrath** (`wil_dawns_wrath`) — "Destroy all creatures in a lane." Needs all-creatures-in-lane + destroy.
 - **Immolating Blast** (`wil_immolating_blast`) — "Destroy all except one random on each side." Needs complex mass destroy.
@@ -267,7 +255,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 - **Alfe Fyr / Beyte Fyr / Delte Fyr / Uupse Fyr** (`int_alfe_fyr`, `int_beyte_fyr`, `int_delte_fyr`, `int_uupse_fyr`) — "Summon: Deal 6 damage to random enemy." Need summon + random target damage.
 - **Cavern Spinner** (`agi_cavern_spinner`) — "Summon: Shackle random enemy." Needs summon + random target + shackle.
-- **Corpse Curse** (`end_corpse_curse`) — "Shackle all enemies in one lane." Action needs all-enemies-in-lane + shackle.
 - **Sweet Roll** (`neu_sweet_roll`) — "If creature eats Sweet Roll, heal them." Needs heal-on-eat mechanic.
 - **Ancient Giant** (`neu_ancient_giant`) — Passive cost/stats equal max magicka. Needs dynamic stat calculation.
 
@@ -278,3 +265,4 @@ Cards that have been successfully wired with triggered_abilities:
 - Afflicted Alit, Blighted Alit, Mighty Ally, Vigilant Giant, Camlorn Hero, Fate Weaver (summon draw only; prophecy play-for-free not implemented), Indoril Archmage, Studium Headmaster, Elusive Schemer (summon draw only; last_gasp shuffle-copy not implemented), Descendant of Alkosh, Priest of the Moons, Rajhini Highwayman, Riverhold Escort, Baandari Bruiser, Daring Cutpurse, Deshaan Avenger, House Kinsman, Mournhold Traitor, Nimble Ally, Pahmar-raht Renegade, Quin'rawl Burglar, Tazkad the Packmaster, Tenmar Swiftclaw (pilfer +1/+1 only; extra attack not implemented), Varanis Courier, Snake Tooth Necklace, Archein Venomtongue, Deathless Draugr, Restless Templar, Enchanted Plate, Dark Harvester, Spider Worker, Slaughterfish, Sadras Agent, Thorn Histmage (summon +1 max magicka only; modify_stats on magicka increase not implemented), Brotherhood Assassin
 - Bangkorai Butcher (summon conditional +2/+2 if another Orc), Silvenar Tracker (summon conditional Charge if wounded enemy in lane), Triumphant Jarl (summon conditional draw 2 if more health), Wood Orc Headhunter (summon conditional Charge if another Orc), Golden Saint (summon conditional summon Golden Saint in other lane if more health), Ravenous Hunger (summon conditional Drain if enemy in lane), Pack Wolf (summon Young Wolf in other lane), Green Pact Stalker (summon conditional +2/+2 if wounded enemy in lane), Rift Thane (summon conditional buffs based on health comparison)
 - Relentless Raider (rune_break → damage opponent 1), Morthal Executioner (rune_break → +2/+0), Dawnstar Healer (rune_break → heal 3), Ice Spike (on_play → damage opponent 2 + draw 1), Healing Potion (on_play → heal 5), Ransack (on_play → damage opponent 3 + heal 3), Thievery (on_play → damage opponent 3 + heal 3), Drain Life (token; on_play → damage opponent 5 + heal 5), Bone Colossus (summon fill lane with Skeletons only; aura still unfixed), Renowned Legate (summon Imperial Grunt only; heal-per-friendly still unfixed), Queen Barenziah (summon → grant Guard to all friendly in lane), Stronghold Eradicator (summon → grant Guard to all enemies in lane)
+- Odahviing (summon → deal 4 damage to all enemies both lanes), Skaven Pyromancer (summon → deal 1 damage to all other creatures in lane), Giant Snake (summon → shackle all enemies in lane), Red Bramman (summon → silence + shackle all enemies in lane), Legion Praefect (summon → +1/+1 to all friendly both lanes), Yew Shield (on_play → +1/+1 per enemy in lane on wielder), Corpse Curse (token; on_play → shackle all enemies in lane)
