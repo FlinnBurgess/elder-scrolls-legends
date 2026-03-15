@@ -728,14 +728,17 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					"message": str(effect.get("message", str(descriptor.get("family", "trigger")))),
 				})
 			"modify_stats":
+				var stat_multiplier := _resolve_count_multiplier(match_state, trigger, event, effect)
+				var total_power := int(effect.get("power", 0)) * stat_multiplier
+				var total_health := int(effect.get("health", 0)) * stat_multiplier
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
-					EvergreenRules.apply_stat_bonus(card, int(effect.get("power", 0)), int(effect.get("health", 0)), reason)
+					EvergreenRules.apply_stat_bonus(card, total_power, total_health, reason)
 					generated_events.append({
 						"event_type": "stats_modified",
 						"source_instance_id": str(trigger.get("source_instance_id", "")),
 						"target_instance_id": str(card.get("instance_id", "")),
-						"power_bonus": int(effect.get("power", 0)),
-						"health_bonus": int(effect.get("health", 0)),
+						"power_bonus": total_power,
+						"health_bonus": total_health,
 						"reason": reason,
 					})
 			"grant_status":
@@ -960,6 +963,27 @@ static func _resolve_player_targets(trigger: Dictionary, event: Dictionary, effe
 			var event_target_player := str(event.get("target_player_id", ""))
 			return [] if event_target_player.is_empty() else [event_target_player]
 	return []
+
+
+static func _resolve_count_multiplier(match_state: Dictionary, trigger: Dictionary, _event: Dictionary, effect: Dictionary) -> int:
+	var count_source := str(effect.get("count_source", ""))
+	if count_source.is_empty():
+		return 1
+	var controller_player_id := str(trigger.get("controller_player_id", ""))
+	var exclude_self := bool(effect.get("count_exclude_self", false))
+	var self_instance_id := str(trigger.get("source_instance_id", ""))
+	var count := 0
+	match count_source:
+		"friendly_creatures":
+			for lane in match_state.get("lanes", []):
+				var slots = lane.get("player_slots", {}).get(controller_player_id, [])
+				for card in slots:
+					if typeof(card) != TYPE_DICTIONARY:
+						continue
+					if exclude_self and str(card.get("instance_id", "")) == self_instance_id:
+						continue
+					count += 1
+	return count
 
 
 static func _resolve_effect_template(match_state: Dictionary, trigger: Dictionary, event: Dictionary, effect: Dictionary) -> Dictionary:
