@@ -81,9 +81,8 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	if _ward_overlay != null and _ward_overlay.visible:
-		var mat := _ward_overlay.material as ShaderMaterial
-		if mat:
-			mat.set_shader_parameter("elapsed_time", Time.get_ticks_msec() / 1000.0)
+		_ward_overlay.queue_redraw()
+		queue_redraw()
 
 
 func _notification(what: int) -> void:
@@ -152,7 +151,7 @@ func _build_internal_nodes() -> void:
 	# Ward overlay sits above artwork but below banners and badges
 	_ward_overlay = ColorRect.new()
 	_ward_overlay.name = "WardOverlay"
-	_ward_overlay.color = Color.TRANSPARENT
+	_ward_overlay.color = Color.WHITE
 	_ward_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_ward_overlay.visible = false
 	var ward_shader := load("res://assets/shaders/ward_mist.gdshader") as Shader
