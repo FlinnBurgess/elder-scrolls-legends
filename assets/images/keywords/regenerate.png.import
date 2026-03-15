@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c4vk0yp8e36bl"
-path="res://.godot/imported/lethal_full.png-c4696960072faf395e6884a17065e665.ctex"
+uid="uid://c8bf1tmx1aybk"
+path="res://.godot/imported/regenerate.png-28ca7816c0bd103e4226c1c3f4f54735.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/images/keywords/lethal_full.png"
-dest_files=["res://.godot/imported/lethal_full.png-c4696960072faf395e6884a17065e665.ctex"]
+source_file="res://assets/images/keywords/regenerate.png"
+dest_files=["res://.godot/imported/regenerate.png-28ca7816c0bd103e4226c1c3f4f54735.ctex"]
 
 [params]
 

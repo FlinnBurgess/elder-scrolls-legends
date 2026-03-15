@@ -17,6 +17,17 @@ const CREATURE_BOARD_MINIMUM_SIZE := CREATURE_BOARD_LAYOUT_BASE_SIZE * PRESENTAT
 const SUPPORT_BOARD_MINIMUM_SIZE := SUPPORT_BOARD_LAYOUT_BASE_SIZE * PRESENTATION_SCALE
 
 const DEFAULT_ART_PATH := "res://assets/images/cards/placeholder.png"
+const KEYWORD_ICON_SIZE := 36
+const KEYWORD_ICON_PATHS := {
+	"breakthrough": "res://assets/images/keywords/breakthrough.png",
+	"charge": "res://assets/images/keywords/charge.png",
+	"drain": "res://assets/images/keywords/drain.png",
+	"guard": "res://assets/images/keywords/guard.png",
+	"last_gasp": "res://assets/images/keywords/last-gasp.png",
+	"pilfer": "res://assets/images/keywords/pilfer.png",
+	"regenerate": "res://assets/images/keywords/regenerate.png",
+	"slay": "res://assets/images/keywords/slay.png",
+}
 
 const KEYWORD_NAMES := [
 	"breakthrough", "charge", "drain", "guard",
@@ -66,6 +77,7 @@ var _health_badge: PanelContainer
 var _health_label: Label
 var _ward_overlay: ColorRect
 var _lethal_particles: GPUParticles2D
+var _keyword_icons_container: HBoxContainer
 
 
 func _ready() -> void:
@@ -269,6 +281,14 @@ func _build_internal_nodes() -> void:
 	_health_label.add_theme_font_override("font", bold_font_h)
 	_health_badge.add_child(_health_label)
 
+	_keyword_icons_container = HBoxContainer.new()
+	_keyword_icons_container.name = "KeywordIcons"
+	_keyword_icons_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	_keyword_icons_container.add_theme_constant_override("separation", 2)
+	_keyword_icons_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_keyword_icons_container.visible = false
+	_content_root.add_child(_keyword_icons_container)
+
 	_set_mouse_passthrough_recursive(_content_root)
 	_is_built = true
 
@@ -298,6 +318,7 @@ func _refresh_content() -> void:
 	else:
 		_attack_label.text = ""
 		_health_label.text = ""
+	_refresh_keyword_icons()
 
 
 func _refresh_styles() -> void:
@@ -428,6 +449,7 @@ func _layout_full(inner_rect: Rect2) -> void:
 	_layout_stat_badges(inner_rect, Rect2(_art_frame.position, _art_frame.size), scale, true)
 
 	_layout_ward_overlay()
+	_keyword_icons_container.visible = false
 
 	# Rules panel – bottom portion of card below art, with gap for stat badges
 	var rules_y := _art_frame.position.y + _art_frame.size.y + 4.0 * scale
@@ -456,6 +478,7 @@ func _layout_creature_board_minimal(inner_rect: Rect2) -> void:
 	_art_frame.size = Vector2(maxf(inner_rect.size.x - art_padding * 2.0, 0.0), maxf(inner_rect.size.y - art_padding * 2.0, 0.0))
 	_layout_stat_badges(inner_rect, Rect2(_art_frame.position, _art_frame.size), scale, true)
 	_layout_ward_overlay()
+	_layout_keyword_icons()
 	_name_banner.position = Vector2.ZERO
 	_name_banner.size = Vector2.ZERO
 	_subtype_banner.position = Vector2.ZERO
@@ -573,6 +596,52 @@ func _layout_stat_badges(inner_rect: Rect2, art_rect: Rect2, scale: float, esl_s
 	if _lethal_particles != null:
 		var attack_center := _attack_badge.position + _attack_badge.pivot_offset
 		_lethal_particles.position = attack_center
+
+
+func _refresh_keyword_icons() -> void:
+	if _keyword_icons_container == null:
+		return
+	for child in _keyword_icons_container.get_children():
+		child.queue_free()
+	if not _is_creature(_card_data):
+		return
+	for kw in KEYWORD_ICON_PATHS:
+		if not _card_has_keyword_or_ability(kw):
+			continue
+		var icon_texture := _load_texture_from_path(KEYWORD_ICON_PATHS[kw])
+		if icon_texture == null:
+			continue
+		var icon := TextureRect.new()
+		icon.texture = icon_texture
+		icon.custom_minimum_size = Vector2(KEYWORD_ICON_SIZE, KEYWORD_ICON_SIZE)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_keyword_icons_container.add_child(icon)
+
+
+func _card_has_keyword_or_ability(kw: String) -> bool:
+	if EvergreenRules.has_keyword(_card_data, kw):
+		return true
+	for trigger in _card_data.get("triggered_abilities", []):
+		if typeof(trigger) == TYPE_DICTIONARY and str(trigger.get("family", "")) == kw:
+			return true
+	return false
+
+
+func _layout_keyword_icons() -> void:
+	if _keyword_icons_container == null:
+		return
+	var icon_count := _keyword_icons_container.get_child_count()
+	if icon_count == 0:
+		_keyword_icons_container.visible = false
+		return
+	_keyword_icons_container.visible = true
+	var total_width := float(icon_count * KEYWORD_ICON_SIZE + (icon_count - 1) * 2)
+	var container_x := _art_frame.position.x + (_art_frame.size.x - total_width) * 0.5
+	var container_y := _art_frame.position.y + _art_frame.size.y - KEYWORD_ICON_SIZE - 4.0
+	_keyword_icons_container.position = Vector2(container_x, container_y)
+	_keyword_icons_container.size = Vector2(total_width, KEYWORD_ICON_SIZE)
 
 
 func _layout_ward_overlay() -> void:
