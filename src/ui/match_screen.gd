@@ -202,6 +202,10 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 	var def_rules_tags: Array = definition.get("rules_tags", [])
 	if not def_rules_tags.is_empty():
 		card["rules_tags"] = def_rules_tags.duplicate(true)
+	if str(definition.get("card_type", "")) == "item":
+		card["equip_power_bonus"] = int(definition.get("equip_power_bonus", 0))
+		card["equip_health_bonus"] = int(definition.get("equip_health_bonus", 0))
+		card["equip_keywords"] = definition.get("equip_keywords", []).duplicate(true)
 
 
 func _process(_delta: float) -> void:

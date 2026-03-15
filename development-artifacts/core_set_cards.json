@@ -72,7 +72,10 @@
         "modify_stats",
         "summon"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 3,
+      "equip_health_bonus": 0,
+      "equip_keywords": []
     },
     {
       "card_id": "str_bangkorai_butcher",
@@ -242,7 +245,10 @@
         "silence",
         "summon"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 1,
+      "equip_health_bonus": 0,
+      "equip_keywords": []
     },
     {
       "card_id": "str_burn_and_pillage",
@@ -603,7 +609,10 @@
         "equip",
         "modify_stats"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 4,
+      "equip_health_bonus": 1,
+      "equip_keywords": []
     },
     {
       "card_id": "str_improvised_weapon",
@@ -627,7 +636,12 @@
       "effect_ids": [
         "modify_stats"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 1,
+      "equip_health_bonus": 1,
+      "equip_keywords": [
+        "breakthrough"
+      ]
     },
     {
       "card_id": "str_intimidate",
@@ -889,7 +903,12 @@
       "effect_ids": [
         "modify_stats"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 3,
+      "equip_health_bonus": 3,
+      "equip_keywords": [
+        "breakthrough"
+      ]
     },
     {
       "card_id": "str_plunder",
@@ -1256,7 +1275,10 @@
         "equip",
         "modify_stats"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 2,
+      "equip_health_bonus": 2,
+      "equip_keywords": []
     },
     {
       "card_id": "str_stone_throw",
@@ -2243,7 +2265,10 @@
         "modify_stats",
         "unsummon"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 5,
+      "equip_health_bonus": 0,
+      "equip_keywords": []
     },
     {
       "card_id": "int_high_rock_summoner",
@@ -2478,7 +2503,10 @@
         "shackle",
         "summon"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 2,
+      "equip_health_bonus": 1,
+      "equip_keywords": []
     },
     {
       "card_id": "int_mages_guild_retreat",
@@ -2546,7 +2574,10 @@
         "modify_stats",
         "summon"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 3,
+      "equip_health_bonus": 3,
+      "equip_keywords": []
     },
     {
       "card_id": "int_moment_of_clarity",
@@ -2805,7 +2836,10 @@
         "equip",
         "modify_stats"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 3,
+      "equip_health_bonus": 0,
+      "equip_keywords": []
     },
     {
       "card_id": "int_steel_sword",
@@ -2828,7 +2862,10 @@
         "equip",
         "modify_stats"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 3,
+      "equip_health_bonus": 0,
+      "equip_keywords": []
     },
     {
       "card_id": "int_studium_headmaster",
@@ -2949,7 +2986,10 @@
         "modify_stats",
         "summon"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 2,
+      "equip_health_bonus": 2,
+      "equip_keywords": []
     },
     {
       "card_id": "int_wardcrafter",
@@ -3392,7 +3432,10 @@
         "modify_stats",
         "slay"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 4,
+      "equip_health_bonus": 4,
+      "equip_keywords": []
     },
     {
       "card_id": "wil_dawnstar_healer",
@@ -3930,7 +3973,12 @@
       "effect_ids": [
         "modify_stats"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 1,
+      "equip_health_bonus": 3,
+      "equip_keywords": [
+        "guard"
+      ]
     },
     {
       "card_id": "wil_loyal_housecarl",
@@ -5711,7 +5759,12 @@
         "modify_stats",
         "summon"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 1,
+      "equip_health_bonus": 1,
+      "equip_keywords": [
+        "drain"
+      ]
     },
     {
       "card_id": "agi_snowy_sabre_cat",
@@ -6389,7 +6442,12 @@
       "effect_ids": [
         "modify_stats"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 1,
+      "equip_health_bonus": 1,
+      "equip_keywords": [
+        "lethal"
+      ]
     },
     {
       "card_id": "end_deadly_draugr",
@@ -6557,7 +6615,10 @@
         "modify_stats",
         "summon"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 0,
+      "equip_health_bonus": 3,
+      "equip_keywords": []
     },
     {
       "card_id": "end_fharun_defender",
@@ -6706,7 +6767,12 @@
       "effect_ids": [
         "modify_stats"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 1,
+      "equip_health_bonus": 3,
+      "equip_keywords": [
+        "regenerate"
+      ]
     },
     {
       "card_id": "end_haunting_spirit",
@@ -6823,7 +6889,10 @@
         "equip",
         "modify_stats"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 0,
+      "equip_health_bonus": 6,
+      "equip_keywords": []
     },
     {
       "card_id": "end_imprisoned_deathlord",
@@ -7627,7 +7696,12 @@
         "modify_stats",
         "summon"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 1,
+      "equip_health_bonus": 1,
+      "equip_keywords": [
+        "guard"
+      ]
     },
     {
       "card_id": "end_young_mammoth",
@@ -7776,7 +7850,10 @@
         "equip",
         "modify_stats"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 3,
+      "equip_health_bonus": 3,
+      "equip_keywords": []
     },
     {
       "card_id": "neu_dwarven_armaments",
@@ -7799,7 +7876,10 @@
         "equip",
         "modify_stats"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 5,
+      "equip_health_bonus": 5,
+      "equip_keywords": []
     },
     {
       "card_id": "neu_dwarven_ballista",
@@ -8106,7 +8186,10 @@
         "equip",
         "modify_stats"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 0,
+      "equip_health_bonus": 3,
+      "equip_keywords": []
     },
     {
       "card_id": "neu_mundus_stone",
@@ -8569,7 +8652,12 @@
       "effect_ids": [
         "modify_stats"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 4,
+      "equip_health_bonus": 0,
+      "equip_keywords": [
+        "ward"
+      ]
     },
     {
       "card_id": "dual_rift_thane",
@@ -9365,7 +9453,10 @@
         "equip",
         "modify_stats"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 2,
+      "equip_health_bonus": 0,
+      "equip_keywords": []
     },
     {
       "card_id": "end_northpoint_herald",
@@ -9636,7 +9727,10 @@
         "equip",
         "modify_stats"
       ],
-      "status": "created"
+      "status": "created",
+      "equip_power_bonus": 1,
+      "equip_health_bonus": 0,
+      "equip_keywords": []
     },
     {
       "card_id": "int_storm_atronach",
