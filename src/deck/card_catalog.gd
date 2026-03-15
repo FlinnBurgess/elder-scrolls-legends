@@ -109,6 +109,14 @@ static func _seed(card_id: String, name: String, attributes: Array, card_type: S
 		result["action_target_mode"] = atm
 	if extra.has("aura"):
 		result["aura"] = extra["aura"].duplicate(true)
+	if extra.has("grants_immunity"):
+		result["grants_immunity"] = extra["grants_immunity"].duplicate(true)
+	if extra.has("grants_trigger"):
+		result["grants_trigger"] = extra["grants_trigger"].duplicate(true)
+	if extra.has("cost_reduction_aura"):
+		result["cost_reduction_aura"] = extra["cost_reduction_aura"].duplicate(true)
+	if extra.has("magicka_aura"):
+		result["magicka_aura"] = int(extra["magicka_aura"])
 	return result
 
 
