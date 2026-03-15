@@ -79,6 +79,11 @@ func _ready() -> void:
 	_refresh_all()
 
 
+func _process(_delta: float) -> void:
+	if _ward_overlay != null and _ward_overlay.visible:
+		_ward_overlay.queue_redraw()
+
+
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED and _is_built:
 		_layout_internal_nodes()
@@ -141,6 +146,19 @@ func _build_internal_nodes() -> void:
 	_art_frame.name = "ArtFrame"
 	_art_frame.clip_contents = true
 	_content_root.add_child(_art_frame)
+
+	# Ward overlay sits above artwork but below banners and badges
+	_ward_overlay = ColorRect.new()
+	_ward_overlay.name = "WardOverlay"
+	_ward_overlay.color = Color.TRANSPARENT
+	_ward_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ward_overlay.visible = false
+	var ward_shader := load("res://assets/shaders/ward_mist.gdshader") as Shader
+	if ward_shader:
+		var ward_mat := ShaderMaterial.new()
+		ward_mat.shader = ward_shader
+		_ward_overlay.material = ward_mat
+	_content_root.add_child(_ward_overlay)
 
 	# Name banner added AFTER art so it renders on top as an overlay
 	_name_banner = PanelContainer.new()
@@ -221,18 +239,6 @@ func _build_internal_nodes() -> void:
 	bold_font_h.font_weight = 700
 	_health_label.add_theme_font_override("font", bold_font_h)
 	_health_badge.add_child(_health_label)
-
-	_ward_overlay = ColorRect.new()
-	_ward_overlay.name = "WardOverlay"
-	_ward_overlay.color = Color.TRANSPARENT
-	_ward_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_ward_overlay.visible = false
-	var ward_shader := load("res://assets/shaders/ward_mist.gdshader") as Shader
-	if ward_shader:
-		var ward_mat := ShaderMaterial.new()
-		ward_mat.shader = ward_shader
-		_ward_overlay.material = ward_mat
-	_content_root.add_child(_ward_overlay)
 
 	_set_mouse_passthrough_recursive(_content_root)
 	_is_built = true

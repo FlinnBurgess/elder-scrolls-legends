@@ -1,12 +1,12 @@
 shader_type canvas_item;
 
-uniform float scroll_speed_1 : hint_range(0.01, 0.5) = 0.06;
-uniform float scroll_speed_2 : hint_range(0.01, 0.5) = 0.04;
+uniform float scroll_speed_1 : hint_range(0.01, 0.5) = 0.08;
+uniform float scroll_speed_2 : hint_range(0.01, 0.5) = 0.05;
 uniform vec4 mist_color : source_color = vec4(0.45, 0.72, 0.95, 1.0);
-uniform float intensity : hint_range(0.0, 1.0) = 0.72;
+uniform float intensity : hint_range(0.0, 2.0) = 1.2;
 uniform float noise_scale_1 : hint_range(1.0, 20.0) = 6.0;
 uniform float noise_scale_2 : hint_range(1.0, 20.0) = 4.0;
-uniform float vertical_fade_power : hint_range(0.5, 4.0) = 1.5;
+uniform float vertical_fade_power : hint_range(0.5, 4.0) = 1.2;
 
 // Simple hash-based noise (no texture dependency)
 float hash(vec2 p) {
@@ -51,9 +51,9 @@ void fragment() {
 	float fade = pow(1.0 - uv.y, vertical_fade_power);
 
 	// Horizontal edge fade to avoid hard edges on sides
-	float edge_fade = smoothstep(0.0, 0.15, uv.x) * smoothstep(0.0, 0.15, 1.0 - uv.x);
+	float edge_fade = smoothstep(0.0, 0.12, uv.x) * smoothstep(0.0, 0.12, 1.0 - uv.x);
 
-	float alpha = mist * fade * edge_fade * intensity;
+	float alpha = clamp(mist * fade * edge_fade * intensity, 0.0, 1.0);
 
 	COLOR = vec4(mist_color.rgb, alpha);
 }
