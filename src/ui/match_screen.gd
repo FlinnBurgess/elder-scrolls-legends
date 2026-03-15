@@ -1,6 +1,8 @@
 class_name MatchScreen
 extends Control
 
+signal return_to_main_menu_requested
+
 const HeuristicMatchPolicy = preload("res://src/ai/heuristic_match_policy.gd")
 const MatchActionEnumerator = preload("res://src/ai/match_action_enumerator.gd")
 const MatchActionExecutor = preload("res://src/ai/match_action_executor.gd")
@@ -1160,14 +1162,16 @@ func _build_match_end_overlay() -> PanelContainer:
 	_match_end_detail_label.add_theme_font_size_override("font_size", 17)
 	_match_end_detail_label.custom_minimum_size = Vector2(320, 0)
 	box.add_child(_match_end_detail_label)
-	var hint := Label.new()
-	hint.name = "MatchEndHintLabel"
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.add_theme_font_size_override("font_size", 13)
-	hint.add_theme_color_override("font_color", Color(0.84, 0.86, 0.92, 0.9))
-	hint.text = "Match complete. Reload or switch scenarios to keep inspecting presentation state."
-	box.add_child(hint)
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0, 8)
+	box.add_child(spacer)
+	var main_menu_button := Button.new()
+	main_menu_button.name = "MatchEndMainMenuButton"
+	main_menu_button.text = "Return to Main Menu"
+	main_menu_button.custom_minimum_size = Vector2(280, 48)
+	main_menu_button.add_theme_font_size_override("font_size", 17)
+	main_menu_button.pressed.connect(func(): return_to_main_menu_requested.emit())
+	box.add_child(main_menu_button)
 	return overlay
 
 

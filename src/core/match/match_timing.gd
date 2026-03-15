@@ -1651,11 +1651,15 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					continue
 				var gen_count := int(effect.get("count", 1))
 				for player_id in _resolve_player_targets(match_state, trigger, event, effect):
+					var gen_player := _get_player_state(match_state, player_id)
+					if gen_player.is_empty():
+						continue
+					var hand: Array = gen_player.get(ZONE_HAND, [])
 					for _i in range(gen_count):
 						var generated_card := MatchMutations.build_generated_card(match_state, player_id, gen_template)
-						var move_result := MatchMutations.move_card_to_zone(match_state, str(generated_card.get("instance_id", "")), ZONE_HAND, {"reason": reason})
-						if bool(move_result.get("is_valid", false)):
-							generated_events.append({"event_type": "card_drawn", "player_id": player_id, "source_instance_id": str(generated_card.get("instance_id", "")), "reason": reason})
+						generated_card["zone"] = ZONE_HAND
+						hand.append(generated_card)
+						generated_events.append({"event_type": "card_drawn", "player_id": player_id, "source_instance_id": str(generated_card.get("instance_id", "")), "reason": reason})
 			"change":
 				var change_template := _resolve_effect_template(match_state, trigger, event, effect)
 				if change_template.is_empty():
@@ -2102,8 +2106,11 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				copy_tmpl.erase("granted_keywords")
 				copy_tmpl.erase("status_markers")
 				var gen_copy := MatchMutations.build_generated_card(match_state, controller_id, copy_tmpl)
-				var move_res := MatchMutations.move_card_to_zone(match_state, str(gen_copy.get("instance_id", "")), ZONE_HAND, {"reason": reason})
-				if bool(move_res.get("is_valid", false)):
+				gen_copy["zone"] = ZONE_HAND
+				var cth_player := _get_player_state(match_state, controller_id)
+				if not cth_player.is_empty():
+					var cth_hand: Array = cth_player.get(ZONE_HAND, [])
+					cth_hand.append(gen_copy)
 					generated_events.append({"event_type": "card_drawn", "player_id": controller_id, "source_instance_id": str(trigger.get("source_instance_id", "")), "drawn_instance_id": str(gen_copy.get("instance_id", "")), "reason": reason})
 			"double_stats":
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
@@ -2130,9 +2137,13 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					copy_template.erase("status_markers")
 					for player_id in _resolve_player_targets(match_state, trigger, event, effect):
 						var gen_card := MatchMutations.build_generated_card(match_state, player_id, copy_template)
-						var move_result := MatchMutations.move_card_to_zone(match_state, str(gen_card.get("instance_id", "")), ZONE_HAND, {"reason": reason})
-						if bool(move_result.get("is_valid", false)):
-							generated_events.append({"event_type": "card_drawn", "player_id": player_id, "source_instance_id": str(trigger.get("source_instance_id", "")), "drawn_instance_id": str(gen_card.get("instance_id", "")), "reason": reason})
+						gen_card["zone"] = ZONE_HAND
+						var ccth_player := _get_player_state(match_state, player_id)
+						if ccth_player.is_empty():
+							continue
+						var ccth_hand: Array = ccth_player.get(ZONE_HAND, [])
+						ccth_hand.append(gen_card)
+						generated_events.append({"event_type": "card_drawn", "player_id": player_id, "source_instance_id": str(trigger.get("source_instance_id", "")), "drawn_instance_id": str(gen_card.get("instance_id", "")), "reason": reason})
 			"return_to_hand":
 				var source_card := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 				if not source_card.is_empty():

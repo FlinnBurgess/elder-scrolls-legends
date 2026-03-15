@@ -68,6 +68,7 @@ func _on_match_pressed() -> void:
 	_main_menu.visible = false
 	var match_screen := MatchScreen.new()
 	match_screen.name = "Match"
+	match_screen.return_to_main_menu_requested.connect(_show_main_menu)
 	add_child(match_screen)
 	_active_screen = match_screen
 	match_screen.start_match_with_decks(decks[0], decks[1])
