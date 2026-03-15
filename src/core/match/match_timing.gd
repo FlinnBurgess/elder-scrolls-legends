@@ -638,6 +638,18 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 	var required_damage_kind := str(descriptor.get("damage_kind", ""))
 	if not required_damage_kind.is_empty() and str(event.get("damage_kind", "")) != required_damage_kind:
 		return false
+	if bool(descriptor.get("exclude_self", false)):
+		var event_source_id := str(event.get("source_instance_id", event.get("subject_instance_id", "")))
+		if event_source_id == str(trigger.get("source_instance_id", "")):
+			return false
+	if bool(descriptor.get("require_same_lane", false)):
+		var trigger_lane_index := int(trigger.get("lane_index", -1))
+		var event_lane_id := str(event.get("lane_id", ""))
+		var lanes: Array = match_state.get("lanes", [])
+		if trigger_lane_index < 0 or trigger_lane_index >= lanes.size():
+			return false
+		if str(lanes[trigger_lane_index].get("lane_id", "")) != event_lane_id:
+			return false
 	return ExtendedMechanicPacks.matches_additional_conditions(match_state, trigger, descriptor, event)
 
 
