@@ -7,7 +7,7 @@ const LOG_PATH := "res://game_log.txt"
 
 const KEYWORD_EFFECT_IDS := ["breakthrough", "charge", "drain", "guard", "lethal", "mobilize", "rally", "regenerate", "ward"]
 const FAMILY_EFFECT_IDS := ["summon", "slay", "last_gasp", "pilfer", "veteran", "expertise", "plot", "activate"]
-const OP_EFFECT_IDS := ["damage", "heal", "draw", "silence", "destroy", "unsummon", "steal", "transform", "banish", "discard", "sacrifice", "copy"]
+const OP_EFFECT_IDS := ["damage", "heal", "draw", "silence", "destroy", "unsummon", "steal", "transform", "banish", "discard", "sacrifice", "copy", "modify_stats", "shackle"]
 
 static var _file: FileAccess = null
 static var _active_match_state: Dictionary = {}
@@ -331,8 +331,14 @@ static func _check_missing_effects(card: Dictionary) -> void:
 		# "last_gasp" maps to both "last_gasp" and "on_death" families
 		if id == "last_gasp" and ("last_gasp" in configured_families or "on_death" in configured_families):
 			continue
-		# "summon" on items maps to "on_play" family
-		if id == "summon" and is_item and "on_play" in configured_families:
+		# "summon" on non-creature cards maps to "on_play" family
+		if id == "summon" and card_type != "creature" and "on_play" in configured_families:
+			continue
+		# "summon" covered by summon_from_effect or summon_copies_to_lane ops
+		if id == "summon" and ("summon_from_effect" in configured_ops or "summon_copies_to_lane" in configured_ops):
+			continue
+		# "create" covered by summoning ops (creating tokens)
+		if id == "create" and ("summon_from_effect" in configured_ops or "summon_copies_to_lane" in configured_ops):
 			continue
 		# Covered by an op in a triggered ability
 		if id in OP_EFFECT_IDS and id in configured_ops:
