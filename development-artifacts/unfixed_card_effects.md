@@ -6,37 +6,12 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 ### Needs target choice mechanic (player picks a target)
 
-- **Valenwood Huntsman** (`str_valenwood_huntsman`) — "Summon: Deal 1 damage." Needs player to choose a creature or player target.
-- **Sharpshooter Scout** (`str_sharpshooter_scout`) — "Prophecy. Summon: Deal 1 damage." Needs player to choose a target.
-- **Morkul Gatekeeper** (`str_morkul_gatekeeper`) — "Prophecy, Guard. Summon: Give a creature +2/+0." Needs player to choose a creature target.
-- **Savage Ogre** (`str_savage_ogre`) — "Summon: Give a creature +5/+0 this turn." Needs player to choose a creature target.
-- **Earthbone Spinner** (`str_earthbone_spinner`) — "Summon: Silence another creature, then deal 1 damage to it." Needs target choice + silence + damage combo.
 - **Bone Bow** (`str_bone_bow`) — "+1/+0. Summon: Silence another creature." Item, needs target choice for silence on equip.
-- **Skooma Racketeer** (`agi_skooma_racketeer`) — "Summon: Give a creature Lethal." Needs player to choose a creature target.
-- **Murkwater Witch** (`agi_murkwater_witch`) — "Summon: Give a creature -1/-1." Needs player to choose a creature target.
 - **Crushing Blow** (`neu_crushing_blow`) — "Deal 3 damage." Action card needs player to choose a creature or player target.
-- **Loyal Housecarl** (`wil_loyal_housecarl`) — "Prophecy. Summon: Give a creature +2/+2 and Guard." Needs player to choose a creature target.
-- **Sunhold Medic** (`wil_sunhold_medic`) — "Summon: Give a creature +0/+2." Needs player to choose a creature target.
-- **Cloudrest Illusionist** (`wil_cloudrest_illusionist`) — "Prophecy. Summon: Give a creature -4/-0 this turn." Needs player to choose a creature target.
-- **Pillaging Tribune** (`wil_pillaging_tribune`) — "Summon: Give a friendly creature Drain this turn." Needs player to choose a friendly creature target.
-- **Ash Servant** (`int_ash_servant`) — "Summon: Deal 2 damage to a creature." Needs player to choose a creature target.
-- **Shocking Wamasu** (`int_shocking_wamasu`) — "Summon: Deal 4 damage to a creature." Needs player to choose a creature target.
 - **Firebolt** (`int_firebolt`) — "Deal 2 damage to a creature." Action needs player to choose a creature target.
-- **Wardcrafter** (`int_wardcrafter`) — "Summon: Give a creature a Ward." Needs player to choose a creature target.
-- **Shrieking Harpy** (`int_shrieking_harpy`) — "Prophecy. Summon: Shackle an enemy creature." Needs player to choose an enemy creature target.
 - **Mace of Encumbrance** (`int_mace_of_encumbrance`) — "+2/+1. Summon: Shackle an enemy creature." Item, needs target choice for shackle on equip.
 - **Piercing Javelin** (`wil_piercing_javelin`) — "Prophecy. Destroy a creature." Action needs player to choose a creature target.
 - **Execute** (`wil_execute`) — "Destroy a creature with 2 power or less." Action needs player to choose + conditional target.
-- **Spiteful Dremora** (`wil_spiteful_dremora`) — "Summon: Destroy a creature with 2 power or less." Needs target choice + conditional.
-- **Mantikora** (`wil_mantikora`) — "Guard. Summon: Destroy an enemy creature in this lane." Needs target choice (enemy in lane).
-- **Vicious Dreugh** (`neu_vicious_dreugh`) — "Summon: Destroy an enemy support." Needs player to choose a support target.
-- **Cursed Spectre** (`end_cursed_spectre`) — "Prophecy. Summon: Silence another creature." Needs player to choose a creature target.
-- **Shadowfen Priest** (`end_shadowfen_priest`) — "Summon: Silence another creature, or destroy an enemy support." Needs target choice with modal selection.
-- **Wrothgar Artisan** (`end_wrothgar_artisan`) — "Summon: Give a creature +1/+1." Needs player to choose a creature target.
-- **Ravenous Crocodile** (`neu_ravenous_crocodile`) — "Summon: Deal 2 damage to a friendly creature." Needs player to choose a friendly creature target.
-- **Barded Guar** (`neu_barded_guar`) — "Summon: Give a creature Guard." Needs player to choose a creature target.
-- **Frenzied Witchman** (`neu_frenzied_witchman`) — "Summon: Give a creature +2/+1." Needs player to choose a creature target.
-- **Allena Benoch** (`dual_allena_benoch`) — "Lethal. Summon: Deal 1 damage." Needs player to choose a target.
 - **Skywatch Vindicator** (`dual_skywatch_vindicator`) — "Summon: Deal 2 damage to a creature, or give a creature +2/+2." Needs target choice + modal selection.
 
 ### Needs ongoing aura mechanic
@@ -145,7 +120,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 - **Stone Throw** (`str_stone_throw`) — "Destroy enemy creature if you have higher power creature." Needs target + power comparison.
 - **Finish Off** (`agi_finish_off`) — "Destroy a Wounded enemy creature." Needs target choice + wounded condition.
-- **Leaflurker** (`agi_leaflurker`) — "Summon: Destroy a Wounded creature." Needs target choice + wounded condition.
 - **Imprison** (`wil_imprison`) — "Shackle a creature; destroy if 4+ Willpower creatures." Needs target + attribute count condition.
 - **Edict of Azura** (`dual_edict_of_azura`) — "Destroy enemy creature or support." Needs target choice + modal.
 - **Falinesti Reaver** (`dual_falinesti_reaver`) — "Summon: Destroy all Wounded enemies in lane." Needs conditional mass destroy in lane.
@@ -216,7 +190,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Green-Touched Spriggan** (`agi_greentouched_spriggan`) — "When you gain health, gains that much power." Needs `on_health_gained` trigger.
 - **War Cry** (`wil_war_cry`) — "Give friendly creatures in lane +2/+0 this turn." Action needs all-friendly-in-lane + modify_stats.
 - **Suppress** (`end_suppress`) — "Silence a creature." Action needs target + silence op.
-- **Dwarven Sphere** (`neu_dwarven_sphere`) — "Summon: Shackle an enemy creature." Needs target choice + shackle.
 
 ### Token / created cards with missing effects
 
@@ -234,3 +207,4 @@ Cards that have been successfully wired with triggered_abilities:
 - Trebuchet (start_of_turn → deal 4 damage to random enemy), Reachman Shaman (start_of_turn → +1/+1 to random friendly), Brutal Ashlander (last_gasp → deal 3 damage to random enemy), Haunting Spirit (last_gasp → +3/+3 to random friendly), Alfe Fyr (summon → deal 6 damage to random enemy), Beyte Fyr (summon → deal 6 damage to random enemy), Delte Fyr (summon → deal 6 damage to random enemy), Uupse Fyr (summon → deal 6 damage to random enemy), Cavern Spinner (summon → shackle random enemy), Crown Quartermaster (summon → generate Steel Dagger to hand), Dunmer Nightblade (last_gasp → generate Iron Sword to hand), Divayth Fyr (summon deal 6 damage to random enemy only; start_of_turn summon Daughter not implemented)
 - Murkwater Skirmisher (summon → +2/+2 to all friendly Goblins, filtered by subtype), Watch Commander (summon → +1/+2 to all friendly Guards, filtered by keyword), Baron of Tear (summon → +1/+0 and Guard to all friendly Intelligence creatures, filtered by attribute), Eastmarch Crusader (summon → draw if enemy rune destroyed, conditional), Shimmerene Peddler (end_of_turn → draw if played 2 actions), Fireball (on_play → deal 1 damage to all enemies + opponent), Aldmeri Patriot (summon → +1/+1 if action in hand, conditional), Militant Chieftain (summon +1/+1 to all friendly Orcs only; draw Orc from discard not implemented)
 - Fiery Imp (on_attack → damage opponent 2), Staff of Sparks (on_attack → deal 1 damage to all enemies in lane, item), Crystal Tower Crafter (after_action_played → +1/+1), Lillandril Hexmage (after_action_played → damage opponent 1), Artaeum Savant (after_action_played → +1/+1 to random friendly), Grim Champion (on_friendly_death + opponent death → +1/+1 both sides), Necromancer's Amulet (on_friendly_death → heal 1), Alik'r Survivalist (on_equip → +1/+1 only; summon put-dagger-in-hand not implemented), Dragonstar Rider (on_equip → draw), Whirling Duelist (on_equip → deal 1 damage to all enemies in lane), Craglorn Scavenger (on_play support + activate → +1/+1), General Tullius (on_friendly_death → +1/+1; summon was already wired, now fully fixed)
+- Sharpshooter Scout (summon → target choice creature_or_player → deal_damage 1), Valenwood Huntsman (summon → target choice creature_or_player → deal_damage 1), Morkul Gatekeeper (summon → target choice any_creature → modify_stats +2/+0), Savage Ogre (summon → target choice any_creature → modify_stats +5/+0), Earthbone Spinner (summon → target choice another_creature → silence + deal_damage 1), Ash Servant (summon → target choice enemy_creature → deal_damage 2), Shocking Wamasu (summon → target choice enemy_creature → deal_damage 4), Shrieking Harpy (summon → target choice enemy_creature → shackle), Wardcrafter (summon → target choice any_creature → grant_keyword ward), Sunhold Medic (summon → target choice any_creature → modify_stats +0/+2), Loyal Housecarl (summon → target choice any_creature → modify_stats +2/+2 + grant_keyword guard), Cloudrest Illusionist (summon → target choice any_creature → modify_stats -4/0), Mantikora (summon → target choice enemy_creature_in_lane → destroy_creature), Spiteful Dremora (summon → target choice any_creature filtered max_power 2 → destroy_creature), Pillaging Tribune (summon → target choice friendly_creature → grant_keyword drain), Skooma Racketeer (summon → target choice any_creature → grant_keyword lethal), Murkwater Witch (summon → target choice any_creature → modify_stats -1/-1), Leaflurker (summon → target choice any_creature filtered wounded → destroy_creature), Cursed Spectre (summon → target choice another_creature → silence), Shadowfen Priest (summon → multi target choice: another_creature → silence, enemy_support → destroy), Wrothgar Artisan (summon → target choice any_creature → modify_stats +1/+1), Barded Guar (summon → target choice any_creature → grant_keyword guard), Frenzied Witchman (summon → target choice any_creature → modify_stats +2/+1), Dwarven Sphere (summon → target choice enemy_creature → shackle), Vicious Dreugh (summon → target choice enemy_support → destroy_creature), Ravenous Crocodile (summon → target choice friendly_creature → deal_damage 2), Allena Benoch (summon → target choice creature_or_player → deal_damage 1)
