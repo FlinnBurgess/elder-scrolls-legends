@@ -113,6 +113,8 @@ After implementing the fix, search `card_catalog.gd` for other cards that should
 
 Report any cards found that could benefit from the same fix, and apply the fix to them as well.
 
+If any identified cards cannot be fixed right now (e.g., they need an engine feature that doesn't exist yet or would be too invasive to add), add them to `development-artifacts/unfixed_card_effects.md` with a short description of what's blocking the fix. If that file doesn't exist, create it with the heading `# Unfixed Card Effects`. Remove entries from the file when they are fixed.
+
 ## Step 5: Update Tracking
 
 Update the card's entry in `development-artifacts/core_set_cards.json` if relevant fields changed.

@@ -12,6 +12,7 @@ const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const MatchBootstrap = preload("res://src/core/match/match_bootstrap.gd")
 const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
+const GameLogger = preload("res://src/core/match/game_logger.gd")
 const CardCatalog = preload("res://src/deck/card_catalog.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
 const CARD_DISPLAY_COMPONENT_SCRIPT := preload("res://src/ui/components/CardDisplayComponent.gd")
@@ -154,6 +155,7 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array) -> bool:
 	_hydrate_match_cards(match_state, card_by_id)
 	for player in match_state.get("players", []):
 		MatchBootstrap.apply_mulligan(match_state, str(player.get("player_id", "")), [])
+	GameLogger.start_match(match_state)
 	MatchTurnLoop.begin_first_turn(match_state)
 	_ai_enabled = true
 	_scenario_id = LOCAL_MATCH_AI_SCENARIO_ID
@@ -320,6 +322,7 @@ func load_scenario(scenario_id: String) -> bool:
 		return false
 	_scenario_id = scenario_id
 	_match_state = next_state
+	GameLogger.start_match(next_state)
 	_selected_instance_id = ""
 	_last_turn_owner_id = ""
 	_turn_banner_until_ms = 0

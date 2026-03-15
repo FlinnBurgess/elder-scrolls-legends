@@ -3,6 +3,7 @@ extends RefCounted
 
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const ExtendedMechanicPacks = preload("res://src/core/match/extended_mechanic_packs.gd")
+const GameLogger = preload("res://src/core/match/game_logger.gd")
 const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 
 const ZONE_HAND := "hand"
@@ -482,6 +483,7 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 		var event: Dictionary = queue.pop_front()
 		processed_events.append(event)
 		_append_event_log(match_state, event)
+		GameLogger.log_event(match_state, event)
 		ExtendedMechanicPacks.observe_event(match_state, event)
 		_append_replay_entry(match_state, {
 			"entry_type": "event_processed",
@@ -492,6 +494,7 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 		for trigger in _find_matching_triggers(match_state, event):
 			var resolution := _build_trigger_resolution(match_state, trigger, event)
 			trigger_resolutions.append(resolution)
+			GameLogger.log_trigger_resolution(match_state, resolution, trigger)
 			_mark_once_trigger_if_needed(match_state, trigger)
 			_append_replay_entry(match_state, resolution)
 			for generated_event in _apply_effects(match_state, trigger, event, resolution):
