@@ -5,6 +5,7 @@ const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const ExtendedMechanicPacks = preload("res://src/core/match/extended_mechanic_packs.gd")
 const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
+const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
 const CARD_TYPE_CREATURE := "creature"
 const ZONE_HAND := "hand"
 const ZONE_LANE := "lane"
@@ -71,9 +72,11 @@ static func summon_from_hand(match_state: Dictionary, player_id: String, instanc
 	var hand_index := _find_card_index(player.get(ZONE_HAND, []), instance_id)
 	if hand_index >= 0:
 		ExtendedMechanicPacks.apply_pre_play_options(player[ZONE_HAND][hand_index], options)
-	var play_cost := 0 if bool(options.get("played_for_free", false)) else int(player.get(ZONE_HAND, [])[hand_index].get("cost", 0))
+	var hand_card: Dictionary = player.get(ZONE_HAND, [])[hand_index]
+	var play_cost := 0 if bool(options.get("played_for_free", false)) else PersistentCardRules.get_effective_play_cost(match_state, player_id, hand_card)
 	if play_cost > 0:
 		_spend_magicka(match_state, player_id, play_cost)
+	PersistentCardRules._consume_cost_reduction(match_state, player_id)
 	var summon_result := MatchMutations.summon_card_to_lane(match_state, player_id, instance_id, lane_id, options)
 	if not bool(summon_result.get("is_valid", false)):
 		return summon_result

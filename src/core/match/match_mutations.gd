@@ -429,6 +429,18 @@ static func build_generated_card(match_state: Dictionary, controller_player_id: 
 		card["owner_player_id"] = controller_player_id
 	card["controller_player_id"] = controller_player_id
 	card["zone"] = str(card.get("zone", ZONE_GENERATED))
+	if bool(card.get("stats_from_max_magicka", false)):
+		var max_magicka := 0
+		for player in match_state.get("players", []):
+			if str(player.get("player_id", "")) == controller_player_id:
+				max_magicka = int(player.get("max_magicka", 0))
+				break
+		card["cost"] = max_magicka
+		card["power"] = max_magicka
+		card["health"] = max_magicka
+		card["base_power"] = max_magicka
+		card["base_health"] = max_magicka
+		card.erase("stats_from_max_magicka")
 	EvergreenRules.ensure_card_state(card)
 	return card
 
@@ -446,6 +458,7 @@ static func silence_card(card: Dictionary, options: Dictionary = {}, match_state
 	card["power_bonus"] = 0
 	card["health_bonus"] = 0
 	card["status_markers"] = [EvergreenRules.STATUS_SILENCED]
+	card.erase("aura")
 	card.erase("cover_expires_on_turn")
 	card.erase("cover_granted_by")
 	EvergreenRules.sync_derived_state(card)

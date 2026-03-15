@@ -53,10 +53,19 @@ static func ensure_card_state(card: Dictionary) -> void:
 		card["power_bonus"] = 0
 	if not card.has("health_bonus"):
 		card["health_bonus"] = 0
+	if not card.has("aura_power_bonus"):
+		card["aura_power_bonus"] = 0
+	if not card.has("aura_health_bonus"):
+		card["aura_health_bonus"] = 0
+	if not card.has("aura_keywords") or typeof(card["aura_keywords"]) != TYPE_ARRAY:
+		card["aura_keywords"] = []
 
 
 static func has_keyword(card: Dictionary, keyword_id: String) -> bool:
 	ensure_card_state(card)
+	# Aura keywords bypass silence — check first
+	if _ensure_array(card.get("aura_keywords", [])).has(keyword_id):
+		return true
 	if has_raw_status(card, STATUS_SILENCED):
 		return false
 	for key in ["keywords", "granted_keywords"]:
@@ -295,7 +304,7 @@ static func get_power(card: Dictionary) -> int:
 		base_value = int(card.get("current_power", 0))
 	else:
 		base_value = int(card.get("base_power", 0))
-	return max(0, base_value + int(card.get("power_bonus", 0)) + _sum_attached_item_bonus(card, "equip_power_bonus"))
+	return max(0, base_value + int(card.get("power_bonus", 0)) + int(card.get("aura_power_bonus", 0)) + _sum_attached_item_bonus(card, "equip_power_bonus"))
 
 
 static func get_health(card: Dictionary) -> int:
@@ -306,7 +315,7 @@ static func get_health(card: Dictionary) -> int:
 		base_value = int(card.get("current_health", 0))
 	else:
 		base_value = int(card.get("base_health", 0))
-	return max(0, base_value + int(card.get("health_bonus", 0)) + _sum_attached_item_bonus(card, "equip_health_bonus"))
+	return max(0, base_value + int(card.get("health_bonus", 0)) + int(card.get("aura_health_bonus", 0)) + _sum_attached_item_bonus(card, "equip_health_bonus"))
 
 
 static func _sync_wounded_status(card: Dictionary) -> void:

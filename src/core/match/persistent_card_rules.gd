@@ -29,9 +29,10 @@ static func play_support_from_hand(match_state: Dictionary, player_id: String, i
 	if not bool(validation.get("is_valid", false)):
 		return validation
 	var card: Dictionary = validation["card"]
-	var play_cost := 0 if bool(options.get("played_for_free", false)) else int(card.get("cost", 0))
+	var play_cost := 0 if bool(options.get("played_for_free", false)) else get_effective_play_cost(match_state, player_id, card)
 	if play_cost > 0:
 		_spend_magicka(match_state, player_id, play_cost)
+	_consume_cost_reduction(match_state, player_id)
 	var moved := MatchMutations.move_card_to_zone(match_state, instance_id, ZONE_SUPPORT, {"target_player_id": player_id, "reason": str(options.get("reason", "play_support"))})
 	if not bool(moved.get("is_valid", false)):
 		return moved
@@ -95,9 +96,10 @@ static func play_item_from_hand(match_state: Dictionary, player_id: String, inst
 		if str(target_lookup.get("zone", "")) != ZONE_LANE or str(target_card.get("card_type", "")) != CARD_TYPE_CREATURE:
 			return _invalid_result("Items can only target creatures in a lane.")
 
-	var play_cost := 0 if bool(options.get("played_for_free", false)) else int(item_card.get("cost", 0))
+	var play_cost := 0 if bool(options.get("played_for_free", false)) else get_effective_play_cost(match_state, player_id, item_card)
 	if play_cost > 0:
 		_spend_magicka(match_state, player_id, play_cost)
+	_consume_cost_reduction(match_state, player_id)
 
 	var attach_result := MatchMutations.attach_item_to_creature(match_state, player_id, instance_id, target_instance_id, {"source_zone": ZONE_HAND})
 	if not bool(attach_result.get("is_valid", false)):
@@ -204,7 +206,7 @@ static func _validate_hand_card(match_state: Dictionary, player_id: String, inst
 	var card: Dictionary = location["card"]
 	if str(card.get("card_type", "")) != expected_type:
 		return _invalid_result("Card %s is not a %s." % [instance_id, expected_type])
-	if not played_for_free and int(card.get("cost", 0)) > _get_available_magicka(_get_player_state(match_state, player_id)):
+	if not played_for_free and get_effective_play_cost(match_state, player_id, card) > _get_available_magicka(_get_player_state(match_state, player_id)):
 		return _invalid_result("Player does not have enough magicka to play %s." % instance_id)
 	return {"is_valid": true, "errors": [], "card": card}
 
@@ -255,6 +257,47 @@ static func _get_player_state(match_state: Dictionary, player_id: String) -> Dic
 		if str(player.get("player_id", "")) == player_id:
 			return player
 	return {}
+
+
+static func get_effective_play_cost(match_state: Dictionary, player_id: String, card: Dictionary) -> int:
+	var base_cost := int(card.get("cost", 0))
+	var player := _get_player_state(match_state, player_id)
+	var reduction := int(player.get("next_card_cost_reduction", 0))
+	reduction += _get_aura_cost_reduction(match_state, player_id, card)
+	return maxi(0, base_cost - reduction)
+
+
+static func _get_aura_cost_reduction(match_state: Dictionary, player_id: String, card: Dictionary) -> int:
+	var total := 0
+	var card_type := str(card.get("card_type", ""))
+	for lane in match_state.get("lanes", []):
+		for lane_card in lane.get("player_slots", {}).get(player_id, []):
+			if typeof(lane_card) != TYPE_DICTIONARY:
+				continue
+			var aura = lane_card.get("cost_reduction_aura", {})
+			if typeof(aura) != TYPE_DICTIONARY or aura.is_empty():
+				continue
+			var required_type := str(aura.get("card_type", ""))
+			if not required_type.is_empty() and card_type != required_type:
+				continue
+			total += int(aura.get("amount", 0))
+	for support_card in _get_player_state(match_state, player_id).get("support", []):
+		if typeof(support_card) != TYPE_DICTIONARY:
+			continue
+		var aura = support_card.get("cost_reduction_aura", {})
+		if typeof(aura) != TYPE_DICTIONARY or aura.is_empty():
+			continue
+		var required_type := str(aura.get("card_type", ""))
+		if not required_type.is_empty() and card_type != required_type:
+			continue
+		total += int(aura.get("amount", 0))
+	return total
+
+
+static func _consume_cost_reduction(match_state: Dictionary, player_id: String) -> void:
+	var player := _get_player_state(match_state, player_id)
+	if int(player.get("next_card_cost_reduction", 0)) > 0:
+		player["next_card_cost_reduction"] = 0
 
 
 static func _get_available_magicka(player: Dictionary) -> int:

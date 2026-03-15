@@ -3,6 +3,7 @@ extends RefCounted
 
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const MatchMutations = preload("res://src/core/match/match_mutations.gd")
+const CardCatalog = preload("res://src/deck/card_catalog.gd")
 
 const EVENT_CARD_PLAYED := "card_played"
 const EVENT_DAMAGE_RESOLVED := "damage_resolved"
@@ -180,6 +181,38 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 				break
 		if not found:
 			return false
+	# Creature died this turn condition
+	if bool(descriptor.get("creature_died_this_turn", false)):
+		var found_death := false
+		var event_log: Array = match_state.get("event_log", [])
+		for i in range(event_log.size() - 1, -1, -1):
+			var logged = event_log[i]
+			if typeof(logged) != TYPE_DICTIONARY:
+				continue
+			if str(logged.get("event_type", "")) == "turn_started":
+				break
+			if str(logged.get("event_type", "")) == "creature_destroyed":
+				found_death = true
+				break
+		if not found_death:
+			return false
+	# Require controller has a creature with higher power than chosen target
+	if bool(descriptor.get("required_friendly_higher_power", false)):
+		var chosen_id := str(trigger.get("_chosen_target_id", ""))
+		if not chosen_id.is_empty():
+			var target_card := _find_card_anywhere(match_state, chosen_id)
+			if not target_card.is_empty():
+				var target_power := EvergreenRules.get_power(target_card)
+				var has_higher := false
+				for lane in match_state.get("lanes", []):
+					for card in lane.get("player_slots", {}).get(str(trigger.get("controller_player_id", "")), []):
+						if typeof(card) == TYPE_DICTIONARY and EvergreenRules.get_power(card) > target_power:
+							has_higher = true
+							break
+					if has_higher:
+						break
+				if not has_higher:
+					return false
 	# Minimum destroyed enemy runes condition
 	var min_runes := int(descriptor.get("min_destroyed_enemy_runes", 0))
 	if min_runes > 0:
@@ -202,6 +235,42 @@ static func effect_is_enabled(match_state: Dictionary, trigger: Dictionary, effe
 		var controller := _get_player_state(match_state, str(trigger.get("controller_player_id", "")))
 		ensure_player_state(controller)
 		if required_phase != str(controller.get("wax_wane_state", WAX)):
+			return false
+	var min_friendly_attr: Dictionary = effect.get("required_min_friendly_with_attribute", {})
+	if not min_friendly_attr.is_empty():
+		var req_attr := str(min_friendly_attr.get("attribute", ""))
+		var min_count := int(min_friendly_attr.get("count", 0))
+		var controller_id := str(trigger.get("controller_player_id", ""))
+		var attr_count := 0
+		for lane in match_state.get("lanes", []):
+			for card in lane.get("player_slots", {}).get(controller_id, []):
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				var attrs = card.get("attributes", [])
+				if typeof(attrs) == TYPE_ARRAY and attrs.has(req_attr):
+					attr_count += 1
+		if attr_count < min_count:
+			return false
+	if bool(effect.get("require_source_uses_exhausted", false)):
+		if source_card.is_empty():
+			return false
+		var remaining = source_card.get("remaining_support_uses", null)
+		if remaining == null or int(remaining) > 0:
+			return false
+	if bool(effect.get("unless_min_friendly_with_attribute", false)):
+		var unless_data: Dictionary = effect.get("unless_min_friendly_with_attribute_data", {})
+		var unless_attr := str(unless_data.get("attribute", ""))
+		var unless_count := int(unless_data.get("count", 0))
+		var unless_controller_id := str(trigger.get("controller_player_id", ""))
+		var unless_attr_count := 0
+		for lane in match_state.get("lanes", []):
+			for card in lane.get("player_slots", {}).get(unless_controller_id, []):
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				var attrs = card.get("attributes", [])
+				if typeof(attrs) == TYPE_ARRAY and attrs.has(unless_attr):
+					unless_attr_count += 1
+		if unless_attr_count >= unless_count:
 			return false
 	return true
 
@@ -227,6 +296,131 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			ensure_player_state(controller)
 			var empower_amount := int(effect.get("amount", 0)) + int(effect.get("amount_per_damage", 0)) * int(controller.get("damage_dealt_to_opponent_this_turn", 0))
 			return {"handled": true, "events": _resolve_player_damage(match_state, trigger, event, effect, empower_amount)}
+		"gain_magicka":
+			var gm_player := _get_player_state(match_state, str(trigger.get("controller_player_id", "")))
+			if gm_player.is_empty():
+				return {"handled": true, "events": []}
+			var gm_amount := int(effect.get("amount", 0))
+			gm_player["magicka"] = int(gm_player.get("magicka", 0)) + gm_amount
+			return {"handled": true, "events": [{
+				"event_type": "magicka_gained",
+				"source_instance_id": str(trigger.get("source_instance_id", "")),
+				"player_id": str(trigger.get("controller_player_id", "")),
+				"amount": gm_amount,
+			}]}
+		"summon_random_from_catalog":
+			var srfc_filter_raw = effect.get("filter", {})
+			var srfc_filter: Dictionary = srfc_filter_raw if typeof(srfc_filter_raw) == TYPE_DICTIONARY else {}
+			var srfc_seeds: Array = CardCatalog._card_seeds()
+			var srfc_candidates: Array = []
+			var srfc_controller_id := str(trigger.get("controller_player_id", ""))
+			var srfc_player := _get_player_state(match_state, srfc_controller_id)
+			var srfc_max_cost := int(srfc_filter.get("max_cost", -1))
+			if str(srfc_filter.get("max_cost_source", "")) == "controller_max_magicka" and not srfc_player.is_empty():
+				srfc_max_cost = int(srfc_player.get("max_magicka", 12))
+			var srfc_req_card_type := str(srfc_filter.get("card_type", ""))
+			var srfc_req_subtype := str(srfc_filter.get("required_subtype", ""))
+			for seed in srfc_seeds:
+				if typeof(seed) != TYPE_DICTIONARY:
+					continue
+				if not bool(seed.get("collectible", true)):
+					continue
+				if not srfc_req_card_type.is_empty() and str(seed.get("card_type", "")) != srfc_req_card_type:
+					continue
+				if srfc_max_cost >= 0 and int(seed.get("cost", 0)) > srfc_max_cost:
+					continue
+				if not srfc_req_subtype.is_empty():
+					var subtypes = seed.get("subtypes", [])
+					if typeof(subtypes) != TYPE_ARRAY or not subtypes.has(srfc_req_subtype):
+						continue
+				srfc_candidates.append(seed)
+			if srfc_candidates.is_empty():
+				return {"handled": true, "events": []}
+			var srfc_pick: Dictionary = srfc_candidates[_timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_srfc", srfc_candidates.size())]
+			var srfc_template: Dictionary = srfc_pick.duplicate(true)
+			srfc_template["definition_id"] = str(srfc_template.get("card_id", ""))
+			var srfc_lane_id := ""
+			var srfc_lane_index := int(trigger.get("lane_index", -1))
+			var srfc_lanes: Array = match_state.get("lanes", [])
+			if srfc_lane_index >= 0 and srfc_lane_index < srfc_lanes.size():
+				srfc_lane_id = str(srfc_lanes[srfc_lane_index].get("lane_id", ""))
+			if srfc_lane_id.is_empty() and not srfc_lanes.is_empty():
+				srfc_lane_id = str(srfc_lanes[0].get("lane_id", ""))
+			if srfc_lane_id.is_empty():
+				return {"handled": true, "events": []}
+			var srfc_gen := MatchMutations.build_generated_card(match_state, srfc_controller_id, srfc_template)
+			var srfc_result := MatchMutations.summon_card_to_lane(match_state, srfc_controller_id, srfc_gen, srfc_lane_id, {"source_zone": MatchMutations.ZONE_GENERATED})
+			if not bool(srfc_result.get("is_valid", false)):
+				return {"handled": true, "events": []}
+			var srfc_events: Array = srfc_result.get("events", []).duplicate()
+			srfc_events.append(_timing_rules()._build_summon_event(srfc_result["card"], srfc_controller_id, srfc_lane_id, int(srfc_result.get("slot_index", -1)), "summon_from_catalog"))
+			return {"handled": true, "events": srfc_events}
+		"equip_random_item_from_catalog":
+			var erfc_seeds: Array = CardCatalog._card_seeds()
+			var erfc_items: Array = []
+			for seed in erfc_seeds:
+				if typeof(seed) != TYPE_DICTIONARY:
+					continue
+				if not bool(seed.get("collectible", true)):
+					continue
+				if str(seed.get("card_type", "")) != "item":
+					continue
+				erfc_items.append(seed)
+			if erfc_items.is_empty():
+				return {"handled": true, "events": []}
+			var erfc_controller_id := str(trigger.get("controller_player_id", ""))
+			var erfc_targets: Array = _timing_rules()._resolve_card_targets(match_state, trigger, event, effect)
+			var erfc_events: Array = []
+			for erfc_card in erfc_targets:
+				if str(erfc_card.get("card_type", "")) != "creature":
+					continue
+				var erfc_pick: Dictionary = erfc_items[_timing_rules()._deterministic_index(match_state, str(erfc_card.get("instance_id", "")) + "_erfc", erfc_items.size())]
+				var erfc_template: Dictionary = erfc_pick.duplicate(true)
+				erfc_template["definition_id"] = str(erfc_template.get("card_id", ""))
+				var erfc_gen := MatchMutations.build_generated_card(match_state, erfc_controller_id, erfc_template)
+				var erfc_result := MatchMutations.attach_item_to_creature(match_state, erfc_controller_id, erfc_gen, str(erfc_card.get("instance_id", "")), {"source_zone": MatchMutations.ZONE_GENERATED})
+				if bool(erfc_result.get("is_valid", false)):
+					erfc_events.append_array(erfc_result.get("events", []))
+			return {"handled": true, "events": erfc_events}
+		"reduce_next_card_cost":
+			var rncc_controller_id := str(trigger.get("controller_player_id", ""))
+			var rncc_player: Dictionary = _get_player_state(match_state, rncc_controller_id)
+			if rncc_player.is_empty():
+				return {"handled": true, "events": []}
+			var rncc_amount := int(effect.get("amount", 0))
+			rncc_player["next_card_cost_reduction"] = int(rncc_player.get("next_card_cost_reduction", 0)) + rncc_amount
+			return {"handled": true, "events": [{"event_type": "cost_reduction_applied", "player_id": rncc_controller_id, "amount": rncc_amount, "source_instance_id": str(trigger.get("source_instance_id", ""))}]}
+		"escalating_damage":
+			var esc_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+			if esc_source.is_empty():
+				return {"handled": true, "events": []}
+			var counter_key := str(effect.get("counter_key", "escalating_counter"))
+			var base_amount := int(effect.get("base_amount", 0))
+			var current_counter := int(esc_source.get(counter_key, 0))
+			var total_amount := base_amount + current_counter
+			var increment := int(effect.get("increment", base_amount))
+			esc_source[counter_key] = current_counter + increment
+			if effect.has("target_player"):
+				return {"handled": true, "events": _resolve_player_damage(match_state, trigger, event, effect, total_amount)}
+			else:
+				var esc_events: Array = []
+				var esc_target_name := str(effect.get("target", "event_target"))
+				var esc_targets: Array = _timing_rules()._resolve_card_targets_by_name(match_state, trigger, event, esc_target_name)
+				var esc_source_id := str(trigger.get("source_instance_id", ""))
+				for esc_card in esc_targets:
+					if total_amount <= 0:
+						continue
+					var dmg_result := EvergreenRules.apply_damage_to_creature(esc_card, total_amount)
+					var applied := int(dmg_result.get("applied", 0))
+					esc_events.append({"event_type": EVENT_DAMAGE_RESOLVED, "source_instance_id": esc_source_id, "target_instance_id": str(esc_card.get("instance_id", "")), "target_type": "creature", "amount": applied, "reason": "escalating_damage"})
+					if EvergreenRules.is_creature_destroyed(esc_card, false):
+						var loc := MatchMutations.find_card_location(match_state, str(esc_card.get("instance_id", "")))
+						if bool(loc.get("is_valid", false)):
+							var cpid := str(esc_card.get("controller_player_id", ""))
+							var moved := MatchMutations.discard_card(match_state, str(esc_card.get("instance_id", "")))
+							if bool(moved.get("is_valid", false)):
+								esc_events.append({"event_type": "creature_destroyed", "instance_id": str(esc_card.get("instance_id", "")), "source_instance_id": str(esc_card.get("instance_id", "")), "owner_player_id": str(esc_card.get("owner_player_id", "")), "controller_player_id": cpid, "destroyed_by_instance_id": esc_source_id, "lane_id": str(loc.get("lane_id", "")), "source_zone": "lane"})
+				return {"handled": true, "events": esc_events}
 	return {"handled": false, "events": []}
 
 

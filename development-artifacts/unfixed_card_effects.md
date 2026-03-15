@@ -6,175 +6,163 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 ### Needs target choice mechanic (player picks a target)
 
-- **Bone Bow** (`str_bone_bow`) — "+1/+0. Summon: Silence another creature." Item, needs target choice for silence on equip.
-- **Mace of Encumbrance** (`int_mace_of_encumbrance`) — "+2/+1. Summon: Shackle an enemy creature." Item, needs target choice for shackle on equip.
+- **Bone Bow** — WIRED (see Previously Fixed).
+- **Mace of Encumbrance** — WIRED (see Previously Fixed).
 
 ### Needs ongoing aura mechanic
 
-- **Orc Clan Captain** (`str_orc_clan_captain`) — "Other friendly creatures in this lane have +1/+0." Ongoing passive aura.
-- **Northwind Outpost** (`str_northwind_outpost`) — "Ongoing. Friendly Strength creatures have +1/+0." Support ongoing aura.
-- **Alpha Wolf** (`wil_alpha_wolf`) — "Other friendly Wolves have +2/+0." Ongoing subtype aura.
-- **Summerset Shieldmage** (`wil_summerset_shieldmage`) — "Other friendly creatures in this lane have +0/+1." Ongoing lane aura.
-- **Divine Fervor** (`wil_divine_fervor`) — "Ongoing. Friendly creatures have +1/+1." Support ongoing aura.
-- **Stormhold Henchman** (`end_stormhold_henchman`) — "+2/+2 while you have 7 or more max magicka." Ongoing conditional self-buff.
-- **Stampeding Mammoth** (`end_stampeding_mammoth`) — "+2/+0 per other friendly with Breakthrough." Ongoing conditional.
-- **Chieftain's Banner** (`end_chieftains_banner`) — "Ongoing. Friendly Orcs have +0/+2." Support ongoing subtype aura.
-- **Rihad Battlemage** (`str_rihad_battlemage`) — "+0/+3 and Guard while equipped with an item." Ongoing conditional buff.
-- **Rihad Horseman** (`str_rihad_horseman`) — "+3/+0 and Breakthrough while equipped with item." Ongoing conditional buff.
-- **Covenant Marauder** (`str_covenant_marauder`) — "+2/+0 while you have no cards in hand." Ongoing conditional.
-- **Snow Wolf** (`wil_snow_wolf`) — "+2/+0 while you have the most creatures in this lane." Ongoing conditional.
-- **Niben Bay Cutthroat** (`int_niben_bay_cutthroat`) — "+2/+0 while there are no enemy creatures in this lane." Ongoing conditional.
-- **Murkwater Goblin** (`agi_murkwater_goblin`) — "Has +2/+0 on your turn." Ongoing turn-phase conditional.
-- **Preserver of the Root** (`end_preserver_of_the_root`) — "+2/+2 and Guard while 7+ max magicka." Ongoing conditional.
-- **Thieves' Den** (`agi_thieves_den`) — "Ongoing. Friendly creatures have Pilfer: +1/+1." Support ongoing pilfer aura.
-- **Bone Colossus** (`end_bone_colossus`) — "Other friendly Skeletons have +1/+1." Ongoing subtype aura (summon fill lane NOW WIRED; aura part still unfixed).
+- **Thieves' Den** — WIRED (see Previously Fixed).
 
 ### Needs "on damage taken" / reactive trigger families
 
-- **Shornhelm Champion** (`dual_shornhelm_champion`) — "When Ward broken, gains +3/+3." Needs `on_ward_broken` trigger.
-- **Auroran Sentry** (`wil_auroran_sentry`) — "Guard. When dealt damage, you gain that much health." Needs `on_damage_taken` trigger + heal equal to damage.
+(Shornhelm Champion and Auroran Sentry have been wired — see Previously Fixed.)
 
 ### Needs "on creature summoned" trigger family
 
 - **Fifth Legion Trainer** is wired but others need the trigger family:
-- **Haafingar Marauder** (`wil_haafingar_marauder`) — "When friendly destroys enemy rune, equip random item." Needs `on_enemy_rune_destroyed` trigger + equip-from-catalog op.
+- **Haafingar Marauder** — WIRED (see Previously Fixed).
 
 ### Needs "on attack" trigger family
 
-- **Reive, Blademaster** (`str_reive_blademaster`) — "When attacks, deal 2 damage to opponent (escalating)." Needs `on_attack` trigger + escalating counter.
+- **Reive, Blademaster** — WIRED (see Previously Fixed).
 
 ### Needs "at end of turn" condition-checked trigger
 
-- **Disciple of Namira** (`end_disciple_of_namira`) — "At end of turn, draw per friendly creature that died." Needs `end_of_turn` trigger + death counter.
+(Disciple of Namira has been wired — see Previously Fixed.)
 
 ### Needs "at start of turn" trigger (non-active player too)
 
-- **Gladiator Arena** (`str_gladiator_arena`) — "Ongoing. At start of each turn, deal 2 damage to that player." Support start_of_turn + each player.
-- **Blackrose Herbalist** (`end_blackrose_herbalist`) — "At start of turn, heal another random friendly." Needs `start_of_turn` + random friendly target.
+(Gladiator Arena and Blackrose Herbalist have been wired — see Previously Fixed.)
 
 ### Needs pilfer trigger family
 
-- **Goblin Skulk** (`agi_goblin_skulk`) — "Pilfer: Draw a random 0-cost card." Needs `pilfer` + filtered draw.
-- **Tenmar Swiftclaw** (`agi_tenmar_swiftclaw`) — "Pilfer: +1/+1. May attack extra time." Pilfer +1/+1 wired; extra attack NOT implemented.
-- **Torval Crook** (`agi_torval_crook`) — "Charge. Pilfer: Gain 2 magicka." Needs `pilfer` + gain_magicka op.
-- **Dagi-raht Mystic** (`wil_dagiraht_mystic`) — "Pilfer: Draw a random support from deck." Needs `pilfer` + filtered draw.
+- **Tenmar Swiftclaw** — WIRED (see Previously Fixed).
 
 ### Needs slay trigger family
 
-- **Child of Hircine** (`str_child_of_hircine`) — "Slay: May attack again this turn." Needs `slay` + extra attack.
-- **Blood Magic Lord** (`end_blood_magic_lord`) — "Summon and Slay: Put Blood Magic Spell into hand." Needs `slay` + generate card.
-- **Dawnbreaker** (`wil_dawnbreaker`) — "+4/+4. Slay: Banish if Undead." Item needs `slay` + conditional banish.
-- **Lucien Lachance** (`end_lucien_lachance`) — "Lethal. When another friendly Slays, give it +2/+2." Needs `on_friendly_slay` trigger.
+- **Child of Hircine** — WIRED (see Previously Fixed).
+- **Blood Magic Lord** — WIRED (see Previously Fixed).
+- **Dawnbreaker** — WIRED (see Previously Fixed).
+- **Lucien Lachance** — WIRED (see Previously Fixed).
 
 ### Needs last_gasp trigger family
 
-- **Balmora Spymaster** (`int_balmora_spymaster`) — "Last Gasp: Summon random creature." Needs `last_gasp` + summon random.
-- **Telvanni Arcanist** (`int_telvanni_arcanist`) — "Last Gasp: Put random action into hand." Needs `last_gasp` + generate card.
-- **Elusive Schemer** (`int_elusive_schemer`) — "Summon: Draw. Last Gasp: Shuffle 0-cost copy." Summon draw wired; last_gasp shuffle-copy NOT implemented.
-- **Heirloom Greatsword** (`int_heirloom_greatsword`) — "Last Gasp: Returns to hand." Item needs `last_gasp` + return-to-hand op.
-- **Spider Daedra** (`agi_spider_daedra`) — "Summon: Fill with Spiderlings. Last Gasp: Destroy Spiderlings." Summon fill lane with Spiderlings wired; `last_gasp` destroy-by-subtype still unfixed.
+- **Balmora Spymaster** — WIRED (see Previously Fixed).
+- **Telvanni Arcanist** — WIRED (see Previously Fixed).
+- **Heirloom Greatsword** — WIRED (see Previously Fixed).
+- **Elusive Schemer** — WIRED (see Previously Fixed).
+- **Spider Daedra** — WIRED (see Previously Fixed).
 
 ### Needs "put card into hand" mechanic
 
-- **High Rock Summoner** (`int_high_rock_summoner`) — "Summon: Put a random Atronach into your hand." Needs generate-random-card-to-hand op.
-- **Stronghold Incubator** (`neu_stronghold_incubator`) — "Last Gasp: Put two random Dwemer into your hand." Needs generate-random-cards-to-hand op.
+- **High Rock Summoner** — WIRED (see Previously Fixed).
+- **Stronghold Incubator** — WIRED (see Previously Fixed).
 
 ### Needs health comparison condition
 
-- **Black Worm Necromancer** (`end_black_worm_necromancer`) — "Summon: If more health, summon random from discard." Needs health comparison + summon-from-discard.
-- **Soulrest Marshal** (`agi_soulrest_marshal`) — "Summon: If more health, next card costs 6 less." Needs health comparison + cost reduction.
+- **Black Worm Necromancer** — WIRED (see Previously Fixed).
+- **Soulrest Marshal** — WIRED (see Previously Fixed).
 
 ### Needs conditional summon buffs
 
-- **Feasting Vulture** (`agi_feasting_vulture`) — "Summon: +2/+2 if a creature died this turn." Needs creature-died-this-turn condition.
+(Feasting Vulture has been wired — see Previously Fixed.)
 
 ### Needs "deal damage to all enemies" target type
 
-- **Fire Storm** (`int_fire_storm`) — "Prophecy. Deal 2 damage to all creatures in a lane." Needs all-creatures-in-lane target.
-- **Dread Clannfear** (`str_dread_clannfear`) — "Summon: All enemy creatures lose Guard." Needs all-enemies + remove_keyword op.
-- **Arrow Storm** (`wil_arrow_storm`) — "Destroy all enemies with 2 power or less in a lane." Needs conditional mass destroy.
-- **Dawn's Wrath** (`wil_dawns_wrath`) — "Destroy all creatures in a lane." Needs all-creatures-in-lane + destroy.
-- **Immolating Blast** (`wil_immolating_blast`) — "Destroy all except one random on each side." Needs complex mass destroy.
+- **Fire Storm** — WIRED (see Previously Fixed).
+- **Arrow Storm** — WIRED (see Previously Fixed).
+- **Dawn's Wrath** — WIRED (see Previously Fixed).
+- **Immolating Blast** — WIRED (see Previously Fixed).
 
 ### Needs "destroy" action mechanic
 
-- **Stone Throw** (`str_stone_throw`) — "Destroy enemy creature if you have higher power creature." Needs target + power comparison.
-- **Imprison** (`wil_imprison`) — "Shackle a creature; destroy if 4+ Willpower creatures." Needs target + attribute count condition.
+- **Stone Throw** — WIRED (see Previously Fixed).
+- **Imprison** — WIRED (see Previously Fixed).
 
 ### Needs "move" mechanic
 
-- **Dune Smuggler** (`agi_dune_smuggler`) — "Summon: Move friendly creature. When moves, +1/+1." Summon target choice move wired; `on_move` +1/+1 trigger still unfixed.
+- **Dune Smuggler** — WIRED (see Previously Fixed).
 
 ### Needs "draw with special conditions" mechanic
 
-- **Rapid Shot** (`str_rapid_shot`) — "Deal 1 damage to a creature. If it survives, draw a card." Needs conditional draw.
-- **Brilliant Experiment** (`int_brilliant_experiment`) — "Draw a copy of a friendly creature." Needs copy-to-hand op.
-- **Nahkriin, Dragon Priest** (`int_nahkriin_dragon_priest`) — "Summon: Draw a card and reduce cost to 0." Needs draw + cost modification.
-- **Blackmail** (`wil_blackmail`) — "Draw a copy from opponent's deck." Action needs copy-from-opponent.
-- **Summerset Orrery** (`int_summerset_orrery`) — "Activate: Shuffle Prophecy cards, draw that many." Support needs complex draw.
-- **Orb of Vaermina** (`neu_orb_of_vaermina`) — "Activate: Draw copy from opponent's deck." Support needs copy-from-opponent.
-- **Leafwater Blessing** (`agi_leafwater_blessing`) — "Give +1/+1. When gain health, draw from discard." Action needs complex effect.
-- **Militant Chieftain** (`dual_militant_chieftain`) — "Summon: Draw random Orc from discard. Other Orcs +1/+1." Summon +1/+1 to all friendly Orcs wired; draw Orc from discard NOT implemented.
+- **Rapid Shot** — WIRED (see Previously Fixed).
+- **Brilliant Experiment** — WIRED (see Previously Fixed).
+- **Nahkriin, Dragon Priest** — WIRED (see Previously Fixed).
+- **Blackmail** — WIRED (see Previously Fixed).
+- **Summerset Orrery** — WIRED (see Previously Fixed).
+- **Orb of Vaermina** — WIRED (see Previously Fixed).
+- **Leafwater Blessing** — WIRED (see Previously Fixed).
+- **Militant Chieftain** — WIRED (see Previously Fixed).
 
 ### Needs support "activate" trigger
 
-- **Skirmisher's Elixir** (`str_skirmishers_elixir`) — "Uses: 3. Activate: Give +2/+0 and Breakthrough." Support needs activate trigger + target.
-- **Volendrung** (`str_volendrung`) — "Uses: 2. Activate: Give +4/+4 and Breakthrough." Support needs activate trigger + target.
-- **Dark Rift** (`int_dark_rift`) — "Uses: 5. Activate: Deal 1 damage. If dealt 5, sacrifice to summon." Complex support.
-- **Goldbrand** (`neu_goldbrand`) — "Uses: 3. Activate: Deal 2 damage (escalating)." Support needs activate + escalating.
-- **Elixir of Vigor** (`end_elixir_of_vigor`) — "Uses: 3. Activate: Give +0/+1." Support needs activate + target.
-- **Elixir of Conflict** (`neu_elixir_of_conflict`) — "Uses: 3. Activate: Give +1/+1." Support needs activate + target.
+- **Skirmisher's Elixir** — WIRED (see Previously Fixed).
+- **Volendrung** — WIRED (see Previously Fixed).
+- **Dark Rift** — WIRED (see Previously Fixed).
+- **Goldbrand** — WIRED (see Previously Fixed).
+- **Elixir of Vigor** — WIRED (see Previously Fixed).
+- **Elixir of Conflict** — WIRED (see Previously Fixed).
 
 ### Needs complex / unique mechanics
 
-- **Thieves Guild Recruit** (`agi_thieves_guild_recruit`) — Draw is wired, but cost reduction ("If costs 7+, reduce by 1") not implemented.
-- **Dremora Markynaz** (`str_dremora_markynaz`) — "Summon: Double a creature's power and health." Needs double-stats op.
-- **Burn and Pillage** (`str_burn_and_pillage`) — "Deal 1 damage per destroyed rune." Needs rune-count-based scaling.
-- **Riften Pillager** (`str_riften_pillager`) — "Summon: +1/+1 per destroyed enemy rune." Summon/modify_stats wired; `destroy` uncovered (rune count reference).
-- **Divayth Fyr** (`int_divayth_fyr`) — "Summon: Deal 6 damage to random enemy. Start of turn: summon Daughter." Summon deal 6 damage wired; start_of_turn summon Daughter NOT implemented.
-- **Cruel Firebloom** (`int_cruel_firebloom`) — "Sacrifice a creature to deal 5 damage to random enemy." Needs sacrifice + random target.
-- **Mentor's Ring** (`int_mentors_ring`) — "Summon: Give Keywords to each other friendly creature." Item needs keyword-copy op.
-- **Master of Arms** (`int_master_of_arms`) — "Summon: Equip two highest cost items from discard." Needs equip-from-discard.
-- **Farsight Nereid** (`int_farsight_nereid`) — "Summon: Reveal top of opponent's deck." Needs reveal op.
-- **Arenthia Swindler** (`agi_arenthia_swindler`) — "Summon: Steal all items from enemy creature." Needs steal-items op.
-- **Camoran Scout Leader** (`agi_camoran_scout_leader`) — "Summon: Summon 2/2 Scouts per Wounded enemy lane." Conditional multi-summon.
-- **Necrom Mastermind** (`agi_necrom_mastermind`) — "Summon: Trigger Last Gasp of each friendly creature." Needs re-trigger op.
-- **Renowned Legate** (`wil_renowned_legate`) — "Summon: Summon 1/1 Grunt, gain health per friendly." Multi-op summon (summon Imperial Grunt NOW WIRED; heal-per-friendly part still unfixed).
-- **Miraak, Dragonborn** (`wil_miraak_dragonborn`) — "Summon: Steal an enemy creature." Needs steal op.
-- **Wild Beastcaller** (`agi_wild_beastcaller`) — "Summon: Summon a random Animal." Needs summon-random-by-subtype.
-- **Ungolim the Listener** (`agi_ungolim_the_listener`) — "Summon: Shuffle three Brotherhood Assassins into deck." Needs shuffle-into-deck op.
-- **Ahnassi** (`dual_ahnassi`) — "Summon: Steal all Keywords from enemy creatures." Needs steal-keywords op.
-- **Ayrenn** (`dual_ayrenn`) — "Summon: Draw random action from discard. Actions cost 1 less." Multi-mechanic.
-- **Merric-at-Aswala** (`dual_merricataswala`) — "Summon: Equip each friendly in lane with random item." Needs equip-from-catalog.
-- **High King Emeric** (`dual_high_king_emeric`) — "Ward. Summon: Deal 2 damage per friendly with Ward." Needs ward-count scaling.
-- **Thorn Histmage** (`dual_thorn_histmage`) — "Guard. Summon: Gain +1 max magicka. +1/+0 on max magicka increase." Summon +1 max magicka wired; modify_stats on magicka increase NOT implemented.
-- **Hidden Trail** (`agi_hidden_trail`) — "Ongoing. Summon: All Field Lanes become Shadow. +1/+0." Lane modification + aura.
-- **Halls of the Dwemer** (`neu_halls_of_the_dwemer`) — "Ongoing. Summon: Put Dwarven Spider into hand. Dwemer +3/+0." Multi-mechanic support.
-- **Dres Renegade** (`int_dres_renegade`) — "Guard. Other friendly creatures immune to Shackle." Needs immunity mechanic.
-- **Keeper of Whispers** (`int_keeper_of_whispers`) — "Other friendly creatures immune to Silence." Needs immunity mechanic.
-- **Dres Tormentor** (`int_dres_tormentor`) — "When enemy Shackled, deal 3 damage." Needs `on_enemy_shackled` trigger.
-- **Healing Hands** (`end_healing_hands`) — "Heal a creature, then give +1/+1." Action needs target + heal + modify_stats.
-- **Plea to Kynareth** (`end_plea_to_kynareth`) — "Heal all friendly in lane, then give +1/+1." Needs all-friendly-in-lane + heal + modify_stats.
-- **Green-Touched Spriggan** (`agi_greentouched_spriggan`) — "When you gain health, gains that much power." Needs `on_health_gained` trigger.
-- **War Cry** (`wil_war_cry`) — "Give friendly creatures in lane +2/+0 this turn." Action needs all-friendly-in-lane + modify_stats.
+- **Thieves Guild Recruit** — WIRED (see Previously Fixed).
+- **Dremora Markynaz** — WIRED (see Previously Fixed).
+- **Burn and Pillage** — WIRED (see Previously Fixed).
+- **Riften Pillager** — WIRED (see Previously Fixed; already uses destroyed_enemy_runes count_source).
+- **Divayth Fyr** — WIRED (see Previously Fixed).
+- **Cruel Firebloom** — WIRED (see Previously Fixed).
+- **Mentor's Ring** — WIRED (see Previously Fixed).
+- **Master of Arms** — WIRED (see Previously Fixed).
+- **Farsight Nereid** — WIRED (see Previously Fixed; reveal is cosmetic, wired as log event).
+- **Arenthia Swindler** — WIRED (see Previously Fixed).
+- **Camoran Scout Leader** — WIRED (see Previously Fixed).
+- **Necrom Mastermind** — WIRED (see Previously Fixed).
+- **Renowned Legate** — WIRED (see Previously Fixed).
+- **Miraak, Dragonborn** — WIRED (see Previously Fixed).
+- **Wild Beastcaller** — WIRED (see Previously Fixed).
+- **Ungolim the Listener** — WIRED (see Previously Fixed).
+- **Ahnassi** — WIRED (see Previously Fixed).
+- **Ayrenn** — WIRED (see Previously Fixed).
+- **Merric-at-Aswala** — WIRED (see Previously Fixed).
+- **High King Emeric** — WIRED (see Previously Fixed).
+- **Thorn Histmage** — WIRED (see Previously Fixed).
+- **Hidden Trail** — WIRED (see Previously Fixed).
+- **Halls of the Dwemer** — WIRED (see Previously Fixed).
+- **Dres Renegade** — WIRED (see Previously Fixed).
+- **Keeper of Whispers** — WIRED (see Previously Fixed).
+- **Dres Tormentor** — WIRED (see Previously Fixed).
+- **Healing Hands** — WIRED (see Previously Fixed).
+- **Plea to Kynareth** — WIRED (see Previously Fixed).
+- **Green-Touched Spriggan** — WIRED (see Previously Fixed).
+- **War Cry** — WIRED (see Previously Fixed).
 
 ### Token / created cards with missing effects
 
-- **Sweet Roll** (`neu_sweet_roll`) — "If creature eats Sweet Roll, heal them." Needs heal-on-eat mechanic.
-- **Ancient Giant** (`neu_ancient_giant`) — Passive cost/stats equal max magicka. Needs dynamic stat calculation.
+- **Sweet Roll** — WIRED (see Previously Fixed).
+- **Ancient Giant** — WIRED (see Previously Fixed).
 
 ## Previously Fixed
 
 Cards that have been successfully wired with triggered_abilities:
-- Chaurus Reaper, Thieves Guild Recruit (draw only), Northpoint Captain, Tree Minder, Stalwart Ally, Resolute Ally, Tome of Alteration, Assassin's Bow, Grahtwood Ambusher, Fifth Legion Trainer, Imperial Siege Engine, Riften Pillager (summon/modify_stats), Bruma Armorer, Dragontail Savior, Flesh Atronach, Gloom Wraith, Wrothgar Kingpin, Murkwater Savage, Supreme Atromancer, Bruma Profiteer, Imperial Reinforcements, Scouting Patrol, Midnight Sweep, Slaughterfish Spawning
-- Afflicted Alit, Blighted Alit, Mighty Ally, Vigilant Giant, Camlorn Hero, Fate Weaver (summon draw only; prophecy play-for-free not implemented), Indoril Archmage, Studium Headmaster, Elusive Schemer (summon draw only; last_gasp shuffle-copy not implemented), Descendant of Alkosh, Priest of the Moons, Rajhini Highwayman, Riverhold Escort, Baandari Bruiser, Daring Cutpurse, Deshaan Avenger, House Kinsman, Mournhold Traitor, Nimble Ally, Pahmar-raht Renegade, Quin'rawl Burglar, Tazkad the Packmaster, Tenmar Swiftclaw (pilfer +1/+1 only; extra attack not implemented), Varanis Courier, Snake Tooth Necklace, Archein Venomtongue, Deathless Draugr, Restless Templar, Enchanted Plate, Dark Harvester, Spider Worker, Slaughterfish, Sadras Agent, Thorn Histmage (summon +1 max magicka only; modify_stats on magicka increase not implemented), Brotherhood Assassin
+- Chaurus Reaper, Thieves Guild Recruit (summon → draw + post_draw_cost_reduce if 7+; fully fixed), Northpoint Captain, Tree Minder, Stalwart Ally, Resolute Ally, Tome of Alteration, Assassin's Bow, Grahtwood Ambusher, Fifth Legion Trainer, Imperial Siege Engine, Riften Pillager (summon/modify_stats), Bruma Armorer, Dragontail Savior, Flesh Atronach, Gloom Wraith, Wrothgar Kingpin, Murkwater Savage, Supreme Atromancer, Bruma Profiteer, Imperial Reinforcements, Scouting Patrol, Midnight Sweep, Slaughterfish Spawning
+- Afflicted Alit, Blighted Alit, Mighty Ally, Vigilant Giant, Camlorn Hero, Fate Weaver (summon draw only; prophecy play-for-free not implemented), Indoril Archmage, Studium Headmaster, Elusive Schemer (summon draw + last_gasp generate 0-cost copy to deck), Descendant of Alkosh, Priest of the Moons, Rajhini Highwayman, Riverhold Escort, Baandari Bruiser, Daring Cutpurse, Deshaan Avenger, House Kinsman, Mournhold Traitor, Nimble Ally, Pahmar-raht Renegade, Quin'rawl Burglar, Tazkad the Packmaster, Tenmar Swiftclaw (pilfer +1/+1 + grant_extra_attack; fully fixed), Varanis Courier, Snake Tooth Necklace, Archein Venomtongue, Deathless Draugr, Restless Templar, Enchanted Plate, Dark Harvester, Spider Worker, Slaughterfish, Sadras Agent, Thorn Histmage (summon +1 max magicka + on_max_magicka_gained → +1/+0), Brotherhood Assassin
 - Bangkorai Butcher (summon conditional +2/+2 if another Orc), Silvenar Tracker (summon conditional Charge if wounded enemy in lane), Triumphant Jarl (summon conditional draw 2 if more health), Wood Orc Headhunter (summon conditional Charge if another Orc), Golden Saint (summon conditional summon Golden Saint in other lane if more health), Ravenous Hunger (summon conditional Drain if enemy in lane), Pack Wolf (summon Young Wolf in other lane), Green Pact Stalker (summon conditional +2/+2 if wounded enemy in lane), Rift Thane (summon conditional buffs based on health comparison)
-- Relentless Raider (rune_break → damage opponent 1), Morthal Executioner (rune_break → +2/+0), Dawnstar Healer (rune_break → heal 3), Ice Spike (on_play → damage opponent 2 + draw 1), Healing Potion (on_play → heal 5), Ransack (on_play → damage opponent 3 + heal 3), Thievery (on_play → damage opponent 3 + heal 3), Drain Life (token; on_play → damage opponent 5 + heal 5), Bone Colossus (summon fill lane with Skeletons only; aura still unfixed), Renowned Legate (summon Imperial Grunt only; heal-per-friendly still unfixed), Queen Barenziah (summon → grant Guard to all friendly in lane), Stronghold Eradicator (summon → grant Guard to all enemies in lane)
+- Relentless Raider (rune_break → damage opponent 1), Morthal Executioner (rune_break → +2/+0), Dawnstar Healer (rune_break → heal 3), Ice Spike (on_play → damage opponent 2 + draw 1), Healing Potion (on_play → heal 5), Ransack (on_play → damage opponent 3 + heal 3), Thievery (on_play → damage opponent 3 + heal 3), Drain Life (token; on_play → damage opponent 5 + heal 5), Bone Colossus (summon fill lane with Skeletons + ongoing aura +1/+1 to other friendly Skeletons), Renowned Legate (summon Imperial Grunt + heal per friendly creature), Queen Barenziah (summon → grant Guard to all friendly in lane), Stronghold Eradicator (summon → grant Guard to all enemies in lane)
 - Odahviing (summon → deal 4 damage to all enemies both lanes), Skaven Pyromancer (summon → deal 1 damage to all other creatures in lane), Giant Snake (summon → shackle all enemies in lane), Red Bramman (summon → silence + shackle all enemies in lane), Legion Praefect (summon → +1/+1 to all friendly both lanes), Yew Shield (on_play → +1/+1 per enemy in lane on wielder), Corpse Curse (token; on_play → shackle all enemies in lane)
-- Trebuchet (start_of_turn → deal 4 damage to random enemy), Reachman Shaman (start_of_turn → +1/+1 to random friendly), Brutal Ashlander (last_gasp → deal 3 damage to random enemy), Haunting Spirit (last_gasp → +3/+3 to random friendly), Alfe Fyr (summon → deal 6 damage to random enemy), Beyte Fyr (summon → deal 6 damage to random enemy), Delte Fyr (summon → deal 6 damage to random enemy), Uupse Fyr (summon → deal 6 damage to random enemy), Cavern Spinner (summon → shackle random enemy), Crown Quartermaster (summon → generate Steel Dagger to hand), Dunmer Nightblade (last_gasp → generate Iron Sword to hand), Divayth Fyr (summon deal 6 damage to random enemy only; start_of_turn summon Daughter not implemented)
-- Murkwater Skirmisher (summon → +2/+2 to all friendly Goblins, filtered by subtype), Watch Commander (summon → +1/+2 to all friendly Guards, filtered by keyword), Baron of Tear (summon → +1/+0 and Guard to all friendly Intelligence creatures, filtered by attribute), Eastmarch Crusader (summon → draw if enemy rune destroyed, conditional), Shimmerene Peddler (end_of_turn → draw if played 2 actions), Fireball (on_play → deal 1 damage to all enemies + opponent), Aldmeri Patriot (summon → +1/+1 if action in hand, conditional), Militant Chieftain (summon +1/+1 to all friendly Orcs only; draw Orc from discard not implemented)
+- Trebuchet (start_of_turn → deal 4 damage to random enemy), Reachman Shaman (start_of_turn → +1/+1 to random friendly), Brutal Ashlander (last_gasp → deal 3 damage to random enemy), Haunting Spirit (last_gasp → +3/+3 to random friendly), Alfe Fyr (summon → deal 6 damage to random enemy), Beyte Fyr (summon → deal 6 damage to random enemy), Delte Fyr (summon → deal 6 damage to random enemy), Uupse Fyr (summon → deal 6 damage to random enemy), Cavern Spinner (summon → shackle random enemy), Crown Quartermaster (summon → generate Steel Dagger to hand), Dunmer Nightblade (last_gasp → generate Iron Sword to hand), Divayth Fyr (summon deal 6 damage to random enemy + start_of_turn summon Daughter of Fyr)
+- Murkwater Skirmisher (summon → +2/+2 to all friendly Goblins, filtered by subtype), Watch Commander (summon → +1/+2 to all friendly Guards, filtered by keyword), Baron of Tear (summon → +1/+0 and Guard to all friendly Intelligence creatures, filtered by attribute), Eastmarch Crusader (summon → draw if enemy rune destroyed, conditional), Shimmerene Peddler (end_of_turn → draw if played 2 actions), Fireball (on_play → deal 1 damage to all enemies + opponent), Aldmeri Patriot (summon → +1/+1 if action in hand, conditional), Militant Chieftain (ongoing aura +1/+1 to other friendly Orcs + summon draw_from_discard_filtered Orc)
 - Fiery Imp (on_attack → damage opponent 2), Staff of Sparks (on_attack → deal 1 damage to all enemies in lane, item), Crystal Tower Crafter (after_action_played → +1/+1), Lillandril Hexmage (after_action_played → damage opponent 1), Artaeum Savant (after_action_played → +1/+1 to random friendly), Grim Champion (on_friendly_death + opponent death → +1/+1 both sides), Necromancer's Amulet (on_friendly_death → heal 1), Alik'r Survivalist (fully fixed: on_equip +1/+1 + summon generate dagger to hand), Dragonstar Rider (on_equip → draw), Whirling Duelist (on_equip → deal 1 damage to all enemies in lane), Craglorn Scavenger (on_play support + activate → +1/+1), General Tullius (on_friendly_death → +1/+1; summon was already wired, now fully fixed)
 - Sharpshooter Scout (summon → target choice creature_or_player → deal_damage 1), Valenwood Huntsman (summon → target choice creature_or_player → deal_damage 1), Morkul Gatekeeper (summon → target choice any_creature → modify_stats +2/+0), Savage Ogre (summon → target choice any_creature → modify_stats +5/+0), Earthbone Spinner (summon → target choice another_creature → silence + deal_damage 1), Ash Servant (summon → target choice enemy_creature → deal_damage 2), Shocking Wamasu (summon → target choice enemy_creature → deal_damage 4), Shrieking Harpy (summon → target choice enemy_creature → shackle), Wardcrafter (summon → target choice any_creature → grant_keyword ward), Sunhold Medic (summon → target choice any_creature → modify_stats +0/+2), Loyal Housecarl (summon → target choice any_creature → modify_stats +2/+2 + grant_keyword guard), Cloudrest Illusionist (summon → target choice any_creature → modify_stats -4/0), Mantikora (summon → target choice enemy_creature_in_lane → destroy_creature), Spiteful Dremora (summon → target choice any_creature filtered max_power 2 → destroy_creature), Pillaging Tribune (summon → target choice friendly_creature → grant_keyword drain), Skooma Racketeer (summon → target choice any_creature → grant_keyword lethal), Murkwater Witch (summon → target choice any_creature → modify_stats -1/-1), Leaflurker (summon → target choice any_creature filtered wounded → destroy_creature), Cursed Spectre (summon → target choice another_creature → silence), Shadowfen Priest (summon → multi target choice: another_creature → silence, enemy_support → destroy), Wrothgar Artisan (summon → target choice any_creature → modify_stats +1/+1), Barded Guar (summon → target choice any_creature → grant_keyword guard), Frenzied Witchman (summon → target choice any_creature → modify_stats +2/+1), Dwarven Sphere (summon → target choice enemy_creature → shackle), Vicious Dreugh (summon → target choice enemy_support → destroy_creature), Ravenous Crocodile (summon → target choice friendly_creature → deal_damage 2), Allena Benoch (summon → target choice creature_or_player → deal_damage 1)
 - Crushing Blow (on_play → deal_damage 3), Firebolt (on_play → deal_damage 2), Piercing Javelin (on_play → destroy_creature), Suppress (on_play → silence), Cast Out (on_play → unsummon), Arrow in the Knee (on_play → shackle + deal_damage 1), Lightning Bolt (on_play → deal_damage 4), Finish Off (on_play → destroy_creature wounded), Winter's Grasp (on_play → shackle all_enemies), Ice Storm (on_play → deal_damage 3 to all creatures), Belligerent Giant (summon → multi: unsummon creature OR destroy support), Forsworn Guide (summon → unsummon friendly + self +2/+2), Skywatch Vindicator (summon → multi: damage enemy creature OR buff friendly creature), Edict of Azura (on_play → destroy creature/support), Cunning Ally (summon → generate Firebolt to hand conditional), Alik'r Survivalist (fully fixed: on_equip +1/+1 + summon generate dagger to hand)
-- Execute (on_play → target choice destroy_creature filtered max_power 2), Imprisoned Deathlord (on_opponent_summon → shackle self), Fearless Northlander (on_damage_taken → self +2/+0), Royal Sage (summon conditional more health → grant_random_keyword all_friendly), Falinesti Reaver (summon → destroy all wounded enemies in lane), Dune Stalker (summon → target choice move friendly creature), Spider Daedra (summon fill lane with Spiderlings only; last_gasp destroy Spiderlings still unfixed)
-- Helgen Squad Leader (on_attack controller → self +1/+0), Abecean Navigator (summon conditional top deck is action → draw), Angry Grahl (summon conditional opponent more cards → +2/+2), Shadow Shift (on_play → move event_target + draw), Dune Smuggler (summon → target choice move friendly creature only; on_move +1/+1 still unfixed), Night Talon Lord (slay → summon the slain creature)
+- Execute (on_play → target choice destroy_creature filtered max_power 2), Imprisoned Deathlord (on_opponent_summon → shackle self), Fearless Northlander (on_damage_taken → self +2/+0), Royal Sage (summon conditional more health → grant_random_keyword all_friendly), Falinesti Reaver (summon → destroy all wounded enemies in lane), Dune Stalker (summon → target choice move friendly creature), Spider Daedra (summon fill lane with Spiderlings + last_gasp destroy all friendly Spiderlings)
+- Helgen Squad Leader (on_attack controller → self +1/+0), Abecean Navigator (summon conditional top deck is action → draw), Angry Grahl (summon conditional opponent more cards → +2/+2), Shadow Shift (on_play → move event_target + draw), Dune Smuggler (summon → target choice move friendly creature + on_move → +1/+1 to moved creature), Night Talon Lord (slay → summon the slain creature)
+- Orc Clan Captain (ongoing aura +1/+0 to other friendly in lane), Summerset Shieldmage (ongoing aura +0/+1 to other friendly in lane), Divine Fervor (ongoing support aura +1/+1 all friendly), Chieftain's Banner (ongoing support aura +0/+2 to friendly Orcs), Northwind Outpost (ongoing support aura +1/+0 to friendly Strength), Alpha Wolf (ongoing aura +2/+0 to other friendly Wolves), Stormhold Henchman (self aura +2/+2 if 7+ max magicka), Preserver of the Root (self aura +2/+2 + Guard if 7+ max magicka), Rihad Battlemage (self aura +0/+3 + Guard if equipped), Rihad Horseman (self aura +3/+0 + Breakthrough if equipped), Covenant Marauder (self aura +2/+0 if empty hand), Snow Wolf (self aura +2/+0 if most creatures in lane), Niben Bay Cutthroat (self aura +2/+0 if no enemies in lane), Murkwater Goblin (self aura +2/+0 on your turn), Stampeding Mammoth (self aura +2/+0 per other friendly with Breakthrough)
+- Gladiator Arena (start_of_turn both players → damage 2), Dread Clannfear (summon → remove_keyword guard from all_enemies), Torval Crook (pilfer → gain_magicka 2), Blackrose Herbalist (start_of_turn → restore_creature_health random_friendly), Goblin Skulk (pilfer → draw_filtered 0-cost), Dagi-raht Mystic (pilfer → draw_filtered support), Auroran Sentry (on_damage target → heal controller by event amount), Feasting Vulture (summon conditional creature_died_this_turn → +2/+2), Shornhelm Champion (on_ward_broken → +3/+3)
+- Skirmisher's Elixir (activate → +2/+0 + breakthrough on event_target), Volendrung (activate → +4/+4 + breakthrough on event_target), Elixir of Vigor (activate → +0/+1 on event_target), Elixir of Conflict (activate → +1/+1 on event_target), Healing Hands (on_play → restore_creature_health + modify_stats on event_target), Plea to Kynareth (on_play → restore + modify all_friendly_in_event_lane), War Cry (on_play → modify_stats all_friendly_in_event_lane +2/+0), Disciple of Namira (end_of_turn any_player → draw per friendly_deaths_in_lane_this_turn), Heirloom Greatsword (item_detached → return_to_hand), Elusive Schemer (last_gasp → generate 0-cost copy to deck)
+- Blackmail (on_play → copy_from_opponent_deck creature), Orb of Vaermina (activate → copy_from_opponent_deck any), Camoran Scout Leader (summon → summon Scouts in lanes with wounded enemies)
+- Dremora Markynaz (summon target choice → double_stats), Cruel Firebloom (on_play target choice → sacrifice friendly + deal_damage 5 random enemy), Brilliant Experiment (on_play target choice → copy_card_to_hand friendly creature), Rapid Shot (on_play → deal_damage 1 + conditional draw if target survives), Ayrenn (summon → draw_from_discard_filtered action; cost reduction not implemented)
+- Tenmar Swiftclaw (pilfer +1/+1 + grant_extra_attack), Child of Hircine (slay → grant_extra_attack), Thieves Guild Recruit (summon → draw + post_draw_cost_reduce if 7+), Nahkriin Dragon Priest (summon → draw + post_draw_cost_set 0), Reive Blademaster (on_attack → escalating_damage opponent), Goldbrand (activate → escalating_damage creature), Dres Renegade (grants_immunity shackle), Keeper of Whispers (grants_immunity silence), Stone Throw (on_play target choice → conditional destroy_creature), Imprison (on_play target choice → shackle or destroy based on Willpower creature count), Ahnassi (summon → steal_keywords all_enemies), Mentor's Ring (on_play → copy_keywords_to_friendly), Arenthia Swindler (summon target choice → steal_items)
+- Dres Tormentor (on_enemy_shackled → deal_damage 3 to event_target), Green-Touched Spriggan (on_player_healed → modify_stats self power_from_event_amount), Thorn Histmage (on_max_magicka_gained → +1/+0 self)
+- Fire Storm (on_play → deal_damage 2 to all_creatures_in_event_lane), Dawn's Wrath (on_play → destroy all_creatures_in_event_lane), Arrow Storm (on_play → destroy all_enemies_in_event_lane filtered max_power 2), Burn and Pillage (on_play → deal_damage 1 * destroyed_enemy_runes to all_enemies_in_event_lane), Dawnbreaker (slay → banish event_subject filtered Undead), Blood Magic Lord (summon + slay → generate Blood Magic Spell to hand), Telvanni Arcanist (last_gasp → draw_filtered action), High Rock Summoner (summon → draw_filtered Atronach), Stronghold Incubator (last_gasp → 2x draw_filtered Dwemer), Ungolim the Listener (summon → 3x generate Brotherhood Assassin to deck), Halls of the Dwemer (on_play → generate Dwarven Spider to hand + aura Dwemer +3/+0), Divayth Fyr (start_of_turn → summon Daughter of Fyr), Militant Chieftain (summon → draw_from_discard_filtered Orc), High King Emeric (summon target choice → deal_damage 2 * friendly_creatures_with_keyword ward), Lucien Lachance (on_friendly_slay → +2/+2 to event_killer), Renowned Legate (summon → summon Grunt + heal per friendly), Miraak Dragonborn (summon target choice → steal enemy creature), Bone Bow (on_play target choice → silence another creature), Mace of Encumbrance (on_play target choice → shackle enemy creature)
+- Black Worm Necromancer (summon conditional more_health → summon_random_from_discard), Immolating Blast (on_play → destroy_all_except_random), Farsight Nereid (summon → log reveal), Soulrest Marshal (summon conditional more_health → reduce_next_card_cost 6), Dark Rift (activate → damage opponent 1 + conditional summon Storm Atronach on uses exhausted), Balmora Spymaster (last_gasp → summon_random_from_catalog creature), Wild Beastcaller (summon → summon_random_from_catalog Animal), Merric-at-Aswala (summon → equip_random_item_from_catalog all_friendly_in_lane), Haafingar Marauder (on_enemy_rune_destroyed → equip_random_item_from_catalog event_source), Leafwater Blessing (on_play target choice → +1/+1 + on_player_healed from discard → return_to_hand), Necrom Mastermind (summon → trigger_friendly_last_gasps), Hidden Trail (on_play → change_lane_types shadow + aura +1/+0 all friendly), Master of Arms (summon → equip_items_from_discard 2), Summerset Orrery (activate → shuffle_hand_to_deck_and_draw prophecy)
+- Thieves' Den (grants_trigger pilfer +1/+1 to all friendly via synthetic trigger injection), Ayrenn (summon → draw_from_discard_filtered action + cost_reduction_aura actions -1), Sweet Roll (last_gasp → restore_creature_health event_killer), Ancient Giant (stats_from_max_magicka at generation time)
