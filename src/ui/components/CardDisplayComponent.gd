@@ -64,6 +64,7 @@ var _attack_badge: PanelContainer
 var _attack_label: Label
 var _health_badge: PanelContainer
 var _health_label: Label
+var _ward_overlay: TextureRect
 
 
 func _ready() -> void:
@@ -221,6 +222,23 @@ func _build_internal_nodes() -> void:
 	_health_label.add_theme_font_override("font", bold_font_h)
 	_health_badge.add_child(_health_label)
 
+	_ward_overlay = TextureRect.new()
+	_ward_overlay.name = "WardOverlay"
+	_ward_overlay.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_ward_overlay.stretch_mode = TextureRect.STRETCH_SCALE
+	_ward_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ward_overlay.visible = false
+	var ward_shader := load("res://assets/shaders/ward_mist.gdshader") as Shader
+	if ward_shader:
+		var ward_mat := ShaderMaterial.new()
+		ward_mat.shader = ward_shader
+		_ward_overlay.material = ward_mat
+	# Needs a texture for the shader to run on; a small white image works fine
+	var ward_img := Image.create(2, 2, false, Image.FORMAT_RGBA8)
+	ward_img.fill(Color.WHITE)
+	_ward_overlay.texture = ImageTexture.create_from_image(ward_img)
+	_content_root.add_child(_ward_overlay)
+
 	_set_mouse_passthrough_recursive(_content_root)
 	_is_built = true
 
@@ -316,6 +334,7 @@ func _refresh_visibility() -> void:
 	_cost_badge.visible = full
 	_attack_badge.visible = is_creature and (full or creature_minimal)
 	_health_badge.visible = is_creature and (full or creature_minimal)
+	_ward_overlay.visible = is_creature and EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_WARD)
 
 
 func _layout_internal_nodes() -> void:
@@ -372,6 +391,8 @@ func _layout_full(inner_rect: Rect2) -> void:
 	# Stat badges – attack diamond + health circle, straddling art bottom edge
 	_layout_stat_badges(inner_rect, Rect2(_art_frame.position, _art_frame.size), scale, true)
 
+	_layout_ward_overlay()
+
 	# Rules panel – bottom portion of card below art, with gap for stat badges
 	var rules_y := _art_frame.position.y + _art_frame.size.y + 4.0 * scale
 	var rules_bottom := inner_rect.position.y + inner_rect.size.y - content_padding
@@ -398,6 +419,7 @@ func _layout_creature_board_minimal(inner_rect: Rect2) -> void:
 	_art_frame.position = inner_rect.position + Vector2.ONE * art_padding
 	_art_frame.size = Vector2(maxf(inner_rect.size.x - art_padding * 2.0, 0.0), maxf(inner_rect.size.y - art_padding * 2.0, 0.0))
 	_layout_stat_badges(inner_rect, Rect2(_art_frame.position, _art_frame.size), scale)
+	_layout_ward_overlay()
 	_name_banner.position = Vector2.ZERO
 	_name_banner.size = Vector2.ZERO
 	_subtype_banner.position = Vector2.ZERO
@@ -511,6 +533,14 @@ func _layout_stat_badges(inner_rect: Rect2, art_rect: Rect2, scale: float, esl_s
 		_health_label.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 		_health_label.pivot_offset = rect_size * 0.5
 		_health_label.rotation_degrees = 0.0
+
+
+func _layout_ward_overlay() -> void:
+	if _ward_overlay == null:
+		return
+	# Cover the upper ~55% of the art frame so mist sits above the artwork
+	_ward_overlay.position = _art_frame.position
+	_ward_overlay.size = Vector2(_art_frame.size.x, _art_frame.size.y * 0.55)
 
 
 func _get_default_art_texture() -> Texture2D:
