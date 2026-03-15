@@ -901,6 +901,36 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					EvergreenRules.add_status(card, EvergreenRules.STATUS_SHACKLED)
 					generated_events.append({"event_type": "status_granted", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "status_id": "shackled", "reason": reason})
+			"destroy_creature":
+				var destroy_source_id := str(trigger.get("source_instance_id", ""))
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var card_location := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
+					if not bool(card_location.get("is_valid", false)):
+						continue
+					var controller_pid := str(card.get("controller_player_id", ""))
+					var moved := MatchMutations.discard_card(match_state, str(card.get("instance_id", "")))
+					if bool(moved.get("is_valid", false)):
+						generated_events.append({
+							"event_type": "creature_destroyed",
+							"instance_id": str(card.get("instance_id", "")),
+							"source_instance_id": str(card.get("instance_id", "")),
+							"owner_player_id": str(card.get("owner_player_id", "")),
+							"controller_player_id": controller_pid,
+							"destroyed_by_instance_id": destroy_source_id,
+							"lane_id": str(card_location.get("lane_id", "")),
+							"source_zone": ZONE_LANE,
+						})
+			"generate_card_to_hand":
+				var gen_template: Dictionary = effect.get("card_template", {})
+				if gen_template.is_empty():
+					continue
+				var gen_count := int(effect.get("count", 1))
+				for player_id in _resolve_player_targets(match_state, trigger, event, effect):
+					for _i in range(gen_count):
+						var generated_card := MatchMutations.build_generated_card(match_state, player_id, gen_template)
+						var move_result := MatchMutations.move_card_to_zone(match_state, str(generated_card.get("instance_id", "")), ZONE_HAND, {"reason": reason})
+						if bool(move_result.get("is_valid", false)):
+							generated_events.append({"event_type": "card_drawn", "player_id": player_id, "source_instance_id": str(generated_card.get("instance_id", "")), "reason": reason})
 			"change":
 				var change_template := _resolve_effect_template(match_state, trigger, event, effect)
 				if change_template.is_empty():
@@ -1126,6 +1156,22 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 					for card in player_slots[pid]:
 						if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) != self_id:
 							targets.append(card)
+		"random_enemy":
+			var all_enemies := _resolve_card_targets_by_name(match_state, trigger, event, "all_enemies")
+			if not all_enemies.is_empty():
+				targets.append(all_enemies[randi() % all_enemies.size()])
+		"random_friendly":
+			var all_friendly := _resolve_card_targets_by_name(match_state, trigger, event, "all_friendly")
+			if not all_friendly.is_empty():
+				targets.append(all_friendly[randi() % all_friendly.size()])
+		"random_enemy_in_lane":
+			var all_enemies_lane := _resolve_card_targets_by_name(match_state, trigger, event, "all_enemies_in_lane")
+			if not all_enemies_lane.is_empty():
+				targets.append(all_enemies_lane[randi() % all_enemies_lane.size()])
+		"random_friendly_in_lane":
+			var all_friendly_lane := _resolve_card_targets_by_name(match_state, trigger, event, "all_friendly_in_lane")
+			if not all_friendly_lane.is_empty():
+				targets.append(all_friendly_lane[randi() % all_friendly_lane.size()])
 	return targets
 
 

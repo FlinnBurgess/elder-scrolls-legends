@@ -349,8 +349,8 @@ static func _check_missing_effects(card: Dictionary) -> void:
 		# "damage" also maps to "deal_damage" op
 		if id == "damage" and "deal_damage" in configured_ops:
 			continue
-		# "destroy" maps to "destroy" op or "lethal" keyword
-		if id == "destroy" and ("destroy" in configured_ops or "lethal" in keywords):
+		# "destroy" maps to "destroy" or "destroy_creature" op or "lethal" keyword
+		if id == "destroy" and ("destroy" in configured_ops or "destroy_creature" in configured_ops or "lethal" in keywords):
 			continue
 		uncovered.append(id)
 
