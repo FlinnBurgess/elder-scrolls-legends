@@ -227,6 +227,8 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 		card["cost_reduction_aura"] = definition["cost_reduction_aura"].duplicate(true)
 	if definition.has("grants_immunity"):
 		card["grants_immunity"] = definition["grants_immunity"].duplicate(true)
+	if definition.has("magicka_aura"):
+		card["magicka_aura"] = int(definition["magicka_aura"])
 
 
 func _process(_delta: float) -> void:

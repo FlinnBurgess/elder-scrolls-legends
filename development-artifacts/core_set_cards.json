@@ -6841,8 +6841,8 @@
       "collectible": true,
       "keywords": [],
       "has_prophecy": false,
-      "effect_ids": [],
-      "status": "created"
+      "effect_ids": ["modify_stats"],
+      "status": "effects_done"
     },
     {
       "card_id": "end_iliac_sorcerer",

@@ -903,6 +903,27 @@ static func recalculate_auras(match_state: Dictionary) -> void:
 					existing.append(kw)
 				target["aura_keywords"] = existing
 
+	# Step 4: Recalculate player magicka auras from lane creatures
+	for player in match_state.get("players", []):
+		var pid := str(player.get("player_id", ""))
+		var old_bonus := int(player.get("aura_max_magicka_bonus", 0))
+		var new_bonus := 0
+		for lane in lanes:
+			var player_slots: Dictionary = lane.get("player_slots", {})
+			for card in player_slots.get(pid, []):
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				if not card.has("magicka_aura"):
+					continue
+				if EvergreenRules.has_raw_status(card, EvergreenRules.STATUS_SILENCED):
+					continue
+				new_bonus += int(card["magicka_aura"])
+		var delta := new_bonus - old_bonus
+		if delta != 0:
+			player["max_magicka"] = maxi(0, int(player.get("max_magicka", 0)) + delta)
+			player["current_magicka"] = mini(int(player.get("current_magicka", 0)), int(player["max_magicka"]))
+			player["aura_max_magicka_bonus"] = new_bonus
+
 
 static func _evaluate_aura_condition(match_state: Dictionary, source_card: Dictionary, player_id: String, lane_index: int, condition) -> bool:
 	var condition_type := ""

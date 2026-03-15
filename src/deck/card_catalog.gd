@@ -76,6 +76,8 @@ static func _build_card(seed: Dictionary, registry) -> Dictionary:
 		card["grants_trigger"] = seed["grants_trigger"].duplicate(true)
 	if seed.has("cost_reduction_aura"):
 		card["cost_reduction_aura"] = seed["cost_reduction_aura"].duplicate(true)
+	if seed.has("magicka_aura"):
+		card["magicka_aura"] = int(seed["magicka_aura"])
 	return card
 
 
@@ -408,7 +410,7 @@ static func _card_seeds() -> Array:
 		_seed("end_hackwing_feather", "Hackwing Feather", ["endurance"], "item", 3, 0, 0, {"rarity": "epic", "keywords": ["regenerate"], "effect_ids": ["modify_stats"], "rules_text": "Regenerate\n+1/+3", "equip_power_bonus": 1, "equip_health_bonus": 3, "equip_keywords": ["regenerate"]}),
 		_seed("end_haunting_spirit", "Haunting Spirit", ["endurance"], "creature", 3, 3, 3, {"rarity": "rare", "effect_ids": ["last_gasp", "modify_stats"], "subtypes": ["Spirit"], "rules_text": "Last Gasp: Give a random friendly creature +3/+3.", "triggered_abilities": [{"family": "last_gasp", "effects": [{"op": "modify_stats", "target": "random_friendly", "power": 3, "health": 3}]}]}),
 		_seed("end_healing_hands", "Healing Hands", ["endurance"], "action", 0, 0, 0, {"effect_ids": ["heal", "modify_stats"], "rules_text": "Heal a creature, then give it +1/+1.", "triggered_abilities": [{"family": "on_play", "effects": [{"op": "restore_creature_health", "target": "event_target"}, {"op": "modify_stats", "target": "event_target", "power": 1, "health": 1}]}]}),
-		_seed("end_hist_speaker", "Hist Speaker", ["endurance"], "creature", 2, 2, 2, {"subtypes": ["Argonian"], "rules_text": "While Hist Speaker is in play, your max magicka is increased by 1."}),
+		_seed("end_hist_speaker", "Hist Speaker", ["endurance"], "creature", 2, 2, 2, {"effect_ids": ["modify_stats"], "subtypes": ["Argonian"], "rules_text": "While Hist Speaker is in play, your max magicka is increased by 1.", "magicka_aura": 1}),
 		_seed("end_iliac_sorcerer", "Iliac Sorcerer", ["endurance"], "creature", 1, 1, 1, {"rarity": "epic", "keywords": ["ward"], "subtypes": ["Breton"], "rules_text": "Ward\nWhen Iliac Sorcerer's Ward is broken, double his power."}),
 		_seed("end_imperial_armor", "Imperial Armor", ["endurance"], "item", 3, 0, 0, {"effect_ids": ["equip", "modify_stats"], "rules_text": "+0/+6", "equip_health_bonus": 6}),
 		_seed("end_imprisoned_deathlord", "Imprisoned Deathlord", ["endurance"], "creature", 4, 7, 7, {"rarity": "epic", "effect_ids": ["shackle"], "subtypes": ["Skeleton"], "rules_text": "When an enemy creature is summoned, Shackle Imprisoned Deathlord.", "triggered_abilities": [{"family": "summon", "match_role": "opponent_player", "required_zone": "lane", "effects": [{"op": "shackle", "target": "self"}]}]}),
