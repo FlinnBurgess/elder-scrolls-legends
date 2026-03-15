@@ -737,8 +737,6 @@ func _subtype_line(card: Dictionary) -> String:
 
 func _rules_preview(card: Dictionary) -> String:
 	var rules_text := str(card.get("rules_text", "")).strip_edges().replace("\n", " ")
-	if rules_text.is_empty():
-		return ""
 	# Only extract keywords that appear as standalone entries at the start of the
 	# rules text (e.g. "Guard." or "Guard, Charge. Deal 2 damage."). Keywords
 	# embedded in sentences ("Give a creature Guard") must not be extracted.
@@ -761,9 +759,18 @@ func _rules_preview(card: Dictionary) -> String:
 				break
 		if not matched:
 			break
+	# Append dynamically-granted keywords not already in the list
+	for kw in KEYWORD_NAMES:
+		var display_name: String = kw.substr(0, 1).to_upper() + kw.substr(1)
+		if keywords.has(display_name):
+			continue
+		if EvergreenRules.has_keyword(card, kw):
+			keywords.append(display_name)
 	if keywords.is_empty():
 		return rules_text
 	var keyword_line := ", ".join(keywords)
+	if remaining.is_empty() and rules_text.is_empty():
+		return keyword_line
 	if remaining.is_empty():
 		return keyword_line
 	return keyword_line + "\n" + remaining
@@ -784,6 +791,9 @@ func _rules_bbcode(card: Dictionary) -> String:
 
 
 func _has_extracted_keywords(card: Dictionary) -> bool:
+	for kw in KEYWORD_NAMES:
+		if EvergreenRules.has_keyword(card, kw):
+			return true
 	var rules_text := str(card.get("rules_text", "")).strip_edges().replace("\n", " ")
 	if rules_text.is_empty():
 		return false
