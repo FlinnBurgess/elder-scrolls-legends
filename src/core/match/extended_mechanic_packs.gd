@@ -107,6 +107,9 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 	var required_subtype := str(descriptor.get("required_event_source_subtype", ""))
 	if not required_subtype.is_empty() and not _card_has_string(source_card, "subtypes", required_subtype):
 		return false
+	var required_attribute := str(descriptor.get("required_event_source_attribute", ""))
+	if not required_attribute.is_empty() and not _card_has_string(source_card, "attributes", required_attribute):
+		return false
 	var excluded_rule_tag := str(descriptor.get("excluded_event_source_rule_tag", ""))
 	if not excluded_rule_tag.is_empty() and _card_has_string(source_card, "rules_tags", excluded_rule_tag):
 		return false
@@ -333,7 +336,7 @@ static func _resolve_player_damage(match_state: Dictionary, trigger: Dictionary,
 	if amount <= 0:
 		return []
 	var events: Array = []
-	for player_id in _resolve_player_targets(event, effect, str(trigger.get("controller_player_id", ""))):
+	for player_id in _resolve_player_targets(match_state, event, effect, str(trigger.get("controller_player_id", ""))):
 		var damage_result: Dictionary = _timing_rules().apply_player_damage(match_state, player_id, amount, {
 			"reason": str(effect.get("reason", "effect_damage")),
 			"source_instance_id": str(trigger.get("source_instance_id", "")),
@@ -478,10 +481,15 @@ static func _grant_keyword(card: Dictionary, keyword_id: String) -> bool:
 	return true
 
 
-static func _resolve_player_targets(event: Dictionary, effect: Dictionary, controller_player_id: String) -> Array:
+static func _resolve_player_targets(match_state: Dictionary, event: Dictionary, effect: Dictionary, controller_player_id: String) -> Array:
 	match str(effect.get("target_player", "target_player")):
 		"controller":
 			return [controller_player_id]
+		"opponent":
+			for player in match_state.get("players", []):
+				if str(player.get("player_id", "")) != controller_player_id:
+					return [str(player.get("player_id", ""))]
+			return []
 		"event_player":
 			var event_player_id := str(event.get("player_id", event.get("playing_player_id", "")))
 			return [] if event_player_id.is_empty() else [event_player_id]

@@ -54,6 +54,7 @@ const FAMILY_PLOT := "plot"
 const FAMILY_RUNE_BREAK := "rune_break"
 
 const PLAYER_ZONE_ORDER := [ZONE_HAND, ZONE_SUPPORT, ZONE_DISCARD, ZONE_BANISHED, ZONE_DECK]
+const RANDOM_KEYWORD_POOL := ["breakthrough", "charge", "drain", "guard", "lethal", "regenerate", "ward"]
 const ZONE_PRIORITY := {
 	ZONE_LANE: 0,
 	"support": 1,
@@ -650,6 +651,11 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 			return false
 		if str(lanes[trigger_lane_index].get("lane_id", "")) != event_lane_id:
 			return false
+	var max_source_cost := int(descriptor.get("max_event_source_cost", -1))
+	if max_source_cost >= 0:
+		var cost_check_card := _find_card_anywhere(match_state, str(event.get("source_instance_id", "")))
+		if cost_check_card.is_empty() or int(cost_check_card.get("cost", 999)) > max_source_cost:
+			return false
 	return ExtendedMechanicPacks.matches_additional_conditions(match_state, trigger, descriptor, event)
 
 
@@ -769,8 +775,43 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"target_instance_id": str(card.get("instance_id", "")),
 						"keyword_id": keyword_id,
 					})
+			"grant_random_keyword":
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					EvergreenRules.ensure_card_state(card)
+					var candidates: Array = []
+					for kw in RANDOM_KEYWORD_POOL:
+						if not EvergreenRules.has_keyword(card, kw):
+							candidates.append(kw)
+					if candidates.is_empty():
+						continue
+					var pick: String = str(candidates[_deterministic_index(match_state, str(card.get("instance_id", "")), candidates.size())])
+					var granted_keywords: Array = card.get("granted_keywords", [])
+					if not granted_keywords.has(pick):
+						granted_keywords.append(pick)
+						card["granted_keywords"] = granted_keywords
+					generated_events.append({
+						"event_type": "keyword_granted",
+						"source_instance_id": str(trigger.get("source_instance_id", "")),
+						"target_instance_id": str(card.get("instance_id", "")),
+						"keyword_id": pick,
+					})
+			"heal":
+				for player_id in _resolve_player_targets(match_state, trigger, event, effect):
+					var heal_player := _get_player_state(match_state, player_id)
+					if heal_player.is_empty():
+						continue
+					var heal_amount := int(effect.get("amount", 0))
+					if heal_amount <= 0:
+						continue
+					heal_player["health"] = int(heal_player.get("health", 0)) + heal_amount
+					generated_events.append({
+						"event_type": "player_healed",
+						"source_instance_id": str(trigger.get("source_instance_id", "")),
+						"target_player_id": player_id,
+						"amount": heal_amount,
+					})
 			"draw_cards":
-				for player_id in _resolve_player_targets(trigger, event, effect):
+				for player_id in _resolve_player_targets(match_state, trigger, event, effect):
 						var draw_result := draw_cards(match_state, player_id, int(effect.get("count", 1)), {
 							"reason": reason,
 							"source_instance_id": str(trigger.get("source_instance_id", "")),
@@ -780,7 +821,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 			"discard":
 				var discard_targets := [] if effect.has("target_player") and not effect.has("target") else _resolve_card_targets(match_state, trigger, event, effect)
 				if discard_targets.is_empty() and effect.has("target_player"):
-					for player_id in _resolve_player_targets(trigger, event, effect):
+					for player_id in _resolve_player_targets(match_state, trigger, event, effect):
 						var discard_result := MatchMutations.discard_from_hand(match_state, player_id, int(effect.get("count", 1)), {
 							"selection": str(effect.get("selection", "front")),
 						})
@@ -831,7 +872,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var transform_result := MatchMutations.transform_card(match_state, str(card.get("instance_id", "")), transform_template, {"reason": reason})
 					generated_events.append_array(transform_result.get("events", []))
 			"steal":
-				var stealing_players := _resolve_player_targets(trigger, event, effect)
+				var stealing_players := _resolve_player_targets(match_state, trigger, event, effect)
 				if stealing_players.is_empty():
 					continue
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
@@ -860,7 +901,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					})
 					generated_events.append_array(move_result.get("events", []))
 			"summon_from_effect":
-				var summon_players := _resolve_player_targets(trigger, event, effect)
+				var summon_players := _resolve_player_targets(match_state, trigger, event, effect)
 				if summon_players.is_empty():
 					continue
 				var summon_lane_ids: Array = []
@@ -897,7 +938,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							generated_events.append(_build_summon_event(summon_result["card"], player_id, s_lane_id, int(summon_result.get("slot_index", -1)), reason))
 			"summon_copies_to_lane":
 				var copies_lane_id := str(effect.get("lane_id", effect.get("target_lane_id", event.get("lane_id", ""))))
-				var copies_players := _resolve_player_targets(trigger, event, effect)
+				var copies_players := _resolve_player_targets(match_state, trigger, event, effect)
 				var copies_template: Dictionary = effect.get("card_template", {})
 				if copies_lane_id.is_empty() or copies_players.is_empty() or copies_template.is_empty():
 					continue
@@ -917,6 +958,35 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							break
 						generated_events.append_array(summon_res.get("events", []))
 						generated_events.append(_build_summon_event(summon_res["card"], player_id, copies_lane_id, int(summon_res.get("slot_index", -1)), reason))
+			"summon_copy_to_other_lane":
+				var copy_sources := _resolve_card_targets_by_name(match_state, trigger, event, str(effect.get("source_target", "event_source")))
+				if copy_sources.is_empty():
+					continue
+				var copy_source: Dictionary = copy_sources[0]
+				var source_lane_id := str(event.get("lane_id", ""))
+				var other_lane_id := ""
+				for lane in match_state.get("lanes", []):
+					if str(lane.get("lane_id", "")) != source_lane_id:
+						other_lane_id = str(lane.get("lane_id", ""))
+						break
+				if other_lane_id.is_empty():
+					continue
+				var copy_template := copy_source.duplicate(true)
+				copy_template.erase("instance_id")
+				copy_template.erase("zone")
+				copy_template.erase("damage_marked")
+				copy_template.erase("power_bonus")
+				copy_template.erase("health_bonus")
+				copy_template.erase("granted_keywords")
+				copy_template.erase("status_markers")
+				var copy_player_id := str(trigger.get("controller_player_id", ""))
+				var gen_card := MatchMutations.build_generated_card(match_state, copy_player_id, copy_template)
+				var summon_res := MatchMutations.summon_card_to_lane(match_state, copy_player_id, gen_card, other_lane_id, {
+					"source_zone": MatchMutations.ZONE_GENERATED,
+				})
+				if bool(summon_res.get("is_valid", false)):
+					generated_events.append_array(summon_res.get("events", []))
+					generated_events.append(_build_summon_event(summon_res["card"], copy_player_id, other_lane_id, int(summon_res.get("slot_index", -1)), reason))
 			_:
 				var custom_result := ExtendedMechanicPacks.apply_custom_effect(match_state, trigger, event, effect)
 				if bool(custom_result.get("handled", false)):
@@ -951,11 +1021,14 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 	return targets
 
 
-static func _resolve_player_targets(trigger: Dictionary, event: Dictionary, effect: Dictionary) -> Array:
+static func _resolve_player_targets(match_state: Dictionary, trigger: Dictionary, event: Dictionary, effect: Dictionary) -> Array:
 	var target_player := str(effect.get("target_player", "controller"))
 	match target_player:
 		"controller":
 			return [str(trigger.get("controller_player_id", ""))]
+		"opponent":
+			var opponent_id := _get_opposing_player_id(match_state.get("players", []), str(trigger.get("controller_player_id", "")))
+			return [] if opponent_id.is_empty() else [opponent_id]
 		"event_player":
 			var player_id := str(event.get("player_id", event.get("playing_player_id", event.get("target_player_id", ""))))
 			return [] if player_id.is_empty() else [player_id]
@@ -975,6 +1048,7 @@ static func _resolve_count_multiplier(match_state: Dictionary, trigger: Dictiona
 	var count := 0
 	match count_source:
 		"friendly_creatures":
+			var required_attr := str(effect.get("count_required_attribute", ""))
 			for lane in match_state.get("lanes", []):
 				var slots = lane.get("player_slots", {}).get(controller_player_id, [])
 				for card in slots:
@@ -982,8 +1056,45 @@ static func _resolve_count_multiplier(match_state: Dictionary, trigger: Dictiona
 						continue
 					if exclude_self and str(card.get("instance_id", "")) == self_instance_id:
 						continue
+					if not required_attr.is_empty():
+						var attrs = card.get("attributes", [])
+						if typeof(attrs) != TYPE_ARRAY or not attrs.has(required_attr):
+							continue
 					count += 1
+		"enemy_creatures_same_lane":
+			var opponent_id := _get_opposing_player_id(match_state.get("players", []), controller_player_id)
+			var lane_index := int(trigger.get("lane_index", -1))
+			var lanes: Array = match_state.get("lanes", [])
+			if lane_index >= 0 and lane_index < lanes.size():
+				var slots = lanes[lane_index].get("player_slots", {}).get(opponent_id, [])
+				for card in slots:
+					if typeof(card) == TYPE_DICTIONARY:
+						count += 1
+		"friendly_discard_creatures":
+			var player := _get_player_state(match_state, controller_player_id)
+			if not player.is_empty():
+				for card in player.get("discard", []):
+					if typeof(card) == TYPE_DICTIONARY and str(card.get("card_type", "")) == CARD_TYPE_CREATURE:
+						count += 1
+		"destroyed_enemy_runes":
+			var opponent_id := _get_opposing_player_id(match_state.get("players", []), controller_player_id)
+			var opponent := _get_player_state(match_state, opponent_id)
+			if not opponent.is_empty():
+				var remaining: Variant = opponent.get("rune_thresholds", [])
+				count = 5 - (remaining.size() if typeof(remaining) == TYPE_ARRAY else 0)
 	return count
+
+
+static func _deterministic_index(match_state: Dictionary, context_id: String, pool_size: int) -> int:
+	if pool_size <= 0:
+		return 0
+	var fingerprint := "%s|%s|%s" % [str(match_state.get("rng_seed", 0)), str(match_state.get("turn_number", 0)), context_id]
+	var seed_value: int = 1469598103934665603
+	for byte in fingerprint.to_utf8_buffer():
+		seed_value = int((seed_value * 1099511628211 + int(byte)) % 9223372036854775783)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	return rng.randi_range(0, pool_size - 1)
 
 
 static func _resolve_effect_template(match_state: Dictionary, trigger: Dictionary, event: Dictionary, effect: Dictionary) -> Dictionary:
