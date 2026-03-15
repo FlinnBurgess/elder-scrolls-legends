@@ -144,7 +144,8 @@ static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionar
 	_refresh_board_state_for_turn(match_state, player_id)
 	player["turns_started"] = int(player.get("turns_started", 0)) + 1
 	player["temporary_magicka"] = 0
-	player["max_magicka"] = mini(MAX_MAGICKA_CAP, int(player.get("max_magicka", 0)) + 1)
+	var current_max := int(player.get("max_magicka", 0))
+	player["max_magicka"] = maxi(current_max, mini(MAX_MAGICKA_CAP, current_max + 1))
 	player["current_magicka"] = int(player["max_magicka"])
 	player["ring_of_magicka_used_this_turn"] = false
 

@@ -1,7 +1,7 @@
 class_name PlayerMagickaComponent
 extends Control
 
-const TOTAL_SEGMENTS := 12
+const DEFAULT_SEGMENTS := 12
 const RECOMMENDED_MINIMUM_SIZE := Vector2(172, 172)
 const MAX_COMPONENT_DIAMETER := 172.0
 const CENTER_DIAMETER_RATIO := 0.56
@@ -92,10 +92,11 @@ func get_display_text() -> String:
 
 func get_segment_states() -> Array:
 	var states: Array = []
-	var current := maxi(0, mini(TOTAL_SEGMENTS, _current_magicka))
-	var maximum := maxi(0, mini(TOTAL_SEGMENTS, _max_magicka))
-	var temporary := maxi(0, mini(TOTAL_SEGMENTS - current, _temporary_magicka))
-	for slot_index in range(TOTAL_SEGMENTS):
+	var segment_count := _segment_entries.size()
+	var current := maxi(0, mini(segment_count, _current_magicka))
+	var maximum := maxi(0, mini(segment_count, _max_magicka))
+	var temporary := maxi(0, mini(segment_count - current, _temporary_magicka))
+	for slot_index in range(segment_count):
 		var state := STATE_LOCKED
 		if slot_index < current:
 			state = STATE_REMAINING
@@ -143,23 +144,40 @@ func _build_internal_nodes() -> void:
 	_center_inner.add_child(_center_label)
 
 	_segment_entries.clear()
-	for slot_index in range(TOTAL_SEGMENTS):
-		var panel := PanelContainer.new()
-		panel.name = "Segment_%02d" % (slot_index + 1)
-		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_content_root.add_child(panel)
-
-		var inner := PanelContainer.new()
-		inner.name = "Inner"
-		inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		panel.add_child(inner)
-
-		_segment_entries.append({
-			"panel": panel,
-			"inner": inner,
-		})
+	for slot_index in range(DEFAULT_SEGMENTS):
+		_add_segment(slot_index)
 
 	_is_built = true
+
+
+func _add_segment(slot_index: int) -> void:
+	var panel := PanelContainer.new()
+	panel.name = "Segment_%02d" % (slot_index + 1)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_content_root.add_child(panel)
+
+	var inner := PanelContainer.new()
+	inner.name = "Inner"
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(inner)
+
+	_segment_entries.append({
+		"panel": panel,
+		"inner": inner,
+	})
+
+
+func _ensure_segment_count(count: int) -> void:
+	if count == _segment_entries.size():
+		return
+	while _segment_entries.size() < count:
+		_add_segment(_segment_entries.size())
+	while _segment_entries.size() > count:
+		var entry: Dictionary = _segment_entries.pop_back()
+		var panel = entry.get("panel")
+		if panel != null:
+			panel.queue_free()
+	_layout_internal_nodes()
 
 
 func _refresh_all() -> void:
@@ -170,6 +188,8 @@ func _refresh_all() -> void:
 func _refresh_magicka() -> void:
 	if _center_label == null:
 		return
+	var required_segments := maxi(DEFAULT_SEGMENTS, _max_magicka)
+	_ensure_segment_count(required_segments)
 	_center_label.text = get_display_text()
 	_center_label.add_theme_color_override("font_color", COLOR_BORDER)
 	var states: Array = get_segment_states()
@@ -217,7 +237,7 @@ func _layout_internal_nodes() -> void:
 			continue
 		panel.size = Vector2(segment_length, segment_thickness)
 		panel.pivot_offset = panel.size * 0.5
-		var angle := deg_to_rad(-90.0 + float(index) * (360.0 / float(TOTAL_SEGMENTS)))
+		var angle := deg_to_rad(-90.0 + float(index) * (360.0 / float(_segment_entries.size())))
 		var point := center + Vector2(cos(angle), sin(angle)) * orbit_radius
 		panel.position = point - panel.size * 0.5
 		panel.rotation = angle + PI * 0.5

@@ -21,7 +21,7 @@ func _run() -> void:
 	var medallion_inner := component.find_child("MedallionInner", true, false) as PanelContainer
 	var magicka_label := component.find_child("MagickaLabel", true, false) as Label
 	var top_segment := component.get_segment_node(0) as Control
-	if not _assert(component.get_segment_count() == PlayerMagickaComponent.TOTAL_SEGMENTS, "PlayerMagickaComponent should build exactly 12 outer-ring segments."):
+	if not _assert(component.get_segment_count() == PlayerMagickaComponent.DEFAULT_SEGMENTS, "PlayerMagickaComponent should build exactly 12 outer-ring segments."):
 		quit(1)
 		return
 	if not _assert(component.get_child_count() > 0, "Component root should own internal child nodes."):
