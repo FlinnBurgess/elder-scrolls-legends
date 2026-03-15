@@ -587,20 +587,19 @@ func _card_name(card: Dictionary) -> String:
 
 
 func _subtype_line(card: Dictionary) -> String:
-	var card_type := _identifier_to_name(str(card.get("card_type", "card")))
 	var subtypes: Array = card.get("subtypes", [])
 	if subtypes.is_empty():
-		return card_type
+		return _identifier_to_name(str(card.get("card_type", "card")))
 	var subtype_names: Array = []
 	for subtype in subtypes:
 		subtype_names.append(_identifier_to_name(str(subtype)))
-	return "%s • %s" % [card_type, " • ".join(subtype_names)]
+	return " • ".join(subtype_names)
 
 
 func _rules_preview(card: Dictionary) -> String:
 	var rules_text := str(card.get("rules_text", "")).strip_edges().replace("\n", " ")
 	if rules_text.is_empty():
-		return "No final rules text yet. Placeholder frame keeps the card readable."
+		return ""
 	# Only extract keywords that appear as standalone entries at the start of the
 	# rules text (e.g. "Guard." or "Guard, Charge. Deal 2 damage."). Keywords
 	# embedded in sentences ("Give a creature Guard") must not be extracted.

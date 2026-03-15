@@ -78,7 +78,7 @@ func _run() -> void:
 	if not _assert(name_label != null and name_label.text == "Field Guardian", "Full mode should surface the card name in the header banner."):
 		quit(1)
 		return
-	if not _assert(subtype_label != null and subtype_label.text.contains("Creature") and subtype_label.text.contains("Soldier"), "Full mode should surface both card type and subtype metadata beneath the name."):
+	if not _assert(subtype_label != null and subtype_label.text.contains("Soldier"), "Full mode should surface the subtype beneath the name."):
 		quit(1)
 		return
 	if not _assert(rules_label != null and rules_label.text.contains("Guard") and rules_label.text.contains("Placeholder boosted creature") and rules_label.text.find("Guard") < rules_label.text.find("Placeholder"), "Full mode should render keywords above the remaining rules text."):
