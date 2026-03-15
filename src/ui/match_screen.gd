@@ -1979,7 +1979,8 @@ func _build_card_button(card: Dictionary, public_view: bool, surface := "default
 	button.text = ""
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.focus_mode = Control.FOCUS_NONE
-	button.mouse_default_cursor_shape = Control.CURSOR_ARROW if locked and interaction_state == "default" else Control.CURSOR_POINTING_HAND
+	var no_action := surface == "lane" and _selected_action_mode(card) == SELECTION_MODE_NONE
+	button.mouse_default_cursor_shape = Control.CURSOR_ARROW if (locked and interaction_state == "default") or no_action else Control.CURSOR_POINTING_HAND
 	button.set_meta("instance_id", instance_id)
 	button.set_meta("surface", surface)
 	button.set_meta("presentation_locked", locked)
@@ -3031,7 +3032,8 @@ func _selected_action_mode(card: Dictionary) -> String:
 		MatchMutations.ZONE_SUPPORT:
 			return SELECTION_MODE_SUPPORT
 		MatchMutations.ZONE_LANE:
-			return SELECTION_MODE_ATTACK
+			if _lane_readiness_badge_text(card) == "READY":
+				return SELECTION_MODE_ATTACK
 	return SELECTION_MODE_NONE
 
 
