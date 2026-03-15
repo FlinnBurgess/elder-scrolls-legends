@@ -32,6 +32,9 @@ const TURN_BANNER_DURATION_MS := 1600
 const CARD_HOVER_PREVIEW_DELAY_MS := 1000
 const LOCAL_MATCH_AI_SCENARIO_ID := "local_match"
 const LOCAL_MATCH_AI_ACTION_DELAY_MS := 320
+const LANE_CARD_FLOAT_OFFSET := Vector2(-7, -12)
+const LANE_CARD_FLOAT_SHADOW_OFFSET := Vector2(5, 7)
+const LANE_CARD_FLOAT_ANIM_DURATION := 0.22
 const SELECTION_MODE_NONE := "none"
 const SELECTION_MODE_SUMMON := "summon"
 const SELECTION_MODE_ITEM := "item"
@@ -119,6 +122,7 @@ var _paused_ai_step_delay_ms := -1
 var _ai_waiting_for_turn_banner := false
 var _local_match_ai_action_count := 0
 var _pending_layout_scale_frames := 0
+var _floating_card_ids: Dictionary = {}
 
 
 var _ai_enabled := false
@@ -170,6 +174,7 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array) -> bool:
 	_scenario_id = LOCAL_MATCH_AI_SCENARIO_ID
 	_selected_instance_id = ""
 	_last_turn_owner_id = ""
+	_floating_card_ids.clear()
 	_turn_banner_until_ms = 0
 	_clear_pile_selection()
 	_status_message = "Choose cards to replace."
@@ -344,6 +349,7 @@ func load_scenario(scenario_id: String) -> bool:
 	GameLogger.start_match(next_state)
 	_selected_instance_id = ""
 	_last_turn_owner_id = ""
+	_floating_card_ids.clear()
 	_turn_banner_until_ms = 0
 	_clear_pile_selection()
 	var scenario_timing_result: Dictionary = _match_state.get("last_timing_result", {})
@@ -1984,6 +1990,8 @@ func _build_card_button(card: Dictionary, public_view: bool, surface := "default
 	button.set_meta("card_display_component", null)
 	_populate_card_button_content(button, card, public_view, surface)
 	_apply_card_feedback_decoration(button, card, surface)
+	if surface == "lane" and str(card.get("card_type", "")) == "creature":
+		_apply_lane_card_float_effect(button, card)
 	_card_buttons[instance_id] = button
 	if surface == "hand" and public_view and str(card.get("controller_player_id", "")) == PLAYER_ORDER[1]:
 		button.mouse_entered.connect(_on_local_hand_card_mouse_entered.bind(button))
@@ -3612,6 +3620,52 @@ func _apply_card_feedback_decoration(button: Button, card: Dictionary, surface: 
 	button.modulate = modulate_color
 
 
+func _apply_lane_card_float_effect(button: Button, card: Dictionary) -> void:
+	var readiness := _creature_readiness_state(card)
+	var instance_id := str(card.get("instance_id", ""))
+	if str(readiness.get("id", "")) != "ready":
+		_floating_card_ids.erase(instance_id)
+		return
+	var content_root: Control = button.get_meta("content_root", null)
+	if content_root == null:
+		return
+	button.clip_contents = false
+	# Hide the button's own background so its border doesn't outline the shadow
+	_apply_button_style(button, Color.TRANSPARENT, Color.TRANSPARENT, Color.TRANSPARENT, 0, 0)
+	# Shadow at card resting position to give depth illusion
+	var shadow := ColorRect.new()
+	shadow.name = "float_shadow"
+	shadow.color = Color(0, 0, 0, 0.32)
+	shadow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shadow.offset_left = LANE_CARD_FLOAT_SHADOW_OFFSET.x
+	shadow.offset_top = LANE_CARD_FLOAT_SHADOW_OFFSET.y
+	shadow.offset_right = LANE_CARD_FLOAT_SHADOW_OFFSET.x
+	shadow.offset_bottom = LANE_CARD_FLOAT_SHADOW_OFFSET.y
+	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.add_child(shadow)
+	button.move_child(shadow, 0)
+	# Float content up and to the left
+	var already_floating := _floating_card_ids.has(instance_id)
+	_floating_card_ids[instance_id] = true
+	if already_floating:
+		# Already floated on a prior refresh – snap to offset immediately
+		content_root.offset_left = LANE_CARD_FLOAT_OFFSET.x
+		content_root.offset_top = LANE_CARD_FLOAT_OFFSET.y
+		content_root.offset_right = LANE_CARD_FLOAT_OFFSET.x
+		content_root.offset_bottom = LANE_CARD_FLOAT_OFFSET.y
+		shadow.modulate.a = 1.0
+	else:
+		# First time floating – animate the rise and shadow fade-in
+		shadow.modulate.a = 0.0
+		var tween := button.create_tween()
+		tween.set_parallel(true)
+		tween.tween_property(content_root, "offset_left", LANE_CARD_FLOAT_OFFSET.x, LANE_CARD_FLOAT_ANIM_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+		tween.tween_property(content_root, "offset_top", LANE_CARD_FLOAT_OFFSET.y, LANE_CARD_FLOAT_ANIM_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+		tween.tween_property(content_root, "offset_right", LANE_CARD_FLOAT_OFFSET.x, LANE_CARD_FLOAT_ANIM_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+		tween.tween_property(content_root, "offset_bottom", LANE_CARD_FLOAT_OFFSET.y, LANE_CARD_FLOAT_ANIM_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+		tween.tween_property(shadow, "modulate:a", 1.0, LANE_CARD_FLOAT_ANIM_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+
+
 func _add_feedback_banner(container: Control, name: String, text: String, fill: Color, border: Color, font_color: Color, top_offset: float) -> void:
 	var banner := PanelContainer.new()
 	banner.name = name
@@ -3937,6 +3991,7 @@ func _refresh_turn_presentation() -> void:
 		return
 	if active_player != _last_turn_owner_id:
 		_last_turn_owner_id = active_player
+		_floating_card_ids.clear()
 		_turn_banner_until_ms = Time.get_ticks_msec() + TURN_BANNER_DURATION_MS
 		if active_player == _ai_player_id() and _is_local_match_ai_enabled():
 			_arm_local_match_ai_turn_pacing()
