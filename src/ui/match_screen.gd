@@ -86,6 +86,7 @@ var _detached_card_state := {}
 var _insertion_preview := {}
 var _targeting_arrow_state := {}
 var _targeting_arrow: Line2D
+var _pending_summon_target := {}
 var _prophecy_overlay_state := {}
 var _prophecy_card_overlay: Control
 var _attack_feedbacks: Array = []
@@ -573,6 +574,7 @@ func play_selected_to_lane(lane_id: String, slot_index := -1) -> Dictionary:
 		return _invalid_ui_result("Select a creature first.")
 	if not _can_resolve_selected_action(card):
 		return _invalid_ui_result(_status_message)
+	var saved_instance_id := _selected_instance_id
 	var options := {}
 	if slot_index >= 0:
 		options["slot_index"] = slot_index
@@ -581,7 +583,10 @@ func play_selected_to_lane(lane_id: String, slot_index := -1) -> Dictionary:
 		result = MatchTiming.play_pending_prophecy(_match_state, str(card.get("controller_player_id", "")), _selected_instance_id, options.merged({"lane_id": lane_id}, true))
 	else:
 		result = LaneRules.summon_from_hand(_match_state, _active_player_id(), _selected_instance_id, lane_id, options)
-	return _finalize_engine_result(result, "Played %s into %s." % [_card_name(card), _lane_name(lane_id)])
+	var finalized := _finalize_engine_result(result, "Played %s into %s." % [_card_name(card), _lane_name(lane_id)])
+	if bool(finalized.get("is_valid", false)):
+		_check_summon_target_mode(saved_instance_id)
+	return finalized
 
 
 func play_or_activate_selected() -> Dictionary:
@@ -2594,7 +2599,10 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton:
 		var button_event := event as InputEventMouseButton
 		if button_event.button_index == MOUSE_BUTTON_RIGHT and button_event.pressed:
-			if not _targeting_arrow_state.is_empty():
+			if not _pending_summon_target.is_empty():
+				_cancel_summon_target_mode()
+				get_viewport().set_input_as_handled()
+			elif not _targeting_arrow_state.is_empty():
 				_cancel_targeting_mode()
 				get_viewport().set_input_as_handled()
 			elif not _detached_card_state.is_empty():
@@ -2606,6 +2614,9 @@ func _input(event: InputEvent) -> void:
 
 
 func _on_card_pressed(instance_id: String) -> void:
+	if not _pending_summon_target.is_empty():
+		_resolve_summon_target_card(instance_id)
+		return
 	if not _targeting_arrow_state.is_empty():
 		if _try_resolve_selected_card_target(instance_id):
 			return
@@ -2743,6 +2754,9 @@ func _on_avatar_gui_input(event: InputEvent, player_id: String) -> void:
 
 
 func _on_player_pressed(player_id: String) -> void:
+	if not _pending_summon_target.is_empty():
+		_resolve_summon_target_player(player_id)
+		return
 	if _try_resolve_selected_player_target(player_id):
 		return
 	_clear_pile_selection()
@@ -2989,6 +3003,13 @@ func _valid_lane_ids() -> Array:
 
 func _valid_card_target_ids() -> Array:
 	var ids: Array = []
+	if not _pending_summon_target.is_empty():
+		var source_id := str(_pending_summon_target.get("source_instance_id", ""))
+		for target_info in MatchTiming.get_all_valid_targets(_match_state, source_id):
+			var tid := str(target_info.get("instance_id", ""))
+			if not tid.is_empty():
+				ids.append(tid)
+		return ids
 	var mode := _selected_action_mode(_selected_card())
 	if mode != SELECTION_MODE_ITEM and mode != SELECTION_MODE_SUPPORT and mode != SELECTION_MODE_ATTACK:
 		return ids
@@ -3001,6 +3022,13 @@ func _valid_card_target_ids() -> Array:
 
 func _valid_player_target_ids() -> Array:
 	var ids: Array = []
+	if not _pending_summon_target.is_empty():
+		var source_id := str(_pending_summon_target.get("source_instance_id", ""))
+		for target_info in MatchTiming.get_all_valid_targets(_match_state, source_id):
+			var pid := str(target_info.get("player_id", ""))
+			if not pid.is_empty():
+				ids.append(pid)
+		return ids
 	if _selected_action_mode(_selected_card()) != SELECTION_MODE_ATTACK:
 		return ids
 	for player_id in PLAYER_ORDER:
@@ -4423,6 +4451,87 @@ func _cancel_targeting_mode_silent() -> void:
 		_targeting_arrow.queue_free()
 	_targeting_arrow = null
 	_targeting_arrow_state = {}
+
+
+# --- Summon target choice ---
+
+
+func _check_summon_target_mode(source_instance_id: String) -> void:
+	var card := _card_from_instance_id(source_instance_id)
+	if card.is_empty():
+		return
+	var abilities := MatchTiming.get_target_mode_abilities(card)
+	if abilities.is_empty():
+		return
+	var valid_targets := MatchTiming.get_all_valid_targets(_match_state, source_instance_id)
+	if valid_targets.is_empty():
+		return  # Fizzle silently — no valid targets
+	_pending_summon_target = {
+		"source_instance_id": source_instance_id,
+	}
+	_selected_instance_id = source_instance_id
+	_enter_targeting_mode(source_instance_id)
+	_status_message = _summon_target_prompt(card, abilities)
+	_refresh_ui()
+
+
+func _resolve_summon_target_card(target_instance_id: String) -> void:
+	var source_id := str(_pending_summon_target.get("source_instance_id", ""))
+	var valid_targets := MatchTiming.get_all_valid_targets(_match_state, source_id)
+	var is_valid := false
+	for t in valid_targets:
+		if str(t.get("instance_id", "")) == target_instance_id:
+			is_valid = true
+			break
+	if not is_valid:
+		_report_invalid_interaction("Not a valid target.", {"instance_ids": [target_instance_id]})
+		return
+	var result := MatchTiming.resolve_targeted_effect(_match_state, source_id, {"target_instance_id": target_instance_id})
+	_pending_summon_target = {}
+	_cancel_targeting_mode_silent()
+	_finalize_engine_result(result, "Targeted %s." % _card_name(_card_from_instance_id(target_instance_id)))
+
+
+func _resolve_summon_target_player(player_id: String) -> void:
+	var source_id := str(_pending_summon_target.get("source_instance_id", ""))
+	var valid_targets := MatchTiming.get_all_valid_targets(_match_state, source_id)
+	var is_valid := false
+	for t in valid_targets:
+		if str(t.get("player_id", "")) == player_id:
+			is_valid = true
+			break
+	if not is_valid:
+		_report_invalid_interaction("Not a valid target.", {"player_ids": [player_id]})
+		return
+	var result := MatchTiming.resolve_targeted_effect(_match_state, source_id, {"target_player_id": player_id})
+	_pending_summon_target = {}
+	_cancel_targeting_mode_silent()
+	_finalize_engine_result(result, "Targeted %s." % _player_name(player_id))
+
+
+func _cancel_summon_target_mode() -> void:
+	_pending_summon_target = {}
+	_cancel_targeting_mode()
+	_status_message = "Effect declined."
+	_refresh_ui()
+
+
+func _summon_target_prompt(card: Dictionary, abilities: Array) -> String:
+	var card_name := str(card.get("name", ""))
+	var modes: Array = []
+	for ability in abilities:
+		modes.append(str(ability.get("target_mode", "")))
+	if modes.has("creature_or_player"):
+		return "%s: Choose a target." % card_name
+	if modes.has("enemy_creature") or modes.has("enemy_creature_in_lane"):
+		return "%s: Choose an enemy creature." % card_name
+	if modes.has("friendly_creature") or modes.has("another_friendly_creature"):
+		return "%s: Choose a friendly creature." % card_name
+	if modes.has("enemy_support"):
+		if modes.size() > 1:
+			return "%s: Choose a creature or enemy support." % card_name
+		return "%s: Choose an enemy support." % card_name
+	return "%s: Choose a target." % card_name
 
 
 func _queue_free_weak(node_ref: WeakRef) -> void:

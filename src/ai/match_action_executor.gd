@@ -33,7 +33,22 @@ static func execute_action(match_state: Dictionary, action: Dictionary) -> Dicti
 				var lane_id := str(parameters.get("lane_id", ""))
 				var options := parameters.duplicate(true)
 				options.erase("lane_id")
+				options.erase("summon_target_instance_id")
+				options.erase("summon_target_player_id")
 				result = LaneRules.summon_from_hand(match_state, player_id, source_instance_id, lane_id, options)
+			# Resolve targeted summon effect if target was pre-selected
+			if bool(result.get("is_valid", false)):
+				var summon_target_id := str(parameters.get("summon_target_instance_id", ""))
+				var summon_target_pid := str(parameters.get("summon_target_player_id", ""))
+				if not summon_target_id.is_empty() or not summon_target_pid.is_empty():
+					var target_info := {}
+					if not summon_target_id.is_empty():
+						target_info["target_instance_id"] = summon_target_id
+					if not summon_target_pid.is_empty():
+						target_info["target_player_id"] = summon_target_pid
+					var effect_result := MatchTiming.resolve_targeted_effect(match_state, source_instance_id, target_info)
+					result["events"] = result.get("events", []) + effect_result.get("events", [])
+					result["trigger_resolutions"] = result.get("trigger_resolutions", []) + effect_result.get("trigger_resolutions", [])
 		MatchActionEnumerator.KIND_ATTACK:
 			result = MatchCombat.resolve_attack(match_state, player_id, source_instance_id, parameters.get("target", {}).duplicate(true))
 		MatchActionEnumerator.KIND_PLAY_SUPPORT:
