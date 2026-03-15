@@ -4,11 +4,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 ## Remaining
 
-### Needs target choice mechanic (player picks a target)
-
-- **Bone Bow** — WIRED (see Previously Fixed).
-- **Mace of Encumbrance** — WIRED (see Previously Fixed).
-
 ### Needs ongoing aura mechanic
 
 - **Thieves' Den** — WIRED (see Previously Fixed).
