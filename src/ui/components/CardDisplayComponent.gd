@@ -65,6 +65,7 @@ var _attack_label: Label
 var _health_badge: PanelContainer
 var _health_label: Label
 var _ward_overlay: ColorRect
+var _lethal_particles: GPUParticles2D
 
 
 func _ready() -> void:
@@ -232,6 +233,33 @@ func _build_internal_nodes() -> void:
 	_attack_label.add_theme_font_override("font", bold_font)
 	_content_root.add_child(_attack_label)
 
+	_lethal_particles = GPUParticles2D.new()
+	_lethal_particles.name = "LethalParticles"
+	_lethal_particles.emitting = false
+	_lethal_particles.amount = 16
+	_lethal_particles.lifetime = 1.4
+	_lethal_particles.visibility_rect = Rect2(-30, -50, 60, 60)
+	var lethal_mat := ParticleProcessMaterial.new()
+	lethal_mat.direction = Vector3(0, -1, 0)
+	lethal_mat.spread = 25.0
+	lethal_mat.initial_velocity_min = 8.0
+	lethal_mat.initial_velocity_max = 18.0
+	lethal_mat.gravity = Vector3(0, -2, 0)
+	lethal_mat.scale_min = 2.5
+	lethal_mat.scale_max = 4.5
+	lethal_mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	lethal_mat.emission_box_extents = Vector3(12, 6, 0)
+	lethal_mat.color = Color(0.2, 0.9, 0.3, 1.0)
+	var color_ramp := GradientTexture1D.new()
+	var gradient := Gradient.new()
+	gradient.set_color(0, Color(0.3, 1.0, 0.4, 1.0))
+	gradient.add_point(0.5, Color(0.15, 0.8, 0.3, 0.7))
+	gradient.set_color(2, Color(0.1, 0.6, 0.2, 0.0))
+	color_ramp.gradient = gradient
+	lethal_mat.color_ramp = color_ramp
+	_lethal_particles.process_material = lethal_mat
+	_content_root.add_child(_lethal_particles)
+
 	_health_badge = PanelContainer.new()
 	_health_badge.name = "HealthBadge"
 	_content_root.add_child(_health_badge)
@@ -299,8 +327,11 @@ func _refresh_styles() -> void:
 	_apply_panel_style(_rarity_marker, _rarity_color(_card_data).darkened(0.3), Color.BLACK, _scaled_border_width(2, scale), _scaled_int(2, scale))
 	# Cost badge – dark circle
 	_apply_panel_style(_cost_badge, Color(0.12, 0.14, 0.18, 0.99), Color(0.72, 0.84, 0.98, 1.0), _scaled_border_width(2, scale), _scaled_int(17, scale))
-	# Attack badge – diamond shape (square corners)
-	_apply_panel_style(_attack_badge, Color(0.08, 0.06, 0.04, 0.98), Color(0.72, 0.62, 0.42, 0.96), _scaled_border_width(2, scale), 0)
+	# Attack badge – diamond shape (square corners); green border for lethal
+	var has_lethal := _is_creature(_card_data) and EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_LETHAL)
+	var attack_border := Color(0.2, 0.9, 0.3, 1.0) if has_lethal else Color(0.72, 0.62, 0.42, 0.96)
+	var attack_border_width := _scaled_border_width(3, scale) if has_lethal else _scaled_border_width(2, scale)
+	_apply_panel_style(_attack_badge, Color(0.08, 0.06, 0.04, 0.98), attack_border, attack_border_width, 0)
 	# Health badge – circular (corner radius = half the badge side)
 	_apply_panel_style(_health_badge, Color(0.08, 0.06, 0.04, 0.98), Color(0.72, 0.62, 0.42, 0.96), _scaled_border_width(2, scale), _scaled_int(15, scale))
 	# Guard: thick dark brown top border on outer frame
@@ -337,6 +368,9 @@ func _refresh_visibility() -> void:
 	_attack_badge.visible = is_creature and (full or creature_minimal)
 	_health_badge.visible = is_creature and (full or creature_minimal)
 	_ward_overlay.visible = is_creature and EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_WARD)
+	var show_lethal := is_creature and (full or creature_minimal) and EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_LETHAL)
+	_lethal_particles.emitting = show_lethal
+	_lethal_particles.visible = show_lethal
 
 
 func _layout_internal_nodes() -> void:
@@ -535,6 +569,10 @@ func _layout_stat_badges(inner_rect: Rect2, art_rect: Rect2, scale: float, esl_s
 		_health_label.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 		_health_label.pivot_offset = rect_size * 0.5
 		_health_label.rotation_degrees = 0.0
+	# Position lethal particles at the attack badge center
+	if _lethal_particles != null:
+		var attack_center := _attack_badge.position + _attack_badge.pivot_offset
+		_lethal_particles.position = attack_center
 
 
 func _layout_ward_overlay() -> void:
