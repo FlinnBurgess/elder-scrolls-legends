@@ -140,6 +140,7 @@ static func attach_item_to_creature(match_state: Dictionary, controller_player_i
 			_build_move_event(item, source_zone, ZONE_ATTACHED_ITEM, str(item.get("controller_player_id", controller_player_id))),
 			{
 				"event_type": "card_equipped",
+				"player_id": controller_player_id,
 				"source_instance_id": str(item.get("instance_id", "")),
 				"target_instance_id": str(target_card.get("instance_id", "")),
 				"controller_player_id": str(item.get("controller_player_id", controller_player_id)),

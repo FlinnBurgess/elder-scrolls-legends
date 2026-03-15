@@ -657,8 +657,10 @@ func target_selected_card(target_instance_id: String) -> Dictionary:
 		return _invalid_ui_result("Target %s is not on the board." % target_instance_id)
 	var target_card: Dictionary = target_location.get("card", {})
 	var selected_location := MatchMutations.find_card_location(_match_state, _selected_instance_id)
+	var saved_item_id := ""
 	var result := {}
 	if bool(selected_location.get("is_valid", false)) and str(selected_location.get("zone", "")) == MatchMutations.ZONE_HAND and str(selected_card.get("card_type", "")) == "item":
+		saved_item_id = _selected_instance_id
 		result = PersistentCardRules.play_item_from_hand(_match_state, _active_player_id(), _selected_instance_id, {"target_instance_id": target_instance_id})
 	elif bool(selected_location.get("is_valid", false)) and str(selected_location.get("zone", "")) == MatchMutations.ZONE_HAND and str(selected_card.get("card_type", "")) == "action":
 		result = MatchTiming.play_action_from_hand(_match_state, _active_player_id(), _selected_instance_id, {"target_instance_id": target_instance_id})
@@ -668,7 +670,10 @@ func target_selected_card(target_instance_id: String) -> Dictionary:
 		result = MatchCombat.resolve_attack(_match_state, _active_player_id(), _selected_instance_id, {"type": "creature", "instance_id": target_instance_id})
 	else:
 		return _invalid_ui_result("Current selection does not use card targets.")
-	return _finalize_engine_result(result, "Resolved %s onto %s." % [_card_name(selected_card), _card_name(target_card)])
+	var finalized := _finalize_engine_result(result, "Resolved %s onto %s." % [_card_name(selected_card), _card_name(target_card)])
+	if bool(finalized.get("is_valid", false)) and not saved_item_id.is_empty():
+		_check_summon_target_mode(saved_item_id)
+	return finalized
 
 
 func attack_selected_player(player_id: String) -> Dictionary:

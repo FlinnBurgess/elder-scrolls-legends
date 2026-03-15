@@ -120,6 +120,7 @@ static func play_item_from_hand(match_state: Dictionary, player_id: String, inst
 	})
 	generated_events.append({
 		"event_type": "card_equipped",
+		"player_id": player_id,
 		"source_instance_id": instance_id,
 		"source_controller_player_id": str(attach_result["card"].get("controller_player_id", player_id)),
 		"target_instance_id": target_instance_id,
