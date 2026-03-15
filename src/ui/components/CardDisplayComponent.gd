@@ -17,6 +17,8 @@ const CREATURE_BOARD_MINIMUM_SIZE := CREATURE_BOARD_LAYOUT_BASE_SIZE * PRESENTAT
 const SUPPORT_BOARD_MINIMUM_SIZE := SUPPORT_BOARD_LAYOUT_BASE_SIZE * PRESENTATION_SCALE
 
 const DEFAULT_ART_PATH := "res://assets/images/cards/placeholder.png"
+const KEYWORD_ICON_PATH := "res://assets/images/keywords/lethal.png"
+const KEYWORD_ICON_SIZE := 24
 
 const KEYWORD_NAMES := [
 	"breakthrough", "charge", "drain", "guard",
@@ -65,6 +67,7 @@ var _attack_label: Label
 var _health_badge: PanelContainer
 var _health_label: Label
 var _ward_overlay: ColorRect
+var _keyword_icons_container: HBoxContainer
 
 
 func _ready() -> void:
@@ -160,6 +163,14 @@ func _build_internal_nodes() -> void:
 		ward_mat.shader = ward_shader
 		_ward_overlay.material = ward_mat
 	_content_root.add_child(_ward_overlay)
+
+	# Keyword icons row – sits at the bottom of the art frame
+	_keyword_icons_container = HBoxContainer.new()
+	_keyword_icons_container.name = "KeywordIcons"
+	_keyword_icons_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	_keyword_icons_container.add_theme_constant_override("separation", 2)
+	_keyword_icons_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_content_root.add_child(_keyword_icons_container)
 
 	# Name banner added AFTER art so it renders on top as an overlay
 	_name_banner = PanelContainer.new()
@@ -270,6 +281,7 @@ func _refresh_content() -> void:
 	else:
 		_attack_label.text = ""
 		_health_label.text = ""
+	_refresh_keyword_icons()
 
 
 func _refresh_styles() -> void:
@@ -337,6 +349,7 @@ func _refresh_visibility() -> void:
 	_attack_badge.visible = is_creature and (full or creature_minimal)
 	_health_badge.visible = is_creature and (full or creature_minimal)
 	_ward_overlay.visible = is_creature and EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_WARD)
+	# Keyword icons visibility is managed by _layout_keyword_icons based on child count
 
 
 func _layout_internal_nodes() -> void:
@@ -394,6 +407,7 @@ func _layout_full(inner_rect: Rect2) -> void:
 	_layout_stat_badges(inner_rect, Rect2(_art_frame.position, _art_frame.size), scale, true)
 
 	_layout_ward_overlay()
+	_layout_keyword_icons()
 
 	# Rules panel – bottom portion of card below art, with gap for stat badges
 	var rules_y := _art_frame.position.y + _art_frame.size.y + 4.0 * scale
@@ -422,6 +436,7 @@ func _layout_creature_board_minimal(inner_rect: Rect2) -> void:
 	_art_frame.size = Vector2(maxf(inner_rect.size.x - art_padding * 2.0, 0.0), maxf(inner_rect.size.y - art_padding * 2.0, 0.0))
 	_layout_stat_badges(inner_rect, Rect2(_art_frame.position, _art_frame.size), scale)
 	_layout_ward_overlay()
+	_layout_keyword_icons()
 	_name_banner.position = Vector2.ZERO
 	_name_banner.size = Vector2.ZERO
 	_subtype_banner.position = Vector2.ZERO
@@ -535,6 +550,40 @@ func _layout_stat_badges(inner_rect: Rect2, art_rect: Rect2, scale: float, esl_s
 		_health_label.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 		_health_label.pivot_offset = rect_size * 0.5
 		_health_label.rotation_degrees = 0.0
+
+
+func _refresh_keyword_icons() -> void:
+	if _keyword_icons_container == null:
+		return
+	for child in _keyword_icons_container.get_children():
+		child.queue_free()
+	var icon_texture := _load_texture_from_path(KEYWORD_ICON_PATH)
+	if icon_texture == null:
+		return
+	for kw in KEYWORD_NAMES:
+		if EvergreenRules.has_keyword(_card_data, kw):
+			var icon := TextureRect.new()
+			icon.texture = icon_texture
+			icon.custom_minimum_size = Vector2(KEYWORD_ICON_SIZE, KEYWORD_ICON_SIZE)
+			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			_keyword_icons_container.add_child(icon)
+
+
+func _layout_keyword_icons() -> void:
+	if _keyword_icons_container == null:
+		return
+	var icon_count := _keyword_icons_container.get_child_count()
+	if icon_count == 0:
+		_keyword_icons_container.visible = false
+		return
+	_keyword_icons_container.visible = true
+	var total_width := float(icon_count * KEYWORD_ICON_SIZE + (icon_count - 1) * 2)
+	var container_x := _art_frame.position.x + (_art_frame.size.x - total_width) * 0.5
+	var container_y := _art_frame.position.y + _art_frame.size.y - KEYWORD_ICON_SIZE - 4.0
+	_keyword_icons_container.position = Vector2(container_x, container_y)
+	_keyword_icons_container.size = Vector2(total_width, KEYWORD_ICON_SIZE)
 
 
 func _layout_ward_overlay() -> void:
