@@ -212,6 +212,12 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 	var triggered: Array = definition.get("triggered_abilities", [])
 	if not triggered.is_empty():
 		card["triggered_abilities"] = triggered.duplicate(true)
+	if definition.has("aura"):
+		card["aura"] = definition["aura"].duplicate(true)
+	if definition.has("cost_reduction_aura"):
+		card["cost_reduction_aura"] = definition["cost_reduction_aura"].duplicate(true)
+	if definition.has("grants_immunity"):
+		card["grants_immunity"] = definition["grants_immunity"].duplicate(true)
 
 
 func _process(_delta: float) -> void:
