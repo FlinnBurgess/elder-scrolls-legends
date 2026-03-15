@@ -8,7 +8,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 - **Bone Bow** (`str_bone_bow`) — "+1/+0. Summon: Silence another creature." Item, needs target choice for silence on equip.
 - **Mace of Encumbrance** (`int_mace_of_encumbrance`) — "+2/+1. Summon: Shackle an enemy creature." Item, needs target choice for shackle on equip.
-- **Execute** (`wil_execute`) — "Destroy a creature with 2 power or less." Action needs player to choose + conditional target.
 
 ### Needs ongoing aura mechanic
 
@@ -32,10 +31,8 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 ### Needs "on damage taken" / reactive trigger families
 
-- **Fearless Northlander** (`str_fearless_northlander`) — "When takes damage, gains +2/+0." Needs `on_damage_taken` trigger.
 - **Shornhelm Champion** (`dual_shornhelm_champion`) — "When Ward broken, gains +3/+3." Needs `on_ward_broken` trigger.
 - **Auroran Sentry** (`wil_auroran_sentry`) — "Guard. When dealt damage, you gain that much health." Needs `on_damage_taken` trigger + heal equal to damage.
-- **Imprisoned Deathlord** (`end_imprisoned_deathlord`) — "When enemy summoned, Shackle self." Needs `on_enemy_summon` trigger + shackle op.
 
 ### Needs "on creature summoned" trigger family
 
@@ -77,7 +74,7 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Telvanni Arcanist** (`int_telvanni_arcanist`) — "Last Gasp: Put random action into hand." Needs `last_gasp` + generate card.
 - **Elusive Schemer** (`int_elusive_schemer`) — "Summon: Draw. Last Gasp: Shuffle 0-cost copy." Summon draw wired; last_gasp shuffle-copy NOT implemented.
 - **Heirloom Greatsword** (`int_heirloom_greatsword`) — "Last Gasp: Returns to hand." Item needs `last_gasp` + return-to-hand op.
-- **Spider Daedra** (`agi_spider_daedra`) — "Summon: Fill with Spiderlings. Last Gasp: Destroy Spiderlings." Needs `last_gasp` + destroy-by-subtype + summon fill lane.
+- **Spider Daedra** (`agi_spider_daedra`) — "Summon: Fill with Spiderlings. Last Gasp: Destroy Spiderlings." Summon fill lane with Spiderlings wired; `last_gasp` destroy-by-subtype still unfixed.
 
 ### Needs "put card into hand" mechanic
 
@@ -87,7 +84,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 ### Needs health comparison condition
 
 - **Black Worm Necromancer** (`end_black_worm_necromancer`) — "Summon: If more health, summon random from discard." Needs health comparison + summon-from-discard.
-- **Royal Sage** (`int_royal_sage`) — "Summon: If more health, give each friendly a random Keyword." Needs health comparison + grant_random_keyword.
 - **Soulrest Marshal** (`agi_soulrest_marshal`) — "Summon: If more health, next card costs 6 less." Needs health comparison + cost reduction.
 
 ### Needs conditional summon buffs
@@ -107,11 +103,9 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 - **Stone Throw** (`str_stone_throw`) — "Destroy enemy creature if you have higher power creature." Needs target + power comparison.
 - **Imprison** (`wil_imprison`) — "Shackle a creature; destroy if 4+ Willpower creatures." Needs target + attribute count condition.
-- **Falinesti Reaver** (`dual_falinesti_reaver`) — "Summon: Destroy all Wounded enemies in lane." Needs conditional mass destroy in lane.
 
 ### Needs "move" mechanic
 
-- **Dune Stalker** (`agi_dune_stalker`) — "Prophecy. Summon: Move another friendly creature in this lane." Needs move op + target choice.
 - **Dune Smuggler** (`agi_dune_smuggler`) — "Summon: Move friendly creature. When moves, +1/+1." Needs move op + on_move trigger.
 - **Shadow Shift** (`agi_shadow_shift`) — "Move a friendly creature. Draw a card." Action needs move + draw.
 
@@ -187,3 +181,4 @@ Cards that have been successfully wired with triggered_abilities:
 - Fiery Imp (on_attack → damage opponent 2), Staff of Sparks (on_attack → deal 1 damage to all enemies in lane, item), Crystal Tower Crafter (after_action_played → +1/+1), Lillandril Hexmage (after_action_played → damage opponent 1), Artaeum Savant (after_action_played → +1/+1 to random friendly), Grim Champion (on_friendly_death + opponent death → +1/+1 both sides), Necromancer's Amulet (on_friendly_death → heal 1), Alik'r Survivalist (fully fixed: on_equip +1/+1 + summon generate dagger to hand), Dragonstar Rider (on_equip → draw), Whirling Duelist (on_equip → deal 1 damage to all enemies in lane), Craglorn Scavenger (on_play support + activate → +1/+1), General Tullius (on_friendly_death → +1/+1; summon was already wired, now fully fixed)
 - Sharpshooter Scout (summon → target choice creature_or_player → deal_damage 1), Valenwood Huntsman (summon → target choice creature_or_player → deal_damage 1), Morkul Gatekeeper (summon → target choice any_creature → modify_stats +2/+0), Savage Ogre (summon → target choice any_creature → modify_stats +5/+0), Earthbone Spinner (summon → target choice another_creature → silence + deal_damage 1), Ash Servant (summon → target choice enemy_creature → deal_damage 2), Shocking Wamasu (summon → target choice enemy_creature → deal_damage 4), Shrieking Harpy (summon → target choice enemy_creature → shackle), Wardcrafter (summon → target choice any_creature → grant_keyword ward), Sunhold Medic (summon → target choice any_creature → modify_stats +0/+2), Loyal Housecarl (summon → target choice any_creature → modify_stats +2/+2 + grant_keyword guard), Cloudrest Illusionist (summon → target choice any_creature → modify_stats -4/0), Mantikora (summon → target choice enemy_creature_in_lane → destroy_creature), Spiteful Dremora (summon → target choice any_creature filtered max_power 2 → destroy_creature), Pillaging Tribune (summon → target choice friendly_creature → grant_keyword drain), Skooma Racketeer (summon → target choice any_creature → grant_keyword lethal), Murkwater Witch (summon → target choice any_creature → modify_stats -1/-1), Leaflurker (summon → target choice any_creature filtered wounded → destroy_creature), Cursed Spectre (summon → target choice another_creature → silence), Shadowfen Priest (summon → multi target choice: another_creature → silence, enemy_support → destroy), Wrothgar Artisan (summon → target choice any_creature → modify_stats +1/+1), Barded Guar (summon → target choice any_creature → grant_keyword guard), Frenzied Witchman (summon → target choice any_creature → modify_stats +2/+1), Dwarven Sphere (summon → target choice enemy_creature → shackle), Vicious Dreugh (summon → target choice enemy_support → destroy_creature), Ravenous Crocodile (summon → target choice friendly_creature → deal_damage 2), Allena Benoch (summon → target choice creature_or_player → deal_damage 1)
 - Crushing Blow (on_play → deal_damage 3), Firebolt (on_play → deal_damage 2), Piercing Javelin (on_play → destroy_creature), Suppress (on_play → silence), Cast Out (on_play → unsummon), Arrow in the Knee (on_play → shackle + deal_damage 1), Lightning Bolt (on_play → deal_damage 4), Finish Off (on_play → destroy_creature wounded), Winter's Grasp (on_play → shackle all_enemies), Ice Storm (on_play → deal_damage 3 to all creatures), Belligerent Giant (summon → multi: unsummon creature OR destroy support), Forsworn Guide (summon → unsummon friendly + self +2/+2), Skywatch Vindicator (summon → multi: damage enemy creature OR buff friendly creature), Edict of Azura (on_play → destroy creature/support), Cunning Ally (summon → generate Firebolt to hand conditional), Alik'r Survivalist (fully fixed: on_equip +1/+1 + summon generate dagger to hand)
+- Execute (on_play → target choice destroy_creature filtered max_power 2), Imprisoned Deathlord (on_opponent_summon → shackle self), Fearless Northlander (on_damage_taken → self +2/+0), Royal Sage (summon conditional more health → grant_random_keyword all_friendly), Falinesti Reaver (summon → destroy all wounded enemies in lane), Dune Stalker (summon → target choice move friendly creature), Spider Daedra (summon fill lane with Spiderlings only; last_gasp destroy Spiderlings still unfixed)
