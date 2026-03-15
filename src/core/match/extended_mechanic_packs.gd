@@ -124,6 +124,33 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 	var excluded_rule_tag := str(descriptor.get("excluded_event_source_rule_tag", ""))
 	if not excluded_rule_tag.is_empty() and _card_has_string(source_card, "rules_tags", excluded_rule_tag):
 		return false
+	# Health comparison conditions
+	if descriptor.has("required_more_health"):
+		var opponent := _get_opponent(match_state, str(trigger.get("controller_player_id", "")))
+		if controller.is_empty() or opponent.is_empty():
+			return false
+		if int(controller.get("health", 0)) <= int(opponent.get("health", 0)):
+			return false
+	if descriptor.has("required_less_health"):
+		var opponent := _get_opponent(match_state, str(trigger.get("controller_player_id", "")))
+		if controller.is_empty() or opponent.is_empty():
+			return false
+		if int(controller.get("health", 0)) >= int(opponent.get("health", 0)):
+			return false
+	# Subtype on board condition (e.g., "if you have another Orc")
+	var required_board_subtype := str(descriptor.get("required_subtype_on_board", ""))
+	if not required_board_subtype.is_empty():
+		var trigger_source_id := str(trigger.get("source_instance_id", ""))
+		if not _has_friendly_with_subtype(match_state, str(trigger.get("controller_player_id", "")), required_board_subtype, trigger_source_id):
+			return false
+	# Wounded enemy in lane condition
+	if bool(descriptor.get("required_wounded_enemy_in_lane", false)):
+		if not _has_wounded_enemy_in_lane(match_state, trigger):
+			return false
+	# Enemy in lane condition
+	if bool(descriptor.get("required_enemy_in_lane", false)):
+		if not _has_enemy_in_lane(match_state, trigger):
+			return false
 	return true
 
 
@@ -547,6 +574,86 @@ static func _card_has_string(card: Dictionary, field_name: String, expected: Str
 		if str(value) == expected:
 			return true
 	return false
+
+
+static func _get_opponent(match_state: Dictionary, player_id: String) -> Dictionary:
+	for player in match_state.get("players", []):
+		if typeof(player) == TYPE_DICTIONARY and str(player.get("player_id", "")) != player_id:
+			return player
+	return {}
+
+
+static func _has_friendly_with_subtype(match_state: Dictionary, player_id: String, subtype: String, exclude_instance_id: String) -> bool:
+	for lane in match_state.get("lanes", []):
+		var player_slots: Dictionary = lane.get("player_slots", {})
+		var slots: Array = player_slots.get(player_id, [])
+		for card in slots:
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			if str(card.get("instance_id", "")) == exclude_instance_id:
+				continue
+			if _card_has_string(card, "subtypes", subtype):
+				return true
+	return false
+
+
+static func _has_wounded_enemy_in_lane(match_state: Dictionary, trigger: Dictionary) -> bool:
+	var controller_id := str(trigger.get("controller_player_id", ""))
+	var source_card := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+	if source_card.is_empty():
+		return false
+	var source_lane_index := _get_card_lane_index(match_state, source_card)
+	if source_lane_index < 0:
+		return false
+	var lanes: Array = match_state.get("lanes", [])
+	if source_lane_index >= lanes.size():
+		return false
+	var lane: Dictionary = lanes[source_lane_index]
+	var player_slots: Dictionary = lane.get("player_slots", {})
+	for pid in player_slots.keys():
+		if str(pid) == controller_id:
+			continue
+		for card in player_slots[pid]:
+			if typeof(card) == TYPE_DICTIONARY and EvergreenRules.has_status(card, EvergreenRules.STATUS_WOUNDED):
+				return true
+	return false
+
+
+static func _has_enemy_in_lane(match_state: Dictionary, trigger: Dictionary) -> bool:
+	var controller_id := str(trigger.get("controller_player_id", ""))
+	var source_card := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+	if source_card.is_empty():
+		return false
+	var source_lane_index := _get_card_lane_index(match_state, source_card)
+	if source_lane_index < 0:
+		return false
+	var lanes: Array = match_state.get("lanes", [])
+	if source_lane_index >= lanes.size():
+		return false
+	var lane: Dictionary = lanes[source_lane_index]
+	var player_slots: Dictionary = lane.get("player_slots", {})
+	for pid in player_slots.keys():
+		if str(pid) == controller_id:
+			continue
+		var slots: Array = player_slots.get(str(pid), [])
+		if not slots.is_empty():
+			return true
+	return false
+
+
+static func _get_card_lane_index(match_state: Dictionary, card: Dictionary) -> int:
+	var instance_id := str(card.get("instance_id", ""))
+	if instance_id.is_empty():
+		return -1
+	var lanes: Array = match_state.get("lanes", [])
+	for lane_index in range(lanes.size()):
+		var lane: Dictionary = lanes[lane_index]
+		var player_slots: Dictionary = lane.get("player_slots", {})
+		for pid in player_slots.keys():
+			for slot_card in player_slots[pid]:
+				if typeof(slot_card) == TYPE_DICTIONARY and str(slot_card.get("instance_id", "")) == instance_id:
+					return lane_index
+	return -1
 
 
 static func _ensure_array(value) -> Array:

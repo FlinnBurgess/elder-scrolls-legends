@@ -41,7 +41,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Frenzied Witchman** (`neu_frenzied_witchman`) — "Summon: Give a creature +2/+1." Needs player to choose a creature target.
 - **Allena Benoch** (`dual_allena_benoch`) — "Lethal. Summon: Deal 1 damage." Needs player to choose a target.
 - **Skywatch Vindicator** (`dual_skywatch_vindicator`) — "Summon: Deal 2 damage to a creature, or give a creature +2/+2." Needs target choice + modal selection.
-- **Rift Thane** (`dual_rift_thane`) — "Summon: If more health +0/+2 Guard, else +2/+0 Breakthrough." Needs health comparison + conditional.
 - **Queen Barenziah** (`dual_queen_barenziah`) — "Drain. Summon: Give other creatures in this lane Guard." Needs lane-mate targeting.
 
 ### Needs ongoing aura mechanic
@@ -164,20 +163,13 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 - **Black Worm Necromancer** (`end_black_worm_necromancer`) — "Summon: If more health, summon random from discard." Needs health comparison + summon-from-discard.
 - **Royal Sage** (`int_royal_sage`) — "Summon: If more health, give each friendly a random Keyword." Needs health comparison + grant_random_keyword.
-- **Golden Saint** (`wil_golden_saint`) — "Guard. Summon: If more health, summon Golden Saint in other lane." Needs health comparison + summon_copy_to_other_lane.
-- **Triumphant Jarl** (`str_triumphant_jarl`) — "Summon: If more health, draw two cards." Needs health comparison condition.
 - **Soulrest Marshal** (`agi_soulrest_marshal`) — "Summon: If more health, next card costs 6 less." Needs health comparison + cost reduction.
 
 ### Needs conditional summon buffs
 
-- **Bangkorai Butcher** (`str_bangkorai_butcher`) — "Summon: +2/+2 if you have another Orc." Needs subtype-check condition.
-- **Silvenar Tracker** (`str_silvenar_tracker`) — "Summon: Gains Charge if Wounded enemy in lane." Needs wounded-enemy-in-lane condition.
 - **Aldmeri Patriot** (`wil_aldmeri_patriot`) — "Summon: +1/+1 if you have an action in hand." Needs hand-contents condition.
 - **Feasting Vulture** (`agi_feasting_vulture`) — "Summon: +2/+2 if a creature died this turn." Needs creature-died-this-turn condition.
 - **Angry Grahl** (`end_angry_grahl`) — "Summon: +2/+2 if opponent has more cards." Needs hand-size comparison condition.
-- **Green Pact Stalker** (`agi_green_pact_stalker`) — "Guard. Summon: +2/+2 if Wounded enemy in lane." Needs wounded-enemy condition.
-- **Ravenous Hunger** (`wil_ravenous_hunger`) — "Summon: Gains Drain if enemy in lane." Needs enemy-in-lane condition.
-- **Wood Orc Headhunter** (`str_wood_orc_headhunter`) — "Summon: Gains Charge if you have another Orc." Needs subtype-check condition.
 
 ### Needs "deal damage to all enemies" target type
 
@@ -254,7 +246,6 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Arenthia Swindler** (`agi_arenthia_swindler`) — "Summon: Steal all items from enemy creature." Needs steal-items op.
 - **Camoran Scout Leader** (`agi_camoran_scout_leader`) — "Summon: Summon 2/2 Scouts per Wounded enemy lane." Conditional multi-summon.
 - **Necrom Mastermind** (`agi_necrom_mastermind`) — "Summon: Trigger Last Gasp of each friendly creature." Needs re-trigger op.
-- **Pack Wolf** (`wil_pack_wolf`) — "Summon: Summon 1/1 Young Wolf in other lane." Needs summon-to-other-lane op.
 - **Renowned Legate** (`wil_renowned_legate`) — "Summon: Summon 1/1 Grunt, gain health per friendly." Multi-op summon.
 - **Miraak, Dragonborn** (`wil_miraak_dragonborn`) — "Summon: Steal an enemy creature." Needs steal op.
 - **Wild Beastcaller** (`agi_wild_beastcaller`) — "Summon: Summon a random Animal." Needs summon-random-by-subtype.
@@ -295,3 +286,4 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 Cards that have been successfully wired with triggered_abilities:
 - Chaurus Reaper, Thieves Guild Recruit (draw only), Northpoint Captain, Tree Minder, Stalwart Ally, Resolute Ally, Tome of Alteration, Assassin's Bow, Grahtwood Ambusher, Fifth Legion Trainer, Imperial Siege Engine, Riften Pillager (summon/modify_stats), Bruma Armorer, Dragontail Savior, Flesh Atronach, Gloom Wraith, Wrothgar Kingpin, Murkwater Savage, Supreme Atromancer, Bruma Profiteer, Imperial Reinforcements, Scouting Patrol, Midnight Sweep, Slaughterfish Spawning
 - Afflicted Alit, Blighted Alit, Mighty Ally, Vigilant Giant, Camlorn Hero, Fate Weaver (summon draw only; prophecy play-for-free not implemented), Indoril Archmage, Studium Headmaster, Elusive Schemer (summon draw only; last_gasp shuffle-copy not implemented), Descendant of Alkosh, Priest of the Moons, Rajhini Highwayman, Riverhold Escort, Baandari Bruiser, Daring Cutpurse, Deshaan Avenger, House Kinsman, Mournhold Traitor, Nimble Ally, Pahmar-raht Renegade, Quin'rawl Burglar, Tazkad the Packmaster, Tenmar Swiftclaw (pilfer +1/+1 only; extra attack not implemented), Varanis Courier, Snake Tooth Necklace, Archein Venomtongue, Deathless Draugr, Restless Templar, Enchanted Plate, Dark Harvester, Spider Worker, Slaughterfish, Sadras Agent, Thorn Histmage (summon +1 max magicka only; modify_stats on magicka increase not implemented), Brotherhood Assassin
+- Bangkorai Butcher (summon conditional +2/+2 if another Orc), Silvenar Tracker (summon conditional Charge if wounded enemy in lane), Triumphant Jarl (summon conditional draw 2 if more health), Wood Orc Headhunter (summon conditional Charge if another Orc), Golden Saint (summon conditional summon Golden Saint in other lane if more health), Ravenous Hunger (summon conditional Drain if enemy in lane), Pack Wolf (summon Young Wolf in other lane), Green Pact Stalker (summon conditional +2/+2 if wounded enemy in lane), Rift Thane (summon conditional buffs based on health comparison)

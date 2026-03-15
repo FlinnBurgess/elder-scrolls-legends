@@ -961,7 +961,14 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						summon_lane_ids.append(str(lane.get("lane_id", "")))
 				else:
 					var single_lane_id := str(effect.get("lane_id", effect.get("target_lane_id", event.get("lane_id", ""))))
-					if single_lane_id.is_empty():
+					if single_lane_id == "other_lane":
+						var source_lane_id := str(event.get("lane_id", ""))
+						for lane in match_state.get("lanes", []):
+							var lid := str(lane.get("lane_id", ""))
+							if lid != source_lane_id and not lid.is_empty():
+								single_lane_id = lid
+								break
+					if single_lane_id.is_empty() or single_lane_id == "other_lane":
 						continue
 					summon_lane_ids.append(single_lane_id)
 				var summon_template: Dictionary = effect.get("card_template", {})
