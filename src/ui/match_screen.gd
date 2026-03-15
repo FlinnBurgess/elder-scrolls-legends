@@ -12,6 +12,7 @@ const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const MatchBootstrap = preload("res://src/core/match/match_bootstrap.gd")
 const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
+const CardCatalog = preload("res://src/deck/card_catalog.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
 const CARD_DISPLAY_COMPONENT_SCRIPT := preload("res://src/ui/components/CardDisplayComponent.gd")
 const CARD_DISPLAY_COMPONENT_SCENE := preload("res://scenes/ui/components/CardDisplayComponent.tscn")
@@ -134,6 +135,12 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array) -> bool:
 	_clear_feedback_state()
 	_reset_local_match_ai_queue()
 	_local_match_ai_action_count = 0
+	var catalog_result := CardCatalog.load_default()
+	var card_by_id: Dictionary = catalog_result.get("card_by_id", {})
+	if card_by_id.is_empty():
+		_status_message = "Failed to load card catalog."
+		_refresh_ui()
+		return false
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	var match_state := MatchBootstrap.create_standard_match(
@@ -144,6 +151,7 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array) -> bool:
 		_status_message = "Failed to create match."
 		_refresh_ui()
 		return false
+	_hydrate_match_cards(match_state, card_by_id)
 	for player in match_state.get("players", []):
 		MatchBootstrap.apply_mulligan(match_state, str(player.get("player_id", "")), [])
 	MatchTurnLoop.begin_first_turn(match_state)
@@ -159,6 +167,41 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array) -> bool:
 	_status_message = "Match started."
 	_refresh_ui()
 	return true
+
+
+static func _hydrate_match_cards(match_state: Dictionary, card_by_id: Dictionary) -> void:
+	for player in match_state.get("players", []):
+		for zone_key in ["deck", "hand"]:
+			var zone: Array = player.get(zone_key, [])
+			for card in zone:
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				_hydrate_card(card, card_by_id)
+
+
+static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
+	var definition_id := str(card.get("definition_id", ""))
+	var definition: Dictionary = card_by_id.get(definition_id, {})
+	if definition.is_empty():
+		return
+	card["name"] = str(definition.get("name", ""))
+	card["card_type"] = str(definition.get("card_type", "creature"))
+	card["cost"] = int(definition.get("cost", 0))
+	card["power"] = int(definition.get("base_power", 0))
+	card["health"] = int(definition.get("base_health", 0))
+	card["rarity"] = str(definition.get("rarity", "common"))
+	card["is_unique"] = bool(definition.get("is_unique", false))
+	card["rules_text"] = str(definition.get("rules_text", ""))
+	card["subtypes"] = definition.get("subtypes", []).duplicate(true)
+	card["attributes"] = definition.get("attributes", []).duplicate(true)
+	card["effect_ids"] = definition.get("effect_ids", []).duplicate(true)
+	card["support_uses"] = int(definition.get("support_uses", 0))
+	var def_keywords: Array = definition.get("keywords", [])
+	if not def_keywords.is_empty():
+		card["keywords"] = def_keywords.duplicate(true)
+	var def_rules_tags: Array = definition.get("rules_tags", [])
+	if not def_rules_tags.is_empty():
+		card["rules_tags"] = def_rules_tags.duplicate(true)
 
 
 func _process(_delta: float) -> void:
