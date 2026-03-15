@@ -64,7 +64,7 @@ var _attack_badge: PanelContainer
 var _attack_label: Label
 var _health_badge: PanelContainer
 var _health_label: Label
-var _ward_overlay: TextureRect
+var _ward_overlay: ColorRect
 
 
 func _ready() -> void:
@@ -222,10 +222,9 @@ func _build_internal_nodes() -> void:
 	_health_label.add_theme_font_override("font", bold_font_h)
 	_health_badge.add_child(_health_label)
 
-	_ward_overlay = TextureRect.new()
+	_ward_overlay = ColorRect.new()
 	_ward_overlay.name = "WardOverlay"
-	_ward_overlay.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_ward_overlay.stretch_mode = TextureRect.STRETCH_SCALE
+	_ward_overlay.color = Color.TRANSPARENT
 	_ward_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_ward_overlay.visible = false
 	var ward_shader := load("res://assets/shaders/ward_mist.gdshader") as Shader
@@ -233,10 +232,6 @@ func _build_internal_nodes() -> void:
 		var ward_mat := ShaderMaterial.new()
 		ward_mat.shader = ward_shader
 		_ward_overlay.material = ward_mat
-	# Needs a texture for the shader to run on; a small white image works fine
-	var ward_img := Image.create(2, 2, false, Image.FORMAT_RGBA8)
-	ward_img.fill(Color.WHITE)
-	_ward_overlay.texture = ImageTexture.create_from_image(ward_img)
 	_content_root.add_child(_ward_overlay)
 
 	_set_mouse_passthrough_recursive(_content_root)
@@ -538,9 +533,9 @@ func _layout_stat_badges(inner_rect: Rect2, art_rect: Rect2, scale: float, esl_s
 func _layout_ward_overlay() -> void:
 	if _ward_overlay == null:
 		return
-	# Cover the upper ~55% of the art frame so mist sits above the artwork
+	# Cover the full art frame area; the shader's vertical fade handles the falloff
 	_ward_overlay.position = _art_frame.position
-	_ward_overlay.size = Vector2(_art_frame.size.x, _art_frame.size.y * 0.55)
+	_ward_overlay.size = _art_frame.size
 
 
 func _get_default_art_texture() -> Texture2D:

@@ -3,7 +3,7 @@ shader_type canvas_item;
 uniform float scroll_speed_1 : hint_range(0.01, 0.5) = 0.06;
 uniform float scroll_speed_2 : hint_range(0.01, 0.5) = 0.04;
 uniform vec4 mist_color : source_color = vec4(0.45, 0.72, 0.95, 1.0);
-uniform float intensity : hint_range(0.0, 1.0) = 0.55;
+uniform float intensity : hint_range(0.0, 1.0) = 0.72;
 uniform float noise_scale_1 : hint_range(1.0, 20.0) = 6.0;
 uniform float noise_scale_2 : hint_range(1.0, 20.0) = 4.0;
 uniform float vertical_fade_power : hint_range(0.5, 4.0) = 1.5;
@@ -44,8 +44,8 @@ void fragment() {
 	float n1 = fbm(uv * noise_scale_1 + vec2(TIME * scroll_speed_1, TIME * scroll_speed_1 * 0.7));
 	float n2 = fbm(uv * noise_scale_2 + vec2(-TIME * scroll_speed_2 * 0.8, TIME * scroll_speed_2));
 
-	// Multiply noise layers for swirling mist
-	float mist = n1 * n2;
+	// Blend noise layers for swirling mist
+	float mist = (n1 + n2) * 0.5;
 
 	// Vertical fade: strongest at top, fading out toward bottom
 	float fade = pow(1.0 - uv.y, vertical_fade_power);
