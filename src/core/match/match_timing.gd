@@ -870,6 +870,28 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							continue
 						generated_events.append_array(summon_result.get("events", []))
 						generated_events.append(_build_summon_event(summon_result["card"], player_id, summon_lane_id, int(summon_result.get("slot_index", -1)), reason))
+			"summon_copies_to_lane":
+				var copies_lane_id := str(effect.get("lane_id", effect.get("target_lane_id", event.get("lane_id", ""))))
+				var copies_players := _resolve_player_targets(trigger, event, effect)
+				var copies_template: Dictionary = effect.get("card_template", {})
+				if copies_lane_id.is_empty() or copies_players.is_empty() or copies_template.is_empty():
+					continue
+				var copies_count := int(effect.get("count", 0))
+				var fill_lane := bool(effect.get("fill_lane", false))
+				for player_id in copies_players:
+					var remaining := copies_count
+					if fill_lane:
+						var lane_data := _get_lane_open_slots(match_state, copies_lane_id, player_id)
+						remaining = int(lane_data.get("open_slots", 0))
+					for _i in range(remaining):
+						var gen_card := MatchMutations.build_generated_card(match_state, player_id, copies_template)
+						var summon_res := MatchMutations.summon_card_to_lane(match_state, player_id, gen_card, copies_lane_id, {
+							"source_zone": MatchMutations.ZONE_GENERATED,
+						})
+						if not bool(summon_res.get("is_valid", false)):
+							break
+						generated_events.append_array(summon_res.get("events", []))
+						generated_events.append(_build_summon_event(summon_res["card"], player_id, copies_lane_id, int(summon_res.get("slot_index", -1)), reason))
 			_:
 				var custom_result := ExtendedMechanicPacks.apply_custom_effect(match_state, trigger, event, effect)
 				if bool(custom_result.get("handled", false)):
@@ -937,6 +959,16 @@ static func _build_summon_event(card: Dictionary, player_id: String, lane_id: St
 		"slot_index": slot_index,
 		"reason": reason,
 	}
+
+
+static func _get_lane_open_slots(match_state: Dictionary, lane_id: String, player_id: String) -> Dictionary:
+	for lane in match_state.get("lanes", []):
+		if str(lane.get("lane_id", "")) != lane_id:
+			continue
+		var player_slots: Array = lane.get("player_slots", {}).get(player_id, [])
+		var slot_capacity := int(lane.get("slot_capacity", 0))
+		return {"open_slots": maxi(0, slot_capacity - player_slots.size())}
+	return {"open_slots": 0}
 
 
 static func _resume_pending_rune_breaks(match_state: Dictionary) -> Dictionary:

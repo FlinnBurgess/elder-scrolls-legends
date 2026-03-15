@@ -62,6 +62,9 @@ static func _build_card(seed: Dictionary, registry) -> Dictionary:
 		card["equip_power_bonus"] = int(seed.get("equip_power_bonus", 0))
 		card["equip_health_bonus"] = int(seed.get("equip_health_bonus", 0))
 		card["equip_keywords"] = seed.get("equip_keywords", []).duplicate(true)
+	var triggered: Array = seed.get("triggered_abilities", [])
+	if not triggered.is_empty():
+		card["triggered_abilities"] = triggered.duplicate(true)
 	return card
 
 
@@ -86,6 +89,7 @@ static func _seed(card_id: String, name: String, attributes: Array, card_type: S
 		"equip_power_bonus": int(extra.get("equip_power_bonus", 0)),
 		"equip_health_bonus": int(extra.get("equip_health_bonus", 0)),
 		"equip_keywords": extra.get("equip_keywords", []).duplicate(true),
+		"triggered_abilities": extra.get("triggered_abilities", []).duplicate(true),
 	}
 
 
@@ -259,7 +263,7 @@ static func _card_seeds() -> Array:
 		_seed("wil_immolating_blast", "Immolating Blast", ["willpower"], "action", 6, 0, 0, {"rarity": "epic", "effect_ids": ["destroy"], "rules_text": "Destroy all creatures except for one random creature on both sides of each lane."}),
 		_seed("wil_imperial_legionnaire", "Imperial Legionnaire", ["willpower"], "creature", 3, 3, 4, {"subtypes": ["Imperial"]}),
 		_seed("wil_imperial_might", "Imperial Might", ["willpower"], "support", 5, 0, 0, {"rarity": "epic", "rules_text": "Ongoing\nAt the end of your turn, summon a 1/1 Imperial Grunt.", "support_uses": 0}),
-		_seed("wil_imperial_reinforcements", "Imperial Reinforcements", ["willpower"], "action", 4, 0, 0, {"rarity": "rare", "rules_text": "Fill a lane with 1/1 Imperial Grunts."}),
+		_seed("wil_imperial_reinforcements", "Imperial Reinforcements", ["willpower"], "action", 4, 0, 0, {"rarity": "rare", "effect_ids": ["create", "summon"], "rules_text": "Fill a lane with 1/1 Imperial Grunts.", "triggered_abilities": [{"id": "imperial_reinforcements_on_play", "family": "on_play", "effects": [{"op": "summon_copies_to_lane", "fill_lane": true, "card_template": {"definition_id": "wil_imperial_grunt", "name": "Imperial Grunt", "card_type": "creature", "subtypes": ["Imperial"], "attributes": ["willpower"], "cost": 1, "power": 1, "health": 1, "base_power": 1, "base_health": 1}}]}]}),
 		_seed("wil_imperial_siege_engine", "Imperial Siege Engine", ["willpower"], "creature", 5, 3, 3, {"rarity": "rare", "effect_ids": ["modify_stats", "summon"], "subtypes": ["Imperial"], "rules_text": "Summon: +1/+1 for each other friendly creature."}),
 		_seed("wil_imprison", "Imprison", ["willpower"], "action", 2, 0, 0, {"rarity": "rare", "effect_ids": ["destroy", "shackle"], "rules_text": "Shackle a creature. If you have four or more  creatures, destroy it instead."}),
 		_seed("wil_kvatch_soldier", "Kvatch Soldier", ["willpower"], "creature", 2, 2, 3, {"keywords": ["guard"], "subtypes": ["Imperial"], "rules_text": "Guard"}),

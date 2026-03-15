@@ -206,6 +206,9 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 		card["equip_power_bonus"] = int(definition.get("equip_power_bonus", 0))
 		card["equip_health_bonus"] = int(definition.get("equip_health_bonus", 0))
 		card["equip_keywords"] = definition.get("equip_keywords", []).duplicate(true)
+	var triggered: Array = definition.get("triggered_abilities", [])
+	if not triggered.is_empty():
+		card["triggered_abilities"] = triggered.duplicate(true)
 
 
 func _process(_delta: float) -> void:
