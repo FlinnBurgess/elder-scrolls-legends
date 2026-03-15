@@ -89,6 +89,9 @@ var _targeting_arrow: Line2D
 var _pending_summon_target := {}
 var _prophecy_overlay_state := {}
 var _prophecy_card_overlay: Control
+var _mulligan_overlay_state := {}
+var _mulligan_marked_ids: Array = []
+var _mulligan_card_by_id: Dictionary = {}
 var _attack_feedbacks: Array = []
 var _damage_feedbacks: Array = []
 var _removal_feedbacks: Array = []
@@ -132,6 +135,7 @@ func _ready() -> void:
 
 func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array) -> bool:
 	_cancel_detached_card_silent()
+	_dismiss_mulligan_overlay()
 	_dismiss_prophecy_overlay()
 	_reset_invalid_feedback()
 	_clear_feedback_state()
@@ -154,21 +158,23 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array) -> bool:
 		_refresh_ui()
 		return false
 	_hydrate_match_cards(match_state, card_by_id)
-	for player in match_state.get("players", []):
-		MatchBootstrap.apply_mulligan(match_state, str(player.get("player_id", "")), [])
-	GameLogger.start_match(match_state)
-	MatchTurnLoop.begin_first_turn(match_state)
-	_ai_enabled = true
-	_scenario_id = LOCAL_MATCH_AI_SCENARIO_ID
+	# Apply AI mulligan immediately (invisible to player)
+	var ai_id := PLAYER_ORDER[0]
+	var ai_discard_ids := HeuristicMatchPolicy.choose_mulligan(match_state, ai_id)
+	MatchBootstrap.apply_mulligan(match_state, ai_id, ai_discard_ids)
+	_hydrate_match_cards(match_state, card_by_id)
+	# Store state but don't start the turn yet - wait for player mulligan
 	_match_state = match_state
+	_mulligan_card_by_id = card_by_id
+	_ai_enabled = false
+	_scenario_id = LOCAL_MATCH_AI_SCENARIO_ID
 	_selected_instance_id = ""
 	_last_turn_owner_id = ""
 	_turn_banner_until_ms = 0
 	_clear_pile_selection()
-	var scenario_events := _recent_presentation_events_from_history()
-	_record_feedback_from_events(scenario_events)
-	_status_message = "Match started."
+	_status_message = "Choose cards to replace."
 	_refresh_ui()
+	_show_mulligan_overlay()
 	return true
 
 
@@ -320,6 +326,7 @@ func is_card_detached() -> bool:
 
 func load_scenario(scenario_id: String) -> bool:
 	_cancel_detached_card_silent()
+	_dismiss_mulligan_overlay()
 	_dismiss_prophecy_overlay()
 	_reset_invalid_feedback()
 	_clear_feedback_state()
@@ -348,6 +355,8 @@ func load_scenario(scenario_id: String) -> bool:
 
 
 func _process_local_match_ai_turn() -> void:
+	if not _mulligan_overlay_state.is_empty():
+		return
 	if not _is_local_match_ai_enabled() or _has_match_winner():
 		_reset_local_match_ai_queue()
 		return
@@ -1734,6 +1743,161 @@ func _has_active_prophecy_overlay(instance_id: String) -> bool:
 	if _prophecy_overlay_state.is_empty():
 		return false
 	return str(_prophecy_overlay_state.get("instance_id", "")) == instance_id
+
+
+func _show_mulligan_overlay() -> void:
+	_dismiss_mulligan_overlay()
+	_mulligan_marked_ids = []
+	var local_id := _local_player_id()
+	var player := {}
+	for p in _match_state.get("players", []):
+		if str(p.get("player_id", "")) == local_id:
+			player = p
+			break
+	var hand: Array = player.get("hand", [])
+	if hand.is_empty():
+		_finalize_mulligan([])
+		return
+
+	var overlay := Control.new()
+	overlay.name = "MulliganOverlay"
+	overlay.z_index = 460
+	overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var bg := ColorRect.new()
+	bg.name = "MulliganBackground"
+	bg.color = Color(0.04, 0.05, 0.07, 0.82)
+	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.add_child(bg)
+
+	var center := CenterContainer.new()
+	center.name = "MulliganCenter"
+	center.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_PASS
+	overlay.add_child(center)
+
+	var vbox := VBoxContainer.new()
+	vbox.name = "MulliganVBox"
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", 20)
+	vbox.mouse_filter = Control.MOUSE_FILTER_PASS
+	center.add_child(vbox)
+
+	var title_label := Label.new()
+	title_label.text = "Choose cards to replace"
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_label.add_theme_font_size_override("font_size", 26)
+	title_label.add_theme_color_override("font_color", Color(0.92, 0.88, 0.78, 1.0))
+	vbox.add_child(title_label)
+
+	var card_row := HBoxContainer.new()
+	card_row.name = "MulliganCardRow"
+	card_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	card_row.add_theme_constant_override("separation", 16)
+	card_row.mouse_filter = Control.MOUSE_FILTER_PASS
+	vbox.add_child(card_row)
+
+	var card_size := _hand_card_display_size()
+	var card_buttons_map := {}
+	var x_labels_map := {}
+
+	for card in hand:
+		var instance_id := str(card.get("instance_id", ""))
+		var card_button := Button.new()
+		card_button.name = "MulliganCard_%s" % instance_id
+		card_button.custom_minimum_size = card_size
+		card_button.mouse_filter = Control.MOUSE_FILTER_STOP
+		var empty_style := StyleBoxEmpty.new()
+		card_button.add_theme_stylebox_override("normal", empty_style)
+		card_button.add_theme_stylebox_override("hover", empty_style)
+		card_button.add_theme_stylebox_override("pressed", empty_style)
+		card_button.add_theme_stylebox_override("focus", empty_style)
+
+		var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+		component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+		card_button.add_child(component)
+
+		var x_label := Label.new()
+		x_label.name = "XMark"
+		x_label.text = "X"
+		x_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		x_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		x_label.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		x_label.add_theme_font_size_override("font_size", 48)
+		x_label.add_theme_color_override("font_color", Color(0.95, 0.25, 0.2, 0.92))
+		x_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		x_label.visible = false
+		card_button.add_child(x_label)
+
+		card_button.pressed.connect(_on_mulligan_card_toggled.bind(instance_id))
+		card_row.add_child(card_button)
+		card_buttons_map[instance_id] = card_button
+		x_labels_map[instance_id] = x_label
+
+	var continue_button := Button.new()
+	continue_button.name = "MulliganContinue"
+	continue_button.text = "Continue"
+	continue_button.custom_minimum_size = Vector2(180, 50)
+	continue_button.add_theme_font_size_override("font_size", 20)
+	_apply_button_style(continue_button, Color(0.28, 0.22, 0.08, 0.98), Color(0.78, 0.65, 0.22, 0.96), Color(0.98, 0.93, 0.82, 1.0), 2, 10)
+	continue_button.pressed.connect(_on_mulligan_confirm_pressed)
+	vbox.add_child(continue_button)
+
+	add_child(overlay)
+	_mulligan_overlay_state = {
+		"overlay": overlay,
+		"card_buttons": card_buttons_map,
+		"x_labels": x_labels_map,
+	}
+
+
+func _on_mulligan_card_toggled(instance_id: String) -> void:
+	if _mulligan_overlay_state.is_empty():
+		return
+	var idx := _mulligan_marked_ids.find(instance_id)
+	if idx >= 0:
+		_mulligan_marked_ids.remove_at(idx)
+	else:
+		_mulligan_marked_ids.append(instance_id)
+	var x_labels: Dictionary = _mulligan_overlay_state.get("x_labels", {})
+	var x_label: Label = x_labels.get(instance_id)
+	if x_label != null:
+		x_label.visible = _mulligan_marked_ids.has(instance_id)
+
+
+func _on_mulligan_confirm_pressed() -> void:
+	if _mulligan_overlay_state.is_empty():
+		return
+	var discard_ids := _mulligan_marked_ids.duplicate()
+	_dismiss_mulligan_overlay()
+	_finalize_mulligan(discard_ids)
+
+
+func _dismiss_mulligan_overlay() -> void:
+	if _mulligan_overlay_state.is_empty():
+		return
+	var overlay: Control = _mulligan_overlay_state.get("overlay")
+	if overlay != null and is_instance_valid(overlay):
+		overlay.queue_free()
+	_mulligan_overlay_state = {}
+	_mulligan_marked_ids = []
+
+
+func _finalize_mulligan(discard_instance_ids: Array) -> void:
+	MatchBootstrap.apply_mulligan(_match_state, _local_player_id(), discard_instance_ids)
+	_hydrate_match_cards(_match_state, _mulligan_card_by_id)
+	GameLogger.start_match(_match_state)
+	MatchTurnLoop.begin_first_turn(_match_state)
+	_ai_enabled = true
+	_mulligan_card_by_id = {}
+	var scenario_events := _recent_presentation_events_from_history()
+	_record_feedback_from_events(scenario_events)
+	_status_message = "Match started."
+	_refresh_ui()
 
 
 func _animate_enemy_prophecy_resolution(action: Dictionary, _result: Dictionary) -> void:

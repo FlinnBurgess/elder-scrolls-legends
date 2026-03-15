@@ -14,6 +14,45 @@ const DEFAULT_LOOKAHEAD_DEPTH := 1
 const DEFAULT_LOOKAHEAD_DISCOUNT := 0.85
 
 
+static func choose_mulligan(match_state: Dictionary, player_id: String) -> Array:
+	var player := _find_player(match_state, player_id)
+	if player.is_empty():
+		return []
+	var hand: Array = player.get("hand", [])
+	if hand.is_empty():
+		return []
+	var seen_definition_ids := {}
+	var discard_ids: Array = []
+	for card in hand:
+		var instance_id := str(card.get("instance_id", ""))
+		var definition_id := str(card.get("definition_id", ""))
+		var cost := int(card.get("cost", 0))
+		var keep_score := _mulligan_keep_score(card, cost)
+		if seen_definition_ids.has(definition_id):
+			keep_score -= 1.5
+		seen_definition_ids[definition_id] = true
+		if keep_score < 0.0:
+			discard_ids.append(instance_id)
+	return discard_ids
+
+
+static func _mulligan_keep_score(card: Dictionary, cost: int) -> float:
+	var score := 0.0
+	if cost <= 2:
+		score = 3.0
+	elif cost == 3:
+		score = 2.0
+	elif cost == 4:
+		score = 1.0
+	else:
+		score = 1.0 - float(cost - 4) * 1.0
+	var keywords: Array = card.get("keywords", [])
+	for kw in keywords:
+		if str(kw) in ["guard", "charge", "drain", "prophecy"]:
+			score += 0.5
+	return score
+
+
 static func choose_action(match_state: Dictionary, player_id: String = "", options: Dictionary = {}) -> Dictionary:
 	var surface := MatchActionEnumerator.enumerate_legal_actions(match_state, player_id)
 	var decision_player_id := str(surface.get("decision_player_id", ""))
