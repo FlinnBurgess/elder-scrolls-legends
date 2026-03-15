@@ -3,7 +3,7 @@ extends Control
 
 const DeckValidator = preload("res://src/deck/deck_validator.gd")
 const DeckRulesRegistryClass = preload("res://src/deck/deck_rules_registry.gd")
-const DemoCardCatalog = preload("res://src/deck/demo_card_catalog.gd")
+const CardCatalog = preload("res://src/deck/card_catalog.gd")
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const DECK_REGISTRY_PATH := "res://data/legends/registries/attribute_class_registry.json"
 
@@ -246,7 +246,7 @@ func _load_data() -> void:
 	if _rules_registry == null or not _rules_registry.is_ready():
 		_status_message = "Deckbuilder failed to load registry data."
 		return
-	var catalog_result := DemoCardCatalog.load_default()
+	var catalog_result := CardCatalog.load_default()
 	_catalog_cards = catalog_result.get("cards", [])
 	_card_by_id = catalog_result.get("card_by_id", {})
 	_keyword_registry = EvergreenRules.get_registry()

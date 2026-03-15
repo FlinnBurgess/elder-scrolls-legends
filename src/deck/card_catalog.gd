@@ -1,4 +1,4 @@
-class_name DemoCardCatalog
+class_name CardCatalog
 extends RefCounted
 
 const DeckRulesRegistryClass := preload("res://src/deck/deck_rules_registry.gd")

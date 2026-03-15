@@ -27,19 +27,19 @@ func _run_all_tests(screen: DeckbuilderScreen) -> bool:
 
 
 func _test_browser_filters(screen: DeckbuilderScreen) -> bool:
-	screen.set_search_query("guildsworn")
-	var guildsworn_ids := screen.get_filtered_card_ids()
-	if not _assert(guildsworn_ids.size() >= 3, "Expected Guildsworn search to surface multiple cards."):
+	screen.set_search_query("dragon")
+	var dragon_ids := screen.get_filtered_card_ids()
+	if not _assert(dragon_ids.size() >= 3, "Expected Dragon search to surface multiple cards."):
 		return false
 	screen.set_search_query("")
 	screen.set_keyword_filter("guard")
 	var guard_ids := screen.get_filtered_card_ids()
 	screen.set_keyword_filter("")
 	return (
-		_assert(guard_ids.has("neutral_watch_captain"), "Guard filter should include Guard cards.") and
-		_assert(not guard_ids.has("neutral_spark_bolt"), "Guard filter should exclude non-Guard cards.") and
-		_assert(screen.select_card("guildsworn_banner"), "Selecting a browser card should succeed.") and
-		_assert(screen.get_selected_card_text().contains("Guildsworn Banner"), "Inspector should reflect the selected card.")
+		_assert(guard_ids.has("neu_barded_guar"), "Guard filter should include Guard cards.") and
+		_assert(not guard_ids.has("neu_crushing_blow"), "Guard filter should exclude non-Guard cards.") and
+		_assert(screen.select_card("neu_mundus_stone"), "Selecting a browser card should succeed.") and
+		_assert(screen.get_selected_card_text().contains("Mundus Stone"), "Inspector should reflect the selected card.")
 	)
 
 
@@ -47,11 +47,11 @@ func _test_legality_and_curve_feedback(screen: DeckbuilderScreen) -> bool:
 	screen.clear_deck()
 	if not _assert(screen.set_deck_attributes(["strength", "intelligence"]), "Battlemage attributes should be selectable." ):
 		return false
-	if not _assert(screen.add_card_to_deck("guildsworn_banner"), "Adding an off-class card should still be allowed for warning coverage." ):
+	if not _assert(screen.add_card_to_deck("dual_tyr"), "Adding an off-class card should still be allowed for warning coverage." ):
 		return false
 	if not _assert(screen.get_legality_text().contains("requires"), "Off-class card should produce immediate legality feedback."):
 		return false
-	screen.remove_card_from_deck("guildsworn_banner")
+	screen.remove_card_from_deck("dual_tyr")
 	_fill_legal_deck(screen, ["strength", "intelligence"])
 	var card_count := screen.get_deck_count()
 	return (
@@ -73,33 +73,36 @@ func _test_import_export_round_trip(screen: DeckbuilderScreen) -> bool:
 	return (
 		_assert(bool(import_result.get("is_valid", false)), "Exported deck JSON should round-trip through import.") and
 		_assert(screen.get_deck_count() == 50, "Imported deck should restore the original card count.") and
-		_assert(screen.get_export_text().contains("battlemage_raider"), "Import/export text box should retain the serialized deck payload.")
+		_assert(screen.get_export_text().contains("dual_sentinel_battlemace"), "Import/export text box should retain the serialized deck payload.")
 	)
 
 
 func _fill_legal_deck(screen: DeckbuilderScreen, deck_attributes: Array) -> void:
 	var legal_ids := [
-		"neutral_watch_captain",
-		"neutral_market_courier",
-		"neutral_bone_colossus",
-		"neutral_prophecy_adept",
-		"neutral_spark_bolt",
-		"neutral_field_journal",
-		"neutral_tower_shield",
-		"neutral_archive_curator",
-		"neutral_battlefield_medic",
-		"strength_berserker",
-		"strength_bulwark",
-		"strength_battle_orders",
-		"strength_war_axe",
-		"intelligence_apprentice",
-		"intelligence_volley",
-		"intelligence_scrollkeeper",
-		"intelligence_arc_blade",
-		"battlemage_raider",
-		"battlemage_conjurer",
-		"battlemage_barrage",
-		"battlemage_blade",
+		# Battlemage dual cards (listed first to ensure inclusion)
+		"dual_sentinel_battlemace",
+		# Neutral cards
+		"neu_barded_guar",
+		"neu_lurking_crocodile",
+		"neu_enraged_mudcrab",
+		"neu_crushing_blow",
+		"neu_maple_shield",
+		"neu_spider_worker",
+		"neu_dwarven_sphere",
+		"neu_ferocious_dreugh",
+		# Strength cards
+		"str_battlerage_orc",
+		"str_graystone_ravager",
+		"str_steel_scimitar",
+		"str_rapid_shot",
+		"str_sharpshooter_scout",
+		"str_fortress_watchman",
+		# Intelligence cards
+		"int_firebolt",
+		"int_camlorn_hero",
+		"int_camlorn_sentinel",
+		"int_redoran_enforcer",
+		"int_ice_spike",
 	]
 	for card_id in legal_ids:
 		var card := screen.get_card_record(str(card_id))
