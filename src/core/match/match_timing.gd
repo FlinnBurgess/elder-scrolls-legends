@@ -202,6 +202,10 @@ static func get_valid_targets_for_mode(match_state: Dictionary, source_instance_
 		"another_friendly_creature":
 			targets = _player_lane_creatures(match_state, controller_id)
 			targets = targets.filter(func(c): return str(c.get("instance_id", "")) != source_instance_id)
+		"another_friendly_creature_in_lane":
+			if source_lane_index >= 0:
+				targets = _lane_creatures_for_player(match_state, source_lane_index, controller_id)
+				targets = targets.filter(func(c): return str(c.get("instance_id", "")) != source_instance_id)
 		"creature_or_player":
 			targets = _all_lane_creatures(match_state)
 			targets.append({"player_id": opponent_id})
@@ -1706,11 +1710,23 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					})
 					generated_events.append_array(consume_result.get("events", []))
 			"move_between_lanes":
-				var lane_id := str(effect.get("lane_id", effect.get("target_lane_id", event.get("lane_id", ""))))
-				if lane_id.is_empty():
+				var raw_lane_id := str(effect.get("lane_id", effect.get("target_lane_id", event.get("lane_id", ""))))
+				if raw_lane_id != "other_lane" and raw_lane_id.is_empty():
 					continue
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
-					var move_result := MatchMutations.move_card_between_lanes(match_state, str(card.get("controller_player_id", "")), str(card.get("instance_id", "")), lane_id, {
+					var dest_lane_id := raw_lane_id
+					if dest_lane_id == "other_lane":
+						var card_location := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
+						var current_lane_id := str(card_location.get("lane_id", ""))
+						dest_lane_id = ""
+						for lane in match_state.get("lanes", []):
+							var lid := str(lane.get("lane_id", ""))
+							if lid != current_lane_id and not lid.is_empty():
+								dest_lane_id = lid
+								break
+					if dest_lane_id.is_empty():
+						continue
+					var move_result := MatchMutations.move_card_between_lanes(match_state, str(card.get("controller_player_id", "")), str(card.get("instance_id", "")), dest_lane_id, {
 						"slot_index": int(effect.get("slot_index", -1)),
 					})
 					generated_events.append_array(move_result.get("events", []))
