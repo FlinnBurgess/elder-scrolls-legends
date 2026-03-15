@@ -70,6 +70,10 @@ static func log_event(match_state: Dictionary, event: Dictionary) -> void:
 			_log_match_won(match_state, event)
 		"out_of_cards_played":
 			_write("[FATIGUE] %s took fatigue damage" % str(event.get("player_id", "")))
+		"max_magicka_gained":
+			var player_id := str(event.get("target_player_id", ""))
+			var amount := int(event.get("amount", 0))
+			_write("[MAGICKA] %s gained +%d max magicka" % [player_id, amount])
 
 
 static func log_trigger_resolution(match_state: Dictionary, resolution: Dictionary, trigger: Dictionary) -> void:

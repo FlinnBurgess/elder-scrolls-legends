@@ -813,6 +813,19 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"target_player_id": player_id,
 						"amount": heal_amount,
 					})
+			"gain_max_magicka":
+				for player_id in _resolve_player_targets(match_state, trigger, event, effect):
+					var magicka_player := _get_player_state(match_state, player_id)
+					if magicka_player.is_empty():
+						continue
+					var gain := int(effect.get("amount", 1))
+					magicka_player["max_magicka"] = int(magicka_player.get("max_magicka", 0)) + gain
+					generated_events.append({
+						"event_type": "max_magicka_gained",
+						"source_instance_id": str(trigger.get("source_instance_id", "")),
+						"target_player_id": player_id,
+						"amount": gain,
+					})
 			"draw_cards":
 				for player_id in _resolve_player_targets(match_state, trigger, event, effect):
 						var draw_result := draw_cards(match_state, player_id, int(effect.get("count", 1)), {
@@ -1021,6 +1034,26 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 			var subject_card := _find_card_anywhere(match_state, str(event.get("instance_id", event.get("drawn_instance_id", ""))))
 			if not subject_card.is_empty():
 				targets.append(subject_card)
+		"all_enemies_in_lane":
+			var lane_index := int(trigger.get("lane_index", -1))
+			var controller_id := str(trigger.get("controller_player_id", ""))
+			var opponent_id := _get_opposing_player_id(match_state.get("players", []), controller_id)
+			var lanes: Array = match_state.get("lanes", [])
+			if lane_index >= 0 and lane_index < lanes.size():
+				var slots = lanes[lane_index].get("player_slots", {}).get(opponent_id, [])
+				for card in slots:
+					if typeof(card) == TYPE_DICTIONARY:
+						targets.append(card)
+		"all_friendly_in_lane":
+			var lane_index := int(trigger.get("lane_index", -1))
+			var controller_id := str(trigger.get("controller_player_id", ""))
+			var self_id := str(trigger.get("source_instance_id", ""))
+			var lanes: Array = match_state.get("lanes", [])
+			if lane_index >= 0 and lane_index < lanes.size():
+				var slots = lanes[lane_index].get("player_slots", {}).get(controller_id, [])
+				for card in slots:
+					if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) != self_id:
+						targets.append(card)
 	return targets
 
 

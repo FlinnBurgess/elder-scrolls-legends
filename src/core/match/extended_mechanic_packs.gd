@@ -103,6 +103,17 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 			return false
 	if bool(descriptor.get("require_attacker_survived", false)) and bool(event.get("attacker_destroyed", false)):
 		return false
+	var required_top_deck_attr := str(descriptor.get("required_top_deck_attribute", ""))
+	if not required_top_deck_attr.is_empty():
+		var deck: Array = controller.get("deck", [])
+		if deck.is_empty():
+			return false
+		var top_card = deck.back()
+		if typeof(top_card) != TYPE_DICTIONARY:
+			return false
+		var top_attrs = top_card.get("attributes", [])
+		if typeof(top_attrs) != TYPE_ARRAY or not top_attrs.has(required_top_deck_attr):
+			return false
 	var source_card := _find_card_anywhere(match_state, str(event.get("source_instance_id", "")))
 	var required_subtype := str(descriptor.get("required_event_source_subtype", ""))
 	if not required_subtype.is_empty() and not _card_has_string(source_card, "subtypes", required_subtype):
