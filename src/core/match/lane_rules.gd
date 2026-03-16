@@ -53,7 +53,7 @@ static func validate_summon_from_hand(match_state: Dictionary, player_id: String
 		return _invalid_result("Card %s is not in %s's hand." % [instance_id, player_id])
 
 	var card: Dictionary = player[ZONE_HAND][hand_index]
-	if not bool(options.get("played_for_free", false)) and int(card.get("cost", 0)) > _get_available_magicka(player):
+	if not bool(options.get("played_for_free", false)) and PersistentCardRules.get_effective_play_cost(match_state, player_id, card) > _get_available_magicka(player):
 		return _invalid_result("Player does not have enough magicka to play %s." % instance_id)
 	var validation := _validate_lane_entry(match_state, player_id, card, lane_id, options)
 	validation["player_index"] = player_lookup["player_index"]

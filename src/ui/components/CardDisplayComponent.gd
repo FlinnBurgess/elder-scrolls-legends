@@ -306,7 +306,10 @@ func _refresh_content() -> void:
 	if not _is_built:
 		return
 	_art_texture.texture = _resolve_art_texture(_card_data)
-	_cost_label.text = str(int(_card_data.get("cost", 0)))
+	if _card_data.has("_effective_cost"):
+		_cost_label.text = str(int(_card_data.get("_effective_cost", 0)))
+	else:
+		_cost_label.text = str(int(_card_data.get("cost", 0)))
 	_name_label.text = _card_name(_card_data)
 	_subtype_label.text = _subtype_line(_card_data)
 	_rules_label.text = _rules_bbcode(_card_data)
@@ -370,7 +373,10 @@ func _refresh_styles() -> void:
 	_subtype_label.add_theme_color_override("font_color", COLOR_TEXT_MUTED)
 	_rules_label.add_theme_color_override("default_color", COLOR_RULES_TEXT)
 	_rarity_label.add_theme_color_override("font_color", _rarity_color(_card_data))
-	_cost_label.add_theme_color_override("font_color", Color(0.96, 0.98, 1.0, 1.0))
+	if _card_data.has("_effective_cost"):
+		_cost_label.add_theme_color_override("font_color", COLOR_STAT_BUFF)
+	else:
+		_cost_label.add_theme_color_override("font_color", Color(0.96, 0.98, 1.0, 1.0))
 	_attack_label.add_theme_color_override("font_color", _stat_color(_card_data, "power"))
 	_health_label.add_theme_color_override("font_color", _stat_color(_card_data, "health"))
 
