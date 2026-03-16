@@ -1180,6 +1180,10 @@ static func _trigger_matches_event(match_state: Dictionary, trigger: Dictionary,
 		return false
 	if not _matches_required_zone(trigger, descriptor):
 		return false
+	# Triggers with target_mode require manual resolution via resolve_targeted_effect;
+	# skip them during automatic event processing so they don't fire with no chosen target.
+	if not str(descriptor.get("target_mode", "")).is_empty() and str(trigger.get("_chosen_target_id", "")).is_empty() and str(trigger.get("_chosen_target_player_id", "")).is_empty():
+		return false
 	var event_type := str(event.get("event_type", ""))
 	var family := str(descriptor.get("family", ""))
 	var family_spec: Dictionary = FAMILY_SPECS.get(family, {})
