@@ -93,6 +93,7 @@ var _targeting_arrow_state := {}
 var _targeting_arrow: Line2D
 var _pending_summon_target := {}
 var _prophecy_overlay_state := {}
+var _spell_reveal_state := {}
 var _prophecy_card_overlay: Control
 var _mulligan_overlay_state := {}
 var _mulligan_marked_ids: Array = []
@@ -143,6 +144,7 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array) -> bool:
 	_cancel_detached_card_silent()
 	_dismiss_mulligan_overlay()
 	_dismiss_prophecy_overlay()
+	_dismiss_spell_reveal()
 	_reset_invalid_feedback()
 	_clear_feedback_state()
 	_reset_local_match_ai_queue()
@@ -337,6 +339,7 @@ func load_scenario(scenario_id: String) -> bool:
 	_cancel_detached_card_silent()
 	_dismiss_mulligan_overlay()
 	_dismiss_prophecy_overlay()
+	_dismiss_spell_reveal()
 	_reset_invalid_feedback()
 	_clear_feedback_state()
 	_reset_local_match_ai_queue()
@@ -366,6 +369,8 @@ func load_scenario(scenario_id: String) -> bool:
 
 func _process_local_match_ai_turn() -> void:
 	if not _mulligan_overlay_state.is_empty():
+		return
+	if not _spell_reveal_state.is_empty():
 		return
 	if not _is_local_match_ai_enabled() or _has_match_winner():
 		_reset_local_match_ai_queue()
@@ -448,7 +453,10 @@ func _execute_local_match_ai_step() -> Dictionary:
 	if not _prophecy_overlay_state.is_empty() and not bool(_prophecy_overlay_state.get("is_local", true)):
 		_animate_enemy_prophecy_resolution(action, result)
 	else:
-		_refresh_ui()
+		if str(action.get("kind", "")) == MatchActionEnumerator.KIND_PLAY_ACTION and str(action.get("player_id", "")) != _local_player_id():
+			_animate_enemy_spell_reveal(action, result)
+		else:
+			_refresh_ui()
 	return {
 		"did_execute": true,
 		"yield_reason": _ai_post_action_state(),
@@ -1967,6 +1975,114 @@ func _animate_enemy_prophecy_resolution(action: Dictionary, _result: Dictionary)
 		)
 
 
+func _dismiss_spell_reveal() -> void:
+	var card_back: Control = _spell_reveal_state.get("card_back")
+	if card_back != null and is_instance_valid(card_back):
+		card_back.queue_free()
+	var arrow: Line2D = _spell_reveal_state.get("arrow")
+	if arrow != null and is_instance_valid(arrow):
+		arrow.queue_free()
+	_spell_reveal_state = {}
+
+
+func _animate_enemy_spell_reveal(action: Dictionary, _result: Dictionary) -> void:
+	var source_card: Dictionary = action.get("source_card", {})
+	if source_card.is_empty():
+		_refresh_ui()
+		return
+
+	var card_size := _hand_card_display_size()
+	var viewport_size := get_viewport_rect().size
+
+	var card_back := PanelContainer.new()
+	card_back.name = "spell_reveal_card_back"
+	card_back.custom_minimum_size = card_size
+	card_back.size = card_size
+	_apply_panel_style(card_back, Color(0.35, 0.22, 0.12, 0.98), Color(0.57, 0.44, 0.27, 0.92), 2, 0)
+
+	var pos_x := (viewport_size.x - card_size.x) * 0.5
+	var pos_y := viewport_size.y * 0.10 + 12.0
+	card_back.position = Vector2(pos_x, pos_y)
+
+	_prophecy_card_overlay.add_child(card_back)
+	_spell_reveal_state = {
+		"card_back": card_back,
+		"phase": "animating",
+	}
+
+	card_back.pivot_offset = Vector2(card_back.size.x * 0.5, card_back.size.y * 0.5)
+	var tween := create_tween()
+	tween.tween_property(card_back, "scale:x", 0.0, 0.2)
+	tween.tween_callback(func():
+		for child in card_back.get_children():
+			child.queue_free()
+		if not source_card.is_empty():
+			var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+			component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+			component.apply_card(source_card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+			card_back.add_child(component)
+	)
+	tween.tween_property(card_back, "scale:x", 1.0, 0.2)
+	tween.tween_interval(1.0)
+	tween.tween_callback(func():
+		var target: Dictionary = action.get("target", {})
+		var target_kind := str(target.get("kind", ""))
+		if target_kind == "card":
+			var target_id := str(target.get("instance_id", ""))
+			var button: Button = _card_buttons.get(target_id)
+			if button != null and is_instance_valid(button):
+				var arrow := Line2D.new()
+				arrow.width = 3.0
+				arrow.default_color = Color(1.0, 0.85, 0.3, 0.95)
+				arrow.z_index = 500
+				_prophecy_card_overlay.add_child(arrow)
+				_spell_reveal_state["arrow"] = arrow
+				var arrow_start := card_back.global_position + Vector2(card_size.x * 0.5, card_size.y)
+				var target_card_size: Vector2 = button.get_meta("card_size", button.size)
+				var arrow_end := button.global_position + Vector2(target_card_size.x * 0.5, 0.0)
+				var arrow_tween := create_tween()
+				arrow_tween.tween_method(func(progress: float):
+					_draw_spell_reveal_arrow_partial(progress, arrow, arrow_start, arrow_end)
+				, 0.0, 1.0, 0.3)
+				arrow_tween.tween_interval(0.3)
+				arrow_tween.tween_callback(func():
+					_dismiss_spell_reveal()
+					_refresh_ui()
+				)
+				return
+		_dismiss_spell_reveal()
+		_refresh_ui()
+	)
+
+
+func _draw_spell_reveal_arrow_partial(progress: float, arrow: Line2D, start: Vector2, end_point: Vector2) -> void:
+	if arrow == null or not is_instance_valid(arrow):
+		return
+	var current_end := start.lerp(end_point, progress)
+	var mid := (start + current_end) * 0.5
+	var diff := current_end - start
+	var perp := Vector2(-diff.y, diff.x).normalized()
+	var control := mid + perp * diff.length() * 0.25
+	var points := PackedVector2Array()
+	var segments := 20
+	for i in range(segments + 1):
+		var t := float(i) / float(segments)
+		var p := (1.0 - t) * (1.0 - t) * start + 2.0 * (1.0 - t) * t * control + t * t * current_end
+		points.append(p)
+	if progress > 0.05:
+		var tip := points[points.size() - 1]
+		var prev := points[points.size() - 2]
+		var arrow_dir := (tip - prev).normalized()
+		var arrow_perp := Vector2(-arrow_dir.y, arrow_dir.x)
+		var arrow_size := 14.0
+		points.append(tip - arrow_dir * arrow_size + arrow_perp * arrow_size * 0.5)
+		points.append(tip)
+		points.append(tip - arrow_dir * arrow_size - arrow_perp * arrow_size * 0.5)
+		points.append(tip)
+	arrow.points = points
+
+
 func _refresh_end_turn_button() -> void:
 	var has_pending_prophecy := MatchTiming.has_pending_prophecy(_match_state)
 	var local_turn := _is_local_player_turn()
@@ -2447,6 +2563,10 @@ func _build_card_display_component(card: Dictionary, surface: String, instance_i
 	var display_card := card.duplicate(true)
 	if surface == "lane" and EvergreenRules.is_cover_active(_match_state, card):
 		display_card["_cover_active"] = true
+	if surface == "hand" and str(card.get("controller_player_id", "")) == _active_player_id():
+		var effective_cost := PersistentCardRules.get_effective_play_cost(_match_state, _active_player_id(), card)
+		if effective_cost < int(card.get("cost", 0)):
+			display_card["_effective_cost"] = effective_cost
 	component.apply_card(display_card, _card_presentation_mode(card, surface))
 	return component
 
