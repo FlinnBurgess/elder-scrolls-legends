@@ -3715,32 +3715,26 @@ func _apply_lane_card_float_effect(button: Button, card: Dictionary) -> void:
 	button.clip_contents = false
 	# Hide the button's own background so its border doesn't outline the shadow
 	_apply_button_style(button, Color.TRANSPARENT, Color.TRANSPARENT, Color.TRANSPARENT, 0, 0)
-	# Shadow at card resting position to give depth illusion
-	# Outer soft shadow – larger, more transparent for a diffuse edge
-	var shadow_soft := ColorRect.new()
-	shadow_soft.name = "float_shadow_soft"
-	shadow_soft.color = Color(0, 0, 0, 0.10)
-	shadow_soft.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var soft_pad := 4.0
-	shadow_soft.offset_left = LANE_CARD_FLOAT_SHADOW_OFFSET.x - soft_pad
-	shadow_soft.offset_top = LANE_CARD_FLOAT_SHADOW_OFFSET.y - soft_pad
-	shadow_soft.offset_right = LANE_CARD_FLOAT_SHADOW_OFFSET.x + soft_pad
-	shadow_soft.offset_bottom = LANE_CARD_FLOAT_SHADOW_OFFSET.y + soft_pad
-	shadow_soft.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	button.add_child(shadow_soft)
-	button.move_child(shadow_soft, 0)
-	# Inner shadow – card-sized, slightly translucent
+	# Shader-based soft shadow to simulate an overhead light source
+	var shadow_shader := load("res://assets/shaders/soft_shadow.gdshader") as Shader
+	var shadow_mat := ShaderMaterial.new()
+	shadow_mat.shader = shadow_shader
+	shadow_mat.set_shader_parameter("blur_radius", 0.18)
+	shadow_mat.set_shader_parameter("shadow_alpha", 0.35)
 	var shadow := ColorRect.new()
 	shadow.name = "float_shadow"
-	shadow.color = Color(0, 0, 0, 0.18)
+	shadow.material = shadow_mat
+	shadow.color = Color.WHITE
 	shadow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	shadow.offset_left = LANE_CARD_FLOAT_SHADOW_OFFSET.x
-	shadow.offset_top = LANE_CARD_FLOAT_SHADOW_OFFSET.y
-	shadow.offset_right = LANE_CARD_FLOAT_SHADOW_OFFSET.x
-	shadow.offset_bottom = LANE_CARD_FLOAT_SHADOW_OFFSET.y
+	# Pad the shadow rect so the blur has room to feather out beyond the card edges
+	var shadow_pad := 10.0
+	shadow.offset_left = LANE_CARD_FLOAT_SHADOW_OFFSET.x - shadow_pad
+	shadow.offset_top = LANE_CARD_FLOAT_SHADOW_OFFSET.y - shadow_pad
+	shadow.offset_right = LANE_CARD_FLOAT_SHADOW_OFFSET.x + shadow_pad
+	shadow.offset_bottom = LANE_CARD_FLOAT_SHADOW_OFFSET.y + shadow_pad
 	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.add_child(shadow)
-	button.move_child(shadow, 1)
+	button.move_child(shadow, 0)
 	# Float content up and to the left
 	var already_floating := _floating_card_ids.has(instance_id)
 	_floating_card_ids[instance_id] = true
@@ -3751,11 +3745,9 @@ func _apply_lane_card_float_effect(button: Button, card: Dictionary) -> void:
 		content_root.offset_right = LANE_CARD_FLOAT_OFFSET.x
 		content_root.offset_bottom = LANE_CARD_FLOAT_OFFSET.y
 		shadow.modulate.a = 1.0
-		shadow_soft.modulate.a = 1.0
 	else:
 		# First time floating – animate the rise and shadow fade-in
 		shadow.modulate.a = 0.0
-		shadow_soft.modulate.a = 0.0
 		var tween := button.create_tween()
 		tween.set_parallel(true)
 		tween.tween_property(content_root, "offset_left", LANE_CARD_FLOAT_OFFSET.x, LANE_CARD_FLOAT_ANIM_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
@@ -3763,7 +3755,6 @@ func _apply_lane_card_float_effect(button: Button, card: Dictionary) -> void:
 		tween.tween_property(content_root, "offset_right", LANE_CARD_FLOAT_OFFSET.x, LANE_CARD_FLOAT_ANIM_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
 		tween.tween_property(content_root, "offset_bottom", LANE_CARD_FLOAT_OFFSET.y, LANE_CARD_FLOAT_ANIM_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
 		tween.tween_property(shadow, "modulate:a", 1.0, LANE_CARD_FLOAT_ANIM_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
-		tween.tween_property(shadow_soft, "modulate:a", 1.0, LANE_CARD_FLOAT_ANIM_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
 
 
 func _add_feedback_banner(container: Control, name: String, text: String, fill: Color, border: Color, font_color: Color, top_offset: float) -> void:
