@@ -4121,9 +4121,12 @@ func _animate_card_motion(button: Button, offset: Vector2, end_scale: float) -> 
 	content.pivot_offset = Vector2(button.custom_minimum_size.x * 0.5, button.custom_minimum_size.y * 0.5)
 	content.position = Vector2.ZERO
 	content.scale = Vector2.ONE
+	var pullback := offset * -0.35
 	var tween := create_tween()
-	tween.tween_property(content, "position", offset, 0.11)
-	tween.parallel().tween_property(content, "scale", Vector2(end_scale, end_scale), 0.11)
+	tween.tween_property(content, "position", pullback, 0.09).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
+	tween.parallel().tween_property(content, "scale", Vector2(0.97, 0.97), 0.09).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
+	tween.tween_property(content, "position", offset, 0.08).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_BACK)
+	tween.parallel().tween_property(content, "scale", Vector2(end_scale, end_scale), 0.08).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_BACK)
 	tween.tween_property(content, "position", Vector2.ZERO, 0.16)
 	tween.parallel().tween_property(content, "scale", Vector2.ONE, 0.16)
 
