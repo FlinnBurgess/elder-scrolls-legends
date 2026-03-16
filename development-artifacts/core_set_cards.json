@@ -750,9 +750,7 @@
       "rules_text": "Summon: +3/+0 and Breakthrough if the top card of your deck is  .",
       "is_unique": false,
       "collectible": true,
-      "keywords": [
-        "breakthrough"
-      ],
+      "keywords": [],
       "has_prophecy": false,
       "effect_ids": [
         "modify_stats",
@@ -5601,9 +5599,7 @@
       "rules_text": "Summon: +1/+1 and Lethal if the top card of your deck is .",
       "is_unique": false,
       "collectible": true,
-      "keywords": [
-        "lethal"
-      ],
+      "keywords": [],
       "has_prophecy": false,
       "effect_ids": [
         "modify_stats",
@@ -7422,9 +7418,7 @@
       "rules_text": "Summon: +0/+2 and Guard if the top card of your deck is .",
       "is_unique": false,
       "collectible": true,
-      "keywords": [
-        "guard"
-      ],
+      "keywords": [],
       "has_prophecy": false,
       "effect_ids": [
         "modify_stats",
