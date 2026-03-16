@@ -1194,9 +1194,7 @@
       "rules_text": "Summon: Gains Charge if there is a Wounded enemy creature in this lane.",
       "is_unique": false,
       "collectible": true,
-      "keywords": [
-        "charge"
-      ],
+      "keywords": [],
       "has_prophecy": false,
       "effect_ids": [
         "summon"
@@ -1491,8 +1489,7 @@
       "is_unique": false,
       "collectible": true,
       "keywords": [
-        "breakthrough",
-        "charge"
+        "breakthrough"
       ],
       "has_prophecy": false,
       "effect_ids": [
@@ -4242,9 +4239,7 @@
       "rules_text": "Summon: Gains Drain if there is an enemy creature in this lane.",
       "is_unique": false,
       "collectible": true,
-      "keywords": [
-        "drain"
-      ],
+      "keywords": [],
       "has_prophecy": false,
       "effect_ids": [
         "summon"
@@ -5746,9 +5741,7 @@
       "rules_text": "+1/+1\nSummon: Give the wielder Drain this turn.",
       "is_unique": false,
       "collectible": true,
-      "keywords": [
-        "drain"
-      ],
+      "keywords": [],
       "has_prophecy": false,
       "effect_ids": [
         "equip",
@@ -5757,10 +5750,7 @@
       ],
       "status": "created",
       "equip_power_bonus": 1,
-      "equip_health_bonus": 1,
-      "equip_keywords": [
-        "drain"
-      ]
+      "equip_health_bonus": 1
     },
     {
       "card_id": "agi_snowy_sabre_cat",
@@ -8671,10 +8661,7 @@
       "rules_text": "Summon: If you have less health than your opponent, +0/+2 and Guard. Otherwise, +2/+0 and Breakthrough.",
       "is_unique": false,
       "collectible": true,
-      "keywords": [
-        "breakthrough",
-        "guard"
-      ],
+      "keywords": [],
       "has_prophecy": false,
       "effect_ids": [
         "heal",
