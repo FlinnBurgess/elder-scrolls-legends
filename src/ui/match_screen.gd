@@ -126,6 +126,7 @@ var _ai_waiting_for_turn_banner := false
 var _local_match_ai_action_count := 0
 var _pending_layout_scale_frames := 0
 var _floating_card_ids: Dictionary = {}
+var _overdraw_queue: Array = []
 
 
 var _ai_enabled := false
@@ -1536,6 +1537,7 @@ func _refresh_ui() -> void:
 		elif not _has_active_prophecy_overlay(arrow_id):
 			_cancel_targeting_mode_silent()
 	_pending_layout_scale_frames = 2
+	_process_overdraw_queue()
 
 
 func _apply_match_layout_scale() -> void:
@@ -3693,6 +3695,14 @@ func _record_feedback_from_events(events: Array) -> void:
 					"stack_index": rune_stack,
 					"expires_at_ms": now + RUNE_FEEDBACK_DURATION_MS,
 				})
+			"card_overdraw":
+				var overdraw_instance_id := str(event.get("instance_id", ""))
+				var overdraw_card := _card_from_instance_id(overdraw_instance_id)
+				if not overdraw_card.is_empty():
+					_overdraw_queue.append({
+						"card": overdraw_card.duplicate(true),
+						"player_id": str(event.get("player_id", "")),
+					})
 
 
 func _apply_presentation_feedback() -> void:
@@ -3806,6 +3816,75 @@ func _apply_rune_feedback(feedback: Dictionary) -> void:
 		var token_panel = avatar_component.get_rune_anchor(int(feedback.get("threshold", -1)))
 		if token_panel is Control:
 			_add_feedback_banner_over_target(avatar_component as Control, token_panel as Control, "feedback_rune_banner_%s" % str(feedback.get("feedback_id", "0")), "SHATTER", Color(0.39, 0.14, 0.09, 0.99), Color(1.0, 0.78, 0.48, 1.0), Color(1.0, 0.96, 0.9, 1.0), 4.0)
+
+
+func _process_overdraw_queue() -> void:
+	if _overdraw_queue.is_empty():
+		return
+	var entry: Dictionary = _overdraw_queue.pop_front()
+	_animate_overdraw_card(entry.get("card", {}), str(entry.get("player_id", "")))
+
+
+func _animate_overdraw_card(card: Dictionary, player_id: String) -> void:
+	if card.is_empty() or _prophecy_card_overlay == null:
+		if not _overdraw_queue.is_empty():
+			_process_overdraw_queue()
+		return
+
+	var card_size := _hand_card_display_size()
+	var viewport_size := get_viewport_rect().size
+	var is_local := player_id == PLAYER_ORDER[1]
+
+	# Build a card display container
+	var card_panel := PanelContainer.new()
+	card_panel.name = "overdraw_card"
+	card_panel.custom_minimum_size = card_size
+	card_panel.size = card_size
+	_apply_panel_style(card_panel, Color(0.12, 0.10, 0.10, 0.98), Color(0.55, 0.18, 0.18, 0.92), 2, 0)
+
+	var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+	component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+	card_panel.add_child(component)
+
+	# Position just above the player's hand area (bottom-center)
+	var pos_x := (viewport_size.x - card_size.x) * 0.5
+	var base_y: float
+	if is_local:
+		base_y = viewport_size.y - card_size.y - card_size.y * 0.35
+	else:
+		base_y = card_size.y * 0.10
+	card_panel.position = Vector2(pos_x, base_y)
+	card_panel.pivot_offset = Vector2(card_size.x * 0.5, card_size.y * 0.5)
+	card_panel.scale = Vector2(0.7, 0.7)
+	card_panel.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	card_panel.z_index = 500
+	card_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	_prophecy_card_overlay.add_child(card_panel)
+
+	# Animate: fade in + scale up, hold, then fall off-screen with rotation
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(card_panel, "scale", Vector2.ONE, 0.2).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	tween.tween_property(card_panel, "modulate:a", 1.0, 0.15)
+	tween.set_parallel(false)
+	tween.tween_interval(0.8)
+	# Fall off bottom with rotation
+	var fall_target_y := viewport_size.y + card_size.y
+	var rotation_dir := 1.0 if fmod(abs(card_panel.position.x), 2.0) > 1.0 else -1.0
+	tween.set_parallel(true)
+	tween.tween_property(card_panel, "position:y", fall_target_y, 0.5).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+	tween.tween_property(card_panel, "rotation_degrees", rotation_dir * 25.0, 0.5).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+	tween.tween_property(card_panel, "modulate:a", 0.0, 0.5).set_ease(Tween.EASE_IN)
+	tween.set_parallel(false)
+	tween.tween_callback(func():
+		card_panel.queue_free()
+		# Process next queued overdraw if any
+		if not _overdraw_queue.is_empty():
+			_process_overdraw_queue()
+	)
 
 
 func _apply_card_feedback_decoration(button: Button, card: Dictionary, surface: String) -> void:

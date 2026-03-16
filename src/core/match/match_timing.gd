@@ -38,6 +38,9 @@ const EVENT_RUNE_BROKEN := "rune_broken"
 const EVENT_PROPHECY_WINDOW_OPENED := "prophecy_window_opened"
 const EVENT_PROPHECY_DECLINED := "prophecy_declined"
 const EVENT_OUT_OF_CARDS_PLAYED := "out_of_cards_played"
+const EVENT_CARD_OVERDRAW := "card_overdraw"
+
+const MAX_HAND_SIZE := 9
 
 const FAMILY_START_OF_TURN := "start_of_turn"
 const FAMILY_END_OF_TURN := "end_of_turn"
@@ -482,8 +485,22 @@ static func draw_cards(match_state: Dictionary, player_id: String, count: int, c
 			break
 
 		var drawn_card: Dictionary = deck.pop_back()
+		var hand: Array = player.get(ZONE_HAND, [])
+		var allow_prophecy := bool(context.get("allow_prophecy_interrupt", false))
+		var is_prophecy := allow_prophecy and _can_open_prophecy_window(match_state, player_id, drawn_card)
+		if hand.size() >= MAX_HAND_SIZE and not is_prophecy:
+			drawn_card["zone"] = ZONE_DISCARD
+			player[ZONE_DISCARD].append(drawn_card)
+			result["events"].append({
+				"event_type": EVENT_CARD_OVERDRAW,
+				"player_id": player_id,
+				"instance_id": str(drawn_card.get("instance_id", "")),
+				"card_name": str(drawn_card.get("name", "")),
+				"source_zone": ZONE_DECK,
+			})
+			continue
 		drawn_card["zone"] = ZONE_HAND
-		player[ZONE_HAND].append(drawn_card)
+		hand.append(drawn_card)
 		result["cards"].append(drawn_card)
 		var draw_event := {
 			"event_type": EVENT_CARD_DRAWN,
@@ -505,6 +522,22 @@ static func draw_cards(match_state: Dictionary, player_id: String, count: int, c
 			result["events"].append(_open_prophecy_window(match_state, player_id, drawn_card, context))
 			break
 	return result
+
+
+static func _overflow_card_to_discard(player: Dictionary, card: Dictionary, player_id: String, source_zone: String, events: Array) -> bool:
+	var hand: Array = player.get(ZONE_HAND, [])
+	if hand.size() < MAX_HAND_SIZE:
+		return false
+	card["zone"] = ZONE_DISCARD
+	player[ZONE_DISCARD].append(card)
+	events.append({
+		"event_type": EVENT_CARD_OVERDRAW,
+		"player_id": player_id,
+		"instance_id": str(card.get("instance_id", "")),
+		"card_name": str(card.get("name", "")),
+		"source_zone": source_zone,
+	})
+	return true
 
 
 static func destroy_front_rune(match_state: Dictionary, player_id: String, context: Dictionary = {}) -> Dictionary:
@@ -1588,6 +1621,8 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var pick_index: int = candidates[_deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_draw_filtered", candidates.size())]
 					var picked_card: Dictionary = deck[pick_index]
 					deck.remove_at(pick_index)
+					if _overflow_card_to_discard(draw_player, picked_card, player_id, ZONE_DECK, generated_events):
+						continue
 					picked_card["zone"] = ZONE_HAND
 					draw_player[ZONE_HAND].append(picked_card)
 					generated_events.append({
@@ -1667,6 +1702,8 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var hand: Array = gen_player.get(ZONE_HAND, [])
 					for _i in range(gen_count):
 						var generated_card := MatchMutations.build_generated_card(match_state, player_id, gen_template)
+						if _overflow_card_to_discard(gen_player, generated_card, player_id, ZONE_GENERATED, generated_events):
+							continue
 						generated_card["zone"] = ZONE_HAND
 						hand.append(generated_card)
 						generated_events.append({"event_type": "card_drawn", "player_id": player_id, "source_instance_id": str(generated_card.get("instance_id", "")), "reason": reason})
@@ -1876,6 +1913,8 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var pick_idx: int = discard_candidates[_deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_draw_discard", discard_candidates.size())]
 					var picked_discard_card: Dictionary = discard_pile[pick_idx]
 					discard_pile.remove_at(pick_idx)
+					if _overflow_card_to_discard(discard_player, picked_discard_card, player_id, ZONE_DISCARD, generated_events):
+						continue
 					picked_discard_card["zone"] = ZONE_HAND
 					discard_player[ZONE_HAND].append(picked_discard_card)
 					generated_events.append({
@@ -2128,9 +2167,11 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				copy_tmpl.erase("granted_keywords")
 				copy_tmpl.erase("status_markers")
 				var gen_copy := MatchMutations.build_generated_card(match_state, controller_id, copy_tmpl)
-				gen_copy["zone"] = ZONE_HAND
 				var cth_player := _get_player_state(match_state, controller_id)
 				if not cth_player.is_empty():
+					if _overflow_card_to_discard(cth_player, gen_copy, controller_id, ZONE_GENERATED, generated_events):
+						continue
+					gen_copy["zone"] = ZONE_HAND
 					var cth_hand: Array = cth_player.get(ZONE_HAND, [])
 					cth_hand.append(gen_copy)
 					generated_events.append({"event_type": "card_drawn", "player_id": controller_id, "source_instance_id": str(trigger.get("source_instance_id", "")), "drawn_instance_id": str(gen_copy.get("instance_id", "")), "reason": reason})
@@ -2159,18 +2200,33 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					copy_template.erase("status_markers")
 					for player_id in _resolve_player_targets(match_state, trigger, event, effect):
 						var gen_card := MatchMutations.build_generated_card(match_state, player_id, copy_template)
-						gen_card["zone"] = ZONE_HAND
 						var ccth_player := _get_player_state(match_state, player_id)
 						if ccth_player.is_empty():
 							continue
+						if _overflow_card_to_discard(ccth_player, gen_card, player_id, ZONE_GENERATED, generated_events):
+							continue
+						gen_card["zone"] = ZONE_HAND
 						var ccth_hand: Array = ccth_player.get(ZONE_HAND, [])
 						ccth_hand.append(gen_card)
 						generated_events.append({"event_type": "card_drawn", "player_id": player_id, "source_instance_id": str(trigger.get("source_instance_id", "")), "drawn_instance_id": str(gen_card.get("instance_id", "")), "reason": reason})
 			"return_to_hand":
 				var source_card := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 				if not source_card.is_empty():
-					var move_result := MatchMutations.move_card_to_zone(match_state, str(source_card.get("instance_id", "")), ZONE_HAND, {"reason": reason})
-					generated_events.append_array(move_result.get("events", []))
+					var rth_owner_id := str(source_card.get("owner_player_id", ""))
+					var rth_player := _get_player_state(match_state, rth_owner_id)
+					if not rth_player.is_empty() and rth_player.get(ZONE_HAND, []).size() >= MAX_HAND_SIZE:
+						var move_result := MatchMutations.move_card_to_zone(match_state, str(source_card.get("instance_id", "")), ZONE_DISCARD, {"reason": reason})
+						generated_events.append_array(move_result.get("events", []))
+						generated_events.append({
+							"event_type": EVENT_CARD_OVERDRAW,
+							"player_id": rth_owner_id,
+							"instance_id": str(source_card.get("instance_id", "")),
+							"card_name": str(source_card.get("name", "")),
+							"source_zone": str(source_card.get("zone", "")),
+						})
+					else:
+						var move_result := MatchMutations.move_card_to_zone(match_state, str(source_card.get("instance_id", "")), ZONE_HAND, {"reason": reason})
+						generated_events.append_array(move_result.get("events", []))
 			"generate_card_to_deck":
 				var gen_template: Dictionary = effect.get("card_template", {})
 				if not gen_template.is_empty():
