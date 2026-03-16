@@ -2240,6 +2240,13 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 			var self_card := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 			if not self_card.is_empty():
 				targets.append(self_card)
+		"host":
+			var host_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+			var host_id := str(host_source.get("attached_to_instance_id", "")) if not host_source.is_empty() else ""
+			if not host_id.is_empty():
+				var host_card := _find_card_anywhere(match_state, host_id)
+				if not host_card.is_empty():
+					targets.append(host_card)
 		"event_source":
 			var source_card := _find_card_anywhere(match_state, str(event.get("source_instance_id", "")))
 			if not source_card.is_empty():
