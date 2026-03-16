@@ -3226,6 +3226,10 @@ func _try_resolve_selected_player_target(player_id: String) -> bool:
 		_report_invalid_interaction("Select a lane slot to summon this creature.", {"player_ids": [player_id]})
 		return true
 	if mode == SELECTION_MODE_ACTION and not _targeting_arrow_state.is_empty():
+		var atm := str(selected_card.get("action_target_mode", ""))
+		if not atm.is_empty() and atm.find("player") == -1:
+			_report_invalid_interaction("%s can only target creatures." % _card_name(selected_card), {"player_ids": [player_id]})
+			return true
 		var action_state: Dictionary = _match_state.duplicate(true)
 		var validation := MatchTiming.play_action_from_hand(action_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"target_player_id": player_id})
 		if bool(validation.get("is_valid", false)):
