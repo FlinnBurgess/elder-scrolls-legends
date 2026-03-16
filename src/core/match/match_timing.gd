@@ -1484,6 +1484,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						continue
 					var gain := int(effect.get("amount", 1))
 					magicka_player["max_magicka"] = int(magicka_player.get("max_magicka", 0)) + gain
+					magicka_player["current_magicka"] = int(magicka_player.get("current_magicka", 0)) + gain
 					generated_events.append({
 						"event_type": "max_magicka_gained",
 						"source_instance_id": str(trigger.get("source_instance_id", "")),

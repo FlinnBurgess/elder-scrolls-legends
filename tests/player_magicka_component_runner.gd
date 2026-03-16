@@ -20,10 +20,6 @@ func _run() -> void:
 	var medallion_outer := component.find_child("MedallionOuter", true, false) as PanelContainer
 	var medallion_inner := component.find_child("MedallionInner", true, false) as PanelContainer
 	var magicka_label := component.find_child("MagickaLabel", true, false) as Label
-	var top_segment := component.get_segment_node(0) as Control
-	if not _assert(component.get_segment_count() == PlayerMagickaComponent.DEFAULT_SEGMENTS, "PlayerMagickaComponent should build exactly 12 outer-ring segments."):
-		quit(1)
-		return
 	if not _assert(component.get_child_count() > 0, "Component root should own internal child nodes."):
 		quit(1)
 		return
@@ -36,6 +32,21 @@ func _run() -> void:
 	if not _assert(magicka_label != null and magicka_label.get_theme_color("font_color").is_equal_approx(PlayerMagickaComponent.COLOR_BORDER), "Center text should render in black."):
 		quit(1)
 		return
+
+	# Segment count tracks max_magicka (no locked filler segments)
+	component.set_magicka_values(1, 7, 0)
+	await process_frame
+	if not _assert(component.get_segment_count() == 7, "Segment count should match max_magicka (7), got %d." % component.get_segment_count()):
+		quit(1)
+		return
+	if not _assert(component.get_display_text() == "1/7", "No-temp display should show spendable/max in current/max form."):
+		quit(1)
+		return
+	if not _assert(component.get_segment_states() == _expected_states(1, 0, 6, 0), "State `1/7` should render 1 blue and 6 grey segments with no locked filler."):
+		quit(1)
+		return
+
+	var top_segment := component.get_segment_node(0) as Control
 	if not _assert(top_segment != null, "First outer-ring segment should exist for geometry checks."):
 		quit(1)
 		return
@@ -44,21 +55,15 @@ func _run() -> void:
 		quit(1)
 		return
 
-	component.set_magicka_values(1, 7, 0)
-	await process_frame
-	if not _assert(component.get_display_text() == "1/7", "No-temp display should show spendable/max in current/max form."):
-		quit(1)
-		return
-	if not _assert(component.get_segment_states() == _expected_states(1, 0, 6, 5), "No-temp state `1/7` should render 1 blue, 6 grey, and 5 black segments."):
-		quit(1)
-		return
-
 	component.set_magicka_values(4, 6, 1)
 	await process_frame
 	if not _assert(component.get_display_text() == "5/6", "Temporary magicka should increase spendable text without changing the max denominator."):
 		quit(1)
 		return
-	if not _assert(component.get_segment_states() == _expected_states(4, 1, 1, 6), "Temporary magicka should render as a yellow slot before remaining spent/locked slots."):
+	if not _assert(component.get_segment_states() == _expected_states(4, 1, 1, 0), "Temporary magicka should render as a yellow slot before remaining spent slots."):
+		quit(1)
+		return
+	if not _assert(component.get_segment_count() == 6, "Segment count should be max_magicka (6) when current+temp does not exceed max, got %d." % component.get_segment_count()):
 		quit(1)
 		return
 
@@ -71,10 +76,41 @@ func _run() -> void:
 	if not _assert(component.get_display_text() == "7/6", "Temporary magicka should allow center text to show values like `7/6`."):
 		quit(1)
 		return
-	if not _assert(component.get_segment_states() == _expected_states(6, 1, 0, 5), "Overflow temp state should keep 6 blue, 1 yellow, and 5 locked slots."):
+	if not _assert(component.get_segment_count() == 7, "Segment count should grow to 7 when current+temp (7) exceeds max (6), got %d." % component.get_segment_count()):
+		quit(1)
+		return
+	if not _assert(component.get_segment_states() == _expected_states(6, 1, 0, 0), "Overflow temp state should keep 6 blue, 1 yellow, and 0 locked/spent slots."):
 		quit(1)
 		return
 	if not _assert(magicka_label != null and magicka_label.text == component.get_display_text(), "Center label should stay synchronized with the root API display text."):
+		quit(1)
+		return
+
+	# Tree Minder scenario: gaining +1 max magicka adds a visible segment
+	component.set_magicka_values(3, 6, 0)
+	await process_frame
+	if not _assert(component.get_segment_count() == 6, "Pre-gain segment count should be 6, got %d." % component.get_segment_count()):
+		quit(1)
+		return
+	component.set_magicka_values(4, 7, 0)
+	await process_frame
+	if not _assert(component.get_segment_count() == 7, "Post-gain segment count should grow to 7, got %d." % component.get_segment_count()):
+		quit(1)
+		return
+	if not _assert(component.get_display_text() == "4/7", "Post-gain display should show 4/7."):
+		quit(1)
+		return
+
+	# Beyond-12 scenario
+	component.set_magicka_values(9, 13, 0)
+	await process_frame
+	if not _assert(component.get_segment_count() == 13, "Segment count should grow to 13 when max_magicka is 13, got %d." % component.get_segment_count()):
+		quit(1)
+		return
+	if not _assert(component.get_display_text() == "9/13", "Display should show 9/13 when max is 13."):
+		quit(1)
+		return
+	if not _assert(component.get_segment_states() == _expected_states(9, 0, 4, 0), "13-segment state should be 9 remaining, 4 spent, 0 locked."):
 		quit(1)
 		return
 

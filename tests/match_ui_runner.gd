@@ -214,7 +214,7 @@ func _test_player_surface_presentation(screen: MatchScreen) -> bool:
 		_assert(player_avatar != null and not player_avatar.is_opponent(), "Local avatar should use local/bottom presentation.") and
 			_assert(opponent_magicka_component != null and player_magicka_component != null, "Expected mounted magicka components for both players.") and
 			_assert(old_player_magicka_label == null and old_player_magicka_bar == null, "Old inline magicka label/blob row should not be rebuilt once the component is integrated.") and
-			_assert(player_magicka_component != null and player_magicka_component.get_segment_count() == PlayerMagickaComponent.DEFAULT_SEGMENTS, "Local magicka component should expose the full 12-slot ring.") and
+			_assert(player_magicka_component != null and player_magicka_component.get_segment_count() == int(player_state.get("max_magicka", 0)), "Local magicka component segment count should match max_magicka.") and
 			_assert(opponent_magicka_component != null and opponent_magicka_component.get_display_text() == _expected_magicka_text(opponent_state), "Opponent magicka component should reflect spendable/max text through the root API.") and
 			_assert(player_magicka_component != null and player_magicka_component.get_display_text() == _expected_magicka_text(player_state), "Local magicka component should reflect spendable/max text through the root API.") and
 			_assert(opponent_magicka_component != null and opponent_magicka_component.get_segment_states() == _expected_magicka_states(opponent_state), "Opponent magicka component should reflect the current unlocked/spent/locked state.") and
@@ -810,10 +810,14 @@ func _expected_magicka_text(player: Dictionary) -> String:
 
 func _expected_magicka_states(player: Dictionary) -> Array:
 	var states: Array = []
-	var current := maxi(0, mini(PlayerMagickaComponent.DEFAULT_SEGMENTS, int(player.get("current_magicka", 0))))
-	var max_magicka := maxi(0, mini(PlayerMagickaComponent.DEFAULT_SEGMENTS, int(player.get("max_magicka", 0))))
-	var temporary := maxi(0, mini(PlayerMagickaComponent.DEFAULT_SEGMENTS - current, int(player.get("temporary_magicka", 0))))
-	for slot_index in range(PlayerMagickaComponent.DEFAULT_SEGMENTS):
+	var raw_current := int(player.get("current_magicka", 0))
+	var raw_max := int(player.get("max_magicka", 0))
+	var raw_temp := int(player.get("temporary_magicka", 0))
+	var segment_count := maxi(1, maxi(raw_max, raw_current + raw_temp))
+	var current := maxi(0, mini(segment_count, raw_current))
+	var max_magicka := maxi(0, mini(segment_count, raw_max))
+	var temporary := maxi(0, mini(segment_count - current, raw_temp))
+	for slot_index in range(segment_count):
 		var state := PlayerMagickaComponent.STATE_LOCKED
 		if slot_index < current:
 			state = PlayerMagickaComponent.STATE_REMAINING
