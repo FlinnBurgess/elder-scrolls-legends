@@ -66,16 +66,17 @@ static func has_keyword(card: Dictionary, keyword_id: String) -> bool:
 	# Aura keywords bypass silence — check first
 	if _ensure_array(card.get("aura_keywords", [])).has(keyword_id):
 		return true
+	# Item-granted keywords bypass silence — items provide their own bonuses
+	for item in get_attached_items(card):
+		if typeof(item) != TYPE_DICTIONARY:
+			continue
+		if _ensure_array(item.get("equip_keywords", [])).has(keyword_id):
+			return true
 	if has_raw_status(card, STATUS_SILENCED):
 		return false
 	for key in ["keywords", "granted_keywords"]:
 		var values := _ensure_array(card.get(key, []))
 		if values.has(keyword_id):
-			return true
-	for item in get_attached_items(card):
-		if typeof(item) != TYPE_DICTIONARY:
-			continue
-		if _ensure_array(item.get("equip_keywords", [])).has(keyword_id):
 			return true
 	return false
 
