@@ -8638,10 +8638,7 @@
       ],
       "status": "created",
       "equip_power_bonus": 4,
-      "equip_health_bonus": 0,
-      "equip_keywords": [
-        "ward"
-      ]
+      "equip_health_bonus": 0
     },
     {
       "card_id": "dual_rift_thane",
