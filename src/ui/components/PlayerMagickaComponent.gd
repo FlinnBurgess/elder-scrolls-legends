@@ -188,7 +188,7 @@ func _refresh_all() -> void:
 func _refresh_magicka() -> void:
 	if _center_label == null:
 		return
-	var required_segments := maxi(1, maxi(_max_magicka, _current_magicka + _temporary_magicka))
+	var required_segments := maxi(DEFAULT_SEGMENTS, maxi(_max_magicka, _current_magicka + _temporary_magicka))
 	_ensure_segment_count(required_segments)
 	_center_label.text = get_display_text()
 	_center_label.add_theme_color_override("font_color", COLOR_BORDER)
