@@ -143,7 +143,9 @@ static func move_creature(match_state: Dictionary, player_id: String, instance_i
 	var validation := validate_move(match_state, player_id, instance_id, target_lane_id, options)
 	if not validation["is_valid"]:
 		return validation
-	var move_result := MatchMutations.move_card_between_lanes(match_state, player_id, instance_id, target_lane_id, options)
+	var move_options := options.duplicate()
+	move_options["preserve_entered_lane_on_turn"] = true
+	var move_result := MatchMutations.move_card_between_lanes(match_state, player_id, instance_id, target_lane_id, move_options)
 	if not bool(move_result.get("is_valid", false)):
 		return move_result
 
