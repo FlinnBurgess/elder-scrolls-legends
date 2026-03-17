@@ -5717,9 +5717,7 @@
       "rules_text": "Summon: Give a creature Lethal.",
       "is_unique": false,
       "collectible": true,
-      "keywords": [
-        "lethal"
-      ],
+      "keywords": [],
       "has_prophecy": false,
       "effect_ids": [
         "summon"

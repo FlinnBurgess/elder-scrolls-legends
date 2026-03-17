@@ -1533,7 +1533,10 @@ func _refresh_ui() -> void:
 		var arrow_id: String = str(_targeting_arrow_state.get("instance_id", ""))
 		var arrow_button: Button = _card_buttons.get(arrow_id)
 		if arrow_button != null:
-			arrow_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var summon_source_id := str(_pending_summon_target.get("source_instance_id", ""))
+			var is_self_targetable_summon := arrow_id == summon_source_id and not summon_source_id.is_empty()
+			if not is_self_targetable_summon:
+				arrow_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		elif not _has_active_prophecy_overlay(arrow_id):
 			_cancel_targeting_mode_silent()
 	_pending_layout_scale_frames = 2
