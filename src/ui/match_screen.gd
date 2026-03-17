@@ -2311,19 +2311,18 @@ func _apply_local_hand_hover_state(button: Button, hovered: bool) -> void:
 	# so they don't block clicks on the board/support surface beneath them
 	var target_filter := Control.MOUSE_FILTER_IGNORE if (any_selected and not selected) else Control.MOUSE_FILTER_STOP
 	var raised := false
-	if not locked:
-		if selected:
-			target_filter = Control.MOUSE_FILTER_IGNORE
-			target_scale = Vector2(1.05, 1.05)
-			target_position = base_position + Vector2(0.0, -rise_amount)
-			target_z = 110
-			raised = true
-		if hovered:
-			target_filter = Control.MOUSE_FILTER_STOP
-			target_scale = Vector2(1.1, 1.1) if selected else Vector2(1.05, 1.05)
-			target_position = base_position + Vector2(0.0, -rise_amount - (20.0 if selected else 0.0))
-			target_z = 120 if selected else 100
-			raised = true
+	if not locked and selected:
+		target_filter = Control.MOUSE_FILTER_IGNORE
+		target_scale = Vector2(1.05, 1.05)
+		target_position = base_position + Vector2(0.0, -rise_amount)
+		target_z = 110
+		raised = true
+	if hovered:
+		target_filter = Control.MOUSE_FILTER_STOP
+		target_scale = Vector2(1.1, 1.1) if selected else Vector2(1.05, 1.05)
+		target_position = base_position + Vector2(0.0, -rise_amount - (20.0 if selected else 0.0))
+		target_z = 120 if selected else 100
+		raised = true
 	# When raised, extend button height downward to create an invisible hit zone
 	# that prevents hover oscillation when the card moves away from the cursor
 	if raised:
