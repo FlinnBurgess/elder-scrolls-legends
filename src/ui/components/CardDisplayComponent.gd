@@ -300,6 +300,7 @@ func _refresh_all() -> void:
 	_refresh_styles()
 	_refresh_visibility()
 	_layout_internal_nodes()
+	_fit_rules_font_size()
 
 
 func _refresh_content() -> void:
@@ -917,6 +918,27 @@ func _apply_font_sizes(scale: float) -> void:
 	_cost_label.add_theme_font_size_override("font_size", _scaled_int(16, scale))
 	_attack_label.add_theme_font_size_override("font_size", _scaled_int(22, scale))
 	_health_label.add_theme_font_size_override("font_size", _scaled_int(22, scale))
+
+
+func _fit_rules_font_size() -> void:
+	if _presentation_mode != PRESENTATION_FULL:
+		return
+	if _rules_label.text.is_empty():
+		return
+	var scale := _layout_scale()
+	# Available height = panel height minus top+bottom margin padding (6px each, unscaled)
+	var available_height := _rules_panel.size.y - 12.0
+	if available_height <= 0.0:
+		return
+	var max_size := _scaled_int(18, scale)
+	var min_size := _scaled_int(10, scale)
+	var font_size := max_size
+	while font_size > min_size:
+		_rules_label.add_theme_font_size_override("normal_font_size", font_size)
+		_rules_label.add_theme_font_size_override("bold_font_size", font_size)
+		if _rules_label.get_content_height() <= int(available_height):
+			break
+		font_size -= 1
 
 
 func _set_full_rect(control: Control) -> void:
