@@ -481,6 +481,46 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 							if bool(moved.get("is_valid", false)):
 								esc_events.append({"event_type": "creature_destroyed", "instance_id": str(esc_card.get("instance_id", "")), "source_instance_id": str(esc_card.get("instance_id", "")), "owner_player_id": str(esc_card.get("owner_player_id", "")), "controller_player_id": cpid, "destroyed_by_instance_id": esc_source_id, "lane_id": str(loc.get("lane_id", "")), "source_zone": "lane"})
 				return {"handled": true, "events": esc_events}
+		"summon_random_by_target_cost":
+			var srbtc_target_id := str(event.get("target_instance_id", ""))
+			var srbtc_target := _find_card_anywhere(match_state, srbtc_target_id)
+			var srbtc_base_cost := int(srbtc_target.get("cost", 0))
+			var srbtc_cost_offset := int(effect.get("cost_offset", 0))
+			var srbtc_exact_cost := srbtc_base_cost + srbtc_cost_offset
+			var srbtc_seeds: Array = CardCatalog._card_seeds()
+			var srbtc_candidates: Array = []
+			for seed in srbtc_seeds:
+				if typeof(seed) != TYPE_DICTIONARY:
+					continue
+				if not bool(seed.get("collectible", true)):
+					continue
+				if str(seed.get("card_type", "")) != "creature":
+					continue
+				if int(seed.get("cost", 0)) != srbtc_exact_cost:
+					continue
+				srbtc_candidates.append(seed)
+			if srbtc_candidates.is_empty():
+				return {"handled": true, "events": []}
+			var srbtc_controller_id := str(trigger.get("controller_player_id", ""))
+			var srbtc_pick: Dictionary = srbtc_candidates[_timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_srbtc", srbtc_candidates.size())]
+			var srbtc_template: Dictionary = srbtc_pick.duplicate(true)
+			srbtc_template["definition_id"] = str(srbtc_template.get("card_id", ""))
+			var srbtc_lane_id := ""
+			var srbtc_lanes: Array = match_state.get("lanes", [])
+			var srbtc_lane_index := int(trigger.get("lane_index", -1))
+			if srbtc_lane_index >= 0 and srbtc_lane_index < srbtc_lanes.size():
+				srbtc_lane_id = str(srbtc_lanes[srbtc_lane_index].get("lane_id", ""))
+			if srbtc_lane_id.is_empty() and not srbtc_lanes.is_empty():
+				srbtc_lane_id = str(srbtc_lanes[0].get("lane_id", ""))
+			if srbtc_lane_id.is_empty():
+				return {"handled": true, "events": []}
+			var srbtc_gen := MatchMutations.build_generated_card(match_state, srbtc_controller_id, srbtc_template)
+			var srbtc_result := MatchMutations.summon_card_to_lane(match_state, srbtc_controller_id, srbtc_gen, srbtc_lane_id, {"source_zone": MatchMutations.ZONE_GENERATED})
+			if not bool(srbtc_result.get("is_valid", false)):
+				return {"handled": true, "events": []}
+			var srbtc_events: Array = srbtc_result.get("events", []).duplicate()
+			srbtc_events.append(_timing_rules()._build_summon_event(srbtc_result["card"], srbtc_controller_id, srbtc_lane_id, int(srbtc_result.get("slot_index", -1)), "summon_from_catalog"))
+			return {"handled": true, "events": srbtc_events}
 		"transform_random_from_catalog":
 			var trfc_filter_raw = effect.get("filter", {})
 			var trfc_filter: Dictionary = trfc_filter_raw if typeof(trfc_filter_raw) == TYPE_DICTIONARY else {}
