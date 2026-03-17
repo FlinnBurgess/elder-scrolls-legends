@@ -1579,6 +1579,7 @@ func _refresh_player_sections() -> void:
 		var avatar_component = section.get("avatar_component")
 		if avatar_component != null:
 			avatar_component.apply_player_state(player, is_opponent)
+			_refresh_avatar_target_glow(avatar_component, player_id)
 
 		var magicka_component = section.get("magicka_component")
 		if magicka_component != null:
@@ -2132,6 +2133,8 @@ func _build_card_button(card: Dictionary, public_view: bool, surface := "default
 	button.set_meta("card_display_component", null)
 	_populate_card_button_content(button, card, public_view, surface)
 	_apply_card_feedback_decoration(button, card, surface)
+	if interaction_state == "valid":
+		_apply_valid_target_glow(button, surface)
 	if surface == "lane" and str(card.get("card_type", "")) == "creature":
 		_apply_lane_card_float_effect(button, card)
 	_card_buttons[instance_id] = button
@@ -3462,6 +3465,13 @@ func _card_interaction_state(card: Dictionary, surface: String) -> String:
 	var instance_id := str(card.get("instance_id", ""))
 	if _copy_array(_invalid_feedback.get("instance_ids", [])).has(instance_id):
 		return "invalid"
+	if not _pending_summon_target.is_empty() and surface == "lane":
+		var source_id := str(_pending_summon_target.get("source_instance_id", ""))
+		var valid_targets := MatchTiming.get_all_valid_targets(_match_state, source_id)
+		for t in valid_targets:
+			if str(t.get("instance_id", "")) == instance_id:
+				return "valid"
+		return "invalid"
 	var mode := _selected_action_mode(_selected_card())
 	if mode == SELECTION_MODE_ITEM and surface == "lane":
 		return "valid" if _is_card_target_valid_for_selected(instance_id) else "invalid"
@@ -3471,6 +3481,8 @@ func _card_interaction_state(card: Dictionary, surface: String) -> String:
 		var selected_card := _selected_card()
 		if not selected_card.is_empty() and str(card.get("controller_player_id", "")) != str(selected_card.get("controller_player_id", "")):
 			return "valid" if _is_card_target_valid_for_selected(instance_id) else "invalid"
+	if mode == SELECTION_MODE_ACTION and surface == "lane" and not _targeting_arrow_state.is_empty():
+		return "valid" if _is_card_target_valid_for_selected(instance_id) else "invalid"
 	return "default"
 
 
@@ -3916,6 +3928,65 @@ func _apply_card_feedback_decoration(button: Button, card: Dictionary, surface: 
 	if surface == "hand":
 		pass
 	button.modulate = modulate_color
+
+
+func _refresh_avatar_target_glow(avatar: Control, player_id: String) -> void:
+	var existing := avatar.find_child("avatar_target_glow", false, false)
+	if existing != null:
+		avatar.remove_child(existing)
+		existing.queue_free()
+	var valid_ids := _valid_player_target_ids()
+	if not valid_ids.has(player_id):
+		return
+	var glow_shader := load("res://assets/shaders/avatar_target_glow.gdshader") as Shader
+	if glow_shader == null:
+		return
+	var glow_pad := 20.0
+	var glow_mat := ShaderMaterial.new()
+	glow_mat.shader = glow_shader
+	var glow := ColorRect.new()
+	glow.name = "avatar_target_glow"
+	glow.material = glow_mat
+	glow.color = Color.WHITE
+	glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	glow.offset_left = -glow_pad
+	glow.offset_top = -glow_pad
+	glow.offset_right = glow_pad
+	glow.offset_bottom = glow_pad
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	avatar.clip_contents = false
+	avatar.add_child(glow)
+	avatar.move_child(glow, 0)
+
+
+func _apply_valid_target_glow(button: Button, surface: String) -> void:
+	var glow_shader := load("res://assets/shaders/valid_target_glow.gdshader") as Shader
+	if glow_shader == null:
+		return
+	var card_size := _surface_button_minimum_size(surface)
+	var glow_pad := 16.0
+	var total_size := card_size + Vector2(glow_pad * 2.0, glow_pad * 2.0)
+	var padding_uv := Vector2(glow_pad / total_size.x, glow_pad / total_size.y)
+	var glow_mat := ShaderMaterial.new()
+	glow_mat.shader = glow_shader
+	glow_mat.set_shader_parameter("glow_color", Color(0.9, 0.92, 0.95, 1.0))
+	glow_mat.set_shader_parameter("pulse_speed", 1.8)
+	glow_mat.set_shader_parameter("glow_intensity", 0.28)
+	glow_mat.set_shader_parameter("corner_radius", 0.04)
+	glow_mat.set_shader_parameter("padding_uv", padding_uv)
+	var glow := ColorRect.new()
+	glow.name = "valid_target_glow"
+	glow.material = glow_mat
+	glow.color = Color.WHITE
+	glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	glow.offset_left = -glow_pad
+	glow.offset_top = -glow_pad
+	glow.offset_right = glow_pad
+	glow.offset_bottom = glow_pad
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.clip_contents = false
+	button.add_child(glow)
+	button.move_child(glow, 0)
 
 
 func _apply_lane_card_float_effect(button: Button, card: Dictionary) -> void:
