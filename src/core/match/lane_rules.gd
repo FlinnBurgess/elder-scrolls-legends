@@ -174,7 +174,8 @@ static func _apply_lane_entry(match_state: Dictionary, player_id: String, card: 
 	card["slot_index"] = validation["slot_index"]
 	card["entered_lane_on_turn"] = int(match_state.get("turn_number", 0))
 	if bool(validation.get("granted_cover", false)):
-		EvergreenRules.grant_cover(card, int(match_state.get("turn_number", 0)) + 1)
+		var cover_offset := 1 if str(card.get("controller_player_id", "")) == str(match_state.get("active_player_id", "")) else 0
+		EvergreenRules.grant_cover(card, int(match_state.get("turn_number", 0)) + cover_offset)
 	player_slots.insert(validation["slot_index"], card)
 	MatchMutations._reindex_player_slots(player_slots)
 

@@ -384,7 +384,7 @@ func _process_local_match_ai_turn() -> void:
 		_schedule_local_match_ai_step(LOCAL_MATCH_AI_ACTION_DELAY_MS * 3)
 		return
 	var now_ms := Time.get_ticks_msec()
-	if _is_local_prophecy_interrupt_open():
+	if _local_player_has_pending_interrupt():
 		_pause_local_match_ai_queue(now_ms)
 		return
 	_resume_local_match_ai_queue(now_ms)
@@ -416,7 +416,7 @@ func _execute_local_match_ai_step() -> Dictionary:
 		return {"did_execute": false, "yield_reason": "disabled"}
 	if _has_match_winner():
 		return {"did_execute": false, "yield_reason": "match_complete"}
-	if _is_local_prophecy_interrupt_open():
+	if _local_player_has_pending_interrupt():
 		return {"did_execute": false, "yield_reason": "waiting_on_local_prophecy"}
 	if not _ai_controls_current_decision_window():
 		return {"did_execute": false, "yield_reason": "no_ai_window"}
@@ -528,7 +528,7 @@ func _ai_action_target_name(action: Dictionary) -> String:
 func _ai_post_action_state() -> String:
 	if _has_match_winner():
 		return "match_complete"
-	if _is_local_prophecy_interrupt_open():
+	if _local_player_has_pending_interrupt():
 		return "waiting_on_local_prophecy"
 	if _is_local_player_turn():
 		return "returned_to_local_player"
@@ -4218,7 +4218,7 @@ func _is_local_player_turn() -> bool:
 
 
 func _should_dim_local_interaction_surfaces() -> bool:
-	return not _is_local_player_turn() and not _is_local_prophecy_interrupt_open()
+	return not _is_local_player_turn() and not _local_player_has_pending_interrupt()
 
 
 func _should_dim_local_surface(player_id: String) -> bool:
@@ -4233,6 +4233,10 @@ func _is_local_prophecy_interrupt_open() -> bool:
 	return _has_pending_prophecy_for_player(_local_player_id())
 
 
+func _local_player_has_pending_interrupt() -> bool:
+	return _is_local_prophecy_interrupt_open() or not _pending_summon_target.is_empty()
+
+
 func _is_local_match_ai_enabled() -> bool:
 	return _ai_enabled or _scenario_id == LOCAL_MATCH_AI_SCENARIO_ID
 
@@ -4244,7 +4248,7 @@ func _ai_player_id() -> String:
 func _ai_controls_current_decision_window() -> bool:
 	if not _is_local_match_ai_enabled() or _has_match_winner():
 		return false
-	if _is_local_prophecy_interrupt_open():
+	if _local_player_has_pending_interrupt():
 		return false
 	var ai_player_id := _ai_player_id()
 	if MatchTiming.has_pending_prophecy(_match_state):
