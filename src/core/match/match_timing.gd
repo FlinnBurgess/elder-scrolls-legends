@@ -1321,6 +1321,12 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 	var required_event_status_id := str(descriptor.get("required_event_status_id", family_spec.get("required_event_status_id", "")))
 	if not required_event_status_id.is_empty() and str(event.get("status_id", "")) != required_event_status_id:
 		return false
+	var required_target_keyword := str(descriptor.get("required_target_keyword", ""))
+	if not required_target_keyword.is_empty():
+		var rtk_target_id := str(event.get("target_instance_id", ""))
+		var rtk_target := _find_card_anywhere(match_state, rtk_target_id)
+		if rtk_target.is_empty() or not EvergreenRules.has_keyword(rtk_target, required_target_keyword):
+			return false
 	return ExtendedMechanicPacks.matches_additional_conditions(match_state, trigger, descriptor, event)
 
 
