@@ -696,6 +696,10 @@ static func _card_summary(card: Dictionary) -> Dictionary:
 		"keywords": _clone_array(card.get("keywords", [])),
 		"granted_keywords": _clone_array(card.get("granted_keywords", [])),
 		"rules_tags": _clone_array(card.get("rules_tags", [])),
+		"rules_text": str(card.get("rules_text", "")),
+		"subtypes": _clone_array(card.get("subtypes", [])),
+		"rarity": str(card.get("rarity", "")),
+		"attributes": _clone_array(card.get("attributes", [])),
 	}
 
 
