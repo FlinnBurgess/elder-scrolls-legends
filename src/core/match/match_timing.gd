@@ -1478,6 +1478,10 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					if not granted_keywords.has(keyword_id):
 						granted_keywords.append(keyword_id)
 						card["granted_keywords"] = granted_keywords
+					if keyword_id == EvergreenRules.KEYWORD_GUARD and EvergreenRules.has_raw_status(card, EvergreenRules.STATUS_COVER):
+						EvergreenRules.remove_status(card, EvergreenRules.STATUS_COVER)
+						card.erase("cover_expires_on_turn")
+						card.erase("cover_granted_by")
 					generated_events.append({
 						"event_type": "keyword_granted",
 						"source_instance_id": str(trigger.get("source_instance_id", "")),
@@ -1498,6 +1502,10 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					if not granted_keywords.has(pick):
 						granted_keywords.append(pick)
 						card["granted_keywords"] = granted_keywords
+					if pick == EvergreenRules.KEYWORD_GUARD and EvergreenRules.has_raw_status(card, EvergreenRules.STATUS_COVER):
+						EvergreenRules.remove_status(card, EvergreenRules.STATUS_COVER)
+						card.erase("cover_expires_on_turn")
+						card.erase("cover_granted_by")
 					generated_events.append({
 						"event_type": "keyword_granted",
 						"source_instance_id": str(trigger.get("source_instance_id", "")),
