@@ -925,12 +925,16 @@ func _fit_rules_font_size() -> void:
 		return
 	if _rules_label.text.is_empty():
 		return
+	# Defer to next frame so the label has valid layout measurements
+	_fit_rules_font_size_deferred.call_deferred()
+
+
+func _fit_rules_font_size_deferred() -> void:
 	var scale := _layout_scale()
-	# Available height = panel height minus top+bottom margin padding (6px each, unscaled)
 	var available_height := _rules_panel.size.y - 12.0
 	if available_height <= 0.0:
 		return
-	var max_size := _scaled_int(18, scale)
+	var max_size := _scaled_int(15, scale)
 	var min_size := _scaled_int(10, scale)
 	var font_size := max_size
 	while font_size > min_size:
