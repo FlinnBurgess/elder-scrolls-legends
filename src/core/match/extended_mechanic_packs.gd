@@ -481,6 +481,42 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 							if bool(moved.get("is_valid", false)):
 								esc_events.append({"event_type": "creature_destroyed", "instance_id": str(esc_card.get("instance_id", "")), "source_instance_id": str(esc_card.get("instance_id", "")), "owner_player_id": str(esc_card.get("owner_player_id", "")), "controller_player_id": cpid, "destroyed_by_instance_id": esc_source_id, "lane_id": str(loc.get("lane_id", "")), "source_zone": "lane"})
 				return {"handled": true, "events": esc_events}
+		"summon_random_from_deck":
+			var srfd_controller_id := str(trigger.get("controller_player_id", ""))
+			var srfd_player := _get_player_state(match_state, srfd_controller_id)
+			if srfd_player.is_empty():
+				return {"handled": true, "events": []}
+			var srfd_deck: Array = srfd_player.get("deck", [])
+			var srfd_candidates: Array = []
+			var srfd_filter_raw = effect.get("filter", {})
+			var srfd_filter: Dictionary = srfd_filter_raw if typeof(srfd_filter_raw) == TYPE_DICTIONARY else {}
+			var srfd_req_card_type := str(srfd_filter.get("card_type", ""))
+			for i in range(srfd_deck.size()):
+				var card = srfd_deck[i]
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				if not srfd_req_card_type.is_empty() and str(card.get("card_type", "")) != srfd_req_card_type:
+					continue
+				srfd_candidates.append({"index": i, "card": card})
+			if srfd_candidates.is_empty():
+				return {"handled": true, "events": []}
+			var srfd_pick_idx := _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_srfd", srfd_candidates.size())
+			var srfd_picked: Dictionary = srfd_candidates[srfd_pick_idx]
+			var srfd_card: Dictionary = srfd_picked["card"]
+			srfd_deck.erase(srfd_card)
+			var srfd_lanes: Array = match_state.get("lanes", [])
+			if srfd_lanes.is_empty():
+				return {"handled": true, "events": []}
+			var srfd_lane_idx := _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_srfd_lane", srfd_lanes.size())
+			var srfd_lane_id := str(srfd_lanes[srfd_lane_idx].get("lane_id", ""))
+			srfd_card["controller_player_id"] = srfd_controller_id
+			srfd_card["owner_player_id"] = srfd_controller_id
+			var srfd_result := MatchMutations.summon_card_to_lane(match_state, srfd_controller_id, srfd_card, srfd_lane_id, {"source_zone": "deck"})
+			if not bool(srfd_result.get("is_valid", false)):
+				return {"handled": true, "events": []}
+			var srfd_events: Array = srfd_result.get("events", []).duplicate()
+			srfd_events.append(_timing_rules()._build_summon_event(srfd_result["card"], srfd_controller_id, srfd_lane_id, int(srfd_result.get("slot_index", -1)), "summon_from_deck"))
+			return {"handled": true, "events": srfd_events}
 		"summon_random_by_target_cost":
 			var srbtc_target_id := str(event.get("target_instance_id", ""))
 			var srbtc_target := _find_card_anywhere(match_state, srbtc_target_id)
