@@ -479,7 +479,7 @@ static func _expand_target_parameter_sets(match_state: Dictionary, requirements:
 					elif atm == "enemy_creature":
 						if card_controller == atm_controller:
 							continue
-				elif atm == "wounded_enemy_creature":
+					elif atm == "wounded_enemy_creature":
 						if card_controller == atm_controller:
 							continue
 						if not EvergreenRules.has_status(card, EvergreenRules.STATUS_WOUNDED):
