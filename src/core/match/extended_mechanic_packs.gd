@@ -229,6 +229,13 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 				break
 		if took_damage:
 			return false
+	# Max magicka threshold conditions
+	var req_magicka_gte := int(descriptor.get("required_max_magicka_gte", 0))
+	if req_magicka_gte > 0 and int(controller.get("max_magicka", 0)) < req_magicka_gte:
+		return false
+	var req_magicka_lt := int(descriptor.get("required_max_magicka_lt", 0))
+	if req_magicka_lt > 0 and int(controller.get("max_magicka", 0)) >= req_magicka_lt:
+		return false
 	# Minimum destroyed enemy runes condition
 	var min_runes := int(descriptor.get("min_destroyed_enemy_runes", 0))
 	if min_runes > 0:
