@@ -24,6 +24,7 @@ const COLOR_TEMPORARY := Color(0.95, 0.77, 0.18, 0.98)
 var _current_magicka := 0
 var _max_magicka := 0
 var _temporary_magicka := 0
+var _bonus_max_magicka := 0
 var _is_built := false
 
 var _content_root: Control
@@ -71,18 +72,23 @@ func _notification(what: int) -> void:
 		_refresh_magicka()
 
 
-func set_magicka_values(current: int, maximum: int, temporary := 0) -> void:
+func set_magicka_values(current: int, maximum: int, temporary := 0, bonus := 0) -> void:
 	_current_magicka = maxi(0, current)
 	_max_magicka = maxi(0, maximum)
 	_temporary_magicka = maxi(0, temporary)
+	_bonus_max_magicka = maxi(0, bonus)
 	_refresh_magicka()
 
 
 func apply_player_state(player: Dictionary) -> void:
+	var turns := int(player.get("turns_started", 0))
+	var max_mag := int(player.get("max_magicka", _max_magicka))
+	var bonus := maxi(0, max_mag - mini(turns, DEFAULT_SEGMENTS))
 	set_magicka_values(
 		int(player.get("current_magicka", _current_magicka)),
-		int(player.get("max_magicka", _max_magicka)),
-		int(player.get("temporary_magicka", _temporary_magicka))
+		max_mag,
+		int(player.get("temporary_magicka", _temporary_magicka)),
+		bonus
 	)
 
 
@@ -188,7 +194,7 @@ func _refresh_all() -> void:
 func _refresh_magicka() -> void:
 	if _center_label == null:
 		return
-	var required_segments := maxi(DEFAULT_SEGMENTS, maxi(_max_magicka, _current_magicka + _temporary_magicka))
+	var required_segments := maxi(DEFAULT_SEGMENTS + _bonus_max_magicka, maxi(_max_magicka, _current_magicka + _temporary_magicka))
 	_ensure_segment_count(required_segments)
 	_center_label.text = get_display_text()
 	_center_label.add_theme_color_override("font_color", COLOR_BORDER)

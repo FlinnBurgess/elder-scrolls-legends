@@ -9,6 +9,11 @@ const DECKS_DIR := "res://data/decks/"
 var _main_menu: Control
 var _active_screen: Control
 var _pause_overlay: Control
+var _deck_select_screen: Control
+var _deck_select_buttons: Array = []
+var _deck_entries: Array = []
+var _selected_deck_index := -1
+var _start_match_button: Button
 
 
 func _ready() -> void:
@@ -22,6 +27,9 @@ func _show_main_menu() -> void:
 	if _active_screen != null:
 		_active_screen.queue_free()
 		_active_screen = null
+	if _deck_select_screen != null:
+		_deck_select_screen.queue_free()
+		_deck_select_screen = null
 
 	if _main_menu != null:
 		_main_menu.visible = true
@@ -62,16 +70,157 @@ func _show_main_menu() -> void:
 
 
 func _on_match_pressed() -> void:
-	var decks := _load_random_decks()
-	if decks.is_empty():
-		return
 	_main_menu.visible = false
+	_show_deck_select_screen()
+
+
+func _show_deck_select_screen() -> void:
+	_deck_entries = _load_deck_entries()
+	if _deck_entries.is_empty():
+		push_error("No deck files found in %s" % DECKS_DIR)
+		_main_menu.visible = true
+		return
+
+	_selected_deck_index = -1
+	_deck_select_buttons.clear()
+
+	_deck_select_screen = Control.new()
+	_deck_select_screen.name = "DeckSelect"
+	_deck_select_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_deck_select_screen)
+
+	var center := VBoxContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	center.custom_minimum_size = Vector2(400, 0)
+	center.add_theme_constant_override("separation", 12)
+	_deck_select_screen.add_child(center)
+
+	var title := Label.new()
+	title.text = "Choose Your Deck"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 26)
+	center.add_child(title)
+
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0, 8)
+	center.add_child(spacer)
+
+	for i in range(_deck_entries.size()):
+		var entry: Dictionary = _deck_entries[i]
+		var deck_button := Button.new()
+		var attributes_text := ", ".join(entry.get("attribute_ids", []))
+		var card_count := int(entry.get("card_count", 0))
+		deck_button.text = "%s  (%s | %d cards)" % [str(entry.get("name", "Unknown")), attributes_text, card_count]
+		deck_button.custom_minimum_size = Vector2(400, 48)
+		deck_button.pressed.connect(_on_deck_selected.bind(i))
+		center.add_child(deck_button)
+		_deck_select_buttons.append(deck_button)
+
+	var button_spacer := Control.new()
+	button_spacer.custom_minimum_size = Vector2(0, 12)
+	center.add_child(button_spacer)
+
+	_start_match_button = Button.new()
+	_start_match_button.text = "Start Match"
+	_start_match_button.custom_minimum_size = Vector2(400, 52)
+	_start_match_button.disabled = true
+	_start_match_button.pressed.connect(_on_start_match_pressed)
+	center.add_child(_start_match_button)
+
+	var back_button := Button.new()
+	back_button.text = "Back"
+	back_button.custom_minimum_size = Vector2(400, 44)
+	back_button.pressed.connect(_on_deck_select_back_pressed)
+	center.add_child(back_button)
+
+
+func _on_deck_selected(index: int) -> void:
+	_selected_deck_index = index
+	_start_match_button.disabled = false
+	for i in range(_deck_select_buttons.size()):
+		var btn: Button = _deck_select_buttons[i]
+		if i == index:
+			var style := StyleBoxFlat.new()
+			style.bg_color = Color(0.2, 0.4, 0.65, 1.0)
+			style.border_color = Color(0.4, 0.65, 0.9, 1.0)
+			style.border_width_left = 2
+			style.border_width_top = 2
+			style.border_width_right = 2
+			style.border_width_bottom = 2
+			style.corner_radius_top_left = 4
+			style.corner_radius_top_right = 4
+			style.corner_radius_bottom_left = 4
+			style.corner_radius_bottom_right = 4
+			btn.add_theme_stylebox_override("normal", style)
+		else:
+			btn.remove_theme_stylebox_override("normal")
+
+
+func _on_start_match_pressed() -> void:
+	if _selected_deck_index < 0 or _selected_deck_index >= _deck_entries.size():
+		return
+	var player_deck_path: String = _deck_entries[_selected_deck_index].get("path", "")
+	var player_deck_ids := _load_deck_card_ids(player_deck_path)
+	if player_deck_ids.is_empty():
+		return
+
+	var enemy_deck_ids := _pick_random_enemy_deck(player_deck_path)
+	if enemy_deck_ids.is_empty():
+		return
+
+	_deck_select_screen.queue_free()
+	_deck_select_screen = null
+
 	var match_screen := MatchScreen.new()
 	match_screen.name = "Match"
 	match_screen.return_to_main_menu_requested.connect(_show_main_menu)
 	add_child(match_screen)
 	_active_screen = match_screen
-	match_screen.start_match_with_decks(decks[0], decks[1])
+	match_screen.start_match_with_decks(player_deck_ids, enemy_deck_ids)
+
+
+func _on_deck_select_back_pressed() -> void:
+	if _deck_select_screen != null:
+		_deck_select_screen.queue_free()
+		_deck_select_screen = null
+	_main_menu.visible = true
+
+
+func _pick_random_enemy_deck(exclude_path: String) -> Array:
+	var deck_files := _list_deck_files()
+	var candidates: Array = []
+	for path in deck_files:
+		if path != exclude_path:
+			candidates.append(path)
+	if candidates.is_empty():
+		candidates = deck_files
+	candidates.shuffle()
+	return _load_deck_card_ids(candidates[0])
+
+
+func _load_deck_entries() -> Array:
+	var entries: Array = []
+	var deck_files := _list_deck_files()
+	for path in deck_files:
+		var file := FileAccess.open(path, FileAccess.READ)
+		if file == null:
+			continue
+		var json := JSON.new()
+		if json.parse(file.get_as_text()) != OK or typeof(json.data) != TYPE_DICTIONARY:
+			continue
+		var deck: Dictionary = json.data
+		var card_count := 0
+		for card_entry in deck.get("cards", []):
+			if typeof(card_entry) == TYPE_DICTIONARY:
+				card_count += int(card_entry.get("quantity", 0))
+		entries.append({
+			"path": path,
+			"name": str(deck.get("name", path.get_file())),
+			"attribute_ids": deck.get("attribute_ids", []),
+			"card_count": card_count,
+		})
+	entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return str(a.get("name", "")) < str(b.get("name", "")))
+	return entries
 
 
 func _on_deckbuilder_pressed() -> void:
@@ -153,18 +302,6 @@ func _on_pause_main_menu_pressed() -> void:
 	_dismiss_pause_menu()
 	_show_main_menu()
 
-
-func _load_random_decks() -> Array:
-	var deck_files := _list_deck_files()
-	if deck_files.size() < 2:
-		push_error("Need at least 2 deck files in %s" % DECKS_DIR)
-		return []
-	deck_files.shuffle()
-	var deck_one := _load_deck_card_ids(deck_files[0])
-	var deck_two := _load_deck_card_ids(deck_files[1])
-	if deck_one.is_empty() or deck_two.is_empty():
-		return []
-	return [deck_one, deck_two]
 
 
 func _list_deck_files() -> Array:
