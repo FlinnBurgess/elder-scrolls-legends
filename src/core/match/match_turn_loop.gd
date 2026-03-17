@@ -151,6 +151,7 @@ static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionar
 
 	match_state["turn_number"] = int(match_state.get("turn_number", 0)) + 1
 	match_state["priority_player_id"] = player_id
+	match_state["resolved_turn_triggers"] = {}
 	var draw_result := MatchTiming.draw_cards(match_state, player_id, 1, {
 		"reason": MatchTiming.EVENT_TURN_STARTED,
 		"source_controller_player_id": player_id,

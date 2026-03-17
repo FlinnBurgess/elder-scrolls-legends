@@ -1371,19 +1371,27 @@ static func _build_trigger_resolution(match_state: Dictionary, trigger: Dictiona
 
 static func _mark_once_trigger_if_needed(match_state: Dictionary, trigger: Dictionary) -> void:
 	var descriptor: Dictionary = trigger.get("descriptor", {})
-	if not bool(descriptor.get("once_per_instance", false)):
-		return
-	var resolved_once_triggers: Dictionary = match_state.get("resolved_once_triggers", {})
-	resolved_once_triggers[str(trigger.get("trigger_id", ""))] = true
-	match_state["resolved_once_triggers"] = resolved_once_triggers
+	if bool(descriptor.get("once_per_instance", false)):
+		var resolved_once_triggers: Dictionary = match_state.get("resolved_once_triggers", {})
+		resolved_once_triggers[str(trigger.get("trigger_id", ""))] = true
+		match_state["resolved_once_triggers"] = resolved_once_triggers
+	if bool(descriptor.get("once_per_turn", false)):
+		var resolved_turn_triggers: Dictionary = match_state.get("resolved_turn_triggers", {})
+		resolved_turn_triggers[str(trigger.get("trigger_id", ""))] = true
+		match_state["resolved_turn_triggers"] = resolved_turn_triggers
 
 
 static func _is_once_trigger_consumed(match_state: Dictionary, trigger: Dictionary) -> bool:
 	var descriptor: Dictionary = trigger.get("descriptor", {})
-	if not bool(descriptor.get("once_per_instance", false)):
-		return false
-	var resolved_once_triggers: Dictionary = match_state.get("resolved_once_triggers", {})
-	return bool(resolved_once_triggers.get(str(trigger.get("trigger_id", "")), false))
+	if bool(descriptor.get("once_per_instance", false)):
+		var resolved_once_triggers: Dictionary = match_state.get("resolved_once_triggers", {})
+		if bool(resolved_once_triggers.get(str(trigger.get("trigger_id", "")), false)):
+			return true
+	if bool(descriptor.get("once_per_turn", false)):
+		var resolved_turn_triggers: Dictionary = match_state.get("resolved_turn_triggers", {})
+		if bool(resolved_turn_triggers.get(str(trigger.get("trigger_id", "")), false)):
+			return true
+	return false
 
 
 static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: Dictionary, resolution: Dictionary) -> Array:
