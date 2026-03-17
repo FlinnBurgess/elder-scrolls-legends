@@ -20,7 +20,7 @@ func _initialize() -> void:
 func _run_all_tests() -> bool:
 	return (
 		_test_rune_break_emits_events_and_enemy_triggers() and
-		_test_prophecy_decline_keeps_card_in_hand_above_ten() and
+		_test_prophecy_decline_discards_card_when_hand_full() and
 		_test_prophecy_creature_can_be_played_for_free() and
 		_test_fatigue_uses_out_of_cards_and_eventual_loss()
 	)
@@ -58,7 +58,7 @@ func _test_rune_break_emits_events_and_enemy_triggers() -> bool:
 	)
 
 
-func _test_prophecy_decline_keeps_card_in_hand_above_ten() -> bool:
+func _test_prophecy_decline_discards_card_when_hand_full() -> bool:
 	var match_state := _build_started_match(20, 0)
 	var active_player: Dictionary = match_state["players"][0]
 	var opponent: Dictionary = match_state["players"][1]
@@ -68,7 +68,7 @@ func _test_prophecy_decline_keeps_card_in_hand_above_ten() -> bool:
 		"rules_tags": ["prophecy"],
 	})
 	_set_deck_cards(opponent, [prophecy_card])
-	while opponent["hand"].size() < 10:
+	while opponent["hand"].size() < MatchTiming.MAX_HAND_SIZE:
 		_add_hand_card(opponent, "fill_%02d" % opponent["hand"].size(), {"card_type": "action"})
 	var attacker := _summon_creature(active_player, match_state, "prophecy_breaker", "field", 6, 6, [], 0)
 	_target_ready_for_attack(attacker, match_state)
@@ -80,7 +80,7 @@ func _test_prophecy_decline_keeps_card_in_hand_above_ten() -> bool:
 	if not (
 		_assert(result["is_valid"], "Prophecy draw fixture should resolve.") and
 		_assert(MatchTiming.has_pending_prophecy(match_state, opponent["player_id"]), "Drawing a Prophecy from a rune should open a pending Prophecy window.") and
-		_assert(opponent["hand"].size() == 11, "The drawn Prophecy should remain in hand even when it temporarily exceeds ten cards.") and
+		_assert(opponent["hand"].size() == MatchTiming.MAX_HAND_SIZE + 1, "The drawn Prophecy should remain in hand temporarily while the Prophecy window is open.") and
 		_assert(not _first_event_of_type(result.get("events", []), MatchTiming.EVENT_PROPHECY_WINDOW_OPENED).is_empty(), "Rune draw should emit an explicit Prophecy-window event.")
 	):
 		return false
@@ -89,8 +89,10 @@ func _test_prophecy_decline_keeps_card_in_hand_above_ten() -> bool:
 	return (
 		_assert(decline_result["is_valid"], "Declining a pending Prophecy should succeed.") and
 		_assert(not MatchTiming.has_pending_prophecy(match_state, opponent["player_id"]), "Declining the Prophecy should clear the pending window.") and
-		_assert(opponent["hand"].size() == 11 and str(prophecy_card.get("zone", "")) == "hand", "Declined Prophecy cards should stay in hand without being discarded.") and
-		_assert(not _first_event_of_type(decline_result.get("events", []), MatchTiming.EVENT_PROPHECY_DECLINED).is_empty(), "Declining a Prophecy should emit a dedicated event.")
+		_assert(opponent["hand"].size() == MatchTiming.MAX_HAND_SIZE, "Declined Prophecy card should be discarded when hand was over the limit.") and
+		_assert(str(prophecy_card.get("zone", "")) == "discard", "Declined Prophecy card should move to discard when hand is full.") and
+		_assert(not _first_event_of_type(decline_result.get("events", []), MatchTiming.EVENT_PROPHECY_DECLINED).is_empty(), "Declining a Prophecy should emit a dedicated event.") and
+		_assert(not _first_event_of_type(decline_result.get("events", []), MatchTiming.EVENT_CARD_OVERDRAW).is_empty(), "Declining a Prophecy at max hand size should emit an overdraw event.")
 	)
 
 

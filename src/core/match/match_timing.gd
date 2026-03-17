@@ -40,7 +40,7 @@ const EVENT_PROPHECY_DECLINED := "prophecy_declined"
 const EVENT_OUT_OF_CARDS_PLAYED := "out_of_cards_played"
 const EVENT_CARD_OVERDRAW := "card_overdraw"
 
-const MAX_HAND_SIZE := 9
+const MAX_HAND_SIZE := 10
 
 const FAMILY_START_OF_TURN := "start_of_turn"
 const FAMILY_END_OF_TURN := "end_of_turn"
@@ -593,6 +593,27 @@ static func decline_pending_prophecy(match_state: Dictionary, player_id: String,
 		"reason": RULE_TAG_PROPHECY,
 		"timing_window": WINDOW_INTERRUPT,
 	}]
+	# If hand is at or over max size, discard the card instead of keeping it
+	var player := _get_player_state(match_state, player_id)
+	var hand: Array = player.get(ZONE_HAND, [])
+	if hand.size() > MAX_HAND_SIZE:
+		var card_index := -1
+		for i in range(hand.size()):
+			if str(hand[i].get("instance_id", "")) == instance_id:
+				card_index = i
+				break
+		if card_index != -1:
+			var card: Dictionary = hand[card_index]
+			hand.remove_at(card_index)
+			card["zone"] = ZONE_DISCARD
+			player[ZONE_DISCARD].append(card)
+			events.append({
+				"event_type": EVENT_CARD_OVERDRAW,
+				"player_id": player_id,
+				"instance_id": instance_id,
+				"card_name": str(card.get("name", "")),
+				"source_zone": ZONE_HAND,
+			})
 	var resume_result := _resume_pending_rune_breaks(match_state)
 	events.append_array(resume_result.get("events", []))
 	var timing_result := publish_events(match_state, events)

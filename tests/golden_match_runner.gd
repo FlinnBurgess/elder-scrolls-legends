@@ -69,7 +69,7 @@ func _test_prophecy_overflow_golden_snapshot() -> void:
 	var opponent := ScenarioFixtures.player(match_state, 1)
 	var prophecy_card := ScenarioFixtures.make_card(opponent["player_id"], "decline_prophecy", {"zone": "deck", "card_type": "action", "rules_tags": ["prophecy"]})
 	ScenarioFixtures.set_deck_cards(opponent, [prophecy_card])
-	while opponent["hand"].size() < 10:
+	while opponent["hand"].size() < MatchTiming.MAX_HAND_SIZE:
 		ScenarioFixtures.add_hand_card(opponent, "fill_%02d" % opponent["hand"].size(), {"card_type": "action"})
 	var attacker := ScenarioFixtures.summon_creature(active_player, match_state, "prophecy_breaker", "field", 6, 6, [], 0)
 	ScenarioFixtures.ready_for_attack(attacker, match_state)
@@ -88,11 +88,11 @@ func _test_prophecy_overflow_golden_snapshot() -> void:
 	}, {
 		"opponent_health": 24,
 		"rune_thresholds": [20, 15, 10, 5],
-		"hand_size": 11,
-		"contains_prophecy": true,
-		"prophecy_zone": "hand",
+		"hand_size": 10,
+		"contains_prophecy": false,
+		"prophecy_zone": "discard",
 		"pending_prophecy": false,
-	}, "Golden Prophecy-overflow scenario should preserve the hand-overflow exception after decline.", _failures)
+	}, "Golden Prophecy-overflow scenario should discard the declined Prophecy card when hand is full.", _failures)
 	VerificationAsserts.assert_replay_contains_sequence(ScenarioFixtures.replay_signature(match_state), [
 		{"entry_type": "event_processed", "event_type": MatchTiming.EVENT_RUNE_BROKEN},
 		{"entry_type": "event_processed", "event_type": MatchTiming.EVENT_CARD_DRAWN},

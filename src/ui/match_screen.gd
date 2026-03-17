@@ -1707,8 +1707,16 @@ func _show_local_prophecy_overlay(instance_id: String) -> void:
 	play_button.pressed.connect(_on_prophecy_play_pressed.bind(instance_id))
 	button_row.add_child(play_button)
 
+	var local_id := _local_player_id()
+	var local_player := {}
+	for p in _match_state.get("players", []):
+		if str(p.get("player_id", "")) == local_id:
+			local_player = p
+			break
+	var hand_full := local_player.get("hand", []).size() > MatchTiming.MAX_HAND_SIZE
+
 	var keep_button := Button.new()
-	keep_button.text = "Keep"
+	keep_button.text = "Discard" if hand_full else "Keep"
 	keep_button.custom_minimum_size = Vector2(card_size.x * 0.45, 46)
 	keep_button.add_theme_font_size_override("font_size", 17)
 	_apply_button_style(keep_button, Color(0.22, 0.11, 0.14, 0.98), Color(0.78, 0.45, 0.47, 0.96), Color(0.99, 0.95, 0.95, 1.0), 1, 10)
@@ -3876,17 +3884,17 @@ func _animate_overdraw_card(card: Dictionary, player_id: String) -> void:
 	# Animate: fade in + scale up, hold, then fall off-screen with rotation
 	var tween := create_tween()
 	tween.set_parallel(true)
-	tween.tween_property(card_panel, "scale", Vector2.ONE, 0.2).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-	tween.tween_property(card_panel, "modulate:a", 1.0, 0.15)
+	tween.tween_property(card_panel, "scale", Vector2.ONE, 0.4).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	tween.tween_property(card_panel, "modulate:a", 1.0, 0.3)
 	tween.set_parallel(false)
-	tween.tween_interval(0.8)
+	tween.tween_interval(1.2)
 	# Fall off bottom with rotation
 	var fall_target_y := viewport_size.y + card_size.y
 	var rotation_dir := 1.0 if fmod(abs(card_panel.position.x), 2.0) > 1.0 else -1.0
 	tween.set_parallel(true)
-	tween.tween_property(card_panel, "position:y", fall_target_y, 0.5).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
-	tween.tween_property(card_panel, "rotation_degrees", rotation_dir * 25.0, 0.5).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
-	tween.tween_property(card_panel, "modulate:a", 0.0, 0.5).set_ease(Tween.EASE_IN)
+	tween.tween_property(card_panel, "position:y", fall_target_y, 0.8).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+	tween.tween_property(card_panel, "rotation_degrees", rotation_dir * 25.0, 0.8).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+	tween.tween_property(card_panel, "modulate:a", 0.0, 0.8).set_ease(Tween.EASE_IN)
 	tween.set_parallel(false)
 	tween.tween_callback(func():
 		card_panel.queue_free()
@@ -4541,6 +4549,14 @@ func _pending_prophecy_player_id(instance_id: String) -> String:
 func _selection_prompt(card: Dictionary) -> String:
 	var location := MatchMutations.find_card_location(_match_state, str(card.get("instance_id", "")))
 	if _is_pending_prophecy_card(card):
+		var pid := str(card.get("controller_player_id", ""))
+		var pl := {}
+		for p in _match_state.get("players", []):
+			if str(p.get("player_id", "")) == pid:
+				pl = p
+				break
+		if pl.get("hand", []).size() > MatchTiming.MAX_HAND_SIZE:
+			return "Selected %s. It is pending Prophecy; play it for free or discard it." % _card_name(card)
 		return "Selected %s. It is pending Prophecy; play it for free or keep it in hand." % _card_name(card)
 	if not bool(location.get("is_valid", false)):
 		return "Inspecting %s." % _card_name(card)
