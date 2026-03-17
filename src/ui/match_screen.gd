@@ -1713,7 +1713,7 @@ func _show_local_prophecy_overlay(instance_id: String) -> void:
 		if str(p.get("player_id", "")) == local_id:
 			local_player = p
 			break
-	var hand_full := local_player.get("hand", []).size() > MatchTiming.MAX_HAND_SIZE
+	var hand_full: bool = local_player.get("hand", []).size() > MatchTiming.MAX_HAND_SIZE
 
 	var keep_button := Button.new()
 	keep_button.text = "Discard" if hand_full else "Keep"
