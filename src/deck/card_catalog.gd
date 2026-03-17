@@ -149,7 +149,7 @@ static func _card_seeds() -> Array:
 		_seed("str_graystone_ravager", "Graystone Ravager", ["strength"], "creature", 2, 4, 1, {"rules_tags": ["prophecy"], "subtypes": ["Orc"], "rules_text": "Prophecy"}),
 		_seed("str_heavy_battleaxe", "Heavy Battleaxe", ["strength"], "item", 4, 0, 0, {"effect_ids": ["equip", "modify_stats"], "rules_text": "+4/+1", "equip_power_bonus": 4, "equip_health_bonus": 1}),
 		_seed("str_improvised_weapon", "Improvised Weapon", ["strength"], "item", 0, 0, 0, {"rarity": "rare", "keywords": ["breakthrough"], "effect_ids": ["modify_stats"], "rules_text": "Breakthrough\n+1/+1", "equip_power_bonus": 1, "equip_health_bonus": 1, "equip_keywords": ["breakthrough"]}),
-		_seed("str_intimidate", "Intimidate", ["strength"], "action", 1, 0, 0, {"rarity": "rare", "keywords": ["guard"], "rules_text": "Enemy creatures lose Guard."}),
+		_seed("str_intimidate", "Intimidate", ["strength"], "action", 1, 0, 0, {"rarity": "rare", "keywords": ["guard"], "effect_ids": ["summon"], "rules_text": "Enemy creatures lose Guard.", "triggered_abilities": [{"family": "on_play", "effects": [{"op": "remove_keyword", "target": "all_enemies", "keyword_id": "guard"}]}]}),
 		_seed("str_jerall_forager", "Jerall Forager", ["strength"], "creature", 2, 2, 2, {"subtypes": ["Nord"]}),
 		_seed("str_lumbering_ogrim", "Lumbering Ogrim", ["strength"], "creature", 4, 7, 4, {"rarity": "epic", "subtypes": ["Daedra"], "rules_text": "Lumbering Ogrim can't gain Cover."}),
 		_seed("str_mage_slayer", "Mage Slayer", ["strength"], "creature", 2, 3, 2, {"rarity": "epic", "subtypes": ["Nord"], "rules_text": "Mage Slayer can't be damaged by actions."}),
