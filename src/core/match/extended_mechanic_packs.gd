@@ -474,6 +474,31 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 							if bool(moved.get("is_valid", false)):
 								esc_events.append({"event_type": "creature_destroyed", "instance_id": str(esc_card.get("instance_id", "")), "source_instance_id": str(esc_card.get("instance_id", "")), "owner_player_id": str(esc_card.get("owner_player_id", "")), "controller_player_id": cpid, "destroyed_by_instance_id": esc_source_id, "lane_id": str(loc.get("lane_id", "")), "source_zone": "lane"})
 				return {"handled": true, "events": esc_events}
+		"transform_random_from_catalog":
+			var trfc_filter_raw = effect.get("filter", {})
+			var trfc_filter: Dictionary = trfc_filter_raw if typeof(trfc_filter_raw) == TYPE_DICTIONARY else {}
+			var trfc_seeds: Array = CardCatalog._card_seeds()
+			var trfc_candidates: Array = []
+			var trfc_req_card_type := str(trfc_filter.get("card_type", ""))
+			for seed in trfc_seeds:
+				if typeof(seed) != TYPE_DICTIONARY:
+					continue
+				if not bool(seed.get("collectible", true)):
+					continue
+				if not trfc_req_card_type.is_empty() and str(seed.get("card_type", "")) != trfc_req_card_type:
+					continue
+				trfc_candidates.append(seed)
+			if trfc_candidates.is_empty():
+				return {"handled": true, "events": []}
+			var trfc_targets := _timing_rules()._resolve_card_targets(match_state, trigger, event, effect)
+			var trfc_events: Array = []
+			for trfc_card in trfc_targets:
+				var trfc_pick: Dictionary = trfc_candidates[_timing_rules()._deterministic_index(match_state, str(trfc_card.get("instance_id", "")) + "_trfc", trfc_candidates.size())]
+				var trfc_template: Dictionary = trfc_pick.duplicate(true)
+				trfc_template["definition_id"] = str(trfc_template.get("card_id", ""))
+				var trfc_result := MatchMutations.transform_card(match_state, str(trfc_card.get("instance_id", "")), trfc_template, {"reason": "transform_random"})
+				trfc_events.append_array(trfc_result.get("events", []))
+			return {"handled": true, "events": trfc_events}
 	return {"handled": false, "events": []}
 
 
