@@ -3354,6 +3354,8 @@ func _action_target_mode_allows(action_card: Dictionary, target_instance_id: Str
 			return target_controller == controller_id
 		"enemy_creature":
 			return target_controller != controller_id
+		"wounded_enemy_creature":
+			return target_controller != controller_id and EvergreenRules.has_status(target_card, EvergreenRules.STATUS_WOUNDED)
 		"any_creature", "another_creature":
 			return true
 	return true
