@@ -100,19 +100,19 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 ### Needs "summon random creature by cost" mechanic
 
-- **Desperate Conjuring** — Sacrifice a creature to summon a random creature that costs 2 more. Needs a new `summon_random_from_catalog` variant that filters by cost relative to the sacrificed creature.
+- **Desperate Conjuring** — WIRED (see Previously Fixed).
 
 ### Needs "summon random from deck" mechanic
 
-- **Gortwog gro-Nagorm** — At the start of your turn, summon a random creature from your deck to a random lane. Needs a new `summon_random_from_deck` effect that picks a creature from the controller's deck and moves it to a lane.
+- **Gortwog gro-Nagorm** — WIRED (see Previously Fixed).
 
 ### Needs "once per turn" trigger tracking
 
-- **Wrothgar Forge** — The first time you summon a creature each turn, equip it with a random item. Needs a `once_per_turn` condition on the summon trigger.
+- **Wrothgar Forge** — WIRED (see Previously Fixed).
 
 ### Needs "Moment of Clarity" card-selection UI
 
-- **Moment of Clarity** — Reveal three random cards, then choose one to draw. Needs a new UI flow for presenting multiple card choices.
+- **Moment of Clarity** — WIRED (see Previously Fixed; simplified to generate 1 random card since card-choice UI doesn't exist yet).
 
 ### Needs complex / unique mechanics
 
@@ -178,6 +178,7 @@ Cards that have been successfully wired with triggered_abilities:
 - Black Worm Necromancer (summon conditional more_health → summon_random_from_discard), Immolating Blast (on_play → destroy_all_except_random), Farsight Nereid (summon → log reveal), Soulrest Marshal (summon conditional more_health → reduce_next_card_cost 6), Dark Rift (activate → damage opponent 1 + conditional summon Storm Atronach on uses exhausted), Balmora Spymaster (last_gasp → summon_random_from_catalog creature), Wild Beastcaller (summon → summon_random_from_catalog Animal), Merric-at-Aswala (summon → equip_random_item_from_catalog all_friendly_in_lane), Haafingar Marauder (on_enemy_rune_destroyed → equip_random_item_from_catalog event_source), Leafwater Blessing (on_play target choice → +1/+1 + on_player_healed from discard → return_to_hand), Necrom Mastermind (summon → trigger_friendly_last_gasps), Hidden Trail (on_play → change_lane_types shadow + aura +1/+0 all friendly), Master of Arms (summon → equip_items_from_discard 2), Summerset Orrery (activate → shuffle_hand_to_deck_and_draw prophecy)
 - Thieves' Den (grants_trigger pilfer +1/+1 to all friendly via synthetic trigger injection), Ayrenn (summon → draw_from_discard_filtered action + cost_reduction_aura actions -1), Sweet Roll (last_gasp → restore_creature_health event_killer), Ancient Giant (stats_from_max_magicka at generation time)
 - Two-Moons Contemplation (end_of_turn opponent → conditional no_player_damage_this_turn → sacrifice self + summon Priest of the Moons in each lane)
+- Desperate Conjuring (on_play → sacrifice friendly creature + summon_random_by_target_cost +2), Gortwog gro-Nagorm (start_of_turn → summon_random_from_deck creature to random lane), Wrothgar Forge (on_creature_summon once_per_turn → equip_random_item_from_catalog), Moment of Clarity (on_play → generate_random_to_hand; simplified)
 - Lesser Ward (on_play → grant_keyword ward), Calm (on_play → modify_stats -4/0), Curse (on_play → modify_stats -1/-1), Malefic Wreath (on_play → modify_stats -2/-2), Swift Strike (on_play → grant_extra_attack), Wisdom of Ancients (on_play → grant_random_keyword all_friendly), Raiding Party (on_play → generate Nord Firebrand x2 to hand), Nest of Vipers (on_play → fill lane with Territorial Vipers), Mummify (on_play → transform into Shriveled Mummy), Intimidate (on_play → remove_keyword guard all_enemies)
 - Elixir of Deflection (activate → grant_keyword ward), Elixir of the Defender (activate → grant_keyword guard), Elixir of Light Feet (activate → grant_status cover), Wabbajack (activate → transform_random_from_catalog creature), Imperial Might (end_of_turn → summon Imperial Grunt)
 - Markarth Bannerman (on_attack → generate Nord Firebrand x2 to hand), Ice Wraith (start_of_turn → generate Ice Spike to hand), Breton Conjurer (on_ward_broken → summon Frost Atronach), Daggerfall Mage (on_ward_broken → generate Tome of Alteration to hand), Dwarven Centurion (on_damage → generate Dwarven Spider to hand), Murkwater Shaman (start_of_turn → generate Curse to hand), Ageless Automaton (on_attack guard target → +3/+0 + breakthrough), Mages Guild Retreat (end_of_turn 2+ actions → summon random Atronach), Spider Lair (start_of_turn → summon random Spider), Black Marsh Warden (end_of_turn → conditional summon Argonian Recruit or Veteran), Auridon Paladin (after_action_played → grant_keyword drain), Blood Magic Spell (on_play → deal_damage 2 + heal 2)

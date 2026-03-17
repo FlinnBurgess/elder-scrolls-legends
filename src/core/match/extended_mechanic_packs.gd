@@ -500,14 +500,14 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				srfd_candidates.append({"index": i, "card": card})
 			if srfd_candidates.is_empty():
 				return {"handled": true, "events": []}
-			var srfd_pick_idx := _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_srfd", srfd_candidates.size())
+			var srfd_pick_idx: int = _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_srfd", srfd_candidates.size())
 			var srfd_picked: Dictionary = srfd_candidates[srfd_pick_idx]
 			var srfd_card: Dictionary = srfd_picked["card"]
 			srfd_deck.erase(srfd_card)
 			var srfd_lanes: Array = match_state.get("lanes", [])
 			if srfd_lanes.is_empty():
 				return {"handled": true, "events": []}
-			var srfd_lane_idx := _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_srfd_lane", srfd_lanes.size())
+			var srfd_lane_idx: int = _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_srfd_lane", srfd_lanes.size())
 			var srfd_lane_id := str(srfd_lanes[srfd_lane_idx].get("lane_id", ""))
 			srfd_card["controller_player_id"] = srfd_controller_id
 			srfd_card["owner_player_id"] = srfd_controller_id
