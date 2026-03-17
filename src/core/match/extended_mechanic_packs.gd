@@ -497,7 +497,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				trfc_candidates.append(seed)
 			if trfc_candidates.is_empty():
 				return {"handled": true, "events": []}
-			var trfc_targets := _timing_rules()._resolve_card_targets(match_state, trigger, event, effect)
+			var trfc_targets: Array = _timing_rules()._resolve_card_targets(match_state, trigger, event, effect)
 			var trfc_events: Array = []
 			for trfc_card in trfc_targets:
 				var trfc_pick: Dictionary = trfc_candidates[_timing_rules()._deterministic_index(match_state, str(trfc_card.get("instance_id", "")) + "_trfc", trfc_candidates.size())]
