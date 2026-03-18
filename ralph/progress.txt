@@ -129,3 +129,33 @@
   - BossRelic enum values are ints (0-5), can pass directly to static methods in headless mode
   - Pure logic tests need no file cleanup — simplest test pattern
 ---
+
+## 2026-03-18 - US-011
+- Implemented ArenaClassSelectScreen with programmatic UI (no .tscn)
+- Loads class data from attribute_class_registry.json, randomly picks 3 of 10 dual-attribute classes
+- Displays 3 class cards in horizontal row with class name, colored attribute labels, and Select button
+- Emits class_selected(attribute_ids) signal on selection, back_pressed signal for navigation
+- Files changed: src/ui/arena/arena_class_select_screen.gd (new)
+- **Learnings for future iterations:**
+  - Arena UI files live in src/ui/arena/ directory
+  - attribute_class_registry.json has `dual_classes` array with `id`, `display_name`, `attribute_ids` per class
+  - ATTRIBUTE_TINTS dict maps attribute IDs to Color values for consistent color-coding across UI
+  - PanelContainer + StyleBoxFlat pattern for card-like UI elements: set_border_width_all, set_corner_radius_all, set_content_margin_all
+  - Use HBoxContainer with ALIGNMENT_CENTER for horizontally centered card rows
+  - ArenaDraftScreen uses HSplitContainer: left (pick options) / right (deck sidebar); split_offset negative to give right column ~30% width
+  - Draft screen API: start_draft(attribute_ids, card_database, total_picks) for initial draft; start_bonus_pick(existing_deck, attribute_ids, card_database) for post-win pick
+---
+
+## 2026-03-18 - US-012
+- Implemented ArenaDraftScreen with programmatic UI (no .tscn)
+- Left column: pick counter label + 3 CardDisplayComponent renders in centered HBoxContainer
+- Right column: deck header, scrollable compact deck list (cost badge + name + quantity), MagickaCurveChart, card count
+- start_draft() for initial 30-pick draft, start_bonus_pick() for post-win single pick with existing deck
+- Clicking a card option adds it to deck and advances to next pick; emits draft_complete(deck) when done
+- Files changed: src/ui/arena/arena_draft_screen.gd (new)
+- **Learnings for future iterations:**
+  - CardDisplayComponent wrapper pattern: Control with MOUSE_FILTER_STOP + gui_input for click, card display inside with PRESET_FULL_RECT
+  - Set custom_minimum_size and size on CardDisplayComponent AFTER apply_card() since it overrides them
+  - HSplitContainer split_offset: negative value shifts the split left (giving more space to right column)
+  - MagickaCurveChart.set_deck() expects {cards: [{card_id, quantity}]} format — same as deck definition
+---

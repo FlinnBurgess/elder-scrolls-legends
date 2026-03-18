@@ -214,7 +214,7 @@
         "Back button to return to main menu"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": "Load class data from attribute_class_registry.json. Simple functional layout, no animations."
     },
     {
@@ -233,7 +233,7 @@
         "Built programmatically with no .tscn file"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": "Reuse CardDisplayComponent for card renders and compact deck list pattern from DeckEditorScreen. Cannot skip picks."
     },
     {
