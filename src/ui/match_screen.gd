@@ -2941,7 +2941,8 @@ func _input(event: InputEvent) -> void:
 		var button_event := event as InputEventMouseButton
 		if button_event.button_index == MOUSE_BUTTON_RIGHT and button_event.pressed:
 			if not _pending_summon_target.is_empty():
-				_cancel_summon_target_mode()
+				if not _is_pending_summon_mandatory():
+					_cancel_summon_target_mode()
 				get_viewport().set_input_as_handled()
 			elif not _targeting_arrow_state.is_empty():
 				_cancel_targeting_mode()
@@ -5192,6 +5193,17 @@ func _resolve_summon_target_player(player_id: String) -> void:
 	_pending_summon_target = {}
 	_cancel_targeting_mode_silent()
 	_finalize_engine_result(result, "Targeted %s." % _player_name(player_id))
+
+
+func _is_pending_summon_mandatory() -> bool:
+	var source_id := str(_pending_summon_target.get("source_instance_id", ""))
+	if source_id.is_empty():
+		return false
+	var card := _card_from_instance_id(source_id)
+	for ability in MatchTiming.get_target_mode_abilities(card):
+		if bool(ability.get("mandatory", false)):
+			return true
+	return false
 
 
 func _cancel_summon_target_mode() -> void:
