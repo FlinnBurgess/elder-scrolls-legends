@@ -118,13 +118,23 @@ func _on_fight_pressed() -> void:
 	var player_deck_ids := _deck_to_card_ids(_run_manager.deck)
 	var ai_deck_ids := _deck_to_card_ids(ai_deck)
 
+	# Build boss config if this is the boss match (match 9)
+	var boss_config := {}
+	if match_num >= 9 and _run_manager.boss_relic != null:
+		boss_config = BossRelicSystemScript.apply_relic_to_match_config(
+			_run_manager.boss_relic, {}
+		)
+		boss_config["boss_relic_name"] = BossRelicSystemScript.get_relic_name(
+			_run_manager.boss_relic
+		)
+
 	_clear_screen()
 	var match_screen := MatchScreenScript.new()
 	match_screen.name = "ArenaMatch"
 	match_screen.return_to_main_menu_requested.connect(_on_match_ended.bind(match_screen))
 	add_child(match_screen)
 	_current_screen = match_screen
-	match_screen.start_match_with_decks(player_deck_ids, ai_deck_ids)
+	match_screen.start_match_with_decks(player_deck_ids, ai_deck_ids, boss_config)
 
 
 func _on_match_ended(match_screen: Control) -> void:
