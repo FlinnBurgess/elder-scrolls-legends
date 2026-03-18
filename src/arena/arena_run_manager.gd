@@ -143,7 +143,8 @@ static func load_run() -> ArenaRunManager:
 	if not json.data is Dictionary:
 		return null
 	var data: Dictionary = json.data
-	var manager := ArenaRunManager.new()
+	var script := load("res://src/arena/arena_run_manager.gd")
+	var manager = script.new()
 	manager.state = int(data.get("state", State.CLASS_SELECT)) as State
 	manager.class_attributes = Array(data.get("class_attributes", []))
 	manager.deck = Array(data.get("deck", []))

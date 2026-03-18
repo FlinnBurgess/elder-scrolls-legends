@@ -1,233 +1,330 @@
 {
   "project": "ElderScrollsLegends",
-  "branchName": "ralph/deckbuilder-ui-overhaul",
-  "description": "Deck Builder UI Overhaul - Multi-screen deck management with visual card grid, persistent storage, and graphical magicka curve",
+  "branchName": "ralph/solo-arena-mode",
+  "description": "Solo Arena Mode V1 - Single-player PvE draft mode with AI opponents, boss relics, Elo difficulty scaling, and run persistence",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Create DeckPersistence module for saving/loading decks",
-      "description": "As a developer, I need a pure data module to persist user decks to user://decks/ so that other modules can save and load decks.",
+      "title": "Create ArenaDraftEngine - rarity rolls and card pool filtering",
+      "description": "As a developer, I need the core draft engine that rolls rarity per pick and filters the card pool by class attributes and copy limits.",
       "acceptanceCriteria": [
-        "Create src/deck/deck_persistence.gd with class_name DeckPersistence",
-        "Implement static save_deck(deck_name: String, definition: Dictionary) that writes JSON to user://decks/<sanitized_name>.json",
-        "Implement static load_deck(deck_name: String) -> Dictionary that reads and parses the JSON file",
-        "Implement static list_decks() -> Array[String] that returns all saved deck names",
-        "Implement static delete_deck(deck_name: String) -> bool that removes the file",
-        "Deck definition format includes name, attribute_ids array, and cards array with card_id/quantity entries",
-        "Creates user://decks/ directory if it does not exist",
-        "Loading a non-existent deck returns an empty dictionary"
+        "Create src/arena/arena_draft_engine.gd with class_name ArenaDraftEngine",
+        "Implement static roll_rarity() -> String that returns 'common' (~60%), 'rare' (~25%), 'epic' (~10%), or 'legendary' (~2.2%) based on weighted random roll",
+        "Implement static get_card_pool(attribute_ids: Array, card_database: Dictionary) -> Array that returns all collectible cards matching the class's attributes or Neutral",
+        "Implement static get_pick_options(rarity: String, card_pool: Array, current_deck: Array, count: int) -> Array that returns 'count' random cards of the given rarity, respecting copy limits (unique max 1, regular max 3)",
+        "If fewer than 'count' cards of the rolled rarity are available, fill remaining slots from the next lower rarity",
+        "Card pool excludes non-collectible cards (cards where collectible != true)",
+        "Neutral cards (empty attribute list) are always included in the pool regardless of class selection"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Pure data module with no UI dependencies. Uses Godot FileAccess and DirAccess for user:// path."
+      "notes": "Pure static utility class. Card database is the existing card_by_id dictionary loaded from card data JSON files."
     },
     {
       "id": "US-002",
-      "title": "Add DeckPersistence tests",
-      "description": "As a developer, I need tests for DeckPersistence to verify save/load round-trips and edge cases.",
+      "title": "Create ArenaDraftEngine - AI draft with quality scaling",
+      "description": "As a developer, I need the AI draft function that builds opponent decks with configurable quality.",
       "acceptanceCriteria": [
-        "Create tests/deck_persistence_runner.gd following existing test runner pattern",
-        "Test save then load round-trip returns identical deck definition",
-        "Test list_decks returns correct deck names after saving multiple decks",
-        "Test delete_deck removes the deck and it no longer appears in list_decks",
-        "Test loading a non-existent deck returns an empty dictionary",
-        "Test saving overwrites an existing deck with the same name"
+        "Add static draft_ai_deck(attribute_ids: Array, card_database: Dictionary, deck_size: int, quality: float) -> Array to ArenaDraftEngine",
+        "quality parameter ranges from 0.0 (random) to 1.0 (best possible)",
+        "At quality 0.0, AI picks randomly from available options each round",
+        "At quality 1.0, AI evaluates cards by: stats-for-cost ratio, keyword value, and synergy with already-picked cards",
+        "Card evaluation considers: total stats (attack + health) vs magicka cost, presence of keywords (Guard, Ward, Drain, Breakthrough add value)",
+        "Curve awareness: at higher quality, AI penalizes picks that would create too many cards at the same cost",
+        "Synergy awareness: at higher quality, AI gives bonus score to cards sharing creature types or keywords with already-drafted cards",
+        "Returns an array of card entries [{card_id, quantity}] representing the drafted deck"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "Follow pattern in tests/deck_validation_runner.gd. Tests exercise file I/O against user:// storage."
+      "notes": "Quality interpolates between random picks and evaluated picks. Use lerp between random score and evaluated score weighted by quality parameter."
     },
     {
       "id": "US-003",
-      "title": "Add deckbuilder flags to CardDisplayComponent",
-      "description": "As a developer, I need CardDisplayComponent to support disabling hover effects, showing a quantity badge, and greying out at copy limit for deckbuilder use.",
+      "title": "Add ArenaDraftEngine tests",
+      "description": "As a developer, I need tests for the draft engine covering rarity rolls, card pool filtering, pick options, and AI drafting.",
       "acceptanceCriteria": [
-        "Add a set_interactive(enabled: bool) method that disables/enables hover effects and particle effects",
-        "Add a set_deck_quantity(current: int, max_copies: int) method that shows a quantity badge overlay (e.g. '2/3') on the card",
-        "When current >= max_copies, the card imagery is greyed out via modulate",
-        "When set_interactive(false), no hover visual changes occur on mouse enter/exit",
-        "Quantity badge is a small label positioned on the card (e.g. top-right corner)",
-        "Existing PRESENTATION_FULL mode rendering is unaffected when these features are not used"
+        "Create tests/arena_draft_engine_runner.gd following existing test runner pattern",
+        "Test roll_rarity() produces valid rarity strings over many rolls",
+        "Test get_card_pool() returns only cards matching given attributes plus Neutral cards",
+        "Test get_card_pool() excludes non-collectible cards",
+        "Test get_pick_options() returns correct number of cards of the specified rarity",
+        "Test get_pick_options() respects copy limits - unique cards max 1, regular cards max 3",
+        "Test draft_ai_deck() returns a deck of the requested size",
+        "Test draft_ai_deck() at quality 1.0 produces a deck with reasonable magicka curve (not all cards at same cost)",
+        "Tests pass when run with: godot --headless --script tests/arena_draft_engine_runner.gd"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Minimal additive changes to the existing 1036-line CardDisplayComponent.gd. Do not refactor existing code."
+      "notes": "Use preload() for scripts. Test with real card database loaded from JSON files. Some tests may need multiple runs to verify statistical properties."
     },
     {
       "id": "US-004",
-      "title": "Create MagickaCurveChart widget",
-      "description": "As a developer, I need a self-contained widget that renders a magicka cost distribution bar chart for a deck.",
+      "title": "Create ArenaRunManager - state machine and run lifecycle",
+      "description": "As a developer, I need the run manager that tracks run state, win/loss record, and manages transitions between phases.",
       "acceptanceCriteria": [
-        "Create src/ui/components/magicka_curve_chart.gd with class_name MagickaCurveChart extending Control",
-        "Implement set_deck(definition: Dictionary, card_by_id: Dictionary) that computes cost bucket counts",
-        "Renders 8 vertical bars for cost buckets 0, 1, 2, 3, 4, 5, 6, 7+",
-        "Bar heights are proportional to card count in each bucket",
-        "Bars are blue accent colour (approximately Color(0.42, 0.62, 0.96))",
-        "Count labels displayed above or on each bar",
-        "Cost labels (0-6, 7+) displayed below each bar",
-        "Built programmatically with no .tscn file"
+        "Create src/arena/arena_run_manager.gd with class_name ArenaRunManager",
+        "Define run states as enum: CLASS_SELECT, DRAFTING, READY_FOR_MATCH, IN_MATCH, POST_MATCH_PICK, RUN_COMPLETE",
+        "Implement start_run(class_attributes: Array) that initializes a new run with the selected class",
+        "Implement complete_draft(deck: Array) that transitions from DRAFTING to READY_FOR_MATCH",
+        "Implement start_match() that transitions from READY_FOR_MATCH to IN_MATCH and returns opponent config (attribute_ids, deck_size, quality)",
+        "Implement record_win() that increments wins, transitions to POST_MATCH_PICK (or RUN_COMPLETE if boss defeated)",
+        "Implement record_loss() that increments losses, transitions to READY_FOR_MATCH (or RUN_COMPLETE if 3rd loss)",
+        "Implement complete_post_match_pick(card) that adds card to deck and transitions to READY_FOR_MATCH",
+        "Implement abandon_run() that transitions to RUN_COMPLETE from any state",
+        "Opponent N has deck_size = 29 + N (matches player deck growth)",
+        "Opponent attributes avoid repeating the same class within a run where possible",
+        "Track current_match (1-9), wins, losses, selected class, and current deck"
       ],
       "priority": 4,
       "passes": true,
-      "notes": "Pure widget with simple interface. Bucket calculation: cost 7+ grouped together. Uses _draw() or child Control nodes."
+      "notes": "Non-static class since it holds run state. Boss is match 9. Run ends on 3 losses or after match 9 (win or loss)."
     },
     {
       "id": "US-005",
-      "title": "Add MagickaCurveChart bucket calculation tests",
-      "description": "As a developer, I need tests for the magicka curve bucket calculation logic.",
+      "title": "Create ArenaRunManager - persistence (save/load run state)",
+      "description": "As a developer, I need run state to persist to disk so players can resume runs across game sessions.",
       "acceptanceCriteria": [
-        "Create tests/magicka_curve_chart_runner.gd following existing test runner pattern",
-        "Test empty deck returns all zero buckets",
-        "Test single card at cost 3 returns count 1 in bucket 3 and 0 elsewhere",
-        "Test cards at cost 7, 8, 9, 10 all count in the 7+ bucket",
-        "Test multiple cards with quantities are counted correctly",
-        "Test a realistic deck with mixed costs produces expected distribution"
+        "Add save_run() method that writes current run state to user://arena/run.json",
+        "Add static load_run() -> ArenaRunManager that restores a run from user://arena/run.json, or returns null if no saved run",
+        "Add static has_active_run() -> bool that checks if a saved run file exists",
+        "Add clear_run() that deletes the saved run file",
+        "save_run() is called automatically after: complete_draft, record_win, record_loss, complete_post_match_pick",
+        "Saved state includes: state enum, class_attributes, deck (with post-win additions), wins, losses, current_match, boss_relic",
+        "Creates user://arena/ directory if it does not exist",
+        "clear_run() is called on abandon_run() and when run completes"
       ],
       "priority": 5,
       "passes": true,
-      "notes": "Test the data transformation, not the visual rendering. May need to expose bucket calculation as a static or public method."
+      "notes": "Similar pattern to DeckPersistence but for a single run file. JSON format for readability."
     },
     {
       "id": "US-006",
-      "title": "Create DeckCreationModal for name and attribute selection",
-      "description": "As a player, I want to create a new deck by entering a name and selecting 1-3 attributes in a modal dialog.",
+      "title": "Add ArenaRunManager tests",
+      "description": "As a developer, I need tests for run lifecycle, state transitions, and persistence.",
       "acceptanceCriteria": [
-        "Create src/ui/deck_creation_modal.gd with class_name DeckCreationModal extending Control or Popup",
-        "Modal contains a LineEdit for deck name input",
-        "Modal contains 5 attribute toggle buttons (Strength, Intelligence, Willpower, Agility, Endurance)",
-        "Minimum 1 attribute must be selected, maximum 3",
-        "When 3 attributes are selected, remaining unselected buttons are disabled",
-        "Confirm button is disabled when name is empty or no attributes are selected",
-        "Emits a signal on confirm with deck name and selected attribute_ids",
-        "Emits a signal on cancel",
-        "Built programmatically with no .tscn file"
+        "Create tests/arena_run_manager_runner.gd following existing test runner pattern",
+        "Test full winning run: start -> draft -> 8 wins with picks -> boss win -> RUN_COMPLETE",
+        "Test 3-loss run: start -> draft -> mix of wins/losses -> 3rd loss -> RUN_COMPLETE",
+        "Test 3rd loss on boss: verify run completes correctly",
+        "Test opponent deck size increases with match number (29+N)",
+        "Test save/load round-trip preserves all run state",
+        "Test has_active_run() returns true after save, false after clear",
+        "Test abandon_run() clears saved state and sets RUN_COMPLETE",
+        "Tests pass when run with: godot --headless --script tests/arena_run_manager_runner.gd"
       ],
       "priority": 6,
       "passes": true,
-      "notes": "This modal is reused for editing deck name/attributes from the editor screen. Editing mode is handled in a later story."
+      "notes": "Clean up user://arena/ test files after tests complete."
     },
     {
       "id": "US-007",
-      "title": "Create DeckListScreen with deck management",
-      "description": "As a player, I want to see a list of my saved decks with options to create new, edit, or delete decks.",
+      "title": "Create ArenaEloManager - Elo persistence and difficulty distribution",
+      "description": "As a developer, I need the Elo manager that persists player Elo and determines opponent difficulty distribution for each run.",
       "acceptanceCriteria": [
-        "Create src/ui/deck_list_screen.gd with class_name DeckListScreen extending Control",
-        "Displays a list of saved deck names loaded via DeckPersistence.list_decks()",
-        "Each deck entry is clickable and emits a signal to edit that deck",
-        "Each deck entry has a delete button",
-        "Delete button shows a confirmation dialog before deleting via DeckPersistence.delete_deck()",
-        "Create New Deck button opens the DeckCreationModal",
-        "On DeckCreationModal confirm, saves a new empty deck via DeckPersistence and emits edit signal",
-        "When no decks exist, only the Create New Deck button is shown",
-        "Built programmatically with no .tscn file"
+        "Create src/arena/arena_elo_manager.gd with class_name ArenaEloManager",
+        "Implement static get_elo() -> int that reads from user://arena/elo.dat, defaulting to 1200 if file does not exist",
+        "Implement static save_elo(elo: int) that writes to user://arena/elo.dat",
+        "Implement static update_elo_after_run(current_elo: int, total_wins: int) -> int that computes new Elo based on wins",
+        "Elo is clamped to range 800-2000",
+        "Implement static get_opponent_difficulties(elo: int) -> Array[float] that returns 8 difficulty values (0.0-1.0) for matches 1-8",
+        "At Elo 1200: 2 weak (quality ~0.2-0.3), 5 average (quality ~0.4-0.6), 2 strong (quality ~0.7-0.8) opponents",
+        "Difficulties are arranged in ascending order (easiest first, hardest last)",
+        "Higher player Elo shifts the distribution upward (more strong opponents, fewer weak ones)",
+        "Creates user://arena/ directory if it does not exist"
       ],
       "priority": 7,
-      "passes": true,
-      "notes": "This is the entry point screen. Navigation to/from the editor is handled by signal emission."
+      "passes": false,
+      "notes": "Static utility class. Elo update formula should be simple: gain more for high-win runs, lose for low-win runs. Quality values map to ArenaDraftEngine.draft_ai_deck() quality parameter."
     },
     {
       "id": "US-008",
-      "title": "Build DeckEditorScreen left column - filter bar with toggle chips and dropdowns",
-      "description": "As a player, I want to filter cards by attribute chips, cost chips, and class/type/keyword dropdowns.",
+      "title": "Add ArenaEloManager tests",
+      "description": "As a developer, I need tests for Elo persistence, update formula, and difficulty distribution.",
       "acceptanceCriteria": [
-        "Create src/ui/deck_editor_screen.gd with class_name DeckEditorScreen extending Control",
-        "Left column contains a filter bar at the top",
-        "Search bar (LineEdit) for name search at the top of the filter area",
-        "Attribute filter uses toggle chip buttons (Strength, Intelligence, Willpower, Agility, Endurance, Neutral) - multiple can be active",
-        "Cost filter uses toggle chip buttons (0, 1, 2, 3, 4, 5, 6, 7+) - multiple can be active",
-        "Class, Type, and Keyword filters use OptionButton dropdowns",
-        "Attribute chips and other filters are visually separated (e.g. by spacing or a separator)",
-        "Filters correctly narrow the card list using existing filter logic from DeckbuilderScreen",
-        "Built programmatically with no .tscn file"
+        "Create tests/arena_elo_manager_runner.gd following existing test runner pattern",
+        "Test default Elo is 1200 when no file exists",
+        "Test save/load round-trip preserves Elo value",
+        "Test update_elo_after_run increases Elo for high-win runs (7+ wins)",
+        "Test update_elo_after_run decreases Elo for low-win runs (0-2 wins)",
+        "Test Elo is clamped at 800 minimum and 2000 maximum",
+        "Test get_opponent_difficulties returns 8 values in ascending order",
+        "Test difficulties at Elo 1200 have expected distribution (2 weak, 5 average, 2 strong)",
+        "Test higher Elo produces higher average difficulty values",
+        "Tests pass when run with: godot --headless --script tests/arena_elo_manager_runner.gd"
       ],
       "priority": 8,
-      "passes": true,
-      "notes": "Reuse filter logic from existing DeckbuilderScreen. Attribute and cost chips at top/bottom, dropdowns between."
+      "passes": false,
+      "notes": "Clean up user://arena/ test files after tests complete."
     },
     {
       "id": "US-009",
-      "title": "Build DeckEditorScreen left column - card grid with CardDisplayComponent",
-      "description": "As a player, I want to see filtered cards as a 3-column grid of full card displays that scale to fill space.",
+      "title": "Create BossRelicSystem - 6 relic effects",
+      "description": "As a developer, I need the boss relic system that defines and applies 6 different relic effects to boss matches.",
       "acceptanceCriteria": [
-        "Below the filter bar, a ScrollContainer contains a GridContainer with 3 columns",
-        "Each cell contains a CardDisplayComponent in PRESENTATION_FULL mode",
-        "Cards scale to fill available column width while maintaining aspect ratio",
-        "CardDisplayComponent instances have hover effects disabled via set_interactive(false)",
-        "Quantity badges show current copies in deck (e.g. '1/3') on each card",
-        "Cards at copy limit are greyed out",
-        "Neutral cards always appear regardless of deck attribute selection",
-        "Single-clicking a card adds one copy to the deck (if not at limit)",
-        "Grid updates when filters change or cards are added/removed from deck"
+        "Create src/arena/boss_relic_system.gd with class_name BossRelicSystem",
+        "Define enum BossRelic: IRON, CORUNDUM, MOONSTONE, QUICKSILVER, EBONY, MALACHITE",
+        "Implement static pick_random_relic() -> BossRelic",
+        "Implement static get_relic_name(relic: BossRelic) -> String",
+        "Implement static get_relic_description(relic: BossRelic) -> String that returns human-readable effect description",
+        "Implement static apply_relic_to_match_config(relic: BossRelic, config: Dictionary) -> Dictionary that modifies match configuration",
+        "IRON: sets boss health to 80 (config.boss_health = 80)",
+        "CORUNDUM: sets config.boss_creature_attack_bonus = 1",
+        "MOONSTONE: sets config.boss_rune_break_card = true",
+        "QUICKSILVER: sets config.player_start_of_turn_damage = 1",
+        "EBONY: sets config.boss_city_gates = true (0/6 creature blocking other lane)",
+        "MALACHITE: sets config.boss_starting_guards = [{attack: 0, health: 4, guard: true}] in each lane"
       ],
       "priority": 9,
-      "passes": true,
-      "notes": "The grid should reuse CardDisplayComponent. Cards need click handling via input_event or a clickable wrapper."
+      "passes": false,
+      "notes": "Config dictionary approach allows match setup code to read relic effects without coupling to the relic system. Actual effect implementation happens in match integration (later story)."
     },
     {
       "id": "US-010",
-      "title": "Build DeckEditorScreen right column - deck header and compact card list",
-      "description": "As a player, I want to see my deck name, attributes, and a compact sorted card list with remove buttons.",
+      "title": "Add BossRelicSystem tests",
+      "description": "As a developer, I need tests for relic selection, descriptions, and match config application.",
       "acceptanceCriteria": [
-        "Right column header shows deck name and attribute icons",
-        "Clicking the header opens DeckCreationModal in edit mode with current name and attributes pre-filled",
-        "When attributes are removed in edit mode and cards would become illegal, a confirmation dialog warns the user",
-        "On confirm, illegal cards are removed from the deck",
-        "Below the header, a scrollable list shows deck cards sorted by cost ascending",
-        "Each row contains: cost badge (small colored circle with cost number), card name, quantity indicator (e.g. 'x3'), minus button",
-        "Minus button removes one copy of that card from the deck",
-        "List updates when cards are added or removed"
+        "Create tests/boss_relic_system_runner.gd following existing test runner pattern",
+        "Test pick_random_relic() returns valid BossRelic enum values",
+        "Test get_relic_name() returns non-empty string for all 6 relics",
+        "Test get_relic_description() returns non-empty string for all 6 relics",
+        "Test IRON relic sets boss_health to 80 in config",
+        "Test CORUNDUM relic sets boss_creature_attack_bonus to 1 in config",
+        "Test MOONSTONE relic sets boss_rune_break_card to true in config",
+        "Test QUICKSILVER relic sets player_start_of_turn_damage to 1 in config",
+        "Test EBONY relic sets boss_city_gates to true in config",
+        "Test MALACHITE relic sets boss_starting_guards in config",
+        "Tests pass when run with: godot --headless --script tests/boss_relic_system_runner.gd"
       ],
       "priority": 10,
-      "passes": true,
-      "notes": "Cost badge should use attribute tint colour or a neutral colour. Sorting by cost then alphabetically within same cost."
+      "passes": false,
+      "notes": "Pure logic tests, no file I/O needed."
     },
     {
       "id": "US-011",
-      "title": "Build DeckEditorScreen right column - magicka curve and card count",
-      "description": "As a player, I want to see a magicka curve bar chart and colour-coded card count below my deck list.",
+      "title": "Create ArenaClassSelectScreen UI",
+      "description": "As a player, I want to select from 3 randomly offered classes to start my arena run.",
       "acceptanceCriteria": [
-        "MagickaCurveChart widget is placed below the deck card list",
-        "Chart updates whenever cards are added or removed",
-        "Card count label shows current count (e.g. '35 / 50-100')",
-        "Card count text is red when deck size is below minimum or above maximum",
-        "Card count text is white when deck size is within valid range",
-        "Validation uses DeckValidator with current deck definition and DeckRulesRegistry"
+        "Create src/ui/arena/arena_class_select_screen.gd with class_name ArenaClassSelectScreen extending Control",
+        "Screen title: 'Choose Your Class'",
+        "Display 3 class options as buttons/cards in a horizontal row, centered on screen",
+        "Each option shows class name and two attribute names/icons",
+        "3 classes are randomly selected from the 10 available dual-attribute classes",
+        "Clicking a class option emits signal class_selected(attribute_ids: Array) with the two attribute IDs",
+        "Built programmatically with no .tscn file",
+        "Back button to return to main menu"
       ],
       "priority": 11,
-      "passes": true,
-      "notes": "Reuse existing DeckValidator.validate_deck() for determining validity."
+      "passes": false,
+      "notes": "Load class data from attribute_class_registry.json. Simple functional layout, no animations."
     },
     {
       "id": "US-012",
-      "title": "Add Done and Cancel buttons with save/discard behaviour",
-      "description": "As a player, I want Done to save my deck and Cancel to discard changes, both returning to the deck list.",
+      "title": "Create ArenaDraftScreen UI",
+      "description": "As a player, I want to draft cards by choosing 1 of 3 options each pick, with my deck visible in a sidebar.",
       "acceptanceCriteria": [
-        "Done button at bottom-right of the deck panel saves the deck via DeckPersistence.save_deck()",
-        "Cancel button is visually distinct from Done (e.g. different colour, outline style)",
-        "Cancel button discards all changes made during the editing session",
-        "Both buttons emit a signal to navigate back to DeckListScreen",
-        "Done saves even if deck is invalid (user may want to come back and finish later)",
-        "The original deck state is preserved on entry so Cancel can restore it"
+        "Create src/ui/arena/arena_draft_screen.gd with class_name ArenaDraftScreen extending Control",
+        "Center/top area displays 3 full CardDisplayComponent renders showing the current pick options",
+        "Right sidebar shows a compact scrollable card list of the deck-in-progress (same component pattern as deck editor right column)",
+        "Below the deck list: MagickaCurveChart widget showing current deck distribution",
+        "Pick counter shows 'Pick X of 30' (or 'Bonus Pick' for post-win picks)",
+        "Clicking a card option adds it to the deck and advances to the next pick",
+        "After all picks complete, emits signal draft_complete(deck: Array)",
+        "Supports post-win pick mode: initialize with existing deck, show 1 pick, emit signal on completion",
+        "Built programmatically with no .tscn file"
       ],
       "priority": 12,
-      "passes": true,
-      "notes": "Store a snapshot of the deck definition on editor entry for cancel/discard."
+      "passes": false,
+      "notes": "Reuse CardDisplayComponent for card renders and compact deck list pattern from DeckEditorScreen. Cannot skip picks."
     },
     {
       "id": "US-013",
-      "title": "Wire up screen navigation between DeckListScreen and DeckEditorScreen",
-      "description": "As a player, I want to navigate between the deck list and deck editor seamlessly.",
+      "title": "Create ArenaRunStatusScreen UI",
+      "description": "As a player, I want to see my current run progress and start the next match or abandon the run.",
       "acceptanceCriteria": [
-        "A parent controller or the screens themselves handle navigation via signals",
-        "Selecting a deck on DeckListScreen loads it and shows DeckEditorScreen",
-        "Creating a new deck on DeckListScreen saves it empty and shows DeckEditorScreen",
-        "Done or Cancel on DeckEditorScreen returns to DeckListScreen",
-        "DeckListScreen refreshes its deck list when returning from the editor",
-        "The existing deckbuilder_screen.gd entry point is replaced with the new flow"
+        "Create src/ui/arena/arena_run_status_screen.gd with class_name ArenaRunStatusScreen extending Control",
+        "Display win/loss record (e.g. 'Wins: 3  Losses: 1')",
+        "Display current match number (e.g. 'Next Match: 5 of 9')",
+        "When next match is 9, show 'Boss Match' indicator",
+        "Show boss relic name and description when next match is the boss",
+        "Compact deck list with hover preview (same component as draft sidebar)",
+        "'Fight' button emits signal fight_pressed",
+        "'Abandon Run' button with confirmation dialog emits signal abandon_pressed",
+        "Built programmatically with no .tscn file"
       ],
       "priority": 13,
-      "passes": true,
-      "notes": "Simplest approach: a parent node that swaps visibility of the two screens, or add_child/remove_child."
+      "passes": false,
+      "notes": "Reuse compact deck list component. Confirmation dialog for abandon uses same pattern as deck delete confirmation."
+    },
+    {
+      "id": "US-014",
+      "title": "Create ArenaMatchResultScreen and ArenaRunSummaryScreen UI",
+      "description": "As a player, I want to see match results after each fight and a run summary when my run ends.",
+      "acceptanceCriteria": [
+        "Create src/ui/arena/arena_match_result_screen.gd with class_name ArenaMatchResultScreen extending Control",
+        "Displays 'Victory!' or 'Defeat' message prominently",
+        "'Continue' button emits signal continue_pressed",
+        "Create src/ui/arena/arena_run_summary_screen.gd with class_name ArenaRunSummaryScreen extending Control",
+        "Displays final win/loss record",
+        "'Return to Main Menu' button emits signal return_pressed",
+        "Both screens built programmatically with no .tscn files"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "Simple overlay/screen with centered text and button. Match result is shown after every match; run summary only at run end."
+    },
+    {
+      "id": "US-015",
+      "title": "Create ArenaController - screen navigation and match orchestration",
+      "description": "As a developer, I need a controller that wires all arena screens together and orchestrates the full run flow.",
+      "acceptanceCriteria": [
+        "Create src/ui/arena/arena_controller.gd with class_name ArenaController extending Control",
+        "On enter: check ArenaRunManager.has_active_run() - if yes, load run and show RunStatus; if no, show ClassSelect",
+        "ClassSelect -> class_selected: create ArenaRunManager, start ArenaDraftEngine draft, show DraftScreen",
+        "DraftScreen -> draft_complete: call run_manager.complete_draft(), show RunStatusScreen",
+        "RunStatusScreen -> fight_pressed: get opponent config from run_manager, use ArenaDraftEngine to build AI deck, configure and start match",
+        "Match end -> victory: call run_manager.record_win(), show MatchResult",
+        "Match end -> defeat: call run_manager.record_loss(), show MatchResult",
+        "MatchResult -> continue: if run complete show RunSummary; if post-win pick needed show DraftScreen in pick mode; else show RunStatus",
+        "Post-win pick -> complete: call run_manager.complete_post_match_pick(), show RunStatus",
+        "RunSummary -> return: update Elo via ArenaEloManager, emit signal return_to_menu",
+        "Abandon -> confirmed: call run_manager.abandon_run(), emit return_to_menu"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "Central orchestration point. Uses ArenaRunManager for state, ArenaDraftEngine for drafts, ArenaEloManager for difficulty, BossRelicSystem for boss config."
+    },
+    {
+      "id": "US-016",
+      "title": "Integrate boss relic effects into match setup",
+      "description": "As a developer, I need boss relic effects to actually modify the match when fighting the boss.",
+      "acceptanceCriteria": [
+        "When ArenaController starts a boss match (match 9), apply relic config to match setup",
+        "IRON: Set boss starting health to 80",
+        "CORUNDUM: After boss creatures are summoned, apply +1 attack modifier",
+        "MOONSTONE: When boss rune breaks, add a random 0-cost card to boss hand",
+        "QUICKSILVER: At start of player's turn, deal 1 damage to player",
+        "EBONY: Place a 0/6 City Gates creature in one lane at match start with effect preventing opponent summons in other lane",
+        "MALACHITE: Place a 0/4 Guard creature in each lane at match start",
+        "Boss relic name displayed during boss match (e.g. in match UI header)"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": "Some relics (IRON, MALACHITE, EBONY) modify initial state. Others (CORUNDUM, MOONSTONE, QUICKSILVER) need ongoing triggers. Integration depends on existing match/board systems."
+    },
+    {
+      "id": "US-017",
+      "title": "Add Arena button to main menu and wire navigation",
+      "description": "As a player, I want to access Solo Arena from the main menu.",
+      "acceptanceCriteria": [
+        "Add 'Arena' button to main menu between 'Match' and 'Deck Builder' buttons",
+        "Arena button uses the same visual style as existing menu buttons",
+        "Clicking Arena button creates and shows ArenaController",
+        "ArenaController return_to_menu signal navigates back to main menu",
+        "Main menu properly cleans up ArenaController when returning"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": "Follow existing navigation pattern from main menu to other screens (match, deck builder)."
     }
   ]
 }

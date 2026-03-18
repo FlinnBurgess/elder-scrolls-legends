@@ -1,194 +1,90 @@
 ## Codebase Patterns
 - All UI is built programmatically in `_build_ui()` — no .tscn files
 - Test runners extend `SceneTree`, use `_initialize()` entry point, `_failures` array, `_assert()` helper, and `_finish()` that prints OK token + `quit(0)` or errors + `quit(1)`
-- Deck definition format: `{ "name": str, "attribute_ids": [], "cards": [{ "card_id": str, "quantity": int }] }`
 - Static utility classes extend `RefCounted` and use `class_name` for global access
-- DeckPersistence stores decks as JSON at `user://decks/<sanitized_name>.json`
-- Sanitization: lowercase, strip edges, spaces/slashes to underscores
 - Test runners must `preload()` scripts and call static methods on the preloaded const — `class_name` globals aren't available in headless `--script` mode
 - Explicitly type variables receiving static method returns to avoid GDScript type inference errors
-- Expose computation logic as `static func` for testability — keeps widget and data logic separable
+- Expose computation logic as `static func` for testability
 - Modal dialogs: ColorRect backdrop + CenterContainer + PanelContainer, emit signals for confirm/cancel
 - Multi-select chip filters: Button with `toggle_mode = true`, `toggled` signal with `.bind(id)`, OR logic within chip groups
-- DeckEditorScreen is the main editor — holds deck state, filter state, and card grid; right column is populated by later stories
 - CardDisplayComponent: set `custom_minimum_size` and `size` AFTER `apply_card()` (which overrides them); use `set_anchors_and_offsets_preset(PRESET_FULL_RECT)` after `add_child` for responsive sizing
 - Card grid uses wrapper Control with MOUSE_FILTER_STOP + gui_input for click handling (CardDisplayComponent has MOUSE_FILTER_IGNORE on all children)
-- Deck attribute filtering: card's attributes must ALL be in deck's attribute_ids; neutral cards (empty attributes) always pass
-- Light refresh pattern: `_refresh_card_quantities()` updates badges without rebuilding grid; `_refresh_browser()` for full rebuilds on filter changes
-- Right column deck card list: `_refresh_deck_card_list()` rebuilds the compact card list; called from `_refresh_card_quantities()` and `_apply_deck_edit()`
-- ATTRIBUTE_TINTS dict used in CardDisplayComponent and DeckEditorScreen for cost badge coloring
 - Navigation controller pattern: parent swaps child screens via signals; keep list screen alive (hidden), recreate editor each time
 - All scripts that use class_name globals must add preload() constants for headless --script mode compatibility
+- DeckPersistence stores decks as JSON at `user://decks/<sanitized_name>.json`
+- Compact deck list pattern: scrollable VBoxContainer with rows sorted by cost ascending, cost badge + card name + quantity
+- Godot binary is at `/Applications/Godot.app/Contents/MacOS/Godot`
+- ArenaDraftEngine: static utility class at `src/arena/arena_draft_engine.gd` — rarity rolls, card pool filtering, pick options with fallback
+- CardCatalog.load_default() returns `{cards, card_by_id, error}` — use `card_by_id` as the card database dictionary for ArenaDraftEngine
+- ArenaRunManager persistence: save_run() after state changes, clear_run() on completion/abandon; JSON at `user://arena/run.json`
+- ArenaRunManager: non-static class holding run state; State enum tracks lifecycle; boss is match 9; deck grows via post-win picks
+- Self-referencing class_name in static methods (e.g. `ArenaRunManager.new()` inside ArenaRunManager) breaks headless mode; use `load("res://path/to/script.gd").new()` instead
+
+---
 
 ## 2026-03-18 - US-001
-- Implemented `DeckPersistence` module at `src/deck/deck_persistence.gd`
-- Static methods: `save_deck()`, `load_deck()`, `list_decks()`, `delete_deck()`
-- Auto-creates `user://decks/` directory, sanitizes deck names for filesystem safety
-- Files changed: `src/deck/deck_persistence.gd` (new)
+- Implemented ArenaDraftEngine with roll_rarity(), get_card_pool(), get_pick_options()
+- Files changed: src/arena/arena_draft_engine.gd (new)
 - **Learnings for future iterations:**
-  - Godot `DirAccess.remove()` takes a relative filename when opened to a directory, not the full path
-  - `FileAccess.file_exists()` works with `user://` paths
-  - `JSON.stringify(data, "\t")` for pretty-printed JSON storage
+  - Card `attributes` field is an Array of strings; empty array = Neutral
+  - `collectible` field on cards controls pool inclusion
+  - `is_unique` limits to 1 copy, regular cards allow 3
+  - RARITY_FALLBACK_ORDER goes from legendary down to common for fallback logic
 ---
 
 ## 2026-03-18 - US-002
-- Implemented `tests/deck_persistence_runner.gd` with 5 test methods covering all acceptance criteria
-- Tests: save/load round-trip, list_decks after multiple saves, delete_deck + verify removal, load non-existent returns empty dict, save overwrites existing deck
-- Uses `__test_dp_` prefix for test deck names with cleanup before and after tests
-- Files changed: `tests/deck_persistence_runner.gd` (new)
+- Implemented draft_ai_deck() with quality-scaled AI card evaluation
+- Added _ai_pick_best(), _evaluate_card(), and helpers for deck cost/keyword/subtype tracking
+- Files changed: src/arena/arena_draft_engine.gd (modified)
 - **Learnings for future iterations:**
-  - Must use `preload()` for scripts in test runners — Godot headless `--script` mode doesn't resolve `class_name` globals reliably
-  - Must explicitly type variables receiving static method return values (e.g. `var loaded: Dictionary = ...`) to avoid type inference errors
-  - `list_decks()` returns sanitized filenames (lowercase, underscores), not the original deck names — test assertions must account for this
+  - Quality uses lerpf(random_score, eval_score, quality) to interpolate between random and evaluated picks
+  - Card evaluation scores: stats-for-cost ratio (~0.4 weight), keyword values (0.03-0.15), curve penalty (>5 at same cost), subtype/keyword synergy bonuses
+  - Helper functions need the full card_pool to look up card data for previously drafted entries (deck stores {card_id, quantity} not full card dicts)
+  - `mini()` and `minf()` are Godot builtins for int/float min clamping
 ---
 
 ## 2026-03-18 - US-003
-- Added `set_interactive(enabled: bool)` method to CardDisplayComponent — suppresses ward overlay and lethal particles when disabled
-- Added `set_deck_quantity(current: int, max_copies: int)` method — shows a "current/max" badge at top-right corner of the card
-- When `current >= max_copies`, the entire card content is greyed out via `_content_root.modulate`
-- Quantity badge has a semi-transparent black background with rounded corners, auto-scales with card size
-- Files changed: `src/ui/components/CardDisplayComponent.gd`
+- Created tests/arena_draft_engine_runner.gd with 7 test methods covering all acceptance criteria
+- Files changed: tests/arena_draft_engine_runner.gd (new)
 - **Learnings for future iterations:**
-  - CardDisplayComponent hover effects are managed externally (by match_screen), not internally — `set_interactive` controls particle/ward effects only
-  - `_content_root` modulate is the right target for greying out — `_art_texture.modulate` is used for cover effects and shouldn't be overloaded
-  - Quantity badge uses `_deck_quantity_current = -1` as sentinel for "not in deck mode" so existing rendering is unaffected
+  - CardCatalog.load_default() returns {cards, card_by_id, error} — use card_by_id as the card database dict
+  - Tests can use synthetic test_db dictionaries for isolated unit tests (e.g., non-collectible exclusion, copy limits)
+  - Real card database from CardCatalog is needed for integration-style tests (pool size, AI deck drafting)
+  - Statistical tests (curve quality) should use generous thresholds to avoid flakiness — e.g., "no bucket > 60%" rather than exact distributions
 ---
 
 ## 2026-03-18 - US-004
-- Created `src/ui/components/magicka_curve_chart.gd` — self-contained bar chart widget
-- `set_deck(definition, card_by_id)` computes cost distribution and renders 8 bars (0-6, 7+)
-- `compute_buckets()` exposed as static method for testability (US-005)
-- Uses PanelContainer bars with StyleBoxFlat, Label nodes for counts/costs
-- Files changed: `src/ui/components/magicka_curve_chart.gd` (new)
+- Implemented ArenaRunManager with State enum, run lifecycle methods, and opponent class selection
+- Files changed: src/arena/arena_run_manager.gd (new)
 - **Learnings for future iterations:**
-  - Node-composition approach (PanelContainer + Labels) matches codebase style — no _draw() needed
-  - Exposing bucket calculation as a static method enables unit testing without instantiating the widget
-  - Bars hidden when count is 0; MIN_BAR_HEIGHT ensures visible bars aren't invisibly small
+  - ArenaRunManager is non-static (holds run state) unlike ArenaDraftEngine
+  - Opponent deck_size = 29 + current_match (matches player deck growth from post-win picks)
+  - Boss is match 9; run ends on 3 losses or after match 9
+  - record_win() on boss → RUN_COMPLETE (no post-match pick after boss)
+  - Opponent attribute selection avoids repeats within a run; falls back to allowing repeats if all 9 non-player classes used
+  - _arrays_equal() sorts both arrays before comparing to handle different attribute orderings
 ---
 
 ## 2026-03-18 - US-005
-- Created `tests/magicka_curve_chart_runner.gd` with 5 test methods covering all acceptance criteria
-- Tests: empty deck (all zero buckets), single card at cost 3, high costs (7/8/9/10) all bucket into 7+, multiple cards with quantities sum correctly, realistic mixed-cost deck
-- Uses `preload()` for MagickaCurveChartScript and calls `compute_buckets()` static method directly
-- Files changed: `tests/magicka_curve_chart_runner.gd` (new)
+- Added save_run(), load_run(), has_active_run(), clear_run() to ArenaRunManager
+- Auto-save hooked into: complete_draft, record_win, record_loss, complete_post_match_pick
+- Auto-clear hooked into: abandon_run, run complete (3 losses or boss match end)
+- Saves to user://arena/run.json, creates directory if needed
+- Files changed: src/arena/arena_run_manager.gd (modified)
 - **Learnings for future iterations:**
-  - `compute_buckets()` is a clean static method that works without instantiating the widget — good pattern for testability
-  - No cleanup needed for these tests since they're pure computation with no side effects
----
-
-## 2026-03-18 - US-007
-- Implemented `src/ui/deck_list_screen.gd` — deck list screen with full CRUD management
-- Displays saved decks via `DeckPersistence.list_decks()` with clickable rows and delete buttons
-- "Create New Deck" button opens `DeckCreationModal`, saves empty deck on confirm, emits `edit_deck_requested`
-- Delete button shows confirmation dialog (backdrop + panel pattern) before calling `DeckPersistence.delete_deck()`
-- Empty state shows a placeholder message with only the Create button
-- `refresh()` public method for re-populating the list (used after returning from editor)
-- Files changed: `src/ui/deck_list_screen.gd` (new)
-- **Learnings for future iterations:**
-  - `DeckPersistence.list_decks()` returns sanitized names (lowercase, underscores) — these are the keys used for load/delete, not the original display names
-  - Confirmation dialog pattern reuses the same backdrop/center/panel approach as DeckCreationModal
-  - Signal `edit_deck_requested(deck_name)` is the navigation hook — parent controller connects to this to swap screens
+  - Follow DeckPersistence pattern: _ensure_directory(), FileAccess.open(), JSON.stringify/parse
+  - State enum serializes as int in JSON; cast back with `int(data.get(...)) as State`
+  - Also persist _used_opponent_attributes so opponent class avoidance survives reload
+  - clear_run() on completion/abandon means has_active_run() is false when run is done
+  - JSON.new().parse() returns error code, then access .data for the parsed result
 ---
 
 ## 2026-03-18 - US-006
-- Created `src/ui/deck_creation_modal.gd` — modal dialog for deck creation with name input and attribute selection
-- Semi-transparent backdrop blocks input to underlying UI
-- 5 attribute toggle buttons with max 3 selection limit (remaining buttons disabled at max)
-- Confirm button disabled until name is non-empty and at least 1 attribute selected
-- `set_edit_mode(deck_name, attribute_ids)` method for reuse in editing existing decks
-- Emits `confirmed(deck_name, attribute_ids)` and `cancelled` signals
-- Files changed: `src/ui/deck_creation_modal.gd` (new)
+- Created tests/arena_run_manager_runner.gd with 7 test methods covering all acceptance criteria
+- Fixed self-referencing class_name in arena_run_manager.gd load_run() for headless mode compatibility
+- Files changed: tests/arena_run_manager_runner.gd (new), src/arena/arena_run_manager.gd (modified)
 - **Learnings for future iterations:**
-  - Modal pattern: ColorRect backdrop (Color(0,0,0,0.6)) + CenterContainer + PanelContainer works well for overlay dialogs
-  - Attribute display names loaded from `attribute_class_registry.json` — same pattern as DeckbuilderScreen
-  - `toggle_mode = true` on Button + `toggled` signal is the pattern for multi-select attribute chips
-  - `set_edit_mode()` pre-fills the modal for editing — sets button_pressed on attribute buttons which triggers toggled signal
----
-
-## 2026-03-18 - US-008
-- Created `src/ui/deck_editor_screen.gd` — DeckEditorScreen with left column filter bar
-- Search bar (LineEdit) for name/text/id search
-- Attribute toggle chips (Strength, Intelligence, Willpower, Agility, Endurance, Neutral) — multi-select
-- Cost toggle chips (0-6, 7+) — multi-select
-- Class, Type, Keyword dropdown filters (OptionButton)
-- Filter logic reused from DeckbuilderScreen, adapted for multi-select chips (OR logic within chip groups)
-- Temporary text-based browser rows — will be replaced with CardDisplayComponent grid in US-009
-- Files changed: `src/ui/deck_editor_screen.gd` (new)
-- **Learnings for future iterations:**
-  - Multi-select chip filters use `toggle_mode = true` + `toggled` signal with bind — same pattern as DeckCreationModal attribute buttons
-  - Attribute/cost chip filters use OR logic (card matches if it has ANY of the selected attributes/costs)
-  - DeckEditorScreen holds deck state (name, attributes, quantities) and exposes `load_deck()` / `get_deck_definition()` for external use
-  - Right column is a placeholder — US-010/011/012 will populate it
----
-
-## 2026-03-18 - US-009
-- Replaced text-based browser rows with 3-column GridContainer of CardDisplayComponent instances
-- Each card cell is a Control wrapper (MOUSE_FILTER_STOP) containing a CardDisplayComponent in PRESENTATION_FULL mode
-- Cards scale to fill column width with correct aspect ratio (384/220); resize handler updates cells on scroll container resize
-- Hover effects disabled via `set_interactive(false)`, quantity badges show "current/max" via `set_deck_quantity()`
-- Cards at copy limit are greyed out via CardDisplayComponent's built-in grey-out
-- Added `_card_matches_deck_attributes()` — implicit filter ensures only cards legal for deck attributes + neutral cards are shown
-- Light refresh (`_refresh_card_quantities`) updates badges without rebuilding grid; full refresh on filter changes
-- Single left-click on a card adds one copy to the deck via `gui_input` signal on wrapper
-- Files changed: `src/ui/deck_editor_screen.gd`
-- **Learnings for future iterations:**
-  - CardDisplayComponent's `apply_card()` overrides `custom_minimum_size` — set desired size AFTER calling it
-  - `set_anchors_and_offsets_preset(PRESET_FULL_RECT)` after `add_child` makes CardDisplayComponent responsive to parent sizing
-  - All CardDisplayComponent children have MOUSE_FILTER_IGNORE — need a wrapper Control for click events
-  - Splitting refresh into full (filter changes) and light (quantity changes) avoids expensive grid rebuilds
----
-
-## 2026-03-18 - US-010
-- Replaced right column placeholder with deck header and compact card list
-- Deck header: clickable button showing deck name + attribute labels with tint colors
-- Clicking header opens DeckCreationModal in edit mode with current name/attributes pre-filled
-- When attributes are removed and cards become illegal, confirmation dialog warns user before removing them
-- Compact card list: scrollable VBoxContainer with rows sorted by cost ascending, then alphabetically
-- Each row: cost badge (PanelContainer with attribute-tinted rounded StyleBoxFlat), card name, quantity "xN", minus button
-- Minus button calls `remove_card_from_deck()` which triggers `_refresh_card_quantities()` → `_refresh_deck_card_list()`
-- `_find_illegal_cards()` checks each deck card against new attribute set
-- Files changed: `src/ui/deck_editor_screen.gd`
-- **Learnings for future iterations:**
-  - ATTRIBUTE_TINTS dict copied from CardDisplayComponent — consider centralizing in a shared constants file if used in more places
-  - Deck card list rebuilds fully on every quantity change (via `_refresh_deck_card_list()`) — acceptable for deck sizes (50-100 cards) but could optimize if needed
-  - Confirmation dialog uses same backdrop/center/panel pattern as DeckCreationModal and DeckListScreen delete confirmation
-  - `_apply_deck_edit()` updates both header and triggers full browser refresh (since attribute changes affect which cards are visible)
----
-
-## 2026-03-18 - US-011
-- Added MagickaCurveChart widget and card count label below the deck card list in the right column
-- Chart updates via `_refresh_magicka_curve()` whenever cards are added/removed or deck is loaded/edited
-- Card count label shows "N / min-max" format using `_rules_registry.get_deck_size_rule(attribute_count)`
-- Count text is red (Color(1.0, 0.3, 0.3)) when out of valid range, white when valid
-- Both refresh on: `_refresh_card_quantities()`, `load_deck()`, `_apply_deck_edit()`, and initial `_build_ui()`
-- Files changed: `src/ui/deck_editor_screen.gd`
-- **Learnings for future iterations:**
-  - `get_deck_size_rule(attribute_count)` returns `min_cards` and `max_cards` keyed by number of deck attributes — attribute changes affect valid size range
-  - Refresh chain: `_refresh_card_quantities()` → `_refresh_deck_card_list()` + `_refresh_magicka_curve()` + `_refresh_card_count()` handles all card change scenarios
----
-
-## 2026-03-18 - US-012
-- Added Done and Cancel buttons at the bottom of the right column in DeckEditorScreen
-- Done button saves deck via `DeckPersistenceClass.save_deck()` and emits `done_pressed` signal
-- Cancel button emits `cancel_pressed` signal (discards changes by not saving)
-- `_original_deck_definition` snapshot captured in `load_deck()` via `definition.duplicate(true)` for cancel/restore
-- Cancel styled with grey background + border; Done styled with green background for visual distinction
-- Files changed: `src/ui/deck_editor_screen.gd`
-- **Learnings for future iterations:**
-  - `_original_deck_definition` is available for the parent controller (US-013) to restore state on cancel
-  - Done saves unconditionally — no validation gate, user can save incomplete decks
-  - Signals `done_pressed` and `cancel_pressed` are the navigation hooks for the parent controller
----
-
-## 2026-03-18 - US-013
-- Rewrote `src/ui/deckbuilder_screen.gd` as a navigation controller that swaps between DeckListScreen and DeckEditorScreen
-- DeckListScreen hidden (not freed) when navigating to editor; editor is freed when returning to list
-- DeckListScreen.refresh() called when returning from editor to update the deck list
-- Added preload() constants to DeckListScreen for DeckPersistence and DeckCreationModal (class_name globals unavailable in headless mode)
-- Updated `tests/deckbuilder_ui_runner.gd` to test new navigation flow instead of old API
-- Files changed: `src/ui/deckbuilder_screen.gd`, `src/ui/deck_list_screen.gd`, `tests/deckbuilder_ui_runner.gd`
-- **Learnings for future iterations:**
-  - DeckListScreen is kept alive (hidden) to preserve state; DeckEditorScreen is recreated each time to ensure clean state
-  - All scripts using class_name globals must add preload() for headless --script mode compatibility
-  - Navigation controller pattern: parent node manages child screen lifecycle via signals
+  - Scripts that reference their own class_name in static methods (e.g. `var x := MyClass.new()`) fail in headless --script mode — use `load("res://path.gd").new()` instead
+  - Type annotations using class_name (e.g. `var x: ArenaRunManager`) in test runners also fail in headless mode — omit them or use untyped vars
+  - Test runners exercising file I/O (save/load) should clean up before AND after each test to avoid cross-contamination
 ---
