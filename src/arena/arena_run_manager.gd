@@ -19,6 +19,9 @@ var current_match: int = 1
 var boss_relic = null  # Will be set by BossRelicSystem later
 var _used_opponent_attributes: Array = []  # Track used opponent classes to avoid repeats
 
+const RUN_DIR := "user://arena/"
+const RUN_PATH := "user://arena/run.json"
+
 # All 10 dual-attribute classes
 const DUAL_CLASSES: Array = [
 	["strength", "agility"],       # Archer
@@ -48,6 +51,7 @@ func start_run(p_class_attributes: Array) -> void:
 func complete_draft(p_deck: Array) -> void:
 	deck = p_deck.duplicate(true)
 	state = State.READY_FOR_MATCH
+	save_run()
 
 
 func start_match() -> Dictionary:
@@ -67,8 +71,10 @@ func record_win() -> void:
 	wins += 1
 	if current_match >= 9:
 		state = State.RUN_COMPLETE
+		clear_run()
 	else:
 		state = State.POST_MATCH_PICK
+		save_run()
 	current_match += 1
 
 
@@ -77,8 +83,10 @@ func record_loss() -> void:
 	current_match += 1
 	if losses >= 3:
 		state = State.RUN_COMPLETE
+		clear_run()
 	else:
 		state = State.READY_FOR_MATCH
+		save_run()
 
 
 func complete_post_match_pick(card: Dictionary) -> void:
@@ -92,10 +100,77 @@ func complete_post_match_pick(card: Dictionary) -> void:
 	if not found:
 		deck.append({"card_id": card["card_id"], "quantity": 1})
 	state = State.READY_FOR_MATCH
+	save_run()
 
 
 func abandon_run() -> void:
 	state = State.RUN_COMPLETE
+	clear_run()
+
+
+func save_run() -> void:
+	_ensure_directory()
+	var file := FileAccess.open(RUN_PATH, FileAccess.WRITE)
+	if file == null:
+		push_error("ArenaRunManager: failed to open '%s' for writing: %s" % [RUN_PATH, FileAccess.get_open_error()])
+		return
+	var data := {
+		"state": state,
+		"class_attributes": class_attributes,
+		"deck": deck,
+		"wins": wins,
+		"losses": losses,
+		"current_match": current_match,
+		"boss_relic": boss_relic,
+		"used_opponent_attributes": _used_opponent_attributes,
+	}
+	file.store_string(JSON.stringify(data, "\t"))
+
+
+static func load_run() -> ArenaRunManager:
+	if not FileAccess.file_exists(RUN_PATH):
+		return null
+	var file := FileAccess.open(RUN_PATH, FileAccess.READ)
+	if file == null:
+		push_error("ArenaRunManager: failed to open '%s' for reading: %s" % [RUN_PATH, FileAccess.get_open_error()])
+		return null
+	var text := file.get_as_text()
+	var json := JSON.new()
+	var err := json.parse(text)
+	if err != OK:
+		push_error("ArenaRunManager: failed to parse '%s': %s" % [RUN_PATH, json.get_error_message()])
+		return null
+	if not json.data is Dictionary:
+		return null
+	var data: Dictionary = json.data
+	var manager := ArenaRunManager.new()
+	manager.state = int(data.get("state", State.CLASS_SELECT)) as State
+	manager.class_attributes = Array(data.get("class_attributes", []))
+	manager.deck = Array(data.get("deck", []))
+	manager.wins = int(data.get("wins", 0))
+	manager.losses = int(data.get("losses", 0))
+	manager.current_match = int(data.get("current_match", 1))
+	manager.boss_relic = data.get("boss_relic")
+	manager._used_opponent_attributes = Array(data.get("used_opponent_attributes", []))
+	return manager
+
+
+static func has_active_run() -> bool:
+	return FileAccess.file_exists(RUN_PATH)
+
+
+func clear_run() -> void:
+	if not FileAccess.file_exists(RUN_PATH):
+		return
+	var dir := DirAccess.open(RUN_DIR)
+	if dir == null:
+		return
+	dir.remove("run.json")
+
+
+static func _ensure_directory() -> void:
+	if not DirAccess.dir_exists_absolute(RUN_DIR):
+		DirAccess.make_dir_recursive_absolute(RUN_DIR)
 
 
 func _pick_opponent_attributes() -> Array:
