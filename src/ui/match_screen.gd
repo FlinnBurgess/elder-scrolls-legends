@@ -677,7 +677,10 @@ func target_selected_card(target_instance_id: String) -> Dictionary:
 		saved_item_id = _selected_instance_id
 		result = PersistentCardRules.play_item_from_hand(_match_state, _active_player_id(), _selected_instance_id, {"target_instance_id": target_instance_id})
 	elif bool(selected_location.get("is_valid", false)) and str(selected_location.get("zone", "")) == MatchMutations.ZONE_HAND and str(selected_card.get("card_type", "")) == "action":
-		result = MatchTiming.play_action_from_hand(_match_state, _active_player_id(), _selected_instance_id, {"target_instance_id": target_instance_id})
+		if _is_pending_prophecy_card(selected_card):
+			result = MatchTiming.play_pending_prophecy(_match_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"target_instance_id": target_instance_id})
+		else:
+			result = MatchTiming.play_action_from_hand(_match_state, _active_player_id(), _selected_instance_id, {"target_instance_id": target_instance_id})
 	elif bool(selected_location.get("is_valid", false)) and str(selected_location.get("zone", "")) == MatchMutations.ZONE_SUPPORT:
 		result = PersistentCardRules.activate_support(_match_state, _active_player_id(), _selected_instance_id, {"target_instance_id": target_instance_id})
 	elif bool(selected_location.get("is_valid", false)) and str(selected_location.get("zone", "")) == MatchMutations.ZONE_LANE:
@@ -3251,10 +3254,19 @@ func _try_resolve_selected_player_target(player_id: String) -> bool:
 			_report_invalid_interaction("%s can only target creatures." % _card_name(selected_card), {"player_ids": [player_id]})
 			return true
 		var action_state: Dictionary = _match_state.duplicate(true)
-		var validation := MatchTiming.play_action_from_hand(action_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"target_player_id": player_id})
+		var controller_id := str(selected_card.get("controller_player_id", ""))
+		var validation: Dictionary
+		if _is_pending_prophecy_card(selected_card):
+			validation = MatchTiming.play_pending_prophecy(action_state, controller_id, _selected_instance_id, {"target_player_id": player_id})
+		else:
+			validation = MatchTiming.play_action_from_hand(action_state, controller_id, _selected_instance_id, {"target_player_id": player_id})
 		if bool(validation.get("is_valid", false)):
 			_reset_invalid_feedback()
-			var result := MatchTiming.play_action_from_hand(_match_state, _active_player_id(), _selected_instance_id, {"target_player_id": player_id})
+			var result: Dictionary
+			if _is_pending_prophecy_card(selected_card):
+				result = MatchTiming.play_pending_prophecy(_match_state, controller_id, _selected_instance_id, {"target_player_id": player_id})
+			else:
+				result = MatchTiming.play_action_from_hand(_match_state, _active_player_id(), _selected_instance_id, {"target_player_id": player_id})
 			_finalize_engine_result(result, "%s targeted %s." % [_card_name(selected_card), _player_name(player_id)])
 		else:
 			_report_invalid_interaction("%s can't target %s right now." % [_card_name(selected_card), _player_name(player_id)], {"player_ids": [player_id]})
@@ -3327,6 +3339,8 @@ func _is_card_target_valid_for_selected(target_instance_id: String) -> bool:
 			if not _action_target_mode_allows(selected_card, target_instance_id):
 				return false
 			var action_state: Dictionary = _match_state.duplicate(true)
+			if _is_pending_prophecy_card(selected_card):
+				return bool(MatchTiming.play_pending_prophecy(action_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"target_instance_id": target_instance_id}).get("is_valid", false))
 			return bool(MatchTiming.play_action_from_hand(action_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"target_instance_id": target_instance_id}).get("is_valid", false))
 		SELECTION_MODE_SUPPORT:
 			if not _selected_support_uses_card_targets(selected_card):

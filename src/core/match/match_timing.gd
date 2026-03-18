@@ -700,6 +700,9 @@ static func play_pending_prophecy(match_state: Dictionary, player_id: String, in
 			"played_for_free": true,
 			"reason": RULE_TAG_PROPHECY,
 			"timing_window": WINDOW_INTERRUPT,
+			"target_instance_id": str(options.get("target_instance_id", "")),
+			"target_player_id": str(options.get("target_player_id", "")),
+			"lane_id": str(options.get("lane_id", "")),
 		}])
 		var processed_events: Array = timing_result.get("processed_events", []).duplicate(true)
 		var trigger_resolutions: Array = timing_result.get("trigger_resolutions", []).duplicate(true)

@@ -22,6 +22,7 @@ func _run_all_tests() -> bool:
 		_test_rune_break_emits_events_and_enemy_triggers() and
 		_test_prophecy_decline_discards_card_when_hand_full() and
 		_test_prophecy_creature_can_be_played_for_free() and
+		_test_prophecy_action_deals_damage_to_target() and
 		_test_fatigue_uses_out_of_cards_and_eventual_loss()
 	)
 
@@ -134,6 +135,50 @@ func _test_prophecy_creature_can_be_played_for_free() -> bool:
 		_assert(summoned_card == prophecy_creature, "A free-played Prophecy creature should be placed onto the board.") and
 		_assert(bool(played_event.get("played_for_free", false)), "Prophecy play should mark the card-play event as free.") and
 		_assert(str(played_event.get("timing_window", "")) == MatchTiming.WINDOW_INTERRUPT, "Prophecy play should run inside the interrupt timing window.")
+	)
+
+
+func _test_prophecy_action_deals_damage_to_target() -> bool:
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var target_creature := _summon_creature(active_player, match_state, "target_dummy", "field", 3, 6, [], 0)
+	var prophecy_action := _make_card(opponent["player_id"], "prophecy_bolt", {
+		"zone": "deck",
+		"card_type": "action",
+		"cost": 4,
+		"rules_tags": ["prophecy"],
+		"triggered_abilities": [{
+			"family": "on_play",
+			"effects": [{"op": "deal_damage", "target": "event_target", "amount": 4}],
+		}],
+	})
+	_set_deck_cards(opponent, [prophecy_action])
+	var attacker := _summon_creature(active_player, match_state, "rune_breaker_bolt", "field", 6, 6, [], 1)
+	_target_ready_for_attack(attacker, match_state)
+
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], attacker["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	if not (
+		_assert(result["is_valid"], "Prophecy action setup should resolve.") and
+		_assert(MatchTiming.has_pending_prophecy(match_state, opponent["player_id"]), "Action Prophecy draw should open a pending window.")
+	):
+		return false
+
+	var play_result := MatchTiming.play_pending_prophecy(match_state, opponent["player_id"], prophecy_action["instance_id"], {
+		"target_instance_id": target_creature["instance_id"],
+	})
+	var damage_event := _first_event_of_type(play_result.get("events", []), MatchTiming.EVENT_DAMAGE_RESOLVED)
+	var remaining_health := int(target_creature.get("health", 0)) - int(target_creature.get("damage", 0))
+	return (
+		_assert(play_result["is_valid"], "Playing a pending action Prophecy with a target should succeed.") and
+		_assert(not MatchTiming.has_pending_prophecy(match_state, opponent["player_id"]), "Prophecy play should consume the pending window.") and
+		_assert(not damage_event.is_empty(), "Prophecy action should emit a damage_resolved event.") and
+		_assert(int(damage_event.get("amount", 0)) == 4, "Prophecy action should deal 4 damage.") and
+		_assert(remaining_health == 2, "Target creature should have 2 health remaining after 4 damage to a 6-health creature.") and
+		_assert(str(prophecy_action.get("zone", "")) == "discard", "Prophecy action should move to discard after being played.")
 	)
 
 
