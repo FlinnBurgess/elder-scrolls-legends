@@ -1,0 +1,233 @@
+{
+  "project": "ElderScrollsLegends",
+  "branchName": "ralph/deckbuilder-ui-overhaul",
+  "description": "Deck Builder UI Overhaul - Multi-screen deck management with visual card grid, persistent storage, and graphical magicka curve",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create DeckPersistence module for saving/loading decks",
+      "description": "As a developer, I need a pure data module to persist user decks to user://decks/ so that other modules can save and load decks.",
+      "acceptanceCriteria": [
+        "Create src/deck/deck_persistence.gd with class_name DeckPersistence",
+        "Implement static save_deck(deck_name: String, definition: Dictionary) that writes JSON to user://decks/<sanitized_name>.json",
+        "Implement static load_deck(deck_name: String) -> Dictionary that reads and parses the JSON file",
+        "Implement static list_decks() -> Array[String] that returns all saved deck names",
+        "Implement static delete_deck(deck_name: String) -> bool that removes the file",
+        "Deck definition format includes name, attribute_ids array, and cards array with card_id/quantity entries",
+        "Creates user://decks/ directory if it does not exist",
+        "Loading a non-existent deck returns an empty dictionary"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Pure data module with no UI dependencies. Uses Godot FileAccess and DirAccess for user:// path."
+    },
+    {
+      "id": "US-002",
+      "title": "Add DeckPersistence tests",
+      "description": "As a developer, I need tests for DeckPersistence to verify save/load round-trips and edge cases.",
+      "acceptanceCriteria": [
+        "Create tests/deck_persistence_runner.gd following existing test runner pattern",
+        "Test save then load round-trip returns identical deck definition",
+        "Test list_decks returns correct deck names after saving multiple decks",
+        "Test delete_deck removes the deck and it no longer appears in list_decks",
+        "Test loading a non-existent deck returns an empty dictionary",
+        "Test saving overwrites an existing deck with the same name"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Follow pattern in tests/deck_validation_runner.gd. Tests exercise file I/O against user:// storage."
+    },
+    {
+      "id": "US-003",
+      "title": "Add deckbuilder flags to CardDisplayComponent",
+      "description": "As a developer, I need CardDisplayComponent to support disabling hover effects, showing a quantity badge, and greying out at copy limit for deckbuilder use.",
+      "acceptanceCriteria": [
+        "Add a set_interactive(enabled: bool) method that disables/enables hover effects and particle effects",
+        "Add a set_deck_quantity(current: int, max_copies: int) method that shows a quantity badge overlay (e.g. '2/3') on the card",
+        "When current >= max_copies, the card imagery is greyed out via modulate",
+        "When set_interactive(false), no hover visual changes occur on mouse enter/exit",
+        "Quantity badge is a small label positioned on the card (e.g. top-right corner)",
+        "Existing PRESENTATION_FULL mode rendering is unaffected when these features are not used"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Minimal additive changes to the existing 1036-line CardDisplayComponent.gd. Do not refactor existing code."
+    },
+    {
+      "id": "US-004",
+      "title": "Create MagickaCurveChart widget",
+      "description": "As a developer, I need a self-contained widget that renders a magicka cost distribution bar chart for a deck.",
+      "acceptanceCriteria": [
+        "Create src/ui/components/magicka_curve_chart.gd with class_name MagickaCurveChart extending Control",
+        "Implement set_deck(definition: Dictionary, card_by_id: Dictionary) that computes cost bucket counts",
+        "Renders 8 vertical bars for cost buckets 0, 1, 2, 3, 4, 5, 6, 7+",
+        "Bar heights are proportional to card count in each bucket",
+        "Bars are blue accent colour (approximately Color(0.42, 0.62, 0.96))",
+        "Count labels displayed above or on each bar",
+        "Cost labels (0-6, 7+) displayed below each bar",
+        "Built programmatically with no .tscn file"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "Pure widget with simple interface. Bucket calculation: cost 7+ grouped together. Uses _draw() or child Control nodes."
+    },
+    {
+      "id": "US-005",
+      "title": "Add MagickaCurveChart bucket calculation tests",
+      "description": "As a developer, I need tests for the magicka curve bucket calculation logic.",
+      "acceptanceCriteria": [
+        "Create tests/magicka_curve_chart_runner.gd following existing test runner pattern",
+        "Test empty deck returns all zero buckets",
+        "Test single card at cost 3 returns count 1 in bucket 3 and 0 elsewhere",
+        "Test cards at cost 7, 8, 9, 10 all count in the 7+ bucket",
+        "Test multiple cards with quantities are counted correctly",
+        "Test a realistic deck with mixed costs produces expected distribution"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "Test the data transformation, not the visual rendering. May need to expose bucket calculation as a static or public method."
+    },
+    {
+      "id": "US-006",
+      "title": "Create DeckCreationModal for name and attribute selection",
+      "description": "As a player, I want to create a new deck by entering a name and selecting 1-3 attributes in a modal dialog.",
+      "acceptanceCriteria": [
+        "Create src/ui/deck_creation_modal.gd with class_name DeckCreationModal extending Control or Popup",
+        "Modal contains a LineEdit for deck name input",
+        "Modal contains 5 attribute toggle buttons (Strength, Intelligence, Willpower, Agility, Endurance)",
+        "Minimum 1 attribute must be selected, maximum 3",
+        "When 3 attributes are selected, remaining unselected buttons are disabled",
+        "Confirm button is disabled when name is empty or no attributes are selected",
+        "Emits a signal on confirm with deck name and selected attribute_ids",
+        "Emits a signal on cancel",
+        "Built programmatically with no .tscn file"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "This modal is reused for editing deck name/attributes from the editor screen. Editing mode is handled in a later story."
+    },
+    {
+      "id": "US-007",
+      "title": "Create DeckListScreen with deck management",
+      "description": "As a player, I want to see a list of my saved decks with options to create new, edit, or delete decks.",
+      "acceptanceCriteria": [
+        "Create src/ui/deck_list_screen.gd with class_name DeckListScreen extending Control",
+        "Displays a list of saved deck names loaded via DeckPersistence.list_decks()",
+        "Each deck entry is clickable and emits a signal to edit that deck",
+        "Each deck entry has a delete button",
+        "Delete button shows a confirmation dialog before deleting via DeckPersistence.delete_deck()",
+        "Create New Deck button opens the DeckCreationModal",
+        "On DeckCreationModal confirm, saves a new empty deck via DeckPersistence and emits edit signal",
+        "When no decks exist, only the Create New Deck button is shown",
+        "Built programmatically with no .tscn file"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "This is the entry point screen. Navigation to/from the editor is handled by signal emission."
+    },
+    {
+      "id": "US-008",
+      "title": "Build DeckEditorScreen left column - filter bar with toggle chips and dropdowns",
+      "description": "As a player, I want to filter cards by attribute chips, cost chips, and class/type/keyword dropdowns.",
+      "acceptanceCriteria": [
+        "Create src/ui/deck_editor_screen.gd with class_name DeckEditorScreen extending Control",
+        "Left column contains a filter bar at the top",
+        "Search bar (LineEdit) for name search at the top of the filter area",
+        "Attribute filter uses toggle chip buttons (Strength, Intelligence, Willpower, Agility, Endurance, Neutral) - multiple can be active",
+        "Cost filter uses toggle chip buttons (0, 1, 2, 3, 4, 5, 6, 7+) - multiple can be active",
+        "Class, Type, and Keyword filters use OptionButton dropdowns",
+        "Attribute chips and other filters are visually separated (e.g. by spacing or a separator)",
+        "Filters correctly narrow the card list using existing filter logic from DeckbuilderScreen",
+        "Built programmatically with no .tscn file"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": "Reuse filter logic from existing DeckbuilderScreen. Attribute and cost chips at top/bottom, dropdowns between."
+    },
+    {
+      "id": "US-009",
+      "title": "Build DeckEditorScreen left column - card grid with CardDisplayComponent",
+      "description": "As a player, I want to see filtered cards as a 3-column grid of full card displays that scale to fill space.",
+      "acceptanceCriteria": [
+        "Below the filter bar, a ScrollContainer contains a GridContainer with 3 columns",
+        "Each cell contains a CardDisplayComponent in PRESENTATION_FULL mode",
+        "Cards scale to fill available column width while maintaining aspect ratio",
+        "CardDisplayComponent instances have hover effects disabled via set_interactive(false)",
+        "Quantity badges show current copies in deck (e.g. '1/3') on each card",
+        "Cards at copy limit are greyed out",
+        "Neutral cards always appear regardless of deck attribute selection",
+        "Single-clicking a card adds one copy to the deck (if not at limit)",
+        "Grid updates when filters change or cards are added/removed from deck"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": "The grid should reuse CardDisplayComponent. Cards need click handling via input_event or a clickable wrapper."
+    },
+    {
+      "id": "US-010",
+      "title": "Build DeckEditorScreen right column - deck header and compact card list",
+      "description": "As a player, I want to see my deck name, attributes, and a compact sorted card list with remove buttons.",
+      "acceptanceCriteria": [
+        "Right column header shows deck name and attribute icons",
+        "Clicking the header opens DeckCreationModal in edit mode with current name and attributes pre-filled",
+        "When attributes are removed in edit mode and cards would become illegal, a confirmation dialog warns the user",
+        "On confirm, illegal cards are removed from the deck",
+        "Below the header, a scrollable list shows deck cards sorted by cost ascending",
+        "Each row contains: cost badge (small colored circle with cost number), card name, quantity indicator (e.g. 'x3'), minus button",
+        "Minus button removes one copy of that card from the deck",
+        "List updates when cards are added or removed"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": "Cost badge should use attribute tint colour or a neutral colour. Sorting by cost then alphabetically within same cost."
+    },
+    {
+      "id": "US-011",
+      "title": "Build DeckEditorScreen right column - magicka curve and card count",
+      "description": "As a player, I want to see a magicka curve bar chart and colour-coded card count below my deck list.",
+      "acceptanceCriteria": [
+        "MagickaCurveChart widget is placed below the deck card list",
+        "Chart updates whenever cards are added or removed",
+        "Card count label shows current count (e.g. '35 / 50-100')",
+        "Card count text is red when deck size is below minimum or above maximum",
+        "Card count text is white when deck size is within valid range",
+        "Validation uses DeckValidator with current deck definition and DeckRulesRegistry"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": "Reuse existing DeckValidator.validate_deck() for determining validity."
+    },
+    {
+      "id": "US-012",
+      "title": "Add Done and Cancel buttons with save/discard behaviour",
+      "description": "As a player, I want Done to save my deck and Cancel to discard changes, both returning to the deck list.",
+      "acceptanceCriteria": [
+        "Done button at bottom-right of the deck panel saves the deck via DeckPersistence.save_deck()",
+        "Cancel button is visually distinct from Done (e.g. different colour, outline style)",
+        "Cancel button discards all changes made during the editing session",
+        "Both buttons emit a signal to navigate back to DeckListScreen",
+        "Done saves even if deck is invalid (user may want to come back and finish later)",
+        "The original deck state is preserved on entry so Cancel can restore it"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": "Store a snapshot of the deck definition on editor entry for cancel/discard."
+    },
+    {
+      "id": "US-013",
+      "title": "Wire up screen navigation between DeckListScreen and DeckEditorScreen",
+      "description": "As a player, I want to navigate between the deck list and deck editor seamlessly.",
+      "acceptanceCriteria": [
+        "A parent controller or the screens themselves handle navigation via signals",
+        "Selecting a deck on DeckListScreen loads it and shows DeckEditorScreen",
+        "Creating a new deck on DeckListScreen saves it empty and shows DeckEditorScreen",
+        "Done or Cancel on DeckEditorScreen returns to DeckListScreen",
+        "DeckListScreen refreshes its deck list when returning from the editor",
+        "The existing deckbuilder_screen.gd entry point is replaced with the new flow"
+      ],
+      "priority": 13,
+      "passes": true,
+      "notes": "Simplest approach: a parent node that swaps visibility of the two screens, or add_child/remove_child."
+    }
+  ]
+}

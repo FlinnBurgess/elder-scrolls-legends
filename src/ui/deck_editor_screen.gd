@@ -19,7 +19,9 @@ const ATTRIBUTE_TINTS := {
 	"endurance": Color(0.58, 0.46, 0.72, 1.0),
 }
 const NEUTRAL_COST_COLOR := Color(0.6, 0.6, 0.6, 1.0)
-const GRID_COLUMNS := 3
+const GRID_COLUMNS := 5
+const GRID_ROWS := 3
+const CARDS_PER_PAGE := GRID_COLUMNS * GRID_ROWS
 const GRID_H_SEPARATION := 8
 const GRID_V_SEPARATION := 8
 
@@ -39,6 +41,11 @@ var _deck_name := ""
 var _deck_attribute_ids: Array[String] = []
 var _deck_quantities := {}
 var _original_deck_definition := {}
+
+# Pagination state
+var _current_page := 0
+var _filtered_cache: Array = []
+var _total_pages := 1
 
 # Filter state — attributes and costs support multi-select via toggle chips
 var _active_attribute_filters: Array[String] = []
@@ -67,6 +74,11 @@ var _deck_card_list_container: VBoxContainer
 var _deck_card_list_scroll: ScrollContainer
 var _magicka_curve_chart: Control
 var _card_count_label: Label
+var _root_split: HSplitContainer
+var _pagination_container: HBoxContainer
+var _prev_page_button: Button
+var _next_page_button: Button
+var _page_label: Label
 
 
 func _ready() -> void:
@@ -74,6 +86,16 @@ func _ready() -> void:
 	_load_data()
 	_build_ui()
 	_refresh_browser()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_LEFT:
+			_on_prev_page_pressed()
+			get_viewport().set_input_as_handled()
+		elif event.keycode == KEY_RIGHT:
+			_on_next_page_pressed()
+			get_viewport().set_input_as_handled()
 
 
 func load_deck(deck_name: String, definition: Dictionary) -> void:
@@ -198,17 +220,18 @@ func _load_attribute_registry_labels() -> void:
 # --- UI Construction ---
 
 func _build_ui() -> void:
-	var root := HSplitContainer.new()
-	root.size_flags_horizontal = SIZE_EXPAND_FILL
-	root.size_flags_vertical = SIZE_EXPAND_FILL
-	root.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	add_child(root)
+	_root_split = HSplitContainer.new()
+	_root_split.size_flags_horizontal = SIZE_EXPAND_FILL
+	_root_split.size_flags_vertical = SIZE_EXPAND_FILL
+	_root_split.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	_root_split.resized.connect(_on_root_split_resized)
+	add_child(_root_split)
 
 	_left_column = VBoxContainer.new()
 	_left_column.size_flags_horizontal = SIZE_EXPAND_FILL
 	_left_column.size_flags_vertical = SIZE_EXPAND_FILL
 	_left_column.add_theme_constant_override("separation", 8)
-	root.add_child(_left_column)
+	_root_split.add_child(_left_column)
 
 	_left_column.add_child(_build_filter_bar())
 
@@ -218,6 +241,7 @@ func _build_ui() -> void:
 	_browser_scroll = ScrollContainer.new()
 	_browser_scroll.size_flags_horizontal = SIZE_EXPAND_FILL
 	_browser_scroll.size_flags_vertical = SIZE_EXPAND_FILL
+	_browser_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	_browser_scroll.resized.connect(_on_browser_scroll_resized)
 	_left_column.add_child(_browser_scroll)
 	_card_grid = GridContainer.new()
@@ -227,12 +251,14 @@ func _build_ui() -> void:
 	_card_grid.add_theme_constant_override("v_separation", GRID_V_SEPARATION)
 	_browser_scroll.add_child(_card_grid)
 
+	_left_column.add_child(_build_pagination_controls())
+
 	# Right column — deck header, compact card list, and later US-011/US-012 additions
 	_right_column = VBoxContainer.new()
 	_right_column.size_flags_horizontal = SIZE_EXPAND_FILL
 	_right_column.size_flags_vertical = SIZE_EXPAND_FILL
 	_right_column.add_theme_constant_override("separation", 8)
-	root.add_child(_right_column)
+	_root_split.add_child(_right_column)
 
 	_right_column.add_child(_build_deck_header())
 
@@ -259,6 +285,35 @@ func _build_ui() -> void:
 
 	# Done / Cancel buttons
 	_right_column.add_child(_build_action_buttons())
+
+	_on_root_split_resized.call_deferred()
+
+
+func _build_pagination_controls() -> Control:
+	_pagination_container = HBoxContainer.new()
+	_pagination_container.size_flags_horizontal = SIZE_EXPAND_FILL
+	_pagination_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	_pagination_container.add_theme_constant_override("separation", 12)
+
+	_prev_page_button = Button.new()
+	_prev_page_button.text = "Previous"
+	_prev_page_button.custom_minimum_size = Vector2(80, 32)
+	_prev_page_button.pressed.connect(_on_prev_page_pressed)
+	_pagination_container.add_child(_prev_page_button)
+
+	_page_label = Label.new()
+	_page_label.text = "Page 1 of 1"
+	_page_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_page_label.size_flags_horizontal = SIZE_EXPAND_FILL
+	_pagination_container.add_child(_page_label)
+
+	_next_page_button = Button.new()
+	_next_page_button.text = "Next"
+	_next_page_button.custom_minimum_size = Vector2(80, 32)
+	_next_page_button.pressed.connect(_on_next_page_pressed)
+	_pagination_container.add_child(_next_page_button)
+
+	return _pagination_container
 
 
 func _build_deck_header() -> Control:
@@ -624,17 +679,26 @@ func _card_matches_keyword_filter(card: Dictionary, term_id: String) -> bool:
 func _refresh_browser() -> void:
 	if _card_grid == null:
 		return
+	_filtered_cache = _filtered_cards()
+	_current_page = 0
+	_total_pages = maxi(1, ceili(float(_filtered_cache.size()) / float(CARDS_PER_PAGE)))
+	_render_current_page()
+
+
+func _render_current_page() -> void:
 	_clear_children(_card_grid)
 	_card_display_by_id.clear()
-	var filtered := _filtered_cards()
-	_browser_summary_label.text = "%d cards shown | %d in deck" % [filtered.size(), get_deck_count()]
+	var start := _current_page * CARDS_PER_PAGE
+	var end := mini(start + CARDS_PER_PAGE, _filtered_cache.size())
+	_browser_summary_label.text = "%d cards shown | %d in deck" % [_filtered_cache.size(), get_deck_count()]
 	var cell_size := _compute_cell_size()
-	for card in filtered:
-		_card_grid.add_child(_build_card_cell(card, cell_size))
+	for i in range(start, end):
+		_card_grid.add_child(_build_card_cell(_filtered_cache[i], cell_size))
 	if _card_grid.get_child_count() == 0:
 		var placeholder := Label.new()
 		placeholder.text = "No cards match the current filters."
 		_card_grid.add_child(placeholder)
+	_update_pagination_controls()
 
 
 func _build_card_cell(card: Dictionary, cell_size: Vector2) -> Control:
@@ -658,7 +722,7 @@ func _build_card_cell(card: Dictionary, cell_size: Vector2) -> Control:
 
 func _refresh_card_quantities() -> void:
 	if _browser_summary_label != null:
-		_browser_summary_label.text = "%d cards shown | %d in deck" % [_card_display_by_id.size(), get_deck_count()]
+		_browser_summary_label.text = "%d cards shown | %d in deck" % [_filtered_cache.size(), get_deck_count()]
 	for card_id in _card_display_by_id:
 		var card_display: Control = _card_display_by_id[card_id]
 		if not is_instance_valid(card_display):
@@ -695,7 +759,7 @@ func _refresh_card_count() -> void:
 func _compute_cell_size() -> Vector2:
 	var scroll_width := 600.0
 	if _browser_scroll != null and _browser_scroll.size.x > 0:
-		scroll_width = _browser_scroll.size.x - 14.0
+		scroll_width = _browser_scroll.size.x
 	var cell_w := maxf(100.0, (scroll_width - float(GRID_H_SEPARATION * (GRID_COLUMNS - 1))) / float(GRID_COLUMNS))
 	var cell_h := cell_w * CARD_ASPECT_RATIO
 	return Vector2(cell_w, cell_h)
@@ -798,6 +862,40 @@ func _on_browser_scroll_resized() -> void:
 	for child in _card_grid.get_children():
 		if child is Control:
 			child.custom_minimum_size = cell_size
+
+
+func _on_root_split_resized() -> void:
+	if _root_split == null or _root_split.size.x <= 0:
+		return
+	var target := int(_root_split.size.x * 0.3)
+	if _root_split.split_offset == target:
+		return
+	_root_split.resized.disconnect(_on_root_split_resized)
+	_root_split.split_offset = target
+	_root_split.resized.connect(_on_root_split_resized)
+
+
+func _on_prev_page_pressed() -> void:
+	if _current_page > 0:
+		_current_page -= 1
+		_render_current_page()
+		_browser_scroll.scroll_vertical = 0
+
+
+func _on_next_page_pressed() -> void:
+	if _current_page < _total_pages - 1:
+		_current_page += 1
+		_render_current_page()
+		_browser_scroll.scroll_vertical = 0
+
+
+func _update_pagination_controls() -> void:
+	if _page_label != null:
+		_page_label.text = "Page %d of %d" % [_current_page + 1, _total_pages]
+	if _prev_page_button != null:
+		_prev_page_button.disabled = _current_page <= 0
+	if _next_page_button != null:
+		_next_page_button.disabled = _current_page >= _total_pages - 1
 
 
 func _on_deck_header_pressed() -> void:
