@@ -115,11 +115,22 @@ Report any cards found that could benefit from the same fix, and apply the fix t
 
 If any identified cards cannot be fixed right now (e.g., they need an engine feature that doesn't exist yet or would be too invasive to add), add them to `development-artifacts/unfixed_card_effects.md` with a short description of what's blocking the fix. If that file doesn't exist, create it with the heading `# Unfixed Card Effects`. Remove entries from the file when they are fixed.
 
-## Step 5: Update Tracking
+## Step 5: Record Bug Class
+
+After fixing the card, identify the class of bug that caused the issue (e.g., "Missing triggered_abilities on action card", "Item missing equip_keywords field", "Wrong trigger family used"). Then check `development-artifacts/bug_classes.md` — if the file exists, read it and see if this class of bug is already documented. If it is, skip this step. If not (or if the file doesn't exist), append the new bug class with a one-line description and an example card. If creating the file, start it with the heading `# Bug Classes`.
+
+Format each entry as:
+```
+## <Bug Class Name>
+<One-line description of what goes wrong and why>
+Example: <card name that exhibited this bug>
+```
+
+## Step 6: Update Tracking
 
 Update the card's entry in `development-artifacts/core_set_cards.json` if relevant fields changed.
 
-## Step 6: Test
+## Step 7: Test
 
 IMPORTANT: Tests must be run after all changes are complete. Run the relevant test runners to verify no regressions:
 ```
