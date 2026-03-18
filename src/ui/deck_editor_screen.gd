@@ -171,6 +171,18 @@ func add_card_to_deck(card_id: String) -> void:
 	_refresh_card_quantities()
 
 
+func add_max_cards_to_deck(card_id: String) -> void:
+	if not _card_by_id.has(card_id):
+		return
+	var card: Dictionary = _card_by_id[card_id]
+	var limit := _copy_limit(card)
+	var current := get_deck_card_quantity(card_id)
+	if current >= limit:
+		return
+	_deck_quantities[card_id] = limit
+	_refresh_card_quantities()
+
+
 func remove_card_from_deck(card_id: String) -> void:
 	if not _deck_quantities.has(card_id):
 		return
@@ -899,6 +911,8 @@ func _on_card_cell_input(event: InputEvent, card_id: String) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			add_card_to_deck(card_id)
+		elif event.button_index == MOUSE_BUTTON_MIDDLE:
+			add_max_cards_to_deck(card_id)
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			remove_card_from_deck(card_id)
 
