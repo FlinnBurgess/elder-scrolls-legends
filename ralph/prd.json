@@ -175,7 +175,7 @@
         "MALACHITE: sets config.boss_starting_guards = [{attack: 0, health: 4, guard: true}] in each lane"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Config dictionary approach allows match setup code to read relic effects without coupling to the relic system. Actual effect implementation happens in match integration (later story)."
     },
     {

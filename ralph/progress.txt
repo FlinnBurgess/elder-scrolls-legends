@@ -110,3 +110,13 @@
   - US-007 proactively created the test file, so US-008 was a verification pass
   - Implementation uses 1 weak + 5 avg + 2 strong = 8 opponents (AC says 2+5+2=9, but only 8 non-boss matches exist)
 ---
+
+## 2026-03-18 - US-009
+- Implemented BossRelicSystem with 6 relics: IRON, CORUNDUM, MOONSTONE, QUICKSILVER, EBONY, MALACHITE
+- Static utility class with pick_random_relic(), get_relic_name(), get_relic_description(), apply_relic_to_match_config()
+- Files changed: src/arena/boss_relic_system.gd (new)
+- **Learnings for future iterations:**
+  - Relic effects are stored as config dictionary keys — actual gameplay effects implemented later in match integration (US-016)
+  - MALACHITE boss_starting_guards is an array of guard specs to place in each lane
+  - BossRelic enum values: IRON=0, CORUNDUM=1, MOONSTONE=2, QUICKSILVER=3, EBONY=4, MALACHITE=5
+---
