@@ -5,6 +5,7 @@ const DeckPersistence = preload("res://src/deck/deck_persistence.gd")
 const DeckValidator = preload("res://src/deck/deck_validator.gd")
 const MatchScreen = preload("res://src/ui/match_screen.gd")
 const DeckbuilderScreen = preload("res://src/ui/deckbuilder_screen.gd")
+const ArenaControllerScript = preload("res://src/ui/arena/arena_controller.gd")
 
 const DECKS_DIR := "res://data/decks/"
 
@@ -66,6 +67,12 @@ func _show_main_menu() -> void:
 	match_button.pressed.connect(_on_match_pressed)
 	center.add_child(match_button)
 
+	var arena_button := Button.new()
+	arena_button.text = "Arena"
+	arena_button.custom_minimum_size = Vector2(320, 52)
+	arena_button.pressed.connect(_on_arena_pressed)
+	center.add_child(arena_button)
+
 	var deckbuilder_button := Button.new()
 	deckbuilder_button.text = "Deck Builder"
 	deckbuilder_button.custom_minimum_size = Vector2(320, 52)
@@ -76,6 +83,15 @@ func _show_main_menu() -> void:
 func _on_match_pressed() -> void:
 	_main_menu.visible = false
 	_show_deck_select_screen()
+
+
+func _on_arena_pressed() -> void:
+	_main_menu.visible = false
+	var arena_controller := ArenaControllerScript.new()
+	arena_controller.name = "ArenaController"
+	arena_controller.return_to_menu.connect(_show_main_menu)
+	add_child(arena_controller)
+	_active_screen = arena_controller
 
 
 func _show_deck_select_screen() -> void:

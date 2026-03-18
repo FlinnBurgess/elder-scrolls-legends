@@ -34,12 +34,19 @@ func _build_ui() -> void:
 		return
 	_is_built = true
 
+	# Semi-transparent backdrop
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0, 0, 0, 0.7)
+	backdrop.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	backdrop.mouse_filter = MOUSE_FILTER_STOP
+	add_child(backdrop)
+
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(center)
 
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(400, 240)
+	panel.custom_minimum_size = Vector2(400, 250)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.12, 0.12, 0.15, 1.0)
 	style.border_color = Color(0.4, 0.4, 0.5, 1.0)
@@ -53,7 +60,12 @@ func _build_ui() -> void:
 	vbox.add_theme_constant_override("separation", 24)
 	panel.add_child(vbox)
 
-	# Result text
+	# Spacer to push content to center
+	var top_spacer := Control.new()
+	top_spacer.size_flags_vertical = SIZE_EXPAND_FILL
+	vbox.add_child(top_spacer)
+
+	# Result label
 	_result_label = Label.new()
 	_result_label.text = "Victory!"
 	_result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -61,18 +73,18 @@ func _build_ui() -> void:
 	_result_label.add_theme_color_override("font_color", Color(0.4, 0.8, 0.4, 1.0))
 	vbox.add_child(_result_label)
 
-	# Spacer
-	var spacer := Control.new()
-	spacer.size_flags_vertical = SIZE_EXPAND_FILL
-	vbox.add_child(spacer)
+	# Bottom spacer
+	var bottom_spacer := Control.new()
+	bottom_spacer.size_flags_vertical = SIZE_EXPAND_FILL
+	vbox.add_child(bottom_spacer)
 
 	# Continue button
 	var btn_row := HBoxContainer.new()
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	vbox.add_child(btn_row)
 
-	var continue_button := Button.new()
-	continue_button.text = "Continue"
-	continue_button.custom_minimum_size = Vector2(200, 48)
-	continue_button.pressed.connect(func() -> void: continue_pressed.emit())
-	btn_row.add_child(continue_button)
+	var continue_btn := Button.new()
+	continue_btn.text = "Continue"
+	continue_btn.custom_minimum_size = Vector2(200, 48)
+	continue_btn.pressed.connect(func() -> void: continue_pressed.emit())
+	btn_row.add_child(continue_btn)

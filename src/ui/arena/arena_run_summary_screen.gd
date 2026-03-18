@@ -32,7 +32,7 @@ func _refresh() -> void:
 		_title_label.add_theme_color_override("font_color", Color(0.92, 0.78, 0.38, 1.0))
 	else:
 		_title_label.text = "Run Complete"
-		_title_label.add_theme_color_override("font_color", Color.WHITE)
+		_title_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8, 1.0))
 
 
 func _build_ui() -> void:
@@ -40,12 +40,19 @@ func _build_ui() -> void:
 		return
 	_is_built = true
 
+	# Semi-transparent backdrop
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0, 0, 0, 0.7)
+	backdrop.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	backdrop.mouse_filter = MOUSE_FILTER_STOP
+	add_child(backdrop)
+
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(center)
 
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(400, 280)
+	panel.custom_minimum_size = Vector2(400, 300)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.12, 0.12, 0.15, 1.0)
 	style.border_color = Color(0.4, 0.4, 0.5, 1.0)
@@ -56,8 +63,13 @@ func _build_ui() -> void:
 	center.add_child(panel)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 20)
+	vbox.add_theme_constant_override("separation", 24)
 	panel.add_child(vbox)
+
+	# Top spacer
+	var top_spacer := Control.new()
+	top_spacer.size_flags_vertical = SIZE_EXPAND_FILL
+	vbox.add_child(top_spacer)
 
 	# Title
 	_title_label = Label.new()
@@ -84,18 +96,18 @@ func _build_ui() -> void:
 	_losses_label.add_theme_color_override("font_color", Color(0.84, 0.39, 0.31, 1.0))
 	record_row.add_child(_losses_label)
 
-	# Spacer
-	var spacer := Control.new()
-	spacer.size_flags_vertical = SIZE_EXPAND_FILL
-	vbox.add_child(spacer)
+	# Bottom spacer
+	var bottom_spacer := Control.new()
+	bottom_spacer.size_flags_vertical = SIZE_EXPAND_FILL
+	vbox.add_child(bottom_spacer)
 
 	# Return button
 	var btn_row := HBoxContainer.new()
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	vbox.add_child(btn_row)
 
-	var return_button := Button.new()
-	return_button.text = "Return to Main Menu"
-	return_button.custom_minimum_size = Vector2(240, 48)
-	return_button.pressed.connect(func() -> void: return_pressed.emit())
-	btn_row.add_child(return_button)
+	var return_btn := Button.new()
+	return_btn.text = "Return to Main Menu"
+	return_btn.custom_minimum_size = Vector2(240, 48)
+	return_btn.pressed.connect(func() -> void: return_pressed.emit())
+	btn_row.add_child(return_btn)
