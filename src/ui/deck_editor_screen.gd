@@ -631,6 +631,8 @@ func _filtered_cards() -> Array:
 		if typeof(raw_card) != TYPE_DICTIONARY:
 			continue
 		var card: Dictionary = raw_card
+		if not card.get("collectible", true):
+			continue
 		if not search_term.is_empty() and not _card_matches_search(card, search_term):
 			continue
 		if not _card_matches_deck_attributes(card):
