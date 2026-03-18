@@ -31,7 +31,7 @@ const KEYWORD_ICON_PATHS := {
 
 const KEYWORD_NAMES := [
 	"breakthrough", "charge", "drain", "guard",
-	"lethal", "mobilize", "rally", "regenerate", "ward",
+	"lethal", "mobilize", "prophecy", "rally", "regenerate", "ward",
 ]
 
 const COLOR_FRAME_DARK := Color(0.07, 0.08, 0.1, 0.98)
@@ -55,6 +55,9 @@ var _card_data: Dictionary = {}
 var _presentation_mode := PRESENTATION_FULL
 var _is_built := false
 var _default_art_texture: Texture2D
+var _interactive := true
+var _deck_quantity_current := -1
+var _deck_quantity_max := -1
 
 var _content_root: Control
 var _outer_frame: PanelContainer
@@ -78,6 +81,7 @@ var _health_label: Label
 var _ward_overlay: ColorRect
 var _lethal_particles: GPUParticles2D
 var _keyword_icons_container: HBoxContainer
+var _quantity_badge: Label
 
 
 func _ready() -> void:
@@ -132,6 +136,20 @@ func apply_card(card: Dictionary, presentation_mode := "") -> void:
 			size = custom_minimum_size
 	_card_data = card.duplicate(true)
 	_refresh_all()
+
+
+func set_interactive(enabled: bool) -> void:
+	_interactive = enabled
+	if _is_built:
+		_refresh_visibility()
+
+
+func set_deck_quantity(current: int, max_copies: int) -> void:
+	_deck_quantity_current = current
+	_deck_quantity_max = max_copies
+	if _is_built:
+		_refresh_quantity_badge()
+		_refresh_deck_grey_out()
 
 
 func get_art_texture() -> Texture2D:
@@ -289,6 +307,15 @@ func _build_internal_nodes() -> void:
 	_keyword_icons_container.visible = false
 	_content_root.add_child(_keyword_icons_container)
 
+	_quantity_badge = Label.new()
+	_quantity_badge.name = "QuantityBadge"
+	_quantity_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_quantity_badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_quantity_badge.add_theme_font_size_override("font_size", 14)
+	_quantity_badge.add_theme_color_override("font_color", Color.WHITE)
+	_quantity_badge.visible = false
+	_content_root.add_child(_quantity_badge)
+
 	_set_mouse_passthrough_recursive(_content_root)
 	_is_built = true
 
@@ -301,6 +328,8 @@ func _refresh_all() -> void:
 	_refresh_visibility()
 	_layout_internal_nodes()
 	_fit_rules_font_size()
+	_refresh_quantity_badge()
+	_refresh_deck_grey_out()
 
 
 func _refresh_content() -> void:
@@ -395,8 +424,8 @@ func _refresh_visibility() -> void:
 	_cost_badge.visible = full
 	_attack_badge.visible = is_creature and (full or creature_minimal)
 	_health_badge.visible = is_creature and (full or creature_minimal)
-	_ward_overlay.visible = is_creature and EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_WARD)
-	var show_lethal := is_creature and (full or creature_minimal) and EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_LETHAL)
+	_ward_overlay.visible = _interactive and is_creature and EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_WARD)
+	var show_lethal := _interactive and is_creature and (full or creature_minimal) and EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_LETHAL)
 	_lethal_particles.emitting = show_lethal
 	_lethal_particles.visible = show_lethal
 
@@ -1026,6 +1055,43 @@ func _build_style_box(fill: Color, border: Color, border_width := 1, corner_radi
 	style.anti_aliasing = true
 	style.anti_aliasing_size = 1.0
 	return style
+
+
+func _refresh_quantity_badge() -> void:
+	if _quantity_badge == null:
+		return
+	if _deck_quantity_current < 0:
+		_quantity_badge.visible = false
+		return
+	_quantity_badge.text = str(_deck_quantity_current) + "/" + str(_deck_quantity_max)
+	_quantity_badge.visible = true
+	# Position at top-right corner of the outer frame
+	var scale := _layout_scale()
+	var badge_w := 36.0 * scale
+	var badge_h := 22.0 * scale
+	_quantity_badge.add_theme_font_size_override("font_size", _scaled_int(14, scale))
+	_quantity_badge.size = Vector2(badge_w, badge_h)
+	_quantity_badge.position = Vector2(
+		_outer_frame.position.x + _outer_frame.size.x - badge_w - 2.0 * scale,
+		_outer_frame.position.y + 2.0 * scale
+	)
+	# Background style
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.0, 0.0, 0.0, 0.75)
+	style.corner_radius_top_left = _scaled_int(4, scale)
+	style.corner_radius_top_right = _scaled_int(4, scale)
+	style.corner_radius_bottom_left = _scaled_int(4, scale)
+	style.corner_radius_bottom_right = _scaled_int(4, scale)
+	_quantity_badge.add_theme_stylebox_override("normal", style)
+
+
+func _refresh_deck_grey_out() -> void:
+	if _deck_quantity_current < 0:
+		return
+	if _deck_quantity_current >= _deck_quantity_max:
+		_content_root.modulate = Color(0.5, 0.5, 0.5, 1.0)
+	else:
+		_content_root.modulate = Color.WHITE
 
 
 func _set_mouse_passthrough_recursive(node: Node) -> void:
