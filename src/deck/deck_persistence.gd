@@ -45,7 +45,9 @@ static func list_decks() -> Array[String]:
 	var file_name := dir.get_next()
 	while file_name != "":
 		if not dir.current_is_dir() and file_name.ends_with(".json"):
-			names.append(file_name.get_basename())
+			var data := _read_deck_file(DECKS_DIR + file_name)
+			var display_name: String = data.get("name", file_name.get_basename())
+			names.append(display_name)
 		file_name = dir.get_next()
 	dir.list_dir_end()
 	names.sort()
@@ -68,6 +70,21 @@ static func _deck_path(deck_name: String) -> String:
 
 static func _sanitize_name(deck_name: String) -> String:
 	return deck_name.to_lower().strip_edges().replace(" ", "_").replace("/", "_").replace("\\", "_")
+
+
+static func _read_deck_file(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {}
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return {}
+	var text := file.get_as_text()
+	var json := JSON.new()
+	if json.parse(text) != OK:
+		return {}
+	if json.data is Dictionary:
+		return json.data
+	return {}
 
 
 static func _ensure_directory() -> void:
