@@ -2152,6 +2152,7 @@ func _build_card_button(card: Dictionary, public_view: bool, surface := "default
 	if surface == "lane" and str(card.get("card_type", "")) == "creature":
 		button.mouse_entered.connect(_on_lane_card_mouse_entered.bind(button, instance_id))
 		button.mouse_exited.connect(_on_lane_card_mouse_exited.bind(instance_id))
+		button.gui_input.connect(_on_lane_card_gui_input.bind(instance_id))
 	if surface == "support":
 		button.mouse_entered.connect(_on_support_card_mouse_entered.bind(button, instance_id))
 		button.mouse_exited.connect(_on_support_card_mouse_exited.bind(instance_id))
@@ -2953,6 +2954,29 @@ func _input(event: InputEvent) -> void:
 			elif not _selected_instance_id.is_empty():
 				clear_selection()
 				get_viewport().set_input_as_handled()
+
+
+func _on_lane_card_gui_input(event: InputEvent, instance_id: String) -> void:
+	if not (event is InputEventMouseButton):
+		return
+	var button_event := event as InputEventMouseButton
+	if button_event.button_index != MOUSE_BUTTON_MIDDLE or not button_event.pressed:
+		return
+	var card := _card_from_instance_id(instance_id)
+	if card.is_empty():
+		return
+	if str(card.get("controller_player_id", "")) != PLAYER_ORDER[1]:
+		return
+	if _selected_action_mode(card) != SELECTION_MODE_ATTACK:
+		return
+	var enemy_player_id := PLAYER_ORDER[0]
+	_selected_instance_id = instance_id
+	if _is_player_target_valid_for_selected(enemy_player_id):
+		_reset_invalid_feedback()
+		attack_selected_player(enemy_player_id)
+	else:
+		_report_invalid_interaction("Cannot attack face right now.", {"player_ids": [enemy_player_id]})
+	get_viewport().set_input_as_handled()
 
 
 func _on_card_pressed(instance_id: String) -> void:
