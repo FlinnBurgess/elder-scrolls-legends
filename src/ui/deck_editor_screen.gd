@@ -6,6 +6,11 @@ const DeckRulesRegistryClass = preload("res://src/deck/deck_rules_registry.gd")
 const CardCatalog = preload("res://src/deck/card_catalog.gd")
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const DECK_REGISTRY_PATH := "res://data/legends/registries/attribute_class_registry.json"
+const CardDisplayComponentClass = preload("res://src/ui/components/CardDisplayComponent.gd")
+const CARD_ASPECT_RATIO := 384.0 / 220.0
+const GRID_COLUMNS := 3
+const GRID_H_SEPARATION := 8
+const GRID_V_SEPARATION := 8
 
 signal done_pressed
 signal cancel_pressed
@@ -39,7 +44,9 @@ var _class_filter_button: OptionButton
 var _type_filter_button: OptionButton
 var _keyword_filter_button: OptionButton
 var _browser_summary_label: Label
-var _browser_rows: VBoxContainer
+var _card_grid: GridContainer
+var _browser_scroll: ScrollContainer
+var _card_display_by_id: Dictionary = {}
 var _left_column: VBoxContainer
 
 
@@ -114,7 +121,7 @@ func add_card_to_deck(card_id: String) -> void:
 	if current >= limit:
 		return
 	_deck_quantities[card_id] = current + 1
-	_refresh_browser()
+	_refresh_card_quantities()
 
 
 func remove_card_from_deck(card_id: String) -> void:
@@ -125,7 +132,7 @@ func remove_card_from_deck(card_id: String) -> void:
 		_deck_quantities.erase(card_id)
 	else:
 		_deck_quantities[card_id] = next
-	_refresh_browser()
+	_refresh_card_quantities()
 
 
 func _copy_limit(card: Dictionary) -> int:
@@ -184,14 +191,17 @@ func _build_ui() -> void:
 	_browser_summary_label = Label.new()
 	_left_column.add_child(_browser_summary_label)
 
-	var browser_scroll := ScrollContainer.new()
-	browser_scroll.size_flags_horizontal = SIZE_EXPAND_FILL
-	browser_scroll.size_flags_vertical = SIZE_EXPAND_FILL
-	_left_column.add_child(browser_scroll)
-	_browser_rows = VBoxContainer.new()
-	_browser_rows.size_flags_horizontal = SIZE_EXPAND_FILL
-	_browser_rows.add_theme_constant_override("separation", 6)
-	browser_scroll.add_child(_browser_rows)
+	_browser_scroll = ScrollContainer.new()
+	_browser_scroll.size_flags_horizontal = SIZE_EXPAND_FILL
+	_browser_scroll.size_flags_vertical = SIZE_EXPAND_FILL
+	_browser_scroll.resized.connect(_on_browser_scroll_resized)
+	_left_column.add_child(_browser_scroll)
+	_card_grid = GridContainer.new()
+	_card_grid.columns = GRID_COLUMNS
+	_card_grid.size_flags_horizontal = SIZE_EXPAND_FILL
+	_card_grid.add_theme_constant_override("h_separation", GRID_H_SEPARATION)
+	_card_grid.add_theme_constant_override("v_separation", GRID_V_SEPARATION)
+	_browser_scroll.add_child(_card_grid)
 
 	# Right column placeholder — populated by later stories (US-010, US-011, US-012)
 	var right_column := VBoxContainer.new()
@@ -332,6 +342,8 @@ func _filtered_cards() -> Array:
 		var card: Dictionary = raw_card
 		if not search_term.is_empty() and not _card_matches_search(card, search_term):
 			continue
+		if not _card_matches_deck_attributes(card):
+			continue
 		if not _active_attribute_filters.is_empty() and not _card_matches_attribute_chips(card):
 			continue
 		if not _browser_class_filter.is_empty() and not _card_matches_class_filter(card, _browser_class_filter):
@@ -397,36 +409,72 @@ func _card_matches_keyword_filter(card: Dictionary, term_id: String) -> bool:
 # --- Refresh ---
 
 func _refresh_browser() -> void:
-	if _browser_rows == null:
+	if _card_grid == null:
 		return
-	_clear_children(_browser_rows)
+	_clear_children(_card_grid)
+	_card_display_by_id.clear()
 	var filtered := _filtered_cards()
 	_browser_summary_label.text = "%d cards shown | %d in deck" % [filtered.size(), get_deck_count()]
+	var cell_size := _compute_cell_size()
 	for card in filtered:
-		_browser_rows.add_child(_build_browser_row(card))
-	if _browser_rows.get_child_count() == 0:
+		_card_grid.add_child(_build_card_cell(card, cell_size))
+	if _card_grid.get_child_count() == 0:
 		var placeholder := Label.new()
 		placeholder.text = "No cards match the current filters."
-		_browser_rows.add_child(placeholder)
+		_card_grid.add_child(placeholder)
 
 
-func _build_browser_row(card: Dictionary) -> Control:
-	var row := HBoxContainer.new()
-	row.size_flags_horizontal = SIZE_EXPAND_FILL
-	row.add_theme_constant_override("separation", 6)
+func _build_card_cell(card: Dictionary, cell_size: Vector2) -> Control:
 	var card_id := str(card.get("card_id", ""))
-	var label_btn := Button.new()
-	label_btn.size_flags_horizontal = SIZE_EXPAND_FILL
-	label_btn.text = "%s | %s | Cost %d | %d/%d" % [
-		str(card.get("name", card_id)),
-		str(card.get("card_type", "")).capitalize(),
-		int(card.get("cost", 0)),
-		get_deck_card_quantity(card_id),
-		_copy_limit(card),
-	]
-	label_btn.pressed.connect(_on_card_clicked.bind(card_id))
-	row.add_child(label_btn)
-	return row
+	var wrapper := Control.new()
+	wrapper.custom_minimum_size = cell_size
+	wrapper.size_flags_horizontal = SIZE_EXPAND_FILL
+	wrapper.mouse_filter = Control.MOUSE_FILTER_STOP
+	wrapper.gui_input.connect(_on_card_cell_input.bind(card_id))
+	var card_display := CardDisplayComponentClass.new()
+	card_display.apply_card(card, CardDisplayComponentClass.PRESENTATION_FULL)
+	card_display.custom_minimum_size = cell_size
+	card_display.size = cell_size
+	card_display.set_interactive(false)
+	card_display.set_deck_quantity(get_deck_card_quantity(card_id), _copy_limit(card))
+	wrapper.add_child(card_display)
+	card_display.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_card_display_by_id[card_id] = card_display
+	return wrapper
+
+
+func _refresh_card_quantities() -> void:
+	if _browser_summary_label != null:
+		_browser_summary_label.text = "%d cards shown | %d in deck" % [_card_display_by_id.size(), get_deck_count()]
+	for card_id in _card_display_by_id:
+		var card_display: Control = _card_display_by_id[card_id]
+		if not is_instance_valid(card_display):
+			continue
+		var card: Dictionary = _card_by_id.get(card_id, {})
+		if card.is_empty():
+			continue
+		card_display.set_deck_quantity(get_deck_card_quantity(card_id), _copy_limit(card))
+
+
+func _compute_cell_size() -> Vector2:
+	var scroll_width := 600.0
+	if _browser_scroll != null and _browser_scroll.size.x > 0:
+		scroll_width = _browser_scroll.size.x - 14.0
+	var cell_w := maxf(100.0, (scroll_width - float(GRID_H_SEPARATION * (GRID_COLUMNS - 1))) / float(GRID_COLUMNS))
+	var cell_h := cell_w * CARD_ASPECT_RATIO
+	return Vector2(cell_w, cell_h)
+
+
+func _card_matches_deck_attributes(card: Dictionary) -> bool:
+	if _deck_attribute_ids.is_empty():
+		return true
+	var attributes: Array = card.get("attributes", [])
+	if attributes.is_empty():
+		return true
+	for attr in attributes:
+		if not _deck_attribute_ids.has(str(attr)):
+			return false
+	return true
 
 
 # --- Helpers ---
@@ -480,5 +528,15 @@ func _on_keyword_filter_selected(index: int) -> void:
 	_refresh_browser()
 
 
-func _on_card_clicked(card_id: String) -> void:
-	add_card_to_deck(card_id)
+func _on_card_cell_input(event: InputEvent, card_id: String) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		add_card_to_deck(card_id)
+
+
+func _on_browser_scroll_resized() -> void:
+	if _card_grid == null or _card_grid.get_child_count() == 0:
+		return
+	var cell_size := _compute_cell_size()
+	for child in _card_grid.get_children():
+		if child is Control:
+			child.custom_minimum_size = cell_size
