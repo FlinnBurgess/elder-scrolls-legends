@@ -196,7 +196,7 @@
         "Tests pass when run with: godot --headless --script tests/boss_relic_system_runner.gd"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "Pure logic tests, no file I/O needed."
     },
     {

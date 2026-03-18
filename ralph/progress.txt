@@ -120,3 +120,12 @@
   - MALACHITE boss_starting_guards is an array of guard specs to place in each lane
   - BossRelic enum values: IRON=0, CORUNDUM=1, MOONSTONE=2, QUICKSILVER=3, EBONY=4, MALACHITE=5
 ---
+
+## 2026-03-18 - US-010
+- Created tests/boss_relic_system_runner.gd with 9 tests covering all acceptance criteria
+- Tests: pick_random validity, name/description non-empty for all 6, individual config tests for IRON/CORUNDUM/MOONSTONE/QUICKSILVER/EBONY/MALACHITE
+- Files changed: tests/boss_relic_system_runner.gd (new)
+- **Learnings for future iterations:**
+  - BossRelic enum values are ints (0-5), can pass directly to static methods in headless mode
+  - Pure logic tests need no file cleanup — simplest test pattern
+---
