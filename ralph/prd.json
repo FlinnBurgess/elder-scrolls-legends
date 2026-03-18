@@ -252,7 +252,7 @@
         "Built programmatically with no .tscn file"
       ],
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "notes": "Reuse compact deck list component. Confirmation dialog for abandon uses same pattern as deck delete confirmation."
     },
     {
@@ -269,7 +269,7 @@
         "Both screens built programmatically with no .tscn files"
       ],
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "notes": "Simple overlay/screen with centered text and button. Match result is shown after every match; run summary only at run end."
     },
     {

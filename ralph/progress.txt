@@ -159,3 +159,30 @@
   - HSplitContainer split_offset: negative value shifts the split left (giving more space to right column)
   - MagickaCurveChart.set_deck() expects {cards: [{card_id, quantity}]} format — same as deck definition
 ---
+
+## 2026-03-18 - US-013
+- Implemented ArenaRunStatusScreen with programmatic UI (no .tscn)
+- HSplitContainer layout: left column (run status panel with win/loss, match number, boss relic info, fight/abandon buttons), right column (compact deck list)
+- Confirmation dialog for abandon uses ColorRect backdrop + CenterContainer + PanelContainer pattern from deck_list_screen.gd
+- Boss relic info (name + description) shown when next match is boss (match >= 9)
+- set_run_data() API accepts wins, losses, current_match, boss_relic, deck, card_database
+- Files changed: src/ui/arena/arena_run_status_screen.gd (new)
+- **Learnings for future iterations:**
+  - ArenaRunStatusScreen uses set_run_data() to populate all fields — call after construction
+  - Confirmation dialog pattern: Control overlay > ColorRect backdrop (MOUSE_FILTER_STOP) > CenterContainer > PanelContainer with StyleBoxFlat
+  - _confirm_overlay tracked as instance var to prevent duplicate dialogs and enable cleanup
+  - Compact deck list code is duplicated across ArenaDraftScreen and ArenaRunStatusScreen — could be extracted to shared component in future
+---
+
+## 2026-03-18 - US-014
+- Implemented ArenaMatchResultScreen and ArenaRunSummaryScreen with programmatic UI (no .tscn)
+- ArenaMatchResultScreen: centered panel with "Victory!"/"Defeat" message, "Continue" button emitting continue_pressed signal
+- ArenaRunSummaryScreen: centered panel with final win/loss record, "Return to Main Menu" button emitting return_pressed signal
+- ArenaRunSummaryScreen shows "Arena Champion!" title in gold when all 9 matches won
+- Files changed: src/ui/arena/arena_match_result_screen.gd (new), src/ui/arena/arena_run_summary_screen.gd (new)
+- **Learnings for future iterations:**
+  - ArenaMatchResultScreen API: set_result(is_victory: bool) to configure victory/defeat display
+  - ArenaRunSummaryScreen API: set_run_result(wins: int, losses: int) to populate final record
+  - Both screens follow centered CenterContainer > PanelContainer > VBoxContainer pattern
+  - Green color for wins: Color(0.4, 0.8, 0.4), Red for losses/defeat: Color(0.84, 0.39, 0.31), Gold for champion: Color(0.92, 0.78, 0.38)
+---
