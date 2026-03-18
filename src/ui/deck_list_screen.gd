@@ -1,6 +1,9 @@
 class_name DeckListScreen
 extends Control
 
+const DeckPersistenceClass = preload("res://src/deck/deck_persistence.gd")
+const DeckCreationModalClass = preload("res://src/ui/deck_creation_modal.gd")
+
 signal edit_deck_requested(deck_name: String)
 
 var _deck_list_container: VBoxContainer
@@ -16,7 +19,7 @@ func _ready() -> void:
 
 func refresh() -> void:
 	_clear_children(_deck_list_container)
-	var deck_names: Array[String] = DeckPersistence.list_decks()
+	var deck_names: Array[String] = DeckPersistenceClass.list_decks()
 	for deck_name in deck_names:
 		_deck_list_container.add_child(_build_deck_row(deck_name))
 	if deck_names.is_empty():
@@ -95,24 +98,24 @@ func _build_deck_row(deck_name: String) -> Control:
 
 
 func _on_create_pressed() -> void:
-	var modal := DeckCreationModal.new()
+	var modal := DeckCreationModalClass.new()
 	modal.confirmed.connect(_on_create_confirmed.bind(modal))
 	modal.cancelled.connect(_on_modal_cancelled.bind(modal))
 	add_child(modal)
 
 
-func _on_create_confirmed(deck_name: String, attribute_ids: Array, modal: DeckCreationModal) -> void:
+func _on_create_confirmed(deck_name: String, attribute_ids: Array, modal: Control) -> void:
 	modal.queue_free()
 	var definition := {
 		"name": deck_name,
 		"attribute_ids": attribute_ids,
 		"cards": [],
 	}
-	DeckPersistence.save_deck(deck_name, definition)
+	DeckPersistenceClass.save_deck(deck_name, definition)
 	edit_deck_requested.emit(deck_name)
 
 
-func _on_modal_cancelled(modal: DeckCreationModal) -> void:
+func _on_modal_cancelled(modal: Control) -> void:
 	modal.queue_free()
 
 
@@ -190,7 +193,7 @@ func _build_confirm_dialog(deck_name: String) -> Control:
 
 func _on_delete_confirmed(deck_name: String, dialog: Control) -> void:
 	dialog.queue_free()
-	DeckPersistence.delete_deck(deck_name)
+	DeckPersistenceClass.delete_deck(deck_name)
 	refresh()
 
 
