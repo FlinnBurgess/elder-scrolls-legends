@@ -113,6 +113,7 @@ func load_deck(deck_name: String, definition: Dictionary) -> void:
 		if not card_id.is_empty() and quantity > 0:
 			_deck_quantities[card_id] = quantity
 	_refresh_deck_header()
+	_refresh_attribute_chips()
 	_refresh_deck_card_list()
 	_refresh_magicka_curve()
 	_refresh_card_count()
@@ -524,7 +525,7 @@ func _build_filter_bar() -> Control:
 	_search_input.text_changed.connect(_on_search_changed)
 	search_row.add_child(_search_input)
 
-	# Attribute toggle chips
+	# Attribute toggle chips (populated dynamically based on deck attributes)
 	var attr_label := Label.new()
 	attr_label.text = "Attributes"
 	attr_label.add_theme_font_size_override("font_size", 14)
@@ -532,13 +533,6 @@ func _build_filter_bar() -> Control:
 	_attribute_chip_container = HBoxContainer.new()
 	_attribute_chip_container.add_theme_constant_override("separation", 6)
 	box.add_child(_attribute_chip_container)
-	for attr_id in ["strength", "intelligence", "willpower", "agility", "endurance", "neutral"]:
-		var chip := Button.new()
-		chip.toggle_mode = true
-		chip.text = _attribute_display_name(attr_id)
-		chip.custom_minimum_size = Vector2(0, 30)
-		chip.toggled.connect(_on_attribute_chip_toggled.bind(attr_id))
-		_attribute_chip_container.add_child(chip)
 
 	# Separator
 	box.add_child(HSeparator.new())
@@ -817,6 +811,26 @@ func _clear_children(node: Node) -> void:
 		child.queue_free()
 
 
+func _refresh_attribute_chips() -> void:
+	if _attribute_chip_container == null:
+		return
+	_active_attribute_filters.clear()
+	_clear_children(_attribute_chip_container)
+	# Only show "Neutral" plus the deck's selected attributes
+	var chip_ids: Array[String] = []
+	for attr_id in _deck_attribute_ids:
+		chip_ids.append(attr_id)
+	# Always include Neutral since neutral cards belong to any deck
+	chip_ids.append("neutral")
+	for attr_id in chip_ids:
+		var chip := Button.new()
+		chip.toggle_mode = true
+		chip.text = _attribute_display_name(attr_id)
+		chip.custom_minimum_size = Vector2(0, 30)
+		chip.toggled.connect(_on_attribute_chip_toggled.bind(attr_id))
+		_attribute_chip_container.add_child(chip)
+
+
 func _refresh_deck_header() -> void:
 	if _deck_header_name_label != null:
 		_deck_header_name_label.text = _deck_name if not _deck_name.is_empty() else "Untitled Deck"
@@ -954,6 +968,7 @@ func _apply_deck_edit(new_name: String, new_attribute_ids: Array) -> void:
 	for attr_id in new_attribute_ids:
 		_deck_attribute_ids.append(str(attr_id))
 	_refresh_deck_header()
+	_refresh_attribute_chips()
 	_refresh_browser()
 	_refresh_deck_card_list()
 	_refresh_magicka_curve()
