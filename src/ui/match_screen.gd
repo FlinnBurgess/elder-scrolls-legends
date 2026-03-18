@@ -3042,7 +3042,13 @@ func _on_lane_row_gui_input(event: InputEvent, lane_id: String, player_id: Strin
 	if not (event is InputEventMouseButton):
 		return
 	var button_event := event as InputEventMouseButton
-	if button_event.button_index != MOUSE_BUTTON_LEFT or not button_event.pressed:
+	if not button_event.pressed:
+		return
+	if button_event.button_index == MOUSE_BUTTON_MIDDLE:
+		end_turn_action()
+		accept_event()
+		return
+	if button_event.button_index != MOUSE_BUTTON_LEFT:
 		return
 	var card := _selected_card()
 	if card.is_empty():
@@ -3077,7 +3083,13 @@ func _on_lane_panel_gui_input(event: InputEvent, lane_id: String) -> void:
 	if not (event is InputEventMouseButton):
 		return
 	var button_event := event as InputEventMouseButton
-	if button_event.button_index != MOUSE_BUTTON_LEFT or not button_event.pressed:
+	if not button_event.pressed:
+		return
+	if button_event.button_index == MOUSE_BUTTON_MIDDLE:
+		end_turn_action()
+		accept_event()
+		return
+	if button_event.button_index != MOUSE_BUTTON_LEFT:
 		return
 	var card := _selected_card()
 	if card.is_empty():
