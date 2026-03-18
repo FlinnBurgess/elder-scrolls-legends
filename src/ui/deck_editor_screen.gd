@@ -1,6 +1,7 @@
 class_name DeckEditorScreen
 extends Control
 
+const DeckPersistenceClass = preload("res://src/deck/deck_persistence.gd")
 const DeckValidator = preload("res://src/deck/deck_validator.gd")
 const DeckRulesRegistryClass = preload("res://src/deck/deck_rules_registry.gd")
 const CardCatalog = preload("res://src/deck/card_catalog.gd")
@@ -37,6 +38,7 @@ var _class_records: Array = []
 var _deck_name := ""
 var _deck_attribute_ids: Array[String] = []
 var _deck_quantities := {}
+var _original_deck_definition := {}
 
 # Filter state — attributes and costs support multi-select via toggle chips
 var _active_attribute_filters: Array[String] = []
@@ -75,6 +77,7 @@ func _ready() -> void:
 
 
 func load_deck(deck_name: String, definition: Dictionary) -> void:
+	_original_deck_definition = definition.duplicate(true)
 	_deck_name = deck_name
 	_deck_attribute_ids.clear()
 	for attr_id in definition.get("attribute_ids", []):
@@ -254,6 +257,9 @@ func _build_ui() -> void:
 	_right_column.add_child(_card_count_label)
 	_refresh_card_count()
 
+	# Done / Cancel buttons
+	_right_column.add_child(_build_action_buttons())
+
 
 func _build_deck_header() -> Control:
 	var header_button := Button.new()
@@ -387,6 +393,39 @@ func _get_card_cost_badge_color(attributes: Array) -> Color:
 	if attributes.size() == 1:
 		return ATTRIBUTE_TINTS.get(str(attributes[0]), NEUTRAL_COST_COLOR)
 	return NEUTRAL_COST_COLOR
+
+
+func _build_action_buttons() -> Control:
+	var row := HBoxContainer.new()
+	row.size_flags_horizontal = SIZE_EXPAND_FILL
+	row.add_theme_constant_override("separation", 12)
+	row.alignment = BoxContainer.ALIGNMENT_END
+
+	var cancel_btn := Button.new()
+	cancel_btn.text = "Cancel"
+	cancel_btn.custom_minimum_size = Vector2(100, 36)
+	var cancel_style := StyleBoxFlat.new()
+	cancel_style.bg_color = Color(0.25, 0.25, 0.28, 1.0)
+	cancel_style.border_color = Color(0.5, 0.5, 0.55, 1.0)
+	cancel_style.set_border_width_all(1)
+	cancel_style.set_corner_radius_all(6)
+	cancel_style.set_content_margin_all(8)
+	cancel_btn.add_theme_stylebox_override("normal", cancel_style)
+	cancel_btn.pressed.connect(_on_cancel_pressed)
+	row.add_child(cancel_btn)
+
+	var done_btn := Button.new()
+	done_btn.text = "Done"
+	done_btn.custom_minimum_size = Vector2(100, 36)
+	var done_style := StyleBoxFlat.new()
+	done_style.bg_color = Color(0.2, 0.5, 0.3, 1.0)
+	done_style.set_corner_radius_all(6)
+	done_style.set_content_margin_all(8)
+	done_btn.add_theme_stylebox_override("normal", done_style)
+	done_btn.pressed.connect(_on_done_pressed)
+	row.add_child(done_btn)
+
+	return row
 
 
 func _build_filter_bar() -> Control:
@@ -863,3 +902,12 @@ func _show_illegal_cards_confirmation(new_name: String, new_attribute_ids: Array
 			_deck_quantities.erase(card_id)
 		_apply_deck_edit(new_name, new_attribute_ids)
 	)
+
+
+func _on_done_pressed() -> void:
+	DeckPersistenceClass.save_deck(_deck_name, get_deck_definition())
+	done_pressed.emit()
+
+
+func _on_cancel_pressed() -> void:
+	cancel_pressed.emit()
