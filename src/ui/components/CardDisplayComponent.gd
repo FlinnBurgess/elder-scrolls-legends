@@ -82,6 +82,7 @@ var _ward_overlay: ColorRect
 var _lethal_particles: GPUParticles2D
 var _keyword_icons_container: HBoxContainer
 var _quantity_badge: Label
+var _charges_badge: Label
 
 
 func _ready() -> void:
@@ -316,6 +317,15 @@ func _build_internal_nodes() -> void:
 	_quantity_badge.visible = false
 	_content_root.add_child(_quantity_badge)
 
+	_charges_badge = Label.new()
+	_charges_badge.name = "ChargesBadge"
+	_charges_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_charges_badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_charges_badge.add_theme_font_size_override("font_size", 14)
+	_charges_badge.add_theme_color_override("font_color", Color.WHITE)
+	_charges_badge.visible = false
+	_content_root.add_child(_charges_badge)
+
 	_set_mouse_passthrough_recursive(_content_root)
 	_is_built = true
 
@@ -329,6 +339,7 @@ func _refresh_all() -> void:
 	_layout_internal_nodes()
 	_fit_rules_font_size()
 	_refresh_quantity_badge()
+	_refresh_charges_badge()
 	_refresh_deck_grey_out()
 
 
@@ -1092,6 +1103,37 @@ func _refresh_deck_grey_out() -> void:
 		_content_root.modulate = Color(0.5, 0.5, 0.5, 1.0)
 	else:
 		_content_root.modulate = Color.WHITE
+
+
+func _refresh_charges_badge() -> void:
+	if _charges_badge == null:
+		return
+	if _presentation_mode != PRESENTATION_SUPPORT_BOARD_MINIMAL:
+		_charges_badge.visible = false
+		return
+	var remaining = _card_data.get("remaining_support_uses", null)
+	if remaining == null:
+		_charges_badge.visible = false
+		return
+	var uses_left := int(remaining)
+	_charges_badge.text = str(uses_left)
+	_charges_badge.visible = true
+	# Position at bottom-right corner of the art frame
+	var badge_w := 24.0
+	var badge_h := 20.0
+	_charges_badge.add_theme_font_size_override("font_size", 13)
+	_charges_badge.size = Vector2(badge_w, badge_h)
+	_charges_badge.position = Vector2(
+		_art_frame.position.x + _art_frame.size.x - badge_w - 2.0,
+		_art_frame.position.y + _art_frame.size.y - badge_h - 2.0
+	)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.0, 0.0, 0.0, 0.78)
+	style.corner_radius_top_left = 4
+	style.corner_radius_top_right = 4
+	style.corner_radius_bottom_left = 4
+	style.corner_radius_bottom_right = 4
+	_charges_badge.add_theme_stylebox_override("normal", style)
 
 
 func _set_mouse_passthrough_recursive(node: Node) -> void:

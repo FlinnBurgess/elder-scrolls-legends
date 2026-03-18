@@ -1353,6 +1353,9 @@ func _apply_surface_button_style(button: Button, surface: String, hidden := fals
 			"support":
 				fill = Color(0.14, 0.18, 0.18, 0.98)
 				border = Color(0.35, 0.58, 0.56, 0.92)
+				if bool(card.get("activation_used_this_turn", false)):
+					fill = fill.darkened(0.3)
+					border = border.darkened(0.2)
 		if surface == "hand" and _is_pending_prophecy_card(card):
 			fill = fill.lerp(Color(0.24, 0.12, 0.31, 0.99), 0.72)
 			border = Color(0.93, 0.73, 0.98, 1.0)
@@ -2585,6 +2588,8 @@ func _build_card_display_component(card: Dictionary, surface: String, instance_i
 		if effective_cost < int(card.get("cost", 0)):
 			display_card["_effective_cost"] = effective_cost
 	component.apply_card(display_card, _card_presentation_mode(card, surface))
+	if surface == "support" and bool(card.get("activation_used_this_turn", false)):
+		component.modulate = Color(0.5, 0.5, 0.55, 0.8)
 	return component
 
 
