@@ -131,10 +131,11 @@ func _on_fight_pressed() -> void:
 	_clear_screen()
 	var match_screen := MatchScreenScript.new()
 	match_screen.name = "ArenaMatch"
+	match_screen._arena_mode = true
 	match_screen.return_to_main_menu_requested.connect(_on_match_ended.bind(match_screen))
 	add_child(match_screen)
 	_current_screen = match_screen
-	match_screen.start_match_with_decks(player_deck_ids, ai_deck_ids, boss_config)
+	match_screen.start_match_with_decks(player_deck_ids, ai_deck_ids)
 
 
 func _on_match_ended(match_screen: Control) -> void:

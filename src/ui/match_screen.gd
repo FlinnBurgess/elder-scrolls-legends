@@ -127,6 +127,8 @@ var _local_match_ai_action_count := 0
 var _pending_layout_scale_frames := 0
 var _floating_card_ids: Dictionary = {}
 var _overdraw_queue: Array = []
+var _match_end_button: Button
+var _arena_mode := false
 
 
 var _ai_enabled := false
@@ -1182,13 +1184,13 @@ func _build_match_end_overlay() -> PanelContainer:
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0, 8)
 	box.add_child(spacer)
-	var main_menu_button := Button.new()
-	main_menu_button.name = "MatchEndMainMenuButton"
-	main_menu_button.text = "Return to Main Menu"
-	main_menu_button.custom_minimum_size = Vector2(280, 48)
-	main_menu_button.add_theme_font_size_override("font_size", 17)
-	main_menu_button.pressed.connect(func(): return_to_main_menu_requested.emit())
-	box.add_child(main_menu_button)
+	_match_end_button = Button.new()
+	_match_end_button.name = "MatchEndMainMenuButton"
+	_match_end_button.text = "Return to Main Menu"
+	_match_end_button.custom_minimum_size = Vector2(280, 48)
+	_match_end_button.add_theme_font_size_override("font_size", 17)
+	_match_end_button.pressed.connect(func(): return_to_main_menu_requested.emit())
+	box.add_child(_match_end_button)
 	return overlay
 
 
@@ -4406,6 +4408,8 @@ func _refresh_match_end_overlay() -> void:
 	if _match_end_detail_label != null:
 		_match_end_detail_label.text = _match_end_detail_text(winner_player_id)
 		_match_end_detail_label.add_theme_color_override("font_color", Color(0.93, 0.95, 0.99, 0.96))
+	if _match_end_button != null:
+		_match_end_button.text = "Continue" if _arena_mode else "Return to Main Menu"
 
 
 func _refresh_end_turn_button_style(has_pending_prophecy: bool) -> void:
@@ -4434,6 +4438,10 @@ func _refresh_end_turn_button_style(has_pending_prophecy: bool) -> void:
 		_end_turn_button.tooltip_text = "Unavailable while the opponent is taking their turn."
 	_end_turn_button.add_theme_font_size_override("font_size", font_size)
 	_apply_button_style(_end_turn_button, fill, border, font_color, border_width, 12)
+
+
+func did_local_player_win() -> bool:
+	return _match_winner_id() == _local_player_id()
 
 
 func _has_match_winner() -> bool:
