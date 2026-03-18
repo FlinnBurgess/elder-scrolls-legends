@@ -1,6 +1,8 @@
 extends Node
 
 const CardCatalog = preload("res://src/deck/card_catalog.gd")
+const DeckPersistence = preload("res://src/deck/deck_persistence.gd")
+const DeckValidator = preload("res://src/deck/deck_validator.gd")
 const MatchScreen = preload("res://src/ui/match_screen.gd")
 const DeckbuilderScreen = preload("res://src/ui/deckbuilder_screen.gd")
 
@@ -77,7 +79,9 @@ func _on_match_pressed() -> void:
 
 
 func _show_deck_select_screen() -> void:
-	_deck_entries = _load_deck_entries()
+	var player_entries := _load_valid_player_deck_entries()
+	var default_entries := _load_deck_entries()
+	_deck_entries = player_entries + default_entries
 	if _deck_entries.is_empty():
 		push_error("No deck files found in %s" % DECKS_DIR)
 		_main_menu.visible = true
@@ -109,7 +113,26 @@ func _show_deck_select_screen() -> void:
 	spacer.custom_minimum_size = Vector2(0, 8)
 	center.add_child(spacer)
 
+	if not player_entries.is_empty():
+		var my_decks_label := Label.new()
+		my_decks_label.text = "My Decks"
+		my_decks_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		my_decks_label.add_theme_font_size_override("font_size", 16)
+		my_decks_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 1.0))
+		center.add_child(my_decks_label)
+
 	for i in range(_deck_entries.size()):
+		if i == player_entries.size() and not player_entries.is_empty():
+			var defaults_spacer := Control.new()
+			defaults_spacer.custom_minimum_size = Vector2(0, 4)
+			center.add_child(defaults_spacer)
+			var defaults_label := Label.new()
+			defaults_label.text = "Default Decks"
+			defaults_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+			defaults_label.add_theme_font_size_override("font_size", 16)
+			defaults_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 1.0))
+			center.add_child(defaults_label)
+
 		var entry: Dictionary = _deck_entries[i]
 		var deck_button := Button.new()
 		var attributes_text := ", ".join(entry.get("attribute_ids", []))
@@ -163,12 +186,16 @@ func _on_deck_selected(index: int) -> void:
 func _on_start_match_pressed() -> void:
 	if _selected_deck_index < 0 or _selected_deck_index >= _deck_entries.size():
 		return
-	var player_deck_path: String = _deck_entries[_selected_deck_index].get("path", "")
-	var player_deck_ids := _load_deck_card_ids(player_deck_path)
+	var selected_entry: Dictionary = _deck_entries[_selected_deck_index]
+	var player_deck_ids: Array
+	if selected_entry.has("card_ids"):
+		player_deck_ids = selected_entry.get("card_ids", [])
+	else:
+		player_deck_ids = _load_deck_card_ids(selected_entry.get("path", ""))
 	if player_deck_ids.is_empty():
 		return
 
-	var enemy_deck_ids := _pick_random_enemy_deck(player_deck_path)
+	var enemy_deck_ids := _pick_random_enemy_deck(selected_entry.get("path", ""))
 	if enemy_deck_ids.is_empty():
 		return
 
@@ -200,6 +227,41 @@ func _pick_random_enemy_deck(exclude_path: String) -> Array:
 		candidates = deck_files
 	candidates.shuffle()
 	return _load_deck_card_ids(candidates[0])
+
+
+func _load_valid_player_deck_entries() -> Array:
+	var catalog_data := CardCatalog.load_default()
+	var card_by_id: Dictionary = catalog_data.get("card_by_id", {})
+	if card_by_id.is_empty():
+		push_warning("Deck select: card catalog is empty, skipping player decks")
+		return []
+
+	var entries: Array = []
+	var deck_names := DeckPersistence.list_decks()
+	for deck_name in deck_names:
+		var definition := DeckPersistence.load_deck(deck_name)
+		if definition.is_empty():
+			push_warning("Deck select: failed to load player deck '%s'" % deck_name)
+			continue
+		var validation := DeckValidator.validate_deck(definition, card_by_id)
+		if not validation.get("is_valid", false):
+			push_warning("Deck select: player deck '%s' failed validation: %s" % [deck_name, str(validation.get("errors", []))])
+			continue
+		var card_ids: Array = []
+		for card_entry in definition.get("cards", []):
+			if typeof(card_entry) == TYPE_DICTIONARY:
+				var card_id := str(card_entry.get("card_id", ""))
+				var quantity := int(card_entry.get("quantity", 0))
+				for _i in range(quantity):
+					card_ids.append(card_id)
+		entries.append({
+			"name": str(definition.get("name", deck_name)),
+			"attribute_ids": definition.get("attribute_ids", []),
+			"card_count": card_ids.size(),
+			"card_ids": card_ids,
+		})
+	entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return str(a.get("name", "")) < str(b.get("name", "")))
+	return entries
 
 
 func _load_deck_entries() -> Array:

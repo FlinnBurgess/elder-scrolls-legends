@@ -55,7 +55,7 @@ static func validate_deck(deck_definition: Dictionary, card_catalog: Dictionary,
 		if card_id.is_empty():
 			result.errors.append("Deck entries require a `card_id`.")
 			continue
-		if typeof(quantity_variant) != TYPE_INT:
+		if typeof(quantity_variant) != TYPE_INT and typeof(quantity_variant) != TYPE_FLOAT:
 			result.errors.append("Deck entry `%s` must use an integer quantity." % card_id)
 			continue
 
