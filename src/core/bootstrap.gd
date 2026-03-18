@@ -293,6 +293,7 @@ func _on_deckbuilder_pressed() -> void:
 	_main_menu.visible = false
 	var deckbuilder_screen := DeckbuilderScreen.new()
 	deckbuilder_screen.name = "Deckbuilder"
+	deckbuilder_screen.back_to_menu_requested.connect(_show_main_menu)
 	add_child(deckbuilder_screen)
 	_active_screen = deckbuilder_screen
 

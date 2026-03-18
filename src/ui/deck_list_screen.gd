@@ -5,6 +5,7 @@ const DeckPersistenceClass = preload("res://src/deck/deck_persistence.gd")
 const DeckCreationModalClass = preload("res://src/ui/deck_creation_modal.gd")
 
 signal edit_deck_requested(deck_name: String)
+signal back_pressed
 
 var _deck_list_container: VBoxContainer
 var _create_button: Button
@@ -36,10 +37,14 @@ func _build_ui() -> void:
 		return
 	_is_built = true
 
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	add_child(center)
+
 	var root := VBoxContainer.new()
-	root.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	root.custom_minimum_size = Vector2(500, 0)
 	root.add_theme_constant_override("separation", 16)
-	add_child(root)
+	center.add_child(root)
 
 	# Title
 	var title := Label.new()
@@ -63,13 +68,25 @@ func _build_ui() -> void:
 	# Scrollable deck list
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_horizontal = SIZE_EXPAND_FILL
-	scroll.size_flags_vertical = SIZE_EXPAND_FILL
+	scroll.custom_minimum_size = Vector2(0, 300)
 	root.add_child(scroll)
 
 	_deck_list_container = VBoxContainer.new()
 	_deck_list_container.size_flags_horizontal = SIZE_EXPAND_FILL
 	_deck_list_container.add_theme_constant_override("separation", 8)
 	scroll.add_child(_deck_list_container)
+
+	# Spacer before back button
+	var back_spacer := Control.new()
+	back_spacer.custom_minimum_size = Vector2(0, 16)
+	root.add_child(back_spacer)
+
+	# Back button
+	var back_button := Button.new()
+	back_button.text = "Back"
+	back_button.custom_minimum_size = Vector2(0, 44)
+	back_button.pressed.connect(func() -> void: back_pressed.emit())
+	root.add_child(back_button)
 
 
 func _build_deck_row(deck_name: String) -> Control:

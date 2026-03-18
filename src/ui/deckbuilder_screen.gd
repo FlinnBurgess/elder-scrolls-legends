@@ -5,6 +5,8 @@ const DeckListScreenClass = preload("res://src/ui/deck_list_screen.gd")
 const DeckEditorScreenClass = preload("res://src/ui/deck_editor_screen.gd")
 const DeckPersistenceClass = preload("res://src/deck/deck_persistence.gd")
 
+signal back_to_menu_requested
+
 var _deck_list_screen: Control
 var _deck_editor_screen: Control
 
@@ -22,6 +24,7 @@ func _show_deck_list() -> void:
 	if _deck_list_screen == null:
 		_deck_list_screen = DeckListScreenClass.new()
 		_deck_list_screen.edit_deck_requested.connect(_on_edit_deck_requested)
+		_deck_list_screen.back_pressed.connect(func() -> void: back_to_menu_requested.emit())
 		add_child(_deck_list_screen)
 	else:
 		_deck_list_screen.visible = true
