@@ -896,8 +896,11 @@ func _on_keyword_filter_selected(index: int) -> void:
 
 
 func _on_card_cell_input(event: InputEvent, card_id: String) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		add_card_to_deck(card_id)
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			add_card_to_deck(card_id)
+		elif event.button_index == MOUSE_BUTTON_RIGHT:
+			remove_card_from_deck(card_id)
 
 
 func _on_browser_scroll_resized() -> void:
