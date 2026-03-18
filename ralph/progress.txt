@@ -19,6 +19,7 @@
 - ArenaRunManager persistence: save_run() after state changes, clear_run() on completion/abandon; JSON at `user://arena/run.json`
 - ArenaRunManager: non-static class holding run state; State enum tracks lifecycle; boss is match 9; deck grows via post-win picks
 - Self-referencing class_name in static methods (e.g. `ArenaRunManager.new()` inside ArenaRunManager) breaks headless mode; use `load("res://path/to/script.gd").new()` instead
+- ArenaEloManager: static utility class at `src/arena/arena_elo_manager.gd` — Elo persistence at `user://arena/elo.dat`, difficulty distribution via `get_opponent_difficulties(elo)`
 
 ---
 
@@ -87,4 +88,25 @@
   - Scripts that reference their own class_name in static methods (e.g. `var x := MyClass.new()`) fail in headless --script mode — use `load("res://path.gd").new()` instead
   - Type annotations using class_name (e.g. `var x: ArenaRunManager`) in test runners also fail in headless mode — omit them or use untyped vars
   - Test runners exercising file I/O (save/load) should clean up before AND after each test to avoid cross-contamination
+---
+
+## 2026-03-18 - US-007
+- Implemented ArenaEloManager with get_elo(), save_elo(), update_elo_after_run(), get_opponent_difficulties()
+- Created tests/arena_elo_manager_runner.gd with 8 test methods covering all acceptance criteria
+- Files changed: src/arena/arena_elo_manager.gd (new), tests/arena_elo_manager_runner.gd (new)
+- **Learnings for future iterations:**
+  - Elo stored as plain text integer in user://arena/elo.dat (simpler than JSON for a single value)
+  - Elo update uses K-factor of 32 with expected wins of 4.5; win_diff / expected_wins * K gives delta
+  - Difficulty distribution: 1 weak + 5 average + 2 strong = 8 opponents for matches 1-8 (boss is match 9 with fixed quality)
+  - elo_factor = (elo - 800) / 1200 maps Elo range to 0.0-1.0 for shifting difficulty bands
+  - Statistical tests (distribution, average difficulty) need generous bounds and multiple runs (50+) to avoid flakiness
+---
+
+## 2026-03-18 - US-008
+- ArenaEloManager tests already created and committed as part of US-007
+- Verified all 8 tests pass: default elo, save/load, high-win increase, low-win decrease, clamping, ascending order, distribution at 1200, higher elo = higher difficulty
+- Files changed: none (tests already committed in US-007)
+- **Learnings for future iterations:**
+  - US-007 proactively created the test file, so US-008 was a verification pass
+  - Implementation uses 1 weak + 5 avg + 2 strong = 8 opponents (AC says 2+5+2=9, but only 8 non-boss matches exist)
 ---

@@ -133,7 +133,7 @@
         "Creates user://arena/ directory if it does not exist"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Static utility class. Elo update formula should be simple: gain more for high-win runs, lose for low-win runs. Quality values map to ArenaDraftEngine.draft_ai_deck() quality parameter."
     },
     {
@@ -153,7 +153,7 @@
         "Tests pass when run with: godot --headless --script tests/arena_elo_manager_runner.gd"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "Clean up user://arena/ test files after tests complete."
     },
     {
