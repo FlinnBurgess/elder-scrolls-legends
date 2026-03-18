@@ -8,6 +8,7 @@ const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const DECK_REGISTRY_PATH := "res://data/legends/registries/attribute_class_registry.json"
 const CardDisplayComponentClass = preload("res://src/ui/components/CardDisplayComponent.gd")
 const DeckCreationModalClass = preload("res://src/ui/deck_creation_modal.gd")
+const MagickaCurveChartClass = preload("res://src/ui/components/magicka_curve_chart.gd")
 const CARD_ASPECT_RATIO := 384.0 / 220.0
 const ATTRIBUTE_TINTS := {
 	"strength": Color(0.84, 0.39, 0.31, 1.0),
@@ -62,6 +63,8 @@ var _deck_header_name_label: Label
 var _deck_header_attr_container: HBoxContainer
 var _deck_card_list_container: VBoxContainer
 var _deck_card_list_scroll: ScrollContainer
+var _magicka_curve_chart: Control
+var _card_count_label: Label
 
 
 func _ready() -> void:
@@ -86,6 +89,8 @@ func load_deck(deck_name: String, definition: Dictionary) -> void:
 			_deck_quantities[card_id] = quantity
 	_refresh_deck_header()
 	_refresh_deck_card_list()
+	_refresh_magicka_curve()
+	_refresh_card_count()
 	_refresh_browser()
 
 
@@ -236,6 +241,18 @@ func _build_ui() -> void:
 	_deck_card_list_container.size_flags_horizontal = SIZE_EXPAND_FILL
 	_deck_card_list_container.add_theme_constant_override("separation", 2)
 	_deck_card_list_scroll.add_child(_deck_card_list_container)
+
+	# Magicka curve chart
+	_magicka_curve_chart = MagickaCurveChartClass.new()
+	_magicka_curve_chart.size_flags_horizontal = SIZE_EXPAND_FILL
+	_right_column.add_child(_magicka_curve_chart)
+
+	# Card count label
+	_card_count_label = Label.new()
+	_card_count_label.add_theme_font_size_override("font_size", 14)
+	_card_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_right_column.add_child(_card_count_label)
+	_refresh_card_count()
 
 
 func _build_deck_header() -> Control:
@@ -612,6 +629,28 @@ func _refresh_card_quantities() -> void:
 			continue
 		card_display.set_deck_quantity(get_deck_card_quantity(card_id), _copy_limit(card))
 	_refresh_deck_card_list()
+	_refresh_magicka_curve()
+	_refresh_card_count()
+
+
+func _refresh_magicka_curve() -> void:
+	if _magicka_curve_chart == null:
+		return
+	_magicka_curve_chart.set_deck(get_deck_definition(), _card_by_id)
+
+
+func _refresh_card_count() -> void:
+	if _card_count_label == null:
+		return
+	var count := get_deck_count()
+	var size_rule: Dictionary = _rules_registry.get_deck_size_rule(_deck_attribute_ids.size())
+	var min_cards := int(size_rule.get("min_cards", 50))
+	var max_cards := int(size_rule.get("max_cards", 100))
+	_card_count_label.text = "%d / %d-%d" % [count, min_cards, max_cards]
+	if count < min_cards or count > max_cards:
+		_card_count_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3, 1.0))
+	else:
+		_card_count_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
 
 
 func _compute_cell_size() -> Vector2:
@@ -751,6 +790,8 @@ func _apply_deck_edit(new_name: String, new_attribute_ids: Array) -> void:
 	_refresh_deck_header()
 	_refresh_browser()
 	_refresh_deck_card_list()
+	_refresh_magicka_curve()
+	_refresh_card_count()
 
 
 func _show_illegal_cards_confirmation(new_name: String, new_attribute_ids: Array, illegal_card_ids: Array) -> void:
