@@ -23,7 +23,7 @@ var _cost_labels: Array[Label] = []
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if custom_minimum_size == Vector2.ZERO:
-		custom_minimum_size = Vector2(200, 80)
+		custom_minimum_size = Vector2(200, 100)
 	if size == Vector2.ZERO:
 		size = custom_minimum_size
 	_buckets.resize(BUCKET_COUNT)

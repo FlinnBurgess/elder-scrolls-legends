@@ -19,11 +19,11 @@ const ATTRIBUTE_TINTS := {
 	"endurance": Color(0.58, 0.46, 0.72, 1.0),
 }
 const NEUTRAL_COST_COLOR := Color(0.6, 0.6, 0.6, 1.0)
-const GRID_COLUMNS := 5
+const GRID_COLUMNS := 4
 const GRID_ROWS := 3
 const CARDS_PER_PAGE := GRID_COLUMNS * GRID_ROWS
-const GRID_H_SEPARATION := 8
-const GRID_V_SEPARATION := 8
+const GRID_H_SEPARATION := 12
+const GRID_V_SEPARATION := 12
 
 signal done_pressed
 signal cancel_pressed
@@ -220,22 +220,32 @@ func _load_attribute_registry_labels() -> void:
 # --- UI Construction ---
 
 func _build_ui() -> void:
+	# Outer margin so content doesn't touch screen edges
+	var outer_margin := MarginContainer.new()
+	outer_margin.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	outer_margin.add_theme_constant_override("margin_left", 16)
+	outer_margin.add_theme_constant_override("margin_right", 16)
+	outer_margin.add_theme_constant_override("margin_top", 12)
+	outer_margin.add_theme_constant_override("margin_bottom", 12)
+	add_child(outer_margin)
+
 	_root_split = HSplitContainer.new()
 	_root_split.size_flags_horizontal = SIZE_EXPAND_FILL
 	_root_split.size_flags_vertical = SIZE_EXPAND_FILL
-	_root_split.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	_root_split.add_theme_constant_override("separation", 16)
 	_root_split.resized.connect(_on_root_split_resized)
-	add_child(_root_split)
+	outer_margin.add_child(_root_split)
 
 	_left_column = VBoxContainer.new()
 	_left_column.size_flags_horizontal = SIZE_EXPAND_FILL
 	_left_column.size_flags_vertical = SIZE_EXPAND_FILL
-	_left_column.add_theme_constant_override("separation", 8)
+	_left_column.add_theme_constant_override("separation", 12)
 	_root_split.add_child(_left_column)
 
 	_left_column.add_child(_build_filter_bar())
 
 	_browser_summary_label = Label.new()
+	_browser_summary_label.add_theme_font_size_override("font_size", 14)
 	_left_column.add_child(_browser_summary_label)
 
 	_browser_scroll = ScrollContainer.new()
@@ -253,11 +263,11 @@ func _build_ui() -> void:
 
 	_left_column.add_child(_build_pagination_controls())
 
-	# Right column — deck header, compact card list, and later US-011/US-012 additions
+	# Right column — deck header, compact card list, magicka curve, actions
 	_right_column = VBoxContainer.new()
 	_right_column.size_flags_horizontal = SIZE_EXPAND_FILL
 	_right_column.size_flags_vertical = SIZE_EXPAND_FILL
-	_right_column.add_theme_constant_override("separation", 8)
+	_right_column.add_theme_constant_override("separation", 12)
 	_root_split.add_child(_right_column)
 
 	_right_column.add_child(_build_deck_header())
@@ -268,7 +278,7 @@ func _build_ui() -> void:
 	_right_column.add_child(_deck_card_list_scroll)
 	_deck_card_list_container = VBoxContainer.new()
 	_deck_card_list_container.size_flags_horizontal = SIZE_EXPAND_FILL
-	_deck_card_list_container.add_theme_constant_override("separation", 2)
+	_deck_card_list_container.add_theme_constant_override("separation", 4)
 	_deck_card_list_scroll.add_child(_deck_card_list_container)
 
 	# Magicka curve chart
@@ -278,7 +288,7 @@ func _build_ui() -> void:
 
 	# Card count label
 	_card_count_label = Label.new()
-	_card_count_label.add_theme_font_size_override("font_size", 14)
+	_card_count_label.add_theme_font_size_override("font_size", 16)
 	_card_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_right_column.add_child(_card_count_label)
 	_refresh_card_count()
@@ -297,19 +307,20 @@ func _build_pagination_controls() -> Control:
 
 	_prev_page_button = Button.new()
 	_prev_page_button.text = "Previous"
-	_prev_page_button.custom_minimum_size = Vector2(80, 32)
+	_prev_page_button.custom_minimum_size = Vector2(100, 36)
 	_prev_page_button.pressed.connect(_on_prev_page_pressed)
 	_pagination_container.add_child(_prev_page_button)
 
 	_page_label = Label.new()
 	_page_label.text = "Page 1 of 1"
+	_page_label.add_theme_font_size_override("font_size", 14)
 	_page_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_page_label.size_flags_horizontal = SIZE_EXPAND_FILL
 	_pagination_container.add_child(_page_label)
 
 	_next_page_button = Button.new()
 	_next_page_button.text = "Next"
-	_next_page_button.custom_minimum_size = Vector2(80, 32)
+	_next_page_button.custom_minimum_size = Vector2(100, 36)
 	_next_page_button.pressed.connect(_on_next_page_pressed)
 	_pagination_container.add_child(_next_page_button)
 
@@ -319,21 +330,22 @@ func _build_pagination_controls() -> Control:
 func _build_deck_header() -> Control:
 	var header_button := Button.new()
 	header_button.size_flags_horizontal = SIZE_EXPAND_FILL
+	header_button.custom_minimum_size = Vector2(0, 56)
 	header_button.flat = true
 	header_button.pressed.connect(_on_deck_header_pressed)
 	var header_box := VBoxContainer.new()
-	header_box.add_theme_constant_override("separation", 4)
+	header_box.add_theme_constant_override("separation", 6)
 	header_box.mouse_filter = MOUSE_FILTER_IGNORE
 	header_button.add_child(header_box)
 
 	_deck_header_name_label = Label.new()
-	_deck_header_name_label.add_theme_font_size_override("font_size", 20)
+	_deck_header_name_label.add_theme_font_size_override("font_size", 24)
 	_deck_header_name_label.text = _deck_name if not _deck_name.is_empty() else "Untitled Deck"
 	_deck_header_name_label.mouse_filter = MOUSE_FILTER_IGNORE
 	header_box.add_child(_deck_header_name_label)
 
 	_deck_header_attr_container = HBoxContainer.new()
-	_deck_header_attr_container.add_theme_constant_override("separation", 6)
+	_deck_header_attr_container.add_theme_constant_override("separation", 8)
 	_deck_header_attr_container.mouse_filter = MOUSE_FILTER_IGNORE
 	header_box.add_child(_deck_header_attr_container)
 	_refresh_deck_header_attributes()
@@ -348,14 +360,14 @@ func _refresh_deck_header_attributes() -> void:
 	for attr_id in _deck_attribute_ids:
 		var attr_label := Label.new()
 		attr_label.text = _attribute_display_name(attr_id)
-		attr_label.add_theme_font_size_override("font_size", 14)
+		attr_label.add_theme_font_size_override("font_size", 15)
 		var tint: Color = ATTRIBUTE_TINTS.get(attr_id, NEUTRAL_COST_COLOR)
 		attr_label.add_theme_color_override("font_color", tint)
 		_deck_header_attr_container.add_child(attr_label)
 	if _deck_attribute_ids.is_empty():
 		var none_label := Label.new()
 		none_label.text = "No attributes"
-		none_label.add_theme_font_size_override("font_size", 14)
+		none_label.add_theme_font_size_override("font_size", 15)
 		none_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 1.0))
 		_deck_header_attr_container.add_child(none_label)
 
@@ -397,24 +409,25 @@ func _refresh_deck_card_list() -> void:
 func _build_deck_card_row(entry: Dictionary) -> Control:
 	var row := HBoxContainer.new()
 	row.size_flags_horizontal = SIZE_EXPAND_FILL
+	row.custom_minimum_size = Vector2(0, 32)
 	row.add_theme_constant_override("separation", 8)
 
-	# Cost badge — small colored circle with cost number
+	# Cost badge — colored pill with cost number
 	var cost_badge := PanelContainer.new()
 	var badge_style := StyleBoxFlat.new()
-	badge_style.set_corner_radius_all(12)
+	badge_style.set_corner_radius_all(14)
 	badge_style.set_content_margin_all(0)
-	badge_style.content_margin_left = 6
-	badge_style.content_margin_right = 6
-	badge_style.content_margin_top = 2
-	badge_style.content_margin_bottom = 2
+	badge_style.content_margin_left = 8
+	badge_style.content_margin_right = 8
+	badge_style.content_margin_top = 4
+	badge_style.content_margin_bottom = 4
 	var cost_color := _get_card_cost_badge_color(entry.get("attributes", []))
 	badge_style.bg_color = cost_color
 	cost_badge.add_theme_stylebox_override("panel", badge_style)
-	cost_badge.custom_minimum_size = Vector2(28, 24)
+	cost_badge.custom_minimum_size = Vector2(32, 28)
 	var cost_label := Label.new()
 	cost_label.text = str(entry["cost"])
-	cost_label.add_theme_font_size_override("font_size", 13)
+	cost_label.add_theme_font_size_override("font_size", 14)
 	cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cost_badge.add_child(cost_label)
 	row.add_child(cost_badge)
@@ -423,21 +436,21 @@ func _build_deck_card_row(entry: Dictionary) -> Control:
 	var name_label := Label.new()
 	name_label.text = str(entry["name"])
 	name_label.size_flags_horizontal = SIZE_EXPAND_FILL
-	name_label.add_theme_font_size_override("font_size", 14)
+	name_label.add_theme_font_size_override("font_size", 15)
 	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	row.add_child(name_label)
 
 	# Quantity indicator
 	var qty_label := Label.new()
 	qty_label.text = "x%d" % entry["quantity"]
-	qty_label.add_theme_font_size_override("font_size", 13)
+	qty_label.add_theme_font_size_override("font_size", 14)
 	qty_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 1.0))
 	row.add_child(qty_label)
 
 	# Minus button
 	var minus_btn := Button.new()
 	minus_btn.text = "-"
-	minus_btn.custom_minimum_size = Vector2(28, 24)
+	minus_btn.custom_minimum_size = Vector2(32, 28)
 	minus_btn.pressed.connect(remove_card_from_deck.bind(str(entry["card_id"])))
 	row.add_child(minus_btn)
 
@@ -458,24 +471,26 @@ func _build_action_buttons() -> Control:
 
 	var cancel_btn := Button.new()
 	cancel_btn.text = "Cancel"
-	cancel_btn.custom_minimum_size = Vector2(100, 36)
+	cancel_btn.custom_minimum_size = Vector2(120, 44)
+	cancel_btn.add_theme_font_size_override("font_size", 15)
 	var cancel_style := StyleBoxFlat.new()
 	cancel_style.bg_color = Color(0.25, 0.25, 0.28, 1.0)
 	cancel_style.border_color = Color(0.5, 0.5, 0.55, 1.0)
 	cancel_style.set_border_width_all(1)
 	cancel_style.set_corner_radius_all(6)
-	cancel_style.set_content_margin_all(8)
+	cancel_style.set_content_margin_all(10)
 	cancel_btn.add_theme_stylebox_override("normal", cancel_style)
 	cancel_btn.pressed.connect(_on_cancel_pressed)
 	row.add_child(cancel_btn)
 
 	var done_btn := Button.new()
 	done_btn.text = "Done"
-	done_btn.custom_minimum_size = Vector2(100, 36)
+	done_btn.custom_minimum_size = Vector2(120, 44)
+	done_btn.add_theme_font_size_override("font_size", 15)
 	var done_style := StyleBoxFlat.new()
 	done_style.bg_color = Color(0.2, 0.5, 0.3, 1.0)
 	done_style.set_corner_radius_all(6)
-	done_style.set_content_margin_all(8)
+	done_style.set_content_margin_all(10)
 	done_btn.add_theme_stylebox_override("normal", done_style)
 	done_btn.pressed.connect(_on_done_pressed)
 	row.add_child(done_btn)
@@ -485,19 +500,26 @@ func _build_action_buttons() -> Control:
 
 func _build_filter_bar() -> Control:
 	var panel := PanelContainer.new()
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.14, 0.14, 0.17, 1.0)
+	panel_style.set_corner_radius_all(8)
+	panel_style.set_content_margin_all(12)
+	panel.add_theme_stylebox_override("panel", panel_style)
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 8)
+	box.add_theme_constant_override("separation", 10)
 	panel.add_child(box)
 
 	# Search bar
 	var search_row := HBoxContainer.new()
-	search_row.add_theme_constant_override("separation", 6)
+	search_row.add_theme_constant_override("separation", 8)
 	box.add_child(search_row)
 	var search_label := Label.new()
 	search_label.text = "Search"
+	search_label.add_theme_font_size_override("font_size", 14)
 	search_row.add_child(search_label)
 	_search_input = LineEdit.new()
 	_search_input.size_flags_horizontal = SIZE_EXPAND_FILL
+	_search_input.custom_minimum_size = Vector2(0, 32)
 	_search_input.placeholder_text = "Name, text, or id"
 	_search_input.text_changed.connect(_on_search_changed)
 	search_row.add_child(_search_input)
@@ -505,14 +527,16 @@ func _build_filter_bar() -> Control:
 	# Attribute toggle chips
 	var attr_label := Label.new()
 	attr_label.text = "Attributes"
+	attr_label.add_theme_font_size_override("font_size", 14)
 	box.add_child(attr_label)
 	_attribute_chip_container = HBoxContainer.new()
-	_attribute_chip_container.add_theme_constant_override("separation", 4)
+	_attribute_chip_container.add_theme_constant_override("separation", 6)
 	box.add_child(_attribute_chip_container)
 	for attr_id in ["strength", "intelligence", "willpower", "agility", "endurance", "neutral"]:
 		var chip := Button.new()
 		chip.toggle_mode = true
 		chip.text = _attribute_display_name(attr_id)
+		chip.custom_minimum_size = Vector2(0, 30)
 		chip.toggled.connect(_on_attribute_chip_toggled.bind(attr_id))
 		_attribute_chip_container.add_child(chip)
 
@@ -521,7 +545,7 @@ func _build_filter_bar() -> Control:
 
 	# Dropdown filters row
 	var dropdown_row := HBoxContainer.new()
-	dropdown_row.add_theme_constant_override("separation", 6)
+	dropdown_row.add_theme_constant_override("separation", 8)
 	box.add_child(dropdown_row)
 	_class_filter_button = _build_dropdown(dropdown_row, "Class", _class_filter_items())
 	_type_filter_button = _build_dropdown(dropdown_row, "Type", _type_filter_items())
@@ -536,19 +560,22 @@ func _build_filter_bar() -> Control:
 	# Cost toggle chips
 	var cost_label := Label.new()
 	cost_label.text = "Cost"
+	cost_label.add_theme_font_size_override("font_size", 14)
 	box.add_child(cost_label)
 	_cost_chip_container = HBoxContainer.new()
-	_cost_chip_container.add_theme_constant_override("separation", 4)
+	_cost_chip_container.add_theme_constant_override("separation", 6)
 	box.add_child(_cost_chip_container)
 	for cost in [0, 1, 2, 3, 4, 5, 6]:
 		var chip := Button.new()
 		chip.toggle_mode = true
 		chip.text = str(cost)
+		chip.custom_minimum_size = Vector2(32, 30)
 		chip.toggled.connect(_on_cost_chip_toggled.bind(cost))
 		_cost_chip_container.add_child(chip)
 	var seven_plus := Button.new()
 	seven_plus.toggle_mode = true
 	seven_plus.text = "7+"
+	seven_plus.custom_minimum_size = Vector2(32, 30)
 	seven_plus.toggled.connect(_on_cost_chip_toggled.bind(7))
 	_cost_chip_container.add_child(seven_plus)
 
@@ -558,8 +585,10 @@ func _build_filter_bar() -> Control:
 func _build_dropdown(parent: HBoxContainer, label_text: String, items: Array) -> OptionButton:
 	var label := Label.new()
 	label.text = label_text
+	label.add_theme_font_size_override("font_size", 14)
 	parent.add_child(label)
 	var button := OptionButton.new()
+	button.custom_minimum_size = Vector2(0, 30)
 	for item in items:
 		button.add_item(str(item.get("label", "")))
 		button.set_item_metadata(button.item_count - 1, item.get("value", ""))
