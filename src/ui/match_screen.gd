@@ -3746,8 +3746,7 @@ func _apply_presentation_feedback() -> void:
 		_apply_attack_feedback(feedback)
 	for feedback in _damage_feedbacks:
 		_apply_damage_feedback(feedback)
-	for feedback in _removal_feedbacks:
-		_apply_removal_feedback(feedback)
+	# Removal feedbacks (red lane flash) intentionally skipped
 	for feedback in _draw_feedbacks:
 		_apply_draw_feedback(feedback)
 	for feedback in _rune_feedbacks:
