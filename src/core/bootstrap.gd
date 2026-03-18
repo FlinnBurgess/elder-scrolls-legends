@@ -41,8 +41,10 @@ func _show_main_menu() -> void:
 	add_child(_main_menu)
 
 	var center := VBoxContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	center.custom_minimum_size = Vector2(320, 0)
+	center.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	center.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	center.grow_vertical = Control.GROW_DIRECTION_BOTH
 	center.add_theme_constant_override("separation", 16)
 	_main_menu.add_child(center)
 
@@ -90,8 +92,10 @@ func _show_deck_select_screen() -> void:
 	add_child(_deck_select_screen)
 
 	var center := VBoxContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	center.custom_minimum_size = Vector2(400, 0)
+	center.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	center.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	center.grow_vertical = Control.GROW_DIRECTION_BOTH
 	center.add_theme_constant_override("separation", 12)
 	_deck_select_screen.add_child(center)
 
