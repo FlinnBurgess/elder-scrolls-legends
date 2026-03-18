@@ -253,6 +253,8 @@ static func move_card_to_zone(match_state: Dictionary, instance_id: String, zone
 	card["zone"] = zone_name
 	_clear_lane_state(card)
 	_clear_attachment_state(card)
+	if zone_name == ZONE_DISCARD or zone_name == ZONE_BANISHED:
+		reset_transient_state(card)
 	return {
 		"is_valid": true,
 		"errors": [],
@@ -497,7 +499,7 @@ static func copy_card(target_card: Dictionary, source_card: Dictionary, options:
 		"entered_lane": true,
 	})
 	_apply_identity(target_card, _extract_identity(source_card))
-	_reset_transient_state(target_card)
+	reset_transient_state(target_card)
 	_restore_card_state(target_card, preserved, options)
 	target_card["copied_from"] = str(source_card.get("definition_id", source_card.get("instance_id", "")))
 	EvergreenRules.sync_derived_state(target_card)
@@ -513,7 +515,7 @@ static func transform_card(match_state: Dictionary, instance_id: String, templat
 	var detached := _move_attached_items_to_owner_discard(match_state, card, {"reason": str(options.get("reason", "transform"))})
 	var preserved := _preserve_card_state(card, {"attack_state": true, "entered_lane": true})
 	_apply_identity(card, template)
-	_reset_transient_state(card)
+	reset_transient_state(card)
 	_restore_card_state(card, preserved, options)
 	card["transformed_from"] = previous_definition_id
 	EvergreenRules.sync_derived_state(card)
@@ -670,7 +672,7 @@ static func _restore_card_state(card: Dictionary, preserved: Dictionary, _option
 		card["cover_granted_by"] = str(preserved.get("cover_granted_by", ""))
 
 
-static func _reset_transient_state(card: Dictionary) -> void:
+static func reset_transient_state(card: Dictionary) -> void:
 	card["power_bonus"] = 0
 	card["health_bonus"] = 0
 	card["granted_keywords"] = []

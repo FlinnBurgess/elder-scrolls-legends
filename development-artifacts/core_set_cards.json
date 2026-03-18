@@ -6255,7 +6255,6 @@
       "keywords": [],
       "has_prophecy": false,
       "effect_ids": [
-        "heal",
         "summon"
       ],
       "status": "created"

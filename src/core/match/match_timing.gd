@@ -2080,6 +2080,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var srd_pick: int = srd_candidates[_deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_srd", srd_candidates.size())]
 					var srd_picked: Dictionary = srd_discard[srd_pick]
 					srd_discard.remove_at(srd_pick)
+					MatchMutations.reset_transient_state(srd_picked)
 					var srd_lane_id := ""
 					var srd_lane_index := int(trigger.get("lane_index", -1))
 					var srd_lanes: Array = match_state.get("lanes", [])
