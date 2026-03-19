@@ -1443,6 +1443,19 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					"source_instance_id": str(trigger.get("source_instance_id", "")),
 					"message": str(effect.get("message", str(descriptor.get("family", "trigger")))),
 				})
+			"reveal_opponent_top_deck":
+				var controller_id := str(trigger.get("controller_player_id", ""))
+				var opponent_id := _get_opposing_player_id(match_state.get("players", []), controller_id)
+				var opponent := _get_player_state(match_state, opponent_id)
+				if not opponent.is_empty():
+					var deck: Array = opponent.get(ZONE_DECK, [])
+					if not deck.is_empty():
+						generated_events.append({
+							"event_type": "opponent_top_deck_revealed",
+							"source_instance_id": str(trigger.get("source_instance_id", "")),
+							"controller_player_id": controller_id,
+							"revealed_card": deck.back().duplicate(true),
+						})
 			"modify_stats":
 				var stat_multiplier := _resolve_count_multiplier(match_state, trigger, event, effect)
 				var base_power := int(event.get("amount", 0)) if bool(effect.get("power_from_event_amount", false)) else int(effect.get("power", 0))

@@ -124,7 +124,7 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Cruel Firebloom** — WIRED (see Previously Fixed).
 - **Mentor's Ring** — WIRED (see Previously Fixed).
 - **Master of Arms** — WIRED (see Previously Fixed).
-- **Farsight Nereid** — WIRED (see Previously Fixed; reveal is cosmetic, wired as log event).
+- **Farsight Nereid** — WIRED (see Previously Fixed; reveal_opponent_top_deck op with card flip animation).
 - **Arenthia Swindler** — WIRED (see Previously Fixed).
 - **Camoran Scout Leader** — WIRED (see Previously Fixed).
 - **Necrom Mastermind** — WIRED (see Previously Fixed).

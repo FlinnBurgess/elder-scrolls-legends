@@ -95,6 +95,7 @@ var _targeting_arrow: Line2D
 var _pending_summon_target := {}
 var _prophecy_overlay_state := {}
 var _spell_reveal_state := {}
+var _deck_reveal_state := {}
 var _prophecy_card_overlay: Control
 var _mulligan_overlay_state := {}
 var _mulligan_marked_ids: Array = []
@@ -517,6 +518,8 @@ func _process_local_match_ai_turn() -> void:
 	if not _mulligan_overlay_state.is_empty():
 		return
 	if not _spell_reveal_state.is_empty():
+		return
+	if not _deck_reveal_state.is_empty():
 		return
 	if not _is_local_match_ai_enabled() or _has_match_winner():
 		_reset_local_match_ai_queue()
@@ -2159,6 +2162,53 @@ func _dismiss_spell_reveal() -> void:
 	if arrow != null and is_instance_valid(arrow):
 		arrow.queue_free()
 	_spell_reveal_state = {}
+
+
+func _dismiss_deck_reveal() -> void:
+	var panel: Control = _deck_reveal_state.get("panel")
+	if panel != null and is_instance_valid(panel):
+		panel.queue_free()
+	_deck_reveal_state = {}
+
+
+func _animate_deck_card_reveal(revealed_card: Dictionary) -> void:
+	var card_size := _hand_card_display_size()
+	var viewport_size := get_viewport_rect().size
+
+	var card_back := PanelContainer.new()
+	card_back.name = "deck_reveal_card_back"
+	card_back.custom_minimum_size = card_size
+	card_back.size = card_size
+	_apply_panel_style(card_back, Color(0.35, 0.22, 0.12, 0.98), Color(0.57, 0.44, 0.27, 0.92), 2, 0)
+
+	var pos_x := (viewport_size.x - card_size.x) * 0.5
+	var pos_y := viewport_size.y * 0.10 + 12.0
+	card_back.position = Vector2(pos_x, pos_y)
+
+	_prophecy_card_overlay.add_child(card_back)
+	_deck_reveal_state = {
+		"panel": card_back,
+		"phase": "animating",
+	}
+
+	card_back.pivot_offset = Vector2(card_back.size.x * 0.5, card_back.size.y * 0.5)
+	var tween := create_tween()
+	tween.tween_property(card_back, "scale:x", 0.0, 0.2)
+	tween.tween_callback(func():
+		for child in card_back.get_children():
+			child.queue_free()
+		var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+		component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		component.apply_card(revealed_card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+		card_back.add_child(component)
+	)
+	tween.tween_property(card_back, "scale:x", 1.0, 0.2)
+	tween.tween_interval(1.5)
+	tween.tween_callback(func():
+		_dismiss_deck_reveal()
+		_refresh_ui()
+	)
 
 
 func _animate_enemy_spell_reveal(action: Dictionary, _result: Dictionary) -> void:
@@ -4021,6 +4071,11 @@ func _record_feedback_from_events(events: Array) -> void:
 						"card": overdraw_card.duplicate(true),
 						"player_id": str(event.get("player_id", "")),
 					})
+			"opponent_top_deck_revealed":
+				if str(event.get("controller_player_id", "")) == _local_player_id():
+					var revealed_card: Dictionary = event.get("revealed_card", {})
+					if not revealed_card.is_empty():
+						_animate_deck_card_reveal(revealed_card)
 
 
 func _apply_presentation_feedback() -> void:
