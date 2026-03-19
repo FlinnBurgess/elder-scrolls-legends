@@ -160,23 +160,57 @@ static func _enumerate_pending_prophecy_actions(match_state: Dictionary, player_
 
 static func _enumerate_creature_prophecy_plays(match_state: Dictionary, player_id: String, card: Dictionary) -> Array:
 	var actions: Array = []
+	var has_target_mode := not MatchTiming.get_target_mode_abilities(card).is_empty()
 	for lane in match_state.get("lanes", []):
 		var lane_id := str(lane.get("lane_id", ""))
 		var slots: Array = lane.get("player_slots", {}).get(player_id, [])
 		var slot_capacity := int(lane.get("slot_capacity", 0))
 		if slots.size() >= slot_capacity:
 			continue
-		var descriptor := _build_descriptor(KIND_SUMMON_CREATURE, match_state, player_id, card, {
-			"lane_id": lane_id,
-			"slot_index": -1,
-		}, {
-			"timing_window": TIMING_INTERRUPT,
-			"response_kind": MatchTiming.RULE_TAG_PROPHECY,
-			"played_for_free": true,
-			"order_key": ACTION_KIND_ORDER[KIND_SUMMON_CREATURE],
-		})
-		if action_is_legal(match_state, descriptor):
-			actions.append(descriptor)
+		if has_target_mode:
+			var sim_state := match_state.duplicate(true)
+			var sim_result := LaneRules.summon_from_hand(sim_state, player_id, str(card.get("instance_id", "")), lane_id, {"slot_index": -1, "played_for_free": true})
+			if not bool(sim_result.get("is_valid", false)):
+				continue
+			var valid_targets := MatchTiming.get_all_valid_targets(sim_state, str(card.get("instance_id", "")))
+			for target_info in valid_targets:
+				var target_params := {"lane_id": lane_id, "slot_index": -1}
+				if target_info.has("instance_id"):
+					target_params["summon_target_instance_id"] = str(target_info["instance_id"])
+				elif target_info.has("player_id"):
+					target_params["summon_target_player_id"] = str(target_info["player_id"])
+				var targeted_descriptor := _build_descriptor(KIND_SUMMON_CREATURE, match_state, player_id, card, target_params, {
+					"timing_window": TIMING_INTERRUPT,
+					"response_kind": MatchTiming.RULE_TAG_PROPHECY,
+					"played_for_free": true,
+					"order_key": ACTION_KIND_ORDER[KIND_SUMMON_CREATURE],
+				})
+				if action_is_legal(match_state, targeted_descriptor):
+					actions.append(targeted_descriptor)
+			# Also add a no-target (fizzle) variant
+			var fizzle_descriptor := _build_descriptor(KIND_SUMMON_CREATURE, match_state, player_id, card, {
+				"lane_id": lane_id,
+				"slot_index": -1,
+			}, {
+				"timing_window": TIMING_INTERRUPT,
+				"response_kind": MatchTiming.RULE_TAG_PROPHECY,
+				"played_for_free": true,
+				"order_key": ACTION_KIND_ORDER[KIND_SUMMON_CREATURE],
+			})
+			if action_is_legal(match_state, fizzle_descriptor):
+				actions.append(fizzle_descriptor)
+		else:
+			var descriptor := _build_descriptor(KIND_SUMMON_CREATURE, match_state, player_id, card, {
+				"lane_id": lane_id,
+				"slot_index": -1,
+			}, {
+				"timing_window": TIMING_INTERRUPT,
+				"response_kind": MatchTiming.RULE_TAG_PROPHECY,
+				"played_for_free": true,
+				"order_key": ACTION_KIND_ORDER[KIND_SUMMON_CREATURE],
+			})
+			if action_is_legal(match_state, descriptor):
+				actions.append(descriptor)
 	return actions
 
 
