@@ -794,6 +794,7 @@ static func play_pending_prophecy(match_state: Dictionary, player_id: String, in
 			"target_instance_id": str(options.get("target_instance_id", "")),
 			"target_player_id": str(options.get("target_player_id", "")),
 			"lane_id": str(options.get("lane_id", "")),
+			"rules_tags": played_card.get("rules_tags", []).duplicate() if typeof(played_card.get("rules_tags", [])) == TYPE_ARRAY else [],
 		}])
 		var processed_events: Array = timing_result.get("processed_events", []).duplicate(true)
 		var trigger_resolutions: Array = timing_result.get("trigger_resolutions", []).duplicate(true)
@@ -861,6 +862,7 @@ static func play_action_from_hand(match_state: Dictionary, player_id: String, in
 		"target_instance_id": str(options.get("target_instance_id", "")),
 		"target_player_id": str(options.get("target_player_id", "")),
 		"lane_id": str(options.get("lane_id", "")),
+		"rules_tags": played_card.get("rules_tags", []).duplicate() if typeof(played_card.get("rules_tags", [])) == TYPE_ARRAY else [],
 	}])
 	return {
 		"is_valid": true,
@@ -1410,6 +1412,11 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 	var required_played_card_type := str(descriptor.get("required_played_card_type", family_spec.get("required_played_card_type", "")))
 	if not required_played_card_type.is_empty() and str(event.get("card_type", "")) != required_played_card_type:
 		return false
+	var required_played_rules_tag := str(descriptor.get("required_played_rules_tag", ""))
+	if not required_played_rules_tag.is_empty():
+		var event_rules_tags = event.get("rules_tags", [])
+		if typeof(event_rules_tags) != TYPE_ARRAY or not event_rules_tags.has(required_played_rules_tag):
+			return false
 	if bool(descriptor.get("exclude_self", false)):
 		var event_source_id := str(event.get("source_instance_id", event.get("subject_instance_id", "")))
 		if event_source_id == str(trigger.get("source_instance_id", "")):

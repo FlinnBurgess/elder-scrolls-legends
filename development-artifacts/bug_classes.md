@@ -50,6 +50,11 @@ Card's triggered_abilities use a `"filter": {"card_type": "creature"}` nested ob
 Example: Soul Tear (used `"filter": {"card_type": "creature"}` instead of `"required_card_type": "creature"`)
 How to spot: User reports a draw/filter effect applying to wrong card types or not working. Check if the card's effect uses a `"filter"` sub-object vs the flat `"required_card_type"` / `"required_subtype"` keys that the engine actually reads.
 
+## Unimplemented trigger condition — field on descriptor but not checked in engine
+A trigger descriptor includes a condition field (e.g. `required_played_rules_tag`) that is never checked in `_matches_trigger_role` or `_matches_conditions`, so the trigger fires unconditionally regardless of the filter. The event also lacked the data needed to perform the check (`rules_tags` was not included in `EVENT_CARD_PLAYED` events).
+Example: Innkeeper Delphine, Ulfric Stormcloak, Young Dragonborn (`required_played_rules_tag: "shout"` was ignored — all actions triggered the effect)
+How to spot: User reports a reactive trigger firing in response to the wrong event (e.g., any action instead of only Shouts). Check if the condition key from the descriptor is actually evaluated in `_matches_trigger_role` in `match_timing.gd`, and if the event contains the data needed for the check.
+
 ## Trigger role mismatch on event field names
 The `_matches_trigger_role` function checks `event.get("player_id")` / `event.get("playing_player_id")` for the "controller" and "opponent_player" roles, but some event types (e.g. `creature_destroyed`) use `controller_player_id` instead. This causes triggers with those match roles to silently never fire for those event types.
 Example: Stormcloak Camp, Necromancer's Amulet, Grim Champion, General Tullius (all `on_friendly_death` family)
