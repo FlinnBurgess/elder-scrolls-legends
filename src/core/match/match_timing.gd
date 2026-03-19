@@ -1267,9 +1267,9 @@ static func _matches_trigger_role(match_state: Dictionary, trigger: Dictionary, 
 	var role := str(descriptor.get("match_role", family_spec.get("match_role", "source")))
 	match role:
 		"controller":
-			return str(event.get("player_id", event.get("playing_player_id", ""))) == controller_player_id
+			return str(event.get("player_id", event.get("playing_player_id", event.get("controller_player_id", "")))) == controller_player_id
 		"opponent_player":
-			var event_player_id := str(event.get("player_id", event.get("playing_player_id", "")))
+			var event_player_id := str(event.get("player_id", event.get("playing_player_id", event.get("controller_player_id", ""))))
 			return not event_player_id.is_empty() and event_player_id != controller_player_id
 		"source":
 			return str(event.get("source_instance_id", event.get("attacker_instance_id", ""))) == source_instance_id
