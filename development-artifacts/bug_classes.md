@@ -35,6 +35,16 @@ Card has a `triggered_abilities` entry with an ongoing family (e.g., `on_friendl
 Example: Shadowscale Partisan (was `on_friendly_summon` + `required_summon_keyword`, should be `summon` + `required_keyword_on_board`)
 How to spot: User reports a card gaining stats every time they play a creature with a keyword, when the card text says "Summon: +X/+Y if you have another creature with [keyword]". Check if the trigger family is `summon` (one-time) vs `on_friendly_summon` (ongoing).
 
+## Missing trigger family in FAMILY_SPECS
+Card references a trigger family name in `triggered_abilities` that doesn't exist in `match_timing.gd` `FAMILY_SPECS`, so the trigger silently never fires because no events match the family.
+Example: Frost Giant (`on_creature_healed` family was used before it was added to FAMILY_SPECS)
+How to spot: User reports a reactive/ongoing trigger "doesn't do anything." Search for the card's `family` value in FAMILY_SPECS — if it's not there, the trigger can never match.
+
+## Wrong effect target — creature stat buff instead of player heal
+Card's triggered ability uses `modify_stats` on `"self"` when the rules text says "you gain" (player health), or vice versa. The effect fires but applies to the wrong entity.
+Example: Frost Giant (was `modify_stats` on self, should be `heal` on controller player)
+How to spot: User reports the card text doesn't match what happens in game. Compare the `op` and `target`/`target_player` in `triggered_abilities` against the `rules_text` to see if "you" vs creature name is matched correctly.
+
 ## Trigger role mismatch on event field names
 The `_matches_trigger_role` function checks `event.get("player_id")` / `event.get("playing_player_id")` for the "controller" and "opponent_player" roles, but some event types (e.g. `creature_destroyed`) use `controller_player_id` instead. This causes triggers with those match roles to silently never fire for those event types.
 Example: Stormcloak Camp, Necromancer's Amulet, Grim Champion, General Tullius (all `on_friendly_death` family)

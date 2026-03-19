@@ -68,6 +68,7 @@ const FAMILY_ON_ENEMY_RUNE_DESTROYED := "on_enemy_rune_destroyed"
 const FAMILY_ON_ENEMY_SHACKLED := "on_enemy_shackled"
 const FAMILY_ON_PLAYER_HEALED := "on_player_healed"
 const FAMILY_ON_MAX_MAGICKA_GAINED := "on_max_magicka_gained"
+const FAMILY_ON_CREATURE_HEALED := "on_creature_healed"
 
 const EVENT_CARD_EQUIPPED := "card_equipped"
 
@@ -110,6 +111,7 @@ const FAMILY_SPECS := {
 	FAMILY_ON_ENEMY_SHACKLED: {"event_type": "status_granted", "window": WINDOW_AFTER, "match_role": "opponent_target", "required_event_status_id": "shackled"},
 	FAMILY_ON_PLAYER_HEALED: {"event_type": "player_healed", "window": WINDOW_AFTER, "match_role": "target_player_is_controller"},
 	FAMILY_ON_MAX_MAGICKA_GAINED: {"event_type": "max_magicka_gained", "window": WINDOW_AFTER, "match_role": "target_player_is_controller"},
+	FAMILY_ON_CREATURE_HEALED: {"event_type": "creature_healed", "window": WINDOW_AFTER, "match_role": "any_player"},
 }
 
 

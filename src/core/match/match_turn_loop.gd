@@ -181,6 +181,7 @@ static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionar
 
 static func _refresh_board_state_for_turn(match_state: Dictionary, player_id: String) -> void:
 	var current_turn_number := int(match_state.get("turn_number", 0))
+	var regenerate_events: Array = []
 	for lane in match_state.get("lanes", []):
 		var player_slots_by_id: Dictionary = lane.get("player_slots", {})
 		if not player_slots_by_id.has(player_id):
@@ -192,13 +193,25 @@ static func _refresh_board_state_for_turn(match_state: Dictionary, player_id: St
 			if card == null:
 				continue
 
-			EvergreenRules.refresh_for_controller_turn(card, current_turn_number)
+			var result := EvergreenRules.refresh_for_controller_turn(card, current_turn_number)
+			var regen_healed := int(result.get("regenerate_healed", 0))
+			if regen_healed > 0:
+				regenerate_events.append({
+					"event_type": "creature_healed",
+					"source_instance_id": str(card.get("instance_id", "")),
+					"target_instance_id": str(card.get("instance_id", "")),
+					"amount": regen_healed,
+					"reason": "regenerate",
+				})
 
 	var player := _get_player_state(match_state, player_id)
 	for support in player.get("support", []):
 		if typeof(support) != TYPE_DICTIONARY:
 			continue
 		PersistentCardRules.refresh_support_for_controller_turn(support)
+
+	if not regenerate_events.is_empty():
+		MatchTiming.publish_events(match_state, regenerate_events)
 
 
 static func _clear_temporary_stat_bonuses(match_state: Dictionary) -> void:
