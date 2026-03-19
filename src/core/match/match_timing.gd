@@ -2364,6 +2364,12 @@ static func _resolve_card_targets(match_state: Dictionary, trigger: Dictionary, 
 			if EvergreenRules.get_power(card) <= filter_max_power:
 				filtered.append(card)
 		targets = filtered
+	if bool(effect.get("target_filter_wounded", false)):
+		var filtered: Array = []
+		for card in targets:
+			if EvergreenRules.has_status(card, EvergreenRules.STATUS_WOUNDED):
+				filtered.append(card)
+		targets = filtered
 	return targets
 
 
