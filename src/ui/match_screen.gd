@@ -243,7 +243,7 @@ func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_confi
 		var lane_index := int(creature_template.get("lane_index", 0))
 		if lane_index < 0 or lane_index >= lanes.size():
 			continue
-		var template := creature_template.duplicate(true)
+		var template: Dictionary = creature_template.duplicate(true)
 		template.erase("lane_index")
 		var creature := MatchMutations.build_generated_card(match_state, boss_id, template)
 		var lane_id := str(lanes[lane_index].get("lane_id", ""))
