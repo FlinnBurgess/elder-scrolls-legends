@@ -18,6 +18,10 @@ const ZONE_DISCARD := "discard"
 const ZONE_LANE := "lane"
 const SHADOW_LANE_ID := "shadow"
 
+const SUBTYPE_GROUPS := {
+	"Animal": ["Beast", "Fish", "Mammoth", "Mudcrab", "Netch", "Reptile", "Spider", "Skeever", "Wolf"],
+}
+
 const WAX := "wax"
 const WANE := "wane"
 const RULE_TAG_OBLIVION_GATE := "oblivion_gate"
@@ -360,7 +364,18 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 					continue
 				if not srfc_req_subtype.is_empty():
 					var subtypes = seed.get("subtypes", [])
-					if typeof(subtypes) != TYPE_ARRAY or not subtypes.has(srfc_req_subtype):
+					if typeof(subtypes) != TYPE_ARRAY:
+						continue
+					var srfc_group: Array = SUBTYPE_GROUPS.get(srfc_req_subtype, [])
+					if not srfc_group.is_empty():
+						var srfc_match := false
+						for st in subtypes:
+							if srfc_group.has(st):
+								srfc_match = true
+								break
+						if not srfc_match:
+							continue
+					elif not subtypes.has(srfc_req_subtype):
 						continue
 				srfc_candidates.append(seed)
 			if srfc_candidates.is_empty():
@@ -408,7 +423,18 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 					continue
 				if not grth_req_subtype.is_empty():
 					var subtypes = seed.get("subtypes", [])
-					if typeof(subtypes) != TYPE_ARRAY or not subtypes.has(grth_req_subtype):
+					if typeof(subtypes) != TYPE_ARRAY:
+						continue
+					var grth_group: Array = SUBTYPE_GROUPS.get(grth_req_subtype, [])
+					if not grth_group.is_empty():
+						var grth_match := false
+						for st in subtypes:
+							if grth_group.has(st):
+								grth_match = true
+								break
+						if not grth_match:
+							continue
+					elif not subtypes.has(grth_req_subtype):
 						continue
 				if not grth_req_rules_tag.is_empty():
 					var grth_tags = seed.get("rules_tags", [])

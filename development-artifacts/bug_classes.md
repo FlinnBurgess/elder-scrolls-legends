@@ -30,6 +30,11 @@ Card has a `triggered_abilities` entry with an `op` value that doesn't exist in 
 Example: Winterhold Illusionist (`banish_and_return_end_of_turn`)
 How to spot: User reports a card "doesn't do anything" despite having rules text and triggered abilities. Grep the op name from the card's triggered_abilities against `match_timing.gd` and `extended_mechanic_packs.gd` to see if it's handled.
 
+## Subtype group used as literal subtype in filter
+Card filter uses a hidden supertype (e.g., "Animal") as a `required_subtype` value, but no card in the catalog has that literal subtype — they use specific subtypes (Wolf, Beast, Spider, etc.) instead. The filter finds zero candidates and the effect silently does nothing. Fixed by adding `SUBTYPE_GROUPS` mapping in `extended_mechanic_packs.gd` that expands group names to their constituent subtypes.
+Example: Wild Beastcaller (`required_subtype: "Animal"`), Eldergleam Matron (`required_subtype: "Beast"` — too narrow, should be "Animal")
+How to spot: User reports a "summon/generate random X" effect doing nothing. Check if the subtype in the filter is a group name (Animal, Undead, etc.) rather than a specific subtype that cards actually have. Cross-reference against `SUBTYPE_GROUPS` in `extended_mechanic_packs.gd`.
+
 ## Wrong trigger family — ongoing trigger instead of conditional summon
 Card has a `triggered_abilities` entry with an ongoing family (e.g., `on_friendly_summon`) when the correct effect is a one-time conditional summon. The card fires repeatedly on every matching summon instead of once on entry with a board-state check.
 Example: Shadowscale Partisan (was `on_friendly_summon` + `required_summon_keyword`, should be `summon` + `required_keyword_on_board`)
