@@ -1241,9 +1241,7 @@
       "rules_text": "Uses: 3\nActivate: Give a creature +2/+0 and Breakthrough.",
       "is_unique": false,
       "collectible": true,
-      "keywords": [
-        "breakthrough"
-      ],
+      "keywords": [],
       "has_prophecy": false,
       "effect_ids": [
         "modify_stats"
@@ -1416,9 +1414,7 @@
       "rules_text": "Uses: 2\nActivate: Give a creature +4/+4 and Breakthrough.",
       "is_unique": false,
       "collectible": true,
-      "keywords": [
-        "breakthrough"
-      ],
+      "keywords": [],
       "has_prophecy": false,
       "effect_ids": [
         "modify_stats"
@@ -2062,9 +2058,7 @@
       "rules_text": "Uses: 3\nActivate: Give a creature a Ward.",
       "is_unique": false,
       "collectible": true,
-      "keywords": [
-        "ward"
-      ],
+      "keywords": [],
       "has_prophecy": false,
       "effect_ids": [],
       "status": "created"
@@ -3545,9 +3539,7 @@
       "rules_text": "Uses: 3\nActivate: Give a friendly creature Guard.",
       "is_unique": false,
       "collectible": true,
-      "keywords": [
-        "guard"
-      ],
+      "keywords": [],
       "has_prophecy": false,
       "effect_ids": [],
       "status": "created"
