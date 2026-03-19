@@ -2,6 +2,7 @@ class_name ArenaDraftScreen
 extends Control
 
 signal draft_complete(deck: Array)
+signal draft_state_changed(progress: Dictionary)
 
 const CardCatalog = preload("res://src/deck/card_catalog.gd")
 const CardDisplayComponentClass = preload("res://src/ui/components/CardDisplayComponent.gd")
@@ -83,6 +84,28 @@ func start_bonus_pick(existing_deck: Array, attribute_ids: Array, card_database:
 	_show_next_pick()
 
 
+func resume_draft(progress: Dictionary, attribute_ids: Array, card_database: Dictionary) -> void:
+	_attribute_ids = attribute_ids
+	_card_database = card_database
+	_card_pool = ArenaDraftEngineClass.get_card_pool(attribute_ids, card_database)
+	_current_pick = int(progress.get("current_pick", 0))
+	_total_picks = int(progress.get("total_picks", 30))
+	_is_bonus_pick = bool(progress.get("is_bonus_pick", false))
+	_deck = Array(progress.get("deck", []))
+	# Restore pick options from saved card IDs
+	_pick_options = []
+	var saved_option_ids: Array = Array(progress.get("pick_options", []))
+	for card_id in saved_option_ids:
+		var card: Dictionary = _card_database.get(str(card_id), {})
+		if not card.is_empty():
+			_pick_options.append(card)
+	_refresh_pick_counter()
+	_refresh_options()
+	_refresh_deck_card_list()
+	_refresh_magicka_curve()
+	_refresh_card_count()
+
+
 func _show_next_pick() -> void:
 	if _current_pick >= _total_picks:
 		draft_complete.emit(_deck)
@@ -92,6 +115,17 @@ func _show_next_pick() -> void:
 	_current_pick += 1
 	_refresh_pick_counter()
 	_refresh_options()
+	# Save draft state for resume
+	var option_ids: Array = []
+	for card in _pick_options:
+		option_ids.append(str(card.get("card_id", "")))
+	draft_state_changed.emit({
+		"current_pick": _current_pick,
+		"deck": _deck.duplicate(true),
+		"pick_options": option_ids,
+		"is_bonus_pick": _is_bonus_pick,
+		"total_picks": _total_picks,
+	})
 
 
 func _on_option_selected(card: Dictionary) -> void:

@@ -17,10 +17,13 @@ var wins: int = 0
 var losses: int = 0
 var current_match: int = 1
 var boss_relic = null  # Will be set by BossRelicSystem later
+var draft_progress: Variant = null  # Mid-draft state for resume
+var match_config: Variant = null  # Match setup for resume (opponent attrs, AI deck, boss config, seed, first_player_index)
 var _used_opponent_attributes: Array = []  # Track used opponent classes to avoid repeats
 
 const RUN_DIR := "user://arena/"
 const RUN_PATH := "user://arena/run.json"
+const MATCH_STATE_PATH := "user://arena/match_state.json"
 
 # All 10 dual-attribute classes
 const DUAL_CLASSES: Array = [
@@ -45,11 +48,15 @@ func start_run(p_class_attributes: Array) -> void:
 	losses = 0
 	current_match = 1
 	boss_relic = null
+	draft_progress = null
+	match_config = null
 	_used_opponent_attributes = []
+	save_run()
 
 
 func complete_draft(p_deck: Array) -> void:
 	deck = p_deck.duplicate(true)
+	draft_progress = null
 	state = State.READY_FOR_MATCH
 	save_run()
 
@@ -69,6 +76,7 @@ func start_match() -> Dictionary:
 
 func record_win() -> void:
 	wins += 1
+	match_config = null
 	if current_match >= 9:
 		state = State.RUN_COMPLETE
 		clear_run()
@@ -80,6 +88,7 @@ func record_win() -> void:
 
 func record_loss() -> void:
 	losses += 1
+	match_config = null
 	current_match += 1
 	if losses >= 3:
 		state = State.RUN_COMPLETE
@@ -123,6 +132,8 @@ func save_run() -> void:
 		"current_match": current_match,
 		"boss_relic": boss_relic,
 		"used_opponent_attributes": _used_opponent_attributes,
+		"draft_progress": draft_progress,
+		"match_config": match_config,
 	}
 	file.store_string(JSON.stringify(data, "\t"))
 
@@ -153,6 +164,8 @@ static func load_run() -> ArenaRunManager:
 	manager.current_match = int(data.get("current_match", 1))
 	manager.boss_relic = data.get("boss_relic")
 	manager._used_opponent_attributes = Array(data.get("used_opponent_attributes", []))
+	manager.draft_progress = data.get("draft_progress")
+	manager.match_config = data.get("match_config")
 	return manager
 
 
@@ -161,12 +174,52 @@ static func has_active_run() -> bool:
 
 
 func clear_run() -> void:
+	clear_match_state()
 	if not FileAccess.file_exists(RUN_PATH):
 		return
 	var dir := DirAccess.open(RUN_DIR)
 	if dir == null:
 		return
 	dir.remove("run.json")
+
+
+func save_match_state(match_state: Dictionary) -> void:
+	_ensure_directory()
+	var file := FileAccess.open(MATCH_STATE_PATH, FileAccess.WRITE)
+	if file == null:
+		push_error("ArenaRunManager: failed to open '%s' for writing: %s" % [MATCH_STATE_PATH, FileAccess.get_open_error()])
+		return
+	file.store_string(JSON.stringify(match_state, "\t"))
+
+
+static func load_match_state() -> Dictionary:
+	if not FileAccess.file_exists(MATCH_STATE_PATH):
+		return {}
+	var file := FileAccess.open(MATCH_STATE_PATH, FileAccess.READ)
+	if file == null:
+		return {}
+	var text := file.get_as_text()
+	var json := JSON.new()
+	var err := json.parse(text)
+	if err != OK:
+		push_error("ArenaRunManager: failed to parse '%s': %s" % [MATCH_STATE_PATH, json.get_error_message()])
+		return {}
+	if not json.data is Dictionary:
+		return {}
+	return json.data
+
+
+func clear_match_state() -> void:
+	if not FileAccess.file_exists(MATCH_STATE_PATH):
+		return
+	var dir := DirAccess.open(RUN_DIR)
+	if dir == null:
+		return
+	dir.remove("match_state.json")
+
+
+static func has_saved_match_state() -> bool:
+	return FileAccess.file_exists(MATCH_STATE_PATH)
 
 
 static func _ensure_directory() -> void:

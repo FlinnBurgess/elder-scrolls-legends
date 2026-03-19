@@ -16,6 +16,12 @@ func _initialize() -> void:
 	_test_save_load_round_trip()
 	_test_has_active_run()
 	_test_abandon_run_clears_state()
+	_test_draft_progress_round_trip()
+	_test_match_config_round_trip()
+	_test_match_state_save_load_clear()
+	_test_clear_run_also_clears_match_state()
+	_test_backward_compat_old_save_format()
+	_test_start_run_saves_immediately()
 
 	# Final cleanup
 	_cleanup_test_files()
@@ -237,11 +243,161 @@ func _test_abandon_run_clears_state() -> void:
 	_cleanup_test_files()
 
 
+func _test_draft_progress_round_trip() -> void:
+	_cleanup_test_files()
+
+	var manager = ArenaRunManagerScript.new()
+	manager.start_run(["strength", "intelligence"])
+	manager.draft_progress = {
+		"current_pick": 5,
+		"deck": [{"card_id": "card_a", "quantity": 2}],
+		"pick_options": ["card_x", "card_y", "card_z"],
+		"is_bonus_pick": false,
+		"total_picks": 30,
+	}
+	manager.save_run()
+
+	var loaded = ArenaRunManagerScript.load_run()
+	_assert(loaded != null, "draft_progress_rt: loaded should not be null")
+	if loaded == null:
+		return
+	_assert(loaded.draft_progress != null, "draft_progress_rt: draft_progress should not be null")
+	_assert(int(loaded.draft_progress["current_pick"]) == 5, "draft_progress_rt: current_pick should be 5")
+	_assert(Array(loaded.draft_progress["pick_options"]).size() == 3, "draft_progress_rt: pick_options should have 3 entries")
+
+	# complete_draft should clear draft_progress
+	manager.complete_draft([{"card_id": "card_a", "quantity": 2}])
+	var loaded2 = ArenaRunManagerScript.load_run()
+	_assert(loaded2.draft_progress == null, "draft_progress_rt: draft_progress should be null after complete_draft")
+
+	_cleanup_test_files()
+
+
+func _test_match_config_round_trip() -> void:
+	_cleanup_test_files()
+
+	var manager = ArenaRunManagerScript.new()
+	manager.start_run(["agility", "endurance"])
+	manager.complete_draft([{"card_id": "c1", "quantity": 1}])
+	manager.start_match()
+	manager.match_config = {
+		"opponent_attribute_ids": ["strength", "willpower"],
+		"ai_deck": [{"card_id": "ai_c1", "quantity": 2}],
+		"boss_config": {},
+		"match_seed": 12345,
+		"first_player_index": 0,
+	}
+	manager.save_run()
+
+	var loaded = ArenaRunManagerScript.load_run()
+	_assert(loaded != null, "match_config_rt: loaded should not be null")
+	if loaded == null:
+		return
+	_assert(loaded.match_config != null, "match_config_rt: match_config should not be null")
+	_assert(int(loaded.match_config["match_seed"]) == 12345, "match_config_rt: match_seed should be 12345")
+	_assert(int(loaded.match_config["first_player_index"]) == 0, "match_config_rt: first_player_index should be 0")
+
+	# record_win should clear match_config
+	manager.record_win()
+	var loaded2 = ArenaRunManagerScript.load_run()
+	_assert(loaded2.match_config == null, "match_config_rt: match_config should be null after record_win")
+
+	_cleanup_test_files()
+
+
+func _test_match_state_save_load_clear() -> void:
+	_cleanup_test_files()
+
+	var manager = ArenaRunManagerScript.new()
+	manager.start_run(["strength", "agility"])
+
+	var test_state := {"phase": "action", "turn_number": 3, "winner_player_id": ""}
+	manager.save_match_state(test_state)
+
+	_assert(ArenaRunManagerScript.has_saved_match_state() == true, "match_state_slc: should have saved match state")
+
+	var loaded := ArenaRunManagerScript.load_match_state()
+	_assert(not loaded.is_empty(), "match_state_slc: loaded state should not be empty")
+	_assert(str(loaded.get("phase", "")) == "action", "match_state_slc: phase should be action")
+	_assert(int(loaded.get("turn_number", 0)) == 3, "match_state_slc: turn_number should be 3")
+
+	manager.clear_match_state()
+	_assert(ArenaRunManagerScript.has_saved_match_state() == false, "match_state_slc: should not have match state after clear")
+
+	_cleanup_test_files()
+
+
+func _test_clear_run_also_clears_match_state() -> void:
+	_cleanup_test_files()
+
+	var manager = ArenaRunManagerScript.new()
+	manager.start_run(["intelligence", "willpower"])
+	manager.complete_draft([{"card_id": "c1", "quantity": 1}])
+	manager.save_match_state({"phase": "action"})
+
+	_assert(ArenaRunManagerScript.has_saved_match_state() == true, "clear_run_ms: should have match state before clear")
+
+	manager.clear_run()
+	_assert(ArenaRunManagerScript.has_active_run() == false, "clear_run_ms: should not have active run after clear")
+	_assert(ArenaRunManagerScript.has_saved_match_state() == false, "clear_run_ms: should not have match state after clear_run")
+
+	_cleanup_test_files()
+
+
+func _test_backward_compat_old_save_format() -> void:
+	_cleanup_test_files()
+
+	# Write a run.json without draft_progress or match_config (old format)
+	if not DirAccess.dir_exists_absolute("user://arena/"):
+		DirAccess.make_dir_recursive_absolute("user://arena/")
+	var file := FileAccess.open("user://arena/run.json", FileAccess.WRITE)
+	var json_str := JSON.stringify({
+		"state": ArenaRunManagerScript.State.READY_FOR_MATCH,
+		"class_attributes": ["strength", "agility"],
+		"deck": [{"card_id": "c1", "quantity": 1}],
+		"wins": 2,
+		"losses": 1,
+		"current_match": 4,
+		"boss_relic": null,
+		"used_opponent_attributes": [],
+	}, "\t")
+	file.store_string(json_str)
+	file.close()
+
+	var loaded = ArenaRunManagerScript.load_run()
+	_assert(loaded != null, "backward_compat: loaded should not be null")
+	if loaded == null:
+		return
+	_assert(loaded.draft_progress == null, "backward_compat: draft_progress should default to null")
+	_assert(loaded.match_config == null, "backward_compat: match_config should default to null")
+	_assert(loaded.wins == 2, "backward_compat: wins should be 2")
+
+	_cleanup_test_files()
+
+
+func _test_start_run_saves_immediately() -> void:
+	_cleanup_test_files()
+
+	var manager = ArenaRunManagerScript.new()
+	_assert(ArenaRunManagerScript.has_active_run() == false, "start_run_save: no run before start")
+
+	manager.start_run(["willpower", "endurance"])
+	_assert(ArenaRunManagerScript.has_active_run() == true, "start_run_save: should have active run immediately after start_run")
+
+	var loaded = ArenaRunManagerScript.load_run()
+	_assert(loaded != null, "start_run_save: loaded should not be null")
+	_assert(loaded.state == ArenaRunManagerScript.State.DRAFTING, "start_run_save: state should be DRAFTING")
+
+	_cleanup_test_files()
+
+
 func _cleanup_test_files() -> void:
-	if FileAccess.file_exists("user://arena/run.json"):
-		var dir := DirAccess.open("user://arena/")
-		if dir != null:
+	var dir := DirAccess.open("user://arena/")
+	if dir != null:
+		if FileAccess.file_exists("user://arena/run.json"):
 			dir.remove("run.json")
+		if FileAccess.file_exists("user://arena/match_state.json"):
+			dir.remove("match_state.json")
 
 
 func _assert(condition: bool, message: String) -> void:

@@ -26,7 +26,19 @@ func _ready() -> void:
 	_load_card_database()
 	if ArenaRunManagerScript.has_active_run():
 		_run_manager = ArenaRunManagerScript.load_run()
-		_show_run_status()
+		match _run_manager.state:
+			ArenaRunManagerScript.State.CLASS_SELECT:
+				_show_class_select()
+			ArenaRunManagerScript.State.DRAFTING:
+				_resume_draft()
+			ArenaRunManagerScript.State.READY_FOR_MATCH:
+				_show_run_status()
+			ArenaRunManagerScript.State.IN_MATCH:
+				_resume_match()
+			ArenaRunManagerScript.State.POST_MATCH_PICK:
+				_resume_post_match_pick()
+			_:
+				_show_class_select()
 	else:
 		_show_class_select()
 
@@ -63,9 +75,71 @@ func _show_draft() -> void:
 	_clear_screen()
 	var screen := ArenaDraftScreenScript.new()
 	screen.draft_complete.connect(_on_draft_complete)
+	screen.draft_state_changed.connect(_on_draft_state_changed)
 	add_child(screen)
 	_current_screen = screen
 	screen.start_draft(_run_manager.class_attributes, _card_database)
+
+
+func _resume_draft() -> void:
+	if _run_manager.draft_progress != null:
+		_clear_screen()
+		var screen := ArenaDraftScreenScript.new()
+		screen.draft_complete.connect(_on_draft_complete)
+		screen.draft_state_changed.connect(_on_draft_state_changed)
+		add_child(screen)
+		_current_screen = screen
+		screen.resume_draft(_run_manager.draft_progress, _run_manager.class_attributes, _card_database)
+	else:
+		_show_draft()
+
+
+func _resume_match() -> void:
+	if ArenaRunManagerScript.has_saved_match_state():
+		var saved_state: Dictionary = ArenaRunManagerScript.load_match_state()
+		if saved_state.is_empty():
+			_run_manager.state = ArenaRunManagerScript.State.READY_FOR_MATCH
+			_run_manager.match_config = null
+			_run_manager.save_run()
+			_show_run_status()
+			return
+		_clear_screen()
+		var match_screen := MatchScreenScript.new()
+		match_screen.name = "ArenaMatch"
+		match_screen._arena_mode = true
+		match_screen.return_to_main_menu_requested.connect(_on_match_ended.bind(match_screen))
+		match_screen.match_state_changed.connect(_on_match_state_changed)
+		add_child(match_screen)
+		_current_screen = match_screen
+		match_screen.resume_from_state(saved_state)
+	else:
+		# No match state file — forfeit the match, fall back to run status
+		_run_manager.state = ArenaRunManagerScript.State.READY_FOR_MATCH
+		_run_manager.match_config = null
+		_run_manager.save_run()
+		_show_run_status()
+
+
+func _resume_post_match_pick() -> void:
+	if _run_manager.draft_progress != null:
+		_clear_screen()
+		var screen := ArenaDraftScreenScript.new()
+		screen.draft_complete.connect(_on_post_win_pick_complete)
+		screen.draft_state_changed.connect(_on_draft_state_changed)
+		add_child(screen)
+		_current_screen = screen
+		screen.resume_draft(_run_manager.draft_progress, _run_manager.class_attributes, _card_database)
+	else:
+		_show_post_win_pick()
+
+
+func _on_draft_state_changed(progress: Dictionary) -> void:
+	_run_manager.draft_progress = progress
+	_run_manager.save_run()
+
+
+func _on_match_state_changed(match_state: Dictionary) -> void:
+	_run_manager.save_match_state(match_state)
 
 
 func _on_draft_complete(deck: Array) -> void:
@@ -123,20 +197,39 @@ func _on_fight_pressed() -> void:
 	if match_num >= 9 and _run_manager.boss_relic != null:
 		boss_config = BossRelicSystemScript.get_boss_config(_run_manager.boss_relic)
 
+	# Generate deterministic seed and first player for match reconstruction
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var match_seed: int = rng.randi()
+	var first_player_index: int = rng.randi_range(0, 1)
+
+	# Save match config for resume
+	_run_manager.match_config = {
+		"opponent_attribute_ids": config["attribute_ids"],
+		"ai_deck": ai_deck,
+		"boss_config": boss_config,
+		"match_seed": match_seed,
+		"first_player_index": first_player_index,
+	}
+	_run_manager.save_run()
+
 	_clear_screen()
 	var match_screen := MatchScreenScript.new()
 	match_screen.name = "ArenaMatch"
 	match_screen._arena_mode = true
 	match_screen.return_to_main_menu_requested.connect(_on_match_ended.bind(match_screen))
+	match_screen.match_state_changed.connect(_on_match_state_changed)
 	add_child(match_screen)
 	_current_screen = match_screen
 	if not boss_config.is_empty():
-		match_screen.start_arena_boss_match(player_deck_ids, ai_deck_ids, boss_config)
+		match_screen.start_arena_boss_match(player_deck_ids, ai_deck_ids, boss_config, match_seed, first_player_index)
 	else:
-		match_screen.start_match_with_decks(player_deck_ids, ai_deck_ids)
+		match_screen.start_match_with_decks(player_deck_ids, ai_deck_ids, match_seed, first_player_index)
 
 
 func _on_match_ended(match_screen: Control) -> void:
+	_run_manager.clear_match_state()
+	_run_manager.match_config = null
 	_last_match_won = match_screen.did_local_player_win()
 	if _last_match_won:
 		_run_manager.record_win()
@@ -167,6 +260,7 @@ func _show_post_win_pick() -> void:
 	_clear_screen()
 	var screen := ArenaDraftScreenScript.new()
 	screen.draft_complete.connect(_on_post_win_pick_complete)
+	screen.draft_state_changed.connect(_on_draft_state_changed)
 	add_child(screen)
 	_current_screen = screen
 	screen.start_bonus_pick(_run_manager.deck, _run_manager.class_attributes, _card_database)

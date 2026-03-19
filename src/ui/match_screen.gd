@@ -2,6 +2,7 @@ class_name MatchScreen
 extends Control
 
 signal return_to_main_menu_requested
+signal match_state_changed(match_state: Dictionary)
 
 const HeuristicMatchPolicy = preload("res://src/ai/heuristic_match_policy.gd")
 const MatchActionEnumerator = preload("res://src/ai/match_action_enumerator.gd")
@@ -143,7 +144,7 @@ func _ready() -> void:
 	load_scenario(_scenario_id)
 
 
-func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array) -> bool:
+func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int = -1, first_player_index: int = -1) -> bool:
 	_cancel_detached_card_silent()
 	_dismiss_mulligan_overlay()
 	_dismiss_prophecy_overlay()
@@ -160,9 +161,11 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array) -> bool:
 		return false
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
+	var match_seed: int = seed if seed >= 0 else rng.randi()
+	var match_first_player: int = first_player_index if first_player_index >= 0 else rng.randi_range(0, 1)
 	var match_state := MatchBootstrap.create_standard_match(
 		[deck_one_ids, deck_two_ids],
-		{"seed": rng.randi(), "first_player_index": rng.randi_range(0, 1)}
+		{"seed": match_seed, "first_player_index": match_first_player}
 	)
 	if match_state.is_empty():
 		_status_message = "Failed to create match."
@@ -190,7 +193,7 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array) -> bool:
 	return true
 
 
-func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_config: Dictionary) -> bool:
+func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_config: Dictionary, seed: int = -1, first_player_index: int = -1) -> bool:
 	_cancel_detached_card_silent()
 	_dismiss_mulligan_overlay()
 	_dismiss_prophecy_overlay()
@@ -207,7 +210,9 @@ func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_confi
 		return false
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
-	var options := {"seed": rng.randi(), "first_player_index": rng.randi_range(0, 1)}
+	var match_seed: int = seed if seed >= 0 else rng.randi()
+	var match_first_player: int = first_player_index if first_player_index >= 0 else rng.randi_range(0, 1)
+	var options := {"seed": match_seed, "first_player_index": match_first_player}
 	var match_state := MatchBootstrap.create_standard_match(
 		[deck_one_ids, deck_two_ids], options
 	)
@@ -318,6 +323,67 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 		card["grants_immunity"] = definition["grants_immunity"].duplicate(true)
 	if definition.has("magicka_aura"):
 		card["magicka_aura"] = int(definition["magicka_aura"])
+
+
+static func _hydrate_all_zones(match_state: Dictionary, card_by_id: Dictionary) -> void:
+	for player in match_state.get("players", []):
+		for zone_key in ["deck", "hand", "support", "discard", "banished"]:
+			var zone: Array = player.get(zone_key, [])
+			for card in zone:
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				_hydrate_card(card, card_by_id)
+	for lane in match_state.get("lanes", []):
+		var player_slots: Dictionary = lane.get("player_slots", {})
+		for pid in player_slots.keys():
+			for card in player_slots[pid]:
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				_hydrate_card(card, card_by_id)
+				for attached_item in card.get("attached_items", []):
+					if typeof(attached_item) == TYPE_DICTIONARY:
+						_hydrate_card(attached_item, card_by_id)
+
+
+func resume_from_state(saved_state: Dictionary) -> void:
+	_cancel_detached_card_silent()
+	_dismiss_mulligan_overlay()
+	_dismiss_prophecy_overlay()
+	_dismiss_spell_reveal()
+	_reset_invalid_feedback()
+	_clear_feedback_state()
+	_reset_local_match_ai_queue()
+	_local_match_ai_action_count = 0
+	var catalog_result := CardCatalog.load_default()
+	var card_by_id: Dictionary = catalog_result.get("card_by_id", {})
+	_hydrate_all_zones(saved_state, card_by_id)
+	_match_state = saved_state
+	_scenario_id = LOCAL_MATCH_AI_SCENARIO_ID
+	_selected_instance_id = ""
+	_last_turn_owner_id = ""
+	_floating_card_ids.clear()
+	_turn_banner_until_ms = 0
+	_clear_pile_selection()
+	var phase := str(_match_state.get("phase", ""))
+	var winner := str(_match_state.get("winner_player_id", ""))
+	if not winner.is_empty():
+		# Match already ended — trigger result flow immediately
+		_ai_enabled = false
+		_status_message = "Match complete."
+		_refresh_ui()
+		return_to_main_menu_requested.emit()
+		return
+	if phase == "mulligan":
+		_mulligan_card_by_id = card_by_id
+		_ai_enabled = false
+		_status_message = "Choose cards to replace."
+		_refresh_ui()
+		_show_mulligan_overlay()
+	else:
+		_mulligan_card_by_id = {}
+		_ai_enabled = true
+		_status_message = "Match resumed."
+		_refresh_ui()
 
 
 func _process(_delta: float) -> void:
@@ -540,6 +606,8 @@ func _execute_local_match_ai_step() -> Dictionary:
 			_animate_enemy_creature_summon_reveal(action, result)
 		else:
 			_refresh_ui()
+	if _arena_mode:
+		match_state_changed.emit(_match_state.duplicate(true))
 	return {
 		"did_execute": true,
 		"yield_reason": _ai_post_action_state(),
@@ -806,6 +874,8 @@ func use_ring() -> bool:
 	_selected_instance_id = ""
 	_status_message = "%s used the Ring of Magicka." % _player_name(player_id)
 	_refresh_ui()
+	if _arena_mode:
+		match_state_changed.emit(_match_state.duplicate(true))
 	return true
 
 
@@ -821,6 +891,8 @@ func end_turn_action() -> bool:
 	_selected_instance_id = ""
 	_status_message = "Ended %s's turn." % _player_name(player_id)
 	_refresh_ui()
+	if _arena_mode:
+		match_state_changed.emit(_match_state.duplicate(true))
 	return true
 
 
@@ -2028,6 +2100,8 @@ func _finalize_mulligan(discard_instance_ids: Array) -> void:
 	_record_feedback_from_events(scenario_events)
 	_status_message = "Match started."
 	_refresh_ui()
+	if _arena_mode:
+		match_state_changed.emit(_match_state.duplicate(true))
 
 
 func _animate_enemy_prophecy_resolution(action: Dictionary, _result: Dictionary) -> void:
@@ -3785,6 +3859,8 @@ func _finalize_engine_result(result: Dictionary, success_message: String, clear_
 			_selected_instance_id = ""
 		_record_feedback_from_events(_copy_array(result.get("events", [])))
 		_status_message = success_message
+		if _arena_mode:
+			match_state_changed.emit(_match_state.duplicate(true))
 	else:
 		_status_message = str(result.get("errors", ["Action failed."])[0])
 	_refresh_ui()
