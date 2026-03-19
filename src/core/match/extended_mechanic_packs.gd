@@ -240,9 +240,9 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 	var min_runes := int(descriptor.get("min_destroyed_enemy_runes", 0))
 	if min_runes > 0:
 		var opponent := _get_opponent(match_state, str(trigger.get("controller_player_id", "")))
-		var max_runes := int(opponent.get("max_rune_count", 5))
-		var current_runes := int(opponent.get("rune_count", max_runes))
-		var destroyed_runes := max_runes - current_runes
+		var remaining_thresholds: Variant = opponent.get("rune_thresholds", [])
+		var remaining_count: int = remaining_thresholds.size() if typeof(remaining_thresholds) == TYPE_ARRAY else 0
+		var destroyed_runes: int = 5 - remaining_count
 		if destroyed_runes < min_runes:
 			return false
 	return true
