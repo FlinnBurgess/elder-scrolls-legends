@@ -214,6 +214,34 @@ static func apply_stat_bonus(card: Dictionary, power_bonus: int, health_bonus: i
 	}
 
 
+static func add_temporary_stat_bonus(card: Dictionary, power: int, health: int, turn_number: int) -> void:
+	var temp_bonuses: Array = card.get("temporary_stat_bonuses", [])
+	temp_bonuses.append({"power": power, "health": health, "turn": turn_number})
+	card["temporary_stat_bonuses"] = temp_bonuses
+
+
+static func clear_temporary_stat_bonuses(card: Dictionary, turn_number: int) -> Dictionary:
+	var temp_bonuses: Array = card.get("temporary_stat_bonuses", [])
+	if temp_bonuses.is_empty():
+		return {"power_reverted": 0, "health_reverted": 0}
+	var power_reverted := 0
+	var health_reverted := 0
+	var remaining: Array = []
+	for bonus in temp_bonuses:
+		if int(bonus.get("turn", -1)) <= turn_number:
+			power_reverted += int(bonus.get("power", 0))
+			health_reverted += int(bonus.get("health", 0))
+		else:
+			remaining.append(bonus)
+	if power_reverted != 0 or health_reverted != 0:
+		apply_stat_bonus(card, -power_reverted, -health_reverted, "temp_bonus_expired")
+	if remaining.is_empty():
+		card.erase("temporary_stat_bonuses")
+	else:
+		card["temporary_stat_bonuses"] = remaining
+	return {"power_reverted": power_reverted, "health_reverted": health_reverted}
+
+
 static func sync_derived_state(card: Dictionary) -> void:
 	ensure_card_state(card)
 	_sync_wounded_status(card)

@@ -1462,8 +1462,11 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				var base_health := int(event.get("amount", 0)) if bool(effect.get("health_from_event_amount", false)) else int(effect.get("health", 0))
 				var total_power := base_power * stat_multiplier
 				var total_health := base_health * stat_multiplier
+				var is_temp := str(effect.get("duration", "")) == "end_of_turn"
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					EvergreenRules.apply_stat_bonus(card, total_power, total_health, reason)
+					if is_temp:
+						EvergreenRules.add_temporary_stat_bonus(card, total_power, total_health, int(match_state.get("turn_number", 0)))
 					generated_events.append({
 						"event_type": "stats_modified",
 						"source_instance_id": str(trigger.get("source_instance_id", "")),

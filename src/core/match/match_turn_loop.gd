@@ -33,6 +33,7 @@ static func end_turn(match_state: Dictionary, player_id: String) -> Dictionary:
 		"source_controller_player_id": player_id,
 	}])
 	MatchTiming.process_end_of_turn_returns(match_state, int(match_state.get("turn_number", 0)))
+	_clear_temporary_stat_bonuses(match_state)
 
 	var player := _get_player_state(match_state, player_id)
 	ExtendedMechanicPacks.toggle_wax_wane(player)
@@ -198,6 +199,18 @@ static func _refresh_board_state_for_turn(match_state: Dictionary, player_id: St
 		if typeof(support) != TYPE_DICTIONARY:
 			continue
 		PersistentCardRules.refresh_support_for_controller_turn(support)
+
+
+static func _clear_temporary_stat_bonuses(match_state: Dictionary) -> void:
+	var current_turn := int(match_state.get("turn_number", 0))
+	for lane in match_state.get("lanes", []):
+		var player_slots_by_id: Dictionary = lane.get("player_slots", {})
+		for player_id in player_slots_by_id:
+			var slots: Array = player_slots_by_id[player_id]
+			for card in slots:
+				if card == null or typeof(card) != TYPE_DICTIONARY:
+					continue
+				EvergreenRules.clear_temporary_stat_bonuses(card, current_turn)
 
 
 static func _expire_shadow_cover_if_needed(card: Dictionary, current_turn_number: int) -> void:

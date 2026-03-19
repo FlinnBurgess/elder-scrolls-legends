@@ -20,6 +20,11 @@ Target filters like `target_filter_wounded` were defined on effect descriptors i
 Example: Falinesti Reaver (`target_filter_wounded: true` on `destroy_creature` op)
 How to spot: User reports an effect hitting targets it shouldn't (e.g. destroying unwounded creatures, affecting wrong subtypes). Check if the `target_filter_*` key from the card's effect descriptor is actually handled in `_resolve_card_targets` in `match_timing.gd`.
 
+## Missing duration on "this turn" modify_stats effects
+The `modify_stats` effect op applies permanent stat bonuses by default. Cards with "this turn" in their rules text need `"duration": "end_of_turn"` on their effect descriptor to make the bonus temporary, otherwise it persists indefinitely.
+Example: Cloudrest Illusionist, Calm, Savage Ogre, War Cry
+How to spot: User reports a stat buff/debuff not wearing off. Search for cards whose `rules_text` contains "this turn" alongside a `modify_stats` op that lacks a `"duration"` field.
+
 ## Unimplemented effect operation
 Card has a `triggered_abilities` entry with an `op` value that doesn't exist in `match_timing._apply_effects()`. The effect silently does nothing because unknown ops fall through the match statement. This typically happens when new cards are batch-imported with placeholder ops that haven't been implemented in the engine yet.
 Example: Winterhold Illusionist (`banish_and_return_end_of_turn`)

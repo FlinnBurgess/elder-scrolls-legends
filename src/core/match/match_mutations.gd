@@ -465,6 +465,7 @@ static func silence_card(card: Dictionary, options: Dictionary = {}, match_state
 	card.erase("cover_expires_on_turn")
 	card.erase("cover_granted_by")
 	card.erase("shackle_expires_on_turn")
+	card.erase("temporary_stat_bonuses")
 	EvergreenRules.sync_derived_state(card)
 	return {
 		"is_valid": true,
@@ -680,6 +681,7 @@ static func reset_transient_state(card: Dictionary) -> void:
 	card["status_markers"] = []
 	card.erase("cover_expires_on_turn")
 	card.erase("cover_granted_by")
+	card.erase("temporary_stat_bonuses")
 
 
 static func _clear_lane_state(card: Dictionary) -> void:
