@@ -224,6 +224,7 @@ static func _clear_temporary_stat_bonuses(match_state: Dictionary) -> void:
 				if card == null or typeof(card) != TYPE_DICTIONARY:
 					continue
 				EvergreenRules.clear_temporary_stat_bonuses(card, current_turn)
+				EvergreenRules.clear_temporary_keywords(card, current_turn)
 
 
 static func _expire_shadow_cover_if_needed(card: Dictionary, current_turn_number: int) -> void:

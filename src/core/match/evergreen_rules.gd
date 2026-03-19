@@ -242,6 +242,32 @@ static func clear_temporary_stat_bonuses(card: Dictionary, turn_number: int) -> 
 	return {"power_reverted": power_reverted, "health_reverted": health_reverted}
 
 
+static func add_temporary_keyword(card: Dictionary, keyword_id: String, turn_number: int) -> void:
+	var temp_keywords: Array = card.get("temporary_keywords", [])
+	temp_keywords.append({"keyword_id": keyword_id, "turn": turn_number})
+	card["temporary_keywords"] = temp_keywords
+
+
+static func clear_temporary_keywords(card: Dictionary, turn_number: int) -> Array:
+	var temp_keywords: Array = card.get("temporary_keywords", [])
+	if temp_keywords.is_empty():
+		return []
+	var removed: Array = []
+	var remaining: Array = []
+	for entry in temp_keywords:
+		if int(entry.get("turn", -1)) <= turn_number:
+			var kw := str(entry.get("keyword_id", ""))
+			remove_keyword(card, kw)
+			removed.append(kw)
+		else:
+			remaining.append(entry)
+	if remaining.is_empty():
+		card.erase("temporary_keywords")
+	else:
+		card["temporary_keywords"] = remaining
+	return removed
+
+
 static func sync_derived_state(card: Dictionary) -> void:
 	ensure_card_state(card)
 	_sync_wounded_status(card)

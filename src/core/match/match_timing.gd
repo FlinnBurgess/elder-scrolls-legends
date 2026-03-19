@@ -1588,6 +1588,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"status_id": status_id,
 					})
 			"grant_keyword":
+				var kw_is_temp := str(effect.get("duration", "")) == "end_of_turn"
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					EvergreenRules.ensure_card_state(card)
 					var keyword_id := str(effect.get("keyword_id", ""))
@@ -1595,6 +1596,8 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					if not granted_keywords.has(keyword_id):
 						granted_keywords.append(keyword_id)
 						card["granted_keywords"] = granted_keywords
+					if kw_is_temp:
+						EvergreenRules.add_temporary_keyword(card, keyword_id, int(match_state.get("turn_number", 0)))
 					if keyword_id == EvergreenRules.KEYWORD_GUARD and EvergreenRules.has_raw_status(card, EvergreenRules.STATUS_COVER):
 						EvergreenRules.remove_status(card, EvergreenRules.STATUS_COVER)
 						card.erase("cover_expires_on_turn")

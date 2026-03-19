@@ -42,8 +42,8 @@ Cards with active effects (Summon, Last Gasp, Slay, start/end of turn, on play, 
 - `rune_break` — when a rune is broken
 
 **Effect Operations** (defined in `match_timing._apply_effects()`):
-- `modify_stats` — `{op, target, power, health}`
-- `grant_keyword` — `{op, target, keyword_id}`
+- `modify_stats` — `{op, target, power, health, duration?}` — use `"duration": "end_of_turn"` for "this turn" effects
+- `grant_keyword` — `{op, target, keyword_id, duration?}` — use `"duration": "end_of_turn"` for "this turn" effects
 - `grant_status` — `{op, target, status_id}`
 - `draw_cards` — `{op, target_player, count}`
 - `damage` — handled via `ExtendedMechanicPacks.apply_custom_effect()`
@@ -82,6 +82,7 @@ Cards with active effects (Summon, Last Gasp, Slay, start/end of turn, on play, 
 3. **Effect op not implemented** — The required behaviour needs a new op in `match_timing._apply_effects()`.
 4. **Wrong trigger family** — e.g., using `summon` instead of `on_play` for an action card.
 5. **Hydration not passing field** — New fields added to the catalog but not copied in `match_screen._hydrate_card()`.
+6. **Missing `duration` on "this turn" effects** — `modify_stats` and `grant_keyword` ops are permanent by default. Cards with "this turn" in `rules_text` need `"duration": "end_of_turn"` on the effect descriptor.
 
 ### Key Files to Investigate
 
@@ -97,12 +98,17 @@ Cards with active effects (Summon, Last Gasp, Slay, start/end of turn, on play, 
 ## Step 3: Implement the Fix
 
 1. If a new effect op is needed, add it to `_apply_effects()` in `match_timing.gd`, following the pattern of existing ops. Make it generic/reusable rather than card-specific.
-2. If the card just needs `triggered_abilities` wired up, update its `_seed()` call in `card_catalog.gd`.
-3. If new fields are introduced, ensure they flow through:
+2. If an existing op needs a new optional parameter (e.g., adding `duration` support to `grant_keyword`), extend the op handler in `_apply_effects()` rather than creating a new op. Follow the pattern of similar parameters on other ops (e.g., `modify_stats` already supports `duration`).
+3. If the card just needs `triggered_abilities` wired up, update its `_seed()` call in `card_catalog.gd`.
+4. If new fields are introduced, ensure they flow through:
    - `_seed()` in `card_catalog.gd`
    - `_build_card()` in `card_catalog.gd`
    - `_hydrate_card()` in `match_screen.gd`
-4. If an item needs equip fields, parse the `rules_text` to extract `equip_power_bonus`, `equip_health_bonus`, and `equip_keywords`.
+5. If an item needs equip fields, parse the `rules_text` to extract `equip_power_bonus`, `equip_health_bonus`, and `equip_keywords`.
+6. If new per-card state is added (e.g., `temporary_keywords`), ensure it is cleared in all cleanup paths:
+   - `match_mutations.silence_card()` — silence wipes all granted state
+   - `match_mutations.reset_transient_state()` — used when cards change zones
+   - `match_turn_loop._clear_temporary_stat_bonuses()` — end-of-turn cleanup (if the state is turn-scoped)
 
 ## Step 4: Scan for Other Cards
 
@@ -129,7 +135,7 @@ How to spot: <describe symptoms a user might report and/or patterns to search fo
 
 ## Step 6: Update Tracking
 
-Update the card's entry in `development-artifacts/core_set_cards.json` if relevant fields changed.
+Update the card's entry in `development-artifacts/core_set_cards.json` if relevant fields changed. Note: this file tracks card metadata (name, cost, power, health, rarity, rules_text, keywords, effect_ids, equip bonuses, etc.) but does **not** store `triggered_abilities`. So only update it if you changed fields like `rules_text`, `keywords`, `equip_power_bonus`, `equip_health_bonus`, `equip_keywords`, `effect_ids`, etc. If the fix was purely to `triggered_abilities` descriptors (adding `duration`, fixing `target`, etc.), no update is needed here.
 
 ## Step 7: Test
 
