@@ -128,6 +128,7 @@ var _ai_waiting_for_turn_banner := false
 var _local_match_ai_action_count := 0
 var _pending_layout_scale_frames := 0
 var _floating_card_ids: Dictionary = {}
+var _hovered_hand_instance_id := ""
 var _overdraw_queue: Array = []
 var _match_end_button: Button
 var _arena_mode := false
@@ -780,6 +781,36 @@ func play_selected_to_lane(lane_id: String, slot_index := -1) -> Dictionary:
 	if bool(finalized.get("is_valid", false)):
 		_check_summon_target_mode(saved_instance_id)
 	return finalized
+
+
+func _try_play_hovered_hand_card_to_lane(lane_index: int) -> void:
+	var instance_id := _hovered_hand_instance_id
+	if instance_id.is_empty() or not _is_local_hand_card(instance_id):
+		return
+	# Don't interfere with other active interaction modes
+	if not _pending_summon_target.is_empty() or not _targeting_arrow_state.is_empty() or not _detached_card_state.is_empty():
+		return
+	var card := _card_from_instance_id(instance_id)
+	if card.is_empty():
+		return
+	var mode := _selected_action_mode(card)
+	# Only creatures and non-targeted actions can be played directly to a lane
+	if mode != SELECTION_MODE_SUMMON and not (mode == SELECTION_MODE_ACTION and not _action_needs_explicit_target(card)):
+		return
+	var lane_list := _lane_entries()
+	if lane_index < 0 or lane_index >= lane_list.size():
+		return
+	var lane_id := str(lane_list[lane_index].get("id", ""))
+	var player_id := _target_lane_player_id()
+	var slot_index := _first_open_slot_index(lane_id, player_id)
+	if slot_index < 0:
+		return
+	_selected_instance_id = instance_id
+	var validation := _validate_selected_lane_play(lane_id, player_id, slot_index)
+	if bool(validation.get("is_valid", false)):
+		play_selected_to_lane(lane_id, slot_index)
+	else:
+		_selected_instance_id = ""
 
 
 func play_or_activate_selected() -> Dictionary:
@@ -2575,10 +2606,13 @@ func _layout_hand_placeholder(hand_surface: Control, placeholder: Label) -> void
 
 
 func _on_local_hand_card_mouse_entered(button: Button) -> void:
+	_hovered_hand_instance_id = str(button.get_meta("instance_id", ""))
 	_apply_local_hand_hover_state(button, true)
 
 
 func _on_local_hand_card_mouse_exited(button: Button) -> void:
+	if _hovered_hand_instance_id == str(button.get_meta("instance_id", "")):
+		_hovered_hand_instance_id = ""
 	_apply_local_hand_hover_state(button, false)
 
 
@@ -3218,6 +3252,17 @@ func _input(event: InputEvent) -> void:
 			_update_insertion_preview_from_mouse(mouse_pos)
 		if not _targeting_arrow_state.is_empty():
 			_update_targeting_arrow(mouse_pos)
+	elif event is InputEventKey:
+		var key_event := event as InputEventKey
+		if key_event.pressed and not key_event.echo and _hovered_hand_instance_id != "":
+			var lane_index := -1
+			if key_event.keycode == KEY_1:
+				lane_index = 0
+			elif key_event.keycode == KEY_2:
+				lane_index = 1
+			if lane_index >= 0:
+				_try_play_hovered_hand_card_to_lane(lane_index)
+				get_viewport().set_input_as_handled()
 	elif event is InputEventMouseButton:
 		var button_event := event as InputEventMouseButton
 		if button_event.button_index == MOUSE_BUTTON_RIGHT and button_event.pressed:
