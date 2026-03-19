@@ -393,6 +393,18 @@ static func _log_board_state(match_state: Dictionary) -> void:
 			var slot_str := ", ".join(creatures) if not creatures.is_empty() else "(empty)"
 			lane_parts.append("%s: %s" % [pid, slot_str])
 		_write("[BOARD] %s | %s" % [lane_name, " | ".join(lane_parts)])
+	# Supports
+	for player in players:
+		var pid := str(player.get("player_id", ""))
+		var supports: Array = player.get("support", [])
+		if supports.is_empty():
+			continue
+		var support_names: Array = []
+		for card in supports:
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			support_names.append("\"%s\"" % str(card.get("name", "?")))
+		_write("[BOARD] Supports %s: %s" % [pid, ", ".join(support_names)])
 	# Player health
 	var hp_parts: Array = []
 	for player in players:

@@ -44,32 +44,62 @@ static func get_relic_name(relic: BossRelic) -> String:
 static func get_relic_description(relic: BossRelic) -> String:
 	match relic:
 		BossRelic.IRON:
-			return "The boss starts with 80 health."
+			return "I start with 50 health."
 		BossRelic.CORUNDUM:
-			return "The boss's creatures gain +1 attack."
+			return "My creatures have +1/+0."
 		BossRelic.MOONSTONE:
-			return "When a boss rune breaks, the boss draws a free 0-cost card."
+			return "When one of my runes is destroyed, I get a free 0-cost card."
 		BossRelic.QUICKSILVER:
-			return "At the start of your turn, you take 1 damage."
+			return "At the start of my turn, deal 1 damage to my opponent."
 		BossRelic.EBONY:
-			return "A 0/6 City Gates blocks one lane. Creatures cannot be summoned in the other lane until it is destroyed."
+			return "I start with City Gates in a lane."
 		BossRelic.MALACHITE:
-			return "The boss starts with a 0/4 Guard creature in each lane."
+			return "I start with a 0/4 Guard in each lane."
 	return ""
 
 
-static func apply_relic_to_match_config(relic: BossRelic, config: Dictionary) -> Dictionary:
+static func get_boss_config(relic: BossRelic) -> Dictionary:
+	var config := {
+		"relic": relic,
+		"relic_name": get_relic_name(relic),
+	}
 	match relic:
 		BossRelic.IRON:
-			config.boss_health = 80
-		BossRelic.CORUNDUM:
-			config.boss_creature_attack_bonus = 1
-		BossRelic.MOONSTONE:
-			config.boss_rune_break_card = true
-		BossRelic.QUICKSILVER:
-			config.player_start_of_turn_damage = 1
+			config["boss_health"] = 50
 		BossRelic.EBONY:
-			config.boss_city_gates = true
+			config["starting_creatures"] = [
+				{"name": "City Gates", "card_type": "creature", "cost": 0, "power": 0, "health": 6, "base_power": 0, "base_health": 6, "keywords": ["guard"], "rules_text": "Guard", "subtypes": [], "attributes": [], "definition_id": "boss_city_gates", "lane_index": 0},
+			]
 		BossRelic.MALACHITE:
-			config.boss_starting_guards = [{"attack": 0, "health": 4, "guard": true}]
+			config["starting_creatures"] = [
+				{"name": "Malachite Guard", "card_type": "creature", "cost": 0, "power": 0, "health": 4, "base_power": 0, "base_health": 4, "keywords": ["guard"], "rules_text": "Guard", "subtypes": [], "attributes": [], "definition_id": "boss_malachite_guard", "lane_index": 0},
+				{"name": "Malachite Guard", "card_type": "creature", "cost": 0, "power": 0, "health": 4, "base_power": 0, "base_health": 4, "keywords": ["guard"], "rules_text": "Guard", "subtypes": [], "attributes": [], "definition_id": "boss_malachite_guard", "lane_index": 1},
+			]
 	return config
+
+
+static func get_relic_card_template(relic: BossRelic) -> Dictionary:
+	var base := {
+		"card_type": "support",
+		"cost": 0,
+		"power": 0,
+		"health": 0,
+		"base_power": 0,
+		"base_health": 0,
+		"support_uses": 0,
+		"keywords": [],
+		"subtypes": [],
+		"attributes": [],
+		"effect_ids": [],
+	}
+	base["name"] = get_relic_name(relic)
+	base["definition_id"] = "boss_relic_%s" % BossRelic.keys()[relic].to_lower()
+	base["rules_text"] = "Ongoing\n%s" % get_relic_description(relic)
+	match relic:
+		BossRelic.CORUNDUM:
+			base["aura"] = {"scope": "all_lanes", "target": "all_friendly", "power": 1}
+		BossRelic.MOONSTONE:
+			base["triggered_abilities"] = [{"family": "on_enemy_rune_destroyed", "required_zone": "support", "effects": [{"op": "generate_random_to_hand", "filter": {"max_cost": 0}}]}]
+		BossRelic.QUICKSILVER:
+			base["triggered_abilities"] = [{"family": "start_of_turn", "required_zone": "support", "effects": [{"op": "damage", "target_player": "opponent", "amount": 1}]}]
+	return base

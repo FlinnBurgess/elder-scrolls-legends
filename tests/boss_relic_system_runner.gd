@@ -15,6 +15,7 @@ func _initialize() -> void:
 	_test_quicksilver_relic()
 	_test_ebony_relic()
 	_test_malachite_relic()
+	_test_card_templates()
 
 	_finish()
 
@@ -55,50 +56,70 @@ func _test_get_relic_description_non_empty() -> void:
 
 
 func _test_iron_relic() -> void:
-	var config: Dictionary = {}
-	var result: Dictionary = BossRelicSystemScript.apply_relic_to_match_config(0, config)  # IRON = 0
-	_assert(result.has("boss_health"), "iron: config should have boss_health")
-	_assert(result.boss_health == 80, "iron: boss_health should be 80, got %s" % str(result.boss_health))
+	var config: Dictionary = BossRelicSystemScript.get_boss_config(0)  # IRON = 0
+	_assert(config.has("boss_health"), "iron: config should have boss_health")
+	_assert(int(config.get("boss_health", 0)) == 50, "iron: boss_health should be 50, got %s" % str(config.get("boss_health", 0)))
 
 
 func _test_corundum_relic() -> void:
-	var config: Dictionary = {}
-	var result: Dictionary = BossRelicSystemScript.apply_relic_to_match_config(1, config)  # CORUNDUM = 1
-	_assert(result.has("boss_creature_attack_bonus"), "corundum: config should have boss_creature_attack_bonus")
-	_assert(result.boss_creature_attack_bonus == 1, "corundum: boss_creature_attack_bonus should be 1, got %s" % str(result.boss_creature_attack_bonus))
+	var config: Dictionary = BossRelicSystemScript.get_boss_config(1)  # CORUNDUM = 1
+	var template: Dictionary = BossRelicSystemScript.get_relic_card_template(1)
+	_assert(template.has("aura"), "corundum: template should have aura")
+	var aura: Dictionary = template.get("aura", {})
+	_assert(str(aura.get("scope", "")) == "all_lanes", "corundum: aura scope should be all_lanes")
+	_assert(int(aura.get("power", 0)) == 1, "corundum: aura power should be 1")
 
 
 func _test_moonstone_relic() -> void:
-	var config: Dictionary = {}
-	var result: Dictionary = BossRelicSystemScript.apply_relic_to_match_config(2, config)  # MOONSTONE = 2
-	_assert(result.has("boss_rune_break_card"), "moonstone: config should have boss_rune_break_card")
-	_assert(result.boss_rune_break_card == true, "moonstone: boss_rune_break_card should be true")
+	var template: Dictionary = BossRelicSystemScript.get_relic_card_template(2)  # MOONSTONE = 2
+	var abilities: Array = template.get("triggered_abilities", [])
+	_assert(abilities.size() == 1, "moonstone: should have 1 triggered ability")
+	var ability: Dictionary = abilities[0]
+	_assert(str(ability.get("family", "")) == "on_enemy_rune_destroyed", "moonstone: family should be on_enemy_rune_destroyed")
 
 
 func _test_quicksilver_relic() -> void:
-	var config: Dictionary = {}
-	var result: Dictionary = BossRelicSystemScript.apply_relic_to_match_config(3, config)  # QUICKSILVER = 3
-	_assert(result.has("player_start_of_turn_damage"), "quicksilver: config should have player_start_of_turn_damage")
-	_assert(result.player_start_of_turn_damage == 1, "quicksilver: player_start_of_turn_damage should be 1, got %s" % str(result.player_start_of_turn_damage))
+	var template: Dictionary = BossRelicSystemScript.get_relic_card_template(3)  # QUICKSILVER = 3
+	var abilities: Array = template.get("triggered_abilities", [])
+	_assert(abilities.size() == 1, "quicksilver: should have 1 triggered ability")
+	var ability: Dictionary = abilities[0]
+	_assert(str(ability.get("family", "")) == "start_of_turn", "quicksilver: family should be start_of_turn")
+	var effects: Array = ability.get("effects", [])
+	_assert(effects.size() == 1, "quicksilver: should have 1 effect")
+	_assert(int(effects[0].get("amount", 0)) == 1, "quicksilver: damage amount should be 1")
 
 
 func _test_ebony_relic() -> void:
-	var config: Dictionary = {}
-	var result: Dictionary = BossRelicSystemScript.apply_relic_to_match_config(4, config)  # EBONY = 4
-	_assert(result.has("boss_city_gates"), "ebony: config should have boss_city_gates")
-	_assert(result.boss_city_gates == true, "ebony: boss_city_gates should be true")
+	var config: Dictionary = BossRelicSystemScript.get_boss_config(4)  # EBONY = 4
+	var creatures: Array = config.get("starting_creatures", [])
+	_assert(creatures.size() == 1, "ebony: should have 1 starting creature, got %d" % creatures.size())
+	var gates: Dictionary = creatures[0]
+	_assert(str(gates.get("name", "")) == "City Gates", "ebony: creature should be City Gates")
+	_assert(int(gates.get("health", 0)) == 6, "ebony: City Gates health should be 6")
+	_assert(gates.get("keywords", []).has("guard"), "ebony: City Gates should have guard")
 
 
 func _test_malachite_relic() -> void:
-	var config: Dictionary = {}
-	var result: Dictionary = BossRelicSystemScript.apply_relic_to_match_config(5, config)  # MALACHITE = 5
-	_assert(result.has("boss_starting_guards"), "malachite: config should have boss_starting_guards")
-	var guards: Array = result.boss_starting_guards
-	_assert(guards.size() == 1, "malachite: should have 1 guard spec, got %d" % guards.size())
-	var guard: Dictionary = guards[0]
-	_assert(guard.attack == 0, "malachite: guard attack should be 0, got %s" % str(guard.attack))
-	_assert(guard.health == 4, "malachite: guard health should be 4, got %s" % str(guard.health))
-	_assert(guard.guard == true, "malachite: guard.guard should be true")
+	var config: Dictionary = BossRelicSystemScript.get_boss_config(5)  # MALACHITE = 5
+	var creatures: Array = config.get("starting_creatures", [])
+	_assert(creatures.size() == 2, "malachite: should have 2 starting creatures, got %d" % creatures.size())
+	for i in range(creatures.size()):
+		var guard: Dictionary = creatures[i]
+		_assert(int(guard.get("power", -1)) == 0, "malachite: guard %d power should be 0" % i)
+		_assert(int(guard.get("health", 0)) == 4, "malachite: guard %d health should be 4" % i)
+		_assert(guard.get("keywords", []).has("guard"), "malachite: guard %d should have guard" % i)
+		_assert(int(guard.get("lane_index", -1)) == i, "malachite: guard %d lane_index should be %d" % [i, i])
+
+
+func _test_card_templates() -> void:
+	for relic_val in [0, 1, 2, 3, 4, 5]:
+		var template: Dictionary = BossRelicSystemScript.get_relic_card_template(relic_val)
+		_assert(str(template.get("card_type", "")) == "support", "template %d: card_type should be support" % relic_val)
+		_assert(int(template.get("cost", -1)) == 0, "template %d: cost should be 0" % relic_val)
+		_assert(int(template.get("support_uses", -1)) == 0, "template %d: support_uses should be 0 (ongoing)" % relic_val)
+		_assert(str(template.get("name", "")).length() > 0, "template %d: name should be non-empty" % relic_val)
+		_assert(str(template.get("definition_id", "")).begins_with("boss_relic_"), "template %d: definition_id should start with boss_relic_" % relic_val)
+		_assert(str(template.get("rules_text", "")).begins_with("Ongoing"), "template %d: rules_text should start with Ongoing" % relic_val)
 
 
 func _assert(condition: bool, message: String) -> void:

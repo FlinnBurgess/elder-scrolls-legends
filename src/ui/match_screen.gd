@@ -190,6 +190,83 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array) -> bool:
 	return true
 
 
+func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_config: Dictionary) -> bool:
+	_cancel_detached_card_silent()
+	_dismiss_mulligan_overlay()
+	_dismiss_prophecy_overlay()
+	_dismiss_spell_reveal()
+	_reset_invalid_feedback()
+	_clear_feedback_state()
+	_reset_local_match_ai_queue()
+	_local_match_ai_action_count = 0
+	var catalog_result := CardCatalog.load_default()
+	var card_by_id: Dictionary = catalog_result.get("card_by_id", {})
+	if card_by_id.is_empty():
+		_status_message = "Failed to load card catalog."
+		_refresh_ui()
+		return false
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var options := {"seed": rng.randi(), "first_player_index": rng.randi_range(0, 1)}
+	var match_state := MatchBootstrap.create_standard_match(
+		[deck_one_ids, deck_two_ids], options
+	)
+	if match_state.is_empty():
+		_status_message = "Failed to create match."
+		_refresh_ui()
+		return false
+	# Apply boss health override
+	var boss_id := PLAYER_ORDER[0]
+	var boss_health := int(boss_config.get("boss_health", 0))
+	if boss_health > 0:
+		for player in match_state.get("players", []):
+			if str(player.get("player_id", "")) == boss_id:
+				player["health"] = boss_health
+				break
+	_hydrate_match_cards(match_state, card_by_id)
+	# Inject relic support card into boss's support zone
+	var relic: Variant = boss_config.get("relic", null)
+	if relic != null:
+		var BossRelicSystem := preload("res://src/arena/boss_relic_system.gd")
+		var relic_template := BossRelicSystem.get_relic_card_template(relic)
+		var relic_card := MatchMutations.build_generated_card(match_state, boss_id, relic_template)
+		relic_card["zone"] = "support"
+		PersistentCardRules.refresh_support_for_controller_turn(relic_card)
+		for player in match_state.get("players", []):
+			if str(player.get("player_id", "")) == boss_id:
+				player["support"].append(relic_card)
+				break
+	# Inject starting creatures (Ebony City Gates, Malachite Guards)
+	var starting_creatures: Array = boss_config.get("starting_creatures", [])
+	var lanes: Array = match_state.get("lanes", [])
+	for creature_template in starting_creatures:
+		var lane_index := int(creature_template.get("lane_index", 0))
+		if lane_index < 0 or lane_index >= lanes.size():
+			continue
+		var template := creature_template.duplicate(true)
+		template.erase("lane_index")
+		var creature := MatchMutations.build_generated_card(match_state, boss_id, template)
+		var lane_id := str(lanes[lane_index].get("lane_id", ""))
+		MatchMutations.summon_card_to_lane(match_state, boss_id, creature, lane_id, {"apply_shadow_cover": false})
+	# Apply AI mulligan immediately (invisible to player)
+	var ai_discard_ids := HeuristicMatchPolicy.choose_mulligan(match_state, boss_id)
+	MatchBootstrap.apply_mulligan(match_state, boss_id, ai_discard_ids)
+	_hydrate_match_cards(match_state, card_by_id)
+	_match_state = match_state
+	_mulligan_card_by_id = card_by_id
+	_ai_enabled = false
+	_scenario_id = LOCAL_MATCH_AI_SCENARIO_ID
+	_selected_instance_id = ""
+	_last_turn_owner_id = ""
+	_floating_card_ids.clear()
+	_turn_banner_until_ms = 0
+	_clear_pile_selection()
+	_status_message = "Choose cards to replace."
+	_refresh_ui()
+	_show_mulligan_overlay()
+	return true
+
+
 static func _hydrate_match_cards(match_state: Dictionary, card_by_id: Dictionary) -> void:
 	for player in match_state.get("players", []):
 		for zone_key in ["deck", "hand"]:
