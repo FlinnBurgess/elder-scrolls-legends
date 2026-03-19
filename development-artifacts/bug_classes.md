@@ -30,6 +30,11 @@ Card has a `triggered_abilities` entry with an `op` value that doesn't exist in 
 Example: Winterhold Illusionist (`banish_and_return_end_of_turn`)
 How to spot: User reports a card "doesn't do anything" despite having rules text and triggered abilities. Grep the op name from the card's triggered_abilities against `match_timing.gd` and `extended_mechanic_packs.gd` to see if it's handled.
 
+## Wrong trigger family — ongoing trigger instead of conditional summon
+Card has a `triggered_abilities` entry with an ongoing family (e.g., `on_friendly_summon`) when the correct effect is a one-time conditional summon. The card fires repeatedly on every matching summon instead of once on entry with a board-state check.
+Example: Shadowscale Partisan (was `on_friendly_summon` + `required_summon_keyword`, should be `summon` + `required_keyword_on_board`)
+How to spot: User reports a card gaining stats every time they play a creature with a keyword, when the card text says "Summon: +X/+Y if you have another creature with [keyword]". Check if the trigger family is `summon` (one-time) vs `on_friendly_summon` (ongoing).
+
 ## Trigger role mismatch on event field names
 The `_matches_trigger_role` function checks `event.get("player_id")` / `event.get("playing_player_id")` for the "controller" and "opponent_player" roles, but some event types (e.g. `creature_destroyed`) use `controller_player_id` instead. This causes triggers with those match roles to silently never fire for those event types.
 Example: Stormcloak Camp, Necromancer's Amulet, Grim Champion, General Tullius (all `on_friendly_death` family)

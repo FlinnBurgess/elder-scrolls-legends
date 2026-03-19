@@ -144,6 +144,12 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 		var trigger_source_id := str(trigger.get("source_instance_id", ""))
 		if not _has_friendly_with_subtype(match_state, str(trigger.get("controller_player_id", "")), required_board_subtype, trigger_source_id):
 			return false
+	# Keyword on board condition (e.g., "if you have another creature with Lethal")
+	var required_board_keyword := str(descriptor.get("required_keyword_on_board", ""))
+	if not required_board_keyword.is_empty():
+		var trigger_source_id := str(trigger.get("source_instance_id", ""))
+		if not _has_other_friendly_with_keyword(match_state, str(trigger.get("controller_player_id", "")), required_board_keyword, trigger_source_id):
+			return false
 	# Wounded enemy in lane condition
 	if bool(descriptor.get("required_wounded_enemy_in_lane", false)):
 		if not _has_wounded_enemy_in_lane(match_state, trigger):
@@ -986,6 +992,20 @@ static func _has_friendly_with_subtype(match_state: Dictionary, player_id: Strin
 			if str(card.get("instance_id", "")) == exclude_instance_id:
 				continue
 			if _card_has_string(card, "subtypes", subtype):
+				return true
+	return false
+
+
+static func _has_other_friendly_with_keyword(match_state: Dictionary, player_id: String, keyword_id: String, exclude_instance_id: String) -> bool:
+	for lane in match_state.get("lanes", []):
+		var player_slots: Dictionary = lane.get("player_slots", {})
+		var slots: Array = player_slots.get(player_id, [])
+		for card in slots:
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			if str(card.get("instance_id", "")) == exclude_instance_id:
+				continue
+			if EvergreenRules.has_keyword(card, keyword_id):
 				return true
 	return false
 
