@@ -269,11 +269,16 @@ func _refresh_options() -> void:
 	var card_width := card_height / CARD_ASPECT_RATIO
 
 	for card in _pick_options:
+		var option_column := VBoxContainer.new()
+		option_column.add_theme_constant_override("separation", 6)
+		option_column.alignment = BoxContainer.ALIGNMENT_CENTER
+		_options_container.add_child(option_column)
+
 		var wrapper := Control.new()
 		wrapper.custom_minimum_size = Vector2(card_width, card_height)
 		wrapper.mouse_filter = Control.MOUSE_FILTER_STOP
 		wrapper.gui_input.connect(_on_option_input.bind(card))
-		_options_container.add_child(wrapper)
+		option_column.add_child(wrapper)
 
 		var card_display := CardDisplayComponentClass.new()
 		card_display.apply_card(card, CardDisplayComponentClass.PRESENTATION_FULL)
@@ -283,6 +288,17 @@ func _refresh_options() -> void:
 		wrapper.add_child(card_display)
 		card_display.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		_option_displays.append(card_display)
+
+		var in_deck_count := _get_card_count_in_deck(str(card.get("card_id", "")))
+		var in_deck_label := Label.new()
+		in_deck_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		if in_deck_count > 0:
+			in_deck_label.text = "%d in deck" % in_deck_count
+			in_deck_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.6, 1.0))
+		else:
+			in_deck_label.text = ""
+		in_deck_label.add_theme_font_size_override("font_size", 16)
+		option_column.add_child(in_deck_label)
 
 
 func _refresh_deck_card_list() -> void:
@@ -490,6 +506,13 @@ func _clear_deck_hover_preview() -> void:
 
 
 # --- Helpers ---
+
+func _get_card_count_in_deck(card_id: String) -> int:
+	for entry in _deck:
+		if str(entry.get("card_id", "")) == card_id:
+			return int(entry.get("quantity", 0))
+	return 0
+
 
 func _clear_children(node: Node) -> void:
 	for child in node.get_children():
