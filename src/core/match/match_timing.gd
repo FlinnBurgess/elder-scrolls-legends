@@ -1757,6 +1757,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				var filter_max_cost := int(effect.get("max_cost", -1))
 				var filter_card_type := str(effect.get("required_card_type", ""))
 				var filter_subtype := str(effect.get("required_subtype", ""))
+				var filter_rules_tag := str(effect.get("required_rules_tag", ""))
 				for player_id in _resolve_player_targets(match_state, trigger, event, effect):
 					var draw_player := _get_player_state(match_state, player_id)
 					if draw_player.is_empty():
@@ -1774,6 +1775,10 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						if not filter_subtype.is_empty():
 							var subtypes = deck_card.get("subtypes", [])
 							if typeof(subtypes) != TYPE_ARRAY or not subtypes.has(filter_subtype):
+								continue
+						if not filter_rules_tag.is_empty():
+							var deck_card_tags = deck_card.get("rules_tags", [])
+							if typeof(deck_card_tags) != TYPE_ARRAY or not deck_card_tags.has(filter_rules_tag):
 								continue
 						candidates.append(deck_index)
 					if candidates.is_empty():
