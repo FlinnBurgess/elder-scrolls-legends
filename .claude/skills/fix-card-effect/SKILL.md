@@ -124,6 +124,7 @@ Format each entry as:
 ## <Bug Class Name>
 <One-line description of what goes wrong and why>
 Example: <card name that exhibited this bug>
+How to spot: <describe symptoms a user might report and/or patterns to search for in the catalog to find other affected cards>
 ```
 
 ## Step 6: Update Tracking
