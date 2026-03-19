@@ -253,7 +253,7 @@ static func move_card_to_zone(match_state: Dictionary, instance_id: String, zone
 	card["zone"] = zone_name
 	_clear_lane_state(card)
 	_clear_attachment_state(card)
-	if zone_name == ZONE_DISCARD or zone_name == ZONE_BANISHED:
+	if zone_name == ZONE_HAND or zone_name == ZONE_DISCARD or zone_name == ZONE_BANISHED:
 		reset_transient_state(card)
 	return {
 		"is_valid": true,
