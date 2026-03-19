@@ -1709,6 +1709,23 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					var banish_result := MatchMutations.banish_card(match_state, str(card.get("instance_id", "")))
 					generated_events.append_array(banish_result.get("events", []))
+			"banish_and_return_end_of_turn":
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var bar_controller_id := str(card.get("controller_player_id", card.get("owner_player_id", "")))
+					var bar_location := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
+					var bar_lane_id := str(bar_location.get("lane_id", ""))
+					var bar_snapshot: Dictionary = card.duplicate(true)
+					var bar_result := MatchMutations.banish_card(match_state, str(card.get("instance_id", "")))
+					generated_events.append_array(bar_result.get("events", []))
+					if bool(bar_result.get("is_valid", false)):
+						var pending: Array = match_state.get("pending_eot_returns", [])
+						pending.append({
+							"card_snapshot": bar_snapshot,
+							"controller_player_id": bar_controller_id,
+							"lane_id": bar_lane_id,
+							"turn_number": int(match_state.get("turn_number", 0)),
+						})
+						match_state["pending_eot_returns"] = pending
 			"unsummon":
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					var unsummon_result := MatchMutations.unsummon_card(match_state, str(card.get("instance_id", "")))
@@ -2929,6 +2946,51 @@ static func _append_replay_entry(match_state: Dictionary, entry: Dictionary) -> 
 	var replay_log: Array = match_state.get("replay_log", [])
 	replay_log.append(entry.duplicate(true))
 	match_state["replay_log"] = replay_log
+
+
+static func process_end_of_turn_returns(match_state: Dictionary, turn_number: int) -> void:
+	var pending: Array = match_state.get("pending_eot_returns", [])
+	if pending.is_empty():
+		return
+	var remaining: Array = []
+	var events: Array = []
+	for entry in pending:
+		if int(entry.get("turn_number", -1)) != turn_number:
+			remaining.append(entry)
+			continue
+		var snapshot: Dictionary = entry.get("card_snapshot", {})
+		var controller_id := str(entry.get("controller_player_id", ""))
+		var lane_id := str(entry.get("lane_id", ""))
+		if snapshot.is_empty() or controller_id.is_empty() or lane_id.is_empty():
+			continue
+		var template := {
+			"definition_id": str(snapshot.get("definition_id", "")),
+			"name": str(snapshot.get("name", "")),
+			"card_type": str(snapshot.get("card_type", "creature")),
+			"subtypes": snapshot.get("subtypes", []),
+			"attributes": snapshot.get("attributes", []),
+			"cost": int(snapshot.get("cost", 0)),
+			"power": int(snapshot.get("base_power", snapshot.get("power", 0))),
+			"health": int(snapshot.get("base_health", snapshot.get("health", 0))),
+			"base_power": int(snapshot.get("base_power", 0)),
+			"base_health": int(snapshot.get("base_health", 0)),
+			"keywords": snapshot.get("keywords", []),
+			"rules_text": str(snapshot.get("rules_text", "")),
+		}
+		if snapshot.has("triggered_abilities"):
+			template["triggered_abilities"] = snapshot["triggered_abilities"]
+		if snapshot.has("aura"):
+			template["aura"] = snapshot["aura"]
+		var generated_card := MatchMutations.build_generated_card(match_state, controller_id, template)
+		var summon_result := MatchMutations.summon_card_to_lane(match_state, controller_id, generated_card, lane_id, {
+			"source_zone": MatchMutations.ZONE_GENERATED,
+		})
+		if bool(summon_result.get("is_valid", false)):
+			events.append_array(summon_result.get("events", []))
+			events.append(_build_summon_event(summon_result["card"], controller_id, lane_id, int(summon_result.get("slot_index", -1)), "end_of_turn_return"))
+	match_state["pending_eot_returns"] = remaining
+	if not events.is_empty():
+		publish_events(match_state, events)
 
 
 static func _event_subject_instance_id(event: Dictionary) -> String:

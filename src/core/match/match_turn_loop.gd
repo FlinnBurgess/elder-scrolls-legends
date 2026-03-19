@@ -32,6 +32,7 @@ static func end_turn(match_state: Dictionary, player_id: String) -> Dictionary:
 		"turn_number": int(match_state.get("turn_number", 0)),
 		"source_controller_player_id": player_id,
 	}])
+	MatchTiming.process_end_of_turn_returns(match_state, int(match_state.get("turn_number", 0)))
 
 	var player := _get_player_state(match_state, player_id)
 	ExtendedMechanicPacks.toggle_wax_wane(player)
