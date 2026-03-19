@@ -44,6 +44,13 @@ var _deck_card_list_scroll: ScrollContainer
 var _deck_card_list_container: VBoxContainer
 var _magicka_curve_chart: Control
 var _card_count_label: Label
+var _card_hover_preview_layer: Control
+var _hover_preview_card_id := ""
+var _hover_preview_node: Control
+var _hover_pending_card_id := ""
+var _hover_pending_row: Control
+var _hover_pending_entry: Dictionary
+var _hover_delay_timer: Timer
 
 
 func _ready() -> void:
@@ -159,6 +166,19 @@ func _build_ui() -> void:
 	_right_column.add_theme_constant_override("separation", 12)
 	_root_split.add_child(_right_column)
 
+	# Card hover preview layer (overlay on top of everything)
+	_card_hover_preview_layer = Control.new()
+	_card_hover_preview_layer.name = "CardHoverPreviewLayer"
+	_card_hover_preview_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_card_hover_preview_layer.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	add_child(_card_hover_preview_layer)
+
+	_hover_delay_timer = Timer.new()
+	_hover_delay_timer.one_shot = true
+	_hover_delay_timer.wait_time = 0.35
+	_hover_delay_timer.timeout.connect(_on_hover_delay_timeout)
+	add_child(_hover_delay_timer)
+
 	# Deck header
 	var deck_header := Label.new()
 	deck_header.text = "Deck"
@@ -265,25 +285,28 @@ func _refresh_deck_card_list() -> void:
 func _build_deck_card_row(entry: Dictionary) -> Control:
 	var row := HBoxContainer.new()
 	row.size_flags_horizontal = SIZE_EXPAND_FILL
-	row.custom_minimum_size = Vector2(0, 32)
+	row.custom_minimum_size = Vector2(0, 40)
 	row.add_theme_constant_override("separation", 8)
+	row.mouse_filter = Control.MOUSE_FILTER_STOP
+	row.mouse_entered.connect(_on_deck_row_mouse_entered.bind(row, entry))
+	row.mouse_exited.connect(_on_deck_row_mouse_exited.bind(entry))
 
 	# Cost badge
 	var cost_badge := PanelContainer.new()
 	var badge_style := StyleBoxFlat.new()
-	badge_style.set_corner_radius_all(14)
+	badge_style.set_corner_radius_all(16)
 	badge_style.set_content_margin_all(0)
-	badge_style.content_margin_left = 8
-	badge_style.content_margin_right = 8
-	badge_style.content_margin_top = 4
-	badge_style.content_margin_bottom = 4
+	badge_style.content_margin_left = 10
+	badge_style.content_margin_right = 10
+	badge_style.content_margin_top = 5
+	badge_style.content_margin_bottom = 5
 	var cost_color := _get_card_cost_badge_color(entry.get("attributes", []))
 	badge_style.bg_color = cost_color
 	cost_badge.add_theme_stylebox_override("panel", badge_style)
-	cost_badge.custom_minimum_size = Vector2(32, 28)
+	cost_badge.custom_minimum_size = Vector2(36, 32)
 	var cost_label := Label.new()
 	cost_label.text = str(entry["cost"])
-	cost_label.add_theme_font_size_override("font_size", 14)
+	cost_label.add_theme_font_size_override("font_size", 16)
 	cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cost_badge.add_child(cost_label)
 	row.add_child(cost_badge)
@@ -292,14 +315,14 @@ func _build_deck_card_row(entry: Dictionary) -> Control:
 	var name_label := Label.new()
 	name_label.text = str(entry["name"])
 	name_label.size_flags_horizontal = SIZE_EXPAND_FILL
-	name_label.add_theme_font_size_override("font_size", 15)
+	name_label.add_theme_font_size_override("font_size", 17)
 	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	row.add_child(name_label)
 
 	# Quantity indicator
 	var qty_label := Label.new()
 	qty_label.text = "x%d" % entry["quantity"]
-	qty_label.add_theme_font_size_override("font_size", 14)
+	qty_label.add_theme_font_size_override("font_size", 16)
 	qty_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 1.0))
 	row.add_child(qty_label)
 
@@ -354,13 +377,79 @@ func _on_option_input(event: InputEvent, card: Dictionary) -> void:
 func _on_root_split_resized() -> void:
 	if _root_split == null or _root_split.size.x <= 0:
 		return
-	# Right column takes ~30% of width
-	var target := -int(_root_split.size.x * 0.2)
+	# Right column takes ~20% of width (positive offset pushes divider right)
+	var target := int(_root_split.size.x * 0.3)
 	if _root_split.split_offset == target:
 		return
 	_root_split.resized.disconnect(_on_root_split_resized)
 	_root_split.split_offset = target
 	_root_split.resized.connect(_on_root_split_resized)
+
+
+# --- Deck Row Hover Preview ---
+
+func _on_deck_row_mouse_entered(row: Control, entry: Dictionary) -> void:
+	var card_id: String = str(entry.get("card_id", ""))
+	if card_id.is_empty():
+		return
+	_clear_deck_hover_preview()
+	_hover_pending_card_id = card_id
+	_hover_pending_row = row
+	_hover_pending_entry = entry
+	_hover_delay_timer.start()
+
+
+func _on_deck_row_mouse_exited(_entry: Dictionary) -> void:
+	_hover_pending_card_id = ""
+	_hover_pending_row = null
+	_hover_pending_entry = {}
+	_hover_delay_timer.stop()
+	_clear_deck_hover_preview()
+
+
+func _on_hover_delay_timeout() -> void:
+	if _hover_pending_card_id.is_empty() or _hover_pending_row == null:
+		return
+	_show_deck_hover_preview(_hover_pending_row, _hover_pending_card_id)
+
+
+func _show_deck_hover_preview(row: Control, card_id: String) -> void:
+	_clear_deck_hover_preview()
+	var card: Dictionary = _card_database.get(card_id, {})
+	if card.is_empty():
+		return
+	_hover_preview_card_id = card_id
+	var preview_height := 384.0
+	var preview_width := preview_height / CARD_ASPECT_RATIO
+	var preview_size := Vector2(preview_width, preview_height)
+	var wrapper := Control.new()
+	wrapper.custom_minimum_size = preview_size
+	wrapper.size = preview_size
+	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var component := CardDisplayComponentClass.new()
+	component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	component.set_interactive(false)
+	component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	component.apply_card(card, CardDisplayComponentClass.PRESENTATION_FULL)
+	wrapper.add_child(component)
+	_card_hover_preview_layer.add_child(wrapper)
+	_hover_preview_node = wrapper
+	# Position to the left of the right column
+	var row_rect := row.get_global_rect()
+	var layer_origin := _card_hover_preview_layer.get_global_rect().position
+	var target_x := row_rect.position.x - preview_size.x - 12.0 - layer_origin.x
+	var target_y := row_rect.get_center().y - preview_size.y * 0.5 - layer_origin.y
+	target_y = clampf(target_y, 0.0, maxf(_card_hover_preview_layer.size.y - preview_size.y, 0.0))
+	target_x = maxf(target_x, 0.0)
+	wrapper.position = Vector2(target_x, target_y)
+
+
+func _clear_deck_hover_preview() -> void:
+	_hover_preview_card_id = ""
+	if _hover_preview_node != null and is_instance_valid(_hover_preview_node):
+		_hover_preview_node.get_parent().remove_child(_hover_preview_node)
+		_hover_preview_node.queue_free()
+	_hover_preview_node = null
 
 
 # --- Helpers ---
