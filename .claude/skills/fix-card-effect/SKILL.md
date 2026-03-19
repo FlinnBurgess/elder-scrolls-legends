@@ -48,6 +48,7 @@ Cards with active effects (Summon, Last Gasp, Slay, start/end of turn, on play, 
 - `draw_cards` — `{op, target_player, count}`
 - `damage` — handled via `ExtendedMechanicPacks.apply_custom_effect()`
 - `heal` — handled via `ExtendedMechanicPacks.apply_custom_effect()`
+- `gain_magicka` — `{op, amount}` — adds to `temporary_magicka`; handled via `ExtendedMechanicPacks.apply_custom_effect()`
 - `summon_from_effect` — `{op, card_template, lane_id (optional)}`
 - `summon_copies_to_lane` — `{op, card_template, count OR fill_lane: true}`
 - `silence` — `{op, target}`
@@ -83,6 +84,7 @@ Cards with active effects (Summon, Last Gasp, Slay, start/end of turn, on play, 
 4. **Wrong trigger family** — e.g., using `summon` instead of `on_play` for an action card.
 5. **Hydration not passing field** — New fields added to the catalog but not copied in `match_screen._hydrate_card()`.
 6. **Missing `duration` on "this turn" effects** — `modify_stats` and `grant_keyword` ops are permanent by default. Cards with "this turn" in `rules_text` need `"duration": "end_of_turn"` on the effect descriptor.
+7. **Effect op writes to wrong state field** — The op handler exists and fires, but mutates a non-existent or wrong field on the player/card state dictionary. GDScript silently creates new dict keys on assignment, so the value is stored but never read by the rest of the engine. The effect appears to do nothing.
 
 ### Key Files to Investigate
 

@@ -65,6 +65,11 @@ A trigger descriptor includes a condition field (e.g. `required_played_rules_tag
 Example: Innkeeper Delphine, Ulfric Stormcloak, Young Dragonborn (`required_played_rules_tag: "shout"` was ignored — all actions triggered the effect)
 How to spot: User reports a reactive trigger firing in response to the wrong event (e.g., any action instead of only Shouts). Check if the condition key from the descriptor is actually evaluated in `_matches_trigger_role` in `match_timing.gd`, and if the event contains the data needed for the check.
 
+## Effect writes to non-existent player state field
+An effect operation writes to a player state field name that doesn't exist (e.g., `"magicka"` instead of `"temporary_magicka"`). Because GDScript dictionaries silently create new keys on assignment, the value is stored but never read by the rest of the engine, so the effect appears to do nothing.
+Example: Palace Prowler, Torval Crook, Brynjolf (`gain_magicka` op wrote to `player["magicka"]` instead of `player["temporary_magicka"]`)
+How to spot: User reports a resource-gain effect (magicka, health, etc.) not working. Check if the field name written in the effect handler matches the field name read by the engine's getter/spending functions (e.g., `get_available_magicka` reads `current_magicka` + `temporary_magicka`).
+
 ## Trigger role mismatch on event field names
 The `_matches_trigger_role` function checks `event.get("player_id")` / `event.get("playing_player_id")` for the "controller" and "opponent_player" roles, but some event types use different field names: `creature_destroyed` uses `controller_player_id`, and `damage_resolved` uses `source_controller_player_id`. This causes triggers with those match roles to silently never fire for those event types.
 Example: Stormcloak Camp, Necromancer's Amulet, Grim Champion, General Tullius (all `on_friendly_death` family); Helgen Squad Leader (`on_attack` family with `match_role: "controller"`)

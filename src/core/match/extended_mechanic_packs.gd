@@ -334,7 +334,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			if gm_player.is_empty():
 				return {"handled": true, "events": []}
 			var gm_amount := int(effect.get("amount", 0))
-			gm_player["magicka"] = int(gm_player.get("magicka", 0)) + gm_amount
+			gm_player["temporary_magicka"] = int(gm_player.get("temporary_magicka", 0)) + gm_amount
 			return {"handled": true, "events": [{
 				"event_type": "magicka_gained",
 				"source_instance_id": str(trigger.get("source_instance_id", "")),
