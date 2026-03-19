@@ -169,29 +169,32 @@ func _build_ui() -> void:
 	_root_split.resized.connect(_on_root_split_resized)
 	outer_margin.add_child(_root_split)
 
-	# Left column — pick counter + card options
+	# Left column — pick counter + card options (vertically centered together)
 	_left_column = VBoxContainer.new()
 	_left_column.size_flags_horizontal = SIZE_EXPAND_FILL
 	_left_column.size_flags_vertical = SIZE_EXPAND_FILL
-	_left_column.add_theme_constant_override("separation", 16)
 	_root_split.add_child(_left_column)
 
-	_pick_counter_label = Label.new()
-	_pick_counter_label.text = "Pick 0 of 30"
-	_pick_counter_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_pick_counter_label.add_theme_font_size_override("font_size", 22)
-	_left_column.add_child(_pick_counter_label)
-
-	# Card options displayed in a centered horizontal row
 	var options_center := CenterContainer.new()
 	options_center.size_flags_horizontal = SIZE_EXPAND_FILL
 	options_center.size_flags_vertical = SIZE_EXPAND_FILL
 	_left_column.add_child(options_center)
 
+	var pick_group := VBoxContainer.new()
+	pick_group.add_theme_constant_override("separation", 16)
+	options_center.add_child(pick_group)
+
+	_pick_counter_label = Label.new()
+	_pick_counter_label.text = "Pick 0 of 30"
+	_pick_counter_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_pick_counter_label.add_theme_font_size_override("font_size", 28)
+	pick_group.add_child(_pick_counter_label)
+
+	# Card options displayed in a centered horizontal row
 	_options_container = HBoxContainer.new()
 	_options_container.add_theme_constant_override("separation", 16)
 	_options_container.alignment = BoxContainer.ALIGNMENT_CENTER
-	options_center.add_child(_options_container)
+	pick_group.add_child(_options_container)
 
 	# Right column — deck list + magicka curve + card count
 	_right_column = VBoxContainer.new()
@@ -398,7 +401,7 @@ func _compute_option_card_height() -> float:
 	if _left_column != null and _left_column.size.y > 0:
 		# Leave room for pick counter and spacing
 		available_height = maxf(300.0, _left_column.size.y - 80.0)
-	return minf(available_height, 500.0)
+	return minf(available_height, 500.0) * 1.2
 
 
 # --- Signal Handlers ---
