@@ -179,6 +179,7 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int 
 	var ai_discard_ids := HeuristicMatchPolicy.choose_mulligan(match_state, ai_id)
 	MatchBootstrap.apply_mulligan(match_state, ai_id, ai_discard_ids)
 	_hydrate_match_cards(match_state, card_by_id)
+	GameLogger.start_match(match_state)
 	# Store state but don't start the turn yet - wait for player mulligan
 	_match_state = match_state
 	_mulligan_card_by_id = card_by_id
@@ -259,6 +260,7 @@ func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_confi
 	var ai_discard_ids := HeuristicMatchPolicy.choose_mulligan(match_state, boss_id)
 	MatchBootstrap.apply_mulligan(match_state, boss_id, ai_discard_ids)
 	_hydrate_match_cards(match_state, card_by_id)
+	GameLogger.start_match(match_state)
 	_match_state = match_state
 	_mulligan_card_by_id = card_by_id
 	_ai_enabled = false
@@ -359,6 +361,7 @@ func resume_from_state(saved_state: Dictionary) -> void:
 	var catalog_result := CardCatalog.load_default()
 	var card_by_id: Dictionary = catalog_result.get("card_by_id", {})
 	_hydrate_all_zones(saved_state, card_by_id)
+	GameLogger.start_match(saved_state)
 	_match_state = saved_state
 	_scenario_id = LOCAL_MATCH_AI_SCENARIO_ID
 	_selected_instance_id = ""

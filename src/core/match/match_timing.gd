@@ -2652,7 +2652,11 @@ static func _resume_pending_rune_breaks(match_state: Dictionary) -> Dictionary:
 			continue
 		var threshold := int(entry.get("threshold", -1))
 		var thresholds: Array = player.get("rune_thresholds", [])
-		var threshold_index := thresholds.find(threshold)
+		var threshold_index := -1
+		for i in range(thresholds.size()):
+			if int(thresholds[i]) == threshold:
+				threshold_index = i
+				break
 		if threshold_index == -1:
 			continue
 		thresholds.remove_at(threshold_index)
