@@ -456,8 +456,11 @@ func _execute_local_match_ai_step() -> Dictionary:
 	if not _prophecy_overlay_state.is_empty() and not bool(_prophecy_overlay_state.get("is_local", true)):
 		_animate_enemy_prophecy_resolution(action, result)
 	else:
-		if str(action.get("kind", "")) == MatchActionEnumerator.KIND_PLAY_ACTION and str(action.get("player_id", "")) != _local_player_id():
+		var is_enemy := str(action.get("kind", "")) != "" and str(action.get("player_id", "")) != _local_player_id()
+		if is_enemy and str(action.get("kind", "")) == MatchActionEnumerator.KIND_PLAY_ACTION:
 			_animate_enemy_spell_reveal(action, result)
+		elif is_enemy and str(action.get("kind", "")) == MatchActionEnumerator.KIND_SUMMON_CREATURE and _has_summon_target(action):
+			_animate_enemy_creature_summon_reveal(action, result)
 		else:
 			_refresh_ui()
 	return {
@@ -2053,6 +2056,82 @@ func _animate_enemy_spell_reveal(action: Dictionary, _result: Dictionary) -> voi
 		if target_kind == "card":
 			var target_id := str(target.get("instance_id", ""))
 			var button: Button = _card_buttons.get(target_id)
+			if button != null and is_instance_valid(button):
+				var arrow := Line2D.new()
+				arrow.width = 3.0
+				arrow.default_color = Color(1.0, 0.85, 0.3, 0.95)
+				arrow.z_index = 500
+				_prophecy_card_overlay.add_child(arrow)
+				_spell_reveal_state["arrow"] = arrow
+				var arrow_start := card_back.global_position + Vector2(card_size.x * 0.5, card_size.y)
+				var target_card_size: Vector2 = button.get_meta("card_size", button.size)
+				var arrow_end := button.global_position + Vector2(target_card_size.x * 0.5, 0.0)
+				var arrow_tween := create_tween()
+				arrow_tween.tween_method(func(progress: float):
+					_draw_spell_reveal_arrow_partial(progress, arrow, arrow_start, arrow_end)
+				, 0.0, 1.0, 0.3)
+				arrow_tween.tween_interval(0.3)
+				arrow_tween.tween_callback(func():
+					_dismiss_spell_reveal()
+					_refresh_ui()
+				)
+				return
+		_dismiss_spell_reveal()
+		_refresh_ui()
+	)
+
+
+static func _has_summon_target(action: Dictionary) -> bool:
+	var params: Dictionary = action.get("parameters", {})
+	return not str(params.get("summon_target_instance_id", "")).is_empty() or not str(params.get("summon_target_player_id", "")).is_empty()
+
+
+func _animate_enemy_creature_summon_reveal(action: Dictionary, _result: Dictionary) -> void:
+	var source_card: Dictionary = action.get("source_card", {})
+	if source_card.is_empty():
+		_refresh_ui()
+		return
+
+	var params: Dictionary = action.get("parameters", {})
+	var summon_target_id := str(params.get("summon_target_instance_id", ""))
+
+	var card_size := _hand_card_display_size()
+	var viewport_size := get_viewport_rect().size
+
+	var card_back := PanelContainer.new()
+	card_back.name = "summon_reveal_card_back"
+	card_back.custom_minimum_size = card_size
+	card_back.size = card_size
+	_apply_panel_style(card_back, Color(0.35, 0.22, 0.12, 0.98), Color(0.57, 0.44, 0.27, 0.92), 2, 0)
+
+	var pos_x := (viewport_size.x - card_size.x) * 0.5
+	var pos_y := viewport_size.y * 0.10 + 12.0
+	card_back.position = Vector2(pos_x, pos_y)
+
+	_prophecy_card_overlay.add_child(card_back)
+	_spell_reveal_state = {
+		"card_back": card_back,
+		"phase": "animating",
+	}
+
+	card_back.pivot_offset = Vector2(card_back.size.x * 0.5, card_back.size.y * 0.5)
+	var tween := create_tween()
+	tween.tween_property(card_back, "scale:x", 0.0, 0.2)
+	tween.tween_callback(func():
+		for child in card_back.get_children():
+			child.queue_free()
+		if not source_card.is_empty():
+			var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+			component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+			component.apply_card(source_card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+			card_back.add_child(component)
+	)
+	tween.tween_property(card_back, "scale:x", 1.0, 0.2)
+	tween.tween_interval(1.0)
+	tween.tween_callback(func():
+		if not summon_target_id.is_empty():
+			var button: Button = _card_buttons.get(summon_target_id)
 			if button != null and is_instance_valid(button):
 				var arrow := Line2D.new()
 				arrow.width = 3.0
