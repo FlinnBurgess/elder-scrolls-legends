@@ -227,7 +227,7 @@ static func _resolve_creature_attack(match_state: Dictionary, validation: Dictio
 			events.append_array(applied_breakthrough_result.get("events", []))
 			_set_winner_if_needed(match_state, str(validation.get("defending_player_id", "")), str(attacker.get("controller_player_id", "")), events)
 
-	var total_drain := _resolve_drain(match_state, attacker, applied_to_defender + breakthrough_damage, events)
+	var total_drain := _resolve_drain(match_state, attacker, applied_to_defender, events)
 	if defender_destroyed:
 		_destroy_creature(match_state, validation["defender_lookup"], str(attacker.get("instance_id", "")), events)
 	if attacker_destroyed:

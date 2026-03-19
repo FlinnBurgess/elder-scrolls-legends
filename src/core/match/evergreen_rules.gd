@@ -181,8 +181,10 @@ static func apply_damage_to_creature(card: Dictionary, amount: int) -> Dictionar
 			"ward_removed": true,
 			"remaining_health": get_remaining_health(card),
 		}
-	var applied := mini(requested, get_remaining_health(card))
-	card["damage_marked"] = int(card.get("damage_marked", 0)) + applied
+	var remaining := get_remaining_health(card)
+	var marked := mini(requested, remaining)
+	card["damage_marked"] = int(card.get("damage_marked", 0)) + marked
+	var applied := requested
 	_sync_wounded_status(card)
 	return {
 		"applied": applied,
