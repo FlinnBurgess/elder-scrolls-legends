@@ -3311,6 +3311,13 @@ func _on_card_pressed(instance_id: String) -> void:
 	if board_mode == SELECTION_MODE_ATTACK or (board_mode == SELECTION_MODE_SUPPORT and _selected_support_uses_card_targets(board_card)):
 		_enter_targeting_mode(instance_id)
 		return
+	# Supports without card targets activate immediately on click
+	if board_mode == SELECTION_MODE_SUPPORT and not _selected_support_uses_card_targets(board_card):
+		_selected_instance_id = instance_id
+		var result := play_or_activate_selected()
+		if not bool(result.get("is_valid", false)):
+			_report_invalid_interaction(str(result.get("message", "Cannot activate support.")), {"instance_ids": [instance_id]})
+		return
 	# Ignore clicks on cards that cannot act (spent, shackled, enemy cards, etc.)
 	if board_mode == SELECTION_MODE_NONE:
 		return
@@ -3882,7 +3889,20 @@ func _selected_support_uses_card_targets(card: Dictionary) -> bool:
 	if card.is_empty() or _selected_action_mode(card) != SELECTION_MODE_SUPPORT or _is_pending_prophecy_card(card):
 		return false
 	var location := MatchMutations.find_card_location(_match_state, str(card.get("instance_id", "")))
-	return bool(location.get("is_valid", false)) and str(location.get("zone", "")) == MatchMutations.ZONE_SUPPORT
+	if not (bool(location.get("is_valid", false)) and str(location.get("zone", "")) == MatchMutations.ZONE_SUPPORT):
+		return false
+	for trigger in card.get("triggered_abilities", []):
+		if typeof(trigger) != TYPE_DICTIONARY or str(trigger.get("family", "")) != "activate":
+			continue
+		for effect in trigger.get("effects", []):
+			if typeof(effect) != TYPE_DICTIONARY:
+				continue
+			var target := str(effect.get("target", ""))
+			var source_target := str(effect.get("source_target", ""))
+			var consumer_target := str(effect.get("consumer_target", ""))
+			if target == "event_target" or source_target == "event_target" or consumer_target == "event_target":
+				return true
+	return false
 
 
 func _validate_selected_support_play(player_id: String) -> Dictionary:
