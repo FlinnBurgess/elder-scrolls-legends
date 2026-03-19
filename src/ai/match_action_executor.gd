@@ -64,6 +64,10 @@ static func execute_action(match_state: Dictionary, action: Dictionary) -> Dicti
 				result = MatchTiming.play_action_from_hand(match_state, player_id, source_instance_id, parameters)
 		MatchActionEnumerator.KIND_DECLINE_PROPHECY:
 			result = MatchTiming.decline_pending_prophecy(match_state, player_id, source_instance_id)
+		MatchActionEnumerator.KIND_CHOOSE_DISCARD:
+			result = MatchTiming.resolve_pending_discard_choice(match_state, player_id, str(parameters.get("chosen_instance_id", "")))
+		MatchActionEnumerator.KIND_DECLINE_DISCARD:
+			result = MatchTiming.decline_pending_discard_choice(match_state, player_id)
 		_:
 			return {"is_valid": false, "errors": ["Unsupported action kind: %s" % kind], "match_state": match_state}
 	result["match_state"] = match_state

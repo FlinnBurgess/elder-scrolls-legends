@@ -100,6 +100,8 @@ var _prophecy_card_overlay: Control
 var _mulligan_overlay_state := {}
 var _mulligan_marked_ids: Array = []
 var _mulligan_card_by_id: Dictionary = {}
+var _discard_viewer_state := {}
+var _discard_choice_overlay_state := {}
 var _attack_feedbacks: Array = []
 var _damage_feedbacks: Array = []
 var _removal_feedbacks: Array = []
@@ -150,6 +152,8 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int 
 	_cancel_detached_card_silent()
 	_dismiss_mulligan_overlay()
 	_dismiss_prophecy_overlay()
+	_dismiss_discard_viewer()
+	_dismiss_discard_choice_overlay()
 	_dismiss_spell_reveal()
 	_reset_invalid_feedback()
 	_clear_feedback_state()
@@ -200,6 +204,8 @@ func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_confi
 	_cancel_detached_card_silent()
 	_dismiss_mulligan_overlay()
 	_dismiss_prophecy_overlay()
+	_dismiss_discard_viewer()
+	_dismiss_discard_choice_overlay()
 	_dismiss_spell_reveal()
 	_reset_invalid_feedback()
 	_clear_feedback_state()
@@ -353,6 +359,8 @@ func resume_from_state(saved_state: Dictionary) -> void:
 	_cancel_detached_card_silent()
 	_dismiss_mulligan_overlay()
 	_dismiss_prophecy_overlay()
+	_dismiss_discard_viewer()
+	_dismiss_discard_choice_overlay()
 	_dismiss_spell_reveal()
 	_reset_invalid_feedback()
 	_clear_feedback_state()
@@ -490,6 +498,8 @@ func load_scenario(scenario_id: String) -> bool:
 	_cancel_detached_card_silent()
 	_dismiss_mulligan_overlay()
 	_dismiss_prophecy_overlay()
+	_dismiss_discard_viewer()
+	_dismiss_discard_choice_overlay()
 	_dismiss_spell_reveal()
 	_reset_invalid_feedback()
 	_clear_feedback_state()
@@ -656,6 +666,10 @@ func _ai_action_status_message(action: Dictionary) -> String:
 			return "%s resolved %s." % [player_name, source_name]
 		MatchActionEnumerator.KIND_DECLINE_PROPHECY:
 			return "%s declined %s." % [player_name, source_name]
+		MatchActionEnumerator.KIND_CHOOSE_DISCARD:
+			return "%s drew %s from the discard pile." % [player_name, source_name]
+		MatchActionEnumerator.KIND_DECLINE_DISCARD:
+			return "%s had no valid discard choices." % player_name
 		_:
 			return "%s acted." % player_name
 
@@ -1712,6 +1726,7 @@ func _refresh_ui() -> void:
 	_lane_slot_buttons = {}
 	_refresh_turn_presentation()
 	_refresh_prophecy_overlay()
+	_refresh_discard_choice_overlay()
 	_refresh_player_sections()
 	_refresh_lanes()
 	_apply_match_layout_scale()
@@ -2139,6 +2154,251 @@ func _finalize_mulligan(discard_instance_ids: Array) -> void:
 	_refresh_ui()
 	if _arena_mode:
 		match_state_changed.emit(_match_state.duplicate(true))
+
+
+func _show_discard_viewer(player_id: String) -> void:
+	_dismiss_discard_viewer()
+	var player := _player_state(player_id)
+	if player.is_empty():
+		return
+	var discard_pile: Array = player.get("discard", [])
+	if discard_pile.is_empty():
+		_status_message = "%s's discard pile is empty." % _player_name(player_id)
+		_refresh_ui()
+		return
+
+	var overlay := Control.new()
+	overlay.name = "DiscardViewerOverlay"
+	overlay.z_index = 460
+	overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var bg := ColorRect.new()
+	bg.color = Color(0.04, 0.05, 0.07, 0.85)
+	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.add_child(bg)
+
+	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 40)
+	margin.add_theme_constant_override("margin_right", 40)
+	margin.add_theme_constant_override("margin_top", 30)
+	margin.add_theme_constant_override("margin_bottom", 30)
+	margin.mouse_filter = Control.MOUSE_FILTER_PASS
+	overlay.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_BEGIN
+	vbox.add_theme_constant_override("separation", 14)
+	vbox.mouse_filter = Control.MOUSE_FILTER_PASS
+	margin.add_child(vbox)
+
+	var title_label := Label.new()
+	title_label.text = "%s's Discard Pile (%d)" % [_player_name(player_id), discard_pile.size()]
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_label.add_theme_font_size_override("font_size", 24)
+	title_label.add_theme_color_override("font_color", Color(0.92, 0.88, 0.78, 1.0))
+	vbox.add_child(title_label)
+
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = SIZE_EXPAND_FILL
+	scroll.mouse_filter = Control.MOUSE_FILTER_PASS
+	vbox.add_child(scroll)
+
+	var grid := GridContainer.new()
+	grid.columns = maxi(1, int(get_viewport_rect().size.x - 120) / 130)
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	grid.size_flags_horizontal = SIZE_EXPAND_FILL
+	grid.mouse_filter = Control.MOUSE_FILTER_PASS
+	scroll.add_child(grid)
+
+	var card_size := Vector2(120, 168)
+	for card in discard_pile:
+		if typeof(card) != TYPE_DICTIONARY:
+			continue
+		var card_wrapper := PanelContainer.new()
+		card_wrapper.custom_minimum_size = card_size
+		var wrapper_style := StyleBoxFlat.new()
+		wrapper_style.bg_color = Color(0.12, 0.11, 0.14, 0.95)
+		wrapper_style.corner_radius_top_left = 6
+		wrapper_style.corner_radius_top_right = 6
+		wrapper_style.corner_radius_bottom_left = 6
+		wrapper_style.corner_radius_bottom_right = 6
+		card_wrapper.add_theme_stylebox_override("panel", wrapper_style)
+
+		var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+		component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+		card_wrapper.add_child(component)
+		grid.add_child(card_wrapper)
+
+	var close_button := Button.new()
+	close_button.text = "Close"
+	close_button.custom_minimum_size = Vector2(160, 44)
+	close_button.add_theme_font_size_override("font_size", 18)
+	_apply_button_style(close_button, Color(0.2, 0.12, 0.16, 0.98), Color(0.58, 0.32, 0.39, 0.94), Color(0.97, 0.92, 0.94, 1.0), 1, 10)
+	close_button.pressed.connect(_dismiss_discard_viewer)
+	close_button.size_flags_horizontal = SIZE_SHRINK_CENTER
+	vbox.add_child(close_button)
+
+	add_child(overlay)
+	_discard_viewer_state = {"overlay": overlay}
+	_status_message = "Viewing %s's discard pile." % _player_name(player_id)
+
+
+func _dismiss_discard_viewer() -> void:
+	if _discard_viewer_state.is_empty():
+		return
+	var overlay: Control = _discard_viewer_state.get("overlay")
+	if overlay != null and is_instance_valid(overlay):
+		overlay.queue_free()
+	_discard_viewer_state = {}
+
+
+func _has_local_pending_discard_choice() -> bool:
+	return MatchTiming.has_pending_discard_choice(_match_state, _local_player_id())
+
+
+func _refresh_discard_choice_overlay() -> void:
+	var has_choice := _has_local_pending_discard_choice()
+	var overlay_active := not _discard_choice_overlay_state.is_empty()
+	if has_choice and not overlay_active:
+		_show_discard_choice_overlay()
+	elif not has_choice and overlay_active:
+		_dismiss_discard_choice_overlay()
+
+
+func _show_discard_choice_overlay() -> void:
+	_dismiss_discard_choice_overlay()
+	_dismiss_discard_viewer()
+	var local_id := _local_player_id()
+	var choice := MatchTiming.get_pending_discard_choice(_match_state, local_id)
+	if choice.is_empty():
+		return
+	var candidate_ids: Array = choice.get("candidate_instance_ids", [])
+	if candidate_ids.is_empty():
+		MatchTiming.decline_pending_discard_choice(_match_state, local_id)
+		_refresh_ui()
+		return
+
+	var player := _player_state(local_id)
+	if player.is_empty():
+		return
+	var discard_pile: Array = player.get("discard", [])
+	var candidate_cards: Array = []
+	for card in discard_pile:
+		if typeof(card) == TYPE_DICTIONARY and candidate_ids.has(str(card.get("instance_id", ""))):
+			candidate_cards.append(card)
+
+	var overlay := Control.new()
+	overlay.name = "DiscardChoiceOverlay"
+	overlay.z_index = 470
+	overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var bg := ColorRect.new()
+	bg.color = Color(0.04, 0.05, 0.07, 0.88)
+	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.add_child(bg)
+
+	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 40)
+	margin.add_theme_constant_override("margin_right", 40)
+	margin.add_theme_constant_override("margin_top", 30)
+	margin.add_theme_constant_override("margin_bottom", 30)
+	margin.mouse_filter = Control.MOUSE_FILTER_PASS
+	overlay.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_BEGIN
+	vbox.add_theme_constant_override("separation", 14)
+	vbox.mouse_filter = Control.MOUSE_FILTER_PASS
+	margin.add_child(vbox)
+
+	var buff_power := int(choice.get("buff_power", 0))
+	var buff_health := int(choice.get("buff_health", 0))
+	var title_text := "Choose a creature from your discard pile"
+	if buff_power > 0 or buff_health > 0:
+		title_text += " (+%d/+%d)" % [buff_power, buff_health]
+	var title_label := Label.new()
+	title_label.text = title_text
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_label.add_theme_font_size_override("font_size", 24)
+	title_label.add_theme_color_override("font_color", Color(0.95, 0.9, 0.72, 1.0))
+	vbox.add_child(title_label)
+
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = SIZE_EXPAND_FILL
+	scroll.mouse_filter = Control.MOUSE_FILTER_PASS
+	vbox.add_child(scroll)
+
+	var grid := GridContainer.new()
+	grid.columns = maxi(1, int(get_viewport_rect().size.x - 120) / 130)
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	grid.size_flags_horizontal = SIZE_EXPAND_FILL
+	grid.mouse_filter = Control.MOUSE_FILTER_PASS
+	scroll.add_child(grid)
+
+	var card_size := Vector2(120, 168)
+	for card in candidate_cards:
+		var instance_id := str(card.get("instance_id", ""))
+		var card_button := Button.new()
+		card_button.name = "DiscardChoice_%s" % instance_id
+		card_button.custom_minimum_size = card_size
+		var empty_style := StyleBoxEmpty.new()
+		card_button.add_theme_stylebox_override("normal", empty_style)
+		var hover_style := StyleBoxFlat.new()
+		hover_style.bg_color = Color(0.3, 0.25, 0.1, 0.6)
+		hover_style.corner_radius_top_left = 6
+		hover_style.corner_radius_top_right = 6
+		hover_style.corner_radius_bottom_left = 6
+		hover_style.corner_radius_bottom_right = 6
+		card_button.add_theme_stylebox_override("hover", hover_style)
+		card_button.add_theme_stylebox_override("pressed", empty_style)
+		card_button.add_theme_stylebox_override("focus", empty_style)
+
+		var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+		component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+		card_button.add_child(component)
+
+		card_button.pressed.connect(_on_discard_choice_selected.bind(instance_id))
+		grid.add_child(card_button)
+
+	add_child(overlay)
+	_discard_choice_overlay_state = {"overlay": overlay}
+	_status_message = title_text
+
+
+func _on_discard_choice_selected(instance_id: String) -> void:
+	if _discard_choice_overlay_state.is_empty():
+		return
+	var local_id := _local_player_id()
+	var result := MatchTiming.resolve_pending_discard_choice(_match_state, local_id, instance_id)
+	_dismiss_discard_choice_overlay()
+	if bool(result.get("is_valid", false)):
+		var card_name := str(result.get("card", {}).get("name", instance_id))
+		_record_feedback_from_events(_copy_array(result.get("events", [])))
+		_status_message = "Drew %s from discard pile." % card_name
+	else:
+		_status_message = str(result.get("errors", ["Failed to resolve discard choice."])[0])
+	_refresh_ui()
+
+
+func _dismiss_discard_choice_overlay() -> void:
+	if _discard_choice_overlay_state.is_empty():
+		return
+	var overlay: Control = _discard_choice_overlay_state.get("overlay")
+	if overlay != null and is_instance_valid(overlay):
+		overlay.queue_free()
+	_discard_choice_overlay_state = {}
 
 
 func _animate_enemy_prophecy_resolution(action: Dictionary, _result: Dictionary) -> void:
@@ -3506,8 +3766,11 @@ func _on_pile_pressed(player_id: String, zone: String) -> void:
 	_selected_instance_id = ""
 	_selected_pile_player_id = player_id
 	_selected_pile_zone = zone
-	_status_message = "Inspecting %s's %s." % [_player_name(player_id), _identifier_to_name(zone)]
-	_refresh_ui()
+	if zone == MatchMutations.ZONE_DISCARD:
+		_show_discard_viewer(player_id)
+	else:
+		_status_message = "Inspecting %s's %s." % [_player_name(player_id), _identifier_to_name(zone)]
+		_refresh_ui()
 
 
 func _on_prophecy_play_pressed(instance_id: String) -> void:
@@ -4726,7 +4989,7 @@ func _is_local_prophecy_interrupt_open() -> bool:
 
 
 func _local_player_has_pending_interrupt() -> bool:
-	return _is_local_prophecy_interrupt_open() or not _pending_summon_target.is_empty()
+	return _is_local_prophecy_interrupt_open() or not _pending_summon_target.is_empty() or _has_local_pending_discard_choice()
 
 
 func _is_local_match_ai_enabled() -> bool:
@@ -4743,6 +5006,8 @@ func _ai_controls_current_decision_window() -> bool:
 	if _local_player_has_pending_interrupt():
 		return false
 	var ai_player_id := _ai_player_id()
+	if MatchTiming.has_pending_discard_choice(_match_state, ai_player_id):
+		return true
 	if MatchTiming.has_pending_prophecy(_match_state):
 		return _has_pending_prophecy_for_player(ai_player_id)
 	return _active_player_id() == ai_player_id

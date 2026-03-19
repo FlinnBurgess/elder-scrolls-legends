@@ -45,6 +45,11 @@ Card's triggered ability uses `modify_stats` on `"self"` when the rules text say
 Example: Frost Giant (was `modify_stats` on self, should be `heal` on controller player)
 How to spot: User reports the card text doesn't match what happens in game. Compare the `op` and `target`/`target_player` in `triggered_abilities` against the `rules_text` to see if "you" vs creature name is matched correctly.
 
+## Effect filter format mismatch — nested filter object vs flat keys
+Card's triggered_abilities use a `"filter": {"card_type": "creature"}` nested object for effect parameters, but the engine (`_apply_effects` in `match_timing.gd`) reads flat keys like `required_card_type` and `required_subtype` directly from the effect dictionary. The nested format silently produces no filter, causing the effect to either apply unfiltered or find no candidates.
+Example: Soul Tear (used `"filter": {"card_type": "creature"}` instead of `"required_card_type": "creature"`)
+How to spot: User reports a draw/filter effect applying to wrong card types or not working. Check if the card's effect uses a `"filter"` sub-object vs the flat `"required_card_type"` / `"required_subtype"` keys that the engine actually reads.
+
 ## Trigger role mismatch on event field names
 The `_matches_trigger_role` function checks `event.get("player_id")` / `event.get("playing_player_id")` for the "controller" and "opponent_player" roles, but some event types (e.g. `creature_destroyed`) use `controller_player_id` instead. This causes triggers with those match roles to silently never fire for those event types.
 Example: Stormcloak Camp, Necromancer's Amulet, Grim Champion, General Tullius (all `on_friendly_death` family)

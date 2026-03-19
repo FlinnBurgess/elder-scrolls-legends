@@ -135,6 +135,8 @@ static func ensure_match_state(match_state: Dictionary) -> void:
 		match_state["next_trigger_resolution_sequence"] = 0
 	if not match_state.has("pending_prophecy_windows") or typeof(match_state["pending_prophecy_windows"]) != TYPE_ARRAY:
 		match_state["pending_prophecy_windows"] = []
+	if not match_state.has("pending_discard_choices") or typeof(match_state["pending_discard_choices"]) != TYPE_ARRAY:
+		match_state["pending_discard_choices"] = []
 	if not match_state.has("pending_rune_break_queue") or typeof(match_state["pending_rune_break_queue"]) != TYPE_ARRAY:
 		match_state["pending_rune_break_queue"] = []
 	if not match_state.has("out_of_cards_sequence"):
@@ -411,6 +413,93 @@ static func get_pending_prophecies(match_state: Dictionary, player_id: String = 
 			continue
 		matches.append(window.duplicate(true))
 	return matches
+
+
+static func has_pending_discard_choice(match_state: Dictionary, player_id: String = "") -> bool:
+	return not get_pending_discard_choice(match_state, player_id).is_empty()
+
+
+static func get_pending_discard_choice(match_state: Dictionary, player_id: String = "") -> Dictionary:
+	ensure_match_state(match_state)
+	for raw_choice in match_state.get("pending_discard_choices", []):
+		if typeof(raw_choice) != TYPE_DICTIONARY:
+			continue
+		if not player_id.is_empty() and str(raw_choice.get("player_id", "")) != player_id:
+			continue
+		return raw_choice.duplicate(true)
+	return {}
+
+
+static func resolve_pending_discard_choice(match_state: Dictionary, player_id: String, chosen_instance_id: String) -> Dictionary:
+	ensure_match_state(match_state)
+	var choices: Array = match_state.get("pending_discard_choices", [])
+	var choice_index := -1
+	var choice := {}
+	for i in range(choices.size()):
+		if typeof(choices[i]) == TYPE_DICTIONARY and str(choices[i].get("player_id", "")) == player_id:
+			choice_index = i
+			choice = choices[i]
+			break
+	if choice_index == -1:
+		return {"is_valid": false, "errors": ["No pending discard choice for player %s." % player_id]}
+	var candidate_ids: Array = choice.get("candidate_instance_ids", [])
+	if not candidate_ids.has(chosen_instance_id):
+		return {"is_valid": false, "errors": ["Card %s is not a valid candidate." % chosen_instance_id]}
+	var discard_player := _get_player_state(match_state, player_id)
+	if discard_player.is_empty():
+		choices.remove_at(choice_index)
+		return {"is_valid": false, "errors": ["Unknown player_id: %s" % player_id]}
+	var discard_pile: Array = discard_player.get(ZONE_DISCARD, [])
+	var pick_index := -1
+	for d_index in range(discard_pile.size()):
+		var d_card = discard_pile[d_index]
+		if typeof(d_card) == TYPE_DICTIONARY and str(d_card.get("instance_id", "")) == chosen_instance_id:
+			pick_index = d_index
+			break
+	if pick_index == -1:
+		choices.remove_at(choice_index)
+		return {"is_valid": false, "errors": ["Card %s not found in discard pile." % chosen_instance_id]}
+	var picked_card: Dictionary = discard_pile[pick_index]
+	discard_pile.remove_at(pick_index)
+	var generated_events: Array = []
+	if _overflow_card_to_discard(discard_player, picked_card, player_id, ZONE_DISCARD, generated_events):
+		choices.remove_at(choice_index)
+		return {"is_valid": true, "errors": [], "events": generated_events}
+	picked_card["zone"] = ZONE_HAND
+	discard_player[ZONE_HAND].append(picked_card)
+	var buff_power := int(choice.get("buff_power", 0))
+	var buff_health := int(choice.get("buff_health", 0))
+	if buff_power != 0 or buff_health != 0:
+		picked_card["power_bonus"] = int(picked_card.get("power_bonus", 0)) + buff_power
+		picked_card["health_bonus"] = int(picked_card.get("health_bonus", 0)) + buff_health
+	generated_events.append({
+		"event_type": "card_drawn",
+		"player_id": player_id,
+		"source_instance_id": str(choice.get("source_instance_id", "")),
+		"drawn_instance_id": chosen_instance_id,
+		"source_zone": ZONE_DISCARD,
+		"target_zone": ZONE_HAND,
+		"reason": str(choice.get("reason", "discard_choice")),
+	})
+	choices.remove_at(choice_index)
+	var timing_result := publish_events(match_state, generated_events)
+	return {
+		"is_valid": true,
+		"errors": [],
+		"card": picked_card,
+		"events": timing_result.get("processed_events", []),
+		"trigger_resolutions": timing_result.get("trigger_resolutions", []),
+	}
+
+
+static func decline_pending_discard_choice(match_state: Dictionary, player_id: String) -> Dictionary:
+	ensure_match_state(match_state)
+	var choices: Array = match_state.get("pending_discard_choices", [])
+	for i in range(choices.size()):
+		if typeof(choices[i]) == TYPE_DICTIONARY and str(choices[i].get("player_id", "")) == player_id:
+			choices.remove_at(i)
+			return {"is_valid": true, "errors": []}
+	return {"is_valid": false, "errors": ["No pending discard choice for player %s." % player_id]}
 
 
 static func apply_player_damage(match_state: Dictionary, player_id: String, amount: int, context: Dictionary = {}) -> Dictionary:
@@ -1972,12 +2061,14 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 			"draw_from_discard_filtered":
 				var discard_filter_card_type := str(effect.get("required_card_type", ""))
 				var discard_filter_subtype := str(effect.get("required_subtype", ""))
+				var is_player_choice := bool(effect.get("player_choice", false))
 				for player_id in _resolve_player_targets(match_state, trigger, event, effect):
 					var discard_player := _get_player_state(match_state, player_id)
 					if discard_player.is_empty():
 						continue
 					var discard_pile: Array = discard_player.get(ZONE_DISCARD, [])
 					var discard_candidates: Array = []
+					var candidate_instance_ids: Array = []
 					for d_index in range(discard_pile.size()):
 						var d_card = discard_pile[d_index]
 						if typeof(d_card) != TYPE_DICTIONARY:
@@ -1989,24 +2080,35 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							if typeof(d_subtypes) != TYPE_ARRAY or not d_subtypes.has(discard_filter_subtype):
 								continue
 						discard_candidates.append(d_index)
+						candidate_instance_ids.append(str(d_card.get("instance_id", "")))
 					if discard_candidates.is_empty():
 						continue
-					var pick_idx: int = discard_candidates[_deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_draw_discard", discard_candidates.size())]
-					var picked_discard_card: Dictionary = discard_pile[pick_idx]
-					discard_pile.remove_at(pick_idx)
-					if _overflow_card_to_discard(discard_player, picked_discard_card, player_id, ZONE_DISCARD, generated_events):
-						continue
-					picked_discard_card["zone"] = ZONE_HAND
-					discard_player[ZONE_HAND].append(picked_discard_card)
-					generated_events.append({
-						"event_type": "card_drawn",
-						"player_id": player_id,
-						"source_instance_id": str(trigger.get("source_instance_id", "")),
-						"drawn_instance_id": str(picked_discard_card.get("instance_id", "")),
-						"source_zone": ZONE_DISCARD,
-						"target_zone": ZONE_HAND,
-						"reason": reason,
-					})
+					if is_player_choice:
+						match_state["pending_discard_choices"].append({
+							"player_id": player_id,
+							"source_instance_id": str(trigger.get("source_instance_id", "")),
+							"candidate_instance_ids": candidate_instance_ids,
+							"buff_power": int(effect.get("buff_power", 0)),
+							"buff_health": int(effect.get("buff_health", 0)),
+							"reason": reason,
+						})
+					else:
+						var pick_idx: int = discard_candidates[_deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_draw_discard", discard_candidates.size())]
+						var picked_discard_card: Dictionary = discard_pile[pick_idx]
+						discard_pile.remove_at(pick_idx)
+						if _overflow_card_to_discard(discard_player, picked_discard_card, player_id, ZONE_DISCARD, generated_events):
+							continue
+						picked_discard_card["zone"] = ZONE_HAND
+						discard_player[ZONE_HAND].append(picked_discard_card)
+						generated_events.append({
+							"event_type": "card_drawn",
+							"player_id": player_id,
+							"source_instance_id": str(trigger.get("source_instance_id", "")),
+							"drawn_instance_id": str(picked_discard_card.get("instance_id", "")),
+							"source_zone": ZONE_DISCARD,
+							"target_zone": ZONE_HAND,
+							"reason": reason,
+						})
 			"equip_items_from_discard":
 				var equip_self := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 				if equip_self.is_empty():
