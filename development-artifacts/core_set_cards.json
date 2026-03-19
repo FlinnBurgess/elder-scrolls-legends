@@ -1604,9 +1604,7 @@
       "rules_text": "Summon: Give other friendly   creatures +1/+0 and Guard.",
       "is_unique": false,
       "collectible": true,
-      "keywords": [
-        "guard"
-      ],
+      "keywords": [],
       "has_prophecy": false,
       "effect_ids": [
         "modify_stats",
@@ -2997,9 +2995,7 @@
       "rules_text": "Summon: Give a creature a Ward.",
       "is_unique": false,
       "collectible": true,
-      "keywords": [
-        "ward"
-      ],
+      "keywords": [],
       "has_prophecy": false,
       "effect_ids": [
         "summon"
@@ -3984,9 +3980,7 @@
       "rules_text": "Prophecy\nSummon: Give a creature +2/+2 and Guard.",
       "is_unique": false,
       "collectible": true,
-      "keywords": [
-        "guard"
-      ],
+      "keywords": [],
       "has_prophecy": true,
       "effect_ids": [
         "modify_stats",
@@ -6937,9 +6931,7 @@
       "rules_text": "When you summon another creature in this lane, give it a Ward.",
       "is_unique": false,
       "collectible": true,
-      "keywords": [
-        "ward"
-      ],
+      "keywords": [],
       "has_prophecy": false,
       "effect_ids": [],
       "status": "created"
@@ -7223,9 +7215,7 @@
       "rules_text": "Summon: Summon a 0/4 Northpoint Herald with Guard.",
       "is_unique": false,
       "collectible": true,
-      "keywords": [
-        "guard"
-      ],
+      "keywords": [],
       "has_prophecy": false,
       "effect_ids": [
         "summon"
@@ -7744,9 +7734,7 @@
       "rules_text": "Summon: Give a creature Guard.",
       "is_unique": false,
       "collectible": true,
-      "keywords": [
-        "guard"
-      ],
+      "keywords": [],
       "has_prophecy": false,
       "effect_ids": [
         "summon"
@@ -8390,9 +8378,7 @@
       "rules_text": "Summon: Give all enemy creatures in this lane Guard.",
       "is_unique": false,
       "collectible": true,
-      "keywords": [
-        "guard"
-      ],
+      "keywords": [],
       "has_prophecy": false,
       "effect_ids": [
         "summon"
@@ -8935,9 +8921,7 @@
       "rules_text": "Summon: Summon a 2/2 Colovian Trooper with Guard in each lane.\nWhen a friendly creature dies, General Tullius gains +1/+1.",
       "is_unique": true,
       "collectible": true,
-      "keywords": [
-        "guard"
-      ],
+      "keywords": [],
       "has_prophecy": false,
       "effect_ids": [
         "modify_stats",
