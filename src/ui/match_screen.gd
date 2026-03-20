@@ -2,6 +2,7 @@ class_name MatchScreen
 extends Control
 
 signal return_to_main_menu_requested
+signal forfeit_requested
 signal match_state_changed(match_state: Dictionary)
 
 const HeuristicMatchPolicy = preload("res://src/ai/heuristic_match_policy.gd")
@@ -134,6 +135,7 @@ var _hovered_hand_instance_id := ""
 var _overdraw_queue: Array = []
 var _match_end_button: Button
 var _arena_mode := false
+var _pause_overlay: PanelContainer
 
 
 var _ai_enabled := false
@@ -1036,6 +1038,9 @@ func _build_ui() -> void:
 	_match_end_overlay = _build_match_end_overlay()
 	root.add_child(_match_end_overlay)
 
+	_pause_overlay = _build_pause_overlay()
+	root.add_child(_pause_overlay)
+
 	var debug_overlay := PanelContainer.new()
 	debug_overlay.name = "DebugOverlay"
 	debug_overlay.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -1398,6 +1403,62 @@ func _build_match_end_overlay() -> PanelContainer:
 	_match_end_button.pressed.connect(func(): return_to_main_menu_requested.emit())
 	box.add_child(_match_end_button)
 	return overlay
+
+
+func _build_pause_overlay() -> PanelContainer:
+	var overlay := PanelContainer.new()
+	overlay.name = "PauseOverlay"
+	overlay.visible = false
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	overlay.z_index = 90
+	_apply_panel_style(overlay, Color(0.04, 0.05, 0.07, 0.78), Color(0.5, 0.5, 0.55, 0.6), 0, 0)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	overlay.add_child(center)
+	var card := PanelContainer.new()
+	card.name = "PauseCard"
+	card.custom_minimum_size = Vector2(320, 0)
+	_apply_panel_style(card, Color(0.1, 0.11, 0.16, 0.98), Color(0.5, 0.5, 0.55, 0.96), 2, 16)
+	center.add_child(card)
+	var box := _build_panel_box(card, 14, 24)
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	var title := Label.new()
+	title.text = "Paused"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 30)
+	title.add_theme_color_override("font_color", Color(0.95, 0.96, 0.98, 1.0))
+	box.add_child(title)
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0, 6)
+	box.add_child(spacer)
+	var resume_button := Button.new()
+	resume_button.text = "Resume"
+	resume_button.custom_minimum_size = Vector2(260, 48)
+	resume_button.add_theme_font_size_override("font_size", 17)
+	_apply_button_style(resume_button, Color(0.18, 0.22, 0.18, 0.98), Color(0.5, 0.7, 0.5, 0.94), Color(0.95, 0.98, 0.95, 1.0), 1, 12)
+	resume_button.pressed.connect(_toggle_pause_menu)
+	box.add_child(resume_button)
+	if _arena_mode:
+		var forfeit_button := Button.new()
+		forfeit_button.text = "Forfeit"
+		forfeit_button.custom_minimum_size = Vector2(260, 48)
+		forfeit_button.add_theme_font_size_override("font_size", 17)
+		_apply_button_style(forfeit_button, Color(0.6, 0.18, 0.14, 0.98), Color(0.9, 0.42, 0.42, 0.94), Color(1.0, 0.93, 0.9, 1.0), 1, 12)
+		forfeit_button.pressed.connect(_forfeit_match)
+		box.add_child(forfeit_button)
+	return overlay
+
+
+func _toggle_pause_menu() -> void:
+	if _pause_overlay == null:
+		return
+	_pause_overlay.visible = not _pause_overlay.visible
+
+
+func _forfeit_match() -> void:
+	_pause_overlay.visible = false
+	forfeit_requested.emit()
 
 
 func _build_lanes_panel() -> Control:
@@ -3517,6 +3578,11 @@ func _input(event: InputEvent) -> void:
 			_update_targeting_arrow(mouse_pos)
 	elif event is InputEventKey:
 		var key_event := event as InputEventKey
+		if key_event.pressed and not key_event.echo and key_event.keycode == KEY_ESCAPE:
+			if not _has_match_winner():
+				_toggle_pause_menu()
+				get_viewport().set_input_as_handled()
+				return
 		if key_event.pressed and not key_event.echo and _hovered_hand_instance_id != "":
 			var lane_index := -1
 			if key_event.keycode == KEY_1:

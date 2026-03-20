@@ -108,6 +108,7 @@ func _resume_match() -> void:
 		match_screen.name = "ArenaMatch"
 		match_screen._arena_mode = true
 		match_screen.return_to_main_menu_requested.connect(_on_match_ended.bind(match_screen))
+		match_screen.forfeit_requested.connect(_on_match_forfeited)
 		match_screen.match_state_changed.connect(_on_match_state_changed)
 		add_child(match_screen)
 		_current_screen = match_screen
@@ -218,6 +219,7 @@ func _on_fight_pressed() -> void:
 	match_screen.name = "ArenaMatch"
 	match_screen._arena_mode = true
 	match_screen.return_to_main_menu_requested.connect(_on_match_ended.bind(match_screen))
+	match_screen.forfeit_requested.connect(_on_match_forfeited)
 	match_screen.match_state_changed.connect(_on_match_state_changed)
 	add_child(match_screen)
 	_current_screen = match_screen
@@ -225,6 +227,14 @@ func _on_fight_pressed() -> void:
 		match_screen.start_arena_boss_match(player_deck_ids, ai_deck_ids, boss_config, match_seed, first_player_index)
 	else:
 		match_screen.start_match_with_decks(player_deck_ids, ai_deck_ids, match_seed, first_player_index)
+
+
+func _on_match_forfeited() -> void:
+	_run_manager.clear_match_state()
+	_run_manager.match_config = null
+	_last_match_won = false
+	_run_manager.record_loss()
+	_show_match_result()
 
 
 func _on_match_ended(match_screen: Control) -> void:
