@@ -2105,6 +2105,14 @@ func _show_mulligan_overlay() -> void:
 	vbox.mouse_filter = Control.MOUSE_FILTER_PASS
 	center.add_child(vbox)
 
+	var going_first := not bool(player.get("has_ring_of_magicka", false))
+	var turn_order_label := Label.new()
+	turn_order_label.text = "You are playing first" if going_first else "You are playing second"
+	turn_order_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	turn_order_label.add_theme_font_size_override("font_size", 20)
+	turn_order_label.add_theme_color_override("font_color", Color(0.72, 0.68, 0.58, 0.9))
+	vbox.add_child(turn_order_label)
+
 	var title_label := Label.new()
 	title_label.text = "Choose cards to replace"
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
