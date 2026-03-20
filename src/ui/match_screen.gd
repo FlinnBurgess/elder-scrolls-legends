@@ -3209,6 +3209,26 @@ func _hand_card_display_size() -> Vector2:
 	return Vector2(target_height * aspect_ratio, target_height)
 
 
+## Build relationship context for alt-view synergy text during a match.
+## Collects board creatures and hand cards so the resolver can display counts
+## like "You have 3 Orcs in play and hand" instead of the generic fallback.
+func _build_match_relationship_context() -> Dictionary:
+	var board_cards: Array = []
+	var hand_cards: Array = []
+	var local_id := _local_player_id()
+	for lane in _match_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(local_id, []):
+			if typeof(card) == TYPE_DICTIONARY:
+				board_cards.append(card)
+	for player in _match_state.get("players", []):
+		if str(player.get("player_id", "")) == local_id:
+			for card in player.get("hand", []):
+				if typeof(card) == TYPE_DICTIONARY:
+					hand_cards.append(card)
+			break
+	return {"zone": "match", "board_cards": board_cards, "hand_cards": hand_cards}
+
+
 func _add_hover_preview_to_layer(card: Dictionary, instance_id: String, name_prefix: String) -> Control:
 	var preview_size := _hand_card_display_size()
 	# Replicate how hand cards render: a CardDisplayComponent built at base
@@ -3228,6 +3248,8 @@ func _add_hover_preview_to_layer(card: Dictionary, instance_id: String, name_pre
 	component.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+	if component.has_method("set_relationship_context"):
+		component.set_relationship_context(_build_match_relationship_context())
 	wrapper.add_child(component)
 	# Add to tree — _ready() fires with base size, fonts set at scale 1.0
 	_card_hover_preview_layer.add_child(wrapper)

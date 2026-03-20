@@ -6,7 +6,7 @@ extends RefCounted
 ##   {"type": "card", "card_data": Dictionary}  — show a different card
 ##   {"type": "text", "text": String}            — replace rules text on the original card
 
-const RELATED_CARD_OPS := ["summon_from_effect", "generate_card_to_hand"]
+const RELATED_CARD_OPS := ["summon_from_effect", "generate_card_to_hand", "fill_lane_with", "summon_copies_to_lane", "equip_generated_item"]
 
 
 static func resolve(card: Dictionary, context: Dictionary = {}) -> Array:
@@ -42,6 +42,7 @@ static func _resolve_card_relationships(card: Dictionary, relationships: Array, 
 
 static func _resolve_contextual_text(card: Dictionary, relationships: Array, context: Dictionary) -> void:
 	_resolve_subtype_board_requirement(card, relationships, context)
+	_resolve_event_source_subtype(card, relationships, context)
 	_resolve_aura_subtype_synergy(card, relationships, context)
 	_resolve_aura_attribute_synergy(card, relationships, context)
 	_resolve_cost_reduction_subtype(card, relationships, context)
@@ -59,6 +60,25 @@ static func _resolve_subtype_board_requirement(card: Dictionary, relationships: 
 		seen_subtypes[required_subtype] = true
 		var text := _subtype_count_text(required_subtype, context)
 		relationships.append({"type": "text", "text": text})
+
+
+## Resolve subtype requirements from trigger filters like required_event_source_subtype
+## (e.g. Wrothgar Kingpin: "When you summon another Orc") and required_summon_subtype
+## (e.g. Blades Lookout: "When you summon a Dragon"). Both care about how many of
+## that subtype are available.
+static func _resolve_event_source_subtype(card: Dictionary, relationships: Array, context: Dictionary) -> void:
+	var abilities: Array = card.get("triggered_abilities", [])
+	var seen_subtypes: Dictionary = {}
+	for ability in abilities:
+		if typeof(ability) != TYPE_DICTIONARY:
+			continue
+		for key in ["required_event_source_subtype", "required_summon_subtype"]:
+			var required_subtype := str(ability.get(key, ""))
+			if required_subtype.is_empty() or seen_subtypes.has(required_subtype):
+				continue
+			seen_subtypes[required_subtype] = true
+			var text := _subtype_count_text(required_subtype, context)
+			relationships.append({"type": "text", "text": text})
 
 
 static func _resolve_aura_subtype_synergy(card: Dictionary, relationships: Array, context: Dictionary) -> void:

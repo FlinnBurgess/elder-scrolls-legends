@@ -1,5 +1,5 @@
 ---
-name: fix-card-wiki
+name: wiki-fix
 description: Fix a card by comparing its local data and effects against the UESP wiki. Takes a card name, fetches wiki details, audits data fields and gameplay functionality, and fixes any discrepancies.
 ---
 

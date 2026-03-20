@@ -296,6 +296,8 @@ func _refresh_options() -> void:
 
 		var card_display := CardDisplayComponentClass.new()
 		card_display.apply_card(card, CardDisplayComponentClass.PRESENTATION_FULL)
+		if card_display.has_method("set_relationship_context"):
+			card_display.set_relationship_context(_build_draft_relationship_context())
 		card_display.custom_minimum_size = Vector2(card_width, card_height)
 		card_display.size = Vector2(card_width, card_height)
 		card_display.set_interactive(false)
@@ -493,6 +495,16 @@ func _on_hover_delay_timeout() -> void:
 	_show_deck_hover_preview(_hover_pending_row, _hover_pending_card_id)
 
 
+func _build_draft_relationship_context() -> Dictionary:
+	var deck_cards: Array = []
+	for entry in _deck:
+		var card: Dictionary = _card_database.get(str(entry.get("card_id", "")), {})
+		var qty: int = int(entry.get("quantity", 1))
+		for i in range(qty):
+			deck_cards.append(card)
+	return {"zone": "arena_draft", "deck_cards": deck_cards}
+
+
 func _show_deck_hover_preview(row: Control, card_id: String) -> void:
 	_clear_deck_hover_preview()
 	var card: Dictionary = _card_database.get(card_id, {})
@@ -511,6 +523,8 @@ func _show_deck_hover_preview(row: Control, card_id: String) -> void:
 	component.set_interactive(false)
 	component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	component.apply_card(card, CardDisplayComponentClass.PRESENTATION_FULL)
+	if component.has_method("set_relationship_context"):
+		component.set_relationship_context(_build_draft_relationship_context())
 	wrapper.add_child(component)
 	_card_hover_preview_layer.add_child(wrapper)
 	_hover_preview_node = wrapper

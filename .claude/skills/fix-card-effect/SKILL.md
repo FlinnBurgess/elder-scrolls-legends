@@ -76,6 +76,25 @@ Cards with active effects (Summon, Last Gasp, Slay, start/end of turn, on play, 
 - `"event_player"` — the player who caused the event
 - `"target_player"` — the target player of the event
 
+### Card Relationship / Alt-View System
+Cards that care about subtypes, attributes, or other synergies can show contextual info (e.g. "You have 3 Orcs in your deck") when the player cycles through alt-views with UP/DOWN. This is driven by `card_relationship_resolver.gd`, which inspects the card's `triggered_abilities` and `aura` fields to find synergy signals:
+- `required_subtype_on_board` — "Summon: +X/+Y if you have another [subtype]"
+- `required_event_source_subtype` — "When you summon another [subtype]..."
+- `required_summon_subtype` — "When you summon a [subtype]..."
+- `aura.filter_subtype` — Aura scaling with subtype count
+- `aura.filter_attribute` — Aura scaling with attribute count
+- `cost_reduction_aura.filter_subtype` — Cost reduction for a subtype
+
+Cards whose effects create other cards (via `card_template` in their effects) can also show those cards as alt-views. This is controlled by `RELATED_CARD_OPS` at the top of `card_relationship_resolver.gd` — any effect op in that list that has a `card_template` field will have it shown as a card alt-view. If a new op uses `card_template` but isn't in the list, add it.
+
+If the user reports a missing or broken alt-view, check three things:
+1. **Resolver coverage (text)** — Is the card's trigger condition field handled in `_resolve_contextual_text()` in `card_relationship_resolver.gd`? If not, add a resolver function that extracts the subtype/attribute and calls `_subtype_count_text()`.
+1b. **Resolver coverage (card)** — Does the card's effect op appear in `RELATED_CARD_OPS`? If not, add it so the `card_template` shows as an alt-view card.
+2. **Context not passed** — The resolver needs a context dict (`zone`, `deck_cards`, `board_cards`, `hand_cards`) to show counts. If it shows "Synergy: X" instead of "You have N Xs...", the `CardDisplayComponent` isn't receiving context via `set_relationship_context()`. Check where the hover preview is created:
+   - `match_screen.gd` — `_add_hover_preview_to_layer()` / `_build_match_relationship_context()`
+   - `arena_draft_screen.gd` — `_show_deck_hover_preview()` / `_build_draft_relationship_context()`
+   - `deck_editor_screen.gd` — `_build_relationship_context()` (already wired up)
+
 ### Common Root Causes
 
 1. **Missing `triggered_abilities`** — Card has `effect_ids` and `rules_text` but no `triggered_abilities` array, so the effect never fires.
@@ -96,6 +115,7 @@ Cards with active effects (Summon, Last Gasp, Slay, start/end of turn, on play, 
 - `src/core/match/lane_rules.gd` — lane entry and summon validation
 - `src/core/match/persistent_card_rules.gd` — play-from-hand flows (actions, items, supports)
 - `src/ui/match_screen.gd` — card hydration (`_hydrate_card`)
+- `src/ui/components/card_relationship_resolver.gd` — alt-view synergy text (subtype/attribute counts)
 
 ## Step 3: Implement the Fix
 
