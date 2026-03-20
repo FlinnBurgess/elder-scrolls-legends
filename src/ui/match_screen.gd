@@ -2221,6 +2221,8 @@ func _finalize_mulligan(discard_instance_ids: Array) -> void:
 	GameLogger.start_match(_match_state)
 	MatchTurnLoop.begin_first_turn(_match_state)
 	_ai_enabled = true
+	if not _is_local_player_turn():
+		_schedule_local_match_ai_step(2000)
 	_mulligan_card_by_id = {}
 	var scenario_events := _recent_presentation_events_from_history()
 	_record_feedback_from_events(scenario_events)
