@@ -1,6 +1,23 @@
 class_name HeuristicMatchPolicy
 extends RefCounted
 
+## Core AI decision-making policy using heuristic evaluation with optional
+## lookahead.
+##
+## The policy scores every legal action by simulating it, evaluating the
+## resulting board state, and adding a tactical bonus. The top candidates are
+## optionally evaluated one ply deeper to account for multi-action turns.
+##
+## All scoring weights are read from an `options` dictionary rather than
+## hardcoded constants. When no options are provided, the defaults match the
+## midrange profile — preserving the original behaviour for tests and any
+## callers that don't pass options.
+##
+## Quality and archetype are threaded in via the options dict built by
+## AIPlayProfile.build_options(). Quality controls decision precision (noise,
+## lookahead depth); archetype controls strategic priorities (face damage vs
+## board control vs card advantage).
+
 const MatchActionEnumerator = preload("res://src/ai/match_action_enumerator.gd")
 const MatchActionExecutor = preload("res://src/ai/match_action_executor.gd")
 const MatchStateEvaluator = preload("res://src/ai/match_state_evaluator.gd")
@@ -8,6 +25,10 @@ const MatchTiming = preload("res://src/core/match/match_timing.gd")
 
 const LETHAL_BONUS := 500000.0
 const WIN_BONUS := 1000000.0
+
+# Default values for options — match the midrange profile in AIPlayProfile.
+# These are used when no options dict is provided, ensuring backward compatibility
+# with existing tests and callers.
 const DEFAULT_MIN_ACTION_GAIN := 0.6
 const DEFAULT_TOP_CANDIDATES := 3
 const DEFAULT_LOOKAHEAD_DEPTH := 1
@@ -58,13 +79,22 @@ static func choose_action(match_state: Dictionary, player_id: String = "", optio
 	var decision_player_id := str(surface.get("decision_player_id", ""))
 	if decision_player_id.is_empty() or not str(surface.get("blocked_reason", "")).is_empty():
 		return {"is_valid": false, "surface": surface, "reason": str(surface.get("blocked_reason", "No legal actor could be determined.")), "chosen_action": {}}
-	var baseline := MatchStateEvaluator.evaluate_state(match_state, decision_player_id)
-	var merged_options := _merged_options(options)
-	var ranked := _rank_actions(match_state, surface, decision_player_id, baseline, merged_options, DEFAULT_LOOKAHEAD_DEPTH)
+	var merged := _merged_options(options)
+	var baseline := MatchStateEvaluator.evaluate_state(match_state, decision_player_id, merged)
+	# Lookahead depth can be overridden by quality scaling (low quality = no lookahead).
+	var lookahead := int(merged.get("lookahead_depth", DEFAULT_LOOKAHEAD_DEPTH))
+	var ranked := _rank_actions(match_state, surface, decision_player_id, baseline, merged, lookahead)
 	if ranked.is_empty():
 		return {"is_valid": false, "surface": surface, "reason": "No legal actions were available.", "chosen_action": {}}
-	var chosen := _select_final_candidate(ranked, surface, baseline, merged_options)
-	var decision_reason := _decision_reason(chosen, ranked, surface, merged_options)
+
+	# Apply score noise for lower-quality AI: adds random perturbation so the AI
+	# occasionally picks suboptimal actions, simulating weaker play.
+	var noise_amplitude := float(merged.get("score_noise", 0.0))
+	if noise_amplitude > 0.0:
+		_apply_score_noise(ranked, noise_amplitude, match_state)
+
+	var chosen := _select_final_candidate(ranked, surface, baseline, merged)
+	var decision_reason := _decision_reason(chosen, ranked, surface, merged)
 	return {
 		"is_valid": true,
 		"surface": surface,
@@ -100,7 +130,7 @@ static func describe_choice(choice: Dictionary, max_candidates: int = 3) -> Stri
 static func _rank_actions(match_state: Dictionary, surface: Dictionary, player_id: String, baseline: float, options: Dictionary, lookahead_depth: int) -> Array:
 	var scored: Array = []
 	for action in surface.get("actions", []):
-		var candidate := _score_action_immediate(match_state, action, player_id, baseline)
+		var candidate := _score_action_immediate(match_state, action, player_id, baseline, options)
 		scored.append(candidate)
 	scored.sort_custom(_sort_scored_actions)
 	if lookahead_depth <= 0:
@@ -119,7 +149,7 @@ static func _rank_actions(match_state: Dictionary, surface: Dictionary, player_i
 	return scored
 
 
-static func _score_action_immediate(match_state: Dictionary, action: Dictionary, player_id: String, baseline: float) -> Dictionary:
+static func _score_action_immediate(match_state: Dictionary, action: Dictionary, player_id: String, baseline: float, options: Dictionary = {}) -> Dictionary:
 	var execution := MatchActionExecutor.clone_and_execute(match_state, action)
 	var action_summary := _action_summary(action)
 	if not bool(execution.get("is_valid", false)):
@@ -134,8 +164,9 @@ static func _score_action_immediate(match_state: Dictionary, action: Dictionary,
 			"simulated_state": execution.get("match_state", {}),
 		}
 	var simulated_state: Dictionary = execution.get("match_state", {})
-	var state_score := MatchStateEvaluator.evaluate_state(simulated_state, player_id)
-	var tactical_bonus := _tactical_bonus(match_state, simulated_state, action, player_id)
+	# Pass options to evaluate_state so archetype-specific weights are used.
+	var state_score := MatchStateEvaluator.evaluate_state(simulated_state, player_id, options)
+	var tactical_bonus := _tactical_bonus(match_state, simulated_state, action, player_id, options)
 	var total := state_score + tactical_bonus
 	var reason := "highest_score"
 	if float(tactical_bonus) >= LETHAL_BONUS:
@@ -162,7 +193,7 @@ static func _score_action_immediate(match_state: Dictionary, action: Dictionary,
 static func _best_followup_gain(match_state: Dictionary, player_id: String, options: Dictionary, remaining_depth: int) -> float:
 	if remaining_depth <= 0 or not _can_continue_turn(match_state, player_id):
 		return 0.0
-	var baseline := MatchStateEvaluator.evaluate_state(match_state, player_id)
+	var baseline := MatchStateEvaluator.evaluate_state(match_state, player_id, options)
 	var surface := MatchActionEnumerator.enumerate_legal_actions(match_state, player_id)
 	var ranked := _rank_actions(match_state, surface, player_id, baseline, options, remaining_depth - 1)
 	if ranked.is_empty():
@@ -191,7 +222,13 @@ static func _select_final_candidate(ranked: Array, surface: Dictionary, baseline
 	return best_end_turn if not best_end_turn.is_empty() else ranked[0]
 
 
-static func _tactical_bonus(before_state: Dictionary, after_state: Dictionary, action: Dictionary, player_id: String) -> float:
+## Compute tactical bonus for an action based on how it changes the board.
+##
+## All weights are read from the options dictionary, falling back to the midrange
+## defaults (the original hardcoded values) when no options are provided. This
+## allows archetype profiles to shift priorities — e.g. aggro values face damage
+## much higher than control, which prioritises creature removal.
+static func _tactical_bonus(before_state: Dictionary, after_state: Dictionary, action: Dictionary, player_id: String, options: Dictionary = {}) -> float:
 	var kind := str(action.get("kind", ""))
 	var opponent_id := _opposing_player_id(before_state, player_id)
 	var before_player := _find_player(before_state, player_id)
@@ -200,28 +237,39 @@ static func _tactical_bonus(before_state: Dictionary, after_state: Dictionary, a
 	var after_opponent := _find_player(after_state, opponent_id)
 	if before_player.is_empty() or after_player.is_empty() or before_opponent.is_empty() or after_opponent.is_empty():
 		return 0.0
+
+	# Read archetype-sensitive weights from options, defaulting to midrange values.
+	var creature_killed_w := float(options.get("creature_killed_bonus", 2.3))
+	var own_creature_lost_w := float(options.get("own_creature_lost_penalty", 1.9))
+	var guard_removed_w := float(options.get("guard_removed_bonus", 1.7))
+	var threat_reduction_w := float(options.get("threat_reduction_weight", 2.2))
+	var face_damage_w := float(options.get("face_damage_bonus", 0.25))
+	var shadow_lane_w := float(options.get("shadow_lane_bonus", 0.55))
+	var summon_power_w := float(options.get("summon_power_weight", 0.4))
+	var summon_health_w := float(options.get("summon_health_weight", 0.25))
+
 	var bonus := 0.0
 	if str(after_state.get("winner_player_id", "")) == player_id:
 		bonus += WIN_BONUS
 	var spent_magicka := maxf(0.0, float(int(before_player.get("current_magicka", 0)) + int(before_player.get("temporary_magicka", 0)) - int(after_player.get("current_magicka", 0)) - int(after_player.get("temporary_magicka", 0))))
 	bonus += spent_magicka * 0.45 if kind != MatchActionEnumerator.KIND_END_TURN else 0.0
-	bonus += float(_creature_count(before_state, opponent_id) - _creature_count(after_state, opponent_id)) * 2.3
-	bonus -= float(_creature_count(before_state, player_id) - _creature_count(after_state, player_id)) * 1.9
-	bonus += float(_guard_count(before_state, opponent_id) - _guard_count(after_state, opponent_id)) * 1.7
-	bonus += float(_incoming_face_threat(before_state, player_id) - _incoming_face_threat(after_state, player_id)) * 2.2
+	bonus += float(_creature_count(before_state, opponent_id) - _creature_count(after_state, opponent_id)) * creature_killed_w
+	bonus -= float(_creature_count(before_state, player_id) - _creature_count(after_state, player_id)) * own_creature_lost_w
+	bonus += float(_guard_count(before_state, opponent_id) - _guard_count(after_state, opponent_id)) * guard_removed_w
+	bonus += float(_incoming_face_threat(before_state, player_id) - _incoming_face_threat(after_state, player_id)) * threat_reduction_w
 	match kind:
 		MatchActionEnumerator.KIND_RING_USE:
 			bonus -= 1.15
 		MatchActionEnumerator.KIND_ATTACK:
 			if str(action.get("target", {}).get("kind", "")) == "player":
-				bonus += float(int(before_opponent.get("health", 0)) - int(after_opponent.get("health", 0))) * 0.25
+				bonus += float(int(before_opponent.get("health", 0)) - int(after_opponent.get("health", 0))) * face_damage_w
 			else:
 				bonus += _attack_trade_bonus(before_state, after_state, action)
 		MatchActionEnumerator.KIND_SUMMON_CREATURE:
 			var source_card: Dictionary = action.get("source_card", {})
-			bonus += float(int(source_card.get("power", 0))) * 0.4 + float(int(source_card.get("health", 0))) * 0.25
+			bonus += float(int(source_card.get("power", 0))) * summon_power_w + float(int(source_card.get("health", 0))) * summon_health_w
 			if str(action.get("parameters", {}).get("lane_id", "")) == "shadow":
-				bonus += 0.55
+				bonus += shadow_lane_w
 		MatchActionEnumerator.KIND_PLAY_ITEM:
 			bonus += 0.75
 		MatchActionEnumerator.KIND_PLAY_SUPPORT:
@@ -250,6 +298,27 @@ static func _attack_trade_bonus(before_state: Dictionary, after_state: Dictionar
 	if attacker_after.is_empty() and not attacker_before.is_empty():
 		bonus -= 3.0
 	return bonus
+
+
+## Apply random noise to candidate scores to simulate lower-quality play.
+##
+## The noise is seeded from the match turn number so that within a single match
+## the AI is consistently "sloppy" or "sharp", but different matches produce
+## different noise patterns. Forced actions (lethal lines) are never perturbed.
+static func _apply_score_noise(ranked: Array, amplitude: float, match_state: Dictionary) -> void:
+	var turn := int(match_state.get("turn_number", 0))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(turn * 7919 + ranked.size())
+	for i in range(ranked.size()):
+		var candidate: Dictionary = ranked[i]
+		# Never add noise to forced/lethal actions — the AI should always take lethal.
+		if bool(candidate.get("forced", false)):
+			continue
+		var noise := rng.randf_range(-amplitude, amplitude)
+		candidate["total_score"] = float(candidate.get("total_score", 0.0)) + noise
+		candidate["relative_gain"] = float(candidate.get("relative_gain", 0.0)) + noise
+		ranked[i] = candidate
+	ranked.sort_custom(_sort_scored_actions)
 
 
 static func _best_non_pass_candidate(ranked: Array) -> Dictionary:
@@ -432,9 +501,34 @@ static func _find_card(match_state: Dictionary, instance_id: String) -> Dictiona
 	return {}
 
 
+## Merge caller-provided options with defaults.
+##
+## All profile weight keys from AIPlayProfile are included here with their
+## midrange defaults, so callers that don't pass any options get identical
+## behaviour to the original hardcoded constants.
 static func _merged_options(options: Dictionary) -> Dictionary:
 	return {
+		# Decision thresholds
 		"min_action_gain": float(options.get("min_action_gain", DEFAULT_MIN_ACTION_GAIN)),
 		"top_candidate_lookahead": int(options.get("top_candidate_lookahead", DEFAULT_TOP_CANDIDATES)),
 		"lookahead_discount": float(options.get("lookahead_discount", DEFAULT_LOOKAHEAD_DISCOUNT)),
+		"lookahead_depth": int(options.get("lookahead_depth", DEFAULT_LOOKAHEAD_DEPTH)),
+		# Quality-driven noise (0.0 = no noise = perfect play)
+		"score_noise": float(options.get("score_noise", 0.0)),
+		# Tactical bonus weights (archetype-sensitive)
+		"face_damage_bonus": float(options.get("face_damage_bonus", 0.25)),
+		"shadow_lane_bonus": float(options.get("shadow_lane_bonus", 0.55)),
+		"creature_killed_bonus": float(options.get("creature_killed_bonus", 2.3)),
+		"own_creature_lost_penalty": float(options.get("own_creature_lost_penalty", 1.9)),
+		"guard_removed_bonus": float(options.get("guard_removed_bonus", 1.7)),
+		"threat_reduction_weight": float(options.get("threat_reduction_weight", 2.2)),
+		"summon_power_weight": float(options.get("summon_power_weight", 0.4)),
+		"summon_health_weight": float(options.get("summon_health_weight", 0.25)),
+		# State evaluator weights (archetype-sensitive)
+		"health_weight": float(options.get("health_weight", 2.5)),
+		"rune_weight": float(options.get("rune_weight", 1.25)),
+		"hand_weight": float(options.get("hand_weight", 0.8)),
+		"opponent_hand_weight": float(options.get("opponent_hand_weight", 0.45)),
+		"support_base_value": float(options.get("support_base_value", 1.1)),
+		"incoming_threat_weight": float(options.get("incoming_threat_weight", 3.5)),
 	}

@@ -19,6 +19,8 @@ const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const GameLogger = preload("res://src/core/match/game_logger.gd")
 const CardCatalog = preload("res://src/deck/card_catalog.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
+const DeckArchetypeDetector = preload("res://src/ai/deck_archetype_detector.gd")
+const AIPlayProfile = preload("res://src/ai/ai_play_profile.gd")
 const CARD_DISPLAY_COMPONENT_SCRIPT := preload("res://src/ui/components/CardDisplayComponent.gd")
 const CARD_DISPLAY_COMPONENT_SCENE := preload("res://scenes/ui/components/CardDisplayComponent.tscn")
 const PLAYER_AVATAR_SCENE := preload("res://scenes/ui/components/PlayerAvatarComponent.tscn")
@@ -140,6 +142,9 @@ var _attack_arrow_state := {}
 
 
 var _ai_enabled := false
+# AI play profile options built from deck archetype detection and quality scaling.
+# Persisted in match_state["ai_options"] for resume support.
+var _ai_options: Dictionary = {}
 
 
 func _ready() -> void:
@@ -151,7 +156,7 @@ func _ready() -> void:
 	load_scenario(_scenario_id)
 
 
-func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int = -1, first_player_index: int = -1) -> bool:
+func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int = -1, first_player_index: int = -1, ai_options: Dictionary = {}) -> bool:
 	_cancel_detached_card_silent()
 	_dismiss_mulligan_overlay()
 	_dismiss_prophecy_overlay()
@@ -189,6 +194,10 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int 
 	GameLogger.start_match(match_state)
 	# Store state but don't start the turn yet - wait for player mulligan
 	_match_state = match_state
+	# Build AI play profile from deck archetype and quality. The profile shapes
+	# how aggressively/defensively the AI plays and how precise its decisions are.
+	_ai_options = _build_ai_play_profile(ai_options, card_by_id)
+	_match_state["ai_options"] = _ai_options
 	_mulligan_card_by_id = card_by_id
 	_ai_enabled = false
 	_scenario_id = LOCAL_MATCH_AI_SCENARIO_ID
@@ -203,7 +212,7 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int 
 	return true
 
 
-func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_config: Dictionary, seed: int = -1, first_player_index: int = -1) -> bool:
+func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_config: Dictionary, seed: int = -1, first_player_index: int = -1, ai_options: Dictionary = {}) -> bool:
 	_cancel_detached_card_silent()
 	_dismiss_mulligan_overlay()
 	_dismiss_prophecy_overlay()
@@ -271,6 +280,8 @@ func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_confi
 	_hydrate_match_cards(match_state, card_by_id)
 	GameLogger.start_match(match_state)
 	_match_state = match_state
+	_ai_options = _build_ai_play_profile(ai_options, card_by_id)
+	_match_state["ai_options"] = _ai_options
 	_mulligan_card_by_id = card_by_id
 	_ai_enabled = false
 	_scenario_id = LOCAL_MATCH_AI_SCENARIO_ID
@@ -283,6 +294,21 @@ func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_confi
 	_refresh_ui()
 	_show_mulligan_overlay()
 	return true
+
+
+## Build the AI play profile from the provided ai_options (quality + AI deck IDs).
+## Detects the deck archetype and produces interpolated weight options that shape
+## how the AI prioritises face damage, board control, and card advantage.
+static func _build_ai_play_profile(ai_options: Dictionary, card_by_id: Dictionary) -> Dictionary:
+	if ai_options.is_empty():
+		return {}
+	var quality := float(ai_options.get("quality", 1.0))
+	var ai_deck_ids: Array = ai_options.get("ai_deck_ids", [])
+	if ai_deck_ids.is_empty():
+		return AIPlayProfile.build_options(0.0, quality)
+	var archetype := DeckArchetypeDetector.detect(ai_deck_ids, card_by_id)
+	var aggro_score := float(archetype.get("aggro_score", 0.0))
+	return AIPlayProfile.build_options(aggro_score, quality)
 
 
 static func _hydrate_match_cards(match_state: Dictionary, card_by_id: Dictionary) -> void:
@@ -374,6 +400,8 @@ func resume_from_state(saved_state: Dictionary) -> void:
 	_hydrate_all_zones(saved_state, card_by_id)
 	GameLogger.start_match(saved_state)
 	_match_state = saved_state
+	# Restore AI play profile from saved state (persisted during match start).
+	_ai_options = _match_state.get("ai_options", {})
 	_scenario_id = LOCAL_MATCH_AI_SCENARIO_ID
 	_selected_instance_id = ""
 	_last_turn_owner_id = ""
@@ -586,7 +614,7 @@ func _execute_local_match_ai_step() -> Dictionary:
 	if not _ai_controls_current_decision_window():
 		return {"did_execute": false, "yield_reason": "no_ai_window"}
 	var ai_player_id := _ai_player_id()
-	var choice := HeuristicMatchPolicy.choose_action(_match_state, ai_player_id)
+	var choice := HeuristicMatchPolicy.choose_action(_match_state, ai_player_id, _ai_options)
 	if not bool(choice.get("is_valid", false)):
 		return {
 			"did_execute": false,

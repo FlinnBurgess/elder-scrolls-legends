@@ -1,9 +1,18 @@
 class_name MatchStateEvaluator
 extends RefCounted
 
+## Scores a match state from one player's perspective to guide AI decisions.
+##
+## Weights can be overridden via an optional `options` dictionary, enabling
+## archetype-specific evaluation (aggro values health less, control values it
+## more). When no options are passed, the original hardcoded constants are used
+## as defaults — preserving backward compatibility with all existing callers.
+
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 
+# Default weights — these match the midrange profile in AIPlayProfile and serve
+# as fallback values when no options dictionary is provided.
 const HEALTH_WEIGHT := 2.5
 const RUNE_WEIGHT := 1.25
 const HAND_WEIGHT := 0.8
@@ -14,7 +23,12 @@ const SUPPORT_BASE_VALUE := 1.1
 const INCOMING_THREAT_WEIGHT := 3.5
 
 
-static func evaluate_state(match_state: Dictionary, perspective_player_id: String) -> float:
+## Evaluate the match state and return a heuristic score.
+##
+## options: optional weight overrides from AIPlayProfile. Keys like "health_weight",
+## "incoming_threat_weight", etc. override the corresponding constants above.
+## When omitted or empty, all weights fall back to the hardcoded defaults.
+static func evaluate_state(match_state: Dictionary, perspective_player_id: String, options: Dictionary = {}) -> float:
 	var me := _find_player_state(match_state, perspective_player_id)
 	var opponent_id := _opposing_player_id(match_state, perspective_player_id)
 	var opponent := _find_player_state(match_state, opponent_id)
@@ -25,18 +39,29 @@ static func evaluate_state(match_state: Dictionary, perspective_player_id: Strin
 		return 1000000.0
 	if winner_player_id == opponent_id:
 		return -1000000.0
+
+	# Read weights from options, falling back to constants for backward compatibility.
+	var health_w := float(options.get("health_weight", HEALTH_WEIGHT))
+	var rune_w := float(options.get("rune_weight", RUNE_WEIGHT))
+	var hand_w := float(options.get("hand_weight", HAND_WEIGHT))
+	var opp_hand_w := float(options.get("opponent_hand_weight", OPPONENT_HAND_WEIGHT))
+	var support_base := float(options.get("support_base_value", SUPPORT_BASE_VALUE))
+	var threat_w := float(options.get("incoming_threat_weight", INCOMING_THREAT_WEIGHT))
+
 	var score := 0.0
-	score += (int(me.get("health", 0)) - int(opponent.get("health", 0))) * HEALTH_WEIGHT
-	score += (int(me.get("rune_thresholds", []).size()) - int(opponent.get("rune_thresholds", []).size())) * RUNE_WEIGHT
+	score += (int(me.get("health", 0)) - int(opponent.get("health", 0))) * health_w
+	score += (int(me.get("rune_thresholds", []).size()) - int(opponent.get("rune_thresholds", []).size())) * rune_w
 	score += _board_value(match_state, perspective_player_id)
-	score += _support_zone_value(me) - _support_zone_value(opponent)
-	score += _hand_value(me) * HAND_WEIGHT
-	score -= _hand_value(opponent) * OPPONENT_HAND_WEIGHT
+	score += _support_zone_value(me, support_base) - _support_zone_value(opponent, support_base)
+	score += _hand_value(me) * hand_w
+	score -= _hand_value(opponent) * opp_hand_w
 	score += float(MatchTurnLoop.get_available_magicka(me)) * UNUSED_MAGICKA_WEIGHT if str(match_state.get("active_player_id", "")) == perspective_player_id else 0.0
 	score += float(int(me.get("ring_of_magicka_charges", 0))) * RING_CHARGE_WEIGHT
 	score -= float(int(opponent.get("ring_of_magicka_charges", 0))) * RING_CHARGE_WEIGHT
-	score -= float(_incoming_face_threat(match_state, perspective_player_id)) * INCOMING_THREAT_WEIGHT
-	score += float(_incoming_face_threat(match_state, opponent_id)) * (INCOMING_THREAT_WEIGHT * 0.55)
+	# Incoming threat is weighted asymmetrically: own threat is fully weighted,
+	# opponent's threat (our board pressure) is discounted to 55%.
+	score -= float(_incoming_face_threat(match_state, perspective_player_id)) * threat_w
+	score += float(_incoming_face_threat(match_state, opponent_id)) * (threat_w * 0.55)
 	return score
 
 
@@ -81,12 +106,12 @@ static func _creature_value(match_state: Dictionary, card: Dictionary) -> float:
 	return value
 
 
-static func _support_zone_value(player_state: Dictionary) -> float:
+static func _support_zone_value(player_state: Dictionary, support_base: float = SUPPORT_BASE_VALUE) -> float:
 	var total := 0.0
 	for card in player_state.get("support", []):
 		if typeof(card) != TYPE_DICTIONARY:
 			continue
-		total += SUPPORT_BASE_VALUE
+		total += support_base
 		total += float(int(card.get("cost", 0))) * 0.2
 		total += float(int(card.get("remaining_support_uses", card.get("support_uses", 0)))) * 0.2
 		total += 0.6 if int(card.get("activation_cost", -1)) >= 0 else 0.0

@@ -173,13 +173,17 @@ func _on_fight_pressed() -> void:
 	var match_num: int = _run_manager.current_match
 	var config: Dictionary = _run_manager.start_match()
 
-	# Set quality from Elo-based difficulty
+	# Set quality from Elo-based difficulty, boosted by current win streak.
+	# Each win adds +0.04 quality (capped at +0.20 from 5 wins), so successful
+	# runs face progressively smarter opponents within the same arena run.
 	var elo: int = ArenaEloManagerScript.get_elo()
 	if match_num >= 9:
 		config["quality"] = 1.0
 	else:
 		var difficulties: Array = ArenaEloManagerScript.get_opponent_difficulties(elo)
-		config["quality"] = difficulties[match_num - 1]
+		var base_quality: float = difficulties[match_num - 1]
+		var win_bonus := clampf(float(_run_manager.wins) * 0.04, 0.0, 0.20)
+		config["quality"] = clampf(base_quality + win_bonus, 0.0, 1.0)
 
 	# Build AI deck
 	var ai_deck: Array = ArenaDraftEngineScript.draft_ai_deck(
@@ -223,10 +227,13 @@ func _on_fight_pressed() -> void:
 	match_screen.match_state_changed.connect(_on_match_state_changed)
 	add_child(match_screen)
 	_current_screen = match_screen
+	# Pass quality and AI deck card IDs so the match screen can detect the deck's
+	# archetype and build a playstyle-specific AI options profile.
+	var ai_options := {"quality": config["quality"], "ai_deck_ids": ai_deck_ids}
 	if not boss_config.is_empty():
-		match_screen.start_arena_boss_match(player_deck_ids, ai_deck_ids, boss_config, match_seed, first_player_index)
+		match_screen.start_arena_boss_match(player_deck_ids, ai_deck_ids, boss_config, match_seed, first_player_index, ai_options)
 	else:
-		match_screen.start_match_with_decks(player_deck_ids, ai_deck_ids, match_seed, first_player_index)
+		match_screen.start_match_with_decks(player_deck_ids, ai_deck_ids, match_seed, first_player_index, ai_options)
 
 
 func _on_match_forfeited() -> void:
