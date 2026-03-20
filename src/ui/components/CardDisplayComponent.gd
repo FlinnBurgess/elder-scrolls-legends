@@ -1217,7 +1217,6 @@ func _refresh_pips() -> void:
 		pip.color = PIP_COLOR_ACTIVE if i == _relationship_index else PIP_COLOR_INACTIVE
 		pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_pips_container.add_child(pip)
-	_layout_pips()
 
 
 func _layout_pips() -> void:
@@ -1227,8 +1226,8 @@ func _layout_pips() -> void:
 	if pip_count == 0:
 		return
 	var total_width := PIP_SIZE * pip_count + PIP_SPACING * (pip_count - 1)
-	var pip_x := _outer_frame.position.x + _outer_frame.size.x - total_width - 6.0
-	var pip_y := _outer_frame.position.y + _outer_frame.size.y - PIP_SIZE - 4.0
+	var pip_x := _outer_frame.position.x + _outer_frame.size.x - total_width - 12.0
+	var pip_y := _outer_frame.position.y + _outer_frame.size.y - PIP_SIZE - 10.0
 	_pips_container.position = Vector2(pip_x, pip_y)
 	_pips_container.size = Vector2(total_width, PIP_SIZE)
 
