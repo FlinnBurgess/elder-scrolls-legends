@@ -42,6 +42,8 @@ const LOCAL_MATCH_AI_ATTACK_DELAY_MS := 900
 const LANE_CARD_FLOAT_OFFSET := Vector2(-10, -18)
 const LANE_CARD_FLOAT_SHADOW_OFFSET := Vector2(10, 14)
 const LANE_CARD_FLOAT_ANIM_DURATION := 0.22
+const LANE_CARD_BOB_AMPLITUDE := 4.0
+const LANE_CARD_BOB_DURATION := 1.6
 const SELECTION_MODE_NONE := "none"
 const SELECTION_MODE_SUMMON := "summon"
 const SELECTION_MODE_ITEM := "item"
@@ -5143,6 +5145,7 @@ func _apply_lane_card_float_effect(button: Button, card: Dictionary) -> void:
 		content_root.offset_right = LANE_CARD_FLOAT_OFFSET.x
 		content_root.offset_bottom = LANE_CARD_FLOAT_OFFSET.y
 		shadow.modulate.a = 1.0
+		_start_lane_card_bob(button, content_root, shadow)
 	else:
 		# First time floating – animate the rise and shadow fade-in
 		shadow.modulate.a = 0.0
@@ -5153,6 +5156,24 @@ func _apply_lane_card_float_effect(button: Button, card: Dictionary) -> void:
 		tween.tween_property(content_root, "offset_right", LANE_CARD_FLOAT_OFFSET.x, LANE_CARD_FLOAT_ANIM_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
 		tween.tween_property(content_root, "offset_bottom", LANE_CARD_FLOAT_OFFSET.y, LANE_CARD_FLOAT_ANIM_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
 		tween.tween_property(shadow, "modulate:a", 1.0, LANE_CARD_FLOAT_ANIM_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+		tween.finished.connect(_start_lane_card_bob.bind(button, content_root, shadow))
+
+
+func _start_lane_card_bob(button: Button, content_root: Control, shadow: ColorRect) -> void:
+	if not is_instance_valid(button) or not is_instance_valid(content_root):
+		return
+	var base_y := LANE_CARD_FLOAT_OFFSET.y
+	var bob_top := base_y - LANE_CARD_BOB_AMPLITUDE
+	var bob_bottom := base_y
+	var half := LANE_CARD_BOB_DURATION * 0.5
+	var bob_tween := button.create_tween()
+	bob_tween.set_loops()
+	# Bob up – both offsets move together
+	bob_tween.tween_property(content_root, "offset_top", bob_top, half).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
+	bob_tween.parallel().tween_property(content_root, "offset_bottom", bob_top, half).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
+	# Bob down – runs after the up phase completes
+	bob_tween.tween_property(content_root, "offset_top", bob_bottom, half).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
+	bob_tween.parallel().tween_property(content_root, "offset_bottom", bob_bottom, half).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
 
 
 func _add_feedback_banner(container: Control, name: String, text: String, fill: Color, border: Color, font_color: Color, top_offset: float) -> void:
