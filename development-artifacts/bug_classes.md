@@ -90,6 +90,11 @@ Card display components for hand/lane/support cards in `_build_card_display_comp
 Example: Ancient Lookout (Dragon synergy count)
 How to spot: User reports alt-view showing "Synergy: [subtype]" instead of a count. Check if `set_relationship_context` is called on the card display component.
 
+## Inline card_template missing abilities from catalog token definition
+When a card uses `summon_from_effect` or `summon_copies_to_lane` with an inline `card_template`, the generated card is built solely from that template — `build_generated_card` does not look up the catalog. If the inline template omits `triggered_abilities`, `rules_text`, or `effect_ids` that the corresponding non-collectible `_seed` entry has, the summoned token will be a plain stat-stick with no abilities.
+Example: Slaughterfish Spawning (inline template for Slaughterfish token was missing `triggered_abilities` for +2/+0 per turn)
+How to spot: User reports a summoned token having no special effects. Compare the inline `card_template` in the summoning card's effects against the standalone `_seed` entry for that `definition_id`.
+
 ## Trigger role mismatch on event field names
 The `_matches_trigger_role` function checks `event.get("player_id")` / `event.get("playing_player_id")` for the "controller" and "opponent_player" roles, but some event types use different field names: `creature_destroyed` uses `controller_player_id`, and `damage_resolved` uses `source_controller_player_id`. This causes triggers with those match roles to silently never fire for those event types.
 Example: Stormcloak Camp, Necromancer's Amulet, Grim Champion, General Tullius (all `on_friendly_death` family); Helgen Squad Leader (`on_attack` family with `match_role: "controller"`)
