@@ -213,8 +213,12 @@ func get_relationship_count() -> int:
 
 
 func _rebuild_relationships() -> void:
+	var was_cycling := _relationship_index != 0
 	_relationships = CardRelationshipResolverClass.resolve(_card_data if _original_card_data.is_empty() else _original_card_data, _relationship_context)
 	_relationship_index = 0
+	if was_cycling and not _original_card_data.is_empty():
+		_card_data = _original_card_data.duplicate(true)
+		_refresh_all()
 	_refresh_pips()
 
 
@@ -1223,7 +1227,7 @@ func _layout_pips() -> void:
 	if pip_count == 0:
 		return
 	var total_width := PIP_SIZE * pip_count + PIP_SPACING * (pip_count - 1)
-	var pip_x := _outer_frame.position.x + (_outer_frame.size.x - total_width) * 0.5
+	var pip_x := _outer_frame.position.x + _outer_frame.size.x - total_width - 6.0
 	var pip_y := _outer_frame.position.y + _outer_frame.size.y - PIP_SIZE - 4.0
 	_pips_container.position = Vector2(pip_x, pip_y)
 	_pips_container.size = Vector2(total_width, PIP_SIZE)
