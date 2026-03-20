@@ -70,6 +70,11 @@ An effect operation writes to a player state field name that doesn't exist (e.g.
 Example: Palace Prowler, Torval Crook, Brynjolf (`gain_magicka` op wrote to `player["magicka"]` instead of `player["temporary_magicka"]`)
 How to spot: User reports a resource-gain effect (magicka, health, etc.) not working. Check if the field name written in the effect handler matches the field name read by the engine's getter/spending functions (e.g., `get_available_magicka` reads `current_magicka` + `temporary_magicka`).
 
+## Strict health comparison excludes equal health on "Otherwise" branch
+Card uses `required_more_health` for an "Otherwise" (not-less) branch, but that condition is strictly greater-than. When both players have equal health, neither the "less" nor "more" condition fires, so the card does nothing. Fix by using a `required_not_less_health` condition (>=) instead.
+Example: Rift Thane
+How to spot: User reports a card with "If you have less health... Otherwise..." doing nothing when health is equal. Check if the "Otherwise" branch uses `required_more_health` (strict) instead of `required_not_less_health` (inclusive).
+
 ## Trigger role mismatch on event field names
 The `_matches_trigger_role` function checks `event.get("player_id")` / `event.get("playing_player_id")` for the "controller" and "opponent_player" roles, but some event types use different field names: `creature_destroyed` uses `controller_player_id`, and `damage_resolved` uses `source_controller_player_id`. This causes triggers with those match roles to silently never fire for those event types.
 Example: Stormcloak Camp, Necromancer's Amulet, Grim Champion, General Tullius (all `on_friendly_death` family); Helgen Squad Leader (`on_attack` family with `match_role: "controller"`)

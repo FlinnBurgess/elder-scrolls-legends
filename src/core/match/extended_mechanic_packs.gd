@@ -142,6 +142,12 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 			return false
 		if int(controller.get("health", 0)) >= int(opponent.get("health", 0)):
 			return false
+	if descriptor.has("required_not_less_health"):
+		var opponent := _get_opponent(match_state, str(trigger.get("controller_player_id", "")))
+		if controller.is_empty() or opponent.is_empty():
+			return false
+		if int(controller.get("health", 0)) < int(opponent.get("health", 0)):
+			return false
 	# Subtype on board condition (e.g., "if you have another Orc")
 	var required_board_subtype := str(descriptor.get("required_subtype_on_board", ""))
 	if not required_board_subtype.is_empty():

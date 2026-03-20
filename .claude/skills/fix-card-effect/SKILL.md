@@ -41,6 +41,19 @@ Cards with active effects (Summon, Last Gasp, Slay, start/end of turn, on play, 
 - `expertise` — when controller plays a 5+ cost card
 - `rune_break` — when a rune is broken
 
+**Trigger Conditions** (checked in `extended_mechanic_packs.matches_additional_conditions()`):
+These are optional fields on the trigger descriptor that gate whether the trigger fires:
+- `required_more_health: true` — controller health strictly > opponent health
+- `required_less_health: true` — controller health strictly < opponent health
+- `required_not_less_health: true` — controller health >= opponent health (use for "Otherwise" branches paired with `required_less_health`)
+- `required_subtype_on_board` — friendly creature with this subtype must be in a lane (excluding self)
+- `required_keyword_on_board` — friendly creature with this keyword must be in a lane (excluding self)
+- `required_event_source_subtype` — the event source card must have this subtype
+- `required_summon_subtype` — the summoned creature must have this subtype
+- `required_summon_keyword` — the summoned creature must have this keyword
+- `required_played_rules_tag` — the played card must have this rules_tag
+- `excluded_rule_tag` — the source card must NOT have this rules_tag
+
 **Effect Operations** (defined in `match_timing._apply_effects()`):
 - `modify_stats` — `{op, target, power, health, duration?}` — use `"duration": "end_of_turn"` for "this turn" effects
 - `grant_keyword` — `{op, target, keyword_id, duration?}` — use `"duration": "end_of_turn"` for "this turn" effects
@@ -104,6 +117,7 @@ If the user reports a missing or broken alt-view, check three things:
 5. **Hydration not passing field** — New fields added to the catalog but not copied in `match_screen._hydrate_card()`.
 6. **Missing `duration` on "this turn" effects** — `modify_stats` and `grant_keyword` ops are permanent by default. Cards with "this turn" in `rules_text` need `"duration": "end_of_turn"` on the effect descriptor.
 7. **Effect op writes to wrong state field** — The op handler exists and fires, but mutates a non-existent or wrong field on the player/card state dictionary. GDScript silently creates new dict keys on assignment, so the value is stored but never read by the rest of the engine. The effect appears to do nothing.
+8. **Strict comparison condition excludes boundary case** — A trigger condition uses a strict comparison (e.g., `required_more_health` = strictly >) when the card text implies an inclusive one (e.g., "Otherwise" = not less = >=). At the boundary (equal values), neither branch fires. Fix by using the appropriate inclusive condition (e.g., `required_not_less_health`).
 
 ### Key Files to Investigate
 
