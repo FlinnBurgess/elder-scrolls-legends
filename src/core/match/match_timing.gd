@@ -69,6 +69,7 @@ const FAMILY_ON_ENEMY_SHACKLED := "on_enemy_shackled"
 const FAMILY_ON_PLAYER_HEALED := "on_player_healed"
 const FAMILY_ON_MAX_MAGICKA_GAINED := "on_max_magicka_gained"
 const FAMILY_ON_CREATURE_HEALED := "on_creature_healed"
+const FAMILY_ON_FRIENDLY_SUMMON := "on_friendly_summon"
 
 const EVENT_CARD_EQUIPPED := "card_equipped"
 
@@ -112,6 +113,7 @@ const FAMILY_SPECS := {
 	FAMILY_ON_PLAYER_HEALED: {"event_type": "player_healed", "window": WINDOW_AFTER, "match_role": "target_player_is_controller"},
 	FAMILY_ON_MAX_MAGICKA_GAINED: {"event_type": "max_magicka_gained", "window": WINDOW_AFTER, "match_role": "target_player_is_controller"},
 	FAMILY_ON_CREATURE_HEALED: {"event_type": "creature_healed", "window": WINDOW_AFTER, "match_role": "any_player"},
+	FAMILY_ON_FRIENDLY_SUMMON: {"event_type": EVENT_CREATURE_SUMMONED, "window": WINDOW_AFTER, "match_role": "controller", "exclude_self": true},
 }
 
 
@@ -173,6 +175,7 @@ static func get_supported_trigger_families() -> Array:
 		FAMILY_ON_ENEMY_SHACKLED,
 		FAMILY_ON_PLAYER_HEALED,
 		FAMILY_ON_MAX_MAGICKA_GAINED,
+		FAMILY_ON_FRIENDLY_SUMMON,
 	]
 
 
@@ -1489,7 +1492,7 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 		var event_rules_tags = event.get("rules_tags", [])
 		if typeof(event_rules_tags) != TYPE_ARRAY or not event_rules_tags.has(required_played_rules_tag):
 			return false
-	if bool(descriptor.get("exclude_self", false)):
+	if bool(descriptor.get("exclude_self", family_spec.get("exclude_self", false))):
 		var event_source_id := str(event.get("source_instance_id", event.get("subject_instance_id", "")))
 		if event_source_id == str(trigger.get("source_instance_id", "")):
 			return false
@@ -1520,6 +1523,34 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 		var rtk_target_id := str(event.get("target_instance_id", ""))
 		var rtk_target := _find_card_anywhere(match_state, rtk_target_id)
 		if rtk_target.is_empty() or not EvergreenRules.has_keyword(rtk_target, required_target_keyword):
+			return false
+	# Summon-filtering conditions — gate triggers based on properties of the summoned creature
+	var _summon_card_needed := false
+	var _summon_card: Dictionary = {}
+	var required_summon_subtype := str(descriptor.get("required_summon_subtype", ""))
+	var required_summon_keyword := str(descriptor.get("required_summon_keyword", ""))
+	var required_summon_min_power := int(descriptor.get("required_summon_min_power", 0))
+	var required_summon_min_health := int(descriptor.get("required_summon_min_health", 0))
+	var required_summon_min_cost := int(descriptor.get("required_summon_min_cost", 0))
+	if not required_summon_subtype.is_empty() or not required_summon_keyword.is_empty() or required_summon_min_power > 0 or required_summon_min_health > 0 or required_summon_min_cost > 0:
+		_summon_card = _find_card_anywhere(match_state, str(event.get("source_instance_id", "")))
+		if _summon_card.is_empty():
+			return false
+	if not required_summon_subtype.is_empty():
+		var summon_subtypes = _summon_card.get("subtypes", [])
+		if typeof(summon_subtypes) != TYPE_ARRAY or not summon_subtypes.has(required_summon_subtype):
+			return false
+	if not required_summon_keyword.is_empty():
+		if not EvergreenRules.has_keyword(_summon_card, required_summon_keyword):
+			return false
+	if required_summon_min_power > 0:
+		if EvergreenRules.get_power(_summon_card) < required_summon_min_power:
+			return false
+	if required_summon_min_health > 0:
+		if EvergreenRules.get_health(_summon_card) < required_summon_min_health:
+			return false
+	if required_summon_min_cost > 0:
+		if int(_summon_card.get("cost", 0)) < required_summon_min_cost:
 			return false
 	return ExtendedMechanicPacks.matches_additional_conditions(match_state, trigger, descriptor, event)
 
@@ -1928,6 +1959,57 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					EvergreenRules.add_status(card, EvergreenRules.STATUS_SHACKLED)
 					card["shackle_expires_on_turn"] = int(match_state.get("turn_number", 0)) + 1
 					generated_events.append({"event_type": "status_granted", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "status_id": "shackled", "reason": reason})
+			"battle_creature":
+				var battle_source_id := str(trigger.get("source_instance_id", ""))
+				var battle_source := _find_card_anywhere(match_state, battle_source_id)
+				for defender in _resolve_card_targets(match_state, trigger, event, effect):
+					if battle_source.is_empty():
+						break
+					var attacker_power := maxi(0, EvergreenRules.get_power(battle_source))
+					var defender_power := maxi(0, EvergreenRules.get_power(defender))
+					var defender_remaining_before := EvergreenRules.get_remaining_health(defender)
+					var attacker_remaining_before := EvergreenRules.get_remaining_health(battle_source)
+					var defender_damage_result := EvergreenRules.apply_damage_to_creature(defender, attacker_power)
+					var attacker_damage_result := EvergreenRules.apply_damage_to_creature(battle_source, defender_power)
+					if bool(defender_damage_result.get("ward_removed", false)):
+						generated_events.append({"event_type": "ward_removed", "source_instance_id": battle_source_id, "target_instance_id": str(defender.get("instance_id", ""))})
+					if bool(attacker_damage_result.get("ward_removed", false)):
+						generated_events.append({"event_type": "ward_removed", "source_instance_id": str(defender.get("instance_id", "")), "target_instance_id": battle_source_id})
+					var applied_to_defender := int(defender_damage_result.get("applied", 0))
+					var applied_to_attacker := int(attacker_damage_result.get("applied", 0))
+					if applied_to_defender > 0:
+						generated_events.append({"event_type": "damage_resolved", "source_instance_id": battle_source_id, "source_controller_player_id": str(battle_source.get("controller_player_id", "")), "target_instance_id": str(defender.get("instance_id", "")), "target_type": "creature", "amount": applied_to_defender, "damage_kind": "combat", "reason": reason})
+					if applied_to_attacker > 0:
+						generated_events.append({"event_type": "damage_resolved", "source_instance_id": str(defender.get("instance_id", "")), "source_controller_player_id": str(defender.get("controller_player_id", "")), "target_instance_id": battle_source_id, "target_type": "creature", "amount": applied_to_attacker, "damage_kind": "combat", "reason": reason})
+					var defender_has_lethal := EvergreenRules.has_keyword(defender, EvergreenRules.KEYWORD_LETHAL)
+					var attacker_has_lethal := EvergreenRules.has_keyword(battle_source, EvergreenRules.KEYWORD_LETHAL)
+					var defender_destroyed := EvergreenRules.is_creature_destroyed(defender, applied_to_defender > 0 and attacker_has_lethal)
+					var attacker_destroyed := EvergreenRules.is_creature_destroyed(battle_source, applied_to_attacker > 0 and defender_has_lethal)
+					# Handle breakthrough on attacker
+					if defender_destroyed and EvergreenRules.has_keyword(battle_source, EvergreenRules.KEYWORD_BREAKTHROUGH):
+						var bt_damage := maxi(0, attacker_power - defender_remaining_before)
+						if bt_damage > 0:
+							var defending_player_id := str(defender.get("controller_player_id", ""))
+							var bt_result := apply_player_damage(match_state, defending_player_id, bt_damage, {"reason": "breakthrough", "source_instance_id": battle_source_id, "source_controller_player_id": str(battle_source.get("controller_player_id", ""))})
+							var applied_bt := int(bt_result.get("applied_damage", 0))
+							if applied_bt > 0:
+								generated_events.append({"event_type": "damage_resolved", "source_instance_id": battle_source_id, "source_controller_player_id": str(battle_source.get("controller_player_id", "")), "target_type": "player", "target_player_id": defending_player_id, "amount": applied_bt, "damage_kind": "breakthrough"})
+								generated_events.append_array(bt_result.get("events", []))
+								append_match_win_if_needed(match_state, defending_player_id, str(battle_source.get("controller_player_id", "")), generated_events)
+					if defender_destroyed:
+						var def_loc := MatchMutations.find_card_location(match_state, str(defender.get("instance_id", "")))
+						if bool(def_loc.get("is_valid", false)):
+							var def_controller := str(defender.get("controller_player_id", ""))
+							var def_moved := MatchMutations.discard_card(match_state, str(defender.get("instance_id", "")))
+							if bool(def_moved.get("is_valid", false)):
+								generated_events.append({"event_type": "creature_destroyed", "instance_id": str(defender.get("instance_id", "")), "source_instance_id": str(defender.get("instance_id", "")), "owner_player_id": str(defender.get("owner_player_id", "")), "controller_player_id": def_controller, "destroyed_by_instance_id": battle_source_id, "lane_id": str(def_loc.get("lane_id", "")), "source_zone": ZONE_LANE})
+					if attacker_destroyed:
+						var atk_loc := MatchMutations.find_card_location(match_state, battle_source_id)
+						if bool(atk_loc.get("is_valid", false)):
+							var atk_controller := str(battle_source.get("controller_player_id", ""))
+							var atk_moved := MatchMutations.discard_card(match_state, battle_source_id)
+							if bool(atk_moved.get("is_valid", false)):
+								generated_events.append({"event_type": "creature_destroyed", "instance_id": battle_source_id, "source_instance_id": battle_source_id, "owner_player_id": str(battle_source.get("owner_player_id", "")), "controller_player_id": atk_controller, "destroyed_by_instance_id": str(defender.get("instance_id", "")), "lane_id": str(atk_loc.get("lane_id", "")), "source_zone": ZONE_LANE})
 			"destroy_creature":
 				var destroy_source_id := str(trigger.get("source_instance_id", ""))
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
@@ -2608,6 +2690,10 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 			var source_card := _find_card_anywhere(match_state, str(event.get("source_instance_id", "")))
 			if not source_card.is_empty():
 				targets.append(source_card)
+		"event_summoned_creature":
+			var summoned_card := _find_card_anywhere(match_state, str(event.get("source_instance_id", "")))
+			if not summoned_card.is_empty():
+				targets.append(summoned_card)
 		"event_target":
 			var target_card := _find_card_anywhere(match_state, _event_target_instance_id(event))
 			if not target_card.is_empty():

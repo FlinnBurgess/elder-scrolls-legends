@@ -16,6 +16,11 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 - **Fifth Legion Trainer** is wired but others need the trigger family:
 - **Haafingar Marauder** — WIRED (see Previously Fixed).
+- **Ancient Lookout**, **Blades Lookout**, **Ghost Sea Lookout**, **Cliffside Lookout**, **Woodland Lookout**, **Legate Rikke**, **Innkeeper Delphine**, **Mistveil Enchanter**, **Snowhawk Detachment**, **Berserker of the Pale**, **East Empire Crafter**, **World-Eater's Eyrie** — WIRED (on_friendly_summon family now implemented).
+
+### Needs `set_power_equal_to_health` effect op
+
+- **High Hrothgar** — Uses `set_power_equal_to_health` op which is not implemented in `match_timing._apply_effects()`.
 
 ### Needs "on attack" trigger family
 

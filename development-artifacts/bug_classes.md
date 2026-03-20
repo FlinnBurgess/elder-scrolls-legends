@@ -80,6 +80,16 @@ Card uses `required_more_health` for an "Otherwise" (not-less) branch, but that 
 Example: Rift Thane
 How to spot: User reports a card with "If you have less health... Otherwise..." doing nothing when health is equal. Check if the "Otherwise" branch uses `required_more_health` (strict) instead of `required_not_less_health` (inclusive).
 
+## Missing trigger family in FAMILY_SPECS (on_friendly_summon)
+Card references `on_friendly_summon` family but it didn't exist in `FAMILY_SPECS`, so the trigger silently never fires. Additionally, condition fields like `required_summon_subtype`, `required_summon_keyword`, `required_summon_min_power`, `required_summon_min_health`, `required_summon_min_cost` were not checked in `_matches_conditions`.
+Example: Ancient Lookout, Blades Lookout, Ghost Sea Lookout, Cliffside Lookout, Woodland Lookout
+How to spot: User reports a "When you summon a [subtype/keyword/stat condition]" trigger not firing. Check if the card's `family` value exists in FAMILY_SPECS and if condition fields like `required_summon_*` are handled in `_matches_conditions`.
+
+## Missing relationship context on in-match card displays
+Card display components for hand/lane/support cards in `_build_card_display_component` were not receiving relationship context, so alt-view synergy text showed "Synergy: X" instead of counts like "You have N Xs in play and hand." Only hover previews received context.
+Example: Ancient Lookout (Dragon synergy count)
+How to spot: User reports alt-view showing "Synergy: [subtype]" instead of a count. Check if `set_relationship_context` is called on the card display component.
+
 ## Trigger role mismatch on event field names
 The `_matches_trigger_role` function checks `event.get("player_id")` / `event.get("playing_player_id")` for the "controller" and "opponent_player" roles, but some event types use different field names: `creature_destroyed` uses `controller_player_id`, and `damage_resolved` uses `source_controller_player_id`. This causes triggers with those match roles to silently never fire for those event types.
 Example: Stormcloak Camp, Necromancer's Amulet, Grim Champion, General Tullius (all `on_friendly_death` family); Helgen Squad Leader (`on_attack` family with `match_role: "controller"`)

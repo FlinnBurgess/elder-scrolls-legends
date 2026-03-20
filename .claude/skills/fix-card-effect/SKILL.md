@@ -44,6 +44,7 @@ Cards with active effects (Summon, Last Gasp, Slay, start/end of turn, on play, 
 - `on_friendly_slay` — when another friendly creature slays
 - `on_attack` — when the creature deals combat damage
 - `after_action_played` — when the controller plays an action
+- `on_friendly_summon` — when the controller summons another creature (excludes self)
 
 **Trigger Conditions** (checked in `extended_mechanic_packs.matches_additional_conditions()`):
 These are optional fields on the trigger descriptor that gate whether the trigger fires:
@@ -89,6 +90,7 @@ These are optional fields on the trigger descriptor that gate whether the trigge
 - `"event_source"` — the card that caused the event
 - `"event_target"` — the target of the event
 - `"event_subject"` — the subject of the event
+- `"event_summoned_creature"` — the creature that was just summoned (alias for event_source in summon events, used by `on_friendly_summon` triggers)
 
 **Target Player Values**:
 - `"controller"` — the card's controller
@@ -109,8 +111,9 @@ Cards whose effects create other cards (via `card_template` in their effects) ca
 If the user reports a missing or broken alt-view, check three things:
 1. **Resolver coverage (text)** — Is the card's trigger condition field handled in `_resolve_contextual_text()` in `card_relationship_resolver.gd`? If not, add a resolver function that extracts the subtype/attribute and calls `_subtype_count_text()`.
 1b. **Resolver coverage (card)** — Does the card's effect op appear in `RELATED_CARD_OPS`? If not, add it so the `card_template` shows as an alt-view card.
-2. **Context not passed** — The resolver needs a context dict (`zone`, `deck_cards`, `board_cards`, `hand_cards`) to show counts. If it shows "Synergy: X" instead of "You have N Xs...", the `CardDisplayComponent` isn't receiving context via `set_relationship_context()`. Check where the hover preview is created:
-   - `match_screen.gd` — `_add_hover_preview_to_layer()` / `_build_match_relationship_context()`
+2. **Context not passed** — The resolver needs a context dict (`zone`, `deck_cards`, `board_cards`, `hand_cards`) to show counts. If it shows "Synergy: X" instead of "You have N Xs...", the `CardDisplayComponent` isn't receiving context via `set_relationship_context()`. Check these rendering paths:
+   - `match_screen.gd` — `_build_card_display_component()` (main card rendering for hand/lane/support)
+   - `match_screen.gd` — `_add_hover_preview_to_layer()` / `_build_match_relationship_context()` (hover previews)
    - `arena_draft_screen.gd` — `_show_deck_hover_preview()` / `_build_draft_relationship_context()`
    - `deck_editor_screen.gd` — `_build_relationship_context()` (already wired up)
 

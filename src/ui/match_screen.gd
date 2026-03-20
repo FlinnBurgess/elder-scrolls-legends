@@ -3574,6 +3574,8 @@ func _build_card_display_component(card: Dictionary, surface: String, instance_i
 		if effective_cost < int(card.get("cost", 0)):
 			display_card["_effective_cost"] = effective_cost
 	component.apply_card(display_card, _card_presentation_mode(card, surface))
+	if component.has_method("set_relationship_context"):
+		component.set_relationship_context(_build_match_relationship_context())
 	if surface == "support" and bool(card.get("activation_used_this_turn", false)):
 		component.modulate = Color(0.5, 0.5, 0.55, 0.8)
 	return component
