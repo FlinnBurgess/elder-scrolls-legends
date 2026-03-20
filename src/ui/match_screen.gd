@@ -106,6 +106,7 @@ var _mulligan_marked_ids: Array = []
 var _mulligan_card_by_id: Dictionary = {}
 var _discard_viewer_state := {}
 var _discard_choice_overlay_state := {}
+var _hand_selection_state := {}
 var _attack_feedbacks: Array = []
 var _damage_feedbacks: Array = []
 var _removal_feedbacks: Array = []
@@ -163,6 +164,7 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int 
 	_dismiss_prophecy_overlay()
 	_dismiss_discard_viewer()
 	_dismiss_discard_choice_overlay()
+	_exit_hand_selection_mode()
 	_dismiss_spell_reveal()
 	_reset_invalid_feedback()
 	_clear_feedback_state()
@@ -219,6 +221,7 @@ func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_confi
 	_dismiss_prophecy_overlay()
 	_dismiss_discard_viewer()
 	_dismiss_discard_choice_overlay()
+	_exit_hand_selection_mode()
 	_dismiss_spell_reveal()
 	_reset_invalid_feedback()
 	_clear_feedback_state()
@@ -391,6 +394,7 @@ func resume_from_state(saved_state: Dictionary) -> void:
 	_dismiss_prophecy_overlay()
 	_dismiss_discard_viewer()
 	_dismiss_discard_choice_overlay()
+	_exit_hand_selection_mode()
 	_dismiss_spell_reveal()
 	_reset_invalid_feedback()
 	_clear_feedback_state()
@@ -532,6 +536,7 @@ func load_scenario(scenario_id: String) -> bool:
 	_dismiss_prophecy_overlay()
 	_dismiss_discard_viewer()
 	_dismiss_discard_choice_overlay()
+	_exit_hand_selection_mode()
 	_dismiss_spell_reveal()
 	_reset_invalid_feedback()
 	_clear_feedback_state()
@@ -1826,6 +1831,7 @@ func _refresh_ui() -> void:
 	_refresh_turn_presentation()
 	_refresh_prophecy_overlay()
 	_refresh_discard_choice_overlay()
+	_refresh_hand_selection_state()
 	_refresh_player_sections()
 	_refresh_lanes()
 	_apply_match_layout_scale()
@@ -2510,6 +2516,68 @@ func _dismiss_discard_choice_overlay() -> void:
 	_discard_choice_overlay_state = {}
 
 
+# --- Hand selection mechanic ---
+
+
+func _has_local_pending_hand_selection() -> bool:
+	return MatchTiming.has_pending_hand_selection(_match_state, _local_player_id())
+
+
+func _refresh_hand_selection_state() -> void:
+	var has_selection := _has_local_pending_hand_selection()
+	var state_active := not _hand_selection_state.is_empty()
+	if has_selection and not state_active:
+		_enter_hand_selection_mode()
+	elif not has_selection and state_active:
+		_exit_hand_selection_mode()
+
+
+func _enter_hand_selection_mode() -> void:
+	var local_id := _local_player_id()
+	var selection := MatchTiming.get_pending_hand_selection(_match_state, local_id)
+	if selection.is_empty():
+		return
+	var candidate_ids: Array = selection.get("candidate_instance_ids", [])
+	if candidate_ids.is_empty():
+		MatchTiming.decline_pending_hand_selection(_match_state, local_id)
+		_refresh_ui()
+		return
+	_hand_selection_state = {
+		"candidate_ids": candidate_ids,
+		"source_instance_id": str(selection.get("source_instance_id", "")),
+		"prompt": str(selection.get("prompt", "Choose a card from your hand.")),
+	}
+	_selected_instance_id = ""
+	_status_message = str(_hand_selection_state.get("prompt", ""))
+
+
+func _exit_hand_selection_mode() -> void:
+	_hand_selection_state = {}
+
+
+func _resolve_hand_selection(instance_id: String) -> void:
+	if _hand_selection_state.is_empty():
+		return
+	var local_id := _local_player_id()
+	var result := MatchTiming.resolve_pending_hand_selection(_match_state, local_id, instance_id)
+	_exit_hand_selection_mode()
+	if bool(result.get("is_valid", false)):
+		var card_name := str(result.get("card", {}).get("name", instance_id))
+		_record_feedback_from_events(_copy_array(result.get("events", [])))
+		_status_message = "Selected %s." % card_name
+	else:
+		_status_message = str(result.get("errors", ["Failed to resolve hand selection."])[0])
+	_refresh_ui()
+
+
+func _cancel_hand_selection() -> void:
+	var local_id := _local_player_id()
+	MatchTiming.decline_pending_hand_selection(_match_state, local_id)
+	_exit_hand_selection_mode()
+	_status_message = "Selection declined."
+	_refresh_ui()
+
+
 func _animate_enemy_prophecy_resolution(action: Dictionary, _result: Dictionary) -> void:
 	var card_back: PanelContainer = _prophecy_overlay_state.get("card_back")
 	if card_back == null or not is_instance_valid(card_back):
@@ -3125,11 +3193,23 @@ func _apply_local_hand_hover_state(button: Button, hovered: bool) -> void:
 	var target_size := card_size
 	var target_scale := Vector2.ONE
 	var target_z := hand_index
+	# Hand selection mode: eligible cards are raised and clickable, ineligible are dimmed
+	var hand_selection_active := not _hand_selection_state.is_empty()
+	var hand_selection_eligible := hand_selection_active and (_hand_selection_state.get("candidate_ids", []) as Array).has(str(button.get_meta("instance_id", "")))
+	var hand_selection_ineligible := hand_selection_active and not hand_selection_eligible
 	# When any card is selected (placement mode), non-selected hand cards ignore mouse
 	# so they don't block clicks on the board/support surface beneath them
 	var target_filter := Control.MOUSE_FILTER_IGNORE if (any_selected and not selected) else Control.MOUSE_FILTER_STOP
+	if hand_selection_ineligible:
+		target_filter = Control.MOUSE_FILTER_IGNORE
 	var raised := false
-	if not locked and selected:
+	if hand_selection_eligible:
+		target_filter = Control.MOUSE_FILTER_STOP
+		target_scale = Vector2(1.05, 1.05)
+		target_position = base_position + Vector2(0.0, -rise_amount)
+		target_z = 110
+		raised = true
+	elif not locked and selected:
 		target_filter = Control.MOUSE_FILTER_IGNORE
 		target_scale = Vector2(1.05, 1.05)
 		target_position = base_position + Vector2(0.0, -rise_amount)
@@ -3152,6 +3232,7 @@ func _apply_local_hand_hover_state(button: Button, hovered: bool) -> void:
 	button.scale = target_scale
 	button.pivot_offset = card_size * 0.5
 	button.size = target_size
+	button.modulate = Color(0.4, 0.4, 0.4, 0.7) if hand_selection_ineligible else Color.WHITE
 	# Pin content to original card dimensions at the top of the (possibly taller) button
 	var content_root: Control = button.get_meta("content_root", null) if button.has_meta("content_root") else null
 	if content_root != null:
@@ -3791,7 +3872,10 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton:
 		var button_event := event as InputEventMouseButton
 		if button_event.button_index == MOUSE_BUTTON_RIGHT and button_event.pressed:
-			if not _pending_summon_target.is_empty():
+			if not _hand_selection_state.is_empty():
+				_cancel_hand_selection()
+				get_viewport().set_input_as_handled()
+			elif not _pending_summon_target.is_empty():
 				if not _is_pending_summon_mandatory():
 					_cancel_summon_target_mode()
 				get_viewport().set_input_as_handled()
@@ -3830,6 +3914,13 @@ func _on_lane_card_gui_input(event: InputEvent, instance_id: String) -> void:
 
 
 func _on_card_pressed(instance_id: String) -> void:
+	if not _hand_selection_state.is_empty():
+		var candidates: Array = _hand_selection_state.get("candidate_ids", [])
+		if candidates.has(instance_id):
+			_resolve_hand_selection(instance_id)
+		else:
+			_report_invalid_interaction("Not a valid selection.", {"instance_ids": [instance_id]})
+		return
 	if not _pending_summon_target.is_empty():
 		_resolve_summon_target_card(instance_id)
 		return
@@ -5251,7 +5342,7 @@ func _is_local_prophecy_interrupt_open() -> bool:
 
 
 func _local_player_has_pending_interrupt() -> bool:
-	return _is_local_prophecy_interrupt_open() or not _pending_summon_target.is_empty() or _has_local_pending_discard_choice()
+	return _is_local_prophecy_interrupt_open() or not _pending_summon_target.is_empty() or _has_local_pending_discard_choice() or not _hand_selection_state.is_empty()
 
 
 func _is_local_match_ai_enabled() -> bool:
@@ -5268,6 +5359,8 @@ func _ai_controls_current_decision_window() -> bool:
 	if _local_player_has_pending_interrupt():
 		return false
 	var ai_player_id := _ai_player_id()
+	if MatchTiming.has_pending_hand_selection(_match_state, ai_player_id):
+		return true
 	if MatchTiming.has_pending_discard_choice(_match_state, ai_player_id):
 		return true
 	if MatchTiming.has_pending_prophecy(_match_state):

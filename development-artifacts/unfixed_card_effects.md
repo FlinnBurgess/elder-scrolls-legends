@@ -114,6 +114,10 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 - **Moment of Clarity** — WIRED (see Previously Fixed; simplified to generate 1 random card since card-choice UI doesn't exist yet).
 
+### Needs hand selection mechanic (select_card_from_hand)
+
+- **Barter** — Uses `trade_hand_card_for_opponent_deck` op which is not implemented. Needs a `then_op` for trading (discard selected hand card + draw random from opponent deck). The `select_card_from_hand` infrastructure now exists.
+
 ### Needs complex / unique mechanics
 
 - **Thieves Guild Recruit** — WIRED (see Previously Fixed).

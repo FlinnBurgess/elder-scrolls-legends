@@ -137,6 +137,8 @@ static func ensure_match_state(match_state: Dictionary) -> void:
 		match_state["pending_prophecy_windows"] = []
 	if not match_state.has("pending_discard_choices") or typeof(match_state["pending_discard_choices"]) != TYPE_ARRAY:
 		match_state["pending_discard_choices"] = []
+	if not match_state.has("pending_hand_selections") or typeof(match_state["pending_hand_selections"]) != TYPE_ARRAY:
+		match_state["pending_hand_selections"] = []
 	if not match_state.has("pending_rune_break_queue") or typeof(match_state["pending_rune_break_queue"]) != TYPE_ARRAY:
 		match_state["pending_rune_break_queue"] = []
 	if not match_state.has("out_of_cards_sequence"):
@@ -500,6 +502,76 @@ static func decline_pending_discard_choice(match_state: Dictionary, player_id: S
 			choices.remove_at(i)
 			return {"is_valid": true, "errors": []}
 	return {"is_valid": false, "errors": ["No pending discard choice for player %s." % player_id]}
+
+
+# --- Pending hand selection mechanic ---
+
+
+static func has_pending_hand_selection(match_state: Dictionary, player_id: String = "") -> bool:
+	return not get_pending_hand_selection(match_state, player_id).is_empty()
+
+
+static func get_pending_hand_selection(match_state: Dictionary, player_id: String = "") -> Dictionary:
+	ensure_match_state(match_state)
+	for raw_selection in match_state.get("pending_hand_selections", []):
+		if typeof(raw_selection) != TYPE_DICTIONARY:
+			continue
+		if not player_id.is_empty() and str(raw_selection.get("player_id", "")) != player_id:
+			continue
+		return raw_selection.duplicate(true)
+	return {}
+
+
+static func resolve_pending_hand_selection(match_state: Dictionary, player_id: String, chosen_instance_id: String) -> Dictionary:
+	ensure_match_state(match_state)
+	var selections: Array = match_state.get("pending_hand_selections", [])
+	var selection_index := -1
+	var selection := {}
+	for i in range(selections.size()):
+		if typeof(selections[i]) == TYPE_DICTIONARY and str(selections[i].get("player_id", "")) == player_id:
+			selection_index = i
+			selection = selections[i]
+			break
+	if selection_index == -1:
+		return {"is_valid": false, "errors": ["No pending hand selection for player %s." % player_id]}
+	var candidate_ids: Array = selection.get("candidate_instance_ids", [])
+	if not candidate_ids.has(chosen_instance_id):
+		return {"is_valid": false, "errors": ["Card %s is not a valid candidate." % chosen_instance_id]}
+	var hand_player := _get_player_state(match_state, player_id)
+	if hand_player.is_empty():
+		selections.remove_at(selection_index)
+		return {"is_valid": false, "errors": ["Unknown player_id: %s" % player_id]}
+	var chosen_card := {}
+	for card in hand_player.get(ZONE_HAND, []):
+		if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) == chosen_instance_id:
+			chosen_card = card
+			break
+	if chosen_card.is_empty():
+		selections.remove_at(selection_index)
+		return {"is_valid": false, "errors": ["Card %s not found in hand." % chosen_instance_id]}
+	var then_op := str(selection.get("then_op", ""))
+	var then_context: Dictionary = selection.get("then_context", {})
+	var source_instance_id := str(selection.get("source_instance_id", ""))
+	selections.remove_at(selection_index)
+	var generated_events: Array = ExtendedMechanicPacks.apply_hand_selection_effect(match_state, player_id, source_instance_id, chosen_card, then_op, then_context)
+	var timing_result := publish_events(match_state, generated_events)
+	return {
+		"is_valid": true,
+		"errors": [],
+		"card": chosen_card,
+		"events": timing_result.get("processed_events", []),
+		"trigger_resolutions": timing_result.get("trigger_resolutions", []),
+	}
+
+
+static func decline_pending_hand_selection(match_state: Dictionary, player_id: String) -> Dictionary:
+	ensure_match_state(match_state)
+	var selections: Array = match_state.get("pending_hand_selections", [])
+	for i in range(selections.size()):
+		if typeof(selections[i]) == TYPE_DICTIONARY and str(selections[i].get("player_id", "")) == player_id:
+			selections.remove_at(i)
+			return {"is_valid": true, "errors": []}
+	return {"is_valid": false, "errors": ["No pending hand selection for player %s." % player_id]}
 
 
 static func apply_player_damage(match_state: Dictionary, player_id: String, amount: int, context: Dictionary = {}) -> Dictionary:
@@ -2442,6 +2514,26 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						var insert_pos := _deterministic_index(match_state, str(gen_card.get("instance_id", "")), deck.size() + 1)
 						deck.insert(insert_pos, gen_card)
 						generated_events.append({"event_type": "card_shuffled_to_deck", "player_id": player_id, "source_instance_id": str(trigger.get("source_instance_id", "")), "inserted_instance_id": str(gen_card.get("instance_id", "")), "reason": reason})
+			"select_card_from_hand":
+				var sch_controller_id := str(trigger.get("controller_player_id", ""))
+				var sch_player := _get_player_state(match_state, sch_controller_id)
+				if not sch_player.is_empty():
+					var sch_filter: Dictionary = effect.get("filter", {}) if typeof(effect.get("filter", {})) == TYPE_DICTIONARY else {}
+					var sch_candidates: Array = []
+					for sch_card in sch_player.get(ZONE_HAND, []):
+						if typeof(sch_card) != TYPE_DICTIONARY:
+							continue
+						if ExtendedMechanicPacks.card_matches_hand_selection_filter(sch_card, sch_filter):
+							sch_candidates.append(str(sch_card.get("instance_id", "")))
+					if not sch_candidates.is_empty():
+						match_state["pending_hand_selections"].append({
+							"player_id": sch_controller_id,
+							"source_instance_id": str(trigger.get("source_instance_id", "")),
+							"candidate_instance_ids": sch_candidates,
+							"then_op": str(effect.get("then_op", "")),
+							"then_context": effect.get("then_context", {}).duplicate(true) if typeof(effect.get("then_context", {})) == TYPE_DICTIONARY else {},
+							"prompt": str(effect.get("prompt", "Choose a card from your hand.")),
+						})
 			_:
 				var custom_result := ExtendedMechanicPacks.apply_custom_effect(match_state, trigger, event, effect)
 				if bool(custom_result.get("handled", false)):

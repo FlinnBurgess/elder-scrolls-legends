@@ -1126,3 +1126,54 @@ static func _clone_variant(value):
 
 static func _timing_rules():
 	return load("res://src/core/match/match_timing.gd")
+
+
+# --- Hand selection mechanic ---
+
+
+static func card_matches_hand_selection_filter(card: Dictionary, filter: Dictionary) -> bool:
+	if filter.is_empty():
+		return true
+	if filter.has("rules_tag") and not _card_has_string(card, "rules_tags", str(filter.get("rules_tag", ""))):
+		return false
+	if filter.has("card_type") and str(filter.get("card_type", "")) != str(card.get("card_type", "")):
+		return false
+	if filter.has("subtype") and not _card_has_string(card, "subtypes", str(filter.get("subtype", ""))):
+		return false
+	if filter.has("keyword"):
+		var kw := str(filter.get("keyword", ""))
+		if not _card_has_string(card, "keywords", kw) and not _card_has_string(card, "granted_keywords", kw):
+			return false
+	if filter.has("attribute"):
+		var attrs = card.get("attributes", [])
+		if typeof(attrs) != TYPE_ARRAY or not attrs.has(str(filter.get("attribute", ""))):
+			return false
+	if filter.has("definition_id") and str(filter.get("definition_id", "")) != str(card.get("definition_id", "")):
+		return false
+	return true
+
+
+static func apply_hand_selection_effect(match_state: Dictionary, player_id: String, source_instance_id: String, chosen_card: Dictionary, then_op: String, then_context: Dictionary) -> Array:
+	match then_op:
+		"upgrade_shout":
+			return _resolve_shout_upgrade_for_card(match_state, player_id, chosen_card)
+	return []
+
+
+static func _resolve_shout_upgrade_for_card(match_state: Dictionary, player_id: String, chosen_card: Dictionary) -> Array:
+	var levels = chosen_card.get("shout_levels", [])
+	if typeof(levels) != TYPE_ARRAY or levels.is_empty():
+		return []
+	var current_level := maxi(1, int(chosen_card.get("shout_level", 1)))
+	var next_level := mini(levels.size(), current_level + 1)
+	var next_template = levels[next_level - 1]
+	if typeof(next_template) != TYPE_DICTIONARY:
+		return []
+	var shout_chain_id := str(chosen_card.get("shout_chain_id", chosen_card.get("definition_id", "")))
+	var events: Array = []
+	for card in _collect_owned_cards(match_state, player_id, [ZONE_HAND, ZONE_DECK, ZONE_DISCARD]):
+		if str(card.get("shout_chain_id", card.get("definition_id", ""))) != shout_chain_id:
+			continue
+		var change_result := MatchMutations.change_card(card, next_template, {"reason": "shout_upgrade"})
+		events.append_array(change_result.get("events", []))
+	return events

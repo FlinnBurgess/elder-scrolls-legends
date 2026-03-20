@@ -68,6 +68,10 @@ static func execute_action(match_state: Dictionary, action: Dictionary) -> Dicti
 			result = MatchTiming.resolve_pending_discard_choice(match_state, player_id, str(parameters.get("chosen_instance_id", "")))
 		MatchActionEnumerator.KIND_DECLINE_DISCARD:
 			result = MatchTiming.decline_pending_discard_choice(match_state, player_id)
+		MatchActionEnumerator.KIND_CHOOSE_HAND_SELECTION:
+			result = MatchTiming.resolve_pending_hand_selection(match_state, player_id, str(parameters.get("chosen_instance_id", "")))
+		MatchActionEnumerator.KIND_DECLINE_HAND_SELECTION:
+			result = MatchTiming.decline_pending_hand_selection(match_state, player_id)
 		_:
 			return {"is_valid": false, "errors": ["Unsupported action kind: %s" % kind], "match_state": match_state}
 	result["match_state"] = match_state

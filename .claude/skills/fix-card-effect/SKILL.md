@@ -81,6 +81,7 @@ These are optional fields on the trigger descriptor that gate whether the trigge
 - `consume` — `{op, target, consumer_target}`
 - `sacrifice` — `{op, target}`
 - `double_stats` — `{op, target, stat?}` — doubles current power and/or health; `stat` can be `"power"`, `"health"`, or `"both"` (default `"both"`)
+- `select_card_from_hand` — `{op, filter, then_op, then_context?, prompt?}` — creates a pending hand selection; the player picks an eligible hand card, then `then_op` is applied to it. Filter supports: `rules_tag`, `card_type`, `subtype`, `keyword`, `attribute`, `definition_id`. If no eligible cards, the effect fizzles silently. This is a **pending state op** (see below).
 - `log` — `{op, message}`
 
 **Target Values** for card targets:
@@ -124,6 +125,22 @@ If the user reports a missing or broken alt-view, check three things:
 7. **Effect op writes to wrong state field** — The op handler exists and fires, but mutates a non-existent or wrong field on the player/card state dictionary. GDScript silently creates new dict keys on assignment, so the value is stored but never read by the rest of the engine. The effect appears to do nothing.
 8. **Strict comparison condition excludes boundary case** — A trigger condition uses a strict comparison (e.g., `required_more_health` = strictly >) when the card text implies an inclusive one (e.g., "Otherwise" = not less = >=). At the boundary (equal values), neither branch fires. Fix by using the appropriate inclusive condition (e.g., `required_not_less_health`).
 
+### Pending State Pattern (Interactive Effects)
+
+Some effects pause the game and wait for player input before resolving. These use a **pending state** stored on `match_state`. Existing pending state systems:
+- `pending_prophecy_windows` — Prophecy interrupt
+- `pending_discard_choices` — Choose a card from discard pile
+- `pending_hand_selections` — Choose a card from hand (e.g., Word Wall's "Upgrade a Shout in your hand")
+
+If a new effect requires player interaction (choosing a target from a zone, picking between options, etc.), follow this pattern across **all layers**:
+
+1. **match_timing.gd**: Add the pending state array to `ensure_match_state()`. Add `has_pending_*()`, `get_pending_*()`, `resolve_pending_*()`, `decline_pending_*()` static functions. Add the effect op that creates the pending state.
+2. **match_action_enumerator.gd**: Add new `KIND_*` constants. Add enumeration in `enumerate_legal_actions()` (check BEFORE existing pending checks if higher priority). Add `_enumerate_pending_*_actions()`. Add legality checks in `action_is_legal()`. **Critical**: Also update `_resolve_decision_player_id()` to handle the new pending state — this is easy to miss and will cause the AI to not see the pending actions.
+3. **match_action_executor.gd**: Add execution cases for the new action kinds.
+4. **match_screen.gd**: Add UI state variable. Add refresh/enter/exit/resolve/cancel functions. Update `_local_player_has_pending_interrupt()`, `_ai_controls_current_decision_window()`, right-click handler, and `_on_card_pressed()`. Add cleanup calls alongside existing `_dismiss_*` calls.
+
+Also update `action_is_legal` for `KIND_END_TURN` to block ending turn while the new pending state is active.
+
 ### Key Files to Investigate
 
 - `src/deck/card_catalog.gd` — card definitions
@@ -133,7 +150,9 @@ If the user reports a missing or broken alt-view, check three things:
 - `src/core/match/extended_mechanic_packs.gd` — custom effects and conditions
 - `src/core/match/lane_rules.gd` — lane entry and summon validation
 - `src/core/match/persistent_card_rules.gd` — play-from-hand flows (actions, items, supports)
-- `src/ui/match_screen.gd` — card hydration (`_hydrate_card`)
+- `src/ai/match_action_enumerator.gd` — action enumeration and legality (update for new pending states)
+- `src/ai/match_action_executor.gd` — action execution dispatch (update for new action kinds)
+- `src/ui/match_screen.gd` — card hydration (`_hydrate_card`), hand selection UI, pending state refresh
 - `src/ui/components/card_relationship_resolver.gd` — alt-view synergy text (subtype/attribute counts)
 
 ## Step 3: Implement the Fix
