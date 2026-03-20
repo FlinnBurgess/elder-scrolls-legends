@@ -107,7 +107,7 @@ func _ready() -> void:
 	if not _is_built:
 		_build_internal_nodes()
 	_refresh_all()
-	_refresh_pips()
+	_refresh_all.call_deferred()
 
 
 func _process(_delta: float) -> void:
@@ -195,13 +195,12 @@ func cycle_relationship(direction: int) -> void:
 
 
 func reset_relationship_view() -> void:
-	if _relationship_index == 0 and _original_card_data.is_empty():
+	if _relationship_index == 0:
 		return
 	_relationship_index = 0
 	if not _original_card_data.is_empty():
 		_card_data = _original_card_data.duplicate(true)
-		_refresh_all()
-	_refresh_pips()
+	_refresh_all()
 
 
 func has_relationships() -> bool:
@@ -218,8 +217,7 @@ func _rebuild_relationships() -> void:
 	_relationship_index = 0
 	if was_cycling and not _original_card_data.is_empty():
 		_card_data = _original_card_data.duplicate(true)
-		_refresh_all()
-	_refresh_pips()
+	_refresh_all()
 
 
 func _apply_relationship_view() -> void:
@@ -240,7 +238,6 @@ func _apply_relationship_view() -> void:
 			_card_data["rules_text"] = str(rel.get("text", ""))
 			# Clear triggered_abilities so _rules_preview doesn't extract keywords from them
 			_refresh_all()
-	_refresh_pips()
 
 
 func _build_internal_nodes() -> void:
@@ -428,6 +425,7 @@ func _refresh_all() -> void:
 	_refresh_content()
 	_refresh_styles()
 	_refresh_visibility()
+	_refresh_pips()
 	_layout_internal_nodes()
 	_fit_rules_font_size()
 	_refresh_quantity_badge()
