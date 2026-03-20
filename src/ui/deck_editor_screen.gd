@@ -86,6 +86,7 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	_load_data()
 	_build_ui()
+	_disable_button_focus(self)
 	_refresh_browser()
 
 
@@ -543,6 +544,7 @@ func _build_filter_bar() -> Control:
 	_search_input.custom_minimum_size = Vector2(0, 32)
 	_search_input.placeholder_text = "Name, text, or id"
 	_search_input.text_changed.connect(_on_search_changed)
+	_search_input.gui_input.connect(_on_search_input_gui_input)
 	search_row.add_child(_search_input)
 
 	# Attribute toggle chips (populated dynamically based on deck attributes)
@@ -1110,3 +1112,18 @@ func _on_done_pressed() -> void:
 
 func _on_cancel_pressed() -> void:
 	cancel_pressed.emit()
+
+
+func _on_search_input_gui_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode in [KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN]:
+			_search_input.release_focus()
+
+
+func _disable_button_focus(node: Node) -> void:
+	if node is LineEdit:
+		return
+	if node is BaseButton or node is OptionButton:
+		(node as Control).focus_mode = Control.FOCUS_NONE
+	for child in node.get_children():
+		_disable_button_focus(child)
