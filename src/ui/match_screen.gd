@@ -136,6 +136,7 @@ var _overdraw_queue: Array = []
 var _match_end_button: Button
 var _arena_mode := false
 var _pause_overlay: PanelContainer
+var _attack_arrow_state := {}
 
 
 var _ai_enabled := false
@@ -625,6 +626,8 @@ func _execute_local_match_ai_step() -> Dictionary:
 			_animate_enemy_creature_summon_reveal(action, result)
 		elif is_enemy and str(action.get("kind", "")) == MatchActionEnumerator.KIND_SUMMON_CREATURE:
 			_animate_enemy_creature_play(action, result)
+		elif is_enemy and str(action.get("kind", "")) == MatchActionEnumerator.KIND_ATTACK:
+			_animate_enemy_attack_arrow(action, result)
 		else:
 			_refresh_ui()
 	if _arena_mode:
@@ -2519,6 +2522,68 @@ func _dismiss_spell_reveal() -> void:
 	if arrow != null and is_instance_valid(arrow):
 		arrow.queue_free()
 	_spell_reveal_state = {}
+
+
+func _dismiss_attack_arrow() -> void:
+	var arrow: Line2D = _attack_arrow_state.get("arrow")
+	if arrow != null and is_instance_valid(arrow):
+		arrow.queue_free()
+	_attack_arrow_state = {}
+
+
+func _animate_enemy_attack_arrow(action: Dictionary, _result: Dictionary) -> void:
+	var attacker_id := str(action.get("source_instance_id", ""))
+	var params: Dictionary = action.get("parameters", {})
+	var target: Dictionary = params.get("target", {})
+	var target_type := str(target.get("type", ""))
+
+	var attacker_button: Button = _card_buttons.get(attacker_id)
+	if attacker_button == null or not is_instance_valid(attacker_button):
+		_refresh_ui()
+		return
+
+	var attacker_card_size: Vector2 = attacker_button.get_meta("card_size", attacker_button.size)
+	var arrow_start := attacker_button.global_position + Vector2(attacker_card_size.x * 0.5, 0.0)
+
+	var arrow_end := Vector2.ZERO
+	if target_type == MatchCombat.TARGET_TYPE_CREATURE:
+		var target_id := str(target.get("instance_id", ""))
+		var target_button: Button = _card_buttons.get(target_id)
+		if target_button == null or not is_instance_valid(target_button):
+			_refresh_ui()
+			return
+		var target_card_size: Vector2 = target_button.get_meta("card_size", target_button.size)
+		arrow_end = target_button.global_position + Vector2(target_card_size.x * 0.5, 0.0)
+	elif target_type == MatchCombat.TARGET_TYPE_PLAYER:
+		var target_player_id := str(target.get("player_id", ""))
+		var section: Dictionary = _player_sections.get(target_player_id, {})
+		var avatar: Control = section.get("avatar_component")
+		if avatar != null and is_instance_valid(avatar):
+			arrow_end = avatar.global_position + Vector2(avatar.size.x * 0.5, avatar.size.y * 0.5)
+		else:
+			_refresh_ui()
+			return
+	else:
+		_refresh_ui()
+		return
+
+	var arrow := Line2D.new()
+	arrow.width = 4.0
+	arrow.default_color = Color(0.95, 0.25, 0.2, 0.92)
+	arrow.z_index = 500
+	arrow.antialiased = true
+	_prophecy_card_overlay.add_child(arrow)
+	_attack_arrow_state = {"arrow": arrow}
+
+	var tween := create_tween()
+	tween.tween_method(func(progress: float):
+		_draw_spell_reveal_arrow_partial(progress, arrow, arrow_start, arrow_end)
+	, 0.0, 1.0, 0.3)
+	tween.tween_interval(0.35)
+	tween.tween_callback(func():
+		_dismiss_attack_arrow()
+		_refresh_ui()
+	)
 
 
 func _dismiss_deck_reveal() -> void:
