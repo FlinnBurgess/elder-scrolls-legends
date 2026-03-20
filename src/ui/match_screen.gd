@@ -40,7 +40,7 @@ const LOCAL_MATCH_AI_SCENARIO_ID := "local_match"
 const LOCAL_MATCH_AI_ACTION_DELAY_MS := 320
 const LOCAL_MATCH_AI_ATTACK_DELAY_MS := 900
 const LANE_CARD_FLOAT_OFFSET := Vector2(-10, -18)
-const LANE_CARD_FLOAT_SHADOW_OFFSET := Vector2(8, 11)
+const LANE_CARD_FLOAT_SHADOW_OFFSET := Vector2(10, 14)
 const LANE_CARD_FLOAT_ANIM_DURATION := 0.22
 const SELECTION_MODE_NONE := "none"
 const SELECTION_MODE_SUMMON := "summon"
@@ -5117,8 +5117,8 @@ func _apply_lane_card_float_effect(button: Button, card: Dictionary) -> void:
 	var shadow_shader := load("res://assets/shaders/soft_shadow.gdshader") as Shader
 	var shadow_mat := ShaderMaterial.new()
 	shadow_mat.shader = shadow_shader
-	shadow_mat.set_shader_parameter("blur_radius", 0.18)
-	shadow_mat.set_shader_parameter("shadow_alpha", 0.35)
+	shadow_mat.set_shader_parameter("blur_radius", 0.14)
+	shadow_mat.set_shader_parameter("shadow_alpha", 0.82)
 	var shadow := ColorRect.new()
 	shadow.name = "float_shadow"
 	shadow.material = shadow_mat
