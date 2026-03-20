@@ -118,7 +118,7 @@ func _process(_delta: float) -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED and _is_built:
-		_layout_internal_nodes()
+		_refresh_all()
 
 
 func set_card(card: Dictionary) -> void:
