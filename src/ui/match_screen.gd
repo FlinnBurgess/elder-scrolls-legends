@@ -623,6 +623,8 @@ func _execute_local_match_ai_step() -> Dictionary:
 			_animate_enemy_spell_reveal(action, result)
 		elif is_enemy and str(action.get("kind", "")) == MatchActionEnumerator.KIND_SUMMON_CREATURE and _has_summon_target(action):
 			_animate_enemy_creature_summon_reveal(action, result)
+		elif is_enemy and str(action.get("kind", "")) == MatchActionEnumerator.KIND_SUMMON_CREATURE:
+			_animate_enemy_creature_play(action, result)
 		else:
 			_refresh_ui()
 	if _arena_mode:
@@ -2708,6 +2710,61 @@ func _animate_enemy_creature_summon_reveal(action: Dictionary, _result: Dictiona
 					_refresh_ui()
 				)
 				return
+		_dismiss_spell_reveal()
+		_refresh_ui()
+	)
+
+
+func _animate_enemy_creature_play(action: Dictionary, _result: Dictionary) -> void:
+	var source_card: Dictionary = action.get("source_card", {})
+	var params: Dictionary = action.get("parameters", {})
+	var lane_id := str(params.get("lane_id", ""))
+	if source_card.is_empty() or lane_id.is_empty():
+		_refresh_ui()
+		return
+
+	var card_size := _hand_card_display_size()
+	var viewport_size := get_viewport_rect().size
+
+	var card_back := PanelContainer.new()
+	card_back.name = "creature_play_card_back"
+	card_back.custom_minimum_size = card_size
+	card_back.size = card_size
+	_apply_panel_style(card_back, Color(0.35, 0.22, 0.12, 0.98), Color(0.57, 0.44, 0.27, 0.92), 2, 0)
+
+	# Start from the top center (enemy hand area)
+	var start_x := (viewport_size.x - card_size.x) * 0.5
+	var start_y := -(card_size.y * 0.5)
+	card_back.position = Vector2(start_x, start_y)
+
+	_prophecy_card_overlay.add_child(card_back)
+	_spell_reveal_state = {
+		"card_back": card_back,
+		"phase": "animating",
+	}
+
+	# Find the target lane row panel to get the destination position
+	var enemy_player_id := str(action.get("player_id", ""))
+	var row_key := _lane_row_key(lane_id, enemy_player_id)
+	var row_panel: PanelContainer = _lane_row_panels.get(row_key)
+	var end_pos: Vector2
+	if row_panel != null and is_instance_valid(row_panel):
+		var row_center := row_panel.global_position + row_panel.size * 0.5
+		end_pos = Vector2(row_center.x - card_size.x * 0.5, row_center.y - card_size.y * 0.5)
+	else:
+		end_pos = Vector2(start_x, viewport_size.y * 0.25)
+
+	card_back.pivot_offset = Vector2(card_size.x * 0.5, card_size.y * 0.5)
+	var tween := create_tween()
+	# Animate card moving down to the lane
+	tween.tween_property(card_back, "position", end_pos, 0.4).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	# Scale down as it approaches the lane
+	tween.parallel().tween_property(card_back, "scale", Vector2(0.5, 0.5), 0.4).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	# Brief pause at destination
+	tween.tween_interval(0.15)
+	# Fade out
+	tween.tween_property(card_back, "modulate:a", 0.0, 0.15)
+	tween.tween_callback(func():
 		_dismiss_spell_reveal()
 		_refresh_ui()
 	)
