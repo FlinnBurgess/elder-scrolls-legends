@@ -24,6 +24,7 @@ Based on the user's description, search the log for relevant evidence. Use the l
 - `[DRAW]` — A card was drawn
 - `[RUNE]` — A rune was broken
 - `[PROPHECY]` — A prophecy window opened
+- `[MAGICKA]` — A player gained or spent magicka
 - `>> WARNING: MISSING EFFECT` — A card's effect_ids are not covered by triggered_abilities
 
 ### What to Look For
@@ -46,4 +47,6 @@ Present your findings concisely:
 
 ## Step 4: Fix the Bug (if confirmed)
 
-If the log confirms a bug with a specific card's effect, invoke the `/fix-card-effect` skill with the card name and a summary of what went wrong (derived from your analysis above).
+If the log confirms a bug with a specific card's effect (wrong trigger, wrong target, wrong values), invoke the `/fix-card-effect` skill with the card name and a summary of what went wrong (derived from your analysis above).
+
+If the bug is a system-level issue (e.g., missing win condition check, incorrect turn sequencing, broken rune logic) rather than a card-specific effect, investigate and fix the relevant engine code directly instead of using `/fix-card-effect`.

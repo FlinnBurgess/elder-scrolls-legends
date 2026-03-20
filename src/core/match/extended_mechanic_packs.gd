@@ -826,6 +826,8 @@ static func _resolve_player_damage(match_state: Dictionary, trigger: Dictionary,
 			"amount": int(damage_result.get("applied_damage", 0)),
 		})
 		events.append_array(damage_result.get("events", []))
+		var winner := _get_opponent(match_state, player_id)
+		_timing_rules().append_match_win_if_needed(match_state, player_id, str(winner.get("player_id", "")), events)
 	return events
 
 
