@@ -38,6 +38,7 @@ const TURN_BANNER_DURATION_MS := 1600
 const CARD_HOVER_PREVIEW_DELAY_MS := 1000
 const LOCAL_MATCH_AI_SCENARIO_ID := "local_match"
 const LOCAL_MATCH_AI_ACTION_DELAY_MS := 320
+const LOCAL_MATCH_AI_ATTACK_DELAY_MS := 900
 const LANE_CARD_FLOAT_OFFSET := Vector2(-10, -18)
 const LANE_CARD_FLOAT_SHADOW_OFFSET := Vector2(8, 11)
 const LANE_CARD_FLOAT_ANIM_DURATION := 0.22
@@ -599,7 +600,11 @@ func _process_local_match_ai_turn() -> void:
 	_local_match_ai_action_count += 1
 	var yield_reason := str(step.get("yield_reason", ""))
 	if yield_reason == "continue" or yield_reason == "waiting_on_local_prophecy":
-		_schedule_local_match_ai_step(LOCAL_MATCH_AI_ACTION_DELAY_MS)
+		var step_action: Dictionary = step.get("action", {})
+		var step_delay := LOCAL_MATCH_AI_ACTION_DELAY_MS
+		if str(step_action.get("kind", "")) == MatchActionEnumerator.KIND_ATTACK:
+			step_delay = LOCAL_MATCH_AI_ATTACK_DELAY_MS
+		_schedule_local_match_ai_step(step_delay)
 		return
 	_reset_local_match_ai_queue()
 
