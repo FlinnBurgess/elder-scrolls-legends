@@ -48,6 +48,7 @@ var _card_count_label: Label
 var _card_hover_preview_layer: Control
 var _hover_preview_card_id := ""
 var _hover_preview_node: Control
+var _hovered_option_index := -1
 var _hover_pending_card_id := ""
 var _hover_pending_row: Control
 var _hover_pending_entry: Dictionary
@@ -57,6 +58,16 @@ var _hover_delay_timer: Timer
 func _ready() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	_build_ui()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if (event.keycode == KEY_UP or event.keycode == KEY_DOWN) and _hovered_option_index >= 0 and _hovered_option_index < _option_displays.size():
+			var card_display = _option_displays[_hovered_option_index]
+			if card_display != null and is_instance_valid(card_display) and card_display.has_method("cycle_relationship"):
+				var direction := 1 if event.keycode == KEY_DOWN else -1
+				card_display.cycle_relationship(direction)
+				get_viewport().set_input_as_handled()
 
 
 func start_draft(attribute_ids: Array, card_database: Dictionary, total_picks: int = 30) -> void:
@@ -274,10 +285,13 @@ func _refresh_options() -> void:
 		option_column.alignment = BoxContainer.ALIGNMENT_CENTER
 		_options_container.add_child(option_column)
 
+		var option_index := _option_displays.size()
 		var wrapper := Control.new()
 		wrapper.custom_minimum_size = Vector2(card_width, card_height)
 		wrapper.mouse_filter = Control.MOUSE_FILTER_STOP
 		wrapper.gui_input.connect(_on_option_input.bind(card))
+		wrapper.mouse_entered.connect(_on_option_mouse_entered.bind(option_index))
+		wrapper.mouse_exited.connect(_on_option_mouse_exited.bind(option_index))
 		option_column.add_child(wrapper)
 
 		var card_display := CardDisplayComponentClass.new()
@@ -421,6 +435,19 @@ func _compute_option_card_height() -> float:
 
 
 # --- Signal Handlers ---
+
+func _on_option_mouse_entered(option_index: int) -> void:
+	_hovered_option_index = option_index
+
+
+func _on_option_mouse_exited(option_index: int) -> void:
+	if _hovered_option_index == option_index:
+		_hovered_option_index = -1
+	if option_index >= 0 and option_index < _option_displays.size():
+		var card_display = _option_displays[option_index]
+		if card_display != null and is_instance_valid(card_display) and card_display.has_method("reset_relationship_view"):
+			card_display.reset_relationship_view()
+
 
 func _on_option_input(event: InputEvent, card: Dictionary) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:

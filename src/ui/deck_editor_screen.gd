@@ -79,6 +79,7 @@ var _pagination_container: HBoxContainer
 var _prev_page_button: Button
 var _next_page_button: Button
 var _page_label: Label
+var _hovered_card_id := ""
 
 
 func _ready() -> void:
@@ -90,6 +91,13 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
+		if (event.keycode == KEY_UP or event.keycode == KEY_DOWN) and _hovered_card_id != "":
+			var card_display = _card_display_by_id.get(_hovered_card_id, null)
+			if card_display != null and is_instance_valid(card_display) and card_display.has_method("cycle_relationship"):
+				var direction := 1 if event.keycode == KEY_DOWN else -1
+				card_display.cycle_relationship(direction)
+				get_viewport().set_input_as_handled()
+				return
 		if event.keycode == KEY_LEFT:
 			_on_prev_page_pressed()
 			get_viewport().set_input_as_handled()
@@ -745,8 +753,11 @@ func _build_card_cell(card: Dictionary, cell_size: Vector2) -> Control:
 	wrapper.size_flags_horizontal = SIZE_EXPAND_FILL
 	wrapper.mouse_filter = Control.MOUSE_FILTER_STOP
 	wrapper.gui_input.connect(_on_card_cell_input.bind(card_id))
+	wrapper.mouse_entered.connect(_on_card_cell_mouse_entered.bind(card_id))
+	wrapper.mouse_exited.connect(_on_card_cell_mouse_exited.bind(card_id))
 	var card_display := CardDisplayComponentClass.new()
 	card_display.apply_card(card, CardDisplayComponentClass.PRESENTATION_FULL)
+	card_display.set_relationship_context(_build_relationship_context())
 	card_display.custom_minimum_size = cell_size
 	card_display.size = cell_size
 	card_display.set_interactive(false)
@@ -760,6 +771,7 @@ func _build_card_cell(card: Dictionary, cell_size: Vector2) -> Control:
 func _refresh_card_quantities() -> void:
 	if _browser_summary_label != null:
 		_browser_summary_label.text = "%d cards shown | %d in deck" % [_filtered_cache.size(), get_deck_count()]
+	var context := _build_relationship_context()
 	for card_id in _card_display_by_id:
 		var card_display: Control = _card_display_by_id[card_id]
 		if not is_instance_valid(card_display):
@@ -768,6 +780,8 @@ func _refresh_card_quantities() -> void:
 		if card.is_empty():
 			continue
 		card_display.set_deck_quantity(get_deck_card_quantity(card_id), _copy_limit(card))
+		if card_display.has_method("set_relationship_context"):
+			card_display.set_relationship_context(context)
 	_refresh_deck_card_list()
 	_refresh_magicka_curve()
 	_refresh_card_count()
@@ -905,6 +919,30 @@ func _on_type_filter_selected(index: int) -> void:
 func _on_keyword_filter_selected(index: int) -> void:
 	_browser_keyword_filter = str(_keyword_filter_button.get_item_metadata(index))
 	_refresh_browser()
+
+
+func _build_relationship_context() -> Dictionary:
+	var deck_cards: Array = []
+	for card_id in _deck_quantities:
+		var card: Dictionary = _card_by_id.get(card_id, {})
+		if card.is_empty():
+			continue
+		var qty: int = _deck_quantities[card_id]
+		for i in range(qty):
+			deck_cards.append(card)
+	return {"zone": "deck_editor", "deck_cards": deck_cards}
+
+
+func _on_card_cell_mouse_entered(card_id: String) -> void:
+	_hovered_card_id = card_id
+
+
+func _on_card_cell_mouse_exited(card_id: String) -> void:
+	if _hovered_card_id == card_id:
+		_hovered_card_id = ""
+	var card_display = _card_display_by_id.get(card_id, null)
+	if card_display != null and is_instance_valid(card_display) and card_display.has_method("reset_relationship_view"):
+		card_display.reset_relationship_view()
 
 
 func _on_card_cell_input(event: InputEvent, card_id: String) -> void:

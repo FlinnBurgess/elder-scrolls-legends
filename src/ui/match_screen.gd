@@ -3069,6 +3069,9 @@ func _on_local_hand_card_mouse_entered(button: Button) -> void:
 func _on_local_hand_card_mouse_exited(button: Button) -> void:
 	if _hovered_hand_instance_id == str(button.get_meta("instance_id", "")):
 		_hovered_hand_instance_id = ""
+	var hand_component = button.get_meta("card_display_component", null)
+	if hand_component != null and is_instance_valid(hand_component) and hand_component.has_method("reset_relationship_view"):
+		hand_component.reset_relationship_view()
 	_apply_local_hand_hover_state(button, false)
 
 
@@ -3715,6 +3718,12 @@ func _input(event: InputEvent) -> void:
 				_toggle_pause_menu()
 				get_viewport().set_input_as_handled()
 				return
+		if key_event.pressed and not key_event.echo:
+			if key_event.keycode == KEY_UP or key_event.keycode == KEY_DOWN:
+				var direction := 1 if key_event.keycode == KEY_DOWN else -1
+				if _try_cycle_active_card_relationship(direction):
+					get_viewport().set_input_as_handled()
+					return
 		if key_event.pressed and not key_event.echo and _hovered_hand_instance_id != "":
 			var lane_index := -1
 			if key_event.keycode == KEY_1:
@@ -6161,6 +6170,39 @@ func _clear_children(node: Node) -> void:
 	for child in node.get_children():
 		node.remove_child(child)
 		child.queue_free()
+
+
+func _try_cycle_active_card_relationship(direction: int) -> bool:
+	# Try hover preview first (lane or support)
+	var component = _get_active_hover_preview_component()
+	if component != null:
+		component.cycle_relationship(direction)
+		return true
+	# Try hovered hand card
+	if _hovered_hand_instance_id != "":
+		var button: Button = _card_buttons.get(_hovered_hand_instance_id) as Button
+		if button != null and is_instance_valid(button):
+			var hand_component = button.get_meta("card_display_component", null)
+			if hand_component != null and is_instance_valid(hand_component) and hand_component.has_method("cycle_relationship"):
+				hand_component.cycle_relationship(direction)
+				return true
+	return false
+
+
+func _get_active_hover_preview_component():
+	if _card_hover_preview_layer == null:
+		return null
+	# Check lane hover preview
+	if _lane_hover_preview_instance_id != "":
+		var preview := _card_hover_preview_layer.get_node_or_null("lane_hover_preview_%s" % _lane_hover_preview_instance_id)
+		if preview != null and preview.get_child_count() > 0:
+			return preview.get_child(0)
+	# Check support hover preview
+	if _support_hover_preview_instance_id != "":
+		var preview := _card_hover_preview_layer.get_node_or_null("support_hover_preview_%s" % _support_hover_preview_instance_id)
+		if preview != null and preview.get_child_count() > 0:
+			return preview.get_child(0)
+	return null
 
 
 func _unique_terms(values: Array) -> Array:

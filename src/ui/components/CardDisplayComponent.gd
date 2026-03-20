@@ -2,6 +2,7 @@ class_name CardDisplayComponent
 extends Control
 
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
+const CardRelationshipResolverClass = preload("res://src/ui/components/card_relationship_resolver.gd")
 
 const PRESENTATION_FULL := "full"
 const PRESENTATION_CREATURE_BOARD_MINIMAL := "creature_board_minimal"
@@ -51,6 +52,11 @@ const ATTRIBUTE_TINTS := {
 	"endurance": Color(0.58, 0.46, 0.72, 1.0),
 }
 
+const PIP_SIZE := 8.0
+const PIP_SPACING := 6.0
+const PIP_COLOR_ACTIVE := Color(0.95, 0.88, 0.6, 1.0)
+const PIP_COLOR_INACTIVE := Color(0.5, 0.48, 0.42, 0.7)
+
 var _card_data: Dictionary = {}
 var _presentation_mode := PRESENTATION_FULL
 var _is_built := false
@@ -58,6 +64,11 @@ var _default_art_texture: Texture2D
 var _interactive := true
 var _deck_quantity_current := -1
 var _deck_quantity_max := -1
+
+var _original_card_data: Dictionary = {}
+var _relationships: Array = []
+var _relationship_index := 0
+var _relationship_context: Dictionary = {}
 
 var _content_root: Control
 var _outer_frame: PanelContainer
@@ -83,6 +94,7 @@ var _lethal_particles: GPUParticles2D
 var _keyword_icons_container: HBoxContainer
 var _quantity_badge: Label
 var _charges_badge: Label
+var _pips_container: HBoxContainer
 
 
 func _ready() -> void:
@@ -95,6 +107,7 @@ func _ready() -> void:
 	if not _is_built:
 		_build_internal_nodes()
 	_refresh_all()
+	_refresh_pips()
 
 
 func _process(_delta: float) -> void:
@@ -110,6 +123,9 @@ func _notification(what: int) -> void:
 
 func set_card(card: Dictionary) -> void:
 	_card_data = card.duplicate(true)
+	_original_card_data = card.duplicate(true)
+	_relationship_index = 0
+	_rebuild_relationships()
 	_refresh_all()
 
 
@@ -136,6 +152,9 @@ func apply_card(card: Dictionary, presentation_mode := "") -> void:
 		if size == Vector2.ZERO:
 			size = custom_minimum_size
 	_card_data = card.duplicate(true)
+	_original_card_data = card.duplicate(true)
+	_relationship_index = 0
+	_rebuild_relationships()
 	_refresh_all()
 
 
@@ -157,6 +176,67 @@ func get_art_texture() -> Texture2D:
 	if _art_texture != null and _art_texture.texture != null:
 		return _art_texture.texture
 	return _get_default_art_texture()
+
+
+func set_relationship_context(context: Dictionary) -> void:
+	_relationship_context = context.duplicate(true)
+	_rebuild_relationships()
+
+
+func cycle_relationship(direction: int) -> void:
+	if _relationships.is_empty():
+		return
+	# Total entries = original card (index 0) + relationships
+	var total := _relationships.size() + 1
+	_relationship_index = (_relationship_index + direction) % total
+	if _relationship_index < 0:
+		_relationship_index += total
+	_apply_relationship_view()
+
+
+func reset_relationship_view() -> void:
+	if _relationship_index == 0 and _original_card_data.is_empty():
+		return
+	_relationship_index = 0
+	if not _original_card_data.is_empty():
+		_card_data = _original_card_data.duplicate(true)
+		_refresh_all()
+	_refresh_pips()
+
+
+func has_relationships() -> bool:
+	return not _relationships.is_empty()
+
+
+func get_relationship_count() -> int:
+	return _relationships.size()
+
+
+func _rebuild_relationships() -> void:
+	_relationships = CardRelationshipResolverClass.resolve(_card_data if _original_card_data.is_empty() else _original_card_data, _relationship_context)
+	_relationship_index = 0
+	_refresh_pips()
+
+
+func _apply_relationship_view() -> void:
+	if _relationship_index == 0:
+		# Show original card
+		if not _original_card_data.is_empty():
+			_card_data = _original_card_data.duplicate(true)
+			_refresh_all()
+	else:
+		var rel: Dictionary = _relationships[_relationship_index - 1]
+		if rel.get("type", "") == "card":
+			_card_data = rel.get("card_data", {}).duplicate(true)
+			_refresh_all()
+		elif rel.get("type", "") == "text":
+			# Restore original card visuals but replace rules text
+			if not _original_card_data.is_empty():
+				_card_data = _original_card_data.duplicate(true)
+			_card_data["rules_text"] = str(rel.get("text", ""))
+			# Clear triggered_abilities so _rules_preview doesn't extract keywords from them
+			_refresh_all()
+	_refresh_pips()
 
 
 func _build_internal_nodes() -> void:
@@ -325,6 +405,14 @@ func _build_internal_nodes() -> void:
 	_charges_badge.add_theme_color_override("font_color", Color.WHITE)
 	_charges_badge.visible = false
 	_content_root.add_child(_charges_badge)
+
+	_pips_container = HBoxContainer.new()
+	_pips_container.name = "PipsContainer"
+	_pips_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	_pips_container.add_theme_constant_override("separation", int(PIP_SPACING))
+	_pips_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pips_container.visible = false
+	_content_root.add_child(_pips_container)
 
 	_set_mouse_passthrough_recursive(_content_root)
 	_is_built = true
@@ -516,6 +604,9 @@ func _layout_full(inner_rect: Rect2) -> void:
 		inner_rect.position.x + (inner_rect.size.x - gem_size.x) * 0.5,
 		inner_rect.position.y + inner_rect.size.y - gem_size.y * 0.5
 	)
+
+	# Relationship pips
+	_layout_pips()
 
 
 func _layout_creature_board_minimal(inner_rect: Rect2) -> void:
@@ -1103,6 +1194,39 @@ func _refresh_deck_grey_out() -> void:
 		_content_root.modulate = Color(0.5, 0.5, 0.5, 1.0)
 	else:
 		_content_root.modulate = Color.WHITE
+
+
+func _refresh_pips() -> void:
+	if _pips_container == null:
+		return
+	for child in _pips_container.get_children():
+		child.queue_free()
+	if _relationships.is_empty():
+		_pips_container.visible = false
+		return
+	_pips_container.visible = _presentation_mode == PRESENTATION_FULL
+	var total := _relationships.size() + 1
+	for i in range(total):
+		var pip := ColorRect.new()
+		pip.custom_minimum_size = Vector2(PIP_SIZE, PIP_SIZE)
+		pip.size = Vector2(PIP_SIZE, PIP_SIZE)
+		pip.color = PIP_COLOR_ACTIVE if i == _relationship_index else PIP_COLOR_INACTIVE
+		pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_pips_container.add_child(pip)
+	_layout_pips()
+
+
+func _layout_pips() -> void:
+	if _pips_container == null or not _pips_container.visible or _outer_frame == null:
+		return
+	var pip_count := _pips_container.get_child_count()
+	if pip_count == 0:
+		return
+	var total_width := PIP_SIZE * pip_count + PIP_SPACING * (pip_count - 1)
+	var pip_x := _outer_frame.position.x + (_outer_frame.size.x - total_width) * 0.5
+	var pip_y := _outer_frame.position.y + _outer_frame.size.y - PIP_SIZE - 4.0
+	_pips_container.position = Vector2(pip_x, pip_y)
+	_pips_container.size = Vector2(total_width, PIP_SIZE)
 
 
 func _refresh_charges_badge() -> void:
