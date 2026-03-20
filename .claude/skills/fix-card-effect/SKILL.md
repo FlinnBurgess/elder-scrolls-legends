@@ -40,6 +40,10 @@ Cards with active effects (Summon, Last Gasp, Slay, start/end of turn, on play, 
 - `veteran` — when the creature survives damage
 - `expertise` — when controller plays a 5+ cost card
 - `rune_break` — when a rune is broken
+- `on_ward_broken` — when the creature's ward is removed
+- `on_friendly_slay` — when another friendly creature slays
+- `on_attack` — when the creature deals combat damage
+- `after_action_played` — when the controller plays an action
 
 **Trigger Conditions** (checked in `extended_mechanic_packs.matches_additional_conditions()`):
 These are optional fields on the trigger descriptor that gate whether the trigger fires:
@@ -76,6 +80,7 @@ These are optional fields on the trigger descriptor that gate whether the trigge
 - `move_between_lanes` — `{op, target, lane_id}`
 - `consume` — `{op, target, consumer_target}`
 - `sacrifice` — `{op, target}`
+- `double_stats` — `{op, target, stat?}` — doubles current power and/or health; `stat` can be `"power"`, `"health"`, or `"both"` (default `"both"`)
 - `log` — `{op, message}`
 
 **Target Values** for card targets:

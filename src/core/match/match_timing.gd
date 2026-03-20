@@ -2375,16 +2375,19 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					cth_hand.append(gen_copy)
 					generated_events.append({"event_type": "card_drawn", "player_id": controller_id, "source_instance_id": str(trigger.get("source_instance_id", "")), "drawn_instance_id": str(gen_copy.get("instance_id", "")), "reason": reason})
 			"double_stats":
+				var ds_stat := str(effect.get("stat", "both"))
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					var current_power := EvergreenRules.get_power(card)
 					var current_health := EvergreenRules.get_health(card)
-					EvergreenRules.apply_stat_bonus(card, current_power, current_health, reason)
+					var power_bonus := current_power if ds_stat in ["both", "power"] else 0
+					var health_bonus := current_health if ds_stat in ["both", "health"] else 0
+					EvergreenRules.apply_stat_bonus(card, power_bonus, health_bonus, reason)
 					generated_events.append({
 						"event_type": "stats_modified",
 						"source_instance_id": str(trigger.get("source_instance_id", "")),
 						"target_instance_id": str(card.get("instance_id", "")),
-						"power_bonus": current_power,
-						"health_bonus": current_health,
+						"power_bonus": power_bonus,
+						"health_bonus": health_bonus,
 						"reason": reason,
 					})
 			"copy_card_to_hand":

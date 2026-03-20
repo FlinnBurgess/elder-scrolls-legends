@@ -70,6 +70,11 @@ An effect operation writes to a player state field name that doesn't exist (e.g.
 Example: Palace Prowler, Torval Crook, Brynjolf (`gain_magicka` op wrote to `player["magicka"]` instead of `player["temporary_magicka"]`)
 How to spot: User reports a resource-gain effect (magicka, health, etc.) not working. Check if the field name written in the effect handler matches the field name read by the engine's getter/spending functions (e.g., `get_available_magicka` reads `current_magicka` + `temporary_magicka`).
 
+## Missing triggered_abilities on creature with rules_text effect
+Card has `rules_text` describing an active effect (e.g., ward-break, summon, slay) but no `triggered_abilities` array, so the effect never fires. The card may have `effect_ids` and `keywords` but these are display-only and don't cause effects to execute.
+Example: Iliac Sorcerer (ward-break double power)
+How to spot: User reports a card's special ability doesn't trigger. Check if the card in `card_catalog.gd` has `rules_text` describing an effect but lacks `triggered_abilities`.
+
 ## Strict health comparison excludes equal health on "Otherwise" branch
 Card uses `required_more_health` for an "Otherwise" (not-less) branch, but that condition is strictly greater-than. When both players have equal health, neither the "less" nor "more" condition fires, so the card does nothing. Fix by using a `required_not_less_health` condition (>=) instead.
 Example: Rift Thane
