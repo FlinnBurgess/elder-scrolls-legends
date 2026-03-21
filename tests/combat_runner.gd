@@ -68,14 +68,14 @@ func _test_lane_lock_cover_and_guard_legality() -> bool:
 		"type": "creature",
 		"instance_id": cross_lane_target["instance_id"],
 	})
-	var covered_target := _summon_creature(opponent, match_state, "covered", "field", 2, 2, [], 1, {"cover": true})
+	var covered_target := _summon_creature(opponent, match_state, "covered", "field", 2, 2, [], -1, {"cover": true})
 	var cover_validation := MatchCombat.validate_attack(match_state, active_player["player_id"], attacker["instance_id"], {
 		"type": "creature",
 		"instance_id": covered_target["instance_id"],
 	})
-	var guard_target := _summon_creature(opponent, match_state, "guard", "field", 2, 4, ["guard"], 2)
+	var guard_target := _summon_creature(opponent, match_state, "guard", "field", 2, 4, ["guard"])
 	_target_ready_for_attack(guard_target, match_state)
-	var plain_target := _summon_creature(opponent, match_state, "plain", "field", 2, 2, [], 3)
+	var plain_target := _summon_creature(opponent, match_state, "plain", "field", 2, 2)
 	_target_ready_for_attack(plain_target, match_state)
 	var player_validation := MatchCombat.validate_attack(match_state, active_player["player_id"], attacker["instance_id"], {
 		"type": "player",
@@ -265,7 +265,10 @@ func _lane_slot(match_state: Dictionary, lane_id: String, player_id: String, slo
 	for lane in match_state["lanes"]:
 		if str(lane.get("lane_id", "")) != lane_id:
 			continue
-		return lane["player_slots"][player_id][slot_index]
+		var player_slots: Array = lane["player_slots"][player_id]
+		if slot_index >= 0 and slot_index < player_slots.size():
+			return player_slots[slot_index]
+		return null
 	return null
 
 

@@ -1,6 +1,7 @@
 extends SceneTree
 
 const MatchBootstrap = preload("res://src/core/match/match_bootstrap.gd")
+const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const LaneRules = preload("res://src/core/match/lane_rules.gd")
 
 
@@ -33,7 +34,7 @@ func _test_lane_state_tracks_capacity_and_metadata() -> bool:
 		_assert(field_occupancy["is_valid"], "Expected field lane occupancy lookup to succeed.") and
 		_assert(field_occupancy["occupancy"] == 0, "Empty lanes should report zero occupants.") and
 		_assert(field_occupancy["slot_capacity"] == 4, "Standard lanes should expose four slots.") and
-		_assert(field_occupancy["open_slot_indices"] == [0, 1, 2, 3], "All slots should be open at bootstrap.") and
+		_assert(field_occupancy["open_slot_indices"] == [0], "An empty lane should report a single insertion point at index zero.") and
 		_assert(str(shadow_lane["lane_rule_payload"].get("description", "")).contains("Cover"), "Shadow lane payload should carry its data-driven rules description.")
 	)
 
@@ -74,7 +75,7 @@ func _test_shadow_lane_grants_cover_except_for_guard() -> bool:
 	var shadow_lane_card = match_state["lanes"][1]["player_slots"][player["player_id"]][0]
 	if not (
 		_assert(_has_status(shadow_lane_card, "cover"), "Shadow-lane summon should carry the Cover status marker.") and
-		_assert(int(shadow_lane_card.get("cover_expires_on_turn", -1)) == 1, "Shadow Cover should record a one-turn expiry from the current turn.")
+		_assert(int(shadow_lane_card.get("cover_expires_on_turn", -1)) == int(match_state.get("turn_number", 0)) + 1, "Shadow Cover should record a one-turn expiry from the current turn.")
 	):
 		return false
 
@@ -106,11 +107,9 @@ func _test_lane_capacity_and_slot_validation() -> bool:
 	if not _assert(field_occupancy["occupancy"] == 4, "Field lane should report four occupants once filled."):
 		return false
 
-	var occupied_slot_creature := _append_creature_to_hand(player, "occupied_slot")
-	var occupied_slot_result := LaneRules.validate_summon_from_hand(match_state, player["player_id"], occupied_slot_creature["instance_id"], "field", {
-		"slot_index": 2,
-	})
-	if not _assert(not occupied_slot_result["is_valid"], "Validation should reject placement into an occupied slot."):
+	var overflow_creature := _append_creature_to_hand(player, "overflow")
+	var overflow_result := LaneRules.validate_summon_from_hand(match_state, player["player_id"], overflow_creature["instance_id"], "field")
+	if not _assert(not overflow_result["is_valid"], "Validation should reject placement when the lane is already at capacity."):
 		return false
 
 	var full_lane_creature := _append_creature_to_hand(player, "full_lane")
@@ -122,15 +121,11 @@ func _test_move_between_lanes_updates_slots_and_shadow_cover() -> bool:
 	var match_state := _build_match()
 	var player: Dictionary = match_state["players"][0]
 	var creature := _append_creature_to_hand(player, "move_target")
-	var summon_result := LaneRules.summon_from_hand(match_state, player["player_id"], creature["instance_id"], "field", {
-		"slot_index": 1,
-	})
+	var summon_result := LaneRules.summon_from_hand(match_state, player["player_id"], creature["instance_id"], "field")
 	if not _assert(summon_result["is_valid"], "Move fixture should first summon the creature into field."):
 		return false
 
-	var move_result := LaneRules.move_creature(match_state, player["player_id"], creature["instance_id"], "shadow", {
-		"slot_index": 2,
-	})
+	var move_result := LaneRules.move_creature(match_state, player["player_id"], creature["instance_id"], "shadow")
 	if not (
 		_assert(move_result["is_valid"], "Expected cross-lane move to succeed.") and
 		_assert(move_result["granted_cover"], "Moving into shadow should grant Cover to non-Guard creatures.")
@@ -139,23 +134,30 @@ func _test_move_between_lanes_updates_slots_and_shadow_cover() -> bool:
 
 	var field_slots: Array = match_state["lanes"][0]["player_slots"][player["player_id"]]
 	var shadow_slots: Array = match_state["lanes"][1]["player_slots"][player["player_id"]]
-	var moved_card = shadow_slots[2]
 	return (
-		_assert(field_slots[1] == null, "Source lane slot should be cleared after moving a creature.") and
-		_assert(moved_card != null, "Destination lane should contain the moved creature.") and
-		_assert(moved_card["lane_id"] == "shadow" and moved_card["slot_index"] == 2, "Moved creature should track its new lane position.") and
-		_assert(_has_status(moved_card, "cover"), "Moving into shadow should apply Cover status.")
+		_assert(field_slots.size() == 0, "Source lane should be empty after moving the only creature out.") and
+		_assert(shadow_slots.size() == 1, "Destination lane should contain exactly the moved creature.") and
+		_assert(shadow_slots[0]["lane_id"] == "shadow" and shadow_slots[0]["slot_index"] == 0, "Moved creature should track its new lane position.") and
+		_assert(_has_status(shadow_slots[0], "cover"), "Moving into shadow should apply Cover status.")
 	)
 
 
 func _build_match() -> Dictionary:
-	return MatchBootstrap.create_standard_match([
+	var match_state := MatchBootstrap.create_standard_match([
 		_build_deck("alpha", 10),
 		_build_deck("beta", 10)
 	], {
 		"seed": 17,
 		"first_player_index": 0,
 	})
+	for player in match_state["players"]:
+		MatchBootstrap.apply_mulligan(match_state, player["player_id"], [])
+	MatchTurnLoop.begin_first_turn(match_state)
+	for player in match_state["players"]:
+		player["current_magicka"] = 10
+		player["max_magicka"] = 10
+		player["temporary_magicka"] = 0
+	return match_state
 
 
 func _build_deck(prefix: String, size: int) -> Array:
@@ -174,6 +176,9 @@ func _append_creature_to_hand(player: Dictionary, label: String, keywords: Array
 		"controller_player_id": player_id,
 		"zone": "hand",
 		"card_type": "creature",
+		"cost": 0,
+		"power": 2,
+		"health": 2,
 		"keywords": keywords.duplicate(),
 		"granted_keywords": [],
 		"status_markers": [],

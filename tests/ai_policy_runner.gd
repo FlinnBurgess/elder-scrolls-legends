@@ -70,7 +70,7 @@ func _test_develops_curve_in_shadow_lane(failures: Array) -> void:
 	player["hand"] = []
 	ScenarioFixtures.add_hand_card(player, "curve_two_drop", {"card_type": "creature", "cost": 2, "power": 3, "health": 2})
 	ScenarioFixtures.add_hand_card(player, "late_drop", {"card_type": "creature", "cost": 6, "power": 6, "health": 6})
-	_assert_policy_pick(match_state, "summon_creature:player_1:player_1_curve_two_drop:lane=shadow:slot=0", failures, "Policy should spend mana on a curve-appropriate creature and favor protective shadow-lane development.")
+	_assert_policy_pick(match_state, "summon_creature:player_1:player_1_curve_two_drop:lane=shadow:slot=-1", failures, "Policy should spend mana on a curve-appropriate creature and favor protective shadow-lane development.")
 
 
 func _test_uses_ring_when_it_unblocks_curve(failures: Array) -> void:

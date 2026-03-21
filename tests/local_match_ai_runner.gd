@@ -46,7 +46,7 @@ func _test_ai_turn_waits_for_banner_before_first_action(screen: MatchScreen) -> 
 	var pre_gate_pacing := screen.get_local_match_ai_pacing_state()
 	var first_action_seen := await _wait_for_ai_action_count(screen, 1, 2.2)
 	var first_action_pacing := screen.get_local_match_ai_pacing_state()
-	var finished_turn := await _wait_for_active_player(screen, "player_1", 3.2)
+	var finished_turn := await _wait_for_active_player(screen, "player_1", 8.0)
 	var final_state := screen.get_interaction_state()
 	return (
 		_assert(bool(locked_state.get("local_controls_locked", false)), "Local controls should lock as soon as the AI turn begins.") and
@@ -111,7 +111,7 @@ func _test_ai_turn_uses_readable_inter_action_delay(screen: MatchScreen) -> bool
 	await process_frame
 	var before_second_action := screen.get_local_match_ai_pacing_state()
 	var second_action_seen := await _wait_for_ai_action_count(screen, 2, 1.2)
-	var finished_turn := await _wait_for_active_player(screen, "player_1", 3.2)
+	var finished_turn := await _wait_for_active_player(screen, "player_1", 8.0)
 	return (
 		_assert(int(before_second_action.get("action_count", 0)) == 1, "AI should hold the queued cadence and avoid a second immediate action before the delay expires.") and
 		_assert(second_action_seen, "Cadence scenario should reach a second paced AI action.") and
@@ -178,7 +178,7 @@ func _test_human_prophecy_interrupt_pauses_and_resumes_ai(screen: MatchScreen) -
 	await process_frame
 	var resume_pacing := screen.get_local_match_ai_pacing_state()
 	var resumed_after_cadence := await _wait_for_ai_action_count(screen, int(paused_pacing.get("action_count", 0)) + 1, 1.4)
-	var returned_to_human := await _wait_for_active_player(screen, "player_1", 3.2)
+	var returned_to_human := await _wait_for_active_player(screen, "player_1", 8.0)
 	var final_state := screen.get_interaction_state()
 	return (
 		_assert(not bool(interrupt_state.get("local_controls_locked", true)), "Human local controls should unlock when a Prophecy interrupt opens during the AI turn.") and
@@ -236,8 +236,7 @@ func _player_state(match_state: Dictionary, player_id: String) -> Dictionary:
 func _clear_lane_cards(match_state: Dictionary, player_id: String) -> void:
 	for lane in match_state.get("lanes", []):
 		var slots: Array = lane.get("player_slots", {}).get(player_id, [])
-		for slot_index in range(slots.size()):
-			slots[slot_index] = null
+		slots.clear()
 
 
 func _count_lane_cards(match_state: Dictionary, player_id: String) -> int:

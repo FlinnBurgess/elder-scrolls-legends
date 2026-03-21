@@ -48,7 +48,7 @@ func _test_standard_match_bootstrap() -> bool:
 		_assert(second_player["ring_of_magicka_charges"] == 3, "Ring of Magicka should start with three charges.") and
 		_assert(match_state["lanes"].size() == 2, "Standard versus should create two lanes.") and
 		_assert(match_state["lanes"][0]["lane_id"] == "field" and match_state["lanes"][1]["lane_id"] == "shadow", "Standard versus lanes should be field and shadow.") and
-		_assert(match_state["lanes"][0]["player_slots"][first_player["player_id"]].size() == 4, "Each lane should have four slots per player.")
+		_assert(match_state["lanes"][0]["player_slots"][first_player["player_id"]].size() == 0, "Each lane should start with an empty packed slot array.")
 	)
 
 

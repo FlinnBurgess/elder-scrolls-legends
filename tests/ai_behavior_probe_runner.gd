@@ -32,7 +32,7 @@ func _test_tempo_probe(failures: Array) -> void:
 	player["hand"] = []
 	ScenarioFixtures.add_hand_card(player, "curve_two_drop", {"card_type": "creature", "cost": 2, "power": 3, "health": 2})
 	ScenarioFixtures.add_hand_card(player, "late_drop", {"card_type": "creature", "cost": 6, "power": 6, "health": 6})
-	_assert_probe("tempo", match_state, "summon_creature:player_1:player_1_curve_two_drop:lane=shadow:slot=0", "tempo_development", failures, "Tempo probe should prefer on-curve shadow-lane development.")
+	_assert_probe("tempo", match_state, "summon_creature:player_1:player_1_curve_two_drop:lane=shadow:slot=-1", "tempo_development", failures, "Tempo probe should prefer on-curve shadow-lane development.")
 
 
 func _test_defense_probe(failures: Array) -> void:

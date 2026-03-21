@@ -171,7 +171,7 @@ func _test_prophecy_action_deals_damage_to_target() -> bool:
 		"target_instance_id": target_creature["instance_id"],
 	})
 	var damage_event := _first_event_of_type(play_result.get("events", []), MatchTiming.EVENT_DAMAGE_RESOLVED)
-	var remaining_health := int(target_creature.get("health", 0)) - int(target_creature.get("damage", 0))
+	var remaining_health := int(target_creature.get("health", 0)) - int(target_creature.get("damage_marked", 0))
 	return (
 		_assert(play_result["is_valid"], "Playing a pending action Prophecy with a target should succeed.") and
 		_assert(not MatchTiming.has_pending_prophecy(match_state, opponent["player_id"]), "Prophecy play should consume the pending window.") and
@@ -217,6 +217,7 @@ func _build_started_match(deck_size: int, first_player_index: int) -> Dictionary
 		"deck_size": deck_size,
 		"seed": 37,
 		"first_player_index": first_player_index,
+		"set_all_magicka": 10,
 	})
 
 

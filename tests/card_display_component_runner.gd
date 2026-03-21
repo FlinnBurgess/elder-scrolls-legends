@@ -150,7 +150,7 @@ func _run() -> void:
 	if not _assert(component.find_child("AttackBadge", true, false).visible and component.find_child("HealthBadge", true, false).visible, "Creature board-minimal mode should retain the creature stat badges."):
 		quit(1)
 		return
-	if not _assert(attack_badge != null and health_badge != null and is_zero_approx(attack_badge.rotation_degrees) and is_zero_approx(health_badge.rotation_degrees), "Creature board-minimal mode should keep the earlier inset stat badge presentation."):
+	if not _assert(attack_badge != null and health_badge != null and absf(attack_badge.rotation_degrees - 45.0) < 1.0 and is_zero_approx(health_badge.rotation_degrees), "Creature board-minimal stat badges should use diamond attack and circular health presentation."):
 		quit(1)
 		return
 

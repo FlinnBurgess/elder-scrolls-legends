@@ -42,13 +42,9 @@ func _test_ring_end_turn_and_summon_slots(failures: Array) -> void:
 	VerificationAssertions.assert_equal(_actions_for_kind(surface, "use_ring").size(), 1, "Second player turn should expose exactly one Ring action before use.", failures)
 	VerificationAssertions.assert_equal(_actions_for_kind(surface, "end_turn").size(), 1, "Turn surface should expose exactly one end-turn action.", failures)
 	VerificationAssertions.assert_equal(_action_ids(_actions_for_kind(surface, "summon_creature")), [
-		"summon_creature:player_2:player_2_lane_choice:lane=field:slot=1",
-		"summon_creature:player_2:player_2_lane_choice:lane=field:slot=2",
-		"summon_creature:player_2:player_2_lane_choice:lane=field:slot=3",
-		"summon_creature:player_2:player_2_lane_choice:lane=shadow:slot=1",
-		"summon_creature:player_2:player_2_lane_choice:lane=shadow:slot=2",
-		"summon_creature:player_2:player_2_lane_choice:lane=shadow:slot=3",
-	], "Creature summons should enumerate every legal lane/slot in deterministic order.", failures)
+		"summon_creature:player_2:player_2_lane_choice:lane=field:slot=-1",
+		"summon_creature:player_2:player_2_lane_choice:lane=shadow:slot=-1",
+	], "Creature summons should enumerate one action per legal lane with packed-array positioning.", failures)
 
 
 func _test_targeted_actions_and_attack_targets(failures: Array) -> void:
@@ -108,7 +104,9 @@ func _test_targeted_actions_and_attack_targets(failures: Array) -> void:
 	VerificationAssertions.assert_equal(_action_ids(_actions_for_kind(surface, "activate_support")), [
 		"activate_support:player_1:player_1_arsenal:target=player_1_attacker",
 		"activate_support:player_1:player_1_arsenal:target=player_2_defender",
-	], "Support activation should enumerate explicit board targets.", failures)
+		"activate_support:player_1:player_1_arsenal:player=player_1",
+		"activate_support:player_1:player_1_arsenal:player=player_2",
+	], "Support activation should enumerate board targets and player targets.", failures)
 	VerificationAssertions.assert_equal(_action_ids(_actions_for_kind(surface, "play_action")), [
 		"play_action:player_1:player_1_firebolt:player=player_1",
 		"play_action:player_1:player_1_firebolt:player=player_2",
@@ -143,15 +141,9 @@ func _test_pending_prophecy_window_switches_priority(failures: Array) -> void:
 	VerificationAssertions.assert_equal(str(surface.get("timing_window", "")), "interrupt", "Pending Prophecy should enumerate inside the interrupt window.", failures)
 	VerificationAssertions.assert_equal(_actions_for_kind(surface, "end_turn").size(), 0, "Normal turn actions should be hidden while a Prophecy window is pending.", failures)
 	VerificationAssertions.assert_equal(_action_ids(_actions_for_kind(surface, "summon_creature")), [
-		"summon_creature:player_2:player_2_summoned_prophecy:lane=field:slot=0:response=prophecy",
-		"summon_creature:player_2:player_2_summoned_prophecy:lane=field:slot=1:response=prophecy",
-		"summon_creature:player_2:player_2_summoned_prophecy:lane=field:slot=2:response=prophecy",
-		"summon_creature:player_2:player_2_summoned_prophecy:lane=field:slot=3:response=prophecy",
-		"summon_creature:player_2:player_2_summoned_prophecy:lane=shadow:slot=0:response=prophecy",
-		"summon_creature:player_2:player_2_summoned_prophecy:lane=shadow:slot=1:response=prophecy",
-		"summon_creature:player_2:player_2_summoned_prophecy:lane=shadow:slot=2:response=prophecy",
-		"summon_creature:player_2:player_2_summoned_prophecy:lane=shadow:slot=3:response=prophecy",
-	], "Creature Prophecy windows should enumerate every legal free-play lane/slot.", failures)
+		"summon_creature:player_2:player_2_summoned_prophecy:lane=field:slot=-1:response=prophecy",
+		"summon_creature:player_2:player_2_summoned_prophecy:lane=shadow:slot=-1:response=prophecy",
+	], "Creature Prophecy windows should enumerate one action per legal lane with packed-array positioning.", failures)
 	VerificationAssertions.assert_equal(_action_ids(_actions_for_kind(surface, "decline_prophecy")), [
 		"decline_prophecy:player_2:player_2_summoned_prophecy:response=prophecy",
 	], "Prophecy windows should include an explicit decline action.", failures)

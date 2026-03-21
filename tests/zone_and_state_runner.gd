@@ -28,9 +28,9 @@ func _test_zone_routes_and_ownership_controller_rules() -> bool:
 	var match_state := _build_started_match()
 	var player_one: Dictionary = match_state["players"][0]
 	var player_two: Dictionary = match_state["players"][1]
-	var victim := _summon_creature(player_two, match_state, "victim", "field", 3, 3, [], 0)
+	var victim := _summon_creature(player_two, match_state, "victim", "field", 3, 3)
 	_target_ready_for_attack(victim, match_state)
-	var mover := _summon_creature(player_one, match_state, "mover", "field", 2, 2, [], 1)
+	var mover := _summon_creature(player_one, match_state, "mover", "field", 2, 2)
 
 	var steal_result := MatchMutations.steal_card(match_state, player_one["player_id"], victim["instance_id"])
 	if not (
@@ -55,7 +55,7 @@ func _test_zone_routes_and_ownership_controller_rules() -> bool:
 	var banish_result := MatchMutations.banish_card(match_state, victim["instance_id"])
 	if not _assert(banish_result["is_valid"] and _contains_instance(player_two["banished"], victim["instance_id"]), "Banish should send the card to its owner's banished zone."):
 		return false
-	var move_result := MatchMutations.move_card_between_lanes(match_state, player_one["player_id"], mover["instance_id"], "shadow", {"slot_index": 2})
+	var move_result := MatchMutations.move_card_between_lanes(match_state, player_one["player_id"], mover["instance_id"], "shadow")
 	if not _assert(move_result["is_valid"] and _contains_lane_instance(match_state, "shadow", player_one["player_id"], mover["instance_id"]), "move_between_lanes should relocate the creature onto the requested lane."):
 		return false
 	var sacrifice_result := MatchMutations.sacrifice_card(match_state, player_one["player_id"], mover["instance_id"])
@@ -93,7 +93,7 @@ func _test_hidden_zone_steal_discards_to_owner_pile() -> bool:
 func _test_state_mutations_cover_silence_change_copy_transform_and_consume() -> bool:
 	var match_state := _build_started_match()
 	var player: Dictionary = match_state["players"][0]
-	var mutable := _summon_creature(player, match_state, "mutable", "shadow", 2, 4, ["guard"], 0, {
+	var mutable := _summon_creature(player, match_state, "mutable", "shadow", 2, 4, ["guard"], -1, {
 		"triggered_abilities": [{"family": MatchTiming.FAMILY_SUMMON, "required_zone": "lane", "effects": [{"op": "log", "message": "mutable"}]}],
 	})
 	mutable["damage_marked"] = 1
@@ -111,7 +111,7 @@ func _test_state_mutations_cover_silence_change_copy_transform_and_consume() -> 
 	):
 		return false
 
-	var changer := _summon_creature(player, match_state, "changer", "field", 2, 2, [], 1)
+	var changer := _summon_creature(player, match_state, "changer", "field", 2, 2)
 	changer["damage_marked"] = 1
 	changer["power_bonus"] = 3
 	changer["health_bonus"] = 2
@@ -132,7 +132,7 @@ func _test_state_mutations_cover_silence_change_copy_transform_and_consume() -> 
 	):
 		return false
 
-	var source := _summon_creature(player, match_state, "copy_source", "field", 7, 8, ["ward"], 2)
+	var source := _summon_creature(player, match_state, "copy_source", "field", 7, 8, ["ward"])
 	var copy_result := MatchMutations.copy_card(changer, source)
 	if not (
 		_assert(copy_result["is_valid"], "Copy should apply another card's printed identity.") and
@@ -141,7 +141,7 @@ func _test_state_mutations_cover_silence_change_copy_transform_and_consume() -> 
 	):
 		return false
 
-	var transformer := _summon_creature(player, match_state, "transformer", "field", 4, 4, [], 3)
+	var transformer := _summon_creature(player, match_state, "transformer", "field", 4, 4)
 	transformer["damage_marked"] = 2
 	transformer["power_bonus"] = 1
 	transformer["status_markers"] = ["cover"]
@@ -163,8 +163,8 @@ func _test_state_mutations_cover_silence_change_copy_transform_and_consume() -> 
 	):
 		return false
 
-	var consumer := _summon_creature(player, match_state, "consumer", "shadow", 2, 2, [], 1)
-	var prey := _summon_creature(player, match_state, "prey", "shadow", 3, 4, [], 3)
+	var consumer := _summon_creature(player, match_state, "consumer", "shadow", 2, 2)
+	var prey := _summon_creature(player, match_state, "prey", "shadow", 3, 4)
 	var consume_result := MatchMutations.consume_card(match_state, player["player_id"], consumer["instance_id"], prey["instance_id"], {"destination_zone": MatchMutations.ZONE_BANISHED})
 	return (
 		_assert(consume_result["is_valid"], "Consume should resolve through the shared mutation API.") and
