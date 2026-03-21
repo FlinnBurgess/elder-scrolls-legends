@@ -103,6 +103,7 @@ Cards that care about subtypes, attributes, or other synergies can show contextu
 - `required_subtype_on_board` — "Summon: +X/+Y if you have another [subtype]"
 - `required_event_source_subtype` — "When you summon another [subtype]..."
 - `required_summon_subtype` — "When you summon a [subtype]..."
+- Effect-level `filter.subtype` — Effects that target/filter by subtype (e.g. "Reduce the cost of a random Dragon", "Draw a random Nord", "Put a random Daedra into your hand"). Also checked inside `choose_one` choices.
 - `aura.filter_subtype` — Aura scaling with subtype count
 - `aura.filter_attribute` — Aura scaling with attribute count
 - `cost_reduction_aura.filter_subtype` — Cost reduction for a subtype
@@ -110,7 +111,7 @@ Cards that care about subtypes, attributes, or other synergies can show contextu
 Cards whose effects create other cards (via `card_template` in their effects) can also show those cards as alt-views. This is controlled by `RELATED_CARD_OPS` at the top of `card_relationship_resolver.gd` — any effect op in that list that has a `card_template` field will have it shown as a card alt-view. If a new op uses `card_template` but isn't in the list, add it.
 
 If the user reports a missing or broken alt-view, check three things:
-1. **Resolver coverage (text)** — Is the card's trigger condition field handled in `_resolve_contextual_text()` in `card_relationship_resolver.gd`? If not, add a resolver function that extracts the subtype/attribute and calls `_subtype_count_text()`.
+1. **Resolver coverage (text)** — Is the card's synergy signal handled in `_resolve_contextual_text()` in `card_relationship_resolver.gd`? Check both trigger-level condition fields (e.g. `required_subtype_on_board`) and effect-level `filter.subtype` fields. If not covered, add a resolver function that extracts the subtype/attribute and calls `_subtype_count_text()`.
 1b. **Resolver coverage (card)** — Does the card's effect op appear in `RELATED_CARD_OPS`? If not, add it so the `card_template` shows as an alt-view card.
 2. **Context not passed** — The resolver needs a context dict (`zone`, `deck_cards`, `board_cards`, `hand_cards`) to show counts. If it shows "Synergy: X" instead of "You have N Xs...", the `CardDisplayComponent` isn't receiving context via `set_relationship_context()`. Check these rendering paths:
    - `match_screen.gd` — `_build_card_display_component()` (main card rendering for hand/lane/support)

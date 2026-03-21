@@ -100,6 +100,11 @@ The `deal_damage` op in `_apply_effects()` falls back to player damage when no c
 Example: Crushing Blow, Lightning Bolt, Ransack
 How to spot: User reports an action card with "Deal X damage." (no creature restriction) does nothing when targeting face. Check if the card's `deal_damage` op uses `"target": "event_target"` without `action_target_mode` — these cards rely on the event fallback path.
 
+## Missing alt-view for effect-level subtype filter
+Card has a synergy with a subtype encoded in an effect-level `filter` (e.g. `{"op": "reduce_random_hand_card_cost", "filter": {"subtype": "Dragon"}}`), but `card_relationship_resolver.gd` only checked trigger-level condition fields (`required_subtype_on_board`, `required_event_source_subtype`, `required_summon_subtype`). The resolver didn't inspect `filter.subtype` inside the `effects` array, so no alt-view with subtype counts was generated.
+Example: Midnight Snack (Dragon count), Barbas (Daedra count via choose_one), Ulfric Stormcloak (Nord count)
+How to spot: User reports no alt-view showing subtype count. Check if the card's synergy is encoded in an effect's `filter` sub-object rather than a trigger-level condition field.
+
 ## Trigger role mismatch on event field names
 The `_matches_trigger_role` function checks `event.get("player_id")` / `event.get("playing_player_id")` for the "controller" and "opponent_player" roles, but some event types use different field names: `creature_destroyed` uses `controller_player_id`, and `damage_resolved` uses `source_controller_player_id`. This causes triggers with those match roles to silently never fire for those event types.
 Example: Stormcloak Camp, Necromancer's Amulet, Grim Champion, General Tullius (all `on_friendly_death` family); Helgen Squad Leader (`on_attack` family with `match_role: "controller"`)
