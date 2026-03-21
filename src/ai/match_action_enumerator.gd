@@ -680,6 +680,12 @@ static func _expand_target_parameter_sets(match_state: Dictionary, requirements:
 							continue
 						if not EvergreenRules.has_status(card, EvergreenRules.STATUS_WOUNDED):
 							continue
+					elif atm == "enemy_support_or_neutral_creature":
+						if card_controller == atm_controller:
+							continue
+						var card_attrs: Array = card.get("attributes", [])
+						if typeof(card_attrs) != TYPE_ARRAY or not card_attrs.has("neutral"):
+							continue
 				var next_parameters: Dictionary = parameters.duplicate(true)
 				next_parameters["target_instance_id"] = str(card.get("instance_id", ""))
 				expanded_card_sets.append(next_parameters)

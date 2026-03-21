@@ -4742,6 +4742,11 @@ func _action_target_mode_allows(action_card: Dictionary, target_instance_id: Str
 			return target_controller != controller_id and EvergreenRules.has_status(target_card, EvergreenRules.STATUS_WOUNDED)
 		"any_creature", "another_creature":
 			return true
+		"enemy_support_or_neutral_creature":
+			if target_controller == controller_id:
+				return false
+			var attrs: Array = target_card.get("attributes", [])
+			return typeof(attrs) == TYPE_ARRAY and attrs.has("neutral")
 	return true
 
 
