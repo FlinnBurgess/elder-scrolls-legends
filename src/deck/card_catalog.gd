@@ -59,6 +59,7 @@ static func _build_card(seed: Dictionary, registry) -> Dictionary:
 		"collectible": seed.get("collectible", true),
 		"generated_by_rules": false,
 		"source_ids": ["uesp_core_set"],
+		"art_path": "res://assets/images/cards/" + str(seed.get("card_id", "")) + ".png",
 	}
 	if str(seed.get("card_type", "")) == "item":
 		card["equip_power_bonus"] = int(seed.get("equip_power_bonus", 0))

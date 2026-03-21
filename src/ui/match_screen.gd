@@ -350,6 +350,7 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 	card["rarity"] = str(definition.get("rarity", "common"))
 	card["is_unique"] = bool(definition.get("is_unique", false))
 	card["rules_text"] = str(definition.get("rules_text", ""))
+	card["art_path"] = str(definition.get("art_path", ""))
 	card["subtypes"] = definition.get("subtypes", []).duplicate(true)
 	card["attributes"] = definition.get("attributes", []).duplicate(true)
 	card["effect_ids"] = definition.get("effect_ids", []).duplicate(true)
