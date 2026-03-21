@@ -25,6 +25,8 @@ const CARD_DISPLAY_COMPONENT_SCRIPT := preload("res://src/ui/components/CardDisp
 const CARD_DISPLAY_COMPONENT_SCENE := preload("res://scenes/ui/components/CardDisplayComponent.tscn")
 const PLAYER_AVATAR_SCENE := preload("res://scenes/ui/components/PlayerAvatarComponent.tscn")
 const PLAYER_MAGICKA_SCENE := preload("res://scenes/ui/components/PlayerMagickaComponent.tscn")
+const ErrorReportWriterClass = preload("res://src/core/error_report_writer.gd")
+const ErrorReportPopoverClass = preload("res://src/ui/components/error_report_popover.gd")
 
 const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
 const PLAYER_ORDER := ["player_2", "player_1"]
@@ -140,6 +142,11 @@ var _match_end_button: Button
 var _arena_mode := false
 var _pause_overlay: PanelContainer
 var _attack_arrow_state := {}
+
+# Error report hover tracking
+var _error_report_hovered_type := ""
+var _error_report_hovered_context := ""
+var _error_report_popover: Control = null
 
 # Match history state
 const MATCH_HISTORY_MAX_ENTRIES := 5
@@ -1143,6 +1150,8 @@ func _build_player_section(player_id: String) -> Dictionary:
 	avatar_component.custom_minimum_size = Vector2(282, 264)
 	avatar_component.mouse_filter = Control.MOUSE_FILTER_STOP
 	avatar_component.gui_input.connect(_on_avatar_gui_input.bind(player_id))
+	avatar_component.mouse_entered.connect(_on_avatar_mouse_entered.bind(player_id))
+	avatar_component.mouse_exited.connect(_on_avatar_mouse_exited)
 	hero_row.add_child(avatar_component)
 
 	var identity_column := VBoxContainer.new()
@@ -1158,7 +1167,9 @@ func _build_player_section(player_id: String) -> Dictionary:
 	magicka_mount.name = "%s_magicka_mount" % player_id
 	magicka_mount.custom_minimum_size = Vector2(180, 172)
 	magicka_mount.size_flags_horizontal = SIZE_EXPAND_FILL
-	magicka_mount.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	magicka_mount.mouse_filter = Control.MOUSE_FILTER_STOP
+	magicka_mount.mouse_entered.connect(_on_magicka_mouse_entered.bind(player_id))
+	magicka_mount.mouse_exited.connect(_on_magicka_mouse_exited)
 	var magicka_component := PLAYER_MAGICKA_SCENE.instantiate()
 	magicka_component.name = "%s_magicka_component" % player_id
 	magicka_component.custom_minimum_size = Vector2(172, 172)
@@ -1178,10 +1189,14 @@ func _build_player_section(player_id: String) -> Dictionary:
 	ring_panel.custom_minimum_size = Vector2(0, 54)
 	ring_panel.size_flags_horizontal = 0
 	_apply_panel_style(ring_panel, Color(0.18, 0.14, 0.08, 0.96), Color(0.63, 0.53, 0.26, 0.94), 1, 10)
+	ring_panel.mouse_entered.connect(_on_ring_mouse_entered.bind(player_id))
+	ring_panel.mouse_exited.connect(_on_ring_mouse_exited)
 	if not is_opponent:
 		ring_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 		ring_panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		ring_panel.gui_input.connect(_on_ring_panel_input)
+	else:
+		ring_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	resource_row.add_child(ring_panel)
 	var ring_box := _build_panel_box(ring_panel, 4, 8)
 	var ring_label := Label.new()
@@ -1530,6 +1545,8 @@ func _build_lanes_panel() -> Control:
 		lane_panel.size_flags_stretch_ratio = 1.0
 		_apply_panel_style(lane_panel, Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 0)
 		lane_panel.gui_input.connect(_on_lane_panel_gui_input.bind(lane_id))
+		lane_panel.mouse_entered.connect(_on_lane_mouse_entered.bind(lane_id))
+		lane_panel.mouse_exited.connect(_on_lane_mouse_exited)
 		lanes_row.add_child(lane_panel)
 		_lane_panels[lane_id] = lane_panel
 		var lane_box := _build_panel_box(lane_panel, 8, 10)
@@ -3247,12 +3264,18 @@ func _layout_hand_placeholder(hand_surface: Control, placeholder: Label) -> void
 
 func _on_local_hand_card_mouse_entered(button: Button) -> void:
 	_hovered_hand_instance_id = str(button.get_meta("instance_id", ""))
+	var card := _card_from_instance_id(_hovered_hand_instance_id)
+	_error_report_hovered_type = "card"
+	_error_report_hovered_context = "%s (in hand)" % str(card.get("name", _hovered_hand_instance_id))
 	_apply_local_hand_hover_state(button, true)
 
 
 func _on_local_hand_card_mouse_exited(button: Button) -> void:
 	if _hovered_hand_instance_id == str(button.get_meta("instance_id", "")):
 		_hovered_hand_instance_id = ""
+	if _error_report_hovered_type == "card":
+		_error_report_hovered_type = ""
+		_error_report_hovered_context = ""
 	var hand_component = button.get_meta("card_display_component", null)
 	if hand_component != null and is_instance_valid(hand_component) and hand_component.has_method("reset_relationship_view"):
 		hand_component.reset_relationship_view()
@@ -3343,6 +3366,11 @@ func _on_lane_card_mouse_entered(button: Button, instance_id: String) -> void:
 		"button_ref": weakref(button),
 		"entered_at_ms": Time.get_ticks_msec(),
 	}
+	var card := _card_from_instance_id(instance_id)
+	var lane_id := _find_card_lane_id(instance_id)
+	var side := "player" if str(card.get("controller_player_id", "")) == _local_player_id() else "opponent"
+	_error_report_hovered_type = "card"
+	_error_report_hovered_context = "%s (in %s, %s side)" % [str(card.get("name", instance_id)), _lane_name(lane_id), side]
 
 
 func _on_lane_card_mouse_exited(instance_id: String) -> void:
@@ -3350,6 +3378,9 @@ func _on_lane_card_mouse_exited(instance_id: String) -> void:
 		_lane_hover_preview_pending = {}
 	if _lane_hover_preview_instance_id == instance_id:
 		_clear_lane_card_hover_preview()
+	if _error_report_hovered_type == "card":
+		_error_report_hovered_type = ""
+		_error_report_hovered_context = ""
 
 
 func _process_lane_card_hover_preview() -> void:
@@ -3479,6 +3510,10 @@ func _on_support_card_mouse_entered(button: Button, instance_id: String) -> void
 		"button_ref": weakref(button),
 		"entered_at_ms": Time.get_ticks_msec(),
 	}
+	var card := _card_from_instance_id(instance_id)
+	var side := "player" if str(card.get("controller_player_id", "")) == _local_player_id() else "opponent"
+	_error_report_hovered_type = "card"
+	_error_report_hovered_context = "%s (support, %s side)" % [str(card.get("name", instance_id)), side]
 
 
 func _on_support_card_mouse_exited(instance_id: String) -> void:
@@ -3486,6 +3521,9 @@ func _on_support_card_mouse_exited(instance_id: String) -> void:
 		_support_hover_preview_pending = {}
 	if _support_hover_preview_instance_id == instance_id:
 		_clear_support_card_hover_preview()
+	if _error_report_hovered_type == "card":
+		_error_report_hovered_type = ""
+		_error_report_hovered_context = ""
 
 
 func _process_support_card_hover_preview() -> void:
@@ -3939,6 +3977,13 @@ func _input(event: InputEvent) -> void:
 			_update_targeting_arrow(mouse_pos)
 	elif event is InputEventKey:
 		var key_event := event as InputEventKey
+		if key_event.pressed and not key_event.echo and key_event.unicode == 34:
+			if _error_report_popover == null:
+				_open_error_report_popover()
+				get_viewport().set_input_as_handled()
+				return
+		if _error_report_popover != null:
+			return
 		if key_event.pressed and not key_event.echo and key_event.keycode == KEY_ESCAPE:
 			if not _has_match_winner():
 				_toggle_pause_menu()
@@ -6750,6 +6795,8 @@ func _build_match_history_icon(entry: Dictionary, entry_index: int) -> Button:
 	button.clip_contents = true
 	_apply_button_style(button, fill, border_color, Color.WHITE, MATCH_HISTORY_ICON_BORDER_WIDTH, 6)
 	button.pressed.connect(_on_match_history_icon_pressed.bind(entry_index))
+	button.mouse_entered.connect(_on_match_history_mouse_entered.bind(entry, entry_index))
+	button.mouse_exited.connect(_on_match_history_mouse_exited)
 
 	var source_card: Dictionary = entry.get("source_card", {})
 	if not source_card.is_empty():
@@ -7076,3 +7123,107 @@ func _dismiss_match_history_popover() -> void:
 	if overlay != null and is_instance_valid(overlay):
 		overlay.queue_free()
 	_match_history_popover_state = {}
+
+
+# --- Error Report Hover Handlers ---
+
+func _on_avatar_mouse_entered(player_id: String) -> void:
+	var label := "Player Avatar" if player_id == _local_player_id() else "Opponent Avatar"
+	_error_report_hovered_type = "avatar"
+	_error_report_hovered_context = label
+
+
+func _on_avatar_mouse_exited() -> void:
+	if _error_report_hovered_type == "avatar":
+		_error_report_hovered_type = ""
+		_error_report_hovered_context = ""
+
+
+func _on_magicka_mouse_entered(player_id: String) -> void:
+	var label := "Player Magicka" if player_id == _local_player_id() else "Opponent Magicka"
+	_error_report_hovered_type = "magicka"
+	_error_report_hovered_context = label
+
+
+func _on_magicka_mouse_exited() -> void:
+	if _error_report_hovered_type == "magicka":
+		_error_report_hovered_type = ""
+		_error_report_hovered_context = ""
+
+
+func _on_ring_mouse_entered(player_id: String) -> void:
+	var label := "Ring of Magicka (Player)" if player_id == _local_player_id() else "Ring of Magicka (Opponent)"
+	_error_report_hovered_type = "ring_of_magicka"
+	_error_report_hovered_context = label
+
+
+func _on_ring_mouse_exited() -> void:
+	if _error_report_hovered_type == "ring_of_magicka":
+		_error_report_hovered_type = ""
+		_error_report_hovered_context = ""
+
+
+func _on_lane_mouse_entered(lane_id: String) -> void:
+	_error_report_hovered_type = "lane"
+	_error_report_hovered_context = _lane_name(lane_id)
+
+
+func _on_lane_mouse_exited() -> void:
+	if _error_report_hovered_type == "lane":
+		_error_report_hovered_type = ""
+		_error_report_hovered_context = ""
+
+
+func _on_match_history_mouse_entered(entry: Dictionary, entry_index: int) -> void:
+	var source_card: Dictionary = entry.get("source_card", {})
+	var card_name := str(source_card.get("name", "unknown"))
+	_error_report_hovered_type = "match_history"
+	_error_report_hovered_context = "Match History Entry #%d (%s)" % [entry_index + 1, card_name]
+
+
+func _on_match_history_mouse_exited() -> void:
+	if _error_report_hovered_type == "match_history":
+		_error_report_hovered_type = ""
+		_error_report_hovered_context = ""
+
+
+# --- Error Report Popover ---
+
+func _open_error_report_popover() -> void:
+	if _error_report_popover != null:
+		return
+	var context_label := _error_report_hovered_context if not _error_report_hovered_type.is_empty() else "Match (general)"
+	var element_type := _error_report_hovered_type if not _error_report_hovered_type.is_empty() else "general"
+	var element_context := _error_report_hovered_context if not _error_report_hovered_type.is_empty() else "match"
+
+	_error_report_popover = ErrorReportPopoverClass.new()
+	_error_report_popover.report_submitted.connect(_on_error_report_submitted.bind(element_type, element_context))
+	_error_report_popover.dismissed.connect(_on_error_report_dismissed)
+	add_child(_error_report_popover)
+	_error_report_popover.show_report(context_label)
+
+
+func _on_error_report_submitted(comment: String, element_type: String, element_context: String) -> void:
+	var report := {
+		"screen": "match",
+		"element_type": element_type,
+		"element_context": element_context,
+		"comment": comment,
+		"snapshot": ErrorReportWriterClass.build_match_snapshot(_match_state, _match_history_entries),
+	}
+	ErrorReportWriterClass.write_report(report)
+	_error_report_popover = null
+
+
+func _on_error_report_dismissed() -> void:
+	_error_report_popover = null
+
+
+func _find_card_lane_id(instance_id: String) -> String:
+	for lane in _match_state.get("lanes", []):
+		var player_slots: Dictionary = lane.get("player_slots", {})
+		for pid in player_slots.keys():
+			for card in player_slots[pid]:
+				if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) == instance_id:
+					return str(lane.get("lane_id", ""))
+	return ""

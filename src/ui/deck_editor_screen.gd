@@ -10,6 +10,8 @@ const DECK_REGISTRY_PATH := "res://data/legends/registries/attribute_class_regis
 const CardDisplayComponentClass = preload("res://src/ui/components/CardDisplayComponent.gd")
 const DeckCreationModalClass = preload("res://src/ui/deck_creation_modal.gd")
 const MagickaCurveChartClass = preload("res://src/ui/components/magicka_curve_chart.gd")
+const ErrorReportWriterClass = preload("res://src/core/error_report_writer.gd")
+const ErrorReportPopoverClass = preload("res://src/ui/components/error_report_popover.gd")
 const CARD_ASPECT_RATIO := 384.0 / 220.0
 const ATTRIBUTE_TINTS := {
 	"strength": Color(0.84, 0.39, 0.31, 1.0),
@@ -80,6 +82,9 @@ var _prev_page_button: Button
 var _next_page_button: Button
 var _page_label: Label
 var _hovered_card_id := ""
+var _error_report_hovered_type := ""
+var _error_report_hovered_context := ""
+var _error_report_popover: Control = null
 
 
 func _ready() -> void:
@@ -92,6 +97,12 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
+		if event.unicode == 34 and _error_report_popover == null:
+			_open_error_report_popover()
+			get_viewport().set_input_as_handled()
+			return
+		if _error_report_popover != null:
+			return
 		if (event.keycode == KEY_UP or event.keycode == KEY_DOWN) and _hovered_card_id != "":
 			var card_display = _card_display_by_id.get(_hovered_card_id, null)
 			if card_display != null and is_instance_valid(card_display) and card_display.has_method("cycle_relationship"):
@@ -433,6 +444,9 @@ func _build_deck_card_row(entry: Dictionary) -> Control:
 	row.size_flags_horizontal = SIZE_EXPAND_FILL
 	row.custom_minimum_size = Vector2(0, 32)
 	row.add_theme_constant_override("separation", 8)
+	row.mouse_filter = Control.MOUSE_FILTER_STOP
+	row.mouse_entered.connect(_on_deck_row_mouse_entered.bind(entry))
+	row.mouse_exited.connect(_on_deck_row_mouse_exited)
 
 	# Cost badge — colored pill with cost number
 	var cost_badge := PanelContainer.new()
@@ -937,11 +951,17 @@ func _build_relationship_context() -> Dictionary:
 
 func _on_card_cell_mouse_entered(card_id: String) -> void:
 	_hovered_card_id = card_id
+	var card: Dictionary = _card_by_id.get(card_id, {})
+	_error_report_hovered_type = "card"
+	_error_report_hovered_context = "%s (in browser)" % str(card.get("name", card_id))
 
 
 func _on_card_cell_mouse_exited(card_id: String) -> void:
 	if _hovered_card_id == card_id:
 		_hovered_card_id = ""
+	if _error_report_hovered_type == "card":
+		_error_report_hovered_type = ""
+		_error_report_hovered_context = ""
 	var card_display = _card_display_by_id.get(card_id, null)
 	if card_display != null and is_instance_valid(card_display) and card_display.has_method("reset_relationship_view"):
 		card_display.reset_relationship_view()
@@ -1127,3 +1147,48 @@ func _disable_button_focus(node: Node) -> void:
 		(node as Control).focus_mode = Control.FOCUS_NONE
 	for child in node.get_children():
 		_disable_button_focus(child)
+
+
+# --- Error Report Hover Handlers ---
+
+func _on_deck_row_mouse_entered(entry: Dictionary) -> void:
+	_error_report_hovered_type = "card"
+	_error_report_hovered_context = "%s (in deck list)" % str(entry.get("name", entry.get("card_id", "")))
+
+
+func _on_deck_row_mouse_exited() -> void:
+	if _error_report_hovered_type == "card":
+		_error_report_hovered_type = ""
+		_error_report_hovered_context = ""
+
+
+# --- Error Report Popover ---
+
+func _open_error_report_popover() -> void:
+	if _error_report_popover != null:
+		return
+	var context_label := _error_report_hovered_context if not _error_report_hovered_type.is_empty() else "Deck Editor (general)"
+	var element_type := _error_report_hovered_type if not _error_report_hovered_type.is_empty() else "general"
+	var element_context := _error_report_hovered_context if not _error_report_hovered_type.is_empty() else "deck_editor"
+
+	_error_report_popover = ErrorReportPopoverClass.new()
+	_error_report_popover.report_submitted.connect(_on_error_report_submitted.bind(element_type, element_context))
+	_error_report_popover.dismissed.connect(_on_error_report_dismissed)
+	add_child(_error_report_popover)
+	_error_report_popover.show_report(context_label)
+
+
+func _on_error_report_submitted(comment: String, element_type: String, element_context: String) -> void:
+	var report := {
+		"screen": "deck_editor",
+		"element_type": element_type,
+		"element_context": element_context,
+		"comment": comment,
+		"snapshot": ErrorReportWriterClass.build_deck_editor_snapshot(_deck_name, _deck_attribute_ids, _deck_quantities, _card_by_id),
+	}
+	ErrorReportWriterClass.write_report(report)
+	_error_report_popover = null
+
+
+func _on_error_report_dismissed() -> void:
+	_error_report_popover = null

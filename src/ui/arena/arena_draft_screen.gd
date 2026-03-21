@@ -8,6 +8,8 @@ const CardCatalog = preload("res://src/deck/card_catalog.gd")
 const CardDisplayComponentClass = preload("res://src/ui/components/CardDisplayComponent.gd")
 const MagickaCurveChartClass = preload("res://src/ui/components/magicka_curve_chart.gd")
 const ArenaDraftEngineClass = preload("res://src/arena/arena_draft_engine.gd")
+const ErrorReportWriterClass = preload("res://src/core/error_report_writer.gd")
+const ErrorReportPopoverClass = preload("res://src/ui/components/error_report_popover.gd")
 
 const CARD_ASPECT_RATIO := 384.0 / 220.0
 const ATTRIBUTE_TINTS := {
@@ -53,6 +55,9 @@ var _hover_pending_card_id := ""
 var _hover_pending_row: Control
 var _hover_pending_entry: Dictionary
 var _hover_delay_timer: Timer
+var _error_report_hovered_type := ""
+var _error_report_hovered_context := ""
+var _error_report_popover: Control = null
 
 
 func _ready() -> void:
@@ -62,6 +67,12 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
+		if event.unicode == 34 and _error_report_popover == null:
+			_open_error_report_popover()
+			get_viewport().set_input_as_handled()
+			return
+		if _error_report_popover != null:
+			return
 		if (event.keycode == KEY_UP or event.keycode == KEY_DOWN) and _hovered_option_index >= 0 and _hovered_option_index < _option_displays.size():
 			var card_display = _option_displays[_hovered_option_index]
 			if card_display != null and is_instance_valid(card_display) and card_display.has_method("cycle_relationship"):
@@ -247,6 +258,9 @@ func _build_ui() -> void:
 	# Magicka curve chart
 	_magicka_curve_chart = MagickaCurveChartClass.new()
 	_magicka_curve_chart.size_flags_horizontal = SIZE_EXPAND_FILL
+	_magicka_curve_chart.mouse_filter = Control.MOUSE_FILTER_STOP
+	_magicka_curve_chart.mouse_entered.connect(_on_magicka_curve_mouse_entered)
+	_magicka_curve_chart.mouse_exited.connect(_on_magicka_curve_mouse_exited)
 	_right_column.add_child(_magicka_curve_chart)
 
 	# Card count label
@@ -440,11 +454,18 @@ func _compute_option_card_height() -> float:
 
 func _on_option_mouse_entered(option_index: int) -> void:
 	_hovered_option_index = option_index
+	if option_index >= 0 and option_index < _pick_options.size():
+		var card: Dictionary = _pick_options[option_index]
+		_error_report_hovered_type = "card"
+		_error_report_hovered_context = "%s (pick option %d)" % [str(card.get("name", "")), option_index + 1]
 
 
 func _on_option_mouse_exited(option_index: int) -> void:
 	if _hovered_option_index == option_index:
 		_hovered_option_index = -1
+	if _error_report_hovered_type == "card":
+		_error_report_hovered_type = ""
+		_error_report_hovered_context = ""
 	if option_index >= 0 and option_index < _option_displays.size():
 		var card_display = _option_displays[option_index]
 		if card_display != null and is_instance_valid(card_display) and card_display.has_method("reset_relationship_view"):
@@ -479,6 +500,8 @@ func _on_deck_row_mouse_entered(row: Control, entry: Dictionary) -> void:
 	_hover_pending_row = row
 	_hover_pending_entry = entry
 	_hover_delay_timer.start()
+	_error_report_hovered_type = "card"
+	_error_report_hovered_context = "%s (in deck list)" % str(entry.get("name", card_id))
 
 
 func _on_deck_row_mouse_exited(_entry: Dictionary) -> void:
@@ -487,6 +510,9 @@ func _on_deck_row_mouse_exited(_entry: Dictionary) -> void:
 	_hover_pending_entry = {}
 	_hover_delay_timer.stop()
 	_clear_deck_hover_preview()
+	if _error_report_hovered_type == "card":
+		_error_report_hovered_type = ""
+		_error_report_hovered_context = ""
 
 
 func _on_hover_delay_timeout() -> void:
@@ -558,3 +584,48 @@ func _get_card_count_in_deck(card_id: String) -> int:
 func _clear_children(node: Node) -> void:
 	for child in node.get_children():
 		child.queue_free()
+
+
+# --- Error Report Hover Handlers ---
+
+func _on_magicka_curve_mouse_entered() -> void:
+	_error_report_hovered_type = "magicka_curve"
+	_error_report_hovered_context = "Magicka Curve Chart"
+
+
+func _on_magicka_curve_mouse_exited() -> void:
+	if _error_report_hovered_type == "magicka_curve":
+		_error_report_hovered_type = ""
+		_error_report_hovered_context = ""
+
+
+# --- Error Report Popover ---
+
+func _open_error_report_popover() -> void:
+	if _error_report_popover != null:
+		return
+	var context_label := _error_report_hovered_context if not _error_report_hovered_type.is_empty() else "Arena Draft (general)"
+	var element_type := _error_report_hovered_type if not _error_report_hovered_type.is_empty() else "general"
+	var element_context := _error_report_hovered_context if not _error_report_hovered_type.is_empty() else "arena_draft"
+
+	_error_report_popover = ErrorReportPopoverClass.new()
+	_error_report_popover.report_submitted.connect(_on_error_report_submitted.bind(element_type, element_context))
+	_error_report_popover.dismissed.connect(_on_error_report_dismissed)
+	add_child(_error_report_popover)
+	_error_report_popover.show_report(context_label)
+
+
+func _on_error_report_submitted(comment: String, element_type: String, element_context: String) -> void:
+	var report := {
+		"screen": "arena_draft",
+		"element_type": element_type,
+		"element_context": element_context,
+		"comment": comment,
+		"snapshot": ErrorReportWriterClass.build_arena_draft_snapshot(_pick_options, _deck, _current_pick, _total_picks, _card_database),
+	}
+	ErrorReportWriterClass.write_report(report)
+	_error_report_popover = null
+
+
+func _on_error_report_dismissed() -> void:
+	_error_report_popover = null
