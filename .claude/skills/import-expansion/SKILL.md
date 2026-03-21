@@ -141,3 +141,7 @@ Present a summary table:
 | **Total** | **N** | **M** |
 
 List any new mechanics added and any complex cards that may need additional engine work.
+
+## Phase 7: Fetch Card Art
+
+After all cards are added and verified, run the `/download-missing-art` skill to fetch artwork for the newly imported cards.
