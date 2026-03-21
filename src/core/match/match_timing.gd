@@ -1797,8 +1797,12 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				if deal_damage_targets.is_empty():
 					# Fall back to player damage if a chosen player target exists
 					var chosen_player := str(trigger.get("_chosen_target_player_id", ""))
+					if chosen_player.is_empty():
+						chosen_player = str(event.get("target_player_id", ""))
 					if not chosen_player.is_empty() and damage_amount > 0:
-						var custom_result := ExtendedMechanicPacks.apply_custom_effect(match_state, trigger, event, {"op": "damage", "amount": damage_amount, "target_player": "chosen_target_player"})
+						var patched_trigger := trigger.duplicate(true)
+						patched_trigger["_chosen_target_player_id"] = chosen_player
+						var custom_result := ExtendedMechanicPacks.apply_custom_effect(match_state, patched_trigger, event, {"op": "damage", "amount": damage_amount, "target_player": "chosen_target_player"})
 						generated_events.append_array(custom_result.get("events", []))
 				for card in deal_damage_targets:
 					if damage_amount <= 0:

@@ -584,6 +584,12 @@ static func _expand_target_parameter_sets(match_state: Dictionary, requirements:
 				var next_parameters: Dictionary = parameters.duplicate(true)
 				next_parameters["target_instance_id"] = str(card.get("instance_id", ""))
 				expanded_card_sets.append(next_parameters)
+			# Actions with no action_target_mode can also target players (face)
+			if atm.is_empty():
+				for player_id in _player_ids(match_state):
+					var next_parameters: Dictionary = parameters.duplicate(true)
+					next_parameters["target_player_id"] = player_id
+					expanded_card_sets.append(next_parameters)
 		parameter_sets = expanded_card_sets
 	if bool(requirements.get("needs_lane_id", false)):
 		var expanded_lane_sets: Array = []

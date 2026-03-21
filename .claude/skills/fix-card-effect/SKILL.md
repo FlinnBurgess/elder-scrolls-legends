@@ -64,6 +64,7 @@ These are optional fields on the trigger descriptor that gate whether the trigge
 - `grant_keyword` — `{op, target, keyword_id, duration?}` — use `"duration": "end_of_turn"` for "this turn" effects
 - `grant_status` — `{op, target, status_id}`
 - `draw_cards` — `{op, target_player, count}`
+- `deal_damage` — `{op, target, amount}` — deals damage to card targets; falls back to player damage via `event.target_player_id` or `trigger._chosen_target_player_id` when no card targets found
 - `damage` — handled via `ExtendedMechanicPacks.apply_custom_effect()`
 - `heal` — handled via `ExtendedMechanicPacks.apply_custom_effect()`
 - `gain_magicka` — `{op, amount}` — adds to `temporary_magicka`; handled via `ExtendedMechanicPacks.apply_custom_effect()`
@@ -128,6 +129,7 @@ If the user reports a missing or broken alt-view, check three things:
 7. **Effect op writes to wrong state field** — The op handler exists and fires, but mutates a non-existent or wrong field on the player/card state dictionary. GDScript silently creates new dict keys on assignment, so the value is stored but never read by the rest of the engine. The effect appears to do nothing.
 8. **Strict comparison condition excludes boundary case** — A trigger condition uses a strict comparison (e.g., `required_more_health` = strictly >) when the card text implies an inclusive one (e.g., "Otherwise" = not less = >=). At the boundary (equal values), neither branch fires. Fix by using the appropriate inclusive condition (e.g., `required_not_less_health`).
 9. **Inline `card_template` missing abilities** — Cards using `summon_from_effect` or `summon_copies_to_lane` with an inline `card_template` that references a token `definition_id`. `build_generated_card` only duplicates the inline template — it does **not** look up the catalog. If the template omits `triggered_abilities`, `rules_text`, or `effect_ids` that the corresponding non-collectible `_seed` has, the spawned token will have no abilities. Note: some cards intentionally omit abilities on copies to prevent infinite recursion (e.g., Golden Saint summons a copy of itself — the copy correctly lacks the summon trigger).
+10. **Action card player target not resolved by `deal_damage`** — The `deal_damage` op falls back to player damage when `_resolve_card_targets` returns empty, but only checks `trigger._chosen_target_player_id` (set by `resolve_targeted_effect` for creatures with `target_mode`). Action cards pass the player target via `event.target_player_id` instead, so face damage silently does nothing. Also check `match_action_enumerator._expand_target_parameter_sets()` — if `action_target_mode` is empty, the AI must enumerate player targets alongside card targets.
 
 ### Pending State Pattern (Interactive Effects)
 

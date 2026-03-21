@@ -95,6 +95,11 @@ When a card uses `summon_from_effect` or `summon_copies_to_lane` with an inline 
 Example: Slaughterfish Spawning (inline template for Slaughterfish token was missing `triggered_abilities` for +2/+0 per turn)
 How to spot: User reports a summoned token having no special effects. Compare the inline `card_template` in the summoning card's effects against the standalone `_seed` entry for that `definition_id`.
 
+## deal_damage player fallback missing event target_player_id
+The `deal_damage` op in `_apply_effects()` falls back to player damage when no card targets are found, but only checks `trigger._chosen_target_player_id` (set by `resolve_targeted_effect` for creatures with `target_mode`). Action cards pass the player target via the event's `target_player_id` field instead, so the fallback silently does nothing. Fixed by also checking `event.target_player_id` when the trigger field is empty.
+Example: Crushing Blow, Lightning Bolt, Ransack
+How to spot: User reports an action card with "Deal X damage." (no creature restriction) does nothing when targeting face. Check if the card's `deal_damage` op uses `"target": "event_target"` without `action_target_mode` — these cards rely on the event fallback path.
+
 ## Trigger role mismatch on event field names
 The `_matches_trigger_role` function checks `event.get("player_id")` / `event.get("playing_player_id")` for the "controller" and "opponent_player" roles, but some event types use different field names: `creature_destroyed` uses `controller_player_id`, and `damage_resolved` uses `source_controller_player_id`. This causes triggers with those match roles to silently never fire for those event types.
 Example: Stormcloak Camp, Necromancer's Amulet, Grim Champion, General Tullius (all `on_friendly_death` family); Helgen Squad Leader (`on_attack` family with `match_role: "controller"`)
