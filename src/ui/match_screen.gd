@@ -6445,6 +6445,10 @@ func _reset_match_history() -> void:
 
 
 func _scan_and_refresh_match_history() -> void:
+	# Defer scanning while the player is selecting a target for a summon effect,
+	# action, or item so the history entry includes the resolved target(s).
+	if not _pending_summon_target.is_empty() or not _targeting_arrow_state.is_empty():
+		return
 	var event_log: Array = _match_state.get("event_log", [])
 	if event_log.size() <= _match_history_last_event_count:
 		return
