@@ -6,7 +6,6 @@ signal return_to_menu
 const ArenaClassSelectScreenScript = preload("res://src/ui/arena/arena_class_select_screen.gd")
 const ArenaDraftScreenScript = preload("res://src/ui/arena/arena_draft_screen.gd")
 const ArenaRunStatusScreenScript = preload("res://src/ui/arena/arena_run_status_screen.gd")
-const ArenaMatchResultScreenScript = preload("res://src/ui/arena/arena_match_result_screen.gd")
 const ArenaRunSummaryScreenScript = preload("res://src/ui/arena/arena_run_summary_screen.gd")
 const ArenaRunManagerScript = preload("res://src/arena/arena_run_manager.gd")
 const ArenaDraftEngineScript = preload("res://src/arena/arena_draft_engine.gd")
@@ -241,7 +240,7 @@ func _on_match_forfeited() -> void:
 	_run_manager.match_config = null
 	_last_match_won = false
 	_run_manager.record_loss()
-	_show_match_result()
+	_advance_after_match()
 
 
 func _on_match_ended(match_screen: Control) -> void:
@@ -252,19 +251,10 @@ func _on_match_ended(match_screen: Control) -> void:
 		_run_manager.record_win()
 	else:
 		_run_manager.record_loss()
-	_show_match_result()
+	_advance_after_match()
 
 
-func _show_match_result() -> void:
-	_clear_screen()
-	var screen := ArenaMatchResultScreenScript.new()
-	screen.continue_pressed.connect(_on_match_result_continue)
-	add_child(screen)
-	_current_screen = screen
-	screen.set_result(_last_match_won)
-
-
-func _on_match_result_continue() -> void:
+func _advance_after_match() -> void:
 	if _run_manager.state == ArenaRunManagerScript.State.RUN_COMPLETE:
 		_show_run_summary()
 	elif _run_manager.state == ArenaRunManagerScript.State.POST_MATCH_PICK:
