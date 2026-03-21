@@ -2220,6 +2220,25 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							generated_events.append(_build_summon_event(summon_result["card"], player_id, s_lane_id, int(summon_result.get("slot_index", -1)), reason))
 							if bool(summon_result.get("granted_cover", false)):
 								generated_events.append({"event_type": "status_granted", "source_instance_id": str(summon_result["card"].get("instance_id", "")), "target_instance_id": str(summon_result["card"].get("instance_id", "")), "status_id": "cover"})
+			"fill_lane_with":
+				var fill_controller_id := str(trigger.get("controller_player_id", ""))
+				var fill_lane_id := str(effect.get("lane_id", effect.get("target_lane_id", event.get("lane_id", ""))))
+				var fill_template: Dictionary = effect.get("card_template", {})
+				if fill_lane_id.is_empty() or fill_controller_id.is_empty() or fill_template.is_empty():
+					continue
+				var fill_open := _get_lane_open_slots(match_state, fill_lane_id, fill_controller_id)
+				var fill_count := int(fill_open.get("open_slots", 0))
+				for _i in range(fill_count):
+					var fill_card := MatchMutations.build_generated_card(match_state, fill_controller_id, fill_template)
+					var fill_result := MatchMutations.summon_card_to_lane(match_state, fill_controller_id, fill_card, fill_lane_id, {
+						"source_zone": MatchMutations.ZONE_GENERATED,
+					})
+					if not bool(fill_result.get("is_valid", false)):
+						break
+					generated_events.append_array(fill_result.get("events", []))
+					generated_events.append(_build_summon_event(fill_result["card"], fill_controller_id, fill_lane_id, int(fill_result.get("slot_index", -1)), reason))
+					if bool(fill_result.get("granted_cover", false)):
+						generated_events.append({"event_type": "status_granted", "source_instance_id": str(fill_result["card"].get("instance_id", "")), "target_instance_id": str(fill_result["card"].get("instance_id", "")), "status_id": "cover"})
 			"summon_copies_to_lane":
 				var copies_lane_id := str(effect.get("lane_id", effect.get("target_lane_id", event.get("lane_id", ""))))
 				var copies_players := _resolve_player_targets(match_state, trigger, event, effect)
