@@ -37,7 +37,7 @@ func _ready() -> void:
 	# Content panel
 	_content_panel = PanelContainer.new()
 	_content_panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	_content_panel.custom_minimum_size = Vector2(420, 0)
+	_content_panel.custom_minimum_size = Vector2(630, 0)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.08, 0.09, 0.11, 0.97)
 	style.border_color = Color(0.35, 0.36, 0.42, 0.9)
@@ -49,20 +49,20 @@ func _ready() -> void:
 
 	# Margin
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 20)
-	margin.add_theme_constant_override("margin_top", 16)
-	margin.add_theme_constant_override("margin_right", 20)
-	margin.add_theme_constant_override("margin_bottom", 16)
+	margin.add_theme_constant_override("margin_left", 30)
+	margin.add_theme_constant_override("margin_top", 24)
+	margin.add_theme_constant_override("margin_right", 30)
+	margin.add_theme_constant_override("margin_bottom", 24)
 	_content_panel.add_child(margin)
 
 	# Content VBox
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 12)
+	vbox.add_theme_constant_override("separation", 18)
 	margin.add_child(vbox)
 
 	# Context label
 	_context_label = Label.new()
-	_context_label.add_theme_font_size_override("font_size", 15)
+	_context_label.add_theme_font_size_override("font_size", 23)
 	_context_label.add_theme_color_override("font_color", Color(0.85, 0.83, 0.78, 1.0))
 	_context_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(_context_label)
@@ -71,28 +71,28 @@ func _ready() -> void:
 	_comment_input = LineEdit.new()
 	_comment_input.placeholder_text = "Describe the issue..."
 	_comment_input.max_length = MAX_COMMENT_LENGTH
-	_comment_input.custom_minimum_size = Vector2(380, 36)
-	_comment_input.add_theme_font_size_override("font_size", 15)
+	_comment_input.custom_minimum_size = Vector2(570, 54)
+	_comment_input.add_theme_font_size_override("font_size", 23)
 	_comment_input.text_submitted.connect(_on_text_submitted)
 	vbox.add_child(_comment_input)
 
 	# Submit button
 	_submit_button = Button.new()
 	_submit_button.text = "Submit Report"
-	_submit_button.custom_minimum_size = Vector2(0, 36)
-	_submit_button.add_theme_font_size_override("font_size", 15)
+	_submit_button.custom_minimum_size = Vector2(0, 54)
+	_submit_button.add_theme_font_size_override("font_size", 23)
 	var btn_normal := StyleBoxFlat.new()
 	btn_normal.bg_color = Color(0.25, 0.14, 0.13, 0.98)
 	btn_normal.set_corner_radius_all(8)
-	btn_normal.set_content_margin_all(8)
+	btn_normal.set_content_margin_all(12)
 	var btn_hover := StyleBoxFlat.new()
 	btn_hover.bg_color = Color(0.35, 0.2, 0.18, 0.98)
 	btn_hover.set_corner_radius_all(8)
-	btn_hover.set_content_margin_all(8)
+	btn_hover.set_content_margin_all(12)
 	var btn_pressed := StyleBoxFlat.new()
 	btn_pressed.bg_color = Color(0.45, 0.25, 0.22, 0.98)
 	btn_pressed.set_corner_radius_all(8)
-	btn_pressed.set_content_margin_all(8)
+	btn_pressed.set_content_margin_all(12)
 	_submit_button.add_theme_stylebox_override("normal", btn_normal)
 	_submit_button.add_theme_stylebox_override("hover", btn_hover)
 	_submit_button.add_theme_stylebox_override("pressed", btn_pressed)
@@ -104,7 +104,7 @@ func _ready() -> void:
 	# Status label (hidden until submission)
 	_status_label = Label.new()
 	_status_label.text = "Report created"
-	_status_label.add_theme_font_size_override("font_size", 14)
+	_status_label.add_theme_font_size_override("font_size", 21)
 	_status_label.add_theme_color_override("font_color", Color(0.56, 0.94, 0.56, 1.0))
 	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status_label.visible = false
