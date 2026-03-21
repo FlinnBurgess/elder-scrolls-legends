@@ -48,7 +48,7 @@ static func get_relic_description(relic: BossRelic) -> String:
 		BossRelic.CORUNDUM:
 			return "My creatures have +1/+0."
 		BossRelic.MOONSTONE:
-			return "When one of my runes is destroyed, I get a free 0-cost card."
+			return "When my opponent loses a rune, I get a free 0-cost card."
 		BossRelic.QUICKSILVER:
 			return "At the start of my turn, deal 1 damage to my opponent."
 		BossRelic.EBONY:
