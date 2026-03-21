@@ -5,7 +5,7 @@ description: Fix a card by comparing its local data and effects against the UESP
 
 # Fix Card from Wiki
 
-Look up a card on the UESP wiki, compare it against the local implementation, and fix any discrepancies in data or gameplay functionality.
+Look up a card on the UESP wiki, compare it against the local implementation, and fix any discrepancies in data or gameplay functionality. Includes deep validation that all referenced ops, keywords, target modes, and synergies are actually implemented in the engine.
 
 ## Arguments
 
@@ -38,13 +38,13 @@ Look up a card on the UESP wiki, compare it against the local implementation, an
    - **Rules text** — the full card text describing abilities
    - **Set/expansion** — which set the card belongs to
 
-3. If the wiki page cannot be found or parsed, tell the user and stop.
+3. If the wiki page cannot be found or parsed, note the failure but **continue to Step 3** — code-level validation (Steps 3e-3i) can still run without wiki data.
 
 ## Step 3: Compare and Audit
 
-Compare every field between the local seed and the wiki data. Check for discrepancies in:
+Compare every field between the local seed and the wiki data (where available). Then perform deep code-level validation regardless of wiki availability.
 
-### 3a. Data Fields
+### 3a. Data Fields (requires wiki data)
 - `name` — exact match
 - `card_type` — creature/action/item/support
 - `attributes` — correct attribute(s)
@@ -106,6 +106,75 @@ If the wiki describes the card creating tokens or other cards:
 - Verify the generated card's stats/keywords/text match the wiki
 - If the token needs a separate `_seed()` entry (non-collectible), verify it exists
 
+### 3e. Effect Ops Exist in Engine (code-level check)
+
+For every effect in every `triggered_abilities` entry (including effects inside `choose_one` choices and effects on inline `card_template` objects), verify the `"op"` value is handled by the engine.
+
+**How to check:** Search `match_timing.gd` `_apply_effects()` for the op string, then search `extended_mechanic_packs.gd` `apply_custom_effect()` for the op string. The op must appear as a handled case in one of these two functions.
+
+**Valid ops in `_apply_effects()` (match_timing.gd):**
+modify_stats, deal_damage, restore_creature_health, grant_keyword, grant_random_keyword, remove_keyword, grant_status, silence, shackle, battle_creature, destroy_creature, sacrifice, unsummon, banish, banish_and_return_end_of_turn, steal, consume, move_between_lanes, copy, change, transform, generate_card_to_hand, generate_card_to_deck, summon_from_effect, fill_lane_with, summon_copies_to_lane, summon_copy_to_other_lane, summon_random_from_discard, heal, gain_max_magicka, draw_cards, draw_filtered, discard, draw_from_discard_filtered, equip_items_from_discard, steal_items, steal_keywords, copy_keywords_to_friendly, copy_from_opponent_deck, copy_card_to_hand, return_to_hand, shuffle_hand_to_deck_and_draw, spend_all_magicka_for_stats, reveal_opponent_top_deck, log, grant_extra_attack, double_stats, trigger_friendly_last_gasps, change_lane_types, select_card_from_hand, destroy_all_except_random
+
+**Valid ops in `apply_custom_effect()` (extended_mechanic_packs.gd):**
+assemble, upgrade_shout, invade, buff_oblivion_gate_summon, track_treasure_hunt, damage, empower_damage, gain_magicka, summon_random_from_catalog, generate_random_to_hand, equip_random_item_from_catalog, reduce_random_hand_card_cost, conditional_equip_bonus, grant_player_ward, reduce_next_card_cost, escalating_damage, look_at_top_deck_may_discard, modify_card_cost, summon_random_from_deck, summon_random_by_target_cost, transform_random_from_catalog, transform_random_by_cost
+
+**Important:** Do not rely solely on this list — always grep the actual source files to confirm, as new ops may have been added since this skill was last updated. If an op is not found in either function, flag it as **UNIMPLEMENTED OP** — this means the trigger will silently do nothing at runtime.
+
+### 3f. Target Modes Are Handled (code-level check)
+
+If the card has an `action_target_mode` field, verify it is handled by the targeting system.
+
+**How to check:** Search `extended_mechanic_packs.gd` `_card_matches_target_mode()` for the target mode string.
+
+**Known valid target modes:**
+creature_or_player, any_creature, wounded_creature, friendly_creature, enemy_creature, enemy_creature_in_lane, another_friendly_creature, enemy_support_or_neutral_creature, neutral
+
+**Important:** Always grep the source to confirm — if the mode is not handled, the player will be unable to play the card or it will target incorrectly. Flag as **UNHANDLED TARGET MODE**.
+
+### 3g. Keywords Are Engine-Recognized (code-level check)
+
+For every keyword in the card's `keywords` array, `equip_keywords` array, and any `grant_keyword` effects, verify the keyword is:
+
+1. **Registered** in `data/legends/registries/keyword_effect_registry.json` (under `keywords` or `extended_pack_keywords`)
+2. **Handled by the engine** — search `evergreen_rules.gd` for the keyword string to confirm it has gameplay impact (e.g., `has_keyword()` checks, combat modifiers, etc.)
+
+**Known valid keywords:**
+- Evergreen: breakthrough, charge, drain, guard, lethal, mobilize, rally, regenerate, ward
+- Extended: assemble, beast_form, betray, consume, empower, exalt, expertise, invade, plot, shout, treasure_hunt, veteran, wax_and_wane
+
+**Status markers** (applied via `grant_status`, not `grant_keyword`): cover, shackled, silenced, wounded, exalted
+
+Flag any keyword not found in both the registry and engine code as **UNRECOGNIZED KEYWORD**.
+
+### 3h. Trigger Conditions Reference Valid Values (code-level check)
+
+For every trigger condition on each `triggered_abilities` entry, verify the referenced values exist:
+
+1. **`required_subtype_on_board`** / **`required_event_source_subtype`** / **`required_summon_subtype`** — Search `card_catalog.gd` for the subtype string to confirm at least one card in the catalog has it in its `subtypes` array.
+2. **`required_keyword_on_board`** / **`required_summon_keyword`** — Verify the keyword is in the valid keyword list (see 3g).
+3. **`required_event_source_attribute`** / **`required_top_deck_attribute`** — Must be one of: strength, intelligence, willpower, agility, endurance, neutral.
+4. **`required_top_deck_card_type`** — Must be one of: creature, action, item, support.
+5. **`required_played_rules_tag`** / **`excluded_rule_tag`** — Search `card_catalog.gd` for the rules_tag string to confirm at least one card uses it.
+6. **Trigger family** — Verify the `family` value exists in `FAMILY_SPECS` in `match_timing.gd`.
+
+Flag any condition that references a non-existent value as **INVALID CONDITION VALUE**.
+
+### 3i. Synergy and Alt-View Integrity (code-level check)
+
+1. **Synergy extraction** — If the card has any of these fields, verify `card_synergy_extractor.gd` would pick them up:
+   - `aura` with `filter_subtype` or `filter_attribute`
+   - `cost_reduction_aura` with `filter_subtype`
+   - Trigger conditions: `required_subtype_on_board`, `required_event_source_subtype`, `required_summon_subtype`
+   - Effect filters with `required_subtype` or `required_rules_tag`
+
+   Read `card_synergy_extractor.gd` and trace through the extraction logic to confirm the card's synergy fields would be found. If a synergy-relevant field exists but the extractor doesn't look for it in that location, flag as **MISSED SYNERGY**.
+
+2. **Alt-view / related cards** — If the card has effects that generate or summon other cards (ops: `summon_from_effect`, `generate_card_to_hand`, `fill_lane_with`, `summon_copies_to_lane`, `equip_generated_item`, `transform`), verify:
+   - The effect contains a `card_template` object
+   - `card_relationship_resolver.gd` would find it by checking for these ops in the `RELATED_CARD_OPS` list
+
+   Flag missing templates as **MISSING ALT-VIEW CARD**.
+
 ## Step 4: Report Findings
 
 Present a clear comparison table of all fields, marking each as matching or mismatched:
@@ -125,6 +194,16 @@ Present a clear comparison table of all fields, marking each as matching or mism
 |---------|-----------------|---------------------|--------|
 | Summon  | Deal 3 damage   | deal_damage amount:3 | OK    |
 | Slay    | Draw a card     | (missing)           | MISSING |
+
+### Code-Level Validation
+| Check | Details | Status |
+|-------|---------|--------|
+| Effect ops exist | All 3 ops found in engine | OK |
+| Target mode handled | creature_or_player → OK | OK |
+| Keywords recognized | guard, ward → both in registry + engine | OK |
+| Conditions valid | required_subtype_on_board: "Dragon" → 5 cards have it | OK |
+| Synergy extraction | filter_subtype: "Dragon" → extractor finds it | OK |
+| Alt-view cards | summon_from_effect has card_template | OK |
 
 ### Discrepancies Found: X
 ```
@@ -146,6 +225,12 @@ Update the `_seed()` call in `card_catalog.gd` with the correct values.
    - `_seed()` in `card_catalog.gd`
    - `_build_card()` in `card_catalog.gd`
    - `_hydrate_card()` in `match_screen.gd`
+
+### Unimplemented ops, unhandled target modes, unrecognized keywords
+These are engine-level gaps. For each:
+1. Check if an existing op/mode/keyword handler can be reused or extended.
+2. If not, implement the handler following existing patterns in the relevant file.
+3. After implementation, re-verify the card's trigger works end-to-end.
 
 ### Missing tokens/generated cards
 If the card generates tokens that don't exist:
