@@ -9,6 +9,7 @@ const HeuristicMatchPolicy = preload("res://src/ai/heuristic_match_policy.gd")
 const MatchActionEnumerator = preload("res://src/ai/match_action_enumerator.gd")
 const MatchActionExecutor = preload("res://src/ai/match_action_executor.gd")
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
+const ExtendedMechanicPacks = preload("res://src/core/match/extended_mechanic_packs.gd")
 const LaneRules = preload("res://src/core/match/lane_rules.gd")
 const MatchCombat = preload("res://src/core/match/match_combat.gd")
 const MatchDebugScenarios = preload("res://src/ui/match_debug_scenarios.gd")
@@ -101,6 +102,8 @@ var _insertion_preview := {}
 var _targeting_arrow_state := {}
 var _targeting_arrow: Line2D
 var _pending_summon_target := {}
+var _pending_betray := {}
+var _betray_skip_button: Button = null
 var _prophecy_overlay_state := {}
 var _spell_reveal_state := {}
 var _deck_reveal_state := {}
@@ -930,6 +933,9 @@ func play_or_activate_selected() -> Dictionary:
 		return _invalid_ui_result("Select a card first.")
 	if not _can_resolve_selected_action(card):
 		return _invalid_ui_result(_status_message)
+	var saved_instance_id := _selected_instance_id
+	var saved_card := card.duplicate(true)
+	var is_action_play := false
 	var location := MatchMutations.find_card_location(_match_state, _selected_instance_id)
 	var result := {}
 	if _is_pending_prophecy_card(card):
@@ -944,13 +950,17 @@ func play_or_activate_selected() -> Dictionary:
 				return _invalid_ui_result("Select a friendly creature to equip this item.")
 			"action":
 				result = MatchTiming.play_action_from_hand(_match_state, _active_player_id(), _selected_instance_id)
+				is_action_play = true
 			_:
 				return _invalid_ui_result("Selected card cannot be played from the UI yet.")
 	elif bool(location.get("is_valid", false)) and str(location.get("zone", "")) == MatchMutations.ZONE_SUPPORT:
 		result = PersistentCardRules.activate_support(_match_state, _active_player_id(), _selected_instance_id)
 	else:
 		return _invalid_ui_result("Selected card has no direct action. Choose a lane or target instead.")
-	return _finalize_engine_result(result, "Resolved %s." % _card_name(card))
+	var finalized := _finalize_engine_result(result, "Resolved %s." % _card_name(card))
+	if is_action_play and bool(finalized.get("is_valid", false)):
+		_check_betray_mode(saved_instance_id, saved_card)
+	return finalized
 
 
 func target_selected_card(target_instance_id: String) -> Dictionary:
@@ -965,11 +975,15 @@ func target_selected_card(target_instance_id: String) -> Dictionary:
 	var target_card: Dictionary = target_location.get("card", {})
 	var selected_location := MatchMutations.find_card_location(_match_state, _selected_instance_id)
 	var saved_item_id := ""
+	var saved_action_id := ""
+	var saved_action_card := {}
 	var result := {}
 	if bool(selected_location.get("is_valid", false)) and str(selected_location.get("zone", "")) == MatchMutations.ZONE_HAND and str(selected_card.get("card_type", "")) == "item":
 		saved_item_id = _selected_instance_id
 		result = PersistentCardRules.play_item_from_hand(_match_state, _active_player_id(), _selected_instance_id, {"target_instance_id": target_instance_id})
 	elif bool(selected_location.get("is_valid", false)) and str(selected_location.get("zone", "")) == MatchMutations.ZONE_HAND and str(selected_card.get("card_type", "")) == "action":
+		saved_action_id = _selected_instance_id
+		saved_action_card = selected_card.duplicate(true)
 		if _is_pending_prophecy_card(selected_card):
 			result = MatchTiming.play_pending_prophecy(_match_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"target_instance_id": target_instance_id})
 		else:
@@ -983,6 +997,8 @@ func target_selected_card(target_instance_id: String) -> Dictionary:
 	var finalized := _finalize_engine_result(result, "Resolved %s onto %s." % [_card_name(selected_card), _card_name(target_card)])
 	if bool(finalized.get("is_valid", false)) and not saved_item_id.is_empty():
 		_check_summon_target_mode(saved_item_id)
+	if bool(finalized.get("is_valid", false)) and not saved_action_id.is_empty():
+		_check_betray_mode(saved_action_id, saved_action_card)
 	return finalized
 
 
@@ -1762,6 +1778,9 @@ func _apply_surface_button_style(button: Button, surface: String, hidden := fals
 	if interaction_state == "valid":
 		fill = fill.lerp(Color(0.2, 0.31, 0.23, 0.98), 0.48)
 		border = Color(0.74, 0.94, 0.68, 1.0)
+	elif interaction_state == "valid_betray":
+		fill = fill.lerp(Color(0.35, 0.12, 0.1, 0.98), 0.48)
+		border = Color(0.95, 0.35, 0.25, 1.0)
 	elif interaction_state == "invalid":
 		fill = fill.lerp(Color(0.31, 0.12, 0.13, 0.99), 0.72)
 		border = Color(0.98, 0.48, 0.44, 1.0)
@@ -3141,6 +3160,8 @@ func _build_card_button(card: Dictionary, public_view: bool, surface := "default
 	_apply_card_feedback_decoration(button, card, surface)
 	if interaction_state == "valid":
 		_apply_valid_target_glow(button, surface)
+	elif interaction_state == "valid_betray":
+		_apply_betray_target_glow(button, surface)
 	if surface == "lane" and str(card.get("card_type", "")) == "creature":
 		_apply_lane_card_float_effect(button, card)
 	_card_buttons[instance_id] = button
@@ -4029,6 +4050,10 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 			return
 		if key_event.pressed and not key_event.echo and key_event.keycode == KEY_ESCAPE:
+			if not _pending_betray.is_empty():
+				_cancel_betray_mode()
+				get_viewport().set_input_as_handled()
+				return
 			if not _has_match_winner():
 				_toggle_pause_menu()
 				get_viewport().set_input_as_handled()
@@ -4061,6 +4086,9 @@ func _input(event: InputEvent) -> void:
 		if button_event.button_index == MOUSE_BUTTON_RIGHT and button_event.pressed:
 			if not _hand_selection_state.is_empty():
 				_cancel_hand_selection()
+				get_viewport().set_input_as_handled()
+			elif not _pending_betray.is_empty():
+				_cancel_betray_mode()
 				get_viewport().set_input_as_handled()
 			elif not _pending_summon_target.is_empty():
 				if not _is_pending_summon_mandatory():
@@ -4108,6 +4136,15 @@ func _on_card_pressed(instance_id: String) -> void:
 		else:
 			_report_invalid_interaction("Not a valid selection.", {"instance_ids": [instance_id]})
 		return
+	if not _pending_betray.is_empty():
+		if _pending_betray.has("sacrifice_instance_id"):
+			# Betray replay targeting phase — resolve replay target card
+			_resolve_betray_replay_target_card(instance_id)
+			return
+		else:
+			# Betray sacrifice selection phase — resolve sacrifice
+			_resolve_betray_sacrifice(instance_id)
+			return
 	if not _pending_summon_target.is_empty():
 		_resolve_summon_target_card(instance_id)
 		return
@@ -4291,6 +4328,9 @@ func _on_avatar_gui_input(event: InputEvent, player_id: String) -> void:
 
 
 func _on_player_pressed(player_id: String) -> void:
+	if not _pending_betray.is_empty() and _pending_betray.has("sacrifice_instance_id"):
+		_resolve_betray_replay_target_player(player_id)
+		return
 	if not _pending_summon_target.is_empty():
 		_resolve_summon_target_player(player_id)
 		return
@@ -4428,6 +4468,8 @@ func _try_resolve_selected_player_target(player_id: String) -> bool:
 		if not atm.is_empty() and atm.find("player") == -1:
 			_report_invalid_interaction("%s can only target creatures." % _card_name(selected_card), {"player_ids": [player_id]})
 			return true
+		var saved_action_id := _selected_instance_id
+		var saved_action_card := selected_card.duplicate(true)
 		var action_state: Dictionary = _match_state.duplicate(true)
 		var controller_id := str(selected_card.get("controller_player_id", ""))
 		var validation: Dictionary
@@ -4442,7 +4484,9 @@ func _try_resolve_selected_player_target(player_id: String) -> bool:
 				result = MatchTiming.play_pending_prophecy(_match_state, controller_id, _selected_instance_id, {"target_player_id": player_id})
 			else:
 				result = MatchTiming.play_action_from_hand(_match_state, _active_player_id(), _selected_instance_id, {"target_player_id": player_id})
-			_finalize_engine_result(result, "%s targeted %s." % [_card_name(selected_card), _player_name(player_id)])
+			var finalized := _finalize_engine_result(result, "%s targeted %s." % [_card_name(selected_card), _player_name(player_id)])
+			if bool(finalized.get("is_valid", false)):
+				_check_betray_mode(saved_action_id, saved_action_card)
 		else:
 			_report_invalid_interaction("%s can't target %s right now." % [_card_name(selected_card), _player_name(player_id)], {"player_ids": [player_id]})
 		return true
@@ -4640,6 +4684,14 @@ func _valid_card_target_ids() -> Array:
 
 func _valid_player_target_ids() -> Array:
 	var ids: Array = []
+	if not _pending_betray.is_empty() and _pending_betray.has("sacrifice_instance_id"):
+		var action_card: Dictionary = _pending_betray.get("action_card", {})
+		var atm := str(action_card.get("action_target_mode", ""))
+		if atm == "creature_or_player" or atm.is_empty():
+			for player in _match_state.get("players", []):
+				if typeof(player) == TYPE_DICTIONARY:
+					ids.append(str(player.get("player_id", "")))
+		return ids
 	if not _pending_summon_target.is_empty():
 		var source_id := str(_pending_summon_target.get("source_instance_id", ""))
 		for target_info in MatchTiming.get_all_valid_targets(_match_state, source_id):
@@ -4661,6 +4713,25 @@ func _card_interaction_state(card: Dictionary, surface: String) -> String:
 	var instance_id := str(card.get("instance_id", ""))
 	if _copy_array(_invalid_feedback.get("instance_ids", [])).has(instance_id):
 		return "invalid"
+	if not _pending_betray.is_empty() and surface == "lane":
+		if _pending_betray.has("sacrifice_instance_id"):
+			# Replay targeting phase — highlight valid replay targets
+			var action_card: Dictionary = _pending_betray.get("action_card", {})
+			var sacrifice_id := str(_pending_betray.get("sacrifice_instance_id", ""))
+			if instance_id != sacrifice_id and ExtendedMechanicPacks._card_matches_target_mode(str(action_card.get("action_target_mode", "")), card, _active_player_id()):
+				return "valid"
+			return "invalid"
+		else:
+			# Sacrifice selection phase — highlight friendly creatures
+			if str(card.get("controller_player_id", "")) == _active_player_id() and str(card.get("card_type", "")) == "creature":
+				var is_targeted: bool = bool(_pending_betray.get("is_targeted", false))
+				if is_targeted:
+					var action_card: Dictionary = _pending_betray.get("action_card", {})
+					if ExtendedMechanicPacks.betray_replay_has_valid_target(_match_state, _active_player_id(), action_card, instance_id):
+						return "valid_betray"
+				else:
+					return "valid_betray"
+			return "invalid"
 	if not _pending_summon_target.is_empty() and surface == "lane":
 		var source_id := str(_pending_summon_target.get("source_instance_id", ""))
 		var valid_targets := MatchTiming.get_all_valid_targets(_match_state, source_id)
@@ -5187,6 +5258,36 @@ func _apply_valid_target_glow(button: Button, surface: String) -> void:
 	glow_mat.set_shader_parameter("glow_color", Color(0.9, 0.92, 0.95, 1.0))
 	glow_mat.set_shader_parameter("pulse_speed", 1.8)
 	glow_mat.set_shader_parameter("glow_intensity", 0.28)
+	glow_mat.set_shader_parameter("corner_radius", 0.04)
+	glow_mat.set_shader_parameter("padding_uv", padding_uv)
+	var glow := ColorRect.new()
+	glow.name = "valid_target_glow"
+	glow.material = glow_mat
+	glow.color = Color.WHITE
+	glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	glow.offset_left = -glow_pad
+	glow.offset_top = -glow_pad
+	glow.offset_right = glow_pad
+	glow.offset_bottom = glow_pad
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.clip_contents = false
+	button.add_child(glow)
+	button.move_child(glow, 0)
+
+
+func _apply_betray_target_glow(button: Button, surface: String) -> void:
+	var glow_shader := load("res://assets/shaders/valid_target_glow.gdshader") as Shader
+	if glow_shader == null:
+		return
+	var card_size := _surface_button_minimum_size(surface)
+	var glow_pad := 16.0
+	var total_size := card_size + Vector2(glow_pad * 2.0, glow_pad * 2.0)
+	var padding_uv := Vector2(glow_pad / total_size.x, glow_pad / total_size.y)
+	var glow_mat := ShaderMaterial.new()
+	glow_mat.shader = glow_shader
+	glow_mat.set_shader_parameter("glow_color", Color(0.95, 0.2, 0.15, 1.0))
+	glow_mat.set_shader_parameter("pulse_speed", 1.8)
+	glow_mat.set_shader_parameter("glow_intensity", 0.35)
 	glow_mat.set_shader_parameter("corner_radius", 0.04)
 	glow_mat.set_shader_parameter("padding_uv", padding_uv)
 	var glow := ColorRect.new()
@@ -6292,13 +6393,17 @@ func _play_action_to_lane(lane_id: String) -> void:
 	var card := _selected_card()
 	if card.is_empty():
 		return
+	var saved_instance_id := _selected_instance_id
+	var saved_card := card.duplicate(true)
 	var options := {"lane_id": lane_id}
 	var result := {}
 	if _is_pending_prophecy_card(card):
 		result = MatchTiming.play_pending_prophecy(_match_state, str(card.get("controller_player_id", "")), _selected_instance_id, options)
 	else:
 		result = MatchTiming.play_action_from_hand(_match_state, _active_player_id(), _selected_instance_id, options)
-	_finalize_engine_result(result, "Played %s." % _card_name(card))
+	var finalized := _finalize_engine_result(result, "Played %s." % _card_name(card))
+	if bool(finalized.get("is_valid", false)):
+		_check_betray_mode(saved_instance_id, saved_card)
 
 
 func _cancel_targeting_mode() -> void:
@@ -6389,6 +6494,139 @@ func _cancel_summon_target_mode() -> void:
 	_cancel_targeting_mode()
 	_status_message = "Effect declined."
 	_refresh_ui()
+
+
+# --- Betray choice ---
+
+
+func _check_betray_mode(action_instance_id: String, action_card: Dictionary) -> void:
+	if not ExtendedMechanicPacks.action_has_betray(_match_state, _active_player_id(), action_card):
+		return
+	var candidates := ExtendedMechanicPacks.get_betray_sacrifice_candidates(_match_state, _active_player_id())
+	if candidates.is_empty():
+		return
+	var is_targeted := not str(action_card.get("action_target_mode", "")).is_empty()
+	if is_targeted:
+		var any_valid := false
+		for candidate in candidates:
+			if ExtendedMechanicPacks.betray_replay_has_valid_target(_match_state, _active_player_id(), action_card, str(candidate.get("instance_id", ""))):
+				any_valid = true
+				break
+		if not any_valid:
+			return
+	_pending_betray = {
+		"action_instance_id": action_instance_id,
+		"action_card": action_card,
+		"is_targeted": is_targeted,
+	}
+	_show_betray_skip_button()
+	var card_name := str(action_card.get("name", ""))
+	_status_message = "Sacrifice a creature to play %s again." % card_name
+	_refresh_ui()
+
+
+func _show_betray_skip_button() -> void:
+	_dismiss_betray_skip_button()
+	_betray_skip_button = Button.new()
+	_betray_skip_button.text = "Skip"
+	_betray_skip_button.custom_minimum_size = Vector2(100, 40)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.25, 0.22, 0.28, 0.92)
+	style.border_color = Color(0.6, 0.55, 0.65, 0.8)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(6)
+	style.set_content_margin_all(8)
+	_betray_skip_button.add_theme_stylebox_override("normal", style)
+	_betray_skip_button.add_theme_stylebox_override("hover", style)
+	_betray_skip_button.add_theme_stylebox_override("pressed", style)
+	_betray_skip_button.add_theme_color_override("font_color", Color(0.9, 0.88, 0.92, 1.0))
+	_betray_skip_button.add_theme_font_size_override("font_size", 16)
+	_betray_skip_button.pressed.connect(_cancel_betray_mode)
+	_betray_skip_button.z_index = 600
+	add_child(_betray_skip_button)
+	var viewport_size := get_viewport_rect().size
+	_betray_skip_button.position = Vector2(viewport_size.x * 0.5 - 50, viewport_size.y * 0.5 + 40)
+
+
+func _dismiss_betray_skip_button() -> void:
+	if _betray_skip_button != null and is_instance_valid(_betray_skip_button):
+		_betray_skip_button.queue_free()
+	_betray_skip_button = null
+
+
+func _cancel_betray_mode() -> void:
+	_pending_betray = {}
+	_dismiss_betray_skip_button()
+	_cancel_targeting_mode_silent()
+	_status_message = "Betray declined."
+	_refresh_ui()
+
+
+func _resolve_betray_sacrifice(sacrifice_instance_id: String) -> void:
+	var candidates := ExtendedMechanicPacks.get_betray_sacrifice_candidates(_match_state, _active_player_id())
+	var is_valid_candidate := false
+	for c in candidates:
+		if str(c.get("instance_id", "")) == sacrifice_instance_id:
+			is_valid_candidate = true
+			break
+	if not is_valid_candidate:
+		_report_invalid_interaction("Not a valid sacrifice target.", {"instance_ids": [sacrifice_instance_id]})
+		return
+	var is_targeted: bool = bool(_pending_betray.get("is_targeted", false))
+	if is_targeted:
+		var action_card: Dictionary = _pending_betray.get("action_card", {})
+		if not ExtendedMechanicPacks.betray_replay_has_valid_target(_match_state, _active_player_id(), action_card, sacrifice_instance_id):
+			_report_invalid_interaction("No valid replay targets if this creature is sacrificed.", {"instance_ids": [sacrifice_instance_id]})
+			return
+	_dismiss_betray_skip_button()
+	if is_targeted:
+		_pending_betray["sacrifice_instance_id"] = sacrifice_instance_id
+		# Enter targeting mode for replay, arrow from player avatar
+		var avatar: Control = null
+		var section: Dictionary = _player_sections.get(_active_player_id(), {})
+		if section.has("avatar_component"):
+			avatar = section.get("avatar_component") as Control
+		_cancel_targeting_mode_silent()
+		_targeting_arrow = _create_targeting_arrow()
+		var arrow_origin := Vector2.ZERO
+		if avatar != null:
+			arrow_origin = avatar.global_position + Vector2(avatar.size.x * 0.5, avatar.size.y * 0.5)
+		else:
+			var viewport_size := get_viewport_rect().size
+			arrow_origin = Vector2(viewport_size.x * 0.5, viewport_size.y * 0.85)
+		_targeting_arrow_state = {
+			"instance_id": str(_pending_betray.get("action_instance_id", "")),
+			"origin": arrow_origin,
+			"button": null,
+		}
+		var card_name := str(_pending_betray.get("action_card", {}).get("name", ""))
+		_status_message = "Choose a target for %s." % card_name
+		_refresh_ui()
+	else:
+		var action_instance_id := str(_pending_betray.get("action_instance_id", ""))
+		var result := MatchTiming.execute_betray_replay(_match_state, _active_player_id(), action_instance_id, sacrifice_instance_id, {})
+		_pending_betray = {}
+		_finalize_engine_result(result, "Betray replay resolved.")
+
+
+func _resolve_betray_replay_target_card(target_instance_id: String) -> void:
+	var action_instance_id := str(_pending_betray.get("action_instance_id", ""))
+	var sacrifice_id := str(_pending_betray.get("sacrifice_instance_id", ""))
+	var replay_options := {"target_instance_id": target_instance_id}
+	var result := MatchTiming.execute_betray_replay(_match_state, _active_player_id(), action_instance_id, sacrifice_id, replay_options)
+	_pending_betray = {}
+	_cancel_targeting_mode_silent()
+	_finalize_engine_result(result, "Betray replay resolved.")
+
+
+func _resolve_betray_replay_target_player(player_id: String) -> void:
+	var action_instance_id := str(_pending_betray.get("action_instance_id", ""))
+	var sacrifice_id := str(_pending_betray.get("sacrifice_instance_id", ""))
+	var replay_options := {"target_player_id": player_id}
+	var result := MatchTiming.execute_betray_replay(_match_state, _active_player_id(), action_instance_id, sacrifice_id, replay_options)
+	_pending_betray = {}
+	_cancel_targeting_mode_silent()
+	_finalize_engine_result(result, "Betray replay resolved.")
 
 
 func _summon_target_prompt(card: Dictionary, abilities: Array) -> String:

@@ -89,8 +89,6 @@ static func apply_pre_play_options(card: Dictionary, options: Dictionary) -> voi
 		EvergreenRules.add_status(card, EvergreenRules.STATUS_EXALTED)
 	if options.has("assemble_choice"):
 		card["assemble_choice_index"] = int(options.get("assemble_choice", 0))
-	if options.has("betray_sacrifice_instance_ids"):
-		card["pending_betray_sacrifices"] = options.get("betray_sacrifice_instance_ids", []).duplicate()
 	if options.has("double_card_choice"):
 		_apply_double_card_choice(card, options.get("double_card_choice", 0))
 
@@ -318,8 +316,6 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 	match str(effect.get("op", "")):
 		"assemble":
 			return {"handled": true, "events": _resolve_assemble(match_state, trigger, effect)}
-		"betray_replay":
-			return {"handled": true, "events": _resolve_betray_replay(match_state, trigger, event)}
 		"upgrade_shout":
 			return {"handled": true, "events": _resolve_shout_upgrade(match_state, trigger)}
 		"invade":
@@ -711,40 +707,6 @@ static func _resolve_assemble(match_state: Dictionary, trigger: Dictionary, effe
 					"target_instance_id": str(card.get("instance_id", "")),
 					"keyword_id": str(keyword_id),
 				})
-	return events
-
-
-static func _resolve_betray_replay(match_state: Dictionary, trigger: Dictionary, event: Dictionary) -> Array:
-	var source_card := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
-	if source_card.is_empty():
-		return []
-	var pending_ids: Array = _ensure_array(source_card.get("pending_betray_sacrifice_ids", source_card.get("pending_betray_sacrifices", []))).duplicate()
-	if pending_ids.is_empty():
-		return []
-	var events: Array = []
-	var sacrifice_instance_id := str(pending_ids[0])
-	pending_ids.remove_at(0)
-	source_card["pending_betray_sacrifices"] = pending_ids
-	var sacrifice_result := MatchMutations.sacrifice_card(match_state, str(trigger.get("controller_player_id", "")), sacrifice_instance_id, {"reason": "betray"})
-	if not bool(sacrifice_result.get("is_valid", false)):
-		return events
-	events.append_array(sacrifice_result.get("events", []))
-	events.append({
-		"event_type": EVENT_CARD_PLAYED,
-		"playing_player_id": str(trigger.get("controller_player_id", "")),
-		"player_id": str(trigger.get("controller_player_id", "")),
-		"source_instance_id": str(source_card.get("instance_id", "")),
-		"source_controller_player_id": str(trigger.get("controller_player_id", "")),
-		"source_zone": ZONE_DISCARD,
-		"target_zone": ZONE_DISCARD,
-		"card_type": str(source_card.get("card_type", CARD_TYPE_ACTION)),
-		"played_cost": 0,
-		"played_for_free": true,
-		"reason": "betray_replay",
-		"target_instance_id": str(event.get("target_instance_id", "")),
-		"target_player_id": str(event.get("target_player_id", "")),
-		"lane_id": str(event.get("lane_id", "")),
-	})
 	return events
 
 
@@ -1249,3 +1211,68 @@ static func _resolve_shout_upgrade_for_card(match_state: Dictionary, player_id: 
 		var change_result := MatchMutations.change_card(card, enriched_template, {"reason": "shout_upgrade"})
 		events.append_array(change_result.get("events", []))
 	return events
+
+
+# --- Betray ---
+
+
+const MUSHROOM_TOWER_ID := "hom_end_mushroom_tower"
+
+
+static func action_has_betray(match_state: Dictionary, player_id: String, card: Dictionary) -> bool:
+	if EvergreenRules.has_keyword(card, "betray"):
+		return true
+	var player := _get_player_state(match_state, player_id)
+	if player.is_empty():
+		return false
+	for support_card in _ensure_array(player.get("support", [])):
+		if typeof(support_card) != TYPE_DICTIONARY:
+			continue
+		if str(support_card.get("definition_id", support_card.get("card_id", ""))) == MUSHROOM_TOWER_ID:
+			return true
+	return false
+
+
+static func get_betray_sacrifice_candidates(match_state: Dictionary, player_id: String) -> Array:
+	var candidates: Array = []
+	for lane in match_state.get("lanes", []):
+		for card in _ensure_array(lane.get("player_slots", {}).get(player_id, [])):
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			if str(card.get("card_type", "")) == "creature":
+				candidates.append(card)
+	return candidates
+
+
+static func betray_replay_has_valid_target(match_state: Dictionary, player_id: String, action_card: Dictionary, excluding_instance_id: String) -> bool:
+	var action_target_mode := str(action_card.get("action_target_mode", ""))
+	if action_target_mode.is_empty():
+		return true
+	for lane in match_state.get("lanes", []):
+		for lane_player_id in lane.get("player_slots", {}).keys():
+			for card in _ensure_array(lane.get("player_slots", {}).get(lane_player_id, [])):
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				if str(card.get("instance_id", "")) == excluding_instance_id:
+					continue
+				if _card_matches_target_mode(action_target_mode, card, player_id):
+					return true
+	if action_target_mode == "creature_or_player":
+		return true
+	return false
+
+
+static func _card_matches_target_mode(target_mode: String, card: Dictionary, controller_player_id: String) -> bool:
+	var card_controller := str(card.get("controller_player_id", ""))
+	match target_mode:
+		"any_creature":
+			return true
+		"enemy_creature", "enemy_creature_in_lane":
+			return card_controller != controller_player_id
+		"friendly_creature", "another_friendly_creature":
+			return card_controller == controller_player_id
+		"creature_or_player":
+			return true
+		"wounded_creature":
+			return EvergreenRules.has_status(card, EvergreenRules.STATUS_WOUNDED) if card.has("statuses") else false
+	return true

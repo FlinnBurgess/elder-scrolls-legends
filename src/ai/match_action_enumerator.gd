@@ -443,7 +443,7 @@ static func _enumerate_action_plays(match_state: Dictionary, player_id: String, 
 	for card in _player_zone_cards(match_state, player_id, MatchMutations.ZONE_HAND):
 		if str(card.get("card_type", "")) != "action":
 			continue
-		for variant in _action_play_variants(card):
+		for variant in _action_play_variants(card, match_state, player_id):
 			var variant_card: Dictionary = variant.get("card", card).duplicate(true)
 			var base_parameters: Dictionary = variant.get("parameters", {}).duplicate(true)
 			var requirements := _collect_target_requirements(_play_triggers(variant_card))
@@ -453,18 +453,23 @@ static func _enumerate_action_plays(match_state: Dictionary, player_id: String, 
 				var parameters := base_parameters.duplicate(true)
 				for key in target_parameters.keys():
 					parameters[key] = target_parameters[key]
-				var descriptor := _build_descriptor(KIND_PLAY_ACTION, match_state, player_id, variant_card, parameters, {
-					"timing_window": TIMING_ACTION,
-					"played_for_free": played_for_free,
-					"order_key": ACTION_KIND_ORDER[KIND_PLAY_ACTION],
-					"variant_label": str(variant.get("label", "")),
-				})
-				if action_is_legal(match_state, descriptor):
-					actions.append(descriptor)
+				# For betray variants of targeted actions, expand replay targets
+				var param_sets: Array = [parameters]
+				if parameters.has("betray_sacrifice_instance_id") and not str(variant_card.get("action_target_mode", "")).is_empty():
+					param_sets = _expand_betray_replay_targets(match_state, player_id, variant_card, parameters)
+				for final_parameters in param_sets:
+					var descriptor := _build_descriptor(KIND_PLAY_ACTION, match_state, player_id, variant_card, final_parameters, {
+						"timing_window": TIMING_ACTION,
+						"played_for_free": played_for_free,
+						"order_key": ACTION_KIND_ORDER[KIND_PLAY_ACTION],
+						"variant_label": str(variant.get("label", "")),
+					})
+					if action_is_legal(match_state, descriptor):
+						actions.append(descriptor)
 	return actions
 
 
-static func _action_play_variants(card: Dictionary) -> Array:
+static func _action_play_variants(card: Dictionary, match_state: Dictionary = {}, player_id: String = "") -> Array:
 	var variants: Array = [{"card": card.duplicate(true), "parameters": {}, "label": ""}]
 	var double_options: Array = _clone_array(card.get("double_card_options", []))
 	if not double_options.is_empty():
@@ -494,7 +499,67 @@ static func _action_play_variants(card: Dictionary) -> Array:
 				"label": "%s:exalt" % str(variant.get("label", "base")),
 			})
 		variants = exalted
+	if not match_state.is_empty() and not player_id.is_empty() and _card_has_betray_variant(match_state, player_id, card):
+		var sacrifice_candidates := _get_betray_sacrifice_candidates_sorted(match_state, player_id)
+		if not sacrifice_candidates.is_empty():
+			var betrayed: Array = []
+			for variant in variants:
+				betrayed.append(variant)  # Keep base (no-betray) variant
+				for candidate in sacrifice_candidates:
+					var betray_parameters: Dictionary = variant.get("parameters", {}).duplicate(true)
+					betray_parameters["betray_sacrifice_instance_id"] = str(candidate.get("instance_id", ""))
+					betrayed.append({
+						"card": variant.get("card", card).duplicate(true),
+						"parameters": betray_parameters,
+						"label": "%s:betray(%s)" % [str(variant.get("label", "base")), str(candidate.get("instance_id", ""))],
+					})
+			variants = betrayed
 	return variants
+
+
+static func _card_has_betray_variant(match_state: Dictionary, player_id: String, card: Dictionary) -> bool:
+	return ExtendedMechanicPacks.action_has_betray(match_state, player_id, card) and not ExtendedMechanicPacks.get_betray_sacrifice_candidates(match_state, player_id).is_empty()
+
+
+static func _get_betray_sacrifice_candidates_sorted(match_state: Dictionary, player_id: String) -> Array:
+	var candidates := ExtendedMechanicPacks.get_betray_sacrifice_candidates(match_state, player_id)
+	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var pa := int(a.get("power", 0)) + int(a.get("power_bonus", 0))
+		var pb := int(b.get("power", 0)) + int(b.get("power_bonus", 0))
+		if pa != pb:
+			return pa < pb
+		var ha := EvergreenRules.get_remaining_health(a)
+		var hb := EvergreenRules.get_remaining_health(b)
+		return ha < hb
+	)
+	return candidates.slice(0, 3)
+
+
+static func _expand_betray_replay_targets(match_state: Dictionary, player_id: String, action_card: Dictionary, base_parameters: Dictionary) -> Array:
+	var sacrifice_id := str(base_parameters.get("betray_sacrifice_instance_id", ""))
+	var target_mode := str(action_card.get("action_target_mode", ""))
+	var expanded: Array = []
+	# Expand card targets
+	for lane in match_state.get("lanes", []):
+		for lane_player_id in lane.get("player_slots", {}).keys():
+			for card in lane.get("player_slots", {}).get(lane_player_id, []):
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				if str(card.get("instance_id", "")) == sacrifice_id:
+					continue
+				if ExtendedMechanicPacks._card_matches_target_mode(target_mode, card, player_id):
+					var params := base_parameters.duplicate(true)
+					params["betray_replay_target_instance_id"] = str(card.get("instance_id", ""))
+					expanded.append(params)
+	# Some modes also allow player targets
+	if target_mode == "creature_or_player" or target_mode.is_empty():
+		for player in match_state.get("players", []):
+			if typeof(player) != TYPE_DICTIONARY:
+				continue
+			var params := base_parameters.duplicate(true)
+			params["betray_replay_target_player_id"] = str(player.get("player_id", ""))
+			expanded.append(params)
+	return expanded if not expanded.is_empty() else [base_parameters]
 
 
 static func _card_has_exalt_variant(card: Dictionary) -> bool:
@@ -707,6 +772,12 @@ static func _build_action_id(action: Dictionary) -> String:
 		parts.append("exalt")
 	if parameters.has("double_card_choice"):
 		parts.append("double=%s" % str(parameters.get("double_card_choice", "")))
+	if parameters.has("betray_sacrifice_instance_id"):
+		parts.append("betray_sacrifice=%s" % str(parameters.get("betray_sacrifice_instance_id", "")))
+	if parameters.has("betray_replay_target_instance_id"):
+		parts.append("betray_target=%s" % str(parameters.get("betray_replay_target_instance_id", "")))
+	if parameters.has("betray_replay_target_player_id"):
+		parts.append("betray_target_player=%s" % str(parameters.get("betray_replay_target_player_id", "")))
 	if str(action.get("response_kind", "")).is_empty() == false:
 		parts.append("response=%s" % str(action.get("response_kind", "")))
 	return ":".join(parts)

@@ -959,6 +959,56 @@ static func play_action_from_hand(match_state: Dictionary, player_id: String, in
 	}
 
 
+static func execute_betray_replay(match_state: Dictionary, player_id: String, action_instance_id: String, sacrifice_instance_id: String, replay_options: Dictionary = {}) -> Dictionary:
+	ensure_match_state(match_state)
+	# Sacrifice the chosen creature
+	var sacrifice_result := MatchMutations.sacrifice_card(match_state, player_id, sacrifice_instance_id, {"reason": "betray"})
+	if not bool(sacrifice_result.get("is_valid", false)):
+		return sacrifice_result
+	var all_events: Array = []
+	# Publish sacrifice events first so triggers (last gasp, etc.) fire
+	var sacrifice_timing := publish_events(match_state, sacrifice_result.get("events", []))
+	all_events.append_array(sacrifice_timing.get("processed_events", []))
+	# Find the action card in discard
+	var action_card := {}
+	var player := _get_player_state(match_state, player_id)
+	if player.is_empty():
+		return {"is_valid": false, "errors": ["Unknown player_id: %s" % player_id], "events": [], "trigger_resolutions": []}
+	for card in player.get(ZONE_DISCARD, []):
+		if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) == action_instance_id:
+			action_card = card
+			break
+	if action_card.is_empty():
+		return {"is_valid": false, "errors": ["Action card %s not found in discard." % action_instance_id], "events": [], "trigger_resolutions": []}
+	# Replay the action for free from discard
+	var replay_timing := publish_events(match_state, [{
+		"event_type": EVENT_CARD_PLAYED,
+		"playing_player_id": player_id,
+		"player_id": player_id,
+		"source_instance_id": action_instance_id,
+		"source_controller_player_id": player_id,
+		"source_zone": ZONE_DISCARD,
+		"target_zone": ZONE_DISCARD,
+		"card_type": CARD_TYPE_ACTION,
+		"played_cost": 0,
+		"played_for_free": true,
+		"reason": "betray_replay",
+		"target_instance_id": str(replay_options.get("target_instance_id", "")),
+		"target_player_id": str(replay_options.get("target_player_id", "")),
+		"lane_id": str(replay_options.get("lane_id", "")),
+		"source_rules_text": str(action_card.get("rules_text", "")),
+		"source_name": str(action_card.get("name", "")),
+		"rules_tags": action_card.get("rules_tags", []).duplicate() if typeof(action_card.get("rules_tags", [])) == TYPE_ARRAY else [],
+	}])
+	all_events.append_array(replay_timing.get("processed_events", []))
+	return {
+		"is_valid": true,
+		"errors": [],
+		"events": all_events,
+		"trigger_resolutions": sacrifice_timing.get("trigger_resolutions", []) + replay_timing.get("trigger_resolutions", []),
+	}
+
+
 static func append_match_win_if_needed(match_state: Dictionary, loser_player_id: String, winner_player_id: String, events: Array) -> void:
 	var losing_player := _get_player_state(match_state, loser_player_id)
 	if losing_player.is_empty() or int(losing_player.get("health", 0)) > 0:

@@ -6,6 +6,7 @@ const MatchCombat = preload("res://src/core/match/match_combat.gd")
 const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
+const ExtendedMechanicPacks = preload("res://src/core/match/extended_mechanic_packs.gd")
 const ScenarioFixtures = preload("res://tests/support/scenario_fixtures.gd")
 
 
@@ -133,7 +134,10 @@ func _test_action_pack_matrix() -> bool:
 		_test_double_card_choice() and
 		_test_plot_hook() and
 		_test_exalt_action_bonus() and
-		_test_betray_replay()
+		_test_betray_replay() and
+		_test_mushroom_tower_grants_betray() and
+		_test_betray_no_creatures_skips() and
+		_test_betray_targeted_skip_no_replay_target()
 	)
 
 
@@ -210,24 +214,87 @@ func _test_betray_replay() -> bool:
 	var betray_card := ScenarioFixtures.add_hand_card(player, "betray_action", {
 		"card_type": "action",
 		"cost": 0,
+		"keywords": ["betray"],
 		"triggered_abilities": [{
 			"family": MatchTiming.FAMILY_ON_PLAY,
 			"required_zone": "discard",
 			"effects": [
 				{"op": "damage", "target_player": "target_player", "amount": 1},
-				{"op": "betray_replay"},
 			],
 		}],
 	})
-	var play_result := MatchTiming.play_action_from_hand(match_state, str(player.get("player_id", "")), str(betray_card.get("instance_id", "")), {
-		"target_player_id": str(opponent.get("player_id", "")),
-		"betray_sacrifice_instance_ids": [str(fodder.get("instance_id", ""))],
+	var player_id := str(player.get("player_id", ""))
+	var opponent_id := str(opponent.get("player_id", ""))
+	# Play the action normally (first resolution)
+	var play_result := MatchTiming.play_action_from_hand(match_state, player_id, str(betray_card.get("instance_id", "")), {
+		"target_player_id": opponent_id,
+	})
+	if not _assert(bool(play_result.get("is_valid", false)), "Betray action should be playable."):
+		return false
+	if not _assert(int(opponent.get("health", 0)) == 29, "First betray play should deal 1 damage (health=%d)." % int(opponent.get("health", 0))):
+		return false
+	# Verify betray eligibility
+	if not _assert(ExtendedMechanicPacks.action_has_betray(match_state, player_id, betray_card), "Card with betray keyword should be detected as betray."):
+		return false
+	# Execute the betray replay as a separate step
+	var replay_result := MatchTiming.execute_betray_replay(match_state, player_id, str(betray_card.get("instance_id", "")), str(fodder.get("instance_id", "")), {
+		"target_player_id": opponent_id,
 	})
 	return (
-		_assert(bool(play_result.get("is_valid", false)), "Betray action should be playable.") and
-		_assert(int(opponent.get("health", 0)) == 28, "Betray should replay the action after sacrificing a creature.") and
-		_assert(_contains_instance(player.get("discard", []), str(fodder.get("instance_id", ""))), "Betray replay should sacrifice the chosen friendly creature.")
+		_assert(bool(replay_result.get("is_valid", false)), "Betray replay should succeed.") and
+		_assert(int(opponent.get("health", 0)) == 28, "Betray replay should deal 1 more damage (health=%d)." % int(opponent.get("health", 0))) and
+		_assert(_contains_instance(player.get("discard", []), str(fodder.get("instance_id", ""))), "Betray should sacrifice the chosen creature to discard.")
 	)
+
+
+func _test_mushroom_tower_grants_betray() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	# Create a non-betray action
+	var action_card := ScenarioFixtures.make_card(player_id, "plain_action", {
+		"card_type": "action",
+		"cost": 0,
+	})
+	# Without Mushroom Tower — should not have betray
+	if not _assert(not ExtendedMechanicPacks.action_has_betray(match_state, player_id, action_card), "Action without betray keyword should not have betray."):
+		return false
+	# Place Mushroom Tower in support zone
+	var tower := ScenarioFixtures.make_card(player_id, "mushroom_tower", {
+		"card_type": "support",
+		"definition_id": "hom_end_mushroom_tower",
+		"support_uses": 0,
+	})
+	tower["zone"] = "support"
+	player["support"].append(tower)
+	# With Mushroom Tower — should have betray
+	return _assert(ExtendedMechanicPacks.action_has_betray(match_state, player_id, action_card), "Mushroom Tower should grant betray to all actions.")
+
+
+func _test_betray_no_creatures_skips() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	var candidates := ExtendedMechanicPacks.get_betray_sacrifice_candidates(match_state, player_id)
+	return _assert(candidates.is_empty(), "Should have no sacrifice candidates when no friendly creatures in lanes.")
+
+
+func _test_betray_targeted_skip_no_replay_target() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	# Summon a single friendly creature
+	var lone_creature := ScenarioFixtures.summon_creature(player, match_state, "lone_creature", "field", 2, 2)
+	# Create a targeted action that targets friendly creatures
+	var targeted_action := ScenarioFixtures.make_card(player_id, "friendly_target_action", {
+		"card_type": "action",
+		"cost": 0,
+		"keywords": ["betray"],
+		"action_target_mode": "friendly_creature",
+	})
+	# Sacrificing the only creature leaves no valid replay target
+	var has_target := ExtendedMechanicPacks.betray_replay_has_valid_target(match_state, player_id, targeted_action, str(lone_creature.get("instance_id", "")))
+	return _assert(not has_target, "Should have no valid replay target when sacrificing the only friendly creature for a friendly_creature targeted action.")
 
 
 func _test_empower_and_expertise_hooks() -> bool:

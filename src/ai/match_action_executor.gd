@@ -62,6 +62,19 @@ static func execute_action(match_state: Dictionary, action: Dictionary) -> Dicti
 				result = MatchTiming.play_pending_prophecy(match_state, player_id, source_instance_id, parameters)
 			else:
 				result = MatchTiming.play_action_from_hand(match_state, player_id, source_instance_id, parameters)
+			# Execute betray replay if this action has a pre-selected sacrifice
+			if bool(result.get("is_valid", false)) and parameters.has("betray_sacrifice_instance_id"):
+				var replay_options := {}
+				if parameters.has("betray_replay_target_instance_id"):
+					replay_options["target_instance_id"] = str(parameters.get("betray_replay_target_instance_id", ""))
+				if parameters.has("betray_replay_target_player_id"):
+					replay_options["target_player_id"] = str(parameters.get("betray_replay_target_player_id", ""))
+				if parameters.has("lane_id"):
+					replay_options["lane_id"] = str(parameters.get("lane_id", ""))
+				var betray_result := MatchTiming.execute_betray_replay(match_state, player_id, source_instance_id, str(parameters.get("betray_sacrifice_instance_id", "")), replay_options)
+				if bool(betray_result.get("is_valid", false)):
+					result["events"] = result.get("events", []) + betray_result.get("events", [])
+					result["trigger_resolutions"] = result.get("trigger_resolutions", []) + betray_result.get("trigger_resolutions", [])
 		MatchActionEnumerator.KIND_DECLINE_PROPHECY:
 			result = MatchTiming.decline_pending_prophecy(match_state, player_id, source_instance_id)
 		MatchActionEnumerator.KIND_CHOOSE_DISCARD:
