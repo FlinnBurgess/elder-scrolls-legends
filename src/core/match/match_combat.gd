@@ -364,8 +364,8 @@ static func _resolve_drain(match_state: Dictionary, attacker: Dictionary, damage
 	var player := _get_player_state(match_state, controller_player_id)
 	player["health"] = int(player.get("health", 0)) + damage_dealt
 	events.append({
-		"event_type": "heal_resolved",
-		"player_id": controller_player_id,
+		"event_type": "player_healed",
+		"target_player_id": controller_player_id,
 		"source_instance_id": str(attacker.get("instance_id", "")),
 		"amount": damage_dealt,
 		"reason": EvergreenRules.KEYWORD_DRAIN,

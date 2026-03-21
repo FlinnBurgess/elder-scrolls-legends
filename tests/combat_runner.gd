@@ -169,7 +169,7 @@ func _test_direct_player_attack_emits_events_and_applies_drain() -> bool:
 	var event_types := []
 	for event in result["events"]:
 		event_types.append(str(event.get("event_type", "")))
-	return _assert(event_types.has("attack_declared") and event_types.has("damage_resolved") and event_types.has("heal_resolved") and event_types.has("attack_resolved"), "Combat result should include declaration, damage, heal, and resolution events.")
+	return _assert(event_types.has("attack_declared") and event_types.has("damage_resolved") and event_types.has("player_healed") and event_types.has("attack_resolved"), "Combat result should include declaration, damage, heal, and resolution events.")
 
 
 func _test_attack_refreshes_on_controller_next_turn() -> bool:
