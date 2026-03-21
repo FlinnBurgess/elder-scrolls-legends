@@ -44,11 +44,11 @@ Process all in-game error reports that were submitted via the error reporting po
 ## Removing Entries
 
 After each fix is committed, immediately remove the corresponding line from the JSONL file:
-- Read the entire file
-- Remove the line that matches the processed report
+- **Re-read the entire file first** — the user may have added new reports while you were working
+- Identify the line to remove by **exact full-line match** against the original report JSON you processed — never use keyword substring matching, as it can accidentally delete unrelated reports that share words
 - Write the remaining lines back
 
-This ensures that if the skill is interrupted mid-run, completed reports are already removed.
+This ensures that if the skill is interrupted mid-run, completed reports are already removed, and new reports added concurrently are preserved.
 
 ## Important Notes
 
