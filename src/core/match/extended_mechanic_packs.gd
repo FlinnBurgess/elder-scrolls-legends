@@ -1223,6 +1223,13 @@ static func apply_hand_selection_effect(match_state: Dictionary, player_id: Stri
 	match then_op:
 		"upgrade_shout":
 			return _resolve_shout_upgrade_for_card(match_state, player_id, chosen_card)
+		"modify_card_cost":
+			var cost_amount := int(then_context.get("amount", 0))
+			var original_cost := int(chosen_card.get("cost", 0))
+			chosen_card["cost"] = maxi(0, original_cost + cost_amount)
+			if not chosen_card.has("_base_cost"):
+				chosen_card["_base_cost"] = original_cost
+			return [{"event_type": "card_cost_modified", "source_instance_id": source_instance_id, "target_instance_id": str(chosen_card.get("instance_id", "")), "player_id": player_id, "amount": cost_amount}]
 		"grant_keyword":
 			var keyword_id := str(then_context.get("keyword_id", ""))
 			if keyword_id.is_empty():
