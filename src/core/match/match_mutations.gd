@@ -19,7 +19,7 @@ const IDENTITY_FIELDS := [
 	"definition_id", "name", "card_type", "cost", "power", "health", "base_power", "base_health",
 	"keywords", "rules_tags", "triggered_abilities", "support_uses", "subtypes", "attributes",
 	"class_id", "rarity", "is_unique", "effect_ids", "rules_text", "source_ids", "collectible",
-	"generated_by_rules"
+	"generated_by_rules", "shout_level", "action_target_mode"
 ]
 
 
