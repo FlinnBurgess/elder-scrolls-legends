@@ -1163,6 +1163,16 @@ static func apply_hand_selection_effect(match_state: Dictionary, player_id: Stri
 	match then_op:
 		"upgrade_shout":
 			return _resolve_shout_upgrade_for_card(match_state, player_id, chosen_card)
+		"grant_keyword":
+			var keyword_id := str(then_context.get("keyword_id", ""))
+			if keyword_id.is_empty():
+				return []
+			EvergreenRules.ensure_card_state(chosen_card)
+			var granted_keywords: Array = chosen_card.get("granted_keywords", [])
+			if not granted_keywords.has(keyword_id):
+				granted_keywords.append(keyword_id)
+				chosen_card["granted_keywords"] = granted_keywords
+			return [{"event_type": "keyword_granted", "source_instance_id": source_instance_id, "target_instance_id": str(chosen_card.get("instance_id", "")), "keyword_id": keyword_id, "zone": "hand"}]
 	return []
 
 
