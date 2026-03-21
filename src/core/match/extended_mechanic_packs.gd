@@ -507,6 +507,29 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			var rrhcc_chosen: Dictionary = rrhcc_candidates[randi() % rrhcc_candidates.size()]
 			rrhcc_chosen["cost"] = maxi(0, int(rrhcc_chosen.get("cost", 0)) - rrhcc_amount)
 			return {"handled": true, "events": [{"event_type": "card_cost_modified", "player_id": rrhcc_controller_id, "target_instance_id": str(rrhcc_chosen.get("instance_id", "")), "amount": -rrhcc_amount, "source_instance_id": str(trigger.get("source_instance_id", ""))}]}
+		"conditional_equip_bonus":
+			var ceb_controller_id := str(trigger.get("controller_player_id", ""))
+			var ceb_player: Dictionary = _get_player_state(match_state, ceb_controller_id)
+			if ceb_player.is_empty():
+				return {"handled": true, "events": []}
+			var ceb_condition := str(effect.get("condition", ""))
+			var ceb_met := false
+			if ceb_condition == "dragon_in_discard":
+				for ceb_card in ceb_player.get(MatchMutations.ZONE_DISCARD, []):
+					if typeof(ceb_card) == TYPE_DICTIONARY:
+						var ceb_subtypes = ceb_card.get("subtypes", [])
+						if typeof(ceb_subtypes) == TYPE_ARRAY and ceb_subtypes.has("Dragon"):
+							ceb_met = true
+							break
+			if not ceb_met:
+				return {"handled": true, "events": []}
+			var ceb_host := _find_card_anywhere(match_state, str(event.get("target_instance_id", "")))
+			if ceb_host.is_empty():
+				return {"handled": true, "events": []}
+			var ceb_bp := int(effect.get("bonus_power", 0))
+			var ceb_bh := int(effect.get("bonus_health", 0))
+			EvergreenRules.apply_stat_bonus(ceb_host, ceb_bp, ceb_bh, "conditional_equip")
+			return {"handled": true, "events": [{"event_type": "creature_stats_changed", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(ceb_host.get("instance_id", "")), "bonus_power": ceb_bp, "bonus_health": ceb_bh}]}
 		"grant_player_ward":
 			var gpw_controller_id := str(trigger.get("controller_player_id", ""))
 			var gpw_player: Dictionary = _get_player_state(match_state, gpw_controller_id)
