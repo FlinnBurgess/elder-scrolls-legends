@@ -78,6 +78,7 @@ var _name_label: Label
 var _subtype_banner: PanelContainer
 var _subtype_label: Label
 var _art_frame: PanelContainer
+var _art_clip: Control
 var _art_texture: TextureRect
 var _rules_panel: PanelContainer
 var _rules_label: RichTextLabel
@@ -261,6 +262,19 @@ func _build_internal_nodes() -> void:
 	_art_frame.clip_contents = true
 	_content_root.add_child(_art_frame)
 
+	_art_clip = Control.new()
+	_art_clip.name = "ArtClip"
+	_art_clip.clip_contents = true
+	_art_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_content_root.add_child(_art_clip)
+
+	_art_texture = TextureRect.new()
+	_art_texture.name = "ArtTexture"
+	_art_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_art_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_art_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_art_clip.add_child(_art_texture)
+
 	# Ward overlay sits above artwork but below banners and badges
 	_ward_overlay = ColorRect.new()
 	_ward_overlay.name = "WardOverlay"
@@ -300,13 +314,6 @@ func _build_internal_nodes() -> void:
 	_subtype_label.max_lines_visible = 1
 	_subtype_label.add_theme_font_size_override("font_size", 9)
 	subtype_box.add_child(_subtype_label)
-	_art_texture = TextureRect.new()
-	_art_texture.name = "ArtTexture"
-	_art_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_art_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	_art_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_set_full_rect(_art_texture)
-	_art_frame.add_child(_art_texture)
 
 	_rules_panel = PanelContainer.new()
 	_rules_panel.name = "RulesPanel"
@@ -568,19 +575,29 @@ func _layout_full(inner_rect: Rect2) -> void:
 	_art_frame.position = Vector2(inner_rect.position.x + content_padding, art_top)
 	_art_frame.size = Vector2(content_width, art_height)
 
-	# Name banner – opaque, inset within the art frame border
+	# Name banner and art clip share the border inset
 	var art_border_w := float(_scaled_border_width(2, scale))
+
 	var banner_height := 28.0 * scale
 	_name_banner.position = _art_frame.position + Vector2(art_border_w, art_border_w)
 	_name_banner.size = Vector2(_art_frame.size.x - art_border_w * 2.0, banner_height)
 	# Subtype banner – centered horizontally, overlapping bottom of name banner
 	var subtype_height := 12.0 * scale
 	var subtype_width := _art_frame.size.x * 0.45
+	var subtype_bottom_y := _name_banner.position.y + banner_height - subtype_height * 0.5 + subtype_height
 	_subtype_banner.position = Vector2(
 		_art_frame.position.x + (_art_frame.size.x - subtype_width) * 0.5,
-		_name_banner.position.y + banner_height - subtype_height * 0.5
+		subtype_bottom_y - subtype_height
 	)
 	_subtype_banner.size = Vector2(subtype_width, subtype_height)
+
+	# Art clip fills the art frame (inset by border), with the texture shifted
+	# down slightly so the name/subtype banners don't obscure key artwork.
+	_art_clip.position = _art_frame.position + Vector2.ONE * art_border_w
+	_art_clip.size = _art_frame.size - Vector2.ONE * art_border_w * 2.0
+	var art_shift := art_height * 0.08
+	_art_texture.position = Vector2(0, art_shift)
+	_art_texture.size = Vector2(_art_clip.size.x, _art_clip.size.y + art_shift)
 
 	# Stat badges – attack diamond + health circle, straddling art bottom edge
 	_layout_stat_badges(inner_rect, Rect2(_art_frame.position, _art_frame.size), scale, true)
@@ -616,6 +633,10 @@ func _layout_creature_board_minimal(inner_rect: Rect2) -> void:
 	var art_padding := 6.0 * scale
 	_art_frame.position = inner_rect.position + Vector2.ONE * art_padding
 	_art_frame.size = Vector2(maxf(inner_rect.size.x - art_padding * 2.0, 0.0), maxf(inner_rect.size.y - art_padding * 2.0, 0.0))
+	_art_clip.position = _art_frame.position
+	_art_clip.size = _art_frame.size
+	_art_texture.position = Vector2.ZERO
+	_art_texture.size = _art_frame.size
 	_layout_stat_badges(inner_rect, Rect2(_art_frame.position, _art_frame.size), scale, true)
 	_layout_ward_overlay()
 	_layout_keyword_icons()
@@ -637,6 +658,10 @@ func _layout_support_board_minimal(inner_rect: Rect2) -> void:
 	var square_origin := inner_rect.position + Vector2((inner_rect.size.x - square_size) * 0.5, (inner_rect.size.y - square_size) * 0.5)
 	_art_frame.position = square_origin + Vector2.ONE * (6.0 * scale)
 	_art_frame.size = Vector2.ONE * maxf(square_size - 12.0 * scale, 0.0)
+	_art_clip.position = _art_frame.position
+	_art_clip.size = _art_frame.size
+	_art_texture.position = Vector2.ZERO
+	_art_texture.size = _art_frame.size
 	_name_banner.position = Vector2.ZERO
 	_name_banner.size = Vector2.ZERO
 	_subtype_banner.position = Vector2.ZERO
