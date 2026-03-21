@@ -17,6 +17,15 @@ static func extract_synergy_subtypes(card: Dictionary) -> Array:
 	return seen.keys()
 
 
+## Returns deduplicated lowercase rules_tags that this card's abilities care about
+## (e.g. "shout"), extracted from effect filters and trigger conditions.
+static func extract_synergy_rules_tags(card: Dictionary) -> Array:
+	var seen: Dictionary = {}
+	_extract_trigger_condition_rules_tags(card, seen)
+	_extract_effect_filter_rules_tags(card, seen)
+	return seen.keys()
+
+
 ## Returns deduplicated lowercase attributes that this card's auras care about.
 static func extract_synergy_attributes(card: Dictionary) -> Array:
 	var aura_raw = card.get("aura", null)
@@ -83,3 +92,39 @@ static func _extract_cost_reduction_subtype(card: Dictionary, seen: Dictionary) 
 	var filter_subtype := str((cra_raw as Dictionary).get("filter_subtype", ""))
 	if not filter_subtype.is_empty():
 		seen[filter_subtype.to_lower()] = true
+
+
+static func _extract_trigger_condition_rules_tags(card: Dictionary, seen: Dictionary) -> void:
+	var abilities: Array = card.get("triggered_abilities", [])
+	for ability in abilities:
+		if typeof(ability) != TYPE_DICTIONARY:
+			continue
+		var tag := str(ability.get("required_played_rules_tag", ""))
+		if not tag.is_empty():
+			seen[tag.to_lower()] = true
+
+
+static func _extract_effect_filter_rules_tags(card: Dictionary, seen: Dictionary) -> void:
+	var abilities: Array = card.get("triggered_abilities", [])
+	for ability in abilities:
+		if typeof(ability) != TYPE_DICTIONARY:
+			continue
+		var effects: Array = ability.get("effects", [])
+		_scan_effects_for_filter_rules_tag(effects, seen)
+
+
+static func _scan_effects_for_filter_rules_tag(effects: Array, seen: Dictionary) -> void:
+	for effect in effects:
+		if typeof(effect) != TYPE_DICTIONARY:
+			continue
+		var filter_raw = effect.get("filter", null)
+		if filter_raw != null and typeof(filter_raw) == TYPE_DICTIONARY:
+			var tag := str((filter_raw as Dictionary).get("rules_tag", ""))
+			if not tag.is_empty():
+				seen[tag.to_lower()] = true
+		var choices: Array = effect.get("choices", [])
+		for choice in choices:
+			if typeof(choice) != TYPE_DICTIONARY:
+				continue
+			var sub_effects: Array = choice.get("effects", [])
+			_scan_effects_for_filter_rules_tag(sub_effects, seen)

@@ -117,10 +117,12 @@ static func _ai_pick_best(options: Array, current_deck: Array, quality: float, c
 	var deck_keywords := _collect_deck_keywords(current_deck, card_pool)
 	var deck_subtypes := _collect_deck_subtypes(current_deck, card_pool)
 	var deck_synergy_subtypes := _collect_deck_synergy_subtypes(current_deck, card_pool)
+	var deck_rules_tags := _collect_deck_rules_tags(current_deck, card_pool)
+	var deck_synergy_rules_tags := _collect_deck_synergy_rules_tags(current_deck, card_pool)
 
 	for card in options:
 		var random_score: float = randf()
-		var eval_score: float = _evaluate_card(card, deck_cost_counts, deck_keywords, deck_subtypes, deck_synergy_subtypes)
+		var eval_score: float = _evaluate_card(card, deck_cost_counts, deck_keywords, deck_subtypes, deck_synergy_subtypes, deck_rules_tags, deck_synergy_rules_tags)
 		var score: float = lerpf(random_score, eval_score, quality)
 		if score > best_score:
 			best_score = score
@@ -129,7 +131,7 @@ static func _ai_pick_best(options: Array, current_deck: Array, quality: float, c
 	return best_card
 
 
-static func _evaluate_card(card: Dictionary, deck_cost_counts: Dictionary, deck_keywords: Dictionary, deck_subtypes: Dictionary, deck_synergy_subtypes: Dictionary) -> float:
+static func _evaluate_card(card: Dictionary, deck_cost_counts: Dictionary, deck_keywords: Dictionary, deck_subtypes: Dictionary, deck_synergy_subtypes: Dictionary, deck_rules_tags: Dictionary = {}, deck_synergy_rules_tags: Dictionary = {}) -> float:
 	var score := 0.0
 	var card_type: String = card.get("card_type", "")
 	var cost: int = card.get("cost", 0)
@@ -198,6 +200,21 @@ static func _evaluate_card(card: Dictionary, deck_cost_counts: Dictionary, deck_
 		if syn_st in deck_subtypes:
 			score += 0.10 * minf(float(deck_subtypes[syn_st]), 2.0)
 
+	# Rules tag synergy - card's rules_tags enable synergy cards already in deck
+	# e.g. picking a Shout when deck has Word Wall
+	var card_tags: Array = card.get("rules_tags", [])
+	for tag in card_tags:
+		var tag_lower := str(tag).to_lower()
+		if tag_lower in deck_synergy_rules_tags:
+			score += 0.12 * minf(float(deck_synergy_rules_tags[tag_lower]), 3.0)
+
+	# Rules tag synergy - card's synergy signals match rules_tags already in deck
+	# e.g. picking Word Wall when deck has 2 Shouts
+	var card_synergy_tags: Array = CardSynergyExtractor.extract_synergy_rules_tags(card)
+	for syn_tag in card_synergy_tags:
+		if syn_tag in deck_rules_tags:
+			score += 0.10 * minf(float(deck_rules_tags[syn_tag]), 2.0)
+
 	# Slight preference for creatures (they form the deck backbone)
 	if card_type == "creature":
 		score += 0.05
@@ -253,6 +270,32 @@ static func _collect_deck_synergy_subtypes(current_deck: Array, all_cards_contex
 				var qty: int = entry.get("quantity", 1)
 				for syn_st in synergy_subs:
 					syn_counts[syn_st] = syn_counts.get(syn_st, 0) + qty
+				break
+	return syn_counts
+
+
+static func _collect_deck_rules_tags(current_deck: Array, all_cards_context: Array) -> Dictionary:
+	var tag_counts := {}
+	for entry in current_deck:
+		for opt in all_cards_context:
+			if opt.get("card_id", "") == entry.get("card_id", ""):
+				for tag in opt.get("rules_tags", []):
+					var tag_lower := str(tag).to_lower()
+					var qty: int = entry.get("quantity", 1)
+					tag_counts[tag_lower] = tag_counts.get(tag_lower, 0) + qty
+				break
+	return tag_counts
+
+
+static func _collect_deck_synergy_rules_tags(current_deck: Array, all_cards_context: Array) -> Dictionary:
+	var syn_counts := {}
+	for entry in current_deck:
+		for opt in all_cards_context:
+			if opt.get("card_id", "") == entry.get("card_id", ""):
+				var synergy_tags: Array = CardSynergyExtractor.extract_synergy_rules_tags(opt)
+				var qty: int = entry.get("quantity", 1)
+				for syn_tag in synergy_tags:
+					syn_counts[syn_tag] = syn_counts.get(syn_tag, 0) + qty
 				break
 	return syn_counts
 

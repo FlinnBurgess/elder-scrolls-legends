@@ -50,10 +50,16 @@ static func _resolve_contextual_text(card: Dictionary, relationships: Array, con
 		var text := _subtype_count_text(subtype, context)
 		relationships.append({"type": "text", "text": text})
 
+	var synergy_rules_tags: Array = CardSynergyExtractor.extract_synergy_rules_tags(card)
+	for tag in synergy_rules_tags:
+		var text := _rules_tag_count_text(tag, context)
+		relationships.append({"type": "text", "text": text})
+
 	var synergy_attributes: Array = CardSynergyExtractor.extract_synergy_attributes(card)
 	for attribute in synergy_attributes:
-		var display_name := attribute.substr(0, 1).to_upper() + attribute.substr(1)
-		var count := _get_attribute_count(attribute, context)
+		var attr_str := str(attribute)
+		var display_name := attr_str.substr(0, 1).to_upper() + attr_str.substr(1)
+		var count := _get_attribute_count(attr_str, context)
 		if count >= 0:
 			var zone := _context_zone_label(context)
 			relationships.append({"type": "text", "text": "You have %d %s card%s %s." % [count, display_name, "s" if count != 1 else "", zone]})
@@ -121,6 +127,45 @@ static func _count_subtype_in_arrays(subtype: String, arrays: Array) -> int:
 			var subtypes: Array = card.get("subtypes", [])
 			for st in subtypes:
 				if str(st).to_lower() == subtype.to_lower():
+					count += 1
+					break
+	return count
+
+
+static func _rules_tag_count_text(tag: String, context: Dictionary) -> String:
+	var display_name := tag.substr(0, 1).to_upper() + tag.substr(1)
+	var count := _get_rules_tag_count(tag, context)
+	if count >= 0:
+		var zone := _context_zone_label(context)
+		return "You have %d %s%s %s." % [count, display_name, "s" if count != 1 else "", zone]
+	return "Synergy: %ss" % display_name
+
+
+static func _get_rules_tag_count(tag: String, context: Dictionary) -> int:
+	var zone := str(context.get("zone", ""))
+	if zone == "match":
+		return _count_rules_tag_in_arrays(tag, [
+			context.get("board_cards", []),
+			context.get("hand_cards", []),
+		])
+	if zone == "deck_editor" or zone == "arena_draft":
+		return _count_rules_tag_in_arrays(tag, [
+			context.get("deck_cards", []),
+		])
+	return -1
+
+
+static func _count_rules_tag_in_arrays(tag: String, arrays: Array) -> int:
+	var count := 0
+	for arr in arrays:
+		if typeof(arr) != TYPE_ARRAY:
+			continue
+		for card in arr:
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			var tags: Array = card.get("rules_tags", [])
+			for t in tags:
+				if str(t).to_lower() == tag.to_lower():
 					count += 1
 					break
 	return count
