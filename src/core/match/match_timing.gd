@@ -1563,6 +1563,15 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 	if required_summon_min_cost > 0:
 		if int(_summon_card.get("cost", 0)) < required_summon_min_cost:
 			return false
+	# Slay-filtering: gate slay triggers based on properties of the destroyed creature
+	var required_slay_subtype := str(descriptor.get("required_slay_subtype", ""))
+	if not required_slay_subtype.is_empty():
+		var slay_victim := _find_card_anywhere(match_state, str(event.get("source_instance_id", "")))
+		if slay_victim.is_empty():
+			return false
+		var slay_subtypes = slay_victim.get("subtypes", [])
+		if typeof(slay_subtypes) != TYPE_ARRAY or not slay_subtypes.has(required_slay_subtype):
+			return false
 	return ExtendedMechanicPacks.matches_additional_conditions(match_state, trigger, descriptor, event)
 
 
