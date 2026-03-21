@@ -485,6 +485,28 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				if bool(erfc_result.get("is_valid", false)):
 					erfc_events.append_array(erfc_result.get("events", []))
 			return {"handled": true, "events": erfc_events}
+		"reduce_random_hand_card_cost":
+			var rrhcc_controller_id := str(trigger.get("controller_player_id", ""))
+			var rrhcc_player: Dictionary = _get_player_state(match_state, rrhcc_controller_id)
+			if rrhcc_player.is_empty():
+				return {"handled": true, "events": []}
+			var rrhcc_amount := int(effect.get("amount", 1))
+			var rrhcc_filter: Dictionary = effect.get("filter", {})
+			var rrhcc_subtype := str(rrhcc_filter.get("subtype", ""))
+			var rrhcc_candidates: Array = []
+			for rrhcc_card in rrhcc_player.get(MatchMutations.ZONE_HAND, []):
+				if typeof(rrhcc_card) != TYPE_DICTIONARY:
+					continue
+				if not rrhcc_subtype.is_empty():
+					var rrhcc_subtypes: Array = rrhcc_card.get("subtypes", [])
+					if typeof(rrhcc_subtypes) != TYPE_ARRAY or not rrhcc_subtypes.has(rrhcc_subtype):
+						continue
+				rrhcc_candidates.append(rrhcc_card)
+			if rrhcc_candidates.is_empty():
+				return {"handled": true, "events": []}
+			var rrhcc_chosen: Dictionary = rrhcc_candidates[randi() % rrhcc_candidates.size()]
+			rrhcc_chosen["cost"] = maxi(0, int(rrhcc_chosen.get("cost", 0)) - rrhcc_amount)
+			return {"handled": true, "events": [{"event_type": "card_cost_modified", "player_id": rrhcc_controller_id, "target_instance_id": str(rrhcc_chosen.get("instance_id", "")), "amount": -rrhcc_amount, "source_instance_id": str(trigger.get("source_instance_id", ""))}]}
 		"reduce_next_card_cost":
 			var rncc_controller_id := str(trigger.get("controller_player_id", ""))
 			var rncc_player: Dictionary = _get_player_state(match_state, rncc_controller_id)
