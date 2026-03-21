@@ -6945,6 +6945,9 @@ func _show_match_history_popover(entry_index: int) -> void:
 
 	add_child(overlay)
 	_match_history_popover_state = {"overlay": overlay, "entry_index": entry_index}
+	var source_card_name := str(source_card.get("name", "unknown"))
+	_error_report_hovered_type = "match_history"
+	_error_report_hovered_context = "Match History Entry #%d (%s)" % [entry_index + 1, source_card_name]
 
 
 func _build_history_popover_card_section(card: Dictionary, player_id: String, destroyed: bool) -> VBoxContainer:
@@ -7123,6 +7126,9 @@ func _dismiss_match_history_popover() -> void:
 	if overlay != null and is_instance_valid(overlay):
 		overlay.queue_free()
 	_match_history_popover_state = {}
+	if _error_report_hovered_type == "match_history":
+		_error_report_hovered_type = ""
+		_error_report_hovered_context = ""
 
 
 # --- Error Report Hover Handlers ---
@@ -7182,7 +7188,7 @@ func _on_match_history_mouse_entered(entry: Dictionary, entry_index: int) -> voi
 
 
 func _on_match_history_mouse_exited() -> void:
-	if _error_report_hovered_type == "match_history":
+	if _error_report_hovered_type == "match_history" and _match_history_popover_state.is_empty():
 		_error_report_hovered_type = ""
 		_error_report_hovered_context = ""
 
