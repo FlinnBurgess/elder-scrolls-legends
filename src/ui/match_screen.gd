@@ -6739,13 +6739,42 @@ func _build_match_history_icon(entry: Dictionary, entry_index: int) -> Button:
 
 	var source_card: Dictionary = entry.get("source_card", {})
 	if not source_card.is_empty():
-		var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
-		component.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		component.apply_card(source_card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_SUPPORT_BOARD_MINIMAL)
-		button.add_child(component)
+		var tex_rect := TextureRect.new()
+		tex_rect.texture = _resolve_history_art_texture(source_card)
+		tex_rect.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		tex_rect.offset_left = MATCH_HISTORY_ICON_BORDER_WIDTH
+		tex_rect.offset_top = MATCH_HISTORY_ICON_BORDER_WIDTH
+		tex_rect.offset_right = -MATCH_HISTORY_ICON_BORDER_WIDTH
+		tex_rect.offset_bottom = -MATCH_HISTORY_ICON_BORDER_WIDTH
+		tex_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tex_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		tex_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(tex_rect)
 
 	return button
+
+
+func _resolve_history_art_texture(card: Dictionary) -> Texture2D:
+	# Check for direct texture or path on the card
+	for key in ["art_texture", "art"]:
+		var direct = card.get(key, null)
+		if direct is Texture2D:
+			return direct as Texture2D
+	for key in ["art_path", "art_resource_path", "art"]:
+		var path := str(card.get(key, "")).strip_edges()
+		if path.is_empty():
+			continue
+		if ResourceLoader.exists(path):
+			var loaded = load(path)
+			if loaded is Texture2D:
+				return loaded as Texture2D
+	# Fall back to the default card placeholder
+	var placeholder_path := "res://assets/images/cards/placeholder.png"
+	if ResourceLoader.exists(placeholder_path):
+		var loaded = load(placeholder_path)
+		if loaded is Texture2D:
+			return loaded as Texture2D
+	return null
 
 
 func _on_match_history_icon_pressed(entry_index: int) -> void:
