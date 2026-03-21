@@ -507,6 +507,13 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			var rrhcc_chosen: Dictionary = rrhcc_candidates[randi() % rrhcc_candidates.size()]
 			rrhcc_chosen["cost"] = maxi(0, int(rrhcc_chosen.get("cost", 0)) - rrhcc_amount)
 			return {"handled": true, "events": [{"event_type": "card_cost_modified", "player_id": rrhcc_controller_id, "target_instance_id": str(rrhcc_chosen.get("instance_id", "")), "amount": -rrhcc_amount, "source_instance_id": str(trigger.get("source_instance_id", ""))}]}
+		"grant_player_ward":
+			var gpw_controller_id := str(trigger.get("controller_player_id", ""))
+			var gpw_player: Dictionary = _get_player_state(match_state, gpw_controller_id)
+			if gpw_player.is_empty():
+				return {"handled": true, "events": []}
+			gpw_player["has_ward"] = true
+			return {"handled": true, "events": [{"event_type": "player_ward_granted", "player_id": gpw_controller_id, "source_instance_id": str(trigger.get("source_instance_id", ""))}]}
 		"reduce_next_card_cost":
 			var rncc_controller_id := str(trigger.get("controller_player_id", ""))
 			var rncc_player: Dictionary = _get_player_state(match_state, rncc_controller_id)

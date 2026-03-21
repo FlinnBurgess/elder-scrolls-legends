@@ -40,6 +40,15 @@ var _health_value_label: Label
 var _health_caption_label: Label
 var _rune_entries: Array = []
 var _portrait_material: ShaderMaterial
+var _ward_overlay: PanelContainer
+var _has_ward := false
+
+@export var has_ward: bool = false:
+	set(value):
+		_has_ward = value
+		_refresh_ward_overlay()
+	get:
+		return _has_ward
 
 @export var portrait_texture: Texture2D = DEFAULT_PORTRAIT:
 	set(value):
@@ -127,6 +136,7 @@ func get_rune_anchor(threshold: int) -> Control:
 func apply_player_state(player: Dictionary, is_opponent_presentation := false, portrait: Texture2D = null) -> void:
 	health = int(player.get("health", _health))
 	active_rune_thresholds = _normalize_rune_thresholds(player.get("rune_thresholds", DEFAULT_RUNE_THRESHOLDS))
+	has_ward = bool(player.get("has_ward", false))
 	set_is_opponent(is_opponent_presentation)
 	if portrait != null:
 		portrait_texture = portrait
@@ -169,6 +179,12 @@ func _build_internal_nodes() -> void:
 	_portrait_material = ShaderMaterial.new()
 	_portrait_material.shader = shader
 	_portrait_rect.material = _portrait_material
+
+	_ward_overlay = PanelContainer.new()
+	_ward_overlay.name = "WardOverlay"
+	_ward_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ward_overlay.visible = false
+	_content_root.add_child(_ward_overlay)
 
 	_health_badge = PanelContainer.new()
 	_health_badge.name = "HealthBadge"
@@ -225,6 +241,7 @@ func _refresh_all() -> void:
 	_refresh_presentation()
 	_refresh_health()
 	_refresh_runes()
+	_refresh_ward_overlay()
 	_layout_internal_nodes()
 
 
@@ -251,6 +268,14 @@ func _refresh_health() -> void:
 	_apply_panel_style(_health_badge, Color(0.34, 0.13, 0.13, 0.98) if low_health else Color(0.24, 0.1, 0.12, 0.98), Color(1.0, 0.59, 0.43, 1.0) if low_health else Color(0.86, 0.54, 0.37, 0.98), 2, _circular_panel_radius(_health_badge, 14))
 	_health_value_label.add_theme_color_override("font_color", Color(1.0, 0.95, 0.9, 1.0))
 	_health_caption_label.add_theme_color_override("font_color", Color(1.0, 0.82, 0.72, 0.98))
+
+
+func _refresh_ward_overlay() -> void:
+	if _ward_overlay == null:
+		return
+	_ward_overlay.visible = _has_ward
+	if _has_ward:
+		_apply_panel_style(_ward_overlay, Color(0.2, 0.45, 0.85, 0.15), Color(0.4, 0.7, 1.0, 0.9), 4, _circular_panel_radius(_ward_overlay, 8))
 
 
 func _refresh_runes() -> void:
@@ -317,6 +342,10 @@ func _layout_internal_nodes() -> void:
 	var medallion_origin := content_origin + Vector2(left_overhang, top_overhang)
 	_medallion_outer.position = medallion_origin
 	_medallion_outer.size = Vector2.ONE * medallion_size
+
+	var ward_inset := -6.0
+	_ward_overlay.position = medallion_origin + Vector2.ONE * ward_inset
+	_ward_overlay.size = Vector2.ONE * (medallion_size - ward_inset * 2.0)
 
 	_health_badge.size = badge_size
 	var badge_x := medallion_origin.x - badge_size.x * 0.26

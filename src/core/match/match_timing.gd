@@ -593,6 +593,11 @@ static func apply_player_damage(match_state: Dictionary, player_id: String, amou
 	var player := _get_player_state(match_state, player_id)
 	if player.is_empty():
 		return result
+	# Face ward: absorb the entire damage instance and remove the ward
+	if bool(player.get("has_ward", false)):
+		player["has_ward"] = false
+		result["events"] = [{"event_type": "player_ward_removed", "player_id": player_id, "absorbed_damage": amount, "source_instance_id": str(context.get("source_instance_id", ""))}]
+		return result
 	var previous_health := int(player.get("health", 0))
 	var new_health := previous_health - amount
 	player["health"] = new_health
