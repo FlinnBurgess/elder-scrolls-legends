@@ -147,13 +147,22 @@ static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionar
 	player["turns_started"] = int(player.get("turns_started", 0)) + 1
 	player["temporary_magicka"] = 0
 	var current_max := int(player.get("max_magicka", 0))
-	player["max_magicka"] = maxi(current_max, mini(MAX_MAGICKA_CAP, current_max + 1))
+	var new_max := maxi(current_max, mini(MAX_MAGICKA_CAP, current_max + 1))
+	var magicka_gained := new_max - current_max
+	player["max_magicka"] = new_max
 	player["current_magicka"] = int(player["max_magicka"])
 	player["ring_of_magicka_used_this_turn"] = false
 
 	match_state["turn_number"] = int(match_state.get("turn_number", 0)) + 1
 	match_state["priority_player_id"] = player_id
 	match_state["resolved_turn_triggers"] = {}
+	if magicka_gained > 0:
+		MatchTiming.publish_events(match_state, [{
+			"event_type": "max_magicka_gained",
+			"source_instance_id": "",
+			"target_player_id": player_id,
+			"amount": magicka_gained,
+		}])
 	var draw_result := MatchTiming.draw_cards(match_state, player_id, 1, {
 		"reason": MatchTiming.EVENT_TURN_STARTED,
 		"source_controller_player_id": player_id,
