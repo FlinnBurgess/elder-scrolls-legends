@@ -115,9 +115,6 @@ var _removal_feedbacks: Array = []
 var _draw_feedbacks: Array = []
 var _rune_feedbacks: Array = []
 var _feedback_sequence := 0
-var _history_text: TextEdit
-var _replay_text: TextEdit
-var _state_text: TextEdit
 var _local_hand_overlay: Control
 var _opponent_hand_overlay: Control
 var _player_avatar_overlay: Control
@@ -1097,36 +1094,6 @@ func _build_ui() -> void:
 	_pause_overlay = _build_pause_overlay()
 	root.add_child(_pause_overlay)
 
-	var debug_overlay := PanelContainer.new()
-	debug_overlay.name = "DebugOverlay"
-	debug_overlay.mouse_filter = Control.MOUSE_FILTER_PASS
-	debug_overlay.custom_minimum_size = Vector2(360, 240)
-	debug_overlay.set_anchors_and_offsets_preset(PRESET_BOTTOM_LEFT)
-	debug_overlay.anchor_left = 0.0
-	debug_overlay.anchor_top = 1.0
-	debug_overlay.anchor_right = 0.0
-	debug_overlay.anchor_bottom = 1.0
-	debug_overlay.offset_left = 24
-	debug_overlay.offset_top = -264
-	debug_overlay.offset_right = 384
-	debug_overlay.offset_bottom = -24
-	_apply_panel_style(debug_overlay, Color(0.08, 0.09, 0.12, 0.92), Color(0.24, 0.27, 0.34, 0.72), 1, 10)
-	add_child(debug_overlay)
-
-	var debug_box := _build_panel_box(debug_overlay, 8, 10)
-
-	var tabs := TabContainer.new()
-	tabs.name = "DebugTabs"
-	tabs.size_flags_horizontal = SIZE_EXPAND_FILL
-	tabs.size_flags_vertical = SIZE_EXPAND_FILL
-	debug_box.add_child(tabs)
-
-	_history_text = _build_read_only_text("History")
-	tabs.add_child(_history_text)
-	_replay_text = _build_read_only_text("Replay")
-	tabs.add_child(_replay_text)
-	_state_text = _build_read_only_text("State")
-	tabs.add_child(_state_text)
 
 
 func _build_player_section(player_id: String) -> Dictionary:
@@ -1848,7 +1815,6 @@ func _refresh_ui() -> void:
 	_refresh_player_sections()
 	_refresh_lanes()
 	_apply_match_layout_scale()
-	_refresh_debug_tabs()
 	_refresh_end_turn_button()
 	_refresh_match_end_overlay()
 	_apply_presentation_feedback()
@@ -1979,12 +1945,6 @@ func _refresh_lanes() -> void:
 			for card in slots:
 				if typeof(card) == TYPE_DICTIONARY:
 					row.add_child(_build_card_button(card, true, "lane"))
-
-
-func _refresh_debug_tabs() -> void:
-	_history_text.text = _history_text_value()
-	_replay_text.text = _replay_text_value()
-	_state_text.text = JSON.stringify(_match_state, "  ")
 
 
 func _refresh_prophecy_overlay() -> void:
@@ -5886,45 +5846,6 @@ func _term_label(term_id: String) -> String:
 	return _identifier_to_name(term_id)
 
 
-
-
-func _history_text_value() -> String:
-	var lines: Array = []
-	for event in _match_state.get("event_log", []):
-		if typeof(event) != TYPE_DICTIONARY:
-			continue
-		lines.append(_format_event_line(event))
-	if lines.is_empty():
-		return "No processed events yet."
-	return _join_parts(lines, "\n")
-
-
-func _replay_text_value() -> String:
-	var lines: Array = []
-	for entry in _match_state.get("replay_log", []):
-		if typeof(entry) != TYPE_DICTIONARY:
-			continue
-		var entry_type := str(entry.get("entry_type", "entry"))
-		var summary := [entry_type]
-		if entry.has("family"):
-			summary.append(str(entry.get("family", "")))
-		if entry.has("event_type"):
-			summary.append(str(entry.get("event_type", "")))
-		if entry.has("source_instance_id"):
-			summary.append(str(entry.get("source_instance_id", "")))
-		lines.append("- %s" % _join_parts(summary, " | "))
-	if lines.is_empty():
-		return "No replay entries yet."
-	return _join_parts(lines, "\n")
-
-
-func _format_event_line(event: Dictionary) -> String:
-	var parts: Array = [str(event.get("event_type", "event"))]
-	for field in ["source_instance_id", "target_instance_id", "player_id", "lane_id", "reason"]:
-		var value := str(event.get(field, ""))
-		if not value.is_empty():
-			parts.append("%s=%s" % [field, value])
-	return "- %s" % _join_parts(parts, " | ")
 
 
 func _scenario_label(scenario_id: String) -> String:
