@@ -648,6 +648,52 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			var srbtc_events: Array = srbtc_result.get("events", []).duplicate()
 			srbtc_events.append(_timing_rules()._build_summon_event(srbtc_result["card"], srbtc_controller_id, srbtc_lane_id, int(srbtc_result.get("slot_index", -1)), "summon_from_catalog"))
 			return {"handled": true, "events": srbtc_events}
+		"look_at_top_deck_may_discard":
+			var ltdmd_controller_id := str(trigger.get("controller_player_id", ""))
+			var ltdmd_player := _get_player_state(match_state, ltdmd_controller_id)
+			if ltdmd_player.is_empty():
+				return {"handled": true, "events": []}
+			var ltdmd_deck: Array = ltdmd_player.get("deck", [])
+			if ltdmd_deck.is_empty():
+				return {"handled": true, "events": []}
+			var ltdmd_top_card: Dictionary = ltdmd_deck.back()
+			if typeof(ltdmd_top_card) != TYPE_DICTIONARY:
+				return {"handled": true, "events": []}
+			var ltdmd_choices: Array = match_state.get("pending_top_deck_choices", [])
+			ltdmd_choices.append({
+				"player_id": ltdmd_controller_id,
+				"source_instance_id": str(trigger.get("source_instance_id", "")),
+				"revealed_card": ltdmd_top_card.duplicate(true),
+			})
+			match_state["pending_top_deck_choices"] = ltdmd_choices
+			return {"handled": true, "events": [{"event_type": "top_deck_revealed_for_choice", "player_id": ltdmd_controller_id, "source_instance_id": str(trigger.get("source_instance_id", "")), "revealed_card": ltdmd_top_card.duplicate(true)}]}
+		"transform_random_by_cost":
+			var trbc_targets: Array = _timing_rules()._resolve_card_targets(match_state, trigger, event, effect)
+			var trbc_events: Array = []
+			var trbc_offset := int(effect.get("cost_offset", 0))
+			for trbc_card in trbc_targets:
+				var trbc_target_cost := int(trbc_card.get("cost", trbc_card.get("base_cost", 0)))
+				var trbc_desired_cost := maxi(0, trbc_target_cost + trbc_offset)
+				var trbc_seeds: Array = CardCatalog._card_seeds()
+				var trbc_candidates: Array = []
+				for seed in trbc_seeds:
+					if typeof(seed) != TYPE_DICTIONARY:
+						continue
+					if not bool(seed.get("collectible", true)):
+						continue
+					if str(seed.get("card_type", "")) != "creature":
+						continue
+					if int(seed.get("cost", 0)) != trbc_desired_cost:
+						continue
+					trbc_candidates.append(seed)
+				if trbc_candidates.is_empty():
+					continue
+				var trbc_pick: Dictionary = trbc_candidates[_timing_rules()._deterministic_index(match_state, str(trbc_card.get("instance_id", "")) + "_trbc", trbc_candidates.size())]
+				var trbc_template: Dictionary = trbc_pick.duplicate(true)
+				trbc_template["definition_id"] = str(trbc_template.get("card_id", ""))
+				var trbc_result := MatchMutations.transform_card(match_state, str(trbc_card.get("instance_id", "")), trbc_template, {"reason": "transform_random_by_cost"})
+				trbc_events.append_array(trbc_result.get("events", []))
+			return {"handled": true, "events": trbc_events}
 		"transform_random_from_catalog":
 			var trfc_filter_raw = effect.get("filter", {})
 			var trfc_filter: Dictionary = trfc_filter_raw if typeof(trfc_filter_raw) == TYPE_DICTIONARY else {}

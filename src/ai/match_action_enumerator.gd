@@ -27,6 +27,8 @@ const KIND_CHOOSE_DISCARD := "choose_discard"
 const KIND_DECLINE_DISCARD := "decline_discard"
 const KIND_CHOOSE_HAND_SELECTION := "choose_hand_selection"
 const KIND_DECLINE_HAND_SELECTION := "decline_hand_selection"
+const KIND_TOP_DECK_DISCARD := "top_deck_discard"
+const KIND_TOP_DECK_KEEP := "top_deck_keep"
 const ACTION_KIND_ORDER := {
 	KIND_SUMMON_CREATURE: 10,
 	KIND_DECLINE_PROPHECY: 11,
@@ -63,7 +65,16 @@ static func enumerate_legal_actions(match_state: Dictionary, player_id: String =
 	if not str(result.get("winner_player_id", "")).is_empty():
 		result["blocked_reason"] = "Match already has a winner."
 		return result
-	if MatchTiming.has_pending_hand_selection(match_state):
+	if MatchTiming.has_pending_top_deck_choice(match_state):
+		var top_deck_choice := MatchTiming.get_pending_top_deck_choice(match_state)
+		var top_deck_player_id := str(top_deck_choice.get("player_id", ""))
+		if decision_player_id != top_deck_player_id:
+			result["blocked_reason"] = "Pending top deck choice belongs to another player."
+			return result
+		result["timing_window"] = TIMING_INTERRUPT
+		result["has_pending_top_deck_choice"] = true
+		result["actions"] = _enumerate_pending_top_deck_actions(match_state, decision_player_id)
+	elif MatchTiming.has_pending_hand_selection(match_state):
 		var hand_selection := MatchTiming.get_pending_hand_selection(match_state)
 		var hand_selection_player_id := str(hand_selection.get("player_id", ""))
 		if decision_player_id != hand_selection_player_id:
@@ -119,7 +130,7 @@ static func action_is_legal(match_state: Dictionary, action: Dictionary) -> bool
 		KIND_RING_USE:
 			return MatchTurnLoop.can_activate_ring_of_magicka(match_state, player_id)
 		KIND_END_TURN:
-			if MatchTiming.has_pending_prophecy(match_state) or MatchTiming.has_pending_discard_choice(match_state) or MatchTiming.has_pending_hand_selection(match_state):
+			if MatchTiming.has_pending_prophecy(match_state) or MatchTiming.has_pending_discard_choice(match_state) or MatchTiming.has_pending_hand_selection(match_state) or MatchTiming.has_pending_top_deck_choice(match_state):
 				return false
 			var clone := match_state.duplicate(true)
 			var active_before := str(clone.get("active_player_id", ""))
@@ -155,6 +166,10 @@ static func action_is_legal(match_state: Dictionary, action: Dictionary) -> bool
 			return bool(MatchTiming.resolve_pending_hand_selection(match_state.duplicate(true), player_id, str(parameters.get("chosen_instance_id", ""))).get("is_valid", false))
 		KIND_DECLINE_HAND_SELECTION:
 			return bool(MatchTiming.decline_pending_hand_selection(match_state.duplicate(true), player_id).get("is_valid", false))
+		KIND_TOP_DECK_DISCARD:
+			return bool(MatchTiming.resolve_pending_top_deck_choice(match_state.duplicate(true), player_id, true).get("is_valid", false))
+		KIND_TOP_DECK_KEEP:
+			return bool(MatchTiming.resolve_pending_top_deck_choice(match_state.duplicate(true), player_id, false).get("is_valid", false))
 	return false
 
 
@@ -188,6 +203,21 @@ static func _enumerate_pending_hand_selection_actions(match_state: Dictionary, p
 		"order_key": 6,
 	})
 	actions.append(decline)
+	return actions
+
+
+static func _enumerate_pending_top_deck_actions(match_state: Dictionary, player_id: String) -> Array:
+	var actions: Array = []
+	var discard_action := _build_descriptor(KIND_TOP_DECK_DISCARD, match_state, player_id, {}, {}, {
+		"timing_window": TIMING_INTERRUPT,
+		"order_key": 5,
+	})
+	actions.append(discard_action)
+	var keep_action := _build_descriptor(KIND_TOP_DECK_KEEP, match_state, player_id, {}, {}, {
+		"timing_window": TIMING_INTERRUPT,
+		"order_key": 6,
+	})
+	actions.append(keep_action)
 	return actions
 
 
@@ -789,6 +819,12 @@ static func _assign_sequences(actions: Array) -> void:
 
 
 static func _resolve_decision_player_id(match_state: Dictionary, requested_player_id: String) -> String:
+	if MatchTiming.has_pending_top_deck_choice(match_state):
+		var top_deck_choice := MatchTiming.get_pending_top_deck_choice(match_state)
+		var top_deck_player_id := str(top_deck_choice.get("player_id", ""))
+		if not requested_player_id.is_empty():
+			return requested_player_id
+		return top_deck_player_id
 	if MatchTiming.has_pending_hand_selection(match_state):
 		var hand_selection := MatchTiming.get_pending_hand_selection(match_state)
 		var hand_selection_player_id := str(hand_selection.get("player_id", ""))

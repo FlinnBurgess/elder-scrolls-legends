@@ -104,6 +104,7 @@ var _targeting_arrow: Line2D
 var _pending_summon_target := {}
 var _pending_betray := {}
 var _betray_skip_button: Button = null
+var _betray_prompt_label: Label = null
 var _prophecy_overlay_state := {}
 var _spell_reveal_state := {}
 var _deck_reveal_state := {}
@@ -115,6 +116,8 @@ var _mulligan_instance_id_order: Array = []
 var _discard_viewer_state := {}
 var _discard_choice_overlay_state := {}
 var _hand_selection_state := {}
+var _top_deck_choice_state := {}
+var _top_deck_choice_panel: Control = null
 var _attack_feedbacks: Array = []
 var _damage_feedbacks: Array = []
 var _removal_feedbacks: Array = []
@@ -206,6 +209,7 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int 
 	_dismiss_discard_viewer()
 	_dismiss_discard_choice_overlay()
 	_exit_hand_selection_mode()
+	_exit_top_deck_choice_mode()
 	_dismiss_spell_reveal()
 	_reset_invalid_feedback()
 	_clear_feedback_state()
@@ -264,6 +268,7 @@ func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_confi
 	_dismiss_discard_viewer()
 	_dismiss_discard_choice_overlay()
 	_exit_hand_selection_mode()
+	_exit_top_deck_choice_mode()
 	_dismiss_spell_reveal()
 	_reset_invalid_feedback()
 	_clear_feedback_state()
@@ -445,6 +450,7 @@ func resume_from_state(saved_state: Dictionary) -> void:
 	_dismiss_discard_viewer()
 	_dismiss_discard_choice_overlay()
 	_exit_hand_selection_mode()
+	_exit_top_deck_choice_mode()
 	_dismiss_spell_reveal()
 	_reset_invalid_feedback()
 	_clear_feedback_state()
@@ -587,6 +593,7 @@ func load_scenario(scenario_id: String) -> bool:
 	_dismiss_discard_viewer()
 	_dismiss_discard_choice_overlay()
 	_exit_hand_selection_mode()
+	_exit_top_deck_choice_mode()
 	_dismiss_spell_reveal()
 	_reset_invalid_feedback()
 	_clear_feedback_state()
@@ -1906,6 +1913,7 @@ func _refresh_ui() -> void:
 	_refresh_prophecy_overlay()
 	_refresh_discard_choice_overlay()
 	_refresh_hand_selection_state()
+	_refresh_top_deck_choice_state()
 	_refresh_player_sections()
 	_refresh_lanes()
 	_apply_match_layout_scale()
@@ -2653,6 +2661,132 @@ func _cancel_hand_selection() -> void:
 	MatchTiming.decline_pending_hand_selection(_match_state, local_id)
 	_exit_hand_selection_mode()
 	_status_message = "Selection declined."
+	_refresh_ui()
+
+
+func _refresh_top_deck_choice_state() -> void:
+	var has_choice := MatchTiming.has_pending_top_deck_choice(_match_state, _local_player_id())
+	var state_active := not _top_deck_choice_state.is_empty()
+	if has_choice and not state_active:
+		_enter_top_deck_choice_mode()
+	elif not has_choice and state_active:
+		_exit_top_deck_choice_mode()
+
+
+func _enter_top_deck_choice_mode() -> void:
+	var local_id := _local_player_id()
+	var choice := MatchTiming.get_pending_top_deck_choice(_match_state, local_id)
+	if choice.is_empty():
+		return
+	var revealed_card: Dictionary = choice.get("revealed_card", {})
+	_top_deck_choice_state = {
+		"revealed_card": revealed_card,
+		"source_instance_id": str(choice.get("source_instance_id", "")),
+	}
+	_status_message = "Look at the top card of your deck. You may discard it."
+	_show_top_deck_choice_panel(revealed_card)
+
+
+func _exit_top_deck_choice_mode() -> void:
+	_top_deck_choice_state = {}
+	_dismiss_top_deck_choice_panel()
+
+
+func _show_top_deck_choice_panel(revealed_card: Dictionary) -> void:
+	_dismiss_top_deck_choice_panel()
+	var viewport_size := get_viewport_rect().size
+	var card_size := _hand_card_display_size()
+	var panel := PanelContainer.new()
+	panel.name = "top_deck_choice_panel"
+	panel.z_index = 600
+	var panel_width := card_size.x + 40.0
+	var panel_height := card_size.y + 100.0
+	panel.custom_minimum_size = Vector2(panel_width, panel_height)
+	panel.size = Vector2(panel_width, panel_height)
+	panel.position = Vector2((viewport_size.x - panel_width) * 0.5, (viewport_size.y - panel_height) * 0.5)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.12, 0.1, 0.15, 0.95)
+	style.border_color = Color(0.5, 0.45, 0.55, 0.8)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(8)
+	style.set_content_margin_all(12)
+	panel.add_theme_stylebox_override("panel", style)
+	var vbox := VBoxContainer.new()
+	vbox.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", 8)
+	panel.add_child(vbox)
+	var title_label := Label.new()
+	title_label.text = "Top of your deck:"
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_label.add_theme_color_override("font_color", Color(0.85, 0.82, 0.9))
+	title_label.add_theme_font_size_override("font_size", 16)
+	vbox.add_child(title_label)
+	var card_container := CenterContainer.new()
+	card_container.custom_minimum_size = card_size
+	vbox.add_child(card_container)
+	var card_component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+	card_component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card_component.custom_minimum_size = card_size
+	card_component.apply_card(revealed_card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+	card_container.add_child(card_component)
+	var button_row := HBoxContainer.new()
+	button_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	button_row.add_theme_constant_override("separation", 16)
+	vbox.add_child(button_row)
+	var discard_btn := Button.new()
+	discard_btn.text = "Discard"
+	discard_btn.custom_minimum_size = Vector2(120, 40)
+	var discard_style := StyleBoxFlat.new()
+	discard_style.bg_color = Color(0.4, 0.15, 0.12, 0.92)
+	discard_style.border_color = Color(0.8, 0.35, 0.25, 0.8)
+	discard_style.set_border_width_all(2)
+	discard_style.set_corner_radius_all(6)
+	discard_style.set_content_margin_all(8)
+	discard_btn.add_theme_stylebox_override("normal", discard_style)
+	discard_btn.add_theme_stylebox_override("hover", discard_style)
+	discard_btn.add_theme_stylebox_override("pressed", discard_style)
+	discard_btn.add_theme_color_override("font_color", Color(0.95, 0.9, 0.88))
+	discard_btn.add_theme_font_size_override("font_size", 16)
+	discard_btn.pressed.connect(_resolve_top_deck_choice.bind(true))
+	button_row.add_child(discard_btn)
+	var keep_btn := Button.new()
+	keep_btn.text = "Keep"
+	keep_btn.custom_minimum_size = Vector2(120, 40)
+	var keep_style := StyleBoxFlat.new()
+	keep_style.bg_color = Color(0.15, 0.3, 0.18, 0.92)
+	keep_style.border_color = Color(0.4, 0.75, 0.45, 0.8)
+	keep_style.set_border_width_all(2)
+	keep_style.set_corner_radius_all(6)
+	keep_style.set_content_margin_all(8)
+	keep_btn.add_theme_stylebox_override("normal", keep_style)
+	keep_btn.add_theme_stylebox_override("hover", keep_style)
+	keep_btn.add_theme_stylebox_override("pressed", keep_style)
+	keep_btn.add_theme_color_override("font_color", Color(0.9, 0.95, 0.9))
+	keep_btn.add_theme_font_size_override("font_size", 16)
+	keep_btn.pressed.connect(_resolve_top_deck_choice.bind(false))
+	button_row.add_child(keep_btn)
+	_prophecy_card_overlay.add_child(panel)
+	_top_deck_choice_panel = panel
+
+
+func _dismiss_top_deck_choice_panel() -> void:
+	if _top_deck_choice_panel != null and is_instance_valid(_top_deck_choice_panel):
+		_top_deck_choice_panel.queue_free()
+	_top_deck_choice_panel = null
+
+
+func _resolve_top_deck_choice(discard: bool) -> void:
+	if _top_deck_choice_state.is_empty():
+		return
+	var local_id := _local_player_id()
+	var result := MatchTiming.resolve_pending_top_deck_choice(_match_state, local_id, discard)
+	_exit_top_deck_choice_mode()
+	if bool(result.get("is_valid", false)):
+		_record_feedback_from_events(_copy_array(result.get("events", [])))
+		_status_message = "Discarded top card." if discard else "Kept top card."
+	else:
+		_status_message = str(result.get("errors", ["Failed to resolve top deck choice."])[0])
 	_refresh_ui()
 
 
@@ -6527,28 +6661,42 @@ func _check_betray_mode(action_instance_id: String, action_card: Dictionary) -> 
 
 func _show_betray_skip_button() -> void:
 	_dismiss_betray_skip_button()
+	var viewport_size := get_viewport_rect().size
+	# Prompt label
+	_betray_prompt_label = Label.new()
+	_betray_prompt_label.text = "Choose a creature to betray"
+	_betray_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_betray_prompt_label.add_theme_color_override("font_color", Color(0.95, 0.35, 0.25, 1.0))
+	_betray_prompt_label.add_theme_font_size_override("font_size", 20)
+	_betray_prompt_label.z_index = 600
+	_betray_prompt_label.size = Vector2(300, 30)
+	_betray_prompt_label.position = Vector2(viewport_size.x * 0.5 - 150, viewport_size.y * 0.5 + 10)
+	add_child(_betray_prompt_label)
+	# Skip button
 	_betray_skip_button = Button.new()
-	_betray_skip_button.text = "Skip"
-	_betray_skip_button.custom_minimum_size = Vector2(100, 40)
+	_betray_skip_button.text = "Skip Betray"
+	_betray_skip_button.custom_minimum_size = Vector2(160, 50)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.25, 0.22, 0.28, 0.92)
 	style.border_color = Color(0.6, 0.55, 0.65, 0.8)
 	style.set_border_width_all(2)
 	style.set_corner_radius_all(6)
-	style.set_content_margin_all(8)
+	style.set_content_margin_all(10)
 	_betray_skip_button.add_theme_stylebox_override("normal", style)
 	_betray_skip_button.add_theme_stylebox_override("hover", style)
 	_betray_skip_button.add_theme_stylebox_override("pressed", style)
 	_betray_skip_button.add_theme_color_override("font_color", Color(0.9, 0.88, 0.92, 1.0))
-	_betray_skip_button.add_theme_font_size_override("font_size", 16)
+	_betray_skip_button.add_theme_font_size_override("font_size", 18)
 	_betray_skip_button.pressed.connect(_cancel_betray_mode)
 	_betray_skip_button.z_index = 600
 	add_child(_betray_skip_button)
-	var viewport_size := get_viewport_rect().size
-	_betray_skip_button.position = Vector2(viewport_size.x * 0.5 - 50, viewport_size.y * 0.5 + 40)
+	_betray_skip_button.position = Vector2(viewport_size.x * 0.5 - 80, viewport_size.y * 0.5 + 50)
 
 
 func _dismiss_betray_skip_button() -> void:
+	if _betray_prompt_label != null and is_instance_valid(_betray_prompt_label):
+		_betray_prompt_label.queue_free()
+	_betray_prompt_label = null
 	if _betray_skip_button != null and is_instance_valid(_betray_skip_button):
 		_betray_skip_button.queue_free()
 	_betray_skip_button = null

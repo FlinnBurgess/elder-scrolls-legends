@@ -143,6 +143,8 @@ static func ensure_match_state(match_state: Dictionary) -> void:
 		match_state["pending_discard_choices"] = []
 	if not match_state.has("pending_hand_selections") or typeof(match_state["pending_hand_selections"]) != TYPE_ARRAY:
 		match_state["pending_hand_selections"] = []
+	if not match_state.has("pending_top_deck_choices") or typeof(match_state["pending_top_deck_choices"]) != TYPE_ARRAY:
+		match_state["pending_top_deck_choices"] = []
 	if not match_state.has("pending_rune_break_queue") or typeof(match_state["pending_rune_break_queue"]) != TYPE_ARRAY:
 		match_state["pending_rune_break_queue"] = []
 	if not match_state.has("out_of_cards_sequence"):
@@ -577,6 +579,60 @@ static func decline_pending_hand_selection(match_state: Dictionary, player_id: S
 			selections.remove_at(i)
 			return {"is_valid": true, "errors": []}
 	return {"is_valid": false, "errors": ["No pending hand selection for player %s." % player_id]}
+
+
+static func has_pending_top_deck_choice(match_state: Dictionary, player_id: String = "") -> bool:
+	return not get_pending_top_deck_choice(match_state, player_id).is_empty()
+
+
+static func get_pending_top_deck_choice(match_state: Dictionary, player_id: String = "") -> Dictionary:
+	ensure_match_state(match_state)
+	for raw_choice in match_state.get("pending_top_deck_choices", []):
+		if typeof(raw_choice) != TYPE_DICTIONARY:
+			continue
+		if not player_id.is_empty() and str(raw_choice.get("player_id", "")) != player_id:
+			continue
+		return raw_choice.duplicate(true)
+	return {}
+
+
+static func resolve_pending_top_deck_choice(match_state: Dictionary, player_id: String, discard: bool) -> Dictionary:
+	ensure_match_state(match_state)
+	var choices: Array = match_state.get("pending_top_deck_choices", [])
+	var choice_index := -1
+	for i in range(choices.size()):
+		if typeof(choices[i]) == TYPE_DICTIONARY and str(choices[i].get("player_id", "")) == player_id:
+			choice_index = i
+			break
+	if choice_index == -1:
+		return {"is_valid": false, "errors": ["No pending top deck choice for player %s." % player_id]}
+	var choice: Dictionary = choices[choice_index]
+	choices.remove_at(choice_index)
+	var events: Array = []
+	if discard:
+		var top_deck_player := _get_player_state(match_state, player_id)
+		if not top_deck_player.is_empty():
+			var deck: Array = top_deck_player.get(ZONE_DECK, [])
+			if not deck.is_empty():
+				var top_card: Dictionary = deck.pop_back()
+				top_card["zone"] = ZONE_DISCARD
+				var discard_pile: Array = top_deck_player.get(ZONE_DISCARD, [])
+				discard_pile.append(top_card)
+				events.append({
+					"event_type": "card_discarded",
+					"player_id": player_id,
+					"source_instance_id": str(choice.get("source_instance_id", "")),
+					"discarded_instance_id": str(top_card.get("instance_id", "")),
+					"source_zone": ZONE_DECK,
+					"reason": "top_deck_choice",
+				})
+	var timing_result := publish_events(match_state, events)
+	return {
+		"is_valid": true,
+		"errors": [],
+		"discarded": discard,
+		"events": timing_result.get("processed_events", []),
+	}
 
 
 static func apply_player_damage(match_state: Dictionary, player_id: String, amount: int, context: Dictionary = {}) -> Dictionary:
