@@ -106,7 +106,15 @@ static func summon_from_hand(match_state: Dictionary, player_id: String, instanc
 		play_event[key] = options["play_event_overrides"][key]
 	for key in _ensure_dictionary(options.get("summon_event_overrides", {})).keys():
 		summon_event[key] = options["summon_event_overrides"][key]
-	var timing_result := MatchTiming.publish_events(match_state, [play_event, summon_event], _ensure_dictionary(options.get("event_context", {})))
+	var publish_list := [play_event, summon_event]
+	if bool(summon_result.get("granted_cover", false)):
+		publish_list.append({
+			"event_type": "status_granted",
+			"source_instance_id": str(card.get("instance_id", "")),
+			"target_instance_id": str(card.get("instance_id", "")),
+			"status_id": "cover",
+		})
+	var timing_result := MatchTiming.publish_events(match_state, publish_list, _ensure_dictionary(options.get("event_context", {})))
 
 	return {
 		"is_valid": true,

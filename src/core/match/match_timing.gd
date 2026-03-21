@@ -70,6 +70,7 @@ const FAMILY_ON_PLAYER_HEALED := "on_player_healed"
 const FAMILY_ON_MAX_MAGICKA_GAINED := "on_max_magicka_gained"
 const FAMILY_ON_CREATURE_HEALED := "on_creature_healed"
 const FAMILY_ON_FRIENDLY_SUMMON := "on_friendly_summon"
+const FAMILY_ON_COVER_GAINED := "on_cover_gained"
 
 const EVENT_CARD_EQUIPPED := "card_equipped"
 
@@ -114,6 +115,7 @@ const FAMILY_SPECS := {
 	FAMILY_ON_MAX_MAGICKA_GAINED: {"event_type": "max_magicka_gained", "window": WINDOW_AFTER, "match_role": "target_player_is_controller"},
 	FAMILY_ON_CREATURE_HEALED: {"event_type": "creature_healed", "window": WINDOW_AFTER, "match_role": "any_player"},
 	FAMILY_ON_FRIENDLY_SUMMON: {"event_type": EVENT_CREATURE_SUMMONED, "window": WINDOW_AFTER, "match_role": "controller", "exclude_self": true},
+	FAMILY_ON_COVER_GAINED: {"event_type": "status_granted", "window": WINDOW_AFTER, "match_role": "target", "required_event_status_id": "cover"},
 }
 
 
@@ -2120,6 +2122,13 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"slot_index": int(effect.get("slot_index", -1)),
 					})
 					generated_events.append_array(move_result.get("events", []))
+					if bool(move_result.get("granted_cover", false)):
+						generated_events.append({
+							"event_type": "status_granted",
+							"source_instance_id": str(card.get("instance_id", "")),
+							"target_instance_id": str(card.get("instance_id", "")),
+							"status_id": "cover",
+						})
 			"summon_from_effect":
 				var summon_players := _resolve_player_targets(match_state, trigger, event, effect)
 				if summon_players.is_empty():
@@ -2172,6 +2181,8 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 								continue
 							generated_events.append_array(summon_existing.get("events", []))
 							generated_events.append(_build_summon_event(summon_existing["card"], summon_players[0], s_lane_id, int(summon_existing.get("slot_index", -1)), reason))
+							if bool(summon_existing.get("granted_cover", false)):
+								generated_events.append({"event_type": "status_granted", "source_instance_id": str(summon_existing["card"].get("instance_id", "")), "target_instance_id": str(summon_existing["card"].get("instance_id", "")), "status_id": "cover"})
 				else:
 					for player_id in summon_players:
 						for s_lane_id in summon_lane_ids:
@@ -2184,6 +2195,8 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 								continue
 							generated_events.append_array(summon_result.get("events", []))
 							generated_events.append(_build_summon_event(summon_result["card"], player_id, s_lane_id, int(summon_result.get("slot_index", -1)), reason))
+							if bool(summon_result.get("granted_cover", false)):
+								generated_events.append({"event_type": "status_granted", "source_instance_id": str(summon_result["card"].get("instance_id", "")), "target_instance_id": str(summon_result["card"].get("instance_id", "")), "status_id": "cover"})
 			"summon_copies_to_lane":
 				var copies_lane_id := str(effect.get("lane_id", effect.get("target_lane_id", event.get("lane_id", ""))))
 				var copies_players := _resolve_player_targets(match_state, trigger, event, effect)
