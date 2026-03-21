@@ -1849,6 +1849,9 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							var set_cost := int(effect.get("post_draw_cost_set", 0))
 							for drawn_card in drawn_cards:
 								if typeof(drawn_card) == TYPE_DICTIONARY:
+									var original_cost := int(drawn_card.get("cost", 0))
+									if set_cost != original_cost:
+										drawn_card["_base_cost"] = original_cost
 									drawn_card["cost"] = set_cost
 						elif effect.has("post_draw_cost_reduce"):
 							var reduce_amount := int(effect.get("post_draw_cost_reduce", 0))
@@ -1858,6 +1861,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 									var card_cost := int(drawn_card.get("cost", 0))
 									if cost_threshold > 0 and card_cost < cost_threshold:
 										continue
+									drawn_card["_base_cost"] = card_cost
 									drawn_card["cost"] = maxi(0, card_cost - reduce_amount)
 			"draw_filtered":
 				var filter_max_cost := int(effect.get("max_cost", -1))

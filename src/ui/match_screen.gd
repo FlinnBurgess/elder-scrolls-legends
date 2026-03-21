@@ -3179,9 +3179,16 @@ func _layout_local_hand_cards(hand_surface: Control, cards: Array[Button], card_
 	var start_x := (overlay_size.x - total_width) * 0.5
 	# Cards sit with the top ~35% peeking above the bottom edge
 	var base_y := overlay_size.y - card_size.y * 0.35
+	# Affordable cards peek a bit higher to signal they are playable
+	var affordable_rise := card_size.y * 0.06
+	var local_player := _player_state(PLAYER_ORDER[1])
+	var available_magicka := int(local_player.get("current_magicka", 0)) + int(local_player.get("temporary_magicka", 0))
 	for index in range(count):
 		var button := cards[index]
-		var position := Vector2(start_x + overlap_step * index, base_y)
+		var instance_id := str(button.get_meta("instance_id", ""))
+		var card := _find_card_in_player_hand(PLAYER_ORDER[1], instance_id)
+		var affordable := not card.is_empty() and int(card.get("cost", 0)) <= available_magicka
+		var position := Vector2(start_x + overlap_step * index, base_y - (affordable_rise if affordable else 0.0))
 		button.size = card_size
 		button.position = position
 		button.pivot_offset = card_size * 0.5
@@ -3191,6 +3198,7 @@ func _layout_local_hand_cards(hand_surface: Control, cards: Array[Button], card_
 		button.set_meta("hand_index", index)
 		button.set_meta("base_position", position)
 		button.set_meta("card_size", card_size)
+		button.set_meta("affordable", affordable)
 		# Make button background transparent — the CardDisplayComponent provides
 		# all visual framing, and the button may extend beyond the card as a hit zone
 		var empty_style := StyleBoxEmpty.new()
@@ -3259,9 +3267,13 @@ func _apply_local_hand_hover_state(button: Button, hovered: bool) -> void:
 	var selected := str(button.get_meta("instance_id", "")) == _selected_instance_id
 	var locked := bool(button.get_meta("presentation_locked", false))
 	var card_size: Vector2 = button.get_meta("card_size", button.size)
-	# How far the card needs to rise to be fully visible, plus margin from screen bottom
+	var affordable := bool(button.get_meta("affordable", false))
+	var affordable_rise := card_size.y * 0.06 if affordable else 0.0
+	# How far the card needs to rise to be fully visible, plus margin from screen bottom.
+	# Subtract affordable_rise so all raised cards reach the same absolute Y regardless of
+	# their resting offset.
 	var bottom_margin := 24.0
-	var rise_amount := card_size.y * 0.85 + bottom_margin
+	var rise_amount := card_size.y * 0.85 + bottom_margin - affordable_rise
 	# Determine target state
 	var any_selected := not _selected_instance_id.is_empty()
 	var target_position := base_position
@@ -3573,7 +3585,8 @@ func _build_card_display_component(card: Dictionary, surface: String, instance_i
 		display_card["_cover_active"] = true
 	if surface == "hand" and str(card.get("controller_player_id", "")) == _active_player_id():
 		var effective_cost := PersistentCardRules.get_effective_play_cost(_match_state, _active_player_id(), card)
-		if effective_cost < int(card.get("cost", 0)):
+		var base_cost := int(card.get("_base_cost", card.get("cost", 0)))
+		if effective_cost < base_cost:
 			display_card["_effective_cost"] = effective_cost
 	component.apply_card(display_card, _card_presentation_mode(card, surface))
 	if component.has_method("set_relationship_context"):
