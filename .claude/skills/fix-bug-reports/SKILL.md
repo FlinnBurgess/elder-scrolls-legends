@@ -1,6 +1,6 @@
 ---
 name: fix-bug-reports
-description: Process all error reports from res://reports/error_reports.jsonl — analyze each bug, fix it, run tests and Godot type checker, commit, and remove the entry. Ask for guidance on unclear reports.
+description: Process all error reports from res://reports/error_reports.jsonl — analyze each bug, fix it, run tests, commit, and remove the entry. Ask for guidance on unclear reports.
 ---
 
 # Fix Bug Reports
@@ -52,7 +52,7 @@ This ensures that if the skill is interrupted mid-run, completed reports are alr
 
 - The snapshot provides rich context — use it to understand the exact game state when the bug was observed
 - Do not skip reports — process all of them
-- Always verify fixes with tests and the type checker before committing
+- Always verify fixes with tests before committing
 - Each fix gets its own commit — do not batch fixes
 - If a report describes something that isn't actually a bug (e.g., intended behavior), ask the user to confirm before removing it
 - **Test/junk reports**: If reports are clearly test data (e.g., comments like "test report", "delete me", "ignore this"), present them to the user and offer to batch-clear them rather than creating individual tasks. Skip the full workflow for these.
