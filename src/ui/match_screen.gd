@@ -3983,6 +3983,12 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 				return
 		if _error_report_popover != null:
+			if key_event.pressed and not key_event.echo and key_event.keycode == KEY_ESCAPE:
+				var popover := _error_report_popover
+				_error_report_popover = null
+				popover.dismissed.emit()
+				popover.queue_free()
+				get_viewport().set_input_as_handled()
 			return
 		if key_event.pressed and not key_event.echo and key_event.keycode == KEY_ESCAPE:
 			if not _has_match_winner():

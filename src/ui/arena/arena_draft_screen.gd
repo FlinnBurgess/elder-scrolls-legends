@@ -72,6 +72,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 		if _error_report_popover != null:
+			if event.keycode == KEY_ESCAPE:
+				var popover := _error_report_popover
+				_error_report_popover = null
+				popover.dismissed.emit()
+				popover.queue_free()
+				get_viewport().set_input_as_handled()
 			return
 		if (event.keycode == KEY_UP or event.keycode == KEY_DOWN) and _hovered_option_index >= 0 and _hovered_option_index < _option_displays.size():
 			var card_display = _option_displays[_hovered_option_index]
