@@ -742,7 +742,8 @@ func _refresh_keyword_icons() -> void:
 	if _keyword_icons_container == null:
 		return
 	for child in _keyword_icons_container.get_children():
-		child.queue_free()
+		_keyword_icons_container.remove_child(child)
+		child.free()
 	if not _is_creature(_card_data):
 		return
 	for kw in KEYWORD_ICON_PATHS:
