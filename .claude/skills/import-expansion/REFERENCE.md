@@ -243,6 +243,6 @@ Key: Uses `rune_break` family with `match_role: "opponent_player"`. The werewolf
 
 Extended (check engine support): `beast_form`, `shout`, `assemble`, `betray`, `exalt`, `plot`, `veteran`
 
-## 47 Known Subtypes
+## 51 Known Subtypes
 
-Aldus, Argonian, Ash Creature, Beast, Breton, Centaur, Chaurus, Daedra, Dark Elf, Defense, Dragon, Dreugh, Dwemer, Falmer, Fish, Gargoyle, Giant, Goblin, Harpy, High Elf, Imp, Imperial, Khajiit, Kwama, Lurcher, Mammoth, Mantikora, Minotaur, Mudcrab, Mummy, Nereid, Nord, Ogre, Orc, Pastry, Reachman, Redguard, Reptile, Skeleton, Spider, Spirit, Spriggan, Troll, Vampire, Wamasu, Werewolf, Wolf, Wood Elf, Wraith
+Aldus, Argonian, Ash Creature, Automaton, Beast, Breton, Centaur, Chaurus, Daedra, Dark Elf, Defense, Dragon, Dreugh, Dwemer, Falmer, Fish, Gargoyle, Giant, God, Goblin, Harpy, High Elf, Imp, Imperial, Insect, Khajiit, Kwama, Lurcher, Mammoth, Mantikora, Minotaur, Mudcrab, Mummy, Netch, Nereid, Nord, Ogre, Orc, Pastry, Reachman, Redguard, Reptile, Skeleton, Spider, Spirit, Spriggan, Troll, Vampire, Wamasu, Werewolf, Wolf, Wood Elf, Wraith

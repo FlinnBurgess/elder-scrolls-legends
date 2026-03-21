@@ -19,7 +19,7 @@ No arguments required. Operates on the full card catalog.
    - `card_id` (1st argument, e.g. `"str_afflicted_alit"`)
    - `card_name` (2nd argument, e.g. `"Afflicted Alit"`)
 
-   Use a regex like `_seed\(\s*"([^"]+)"\s*,\s*"([^"]+)"` to reliably extract both values.
+   Use grep to extract: `grep -o '_seed("[^"]*", "[^"]*"' src/deck/card_catalog.gd` then parse. Note: macOS grep does not support `-P` (Perl regex), so use basic patterns or `sed` for post-processing.
 2. Check `assets/images/cards/` for existing art files. A card has art if `assets/images/cards/<card_id>.png` exists.
 3. Build a list of cards that are missing art (no matching PNG file).
 4. If no cards are missing art, report "All cards have art" and stop.
@@ -73,4 +73,5 @@ Walk through every card in the **Remaining** list, one at a time:
 
 - The `fetch-card-art` skill handles all the complexity of wiki URL construction, downloading, and verification. This skill is purely orchestration.
 - If the process is interrupted, `development-artifacts/missing_art_progress.md` will remain on disk showing progress so far. The user can re-run the skill and it will pick up only cards still missing art (since Step 1 re-scans for missing files).
+- **Parallelization**: For large batches (50+ cards), split the missing cards into groups of ~40 and launch parallel agents, each handling one batch using the fetch-card-art workflow directly (fetch wiki page, extract image URL, curl download, verify). This is dramatically faster than sequential processing.
 - Expect this to be a long-running operation for large catalogs. Progress is persisted after every card.

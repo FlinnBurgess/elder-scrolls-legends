@@ -50,17 +50,25 @@ Fetch individual card pages to understand any new mechanics. Common expansion me
 
 For each new mechanic, check if the engine already supports it by searching `src/core/match/extended_mechanic_packs.gd` and `data/legends/registries/keyword_effect_registry.json`.
 
-### 1d. Get card details
+### 1d. Cross-reference card lists
 
-For each attribute section, fetch enough card pages to get full details:
-- Name, type, attributes, cost, power/health, rarity, subtypes
-- Keywords, abilities, rules text
-- Token cards they generate
+The main expansion page and the category page may not match perfectly. Cross-reference both lists to ensure no cards are missed. Sort alphabetically and diff if needed.
 
-The wiki sometimes omits details on the main page. For complex cards (legendaries, cards with new mechanics), fetch individual card pages:
+### 1e. Get card details
+
+For large expansions (100+ cards), fetching every individual wiki page is impractical. Instead:
+1. Use the main expansion page for bulk stats (name, type, cost, power/health, rarity, subtypes)
+2. Fetch individual pages only for complex cards (legendaries, cards with new mechanics, cards with ambiguous abilities)
+3. **Parallelize research** by launching multiple agents, each handling one attribute section
+
+The wiki sometimes omits details on the main page. For complex cards, fetch individual card pages:
 ```
 https://en.uesp.net/wiki/Legends:{Card_Name_With_Underscores}
 ```
+
+### 1f. Parallelize card writing
+
+For large expansions, split the card writing work across parallel agents (one per attribute section or group of sections). Each agent should be given the full REFERENCE.md format and the card data for its section, then produce the `_seed()` entries.
 
 ## Phase 2: Check Existing State
 
@@ -90,7 +98,7 @@ Add cards to `_card_seeds()` in `src/deck/card_catalog.gd`, organized as:
 # -- {EXPANSION_NAME} -- {ATTRIBUTE} ({count} cards) --
 ```
 
-Order: Strength, Intelligence, Willpower, Agility, Endurance, Neutral, Dual-Attribute, then Non-Collectible Tokens.
+Order: Strength, Intelligence, Willpower, Agility, Endurance, Neutral, Dual-Attribute (2 attributes), Triple-Attribute (3 attributes / house cards), then Non-Collectible Tokens.
 
 ### Set ID constants
 
@@ -115,6 +123,22 @@ Use `{prefix}_dual_{snake_case_name}` and pass both attributes:
 _seed("hos_dual_archers_gambit", "Archer's Gambit", ["strength", "agility"], "action", ...)
 ```
 
+### Triple-attribute cards (house cards)
+
+Use `{prefix}_tri_{snake_case_name}` and pass all three attributes:
+```gdscript
+_seed("hom_tri_dagoth_ur", "Dagoth Ur", ["strength", "intelligence", "agility"], "creature", ...)
+```
+
+Group by house with a comment for clarity:
+```gdscript
+# House Redoran (Strength/Willpower/Endurance)
+# House Telvanni (Intelligence/Agility/Endurance)
+# House Hlaalu (Strength/Willpower/Agility)
+# House Dagoth (Strength/Intelligence/Agility)
+# House Tribunal (Intelligence/Willpower/Endurance)
+```
+
 ### Token cards
 
 Non-collectible tokens go in a separate section at the end:
@@ -125,10 +149,11 @@ _seed("hos_str_rallying_stormcloak", ..., {"collectible": false, ...})
 
 ## Phase 5: Verify
 
-1. Count `_seed("prefix_` entries to confirm collectible count matches expected
-2. Count `"collectible": false` entries for token count
-3. Run the test suite: `/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/all_rules_runner.gd`
-4. Compare test output against a baseline run to confirm no regressions were introduced
+1. **Run a baseline test** early (Phase 2) before adding any cards, so you have output to compare against
+2. Count `_seed("prefix_` entries to confirm collectible count matches expected
+3. Count `"collectible": false` entries for token count
+4. Run the test suite: `/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/all_rules_runner.gd`
+5. Compare test output against the baseline run to confirm no regressions were introduced
 
 ## Phase 6: Report
 
