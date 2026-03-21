@@ -22,6 +22,7 @@ func _initialize() -> void:
 	_test_clear_run_also_clears_match_state()
 	_test_backward_compat_old_save_format()
 	_test_start_run_saves_immediately()
+	_test_class_options_save_load_clear()
 
 	# Final cleanup
 	_cleanup_test_files()
@@ -391,6 +392,32 @@ func _test_start_run_saves_immediately() -> void:
 	_cleanup_test_files()
 
 
+func _test_class_options_save_load_clear() -> void:
+	_cleanup_test_files()
+
+	# No file -> empty array
+	var empty := ArenaRunManagerScript.load_class_options()
+	_assert(empty.is_empty(), "class_options: should be empty when no file exists")
+
+	# Save options -> load returns same
+	var options: Array = [
+		{"display_name": "Archer", "attribute_ids": ["strength", "agility"]},
+		{"display_name": "Mage", "attribute_ids": ["intelligence", "willpower"]},
+		{"display_name": "Scout", "attribute_ids": ["agility", "endurance"]},
+	]
+	ArenaRunManagerScript.save_class_options(options)
+	var loaded := ArenaRunManagerScript.load_class_options()
+	_assert(loaded.size() == 3, "class_options: should have 3 options after save, got %d" % loaded.size())
+	_assert(str(loaded[0]["display_name"]) == "Archer", "class_options: first option should be Archer")
+
+	# Clear -> empty again
+	ArenaRunManagerScript.clear_class_options()
+	var cleared := ArenaRunManagerScript.load_class_options()
+	_assert(cleared.is_empty(), "class_options: should be empty after clear")
+
+	_cleanup_test_files()
+
+
 func _cleanup_test_files() -> void:
 	var dir := DirAccess.open("user://arena/")
 	if dir != null:
@@ -398,6 +425,8 @@ func _cleanup_test_files() -> void:
 			dir.remove("run.json")
 		if FileAccess.file_exists("user://arena/match_state.json"):
 			dir.remove("match_state.json")
+		if FileAccess.file_exists("user://arena/class_options.json"):
+			dir.remove("class_options.json")
 
 
 func _assert(condition: bool, message: String) -> void:

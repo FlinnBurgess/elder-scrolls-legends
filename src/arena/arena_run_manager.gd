@@ -24,6 +24,7 @@ var _used_opponent_attributes: Array = []  # Track used opponent classes to avoi
 const RUN_DIR := "user://arena/"
 const RUN_PATH := "user://arena/run.json"
 const MATCH_STATE_PATH := "user://arena/match_state.json"
+const CLASS_OPTIONS_PATH := "user://arena/class_options.json"
 
 # All 10 dual-attribute classes
 const DUAL_CLASSES: Array = [
@@ -220,6 +221,36 @@ func clear_match_state() -> void:
 
 static func has_saved_match_state() -> bool:
 	return FileAccess.file_exists(MATCH_STATE_PATH)
+
+
+static func save_class_options(options: Array) -> void:
+	_ensure_directory()
+	var file := FileAccess.open(CLASS_OPTIONS_PATH, FileAccess.WRITE)
+	if file == null:
+		push_error("ArenaRunManager: failed to open '%s' for writing: %s" % [CLASS_OPTIONS_PATH, FileAccess.get_open_error()])
+		return
+	file.store_string(JSON.stringify(options, "\t"))
+
+
+static func load_class_options() -> Array:
+	if not FileAccess.file_exists(CLASS_OPTIONS_PATH):
+		return []
+	var file := FileAccess.open(CLASS_OPTIONS_PATH, FileAccess.READ)
+	if file == null:
+		return []
+	var json := JSON.new()
+	if json.parse(file.get_as_text()) != OK or not json.data is Array:
+		return []
+	return json.data
+
+
+static func clear_class_options() -> void:
+	if not FileAccess.file_exists(CLASS_OPTIONS_PATH):
+		return
+	var dir := DirAccess.open(RUN_DIR)
+	if dir == null:
+		return
+	dir.remove("class_options.json")
 
 
 static func _ensure_directory() -> void:

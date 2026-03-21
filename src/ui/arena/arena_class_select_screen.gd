@@ -5,6 +5,7 @@ signal class_selected(attribute_ids: Array)
 signal back_pressed
 
 const REGISTRY_PATH := "res://data/legends/registries/attribute_class_registry.json"
+const ArenaRunManagerScript = preload("res://src/arena/arena_run_manager.gd")
 
 const ATTRIBUTE_TINTS := {
 	"strength": Color(0.84, 0.39, 0.31, 1.0),
@@ -25,6 +26,13 @@ func _ready() -> void:
 
 
 func _load_class_options() -> void:
+	# Use saved options if available (persists across reopens/restarts)
+	var saved := ArenaRunManagerScript.load_class_options()
+	if saved.size() == 3:
+		_class_options = saved
+		return
+
+	# Generate new options
 	var file := FileAccess.open(REGISTRY_PATH, FileAccess.READ)
 	if file == null:
 		push_error("ArenaClassSelectScreen: cannot open %s" % REGISTRY_PATH)
@@ -37,6 +45,7 @@ func _load_class_options() -> void:
 	var all_classes: Array = registry.get("dual_classes", [])
 	all_classes.shuffle()
 	_class_options = all_classes.slice(0, 3)
+	ArenaRunManagerScript.save_class_options(_class_options)
 
 
 func _build_ui() -> void:

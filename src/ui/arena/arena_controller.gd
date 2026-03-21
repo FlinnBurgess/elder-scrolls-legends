@@ -304,12 +304,14 @@ func _on_run_summary_return() -> void:
 	var current_elo: int = ArenaEloManagerScript.get_elo()
 	var new_elo: int = ArenaEloManagerScript.update_elo_after_run(current_elo, _run_manager.wins)
 	ArenaEloManagerScript.save_elo(new_elo)
+	ArenaRunManagerScript.clear_class_options()
 	_run_manager = null
 	return_to_menu.emit()
 
 
 func _on_abandon_pressed() -> void:
 	_run_manager.abandon_run()
+	ArenaRunManagerScript.clear_class_options()
 	_run_manager = null
 	return_to_menu.emit()
 
