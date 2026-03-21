@@ -1,0 +1,85 @@
+{
+  "name": "Betrayal's Edge",
+  "attribute_ids": [
+    "intelligence",
+    "agility"
+  ],
+  "cards": [
+    {
+      "card_id": "hom_int_barilzars_tinkering",
+      "quantity": 3
+    },
+    {
+      "card_id": "hom_int_wild_clumsiness",
+      "quantity": 3
+    },
+    {
+      "card_id": "hom_int_traitors_flames",
+      "quantity": 2
+    },
+    {
+      "card_id": "hom_agi_blood_sacrament",
+      "quantity": 3
+    },
+    {
+      "card_id": "hom_agi_drain_blood",
+      "quantity": 3
+    },
+    {
+      "card_id": "hom_agi_fleeting_apparition",
+      "quantity": 2
+    },
+    {
+      "card_id": "hom_agi_dres_spy",
+      "quantity": 3
+    },
+    {
+      "card_id": "hom_agi_moon_sugar_smuggler",
+      "quantity": 3
+    },
+    {
+      "card_id": "int_brutal_ashlander",
+      "quantity": 3
+    },
+    {
+      "card_id": "int_balmora_spymaster",
+      "quantity": 2
+    },
+    {
+      "card_id": "agi_mournhold_guardian",
+      "quantity": 3
+    },
+    {
+      "card_id": "int_crystal_tower_crafter",
+      "quantity": 3
+    },
+    {
+      "card_id": "int_shimmerene_peddler",
+      "quantity": 2
+    },
+    {
+      "card_id": "hom_int_mages_guild_recruit",
+      "quantity": 2
+    },
+    {
+      "card_id": "neu_spider_worker",
+      "quantity": 3
+    },
+    {
+      "card_id": "agi_thieves_guild_recruit",
+      "quantity": 2
+    },
+    {
+      "card_id": "agi_fighters_guild_recruit",
+      "quantity": 3
+    },
+    {
+      "card_id": "int_abecean_navigator",
+      "quantity": 2
+    },
+    {
+      "card_id": "hom_agi_twin_lamps_consul",
+      "quantity": 3
+    }
+  ]
+}

@@ -60,6 +60,6 @@ If new reports appear during the run (detected when re-reading the file), create
 - **Web research**: If a report suggests the correct behavior is uncertain (e.g., "should it have?", "worth researching online"), use WebSearch/WebFetch to check the UESP wiki or community sources for the canonical game behavior before implementing.
 - Do not skip reports — process all of them
 - Always verify fixes with tests before committing
-- Each fix gets its own commit — do not batch fixes
+- Each fix gets its own commit — do not batch fixes. Exception: if two reports share the exact same root cause (e.g., both are "unimplemented op X"), a single commit covering both is acceptable since the code changes are inseparable.
 - If a report describes something that isn't actually a bug (e.g., intended behavior), ask the user to confirm before removing it. However, if the report is clearly just a question about whether a feature works (e.g., "is rally implemented?") and the feature IS implemented correctly, you can dismiss it without asking — just note it in the summary.
 - **Test/junk reports**: If reports are clearly test data (e.g., comments like "test report", "delete me", "ignore this"), present them to the user and offer to batch-clear them rather than creating individual tasks. Skip the full workflow for these.
