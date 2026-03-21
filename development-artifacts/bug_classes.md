@@ -32,8 +32,8 @@ How to spot: User reports a keyword not wearing off at end of turn. Search for c
 
 ## Unimplemented effect operation
 Card has a `triggered_abilities` entry with an `op` value that doesn't exist in `match_timing._apply_effects()`. The effect silently does nothing because unknown ops fall through the match statement. This typically happens when new cards are batch-imported with placeholder ops that haven't been implemented in the engine yet.
-Example: Winterhold Illusionist (`banish_and_return_end_of_turn`)
-How to spot: User reports a card "doesn't do anything" despite having rules text and triggered abilities. Grep the op name from the card's triggered_abilities against `match_timing.gd` and `extended_mechanic_packs.gd` to see if it's handled.
+Example: Winterhold Illusionist (`banish_and_return_end_of_turn`), Dres Spy (`look_at_top_deck_may_discard`), Barilzar's Tinkering (`transform_random_by_cost`), Mages Guild Recruit (`modify_card_cost` via unimplemented `action_in_hand` target_mode)
+How to spot: User reports a card "doesn't do anything" despite having rules text and triggered abilities. Grep the op name from the card's triggered_abilities against `match_timing.gd` and `extended_mechanic_packs.gd` to see if it's handled. Also check if the card uses a `target_mode` that isn't recognized by `get_valid_targets_for_mode` — unrecognized modes cause the trigger to be skipped silently.
 
 ## Subtype group used as literal subtype in filter
 Card filter uses a hidden supertype (e.g., "Animal") as a `required_subtype` value, but no card in the catalog has that literal subtype — they use specific subtypes (Wolf, Beast, Spider, etc.) instead. The filter finds zero candidates and the effect silently does nothing. Fixed by adding `SUBTYPE_GROUPS` mapping in `extended_mechanic_packs.gd` that expands group names to their constituent subtypes.
@@ -109,3 +109,23 @@ How to spot: User reports no alt-view showing subtype count. Check if the card's
 The `_matches_trigger_role` function checks `event.get("player_id")` / `event.get("playing_player_id")` for the "controller" and "opponent_player" roles, but some event types use different field names: `creature_destroyed` uses `controller_player_id`, and `damage_resolved` uses `source_controller_player_id`. This causes triggers with those match roles to silently never fire for those event types.
 Example: Stormcloak Camp, Necromancer's Amulet, Grim Champion, General Tullius (all `on_friendly_death` family); Helgen Squad Leader (`on_attack` family with `match_role: "controller"`)
 How to spot: User reports an ongoing/reactive trigger "doesn't do anything." Check if the event emitted for that trigger family includes `player_id` — if it only has `controller_player_id` or `source_controller_player_id`, the role match will fail silently.
+
+## Unimplemented action_target_mode
+Card has an `action_target_mode` value that isn't handled in the UI's `_action_target_mode_allows`, the engine's `ExtendedMechanicPacks._card_matches_target_mode`, or the AI's target expansion in `match_action_enumerator.gd`. Unknown modes fall through to `return true`, allowing any target to be selected. The card appears to work but doesn't enforce its targeting restriction.
+Example: Dismantle (`enemy_support_or_neutral_creature` was not handled — allowed targeting any enemy creature)
+How to spot: User reports being able to target something the card text shouldn't allow. Check if the card's `action_target_mode` value appears in all three target validation match statements (UI, engine, AI enumerator).
+
+## Missing mandatory flag on summon target_mode
+Card has a `target_mode` on its summon trigger but lacks `"mandatory": true`. In TES:L, most "Summon: [verb] a creature" effects require a target when one exists. Without the flag, the AI enumerator generates a no-target "fizzle" variant alongside targeted variants, and the AI may choose the fizzle even when valid targets exist.
+Example: Arenthia Swindler (`target_mode: "enemy_creature"` without `mandatory: true` — AI skipped stealing items)
+How to spot: User reports an AI-played creature's summon effect "didn't work" despite valid targets on board. Check if the card's summon trigger has `"mandatory": true` — if not, the AI may have chosen the fizzle path.
+
+## Missing relationship op for card alt-views
+Card has an effect op (e.g., `transform`) that embeds a `card_template` for an alternate form, but the op name isn't in `RELATED_CARD_OPS` in `card_relationship_resolver.gd`. The alt-view cycling (UP/DOWN arrows) won't show the alternate form because the resolver doesn't recognize the op as relationship-producing.
+Example: Whiterun Protector and all Beast Form cards (`transform` op with `card_template` wasn't in `RELATED_CARD_OPS`)
+How to spot: User reports no alt-view for a card that clearly has an alternate form (Beast Form, transform effects). Check if the op name in the card's `triggered_abilities` effects is listed in `RELATED_CARD_OPS`.
+
+## Wrong trigger family — per-event instead of end-of-turn conditional
+Card uses a reactive trigger family (e.g., `on_friendly_death`) that fires on every matching event, when the correct behavior is an end-of-turn check that fires once if the condition was met during the turn. The card deals damage/effects multiple times per turn instead of once.
+Example: Stormcloak Camp (was `on_friendly_death` — fired per death; should be `end_of_turn` with `creature_died_this_turn: true`)
+How to spot: User reports a card triggering multiple times per turn when the text says "at the end of your turn, if..." or similar conditional phrasing. Check if the trigger family should be `end_of_turn` with a condition instead of a reactive family.
