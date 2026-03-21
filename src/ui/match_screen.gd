@@ -2380,15 +2380,15 @@ func _show_discard_viewer(player_id: String) -> void:
 	scroll.mouse_filter = Control.MOUSE_FILTER_PASS
 	vbox.add_child(scroll)
 
+	var card_size := CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
 	var grid := GridContainer.new()
-	grid.columns = maxi(1, int(get_viewport_rect().size.x - 120) / 130)
+	grid.columns = maxi(1, int(get_viewport_rect().size.x - 120) / int(card_size.x + 10))
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
 	grid.size_flags_horizontal = SIZE_EXPAND_FILL
 	grid.mouse_filter = Control.MOUSE_FILTER_PASS
 	scroll.add_child(grid)
 
-	var card_size := Vector2(120, 168)
 	for card in discard_pile:
 		if typeof(card) != TYPE_DICTIONARY:
 			continue
@@ -2511,15 +2511,15 @@ func _show_discard_choice_overlay() -> void:
 	scroll.mouse_filter = Control.MOUSE_FILTER_PASS
 	vbox.add_child(scroll)
 
+	var card_size := CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
 	var grid := GridContainer.new()
-	grid.columns = maxi(1, int(get_viewport_rect().size.x - 120) / 130)
+	grid.columns = maxi(1, int(get_viewport_rect().size.x - 120) / int(card_size.x + 10))
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
 	grid.size_flags_horizontal = SIZE_EXPAND_FILL
 	grid.mouse_filter = Control.MOUSE_FILTER_PASS
 	scroll.add_child(grid)
 
-	var card_size := Vector2(120, 168)
 	for card in candidate_cards:
 		var instance_id := str(card.get("instance_id", ""))
 		var card_button := Button.new()
