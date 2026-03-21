@@ -6582,6 +6582,14 @@ func _process_card_played_history(play_event: Dictionary, event_log: Array, even
 	var source_id := str(play_event.get("source_instance_id", ""))
 	var card_type := str(play_event.get("card_type", ""))
 	var source_card := _snapshot_card_for_history(source_id)
+	# Prefer the play-time snapshot from the event over the post-trigger state,
+	# so shouts that upgrade themselves show the level that was actually played.
+	var event_rules_text := str(play_event.get("source_rules_text", ""))
+	if not event_rules_text.is_empty() and not source_card.is_empty():
+		source_card["rules_text"] = event_rules_text
+	var event_name := str(play_event.get("source_name", ""))
+	if not event_name.is_empty() and not source_card.is_empty():
+		source_card["name"] = event_name
 
 	var entry := {
 		"action_type": "play_card",

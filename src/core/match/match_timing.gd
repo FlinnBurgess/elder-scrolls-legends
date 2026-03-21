@@ -871,6 +871,8 @@ static func play_pending_prophecy(match_state: Dictionary, player_id: String, in
 			"target_instance_id": str(options.get("target_instance_id", "")),
 			"target_player_id": str(options.get("target_player_id", "")),
 			"lane_id": str(options.get("lane_id", "")),
+			"source_rules_text": str(played_card.get("rules_text", "")),
+			"source_name": str(played_card.get("name", "")),
 			"rules_tags": played_card.get("rules_tags", []).duplicate() if typeof(played_card.get("rules_tags", [])) == TYPE_ARRAY else [],
 		}])
 		var processed_events: Array = timing_result.get("processed_events", []).duplicate(true)
@@ -939,6 +941,8 @@ static func play_action_from_hand(match_state: Dictionary, player_id: String, in
 		"target_instance_id": str(options.get("target_instance_id", "")),
 		"target_player_id": str(options.get("target_player_id", "")),
 		"lane_id": str(options.get("lane_id", "")),
+		"source_rules_text": str(played_card.get("rules_text", "")),
+		"source_name": str(played_card.get("name", "")),
 		"rules_tags": played_card.get("rules_tags", []).duplicate() if typeof(played_card.get("rules_tags", [])) == TYPE_ARRAY else [],
 	}])
 	return {
