@@ -250,18 +250,19 @@ static func _enumerate_creature_prophecy_plays(match_state: Dictionary, player_i
 				})
 				if action_is_legal(match_state, targeted_descriptor):
 					actions.append(targeted_descriptor)
-			# Also add a no-target (fizzle) variant
-			var fizzle_descriptor := _build_descriptor(KIND_SUMMON_CREATURE, match_state, player_id, card, {
-				"lane_id": lane_id,
-				"slot_index": -1,
-			}, {
-				"timing_window": TIMING_INTERRUPT,
-				"response_kind": MatchTiming.RULE_TAG_PROPHECY,
-				"played_for_free": true,
-				"order_key": ACTION_KIND_ORDER[KIND_SUMMON_CREATURE],
-			})
-			if action_is_legal(match_state, fizzle_descriptor):
-				actions.append(fizzle_descriptor)
+			# Add a no-target (fizzle) variant only when effect is not mandatory or no valid targets exist
+			if not _has_mandatory_target_mode(card) or valid_targets.is_empty():
+				var fizzle_descriptor := _build_descriptor(KIND_SUMMON_CREATURE, match_state, player_id, card, {
+					"lane_id": lane_id,
+					"slot_index": -1,
+				}, {
+					"timing_window": TIMING_INTERRUPT,
+					"response_kind": MatchTiming.RULE_TAG_PROPHECY,
+					"played_for_free": true,
+					"order_key": ACTION_KIND_ORDER[KIND_SUMMON_CREATURE],
+				})
+				if action_is_legal(match_state, fizzle_descriptor):
+					actions.append(fizzle_descriptor)
 		else:
 			var descriptor := _build_descriptor(KIND_SUMMON_CREATURE, match_state, player_id, card, {
 				"lane_id": lane_id,
@@ -318,17 +319,18 @@ static func _enumerate_creature_summons(match_state: Dictionary, player_id: Stri
 					})
 					if action_is_legal(match_state, targeted_descriptor):
 						actions.append(targeted_descriptor)
-				# Also add a no-target (fizzle) variant
-				var fizzle_descriptor := _build_descriptor(KIND_SUMMON_CREATURE, match_state, player_id, card, {
-					"lane_id": lane_id,
-					"slot_index": -1,
-				}, {
-					"timing_window": TIMING_ACTION,
-					"played_for_free": played_for_free,
-					"order_key": ACTION_KIND_ORDER[KIND_SUMMON_CREATURE + ":turn"],
-				})
-				if action_is_legal(match_state, fizzle_descriptor):
-					actions.append(fizzle_descriptor)
+				# Add a no-target (fizzle) variant only when effect is not mandatory or no valid targets exist
+				if not _has_mandatory_target_mode(card) or valid_targets.is_empty():
+					var fizzle_descriptor := _build_descriptor(KIND_SUMMON_CREATURE, match_state, player_id, card, {
+						"lane_id": lane_id,
+						"slot_index": -1,
+					}, {
+						"timing_window": TIMING_ACTION,
+						"played_for_free": played_for_free,
+						"order_key": ACTION_KIND_ORDER[KIND_SUMMON_CREATURE + ":turn"],
+					})
+					if action_is_legal(match_state, fizzle_descriptor):
+						actions.append(fizzle_descriptor)
 			else:
 				var descriptor := _build_descriptor(KIND_SUMMON_CREATURE, match_state, player_id, card, {
 					"lane_id": lane_id,
@@ -827,3 +829,10 @@ static func _card_summary(card: Dictionary) -> Dictionary:
 
 static func _clone_array(value) -> Array:
 	return value.duplicate(true) if typeof(value) == TYPE_ARRAY else []
+
+
+static func _has_mandatory_target_mode(card: Dictionary) -> bool:
+	for ability in MatchTiming.get_target_mode_abilities(card):
+		if bool(ability.get("mandatory", false)):
+			return true
+	return false
