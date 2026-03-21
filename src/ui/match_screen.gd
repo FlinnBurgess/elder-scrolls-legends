@@ -1919,6 +1919,13 @@ func _refresh_player_sections() -> void:
 		ring_panel.visible = bool(player.get("has_ring_of_magicka", false))
 		var ring_label: Label = section["ring_label"]
 		ring_label.text = _ring_panel_text(player)
+		var ring_used_this_turn := bool(player.get("ring_of_magicka_used_this_turn", false))
+		if ring_used_this_turn:
+			_apply_panel_style(ring_panel, Color(0.14, 0.14, 0.14, 0.96), Color(0.35, 0.35, 0.35, 0.94), 1, 10)
+			ring_label.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55, 1.0))
+		else:
+			_apply_panel_style(ring_panel, Color(0.18, 0.14, 0.08, 0.96), Color(0.63, 0.53, 0.26, 0.94), 1, 10)
+			ring_label.add_theme_color_override("font_color", Color(0.98, 0.92, 0.78, 1.0))
 		var ring_row: HBoxContainer = section["ring_row"]
 		_refresh_ring_row(ring_row, player)
 
@@ -3944,6 +3951,14 @@ func _input(event: InputEvent) -> void:
 			if key_event.keycode == KEY_UP or key_event.keycode == KEY_DOWN:
 				var direction := 1 if key_event.keycode == KEY_DOWN else -1
 				if _try_cycle_active_card_relationship(direction):
+					get_viewport().set_input_as_handled()
+					return
+			if key_event.keycode == KEY_E and _is_local_player_turn() and not _has_match_winner():
+				if end_turn_action():
+					get_viewport().set_input_as_handled()
+					return
+			if key_event.keycode == KEY_R and _is_local_player_turn() and not _has_match_winner():
+				if use_ring():
 					get_viewport().set_input_as_handled()
 					return
 		if key_event.pressed and not key_event.echo and _hovered_hand_instance_id != "":
