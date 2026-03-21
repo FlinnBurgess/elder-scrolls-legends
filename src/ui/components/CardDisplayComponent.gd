@@ -700,6 +700,11 @@ func _resolve_art_texture(card: Dictionary) -> Texture2D:
 		var loaded := _load_texture_from_path(path)
 		if loaded != null:
 			return loaded
+	var def_id := str(card.get("definition_id", "")).strip_edges()
+	if not def_id.is_empty():
+		var inferred := _load_texture_from_path("res://assets/images/cards/" + def_id + ".png")
+		if inferred != null:
+			return inferred
 	return _get_default_art_texture()
 
 
