@@ -79,6 +79,15 @@ func _unhandled_input(event: InputEvent) -> void:
 				popover.queue_free()
 				get_viewport().set_input_as_handled()
 			return
+		var pick_index := -1
+		match event.keycode:
+			KEY_1: pick_index = 0
+			KEY_2: pick_index = 1
+			KEY_3: pick_index = 2
+		if pick_index >= 0 and pick_index < _pick_options.size():
+			_on_option_selected(_pick_options[pick_index])
+			get_viewport().set_input_as_handled()
+			return
 		if (event.keycode == KEY_UP or event.keycode == KEY_DOWN) and _hovered_option_index >= 0 and _hovered_option_index < _option_displays.size():
 			var card_display = _option_displays[_hovered_option_index]
 			if card_display != null and is_instance_valid(card_display) and card_display.has_method("cycle_relationship"):

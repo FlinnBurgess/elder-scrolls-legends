@@ -108,6 +108,7 @@ var _prophecy_card_overlay: Control
 var _mulligan_overlay_state := {}
 var _mulligan_marked_ids: Array = []
 var _mulligan_card_by_id: Dictionary = {}
+var _mulligan_instance_id_order: Array = []
 var _discard_viewer_state := {}
 var _discard_choice_overlay_state := {}
 var _hand_selection_state := {}
@@ -173,6 +174,26 @@ func _ready() -> void:
 	_build_ui()
 	resized.connect(_apply_match_layout_scale)
 	load_scenario(_scenario_id)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	if _mulligan_overlay_state.is_empty():
+		return
+	var key_event := event as InputEventKey
+	if key_event.keycode == KEY_ENTER or key_event.keycode == KEY_KP_ENTER:
+		_on_mulligan_confirm_pressed()
+		get_viewport().set_input_as_handled()
+		return
+	var key_index := -1
+	match key_event.keycode:
+		KEY_1: key_index = 0
+		KEY_2: key_index = 1
+		KEY_3: key_index = 2
+	if key_index >= 0 and key_index < _mulligan_instance_id_order.size():
+		_on_mulligan_card_toggled(_mulligan_instance_id_order[key_index])
+		get_viewport().set_input_as_handled()
 
 
 func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int = -1, first_player_index: int = -1, ai_options: Dictionary = {}) -> bool:
@@ -1508,6 +1529,14 @@ func _build_pause_overlay() -> PanelContainer:
 		_apply_button_style(forfeit_button, Color(0.6, 0.18, 0.14, 0.98), Color(0.9, 0.42, 0.42, 0.94), Color(1.0, 0.93, 0.9, 1.0), 1, 12)
 		forfeit_button.pressed.connect(_forfeit_match)
 		box.add_child(forfeit_button)
+	else:
+		var menu_button := Button.new()
+		menu_button.text = "Return to Menu"
+		menu_button.custom_minimum_size = Vector2(260, 48)
+		menu_button.add_theme_font_size_override("font_size", 17)
+		_apply_button_style(menu_button, Color(0.22, 0.18, 0.18, 0.98), Color(0.7, 0.5, 0.5, 0.94), Color(0.98, 0.95, 0.95, 1.0), 1, 12)
+		menu_button.pressed.connect(func(): _pause_overlay.visible = false; return_to_main_menu_requested.emit())
+		box.add_child(menu_button)
 	return overlay
 
 
@@ -2190,6 +2219,7 @@ func _show_mulligan_overlay() -> void:
 	var card_size := _hand_card_display_size()
 	var card_buttons_map := {}
 	var x_labels_map := {}
+	_mulligan_instance_id_order = []
 
 	for card in hand:
 		var instance_id := str(card.get("instance_id", ""))
@@ -2225,6 +2255,7 @@ func _show_mulligan_overlay() -> void:
 		card_row.add_child(card_button)
 		card_buttons_map[instance_id] = card_button
 		x_labels_map[instance_id] = x_label
+		_mulligan_instance_id_order.append(instance_id)
 
 	var continue_button := Button.new()
 	continue_button.name = "MulliganContinue"
@@ -2273,6 +2304,7 @@ func _dismiss_mulligan_overlay() -> void:
 		overlay.queue_free()
 	_mulligan_overlay_state = {}
 	_mulligan_marked_ids = []
+	_mulligan_instance_id_order = []
 
 
 func _finalize_mulligan(discard_instance_ids: Array) -> void:
