@@ -1792,6 +1792,28 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"target_player_id": player_id,
 						"amount": gain,
 					})
+			"spend_all_magicka_for_stats":
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var ctrl_id := str(card.get("controller_player_id", ""))
+					var p := _get_player_state(match_state, ctrl_id)
+					if p.is_empty():
+						continue
+					var available := int(p.get("current_magicka", 0)) + int(p.get("temporary_magicka", 0))
+					p["current_magicka"] = 0
+					p["temporary_magicka"] = 0
+					if available > 0:
+						card["power"] = available
+						card["health"] = available
+						card["base_power"] = available
+						card["base_health"] = available
+						EvergreenRules.ensure_card_state(card)
+						generated_events.append({
+							"event_type": "creature_stats_changed",
+							"source_instance_id": str(card.get("instance_id", "")),
+							"target_instance_id": str(card.get("instance_id", "")),
+							"new_power": available,
+							"new_health": available,
+						})
 			"deal_damage":
 				var damage_amount := int(effect.get("amount", 0)) * _resolve_count_multiplier(match_state, trigger, event, effect)
 				var damage_source_id := str(trigger.get("source_instance_id", ""))
