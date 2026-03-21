@@ -33,11 +33,13 @@ Process all in-game error reports that were submitted via the error reporting po
       - For arena fixes: `arena_draft_engine_runner.gd`
       - For deck fixes: `deck_persistence_runner.gd`, `deck_validation_runner.gd`
       - For combat/card fixes: `combat_runner.gd`, `keyword_matrix_runner.gd`
+      - For triggered abilities/shout/extended mechanics: `extended_mechanics_runner.gd`, `timing_runner.gd`
    g. If tests fail due to issues introduced by the fix, fix them before proceeding
    i. Commit the fix with a descriptive message
    j. Remove the processed report entry from the JSONL file (rewrite the file without that line)
    k. Mark the task as `completed`
 4. **Continue** until all reports are processed
+5. **Summary** — after all reports are processed, present a final overview listing each report that was fixed (with a brief description of the bug and the fix applied), any reports that were skipped or deferred, and any remaining issues
 
 ## Removing Entries
 
@@ -51,6 +53,8 @@ This ensures that if the skill is interrupted mid-run, completed reports are alr
 ## Important Notes
 
 - The snapshot provides rich context — use it to understand the exact game state when the bug was observed
+- **Baseline test failures**: Before the first fix, run the relevant test runners once to identify any pre-existing failures. Do not spend time debugging failures that exist before your changes.
+- **Web research**: If a report suggests the correct behavior is uncertain (e.g., "should it have?", "worth researching online"), use WebSearch/WebFetch to check the UESP wiki or community sources for the canonical game behavior before implementing.
 - Do not skip reports — process all of them
 - Always verify fixes with tests before committing
 - Each fix gets its own commit — do not batch fixes
