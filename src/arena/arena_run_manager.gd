@@ -17,6 +17,7 @@ var wins: int = 0
 var losses: int = 0
 var current_match: int = 1
 var boss_relic = null  # Will be set by BossRelicSystem later
+var boss_deck: Array = []  # Persisted boss AI deck so retries face the same deck
 var draft_progress: Variant = null  # Mid-draft state for resume
 var match_config: Variant = null  # Match setup for resume (opponent attrs, AI deck, boss config, seed, first_player_index)
 var _used_opponent_attributes: Array = []  # Track used opponent classes to avoid repeats
@@ -49,6 +50,7 @@ func start_run(p_class_attributes: Array) -> void:
 	losses = 0
 	current_match = 1
 	boss_relic = null
+	boss_deck = []
 	draft_progress = null
 	match_config = null
 	_used_opponent_attributes = []
@@ -132,6 +134,7 @@ func save_run() -> void:
 		"losses": losses,
 		"current_match": current_match,
 		"boss_relic": boss_relic,
+		"boss_deck": boss_deck,
 		"used_opponent_attributes": _used_opponent_attributes,
 		"draft_progress": draft_progress,
 		"match_config": match_config,
@@ -164,6 +167,7 @@ static func load_run() -> ArenaRunManager:
 	manager.losses = int(data.get("losses", 0))
 	manager.current_match = int(data.get("current_match", 1))
 	manager.boss_relic = data.get("boss_relic")
+	manager.boss_deck = Array(data.get("boss_deck", []))
 	manager._used_opponent_attributes = Array(data.get("used_opponent_attributes", []))
 	manager.draft_progress = data.get("draft_progress")
 	manager.match_config = data.get("match_config")

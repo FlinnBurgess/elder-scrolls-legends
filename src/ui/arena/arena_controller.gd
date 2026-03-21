@@ -184,13 +184,19 @@ func _on_fight_pressed() -> void:
 		var win_bonus := clampf(float(_run_manager.wins) * 0.04, 0.0, 0.20)
 		config["quality"] = clampf(base_quality + win_bonus, 0.0, 1.0)
 
-	# Build AI deck
-	var ai_deck: Array = ArenaDraftEngineScript.draft_ai_deck(
-		config["attribute_ids"],
-		_card_database,
-		config["deck_size"],
-		config["quality"]
-	)
+	# Build AI deck (reuse persisted boss deck on retries)
+	var ai_deck: Array
+	if match_num >= 9 and not _run_manager.boss_deck.is_empty():
+		ai_deck = _run_manager.boss_deck.duplicate(true)
+	else:
+		ai_deck = ArenaDraftEngineScript.draft_ai_deck(
+			config["attribute_ids"],
+			_card_database,
+			config["deck_size"],
+			config["quality"]
+		)
+		if match_num >= 9:
+			_run_manager.boss_deck = ai_deck.duplicate(true)
 
 	# Convert decks to flat card ID arrays for MatchScreen
 	var player_deck_ids := _deck_to_card_ids(_run_manager.deck)
