@@ -393,6 +393,12 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 		card["equip_power_bonus"] = int(definition.get("equip_power_bonus", 0))
 		card["equip_health_bonus"] = int(definition.get("equip_health_bonus", 0))
 		card["equip_keywords"] = definition.get("equip_keywords", []).duplicate(true)
+	if definition.has("shout_chain_id"):
+		card["shout_chain_id"] = str(definition["shout_chain_id"])
+	if definition.has("shout_level"):
+		card["shout_level"] = int(definition["shout_level"])
+	if definition.has("shout_levels"):
+		card["shout_levels"] = definition["shout_levels"].duplicate(true)
 	var action_target_mode := str(definition.get("action_target_mode", ""))
 	if not action_target_mode.is_empty():
 		card["action_target_mode"] = action_target_mode

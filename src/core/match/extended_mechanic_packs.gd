@@ -709,11 +709,15 @@ static func _resolve_shout_upgrade(match_state: Dictionary, trigger: Dictionary)
 	if typeof(next_template) != TYPE_DICTIONARY:
 		return []
 	var shout_chain_id := str(source_card.get("shout_chain_id", source_card.get("definition_id", "")))
+	var enriched_template: Dictionary = next_template.duplicate(true)
+	enriched_template["shout_levels"] = levels.duplicate(true)
+	if not enriched_template.has("shout_chain_id"):
+		enriched_template["shout_chain_id"] = shout_chain_id
 	var events: Array = []
 	for card in _collect_owned_cards(match_state, str(trigger.get("controller_player_id", "")), [ZONE_HAND, ZONE_DECK, ZONE_DISCARD]):
 		if str(card.get("shout_chain_id", card.get("definition_id", ""))) != shout_chain_id:
 			continue
-		var change_result := MatchMutations.change_card(card, next_template, {"reason": "shout_upgrade"})
+		var change_result := MatchMutations.change_card(card, enriched_template, {"reason": "shout_upgrade"})
 		events.append_array(change_result.get("events", []))
 	return events
 
@@ -1172,10 +1176,14 @@ static func _resolve_shout_upgrade_for_card(match_state: Dictionary, player_id: 
 	if typeof(next_template) != TYPE_DICTIONARY:
 		return []
 	var shout_chain_id := str(chosen_card.get("shout_chain_id", chosen_card.get("definition_id", "")))
+	var enriched_template: Dictionary = next_template.duplicate(true)
+	enriched_template["shout_levels"] = levels.duplicate(true)
+	if not enriched_template.has("shout_chain_id"):
+		enriched_template["shout_chain_id"] = shout_chain_id
 	var events: Array = []
 	for card in _collect_owned_cards(match_state, player_id, [ZONE_HAND, ZONE_DECK, ZONE_DISCARD]):
 		if str(card.get("shout_chain_id", card.get("definition_id", ""))) != shout_chain_id:
 			continue
-		var change_result := MatchMutations.change_card(card, next_template, {"reason": "shout_upgrade"})
+		var change_result := MatchMutations.change_card(card, enriched_template, {"reason": "shout_upgrade"})
 		events.append_array(change_result.get("events", []))
 	return events
