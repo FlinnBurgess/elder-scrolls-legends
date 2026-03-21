@@ -6479,7 +6479,6 @@ func _process_card_played_history(play_event: Dictionary, event_log: Array, even
 	var source_id := str(play_event.get("source_instance_id", ""))
 	var card_type := str(play_event.get("card_type", ""))
 	var source_card := _snapshot_card_for_history(source_id)
-	var play_event_id := str(play_event.get("event_id", ""))
 
 	var entry := {
 		"action_type": "play_card",
@@ -6506,7 +6505,7 @@ func _process_card_played_history(play_event: Dictionary, event_log: Array, even
 				"destroyed": false,
 			})
 		# Look for subsequent summon-effect targets from this item
-		var chain_targets := _collect_descendant_targets(event_log, event_index, play_event_id, [source_id, direct_target_id])
+		var chain_targets := _collect_batch_targets(event_log, event_index, [source_id, direct_target_id])
 		if not chain_targets.is_empty():
 			entry["chain"].append({
 				"source_card": _snapshot_card_for_history(direct_target_id) if not direct_target_id.is_empty() else {},
@@ -6515,14 +6514,14 @@ func _process_card_played_history(play_event: Dictionary, event_log: Array, even
 			})
 	elif card_type == "creature":
 		# Creature with summon effect: look for damage/effect targets
-		var summon_targets := _collect_descendant_targets(event_log, event_index, play_event_id, [source_id])
+		var summon_targets := _collect_batch_targets(event_log, event_index, [source_id])
 		for t in summon_targets:
 			entry["targets"].append(t)
 	elif card_type == "action":
 		# Action/spell: look for targets from effects
 		if not direct_target_id.is_empty():
 			var target_card := _snapshot_card_for_history(direct_target_id)
-			var destroyed := _is_destroyed_in_batch(event_log, event_index, direct_target_id, play_event_id)
+			var destroyed := _is_destroyed_in_batch(event_log, event_index, direct_target_id)
 			entry["targets"].append({
 				"kind": "creature",
 				"card": target_card,
@@ -6537,11 +6536,11 @@ func _process_card_played_history(play_event: Dictionary, event_log: Array, even
 				"player_id": direct_target_player_id,
 				"destroyed": false,
 			})
-		# Also collect any additional targets from descendant events
+		# Also collect any additional targets from batch events
 		var exclude_ids := [source_id]
 		if not direct_target_id.is_empty():
 			exclude_ids.append(direct_target_id)
-		var extra_targets := _collect_descendant_targets(event_log, event_index, play_event_id, exclude_ids)
+		var extra_targets := _collect_batch_targets(event_log, event_index, exclude_ids)
 		for t in extra_targets:
 			entry["targets"].append(t)
 
@@ -6554,7 +6553,6 @@ func _process_attack_history(attack_event: Dictionary, event_log: Array, event_i
 	var target_type := str(attack_event.get("target_type", ""))
 	var target_id := str(attack_event.get("target_instance_id", ""))
 	var target_player_id := str(attack_event.get("target_player_id", ""))
-	var attack_event_id := str(attack_event.get("event_id", ""))
 	var attacker_card := _snapshot_card_for_history(attacker_id)
 
 	var entry := {
@@ -6568,8 +6566,8 @@ func _process_attack_history(attack_event: Dictionary, event_log: Array, event_i
 
 	if target_type == "creature":
 		var target_card := _snapshot_card_for_history(target_id)
-		var target_destroyed := _is_destroyed_in_batch(event_log, event_index, target_id, attack_event_id)
-		var attacker_destroyed := _is_destroyed_in_batch(event_log, event_index, attacker_id, attack_event_id)
+		var target_destroyed := _is_destroyed_in_batch(event_log, event_index, target_id)
+		var attacker_destroyed := _is_destroyed_in_batch(event_log, event_index, attacker_id)
 		entry["targets"].append({
 			"kind": "creature",
 			"card": target_card,
@@ -6579,7 +6577,7 @@ func _process_attack_history(attack_event: Dictionary, event_log: Array, event_i
 		# Mark attacker as destroyed if it traded
 		entry["attacker_destroyed"] = attacker_destroyed
 	elif target_type == "player":
-		var rune_breaks := _collect_rune_breaks(event_log, event_index, attack_event_id, target_player_id)
+		var rune_breaks := _collect_rune_breaks(event_log, event_index, target_player_id)
 		entry["targets"].append({
 			"kind": "player",
 			"card": {},
@@ -6612,8 +6610,7 @@ func _process_support_activated_history(support_event: Dictionary, event_log: Ar
 	}
 
 	var target_card := _snapshot_card_for_history(target_id)
-	var support_event_id := str(support_event.get("event_id", ""))
-	var destroyed := _is_destroyed_in_batch(event_log, event_index, target_id, support_event_id)
+	var destroyed := _is_destroyed_in_batch(event_log, event_index, target_id)
 	entry["targets"].append({
 		"kind": "creature",
 		"card": target_card,
@@ -6624,27 +6621,28 @@ func _process_support_activated_history(support_event: Dictionary, event_log: Ar
 	_add_history_entry(entry)
 
 
-func _collect_descendant_targets(event_log: Array, start_index: int, root_event_id: String, exclude_ids: Array) -> Array:
-	var targets: Array = []
-	var descendant_ids: Array = [root_event_id]
-	var seen_target_ids: Array = exclude_ids.duplicate()
-
-	for i in range(start_index + 1, mini(event_log.size(), start_index + 60)):
+func _find_batch_end(event_log: Array, start_index: int) -> int:
+	# Find the end of the current action batch. A batch ends when we hit the
+	# next top-level initiating event (card_played, attack_declared,
+	# support_activated, turn_started) that has no parent_event_id.
+	const INITIATING_TYPES := ["card_played", "attack_declared", "support_activated", "turn_started"]
+	for i in range(start_index + 1, mini(event_log.size(), start_index + 80)):
 		var evt: Dictionary = event_log[i]
-		var parent_id := str(evt.get("parent_event_id", ""))
-		var evt_id := str(evt.get("event_id", ""))
 		var evt_type := str(evt.get("event_type", ""))
+		var parent_id := str(evt.get("parent_event_id", ""))
+		if parent_id.is_empty() and INITIATING_TYPES.has(evt_type):
+			return i
+	return event_log.size()
 
-		if parent_id.is_empty() and not descendant_ids.has(parent_id):
-			# Hit next top-level event — stop scanning
-			if not descendant_ids.has(evt_id):
-				break
 
-		if descendant_ids.has(parent_id):
-			descendant_ids.append(evt_id)
+func _collect_batch_targets(event_log: Array, start_index: int, exclude_ids: Array) -> Array:
+	var targets: Array = []
+	var seen_target_ids: Array = exclude_ids.duplicate()
+	var batch_end := _find_batch_end(event_log, start_index)
 
-		if not descendant_ids.has(parent_id) and not descendant_ids.has(evt_id):
-			continue
+	for i in range(start_index + 1, batch_end):
+		var evt: Dictionary = event_log[i]
+		var evt_type := str(evt.get("event_type", ""))
 
 		if evt_type == "damage_resolved":
 			var target_id := str(evt.get("target_instance_id", ""))
@@ -6652,7 +6650,7 @@ func _collect_descendant_targets(event_log: Array, start_index: int, root_event_
 			if not target_id.is_empty() and not seen_target_ids.has(target_id):
 				seen_target_ids.append(target_id)
 				var target_card := _snapshot_card_for_history(target_id)
-				var destroyed := _is_destroyed_in_batch(event_log, start_index, target_id, root_event_id)
+				var destroyed := _is_destroyed_in_batch(event_log, start_index, target_id)
 				targets.append({
 					"kind": "creature",
 					"card": target_card,
@@ -6672,19 +6670,11 @@ func _collect_descendant_targets(event_log: Array, start_index: int, root_event_
 	return targets
 
 
-func _collect_rune_breaks(event_log: Array, start_index: int, root_event_id: String, target_player_id: String) -> Array:
+func _collect_rune_breaks(event_log: Array, start_index: int, target_player_id: String) -> Array:
 	var runes: Array = []
-	var descendant_ids: Array = [root_event_id]
-	for i in range(start_index + 1, mini(event_log.size(), start_index + 60)):
+	var batch_end := _find_batch_end(event_log, start_index)
+	for i in range(start_index + 1, batch_end):
 		var evt: Dictionary = event_log[i]
-		var parent_id := str(evt.get("parent_event_id", ""))
-		var evt_id := str(evt.get("event_id", ""))
-		if descendant_ids.has(parent_id):
-			descendant_ids.append(evt_id)
-		if not descendant_ids.has(parent_id) and not descendant_ids.has(evt_id):
-			if parent_id.is_empty():
-				break
-			continue
 		if str(evt.get("event_type", "")) == "rune_broken":
 			var rune_player := str(evt.get("player_id", ""))
 			if rune_player == target_player_id:
@@ -6692,18 +6682,10 @@ func _collect_rune_breaks(event_log: Array, start_index: int, root_event_id: Str
 	return runes
 
 
-func _is_destroyed_in_batch(event_log: Array, start_index: int, instance_id: String, root_event_id: String) -> bool:
-	var descendant_ids: Array = [root_event_id]
-	for i in range(start_index + 1, mini(event_log.size(), start_index + 60)):
+func _is_destroyed_in_batch(event_log: Array, start_index: int, instance_id: String) -> bool:
+	var batch_end := _find_batch_end(event_log, start_index)
+	for i in range(start_index + 1, batch_end):
 		var evt: Dictionary = event_log[i]
-		var parent_id := str(evt.get("parent_event_id", ""))
-		var evt_id := str(evt.get("event_id", ""))
-		if descendant_ids.has(parent_id):
-			descendant_ids.append(evt_id)
-		if not descendant_ids.has(parent_id) and not descendant_ids.has(evt_id):
-			if parent_id.is_empty():
-				break
-			continue
 		if str(evt.get("event_type", "")) == "creature_destroyed":
 			var destroyed_id := str(evt.get("source_instance_id", ""))
 			if destroyed_id == instance_id:
@@ -6839,23 +6821,15 @@ func _show_match_history_popover(entry_index: int) -> void:
 		arrow_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		content_hbox.add_child(arrow_label)
 
-		# Targets scroll container
-		var targets_scroll := ScrollContainer.new()
-		targets_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-		targets_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-		targets_scroll.custom_minimum_size = Vector2(0, 0)
-		var max_targets_width := get_viewport_rect().size.x * 0.65
-		targets_scroll.custom_minimum_size.x = 0
-
+		# Targets
 		var targets_hbox := HBoxContainer.new()
 		targets_hbox.add_theme_constant_override("separation", 12)
-		targets_scroll.add_child(targets_hbox)
 
 		for target in targets:
 			var target_section := _build_history_popover_target_section(target)
 			targets_hbox.add_child(target_section)
 
-		content_hbox.add_child(targets_scroll)
+		content_hbox.add_child(targets_hbox)
 
 		# Chain (for item -> creature -> subsequent targets)
 		for chain_entry in chain:
@@ -6870,19 +6844,14 @@ func _show_match_history_popover(entry_index: int) -> void:
 			chain_arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			content_hbox.add_child(chain_arrow)
 
-			var chain_scroll := ScrollContainer.new()
-			chain_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-			chain_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-
 			var chain_hbox := HBoxContainer.new()
 			chain_hbox.add_theme_constant_override("separation", 12)
-			chain_scroll.add_child(chain_hbox)
 
 			for chain_target in chain_targets:
 				var ct_section := _build_history_popover_target_section(chain_target)
 				chain_hbox.add_child(ct_section)
 
-			content_hbox.add_child(chain_scroll)
+			content_hbox.add_child(chain_hbox)
 
 	add_child(overlay)
 	_match_history_popover_state = {"overlay": overlay, "entry_index": entry_index}
