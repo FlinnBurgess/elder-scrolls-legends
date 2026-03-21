@@ -37,7 +37,10 @@ static func _resolve_card_relationships(card: Dictionary, relationships: Array, 
 			if def_id.is_empty() or seen_card_ids.has(def_id):
 				continue
 			seen_card_ids[def_id] = true
-			relationships.append({"type": "card", "card_data": template.duplicate(true)})
+			var card_data: Dictionary = template.duplicate(true)
+			if not card_data.has("art_path") and not def_id.is_empty():
+				card_data["art_path"] = "res://assets/images/cards/" + def_id + ".png"
+			relationships.append({"type": "card", "card_data": card_data})
 
 
 static func _resolve_contextual_text(card: Dictionary, relationships: Array, context: Dictionary) -> void:
