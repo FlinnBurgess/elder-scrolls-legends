@@ -1,6 +1,7 @@
 class_name ArenaDraftEngine
 extends RefCounted
 
+const CardSynergyExtractor = preload("res://src/deck/card_synergy_extractor.gd")
 
 const RARITY_WEIGHTS := {
 	"common": 60.0,
@@ -115,10 +116,11 @@ static func _ai_pick_best(options: Array, current_deck: Array, quality: float, c
 	var deck_cost_counts := _count_deck_by_cost(current_deck, card_pool)
 	var deck_keywords := _collect_deck_keywords(current_deck, card_pool)
 	var deck_subtypes := _collect_deck_subtypes(current_deck, card_pool)
+	var deck_synergy_subtypes := _collect_deck_synergy_subtypes(current_deck, card_pool)
 
 	for card in options:
 		var random_score: float = randf()
-		var eval_score: float = _evaluate_card(card, deck_cost_counts, deck_keywords, deck_subtypes)
+		var eval_score: float = _evaluate_card(card, deck_cost_counts, deck_keywords, deck_subtypes, deck_synergy_subtypes)
 		var score: float = lerpf(random_score, eval_score, quality)
 		if score > best_score:
 			best_score = score
@@ -127,7 +129,7 @@ static func _ai_pick_best(options: Array, current_deck: Array, quality: float, c
 	return best_card
 
 
-static func _evaluate_card(card: Dictionary, deck_cost_counts: Dictionary, deck_keywords: Dictionary, deck_subtypes: Dictionary) -> float:
+static func _evaluate_card(card: Dictionary, deck_cost_counts: Dictionary, deck_keywords: Dictionary, deck_subtypes: Dictionary, deck_synergy_subtypes: Dictionary) -> float:
 	var score := 0.0
 	var card_type: String = card.get("card_type", "")
 	var cost: int = card.get("cost", 0)
@@ -173,13 +175,28 @@ static func _evaluate_card(card: Dictionary, deck_cost_counts: Dictionary, deck_
 	# Synergy - shared subtypes
 	var subtypes: Array = card.get("subtypes", [])
 	for st in subtypes:
-		if st in deck_subtypes:
-			score += 0.05 * minf(float(deck_subtypes[st]), 3.0)
+		var st_lower := str(st).to_lower()
+		if st_lower in deck_subtypes:
+			score += 0.05 * minf(float(deck_subtypes[st_lower]), 3.0)
 
 	# Synergy - shared keywords
 	for kw in keywords:
 		if kw in deck_keywords:
 			score += 0.03 * minf(float(deck_keywords[kw]), 3.0)
+
+	# Deep synergy - card's subtypes enable synergy cards already in deck
+	# e.g. picking a Dragon when deck has Midnight Snack (cares about Dragons)
+	for st in subtypes:
+		var st_lower := str(st).to_lower()
+		if st_lower in deck_synergy_subtypes:
+			score += 0.12 * minf(float(deck_synergy_subtypes[st_lower]), 3.0)
+
+	# Deep synergy - card's synergy signals match subtypes already in deck
+	# e.g. picking Midnight Snack when deck has 3 Dragons
+	var card_synergy_subs: Array = CardSynergyExtractor.extract_synergy_subtypes(card)
+	for syn_st in card_synergy_subs:
+		if syn_st in deck_subtypes:
+			score += 0.10 * minf(float(deck_subtypes[syn_st]), 2.0)
 
 	# Slight preference for creatures (they form the deck backbone)
 	if card_type == "creature":
@@ -220,10 +237,24 @@ static func _collect_deck_subtypes(current_deck: Array, all_cards_context: Array
 		for opt in all_cards_context:
 			if opt.get("card_id", "") == entry.get("card_id", ""):
 				for st in opt.get("subtypes", []):
+					var st_lower := str(st).to_lower()
 					var qty: int = entry.get("quantity", 1)
-					st_counts[st] = st_counts.get(st, 0) + qty
+					st_counts[st_lower] = st_counts.get(st_lower, 0) + qty
 				break
 	return st_counts
+
+
+static func _collect_deck_synergy_subtypes(current_deck: Array, all_cards_context: Array) -> Dictionary:
+	var syn_counts := {}
+	for entry in current_deck:
+		for opt in all_cards_context:
+			if opt.get("card_id", "") == entry.get("card_id", ""):
+				var synergy_subs: Array = CardSynergyExtractor.extract_synergy_subtypes(opt)
+				var qty: int = entry.get("quantity", 1)
+				for syn_st in synergy_subs:
+					syn_counts[syn_st] = syn_counts.get(syn_st, 0) + qty
+				break
+	return syn_counts
 
 
 static func _get_available_candidates(rarity: String, card_pool: Array, deck_counts: Dictionary, used_ids: Dictionary) -> Array:

@@ -6,6 +6,7 @@ extends RefCounted
 ##   {"type": "card", "card_data": Dictionary}  — show a different card
 ##   {"type": "text", "text": String}            — replace rules text on the original card
 
+const CardSynergyExtractor = preload("res://src/deck/card_synergy_extractor.gd")
 const RELATED_CARD_OPS := ["summon_from_effect", "generate_card_to_hand", "fill_lane_with", "summon_copies_to_lane", "equip_generated_item"]
 
 
@@ -44,136 +45,20 @@ static func _resolve_card_relationships(card: Dictionary, relationships: Array, 
 
 
 static func _resolve_contextual_text(card: Dictionary, relationships: Array, context: Dictionary) -> void:
-	_resolve_subtype_board_requirement(card, relationships, context)
-	_resolve_event_source_subtype(card, relationships, context)
-	_resolve_effect_filter_subtype(card, relationships, context)
-	_resolve_aura_subtype_synergy(card, relationships, context)
-	_resolve_aura_attribute_synergy(card, relationships, context)
-	_resolve_cost_reduction_subtype(card, relationships, context)
-
-
-static func _resolve_subtype_board_requirement(card: Dictionary, relationships: Array, context: Dictionary) -> void:
-	var abilities: Array = card.get("triggered_abilities", [])
-	var seen_subtypes: Dictionary = {}
-	for ability in abilities:
-		if typeof(ability) != TYPE_DICTIONARY:
-			continue
-		var required_subtype := str(ability.get("required_subtype_on_board", ""))
-		if required_subtype.is_empty() or seen_subtypes.has(required_subtype):
-			continue
-		seen_subtypes[required_subtype] = true
-		var text := _subtype_count_text(required_subtype, context)
+	var synergy_subtypes: Array = CardSynergyExtractor.extract_synergy_subtypes(card)
+	for subtype in synergy_subtypes:
+		var text := _subtype_count_text(subtype, context)
 		relationships.append({"type": "text", "text": text})
 
-
-## Resolve subtype requirements from trigger filters like required_event_source_subtype
-## (e.g. Wrothgar Kingpin: "When you summon another Orc") and required_summon_subtype
-## (e.g. Blades Lookout: "When you summon a Dragon"). Both care about how many of
-## that subtype are available.
-static func _resolve_event_source_subtype(card: Dictionary, relationships: Array, context: Dictionary) -> void:
-	var abilities: Array = card.get("triggered_abilities", [])
-	var seen_subtypes: Dictionary = {}
-	for ability in abilities:
-		if typeof(ability) != TYPE_DICTIONARY:
-			continue
-		for key in ["required_event_source_subtype", "required_summon_subtype"]:
-			var required_subtype := str(ability.get(key, ""))
-			if required_subtype.is_empty() or seen_subtypes.has(required_subtype):
-				continue
-			seen_subtypes[required_subtype] = true
-			var text := _subtype_count_text(required_subtype, context)
-			relationships.append({"type": "text", "text": text})
-
-
-## Resolve subtype synergies from effect-level filters (e.g. Midnight Snack:
-## "Last Gasp: Reduce the cost of a random Dragon in your hand by 1.").
-## These filters live inside the effects array rather than on the trigger descriptor.
-static func _resolve_effect_filter_subtype(card: Dictionary, relationships: Array, context: Dictionary) -> void:
-	var abilities: Array = card.get("triggered_abilities", [])
-	var seen_subtypes: Dictionary = {}
-	# Collect subtypes already covered by trigger-level resolvers so we don't duplicate
-	for ability in abilities:
-		if typeof(ability) != TYPE_DICTIONARY:
-			continue
-		for key in ["required_subtype_on_board", "required_event_source_subtype", "required_summon_subtype"]:
-			var st := str(ability.get(key, ""))
-			if not st.is_empty():
-				seen_subtypes[st] = true
-	# Now scan effect-level filters
-	for ability in abilities:
-		if typeof(ability) != TYPE_DICTIONARY:
-			continue
-		var effects: Array = ability.get("effects", [])
-		for effect in effects:
-			if typeof(effect) != TYPE_DICTIONARY:
-				continue
-			var filter_raw = effect.get("filter", null)
-			if filter_raw == null or typeof(filter_raw) != TYPE_DICTIONARY:
-				# Also check inside choose_one choices
-				var choices: Array = effect.get("choices", [])
-				for choice in choices:
-					if typeof(choice) != TYPE_DICTIONARY:
-						continue
-					var sub_effects: Array = choice.get("effects", [])
-					for sub_effect in sub_effects:
-						if typeof(sub_effect) != TYPE_DICTIONARY:
-							continue
-						var sub_filter_raw = sub_effect.get("filter", null)
-						if sub_filter_raw == null or typeof(sub_filter_raw) != TYPE_DICTIONARY:
-							continue
-						var sub_filter: Dictionary = sub_filter_raw as Dictionary
-						var sub_subtype := str(sub_filter.get("subtype", ""))
-						if not sub_subtype.is_empty() and not seen_subtypes.has(sub_subtype):
-							seen_subtypes[sub_subtype] = true
-							relationships.append({"type": "text", "text": _subtype_count_text(sub_subtype, context)})
-				continue
-			var filter: Dictionary = filter_raw as Dictionary
-			var subtype := str(filter.get("subtype", ""))
-			if subtype.is_empty() or seen_subtypes.has(subtype):
-				continue
-			seen_subtypes[subtype] = true
-			relationships.append({"type": "text", "text": _subtype_count_text(subtype, context)})
-
-
-static func _resolve_aura_subtype_synergy(card: Dictionary, relationships: Array, context: Dictionary) -> void:
-	var aura_raw = card.get("aura", null)
-	if aura_raw == null or typeof(aura_raw) != TYPE_DICTIONARY:
-		return
-	var aura: Dictionary = aura_raw as Dictionary
-	var filter_subtype := str(aura.get("filter_subtype", ""))
-	if filter_subtype.is_empty():
-		return
-	var text := _subtype_count_text(filter_subtype, context)
-	relationships.append({"type": "text", "text": text})
-
-
-static func _resolve_aura_attribute_synergy(card: Dictionary, relationships: Array, context: Dictionary) -> void:
-	var aura_raw = card.get("aura", null)
-	if aura_raw == null or typeof(aura_raw) != TYPE_DICTIONARY:
-		return
-	var aura: Dictionary = aura_raw as Dictionary
-	var filter_attribute := str(aura.get("filter_attribute", ""))
-	if filter_attribute.is_empty():
-		return
-	var display_name := filter_attribute.substr(0, 1).to_upper() + filter_attribute.substr(1)
-	var count := _get_attribute_count(filter_attribute, context)
-	if count >= 0:
-		var zone := _context_zone_label(context)
-		relationships.append({"type": "text", "text": "You have %d %s card%s %s." % [count, display_name, "s" if count != 1 else "", zone]})
-	else:
-		relationships.append({"type": "text", "text": "Synergy: %s cards" % display_name})
-
-
-static func _resolve_cost_reduction_subtype(card: Dictionary, relationships: Array, context: Dictionary) -> void:
-	var cra_raw = card.get("cost_reduction_aura", null)
-	if cra_raw == null or typeof(cra_raw) != TYPE_DICTIONARY:
-		return
-	var cra: Dictionary = cra_raw as Dictionary
-	var filter_subtype := str(cra.get("filter_subtype", ""))
-	if filter_subtype.is_empty():
-		return
-	var text := _subtype_count_text(filter_subtype, context)
-	relationships.append({"type": "text", "text": text})
+	var synergy_attributes: Array = CardSynergyExtractor.extract_synergy_attributes(card)
+	for attribute in synergy_attributes:
+		var display_name := attribute.substr(0, 1).to_upper() + attribute.substr(1)
+		var count := _get_attribute_count(attribute, context)
+		if count >= 0:
+			var zone := _context_zone_label(context)
+			relationships.append({"type": "text", "text": "You have %d %s card%s %s." % [count, display_name, "s" if count != 1 else "", zone]})
+		else:
+			relationships.append({"type": "text", "text": "Synergy: %s cards" % display_name})
 
 
 static func _subtype_count_text(subtype: String, context: Dictionary) -> String:
