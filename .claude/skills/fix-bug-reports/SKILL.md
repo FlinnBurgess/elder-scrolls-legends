@@ -26,15 +26,16 @@ Process all in-game error reports that were submitted via the error reporting po
    a. Mark the task as `in_progress`
    b. Analyse the report: read the `comment`, `element_context`, and `snapshot` to understand the bug
    c. Explore the codebase to locate the relevant code
-   d. If the report is unclear or requires a design decision, **ask the user for guidance** before proceeding
-   e. Implement the fix
-   f. Run relevant test runners based on the fix area. Test runners live in `tests/` and are run with: `/Applications/Godot.app/Contents/MacOS/Godot --headless --path /Users/flinnburgess/Development/Godot/ElderScrollsLegends --script res://tests/<runner_name>.gd`
+   d. **Check if already fixed**: If a recent commit appears to address the issue, verify the fix covers the reported scenario. If so, mark the task as completed, remove the report entry, and move on — no new commit needed.
+   e. If the report is unclear or requires a design decision, **ask the user for guidance** before proceeding
+   f. Implement the fix
+   g. Run relevant test runners based on the fix area. Test runners live in `tests/` and are run with: `/Applications/Godot.app/Contents/MacOS/Godot --headless --path /Users/flinnburgess/Development/Godot/ElderScrollsLegends --script res://tests/<runner_name>.gd`
       - For match/UI fixes: `match_ui_runner.gd`, `all_rules_runner.gd`
       - For arena fixes: `arena_draft_engine_runner.gd`
       - For deck fixes: `deck_persistence_runner.gd`, `deck_validation_runner.gd`
       - For combat/card fixes: `combat_runner.gd`, `keyword_matrix_runner.gd`
       - For triggered abilities/shout/extended mechanics: `extended_mechanics_runner.gd`, `timing_runner.gd`
-   g. If tests fail due to issues introduced by the fix, fix them before proceeding
+   h. If tests fail due to issues introduced by the fix, fix them before proceeding
    i. Commit the fix with a descriptive message
    j. Remove the processed report entry from the JSONL file (rewrite the file without that line)
    k. Mark the task as `completed`
@@ -49,6 +50,8 @@ After each fix is committed, immediately remove the corresponding line from the 
 - Write the remaining lines back
 
 This ensures that if the skill is interrupted mid-run, completed reports are already removed, and new reports added concurrently are preserved.
+
+If new reports appear during the run (detected when re-reading the file), create tasks for them and process them after the original batch.
 
 ## Important Notes
 
