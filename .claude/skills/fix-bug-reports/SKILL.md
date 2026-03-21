@@ -20,8 +20,8 @@ Process all in-game error reports that were submitted via the error reporting po
 
 ## Workflow
 
-1. **Read the report file** — load `res://reports/error_reports.jsonl` and parse each line as JSON
-2. **Create tasks** — use TaskCreate to create one task per report, with the comment as the subject
+1. **Read the report file** — load `res://reports/error_reports.jsonl` and parse each line as JSON. The file may exceed token limits — run `wc -l` first to know the total line count, then read in chunks if needed. Filter out empty lines (the file often has blank first/last lines).
+2. **Create tasks** — use TaskCreate to create one task per report, with the comment as the subject. Ensure you've read ALL lines before creating tasks — missing reports due to truncated reads leads to discovering them mid-run.
 3. **Process each report sequentially:**
    a. Mark the task as `in_progress`
    b. Analyse the report: read the `comment`, `element_context`, and `snapshot` to understand the bug
@@ -61,5 +61,5 @@ If new reports appear during the run (detected when re-reading the file), create
 - Do not skip reports — process all of them
 - Always verify fixes with tests before committing
 - Each fix gets its own commit — do not batch fixes
-- If a report describes something that isn't actually a bug (e.g., intended behavior), ask the user to confirm before removing it
+- If a report describes something that isn't actually a bug (e.g., intended behavior), ask the user to confirm before removing it. However, if the report is clearly just a question about whether a feature works (e.g., "is rally implemented?") and the feature IS implemented correctly, you can dismiss it without asking — just note it in the summary.
 - **Test/junk reports**: If reports are clearly test data (e.g., comments like "test report", "delete me", "ignore this"), present them to the user and offer to batch-clear them rather than creating individual tasks. Skip the full workflow for these.
