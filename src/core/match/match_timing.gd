@@ -2120,6 +2120,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						continue
 					var move_result := MatchMutations.move_card_between_lanes(match_state, str(card.get("controller_player_id", "")), str(card.get("instance_id", "")), dest_lane_id, {
 						"slot_index": int(effect.get("slot_index", -1)),
+						"preserve_entered_lane_on_turn": true,
 					})
 					generated_events.append_array(move_result.get("events", []))
 					if bool(move_result.get("granted_cover", false)):
