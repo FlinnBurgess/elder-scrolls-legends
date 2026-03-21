@@ -3363,7 +3363,7 @@ func _apply_local_hand_hover_state(button: Button, hovered: bool) -> void:
 		target_position = base_position + Vector2(0.0, -rise_amount)
 		target_z = 110
 		raised = true
-	if hovered:
+	if hovered and not hand_selection_active:
 		target_filter = Control.MOUSE_FILTER_STOP
 		target_scale = Vector2(1.1, 1.1) if selected else Vector2(1.05, 1.05)
 		target_position = base_position + Vector2(0.0, -rise_amount - (20.0 if selected else 0.0))
@@ -4047,7 +4047,7 @@ func _input(event: InputEvent) -> void:
 				if use_ring():
 					get_viewport().set_input_as_handled()
 					return
-		if key_event.pressed and not key_event.echo and _hovered_hand_instance_id != "":
+		if key_event.pressed and not key_event.echo and _hovered_hand_instance_id != "" and _hand_selection_state.is_empty():
 			var lane_index := -1
 			if key_event.keycode == KEY_1:
 				lane_index = 0
