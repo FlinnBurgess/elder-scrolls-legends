@@ -7,7 +7,7 @@ extends RefCounted
 ##   {"type": "text", "text": String}            — replace rules text on the original card
 
 const CardSynergyExtractor = preload("res://src/deck/card_synergy_extractor.gd")
-const RELATED_CARD_OPS := ["summon_from_effect", "generate_card_to_hand", "fill_lane_with", "summon_copies_to_lane", "equip_generated_item"]
+const RELATED_CARD_OPS := ["summon_from_effect", "generate_card_to_hand", "fill_lane_with", "summon_copies_to_lane", "equip_generated_item", "transform"]
 
 
 static func resolve(card: Dictionary, context: Dictionary = {}) -> Array:
