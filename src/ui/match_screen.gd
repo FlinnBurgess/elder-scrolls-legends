@@ -6873,6 +6873,14 @@ func _resolve_history_art_texture(card: Dictionary) -> Texture2D:
 			var loaded = load(path)
 			if loaded is Texture2D:
 				return loaded as Texture2D
+	# Fall back to catalog art_path via definition_id (covers generated cards)
+	var def_id := str(card.get("definition_id", ""))
+	if not def_id.is_empty():
+		var catalog_path := "res://assets/images/cards/" + def_id + ".png"
+		if ResourceLoader.exists(catalog_path):
+			var loaded = load(catalog_path)
+			if loaded is Texture2D:
+				return loaded as Texture2D
 	# Fall back to the default card placeholder
 	var placeholder_path := "res://assets/images/cards/placeholder.png"
 	if ResourceLoader.exists(placeholder_path):

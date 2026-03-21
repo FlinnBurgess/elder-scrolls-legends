@@ -548,6 +548,8 @@ static func _collect_target_requirements(triggers: Array) -> Dictionary:
 			var consumer_target := str(effect.get("consumer_target", ""))
 			if target == "event_target" or source_target == "event_target" or consumer_target == "event_target":
 				requirements["needs_card_target"] = true
+			if target.ends_with("_event_lane") or target.ends_with("_in_event_lane"):
+				requirements["needs_lane_id"] = true
 			var op := str(effect.get("op", ""))
 			if (op == "move_between_lanes" or op == "summon_from_effect") and str(effect.get("lane_id", "")).is_empty() and str(effect.get("target_lane_id", "")).is_empty():
 				requirements["needs_lane_id"] = true
