@@ -5612,6 +5612,71 @@ func _record_feedback_from_events(events: Array) -> void:
 					var revealed_card: Dictionary = event.get("revealed_card", {})
 					if not revealed_card.is_empty():
 						_animate_deck_card_reveal(revealed_card)
+			"treasure_hunt_revealed":
+				if str(event.get("controller_player_id", "")) == _local_player_id():
+					var th_card: Dictionary = event.get("revealed_card", {})
+					var th_matches := bool(event.get("matches", false))
+					if not th_card.is_empty():
+						_animate_treasure_hunt_reveal(th_card, th_matches)
+			"treasure_found":
+				if str(event.get("controller_player_id", "")) == _local_player_id():
+					var th_count := int(event.get("count", 1))
+					_queue_status_toast("Treasure Found! (%d)" % th_count, Color(1.0, 0.85, 0.3))
+			"card_transformed":
+				_queue_status_toast("Card transformed!", Color(0.7, 0.5, 1.0))
+			"rune_restored":
+				_queue_status_toast("Rune restored!", Color(0.4, 0.8, 1.0))
+			"lane_type_changed":
+				var lt_type := str(event.get("new_type", ""))
+				if not lt_type.is_empty():
+					_queue_status_toast("%s Lane!" % lt_type.capitalize(), Color(0.6, 0.5, 0.9))
+			"status_removed":
+				var sr_status := str(event.get("status_id", "")).to_upper().replace("_", " ")
+				if not sr_status.is_empty():
+					_queue_creature_toast(str(event.get("target_instance_id", "")), "%s REMOVED" % sr_status, Color(0.9, 0.6, 0.3))
+			"magicka_restored":
+				if str(event.get("target_player_id", "")) == _local_player_id():
+					_queue_status_toast("Magicka restored!", Color(0.3, 0.6, 1.0))
+			"card_milled":
+				_queue_status_toast("Card milled", Color(0.6, 0.5, 0.4))
+			"cost_modified":
+				var cm_amount := int(event.get("amount", 0))
+				var cm_text := "+%d Cost" % cm_amount if cm_amount > 0 else "%d Cost" % cm_amount
+				_queue_creature_toast(str(event.get("target_instance_id", "")), cm_text, Color(0.5, 0.4, 0.9))
+			"card_stolen_from_discard":
+				if str(event.get("to_player_id", "")) == _local_player_id():
+					_queue_status_toast("Stole a card from opponent's discard!", Color(0.9, 0.7, 0.2))
+			"item_in_hand_modified":
+				if str(event.get("target_instance_id", "")) != "":
+					var ihm_p := int(event.get("power", 0))
+					var ihm_h := int(event.get("health", 0))
+					_queue_status_toast("Item buffed +%d/+%d" % [ihm_p, ihm_h], Color(0.8, 0.7, 0.3))
+			"keyword_stolen", "status_stolen":
+				var ks_id := str(event.get("keyword_id", event.get("status_id", "")))
+				_queue_creature_toast(str(event.get("target_instance_id", "")), "-%s" % ks_id.to_upper(), Color(0.9, 0.3, 0.3))
+			"marked_for_destruction":
+				_queue_creature_toast(str(event.get("target_instance_id", "")), "DOOMED", Color(0.9, 0.2, 0.2))
+			"temporary_immunity_granted":
+				_queue_creature_toast(str(event.get("target_instance_id", "")), "IMMUNE", Color(1.0, 0.95, 0.6))
+			"damage_redirect_set":
+				_queue_creature_toast(str(event.get("target_instance_id", "")), "PROTECTED", Color(0.4, 0.7, 1.0))
+			"rune_draw_prevented":
+				_queue_status_toast("Opponent's next rune draw prevented!", Color(0.8, 0.4, 0.4))
+			"creature_marked":
+				_queue_creature_toast(str(event.get("target_instance_id", "")), "MARKED", Color(0.9, 0.5, 0.2))
+			"creature_aimed_at":
+				_queue_creature_toast(str(event.get("target_instance_id", "")), "AIMED", Color(0.9, 0.3, 0.2))
+			"marked_for_resummon":
+				_queue_creature_toast(str(event.get("target_instance_id", "")), "RESUMMON", Color(0.8, 0.7, 0.3))
+			"double_summon_granted":
+				if str(event.get("player_id", "")) == _local_player_id():
+					_queue_status_toast("Double Summon this turn!", Color(1.0, 0.85, 0.3))
+			"action_learned":
+				_queue_status_toast("Learned %s!" % str(event.get("learned_card", "")), Color(0.6, 0.7, 1.0))
+			"attribute_changed":
+				_queue_creature_toast(str(event.get("target_instance_id", "")), "→ %s" % str(event.get("attribute", "")).capitalize(), Color(0.7, 0.6, 0.9))
+			"card_shuffled_to_deck":
+				_queue_status_toast("Card shuffled into deck", Color(0.5, 0.5, 0.6))
 
 
 func _apply_presentation_feedback() -> void:
@@ -6077,6 +6142,89 @@ func _add_feedback_toast(container: Control, name: String, text: String, fill: C
 	tween.parallel().tween_property(toast, "position", Vector2(0, -10), 0.26)
 	tween.tween_property(toast, "modulate", Color(1, 1, 1, 0), 0.75)
 	tween.finished.connect(_queue_free_weak.bind(weakref(toast)))
+
+
+func _queue_status_toast(text: String, color: Color) -> void:
+	var viewport_size := get_viewport_rect().size
+	var label := Label.new()
+	label.name = "feedback_status_toast"
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 22)
+	label.add_theme_color_override("font_color", color)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.z_index = 500
+	label.set_anchors_preset(PRESET_CENTER_TOP)
+	label.offset_top = viewport_size.y * 0.42
+	label.offset_left = -200
+	label.offset_right = 200
+	add_child(label)
+	var tween := create_tween()
+	tween.tween_property(label, "position:y", label.position.y - 30, 0.3)
+	tween.parallel().tween_property(label, "modulate:a", 1.0, 0.15)
+	tween.tween_interval(1.0)
+	tween.tween_property(label, "modulate:a", 0.0, 0.5)
+	tween.finished.connect(_queue_free_weak.bind(weakref(label)))
+
+
+func _queue_creature_toast(instance_id: String, text: String, color: Color) -> void:
+	var button: Button = _card_buttons.get(instance_id)
+	if button == null or not is_instance_valid(button):
+		return
+	_add_feedback_popup(button, "feedback_toast_%s" % instance_id, text, color, 10.0)
+
+
+func _animate_treasure_hunt_reveal(revealed_card: Dictionary, matches: bool) -> void:
+	var card_size := _hand_card_display_size()
+	var viewport_size := get_viewport_rect().size
+
+	var card_back := PanelContainer.new()
+	card_back.name = "treasure_hunt_reveal"
+	card_back.custom_minimum_size = card_size
+	card_back.size = card_size
+	var back_color := Color(0.35, 0.22, 0.12, 0.98)
+	_apply_panel_style(card_back, back_color, Color(0.57, 0.44, 0.27, 0.92), 2, 0)
+
+	var pos_x := (viewport_size.x - card_size.x) * 0.5
+	var pos_y := viewport_size.y * 0.10 + 12.0
+	card_back.position = Vector2(pos_x, pos_y)
+	card_back.z_index = 600
+
+	_prophecy_card_overlay.add_child(card_back)
+
+	card_back.pivot_offset = Vector2(card_back.size.x * 0.5, card_back.size.y * 0.5)
+	var tween := create_tween()
+	tween.tween_property(card_back, "scale:x", 0.0, 0.2)
+	tween.tween_callback(func():
+		for child in card_back.get_children():
+			child.queue_free()
+		var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+		component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		component.apply_card(revealed_card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+		card_back.add_child(component)
+		# Add match/miss banner
+		var banner := Label.new()
+		banner.name = "treasure_hunt_banner"
+		banner.text = "MATCH!" if matches else "MISS"
+		banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		banner.add_theme_font_size_override("font_size", 20)
+		banner.add_theme_color_override("font_color", Color(0.1, 1.0, 0.3) if matches else Color(0.9, 0.3, 0.2))
+		banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		banner.z_index = 10
+		banner.anchor_right = 1.0
+		banner.offset_top = card_size.y - 36.0
+		banner.offset_bottom = card_size.y - 10.0
+		card_back.add_child(banner)
+	)
+	tween.tween_property(card_back, "scale:x", 1.0, 0.2)
+	tween.tween_interval(1.2)
+	tween.tween_property(card_back, "modulate:a", 0.0, 0.4)
+	tween.finished.connect(func():
+		if is_instance_valid(card_back):
+			card_back.queue_free()
+		_refresh_ui()
+	)
 
 
 func _should_reveal_drawn_card(player_id: String, card: Dictionary) -> bool:
