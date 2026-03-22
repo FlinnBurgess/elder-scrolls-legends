@@ -72,6 +72,16 @@ const FAMILY_ON_MAX_MAGICKA_GAINED := "on_max_magicka_gained"
 const FAMILY_ON_CREATURE_HEALED := "on_creature_healed"
 const FAMILY_ON_FRIENDLY_SUMMON := "on_friendly_summon"
 const FAMILY_ON_COVER_GAINED := "on_cover_gained"
+const FAMILY_ON_CARD_DRAWN := "on_card_drawn"
+const FAMILY_ON_ENEMY_SUMMON := "on_enemy_summon"
+const FAMILY_ON_FRIENDLY_EQUIP := "on_friendly_equip"
+const FAMILY_ON_FRIENDLY_CARD_PLAYED := "on_friendly_card_played"
+const FAMILY_ON_FRIENDLY_SUPPORT_PLAYED := "on_friendly_support_played"
+const FAMILY_ON_OPPONENT_TURN := "on_opponent_turn"
+const FAMILY_AFTER_CARD_PLAYED := "after_card_played"
+const FAMILY_ON_OPPONENT_DAMAGED := "on_opponent_damaged"
+const FAMILY_ON_KEYWORD_GAINED := "on_keyword_gained"
+const FAMILY_ON_FRIENDLY_POWER_GAIN := "on_friendly_power_gain"
 
 const EVENT_CARD_EQUIPPED := "card_equipped"
 
@@ -117,6 +127,16 @@ const FAMILY_SPECS := {
 	FAMILY_ON_CREATURE_HEALED: {"event_type": "creature_healed", "window": WINDOW_AFTER, "match_role": "any_player"},
 	FAMILY_ON_FRIENDLY_SUMMON: {"event_type": EVENT_CREATURE_SUMMONED, "window": WINDOW_AFTER, "match_role": "controller", "exclude_self": true},
 	FAMILY_ON_COVER_GAINED: {"event_type": "status_granted", "window": WINDOW_AFTER, "match_role": "target", "required_event_status_id": "cover"},
+	FAMILY_ON_CARD_DRAWN: {"event_type": EVENT_CARD_DRAWN, "window": WINDOW_AFTER, "match_role": "controller"},
+	FAMILY_ON_ENEMY_SUMMON: {"event_type": EVENT_CREATURE_SUMMONED, "window": WINDOW_AFTER, "match_role": "opponent_player"},
+	FAMILY_ON_FRIENDLY_EQUIP: {"event_type": EVENT_CARD_EQUIPPED, "window": WINDOW_AFTER, "match_role": "controller"},
+	FAMILY_ON_FRIENDLY_CARD_PLAYED: {"event_type": EVENT_CARD_PLAYED, "window": WINDOW_AFTER, "match_role": "controller"},
+	FAMILY_ON_FRIENDLY_SUPPORT_PLAYED: {"event_type": EVENT_CARD_PLAYED, "window": WINDOW_AFTER, "match_role": "controller", "required_played_card_type": "support"},
+	FAMILY_ON_OPPONENT_TURN: {"event_type": EVENT_TURN_STARTED, "window": WINDOW_AFTER, "match_role": "opponent_player"},
+	FAMILY_AFTER_CARD_PLAYED: {"event_type": EVENT_CARD_PLAYED, "window": WINDOW_AFTER, "match_role": "any_player"},
+	FAMILY_ON_OPPONENT_DAMAGED: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "target_player_is_opponent", "target_type": "player"},
+	FAMILY_ON_KEYWORD_GAINED: {"event_type": "keyword_granted", "window": WINDOW_AFTER, "match_role": "any_player"},
+	FAMILY_ON_FRIENDLY_POWER_GAIN: {"event_type": "stats_modified", "window": WINDOW_AFTER, "match_role": "controller", "require_positive_power_bonus": true},
 }
 
 
@@ -185,6 +205,16 @@ static func get_supported_trigger_families() -> Array:
 		FAMILY_ON_PLAYER_HEALED,
 		FAMILY_ON_MAX_MAGICKA_GAINED,
 		FAMILY_ON_FRIENDLY_SUMMON,
+		FAMILY_ON_CARD_DRAWN,
+		FAMILY_ON_ENEMY_SUMMON,
+		FAMILY_ON_FRIENDLY_EQUIP,
+		FAMILY_ON_FRIENDLY_CARD_PLAYED,
+		FAMILY_ON_FRIENDLY_SUPPORT_PLAYED,
+		FAMILY_ON_OPPONENT_TURN,
+		FAMILY_AFTER_CARD_PLAYED,
+		FAMILY_ON_OPPONENT_DAMAGED,
+		FAMILY_ON_KEYWORD_GAINED,
+		FAMILY_ON_FRIENDLY_POWER_GAIN,
 	]
 
 
@@ -1872,6 +1902,9 @@ static func _matches_trigger_role(match_state: Dictionary, trigger: Dictionary, 
 			return str(killer_card.get("controller_player_id", "")) == controller_player_id
 		"target_player_is_controller":
 			return str(event.get("target_player_id", "")) == controller_player_id
+		"target_player_is_opponent":
+			var tp_id := str(event.get("target_player_id", ""))
+			return not tp_id.is_empty() and tp_id != controller_player_id
 		"opponent_target":
 			var target_id := _event_target_instance_id(event)
 			if target_id.is_empty():
@@ -1976,6 +2009,9 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 			return false
 		var slay_subtypes = slay_victim.get("subtypes", [])
 		if typeof(slay_subtypes) != TYPE_ARRAY or not slay_subtypes.has(required_slay_subtype):
+			return false
+	if bool(descriptor.get("require_positive_power_bonus", family_spec.get("require_positive_power_bonus", false))):
+		if int(event.get("power_bonus", 0)) <= 0:
 			return false
 	return ExtendedMechanicPacks.matches_additional_conditions(match_state, trigger, descriptor, event)
 
@@ -4121,6 +4157,383 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							"power": mih_power,
 							"health": mih_health,
 						})
+			"summon_from_discard_highest_cost":
+				var sfdh_controller_id := str(trigger.get("controller_player_id", ""))
+				var sfdh_player := _get_player_state(match_state, sfdh_controller_id)
+				if not sfdh_player.is_empty():
+					var sfdh_discard: Array = sfdh_player.get(ZONE_DISCARD, [])
+					var sfdh_best: Dictionary = {}
+					var sfdh_best_cost := -1
+					for sfdh_card in sfdh_discard:
+						if typeof(sfdh_card) == TYPE_DICTIONARY and str(sfdh_card.get("card_type", "")) == CARD_TYPE_CREATURE:
+							var c := int(sfdh_card.get("cost", 0))
+							if c > sfdh_best_cost:
+								sfdh_best_cost = c
+								sfdh_best = sfdh_card
+					if not sfdh_best.is_empty():
+						var sfdh_lane_id := _resolve_summon_lane_id(match_state, trigger, event, effect, sfdh_controller_id)
+						if not sfdh_lane_id.is_empty():
+							sfdh_discard.erase(sfdh_best)
+							sfdh_best.erase("zone")
+							var sfdh_result := MatchMutations.summon_card_to_lane(match_state, sfdh_controller_id, sfdh_best, sfdh_lane_id, {"source_zone": ZONE_DISCARD})
+							if bool(sfdh_result.get("is_valid", false)):
+								generated_events.append_array(sfdh_result.get("events", []))
+								generated_events.append(_build_summon_event(sfdh_result["card"], sfdh_controller_id, sfdh_lane_id, int(sfdh_result.get("slot_index", -1)), reason))
+								_check_summon_effect_target_mode(match_state, sfdh_result["card"])
+			"summon_from_opponent_discard":
+				var sfod_controller_id := str(trigger.get("controller_player_id", ""))
+				var sfod_opponent_id := _get_opposing_player_id(match_state.get("players", []), sfod_controller_id)
+				var sfod_opponent := _get_player_state(match_state, sfod_opponent_id)
+				if not sfod_opponent.is_empty():
+					var sfod_discard: Array = sfod_opponent.get(ZONE_DISCARD, [])
+					var sfod_candidates: Array = []
+					for sfod_card in sfod_discard:
+						if typeof(sfod_card) == TYPE_DICTIONARY and str(sfod_card.get("card_type", "")) == CARD_TYPE_CREATURE:
+							sfod_candidates.append(sfod_card)
+					if not sfod_candidates.is_empty():
+						var sfod_idx := _deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_summon_opp_discard", sfod_candidates.size())
+						var sfod_target: Dictionary = sfod_candidates[sfod_idx]
+						sfod_discard.erase(sfod_target)
+						sfod_target.erase("zone")
+						sfod_target["controller_player_id"] = sfod_controller_id
+						sfod_target["owner_player_id"] = sfod_controller_id
+						var sfod_lane_id := _resolve_summon_lane_id(match_state, trigger, event, effect, sfod_controller_id)
+						if not sfod_lane_id.is_empty():
+							var sfod_result := MatchMutations.summon_card_to_lane(match_state, sfod_controller_id, sfod_target, sfod_lane_id, {"source_zone": ZONE_DISCARD})
+							if bool(sfod_result.get("is_valid", false)):
+								generated_events.append_array(sfod_result.get("events", []))
+								generated_events.append(_build_summon_event(sfod_result["card"], sfod_controller_id, sfod_lane_id, int(sfod_result.get("slot_index", -1)), reason))
+								_check_summon_effect_target_mode(match_state, sfod_result["card"])
+			"summon_top_creature_from_deck":
+				var stcfd_controller_id := str(trigger.get("controller_player_id", ""))
+				var stcfd_player := _get_player_state(match_state, stcfd_controller_id)
+				if not stcfd_player.is_empty():
+					var stcfd_deck: Array = stcfd_player.get(ZONE_DECK, [])
+					var stcfd_found: Dictionary = {}
+					var stcfd_found_idx := -1
+					for i in range(stcfd_deck.size() - 1, -1, -1):
+						var stcfd_card: Dictionary = stcfd_deck[i]
+						if str(stcfd_card.get("card_type", "")) == CARD_TYPE_CREATURE:
+							stcfd_found = stcfd_card
+							stcfd_found_idx = i
+							break
+					if not stcfd_found.is_empty():
+						stcfd_deck.remove_at(stcfd_found_idx)
+						stcfd_found.erase("zone")
+						var stcfd_lane_id := _resolve_summon_lane_id(match_state, trigger, event, effect, stcfd_controller_id)
+						if not stcfd_lane_id.is_empty():
+							var stcfd_result := MatchMutations.summon_card_to_lane(match_state, stcfd_controller_id, stcfd_found, stcfd_lane_id, {"source_zone": ZONE_DECK})
+							if bool(stcfd_result.get("is_valid", false)):
+								generated_events.append_array(stcfd_result.get("events", []))
+								generated_events.append(_build_summon_event(stcfd_result["card"], stcfd_controller_id, stcfd_lane_id, int(stcfd_result.get("slot_index", -1)), reason))
+								_check_summon_effect_target_mode(match_state, stcfd_result["card"])
+			"summon_from_deck_by_cost":
+				var sfdc_controller_id := str(trigger.get("controller_player_id", ""))
+				var sfdc_player := _get_player_state(match_state, sfdc_controller_id)
+				if not sfdc_player.is_empty():
+					var sfdc_deck: Array = sfdc_player.get(ZONE_DECK, [])
+					var sfdc_max_cost := int(effect.get("max_cost", 999))
+					var sfdc_min_cost := int(effect.get("min_cost", 0))
+					var sfdc_exact_cost := int(effect.get("exact_cost", -1))
+					var sfdc_filter_type := str(effect.get("filter_card_type", CARD_TYPE_CREATURE))
+					var sfdc_candidates: Array = []
+					for sfdc_card in sfdc_deck:
+						if str(sfdc_card.get("card_type", "")) != sfdc_filter_type:
+							continue
+						var sfdc_cost := int(sfdc_card.get("cost", 0))
+						if sfdc_exact_cost >= 0 and sfdc_cost != sfdc_exact_cost:
+							continue
+						if sfdc_cost < sfdc_min_cost or sfdc_cost > sfdc_max_cost:
+							continue
+						sfdc_candidates.append(sfdc_card)
+					if not sfdc_candidates.is_empty():
+						var sfdc_idx := _deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_deck_summon", sfdc_candidates.size())
+						var sfdc_target: Dictionary = sfdc_candidates[sfdc_idx]
+						sfdc_deck.erase(sfdc_target)
+						sfdc_target.erase("zone")
+						var sfdc_lane_id := _resolve_summon_lane_id(match_state, trigger, event, effect, sfdc_controller_id)
+						if not sfdc_lane_id.is_empty():
+							var sfdc_result := MatchMutations.summon_card_to_lane(match_state, sfdc_controller_id, sfdc_target, sfdc_lane_id, {"source_zone": ZONE_DECK})
+							if bool(sfdc_result.get("is_valid", false)):
+								generated_events.append_array(sfdc_result.get("events", []))
+								generated_events.append(_build_summon_event(sfdc_result["card"], sfdc_controller_id, sfdc_lane_id, int(sfdc_result.get("slot_index", -1)), reason))
+								_check_summon_effect_target_mode(match_state, sfdc_result["card"])
+			"summon_from_deck_filtered":
+				var sfdf_controller_id := str(trigger.get("controller_player_id", ""))
+				var sfdf_player := _get_player_state(match_state, sfdf_controller_id)
+				if not sfdf_player.is_empty():
+					var sfdf_deck: Array = sfdf_player.get(ZONE_DECK, [])
+					var sfdf_filter_subtype := str(effect.get("filter_subtype", ""))
+					var sfdf_filter_attribute := str(effect.get("filter_attribute", ""))
+					var sfdf_filter_type := str(effect.get("filter_card_type", CARD_TYPE_CREATURE))
+					var sfdf_candidates: Array = []
+					for sfdf_card in sfdf_deck:
+						if str(sfdf_card.get("card_type", "")) != sfdf_filter_type:
+							continue
+						if not sfdf_filter_subtype.is_empty():
+							var sfdf_subtypes = sfdf_card.get("subtypes", [])
+							if typeof(sfdf_subtypes) != TYPE_ARRAY or not sfdf_subtypes.has(sfdf_filter_subtype):
+								continue
+						if not sfdf_filter_attribute.is_empty():
+							var sfdf_attrs = sfdf_card.get("attributes", [])
+							if typeof(sfdf_attrs) != TYPE_ARRAY or not sfdf_attrs.has(sfdf_filter_attribute):
+								continue
+						sfdf_candidates.append(sfdf_card)
+					if not sfdf_candidates.is_empty():
+						var sfdf_idx := _deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_deck_filtered", sfdf_candidates.size())
+						var sfdf_target: Dictionary = sfdf_candidates[sfdf_idx]
+						sfdf_deck.erase(sfdf_target)
+						sfdf_target.erase("zone")
+						var sfdf_lane_id := _resolve_summon_lane_id(match_state, trigger, event, effect, sfdf_controller_id)
+						if not sfdf_lane_id.is_empty():
+							var sfdf_result := MatchMutations.summon_card_to_lane(match_state, sfdf_controller_id, sfdf_target, sfdf_lane_id, {"source_zone": ZONE_DECK})
+							if bool(sfdf_result.get("is_valid", false)):
+								generated_events.append_array(sfdf_result.get("events", []))
+								generated_events.append(_build_summon_event(sfdf_result["card"], sfdf_controller_id, sfdf_lane_id, int(sfdf_result.get("slot_index", -1)), reason))
+								_check_summon_effect_target_mode(match_state, sfdf_result["card"])
+			"summon_random_creature", "summon_random_by_cost":
+				var src_controller_id := str(trigger.get("controller_player_id", ""))
+				var src_result := ExtendedMechanicPacks.apply_custom_effect(match_state, trigger, event, effect)
+				if bool(src_result.get("handled", false)):
+					generated_events.append_array(src_result.get("events", []))
+			"deal_damage_and_heal":
+				var ddah_amount := int(effect.get("amount", 0))
+				var ddah_source_id := str(trigger.get("source_instance_id", ""))
+				var ddah_controller_id := str(trigger.get("controller_player_id", ""))
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					if ddah_amount <= 0:
+						continue
+					var ddah_result := EvergreenRules.apply_damage_to_creature(card, ddah_amount)
+					generated_events.append({
+						"event_type": EVENT_DAMAGE_RESOLVED,
+						"source_instance_id": ddah_source_id,
+						"target_instance_id": str(card.get("instance_id", "")),
+						"amount": ddah_amount,
+						"damage_kind": "ability",
+						"ward_removed": bool(ddah_result.get("ward_removed", false)),
+					})
+					if int(card.get("health", 0)) <= 0:
+						var ddah_destroy := MatchMutations.discard_card(match_state, str(card.get("instance_id", "")), {"reason": reason})
+						generated_events.append({
+							"event_type": EVENT_CREATURE_DESTROYED,
+							"instance_id": str(card.get("instance_id", "")),
+							"controller_player_id": str(card.get("controller_player_id", "")),
+							"killer_instance_id": ddah_source_id,
+						})
+						generated_events.append_array(ddah_destroy.get("events", []))
+						# Heal player for the damage amount
+						var ddah_player := _get_player_state(match_state, ddah_controller_id)
+						if not ddah_player.is_empty():
+							var ddah_heal := ddah_amount * _get_heal_multiplier(match_state, ddah_controller_id)
+							ddah_player["health"] = int(ddah_player.get("health", 0)) + ddah_heal
+							generated_events.append({"event_type": "player_healed", "source_instance_id": ddah_source_id, "target_player_id": ddah_controller_id, "amount": ddah_heal})
+			"steal_status":
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var ss_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+					if ss_source.is_empty():
+						continue
+					var ss_statuses: Array = card.get("status_markers", [])
+					if typeof(ss_statuses) != TYPE_ARRAY or ss_statuses.is_empty():
+						var ss_keywords: Array = card.get("granted_keywords", [])
+						if typeof(ss_keywords) == TYPE_ARRAY and not ss_keywords.is_empty():
+							var ss_kw: String = ss_keywords[0]
+							ss_keywords.erase(ss_kw)
+							EvergreenRules.ensure_card_state(ss_source)
+							var ss_granted: Array = ss_source.get("granted_keywords", [])
+							if not ss_granted.has(ss_kw):
+								ss_granted.append(ss_kw)
+								ss_source["granted_keywords"] = ss_granted
+							generated_events.append({"event_type": "keyword_stolen", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "keyword_id": ss_kw})
+					else:
+						var ss_status: String = ss_statuses[0]
+						EvergreenRules.remove_status(card, ss_status)
+						EvergreenRules.add_status(ss_source, ss_status)
+						generated_events.append({"event_type": "status_stolen", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "status_id": ss_status})
+			"destroy_and_transfer_keywords":
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var datk_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+					if datk_source.is_empty():
+						continue
+					var datk_keywords: Array = []
+					for kw in card.get("keywords", []):
+						datk_keywords.append(str(kw))
+					for kw in card.get("granted_keywords", []):
+						if not datk_keywords.has(str(kw)):
+							datk_keywords.append(str(kw))
+					var datk_destroy := MatchMutations.discard_card(match_state, str(card.get("instance_id", "")), {"reason": reason})
+					generated_events.append({"event_type": EVENT_CREATURE_DESTROYED, "instance_id": str(card.get("instance_id", "")), "controller_player_id": str(card.get("controller_player_id", "")), "killer_instance_id": str(trigger.get("source_instance_id", ""))})
+					generated_events.append_array(datk_destroy.get("events", []))
+					EvergreenRules.ensure_card_state(datk_source)
+					var datk_granted: Array = datk_source.get("granted_keywords", [])
+					for kw in datk_keywords:
+						if not datk_granted.has(kw):
+							datk_granted.append(kw)
+							generated_events.append({"event_type": "keyword_granted", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(datk_source.get("instance_id", "")), "keyword_id": kw})
+					datk_source["granted_keywords"] = datk_granted
+			"set_all_friendly_power_to_max":
+				var safptm_controller_id := str(trigger.get("controller_player_id", ""))
+				var safptm_max_power := 0
+				var safptm_friendlies := _player_lane_creatures(match_state, safptm_controller_id)
+				for card in safptm_friendlies:
+					var p := EvergreenRules.get_power(card)
+					if p > safptm_max_power:
+						safptm_max_power = p
+				for card in safptm_friendlies:
+					if EvergreenRules.get_power(card) < safptm_max_power:
+						card["power"] = safptm_max_power
+						card["base_power"] = safptm_max_power
+						EvergreenRules.ensure_card_state(card)
+						generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "reason": reason})
+			"modify_stats_per_keyword":
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var mspk_count := 0
+					for kw in card.get("keywords", []):
+						mspk_count += 1
+					for kw in card.get("granted_keywords", []):
+						mspk_count += 1
+					var mspk_power := int(effect.get("power_per_keyword", 0)) * mspk_count
+					var mspk_health := int(effect.get("health_per_keyword", 0)) * mspk_count
+					EvergreenRules.apply_stat_bonus(card, mspk_power, mspk_health, reason)
+					generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "power_bonus": mspk_power, "health_bonus": mspk_health, "reason": reason})
+			"copy_all_friendly_keywords":
+				var cafk_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+				if not cafk_source.is_empty():
+					var cafk_controller_id := str(cafk_source.get("controller_player_id", ""))
+					EvergreenRules.ensure_card_state(cafk_source)
+					var cafk_granted: Array = cafk_source.get("granted_keywords", [])
+					for card in _player_lane_creatures(match_state, cafk_controller_id):
+						if str(card.get("instance_id", "")) == str(cafk_source.get("instance_id", "")):
+							continue
+						for kw in card.get("keywords", []):
+							if not cafk_granted.has(str(kw)):
+								cafk_granted.append(str(kw))
+								generated_events.append({"event_type": "keyword_granted", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(cafk_source.get("instance_id", "")), "keyword_id": str(kw)})
+						for kw in card.get("granted_keywords", []):
+							if not cafk_granted.has(str(kw)):
+								cafk_granted.append(str(kw))
+								generated_events.append({"event_type": "keyword_granted", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(cafk_source.get("instance_id", "")), "keyword_id": str(kw)})
+					cafk_source["granted_keywords"] = cafk_granted
+			"return_equipped_items_to_hand":
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var reith_items: Array = card.get("attached_items", [])
+					var reith_ids: Array = []
+					for reith_item in reith_items:
+						reith_ids.append(str(reith_item.get("instance_id", "")))
+					for reith_id in reith_ids:
+						var reith_move := MatchMutations.move_card_to_zone(match_state, reith_id, ZONE_HAND, {"reason": reason})
+						generated_events.append({"event_type": "attached_item_detached", "source_instance_id": str(trigger.get("source_instance_id", "")), "host_instance_id": str(card.get("instance_id", "")), "item_instance_id": reith_id})
+						generated_events.append_array(reith_move.get("events", []))
+			"reequip_all_items_to":
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var rait_controller_id := str(card.get("controller_player_id", ""))
+					var rait_all_items: Array = []
+					for rait_friendly in _player_lane_creatures(match_state, rait_controller_id):
+						if str(rait_friendly.get("instance_id", "")) == str(card.get("instance_id", "")):
+							continue
+						for rait_item in rait_friendly.get("attached_items", []):
+							rait_all_items.append({"item": rait_item, "host": rait_friendly})
+					for rait_entry in rait_all_items:
+						var rait_item_id := str(rait_entry["item"].get("instance_id", ""))
+						var rait_result := MatchMutations.attach_item_to_creature(match_state, rait_controller_id, rait_item_id, str(card.get("instance_id", "")), {"reason": reason})
+						generated_events.append_array(rait_result.get("events", []))
+			"shuffle_all_creatures_into_deck":
+				var sacid_all := _all_lane_creatures(match_state)
+				var sacid_ids: Array = []
+				for card in sacid_all:
+					sacid_ids.append({"id": str(card.get("instance_id", "")), "controller": str(card.get("controller_player_id", ""))})
+				for entry in sacid_ids:
+					var sacid_move := MatchMutations.move_card_to_zone(match_state, entry["id"], ZONE_DECK, {"reason": reason})
+					generated_events.append_array(sacid_move.get("events", []))
+					var sacid_player := _get_player_state(match_state, entry["controller"])
+					if not sacid_player.is_empty():
+						var sacid_deck: Array = sacid_player.get(ZONE_DECK, [])
+						var sacid_card_idx := -1
+						for i in range(sacid_deck.size()):
+							if str(sacid_deck[i].get("instance_id", "")) == entry["id"]:
+								sacid_card_idx = i
+								break
+						if sacid_card_idx >= 0:
+							var sacid_card: Dictionary = sacid_deck[sacid_card_idx]
+							sacid_deck.remove_at(sacid_card_idx)
+							var sacid_new_pos := _deterministic_index(match_state, entry["id"] + "_shuffle_all", sacid_deck.size() + 1)
+							sacid_deck.insert(sacid_new_pos, sacid_card)
+			"draw_if_top_deck_subtype":
+				var ditds_controller_id := str(trigger.get("controller_player_id", ""))
+				var ditds_player := _get_player_state(match_state, ditds_controller_id)
+				if not ditds_player.is_empty():
+					var ditds_deck: Array = ditds_player.get(ZONE_DECK, [])
+					if not ditds_deck.is_empty():
+						var ditds_top: Dictionary = ditds_deck.back()
+						var ditds_filter_subtype := str(effect.get("filter_subtype", ""))
+						var ditds_subtypes = ditds_top.get("subtypes", [])
+						if typeof(ditds_subtypes) == TYPE_ARRAY and ditds_subtypes.has(ditds_filter_subtype):
+							var ditds_draw := draw_cards(match_state, ditds_controller_id, 1, {"reason": reason, "source_instance_id": str(trigger.get("source_instance_id", ""))})
+							generated_events.append_array(ditds_draw.get("events", []))
+			"gain_keywords_from_top_deck":
+				var gkftd_controller_id := str(trigger.get("controller_player_id", ""))
+				var gkftd_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+				var gkftd_player := _get_player_state(match_state, gkftd_controller_id)
+				if not gkftd_source.is_empty() and not gkftd_player.is_empty():
+					var gkftd_deck: Array = gkftd_player.get(ZONE_DECK, [])
+					var gkftd_count := int(effect.get("count", 3))
+					EvergreenRules.ensure_card_state(gkftd_source)
+					var gkftd_granted: Array = gkftd_source.get("granted_keywords", [])
+					for i in range(mini(gkftd_count, gkftd_deck.size())):
+						var gkftd_card: Dictionary = gkftd_deck[gkftd_deck.size() - 1 - i]
+						for kw in gkftd_card.get("keywords", []):
+							if not gkftd_granted.has(str(kw)):
+								gkftd_granted.append(str(kw))
+								generated_events.append({"event_type": "keyword_granted", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(gkftd_source.get("instance_id", "")), "keyword_id": str(kw)})
+					gkftd_source["granted_keywords"] = gkftd_granted
+			"repeat_slay_reward":
+				# This is handled as a support passive — mark the support as active
+				# The actual repeat logic needs to hook into slay resolution
+				var rsr_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+				if not rsr_source.is_empty():
+					rsr_source["_repeat_slay_active"] = true
+			"trigger_all_friendly_summons":
+				var tafs_controller_id := str(trigger.get("controller_player_id", ""))
+				var tafs_creatures := _player_lane_creatures(match_state, tafs_controller_id)
+				for card in tafs_creatures:
+					var tafs_lane_location := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
+					var tafs_lane_id := str(tafs_lane_location.get("lane_id", ""))
+					generated_events.append({
+						"event_type": EVENT_CREATURE_SUMMONED,
+						"player_id": tafs_controller_id,
+						"playing_player_id": tafs_controller_id,
+						"source_instance_id": str(card.get("instance_id", "")),
+						"source_controller_player_id": tafs_controller_id,
+						"lane_id": tafs_lane_id,
+						"reason": "trigger_all_friendly_summons",
+					})
+			"sacrifice_and_summon_from_deck":
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var sasd_controller_id := str(card.get("controller_player_id", ""))
+					var sasd_cost := int(card.get("cost", 0))
+					var sasd_target_cost := sasd_cost + int(effect.get("cost_offset", 1))
+					var sasd_location := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
+					var sasd_lane_id := str(sasd_location.get("lane_id", ""))
+					var sasd_sac := MatchMutations.sacrifice_card(match_state, sasd_controller_id, str(card.get("instance_id", "")), {"reason": reason})
+					generated_events.append_array(sasd_sac.get("events", []))
+					generated_events.append({"event_type": EVENT_CREATURE_DESTROYED, "instance_id": str(card.get("instance_id", "")), "controller_player_id": sasd_controller_id, "lane_id": sasd_lane_id})
+					var sasd_player := _get_player_state(match_state, sasd_controller_id)
+					if not sasd_player.is_empty():
+						var sasd_deck: Array = sasd_player.get(ZONE_DECK, [])
+						var sasd_candidates: Array = []
+						for sasd_card in sasd_deck:
+							if str(sasd_card.get("card_type", "")) == CARD_TYPE_CREATURE and int(sasd_card.get("cost", 0)) == sasd_target_cost:
+								sasd_candidates.append(sasd_card)
+						if not sasd_candidates.is_empty():
+							var sasd_idx := _deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_sac_summon", sasd_candidates.size())
+							var sasd_summon_target: Dictionary = sasd_candidates[sasd_idx]
+							sasd_deck.erase(sasd_summon_target)
+							sasd_summon_target.erase("zone")
+							if not sasd_lane_id.is_empty():
+								var sasd_result := MatchMutations.summon_card_to_lane(match_state, sasd_controller_id, sasd_summon_target, sasd_lane_id, {"source_zone": ZONE_DECK})
+								if bool(sasd_result.get("is_valid", false)):
+									generated_events.append_array(sasd_result.get("events", []))
+									generated_events.append(_build_summon_event(sasd_result["card"], sasd_controller_id, sasd_lane_id, int(sasd_result.get("slot_index", -1)), reason))
+									_check_summon_effect_target_mode(match_state, sasd_result["card"])
 			_:
 				var custom_result := ExtendedMechanicPacks.apply_custom_effect(match_state, trigger, event, effect)
 				if bool(custom_result.get("handled", false)):
@@ -4423,6 +4836,37 @@ static func _resolve_effect_template(match_state: Dictionary, trigger: Dictionar
 		return template
 	var source_cards := _resolve_card_targets_by_name(match_state, trigger, event, str(effect.get("source_target", "event_source")))
 	return {} if source_cards.is_empty() else source_cards[0].duplicate(true)
+
+
+static func _resolve_summon_lane_id(match_state: Dictionary, trigger: Dictionary, event: Dictionary, effect: Dictionary, controller_id: String) -> String:
+	var lane_id := str(effect.get("lane_id", effect.get("target_lane_id", "")))
+	if lane_id == "same":
+		lane_id = str(event.get("lane_id", ""))
+	if lane_id == "other_lane":
+		var source_lane := str(event.get("lane_id", ""))
+		for lane in match_state.get("lanes", []):
+			var lid := str(lane.get("lane_id", ""))
+			if lid != source_lane and not lid.is_empty():
+				lane_id = lid
+				break
+	if lane_id.is_empty() or lane_id == "other_lane":
+		var trigger_lane_index := int(trigger.get("lane_index", -1))
+		var lanes: Array = match_state.get("lanes", [])
+		if trigger_lane_index >= 0 and trigger_lane_index < lanes.size():
+			lane_id = str(lanes[trigger_lane_index].get("lane_id", ""))
+	if lane_id.is_empty():
+		# Fall back to lane with most open slots
+		var best_lane := ""
+		var best_open := -1
+		for lane in match_state.get("lanes", []):
+			var lid := str(lane.get("lane_id", ""))
+			var open_info := _get_lane_open_slots(match_state, lid, controller_id)
+			var open_count := int(open_info.get("open_slots", 0))
+			if open_count > best_open:
+				best_open = open_count
+				best_lane = lid
+		lane_id = best_lane
+	return lane_id
 
 
 static func _build_summon_event(card: Dictionary, player_id: String, lane_id: String, slot_index: int, reason: String) -> Dictionary:

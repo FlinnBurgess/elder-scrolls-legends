@@ -1,0 +1,128 @@
+# Pending UX Work for New Engine Ops
+
+New ops and target modes implemented in match_timing.gd/extended_mechanic_packs.gd that need UX work in the match screen to be fully polished during play. Grouped by priority.
+
+## Blocking — Player Cannot Understand What Happened
+
+### 1. `destroy_creature_end_of_turn` — No "doomed" visual indicator
+- Event: `marked_for_destruction`
+- The card gets `_destroy_at_end_of_turn` set but nothing visual changes. Player cannot see which creature will die at end of turn.
+- **Need:** A persistent visual indicator on the card (skull icon, red border, "DOOMED" banner) that shows until the creature is destroyed.
+- Cards: Blood Pact Messenger
+
+### 2. Optional targeting — No visible Skip button
+- Target modes: `enemy_creature_optional`, `another_friendly_creature_optional`
+- Escape key cancels, but there's no visible Skip button like Betray has (`_betray_skip_button`).
+- **Need:** A "Skip" button in the targeting UI when `_is_pending_summon_mandatory()` returns false.
+- Cards: Spear of Embers, Xavara Atronach
+
+## High — Effects Fire But No Visual Feedback
+
+These all work mechanically (state updates, `_refresh_ui` shows new values) but produce no animated feedback. The player sees the result but not the cause.
+
+### 3. `stats_modified` events from `set_health`, `set_power_to_health`, `double_health`
+- These stat-change events aren't in `_record_feedback_from_events`.
+- **Need:** Floating stat-change popup on affected creature (green "+N/+N" or "SET 6/6").
+- Cards: Xivkyn Banelord, Three Feather Warchief, The Mechanical Heart, Steel-Eyed Visionary, Ring of Imaginary Might, Ring of the Beast
+
+### 4. `status_removed` from `remove_status`
+- Not in feedback pump.
+- **Need:** Floating text on creature ("COVER REMOVED", "SHACKLE REMOVED").
+- Cards: Sound the Alarm, Underworld Vigilante, Grappling Hook, Shining Saint, Vale Sabre Cat
+
+### 5. `card_stolen_from_discard` from `steal_from_discard` / `draw_from_opponent_discard`
+- Card silently appears in hand.
+- **Need:** Draw-style feedback toast ("Stole [card] from opponent's discard").
+- Cards: Mausoleum Delver, The Gray Fox
+
+### 6. `cost_modified` from `modify_cost` / `reduce_cost_top_of_deck`
+- Cost changes silently in hand or deck.
+- **Need:** Brief highlight/popup on the affected hand card. For top-of-deck, a toast near the deck.
+- Cards: Karthspire Scout, Skyshard, Cyriel
+
+### 7. `item_in_hand_modified` from `modify_item_in_hand` / `modify_random_item_in_hand`
+- Item stats change silently in hand.
+- **Need:** Highlight flash on the buffed hand card with "+X/+Y" popup.
+- Cards: Covenant Oathman, Seasoned Captain
+
+### 8. `attached_item_detached` from `destroy_item`
+- Item silently disappears from host creature.
+- **Need:** "ITEM DESTROYED" feedback banner on the host creature.
+- Cards: Fork of Horripilation
+
+## Medium — Toast/Log Feedback Missing
+
+These are zone-change operations where cards move between zones silently. The state is correct but there's no announcement.
+
+### 9. `card_milled` from `mill`
+- Deck silently shrinks, cards go to discard with no toast.
+- **Need:** "Milled X card(s)" toast near the affected player's deck.
+- Cards: Ruin Shambler, Seeker of the Black Arts
+
+### 10. `magicka_restored` from `restore_magicka`
+- Magicka bar updates silently.
+- **Need:** Brief flash/highlight on magicka orbs or "+N magicka" popup.
+- Cards: Invoker of the Hist
+
+### 11. `card_shuffled_to_deck` from `shuffle_into_deck` / `shuffle_copies_into_deck` / `shuffle_self_into_deck`
+- Cards silently enter deck; creature silently leaves lane for shuffle_self.
+- **Need:** Toast ("Shuffled [card] into deck"). For shuffle_self, a removal animation.
+- Cards: Baandari Opportunist, Skeever Infestation, Shadowmere, Conjuration Tutor
+
+### 12. `card_banished` from `banish_discard_pile` / `banish_from_opponent_deck` / `banish_by_name_from_opponent`
+- Discard/deck silently shrinks.
+- **Need:** Toast ("Banished N card(s)").
+- Cards: Memory Wraith, Soul Shred, Piercing Twilight
+
+### 13. `discard_from_hand` / `discard_random`
+- Card leaves hand with no notification.
+- **Need:** Toast ("Discarded [card name]") or hand-card removal animation.
+- Cards: Palace Conspirator, Grummite Magus, Discerning Thief
+
+## Low — Polish/Cosmetic
+
+### 14. `deal_damage_to_lane` — No lane-wide AOE flash
+- Individual damage popups DO fire (damage_resolved is handled). But no visual to communicate it's an AOE effect hitting the whole lane simultaneously.
+- **Nice to have:** Lane flash/pulse effect before individual damage popups.
+- Cards: Unstoppable Rage
+
+---
+
+## Tier 2 Additions (2026-03-22)
+
+### Mostly Covered by Existing Feedback
+
+The following Tier 2 ops produce events that are already handled:
+- **Summon ops** (summon_from_discard_highest_cost, summon_from_opponent_discard, summon_top_creature_from_deck, summon_from_deck_by_cost, summon_from_deck_filtered, sacrifice_and_summon_from_deck) — produce `creature_summoned` events, already animated
+- **deal_damage_and_heal** — produces `damage_resolved`, `creature_destroyed`, `player_healed` — all handled
+- **trigger_all_friendly_summons** — re-emits `creature_summoned` events, existing animations fire
+
+### New UX Gaps from Tier 2
+
+#### 15. `steal_status` / `keyword_stolen` / `status_stolen`
+- New event types not in feedback pump.
+- **Need:** "STOLE [keyword]" floating text on both source and target creatures.
+- Cards: Back-Alley Rogue
+
+#### 16. `destroy_and_transfer_keywords`
+- Destruction feedback fires, but keyword grants are silent.
+- **Need:** Keyword grant feedback after destruction animation.
+- Cards: Feed
+
+#### 17. `shuffle_all_creatures_into_deck`
+- All creatures silently leave lanes. No `creature_destroyed` events (they're moved, not destroyed).
+- **Need:** Lane-clearing animation and "All creatures shuffled into decks" toast.
+- Cards: A New Era
+
+#### 18. `trigger_all_friendly_summons` — re-trigger feedback
+- Summon events fire individually but no "Re-triggering all summon abilities" announcement.
+- **Nice to have:** Toast before the individual summons fire.
+- Cards: Ulfric's Uprising
+
+#### 19. Summon-from-deck/discard ops — no source indication
+- Creatures appear in lane from deck/discard but there's no "from deck" / "from discard" indicator.
+- **Nice to have:** Deck/discard glow when a card is pulled from it.
+- Cards: Gravesinger, Mannimarco, Sails-Through-Storms, Chanter of Akatosh, Halls of Colossus, Altar of Despair
+
+### New Trigger Families — No UX Impact
+The 10 new trigger families (on_card_drawn, on_enemy_summon, etc.) don't need UX work — they reuse existing event infrastructure. When they fire effects, those effects produce their own events which are handled by existing feedback.

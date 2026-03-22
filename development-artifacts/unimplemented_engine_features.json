@@ -10,9 +10,10 @@
     "unhandled_passive_abilities": 12,
     "unhandled_cost_reduction_auras": 5,
     "other_unhandled_mechanisms": 3,
-    "implemented_ops": 25,
+    "implemented_ops": 44,
     "implemented_target_modes": 6,
-    "implemented_action_target_modes": 5
+    "implemented_action_target_modes": 5,
+    "implemented_families": 10
   },
   "unimplemented_ops": [
     {
@@ -74,7 +75,7 @@
     },
     {
       "op": "reequip_all_items_to",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "aw_int_telekinesis"
       ],
@@ -122,7 +123,7 @@
     },
     {
       "op": "summon_from_deck_by_cost",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "db_wil_chanter_of_akatosh"
       ],
@@ -162,7 +163,7 @@
     },
     {
       "op": "repeat_slay_reward",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "db_agi_brotherhood_sanctuary"
       ],
@@ -199,7 +200,7 @@
     },
     {
       "op": "steal_status",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "cwc_agi_back_alley_rogue"
       ],
@@ -380,7 +381,7 @@
     },
     {
       "op": "trigger_all_friendly_summons",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "fhc_neu_ulfrics_uprising"
       ],
@@ -397,7 +398,7 @@
     },
     {
       "op": "gain_keywords_from_top_deck",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "mhc_neu_illusory_mimic"
       ],
@@ -421,7 +422,7 @@
     },
     {
       "op": "sacrifice_and_summon_from_deck",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "mhc_neu_altar_of_despair"
       ],
@@ -715,7 +716,7 @@
     },
     {
       "op": "deal_damage_and_heal",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "mc_dual_flame_lash"
       ],
@@ -723,7 +724,7 @@
     },
     {
       "op": "set_all_friendly_power_to_max",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "mc_str_giants_camp"
       ],
@@ -739,7 +740,7 @@
     },
     {
       "op": "modify_stats_per_keyword",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "mc_int_battlereeve_of_dusk"
       ],
@@ -787,7 +788,7 @@
     },
     {
       "op": "copy_all_friendly_keywords",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "joo_int_attuned_dremora"
       ],
@@ -836,7 +837,7 @@
     },
     {
       "op": "summon_from_discard_highest_cost",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "db_end_gravesinger"
       ],
@@ -844,7 +845,7 @@
     },
     {
       "op": "summon_from_opponent_discard",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "aw_end_mannimarco"
       ],
@@ -852,7 +853,7 @@
     },
     {
       "op": "summon_from_deck_filtered",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "moe_wil_halls_of_colossus",
         "joo_wil_worldly_wanderer"
@@ -861,7 +862,7 @@
     },
     {
       "op": "summon_top_creature_from_deck",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "cwc_agi_sails_through_storms",
         "iom_int_transmogrify"
@@ -912,7 +913,7 @@
     },
     {
       "op": "shuffle_all_creatures_into_deck",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "tc_tri_a_new_era"
       ],
@@ -920,7 +921,7 @@
     },
     {
       "op": "destroy_and_transfer_keywords",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "tc_wil_feed"
       ],
@@ -936,7 +937,7 @@
     },
     {
       "op": "draw_if_top_deck_subtype",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "tc_agi_obstinate_goat"
       ],
@@ -992,7 +993,7 @@
     },
     {
       "op": "return_equipped_items_to_hand",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "aw_tri_daggerfall_phantom"
       ],
@@ -1042,7 +1043,7 @@
   "unimplemented_families": [
     {
       "family": "on_card_drawn",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "hos_int_arcane_enchanter",
         "hos_int_echo_of_akatosh",
@@ -1087,7 +1088,7 @@
     },
     {
       "family": "on_enemy_summon",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "hom_wil_shrine_guardian",
         "aw_neu_the_ruby_throne",
@@ -1097,7 +1098,7 @@
     },
     {
       "family": "on_friendly_equip",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "aw_int_emerics_warlord",
         "aw_int_sparksmith",
@@ -1107,7 +1108,7 @@
     },
     {
       "family": "on_keyword_gained",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "aw_int_nereid_sister",
         "joo_int_dremora_adept",
@@ -1134,7 +1135,7 @@
     },
     {
       "family": "on_friendly_card_played",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "mhc_agi_swindlers_market"
       ],
@@ -1150,7 +1151,7 @@
     },
     {
       "family": "on_friendly_power_gain",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "joo_str_marauder_chieftain"
       ],
@@ -1166,7 +1167,7 @@
     },
     {
       "family": "on_friendly_support_played",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "moe_wil_cygnus_standard_bearer"
       ],
@@ -1230,7 +1231,7 @@
     },
     {
       "family": "on_opponent_damaged",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "tc_tri_aldmeri_spellwright"
       ],
@@ -1238,7 +1239,7 @@
     },
     {
       "family": "on_opponent_turn",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "joo_agi_arenthia_guerrilla"
       ],
@@ -1336,7 +1337,7 @@
     },
     {
       "family": "after_card_played",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "hom_tri_duke_vedam_dren"
       ],
