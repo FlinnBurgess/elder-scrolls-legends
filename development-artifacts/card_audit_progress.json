@@ -500,72 +500,72 @@
     {
       "card_id": "int_ice_storm",
       "card_name": "Ice Storm",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_ice_wraith",
       "card_name": "Ice Wraith",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_indoril_archmage",
       "card_name": "Indoril Archmage",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_keeper_of_whispers",
       "card_name": "Keeper of Whispers",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_lesser_ward",
       "card_name": "Lesser Ward",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_lightning_bolt",
       "card_name": "Lightning Bolt",
-      "status": "pending"
+      "status": "fixed"
     },
     {
       "card_id": "int_lillandril_hexmage",
       "card_name": "Lillandril Hexmage",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_mace_of_encumbrance",
       "card_name": "Mace of Encumbrance",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_mages_guild_retreat",
       "card_name": "Mages Guild Retreat",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_master_of_arms",
       "card_name": "Master of Arms",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_mentors_ring",
       "card_name": "Mentor's Ring",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_moment_of_clarity",
       "card_name": "Moment of Clarity",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_nahkriin_dragon_priest",
       "card_name": "Nahkriin, Dragon Priest",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_niben_bay_cutthroat",
       "card_name": "Niben Bay Cutthroat",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_redoran_enforcer",
@@ -575,82 +575,82 @@
     {
       "card_id": "int_royal_sage",
       "card_name": "Royal Sage",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_shimmerene_peddler",
       "card_name": "Shimmerene Peddler",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_shocking_wamasu",
       "card_name": "Shocking Wamasu",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_shrieking_harpy",
       "card_name": "Shrieking Harpy",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_skilled_blacksmith",
       "card_name": "Skilled Blacksmith",
-      "status": "pending"
+      "status": "fixed"
     },
     {
       "card_id": "int_soul_split",
       "card_name": "Soul Split",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_staff_of_sparks",
       "card_name": "Staff of Sparks",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_steel_sword",
       "card_name": "Steel Sword",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_studium_headmaster",
       "card_name": "Studium Headmaster",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_summerset_orrery",
       "card_name": "Summerset Orrery",
-      "status": "pending"
+      "status": "fixed"
     },
     {
       "card_id": "int_supreme_atromancer",
       "card_name": "Supreme Atromancer",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_telvanni_arcanist",
       "card_name": "Telvanni Arcanist",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_tome_of_alteration",
       "card_name": "Tome of Alteration",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_wardcrafter",
       "card_name": "Wardcrafter",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_winters_grasp",
       "card_name": "Winter's Grasp",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_wisdom_of_ancients",
       "card_name": "Wisdom of Ancients",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_wispmother",
