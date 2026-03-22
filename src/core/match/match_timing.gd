@@ -2768,6 +2768,34 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"new_power": EvergreenRules.get_power(card),
 						"reason": reason,
 					})
+			"summon_from_discard":
+				var sfd_controller := str(trigger.get("controller_player_id", ""))
+				var sfd_chosen_id := str(trigger.get("_chosen_target_id", ""))
+				if sfd_chosen_id.is_empty():
+					continue
+				var sfd_player := _get_player_state(match_state, sfd_controller)
+				if sfd_player.is_empty():
+					continue
+				var sfd_discard: Array = sfd_player.get(ZONE_DISCARD, [])
+				var sfd_card: Dictionary = {}
+				var sfd_idx := -1
+				for di in range(sfd_discard.size()):
+					if typeof(sfd_discard[di]) == TYPE_DICTIONARY and str(sfd_discard[di].get("instance_id", "")) == sfd_chosen_id:
+						sfd_card = sfd_discard[di]
+						sfd_idx = di
+						break
+				if sfd_card.is_empty() or sfd_idx < 0:
+					continue
+				sfd_discard.remove_at(sfd_idx)
+				var sfd_source_id := str(trigger.get("source_instance_id", ""))
+				var sfd_source_loc := MatchMutations.find_card_location(match_state, sfd_source_id)
+				var sfd_lane_id := str(sfd_source_loc.get("lane_id", ""))
+				if sfd_lane_id.is_empty():
+					sfd_lane_id = str(event.get("lane_id", "field"))
+				var sfd_summon := MatchMutations.summon_card_to_lane(match_state, sfd_controller, sfd_card, sfd_lane_id, {"source_zone": ZONE_DISCARD})
+				if bool(sfd_summon.get("is_valid", false)):
+					generated_events.append_array(sfd_summon.get("events", []))
+					generated_events.append(_build_summon_event(sfd_summon["card"], sfd_controller, sfd_lane_id, int(sfd_summon.get("slot_index", -1)), "summon_from_discard"))
 			"delayed_destroy":
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					var dd_pending: Array = match_state.get("pending_delayed_destroys", [])
