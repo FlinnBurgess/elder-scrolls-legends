@@ -5677,6 +5677,31 @@ func _record_feedback_from_events(events: Array) -> void:
 				_queue_creature_toast(str(event.get("target_instance_id", "")), "→ %s" % str(event.get("attribute", "")).capitalize(), Color(0.7, 0.6, 0.9))
 			"card_shuffled_to_deck":
 				_queue_status_toast("Card shuffled into deck", Color(0.5, 0.5, 0.6))
+			"card_banished":
+				_queue_status_toast("Card banished", Color(0.6, 0.3, 0.6))
+			"stats_modified":
+				var sm_target_id := str(event.get("target_instance_id", ""))
+				var sm_power := int(event.get("power_bonus", 0))
+				var sm_health := int(event.get("health_bonus", 0))
+				if (sm_power != 0 or sm_health != 0) and not sm_target_id.is_empty():
+					var sm_sign_p := "+" if sm_power >= 0 else ""
+					var sm_sign_h := "+" if sm_health >= 0 else ""
+					var sm_color := Color(0.3, 0.9, 0.4) if (sm_power >= 0 and sm_health >= 0) else Color(0.9, 0.3, 0.3)
+					_queue_creature_toast(sm_target_id, "%s%d/%s%d" % [sm_sign_p, sm_power, sm_sign_h, sm_health], sm_color)
+			"attached_item_detached":
+				_queue_creature_toast(str(event.get("host_instance_id", "")), "ITEM DESTROYED", Color(0.9, 0.4, 0.2))
+			"card_discarded":
+				_queue_status_toast("Card discarded", Color(0.6, 0.4, 0.4))
+			"card_stolen":
+				_queue_status_toast("Card stolen!", Color(0.9, 0.6, 0.2))
+			"card_consumed":
+				_queue_status_toast("Creature consumed", Color(0.5, 0.3, 0.6))
+			"keyword_granted":
+				var kg_kw := str(event.get("keyword_id", "")).to_upper()
+				if not kg_kw.is_empty():
+					_queue_creature_toast(str(event.get("target_instance_id", "")), "+%s" % kg_kw, Color(0.4, 0.8, 0.5))
+			"ability_granted":
+				_queue_creature_toast(str(event.get("target_instance_id", "")), "+ABILITY", Color(0.5, 0.7, 0.9))
 
 
 func _apply_presentation_feedback() -> void:
@@ -7209,6 +7234,8 @@ func _check_summon_target_mode(source_instance_id: String) -> void:
 	_selected_instance_id = source_instance_id
 	_enter_targeting_mode(source_instance_id)
 	_status_message = _summon_target_prompt(card, abilities)
+	if not _is_pending_summon_mandatory():
+		_show_summon_skip_button()
 	_refresh_ui()
 
 
@@ -7225,6 +7252,7 @@ func _resolve_summon_target_card(target_instance_id: String) -> void:
 		return
 	var is_effect_summon := bool(_pending_summon_target.get("is_effect_summon", false))
 	_pending_summon_target = {}
+	_dismiss_summon_skip_button()
 	_cancel_targeting_mode_silent()
 	if is_effect_summon:
 		var result := MatchTiming.resolve_pending_summon_effect_target(_match_state, _local_player_id(), {"target_instance_id": target_instance_id})
@@ -7274,6 +7302,7 @@ func _cancel_summon_target_mode() -> void:
 	if bool(_pending_summon_target.get("is_effect_summon", false)):
 		MatchTiming.decline_pending_summon_effect_target(_match_state, _local_player_id())
 	_pending_summon_target = {}
+	_dismiss_summon_skip_button()
 	_cancel_targeting_mode()
 	_status_message = "Effect declined."
 	_refresh_ui()
@@ -7303,6 +7332,8 @@ func _check_pending_summon_effect_target() -> void:
 	_enter_targeting_mode(source_id)
 	var abilities := MatchTiming.get_target_mode_abilities(card)
 	_status_message = _summon_target_prompt(card, abilities)
+	if not _is_pending_summon_mandatory():
+		_show_summon_skip_button()
 	_refresh_ui()
 
 
@@ -7333,6 +7364,38 @@ func _check_betray_mode(action_instance_id: String, action_card: Dictionary) -> 
 	var card_name := str(action_card.get("name", ""))
 	_status_message = "Sacrifice a creature to play %s again." % card_name
 	_refresh_ui()
+
+
+var _summon_skip_button: Button = null
+
+
+func _show_summon_skip_button() -> void:
+	_dismiss_summon_skip_button()
+	var viewport_size := get_viewport_rect().size
+	_summon_skip_button = Button.new()
+	_summon_skip_button.text = "Skip"
+	_summon_skip_button.custom_minimum_size = Vector2(120, 44)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.25, 0.22, 0.28, 0.92)
+	style.border_color = Color(0.6, 0.55, 0.65, 0.8)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(6)
+	style.set_content_margin_all(8)
+	_summon_skip_button.add_theme_stylebox_override("normal", style)
+	_summon_skip_button.add_theme_stylebox_override("hover", style)
+	_summon_skip_button.add_theme_stylebox_override("pressed", style)
+	_summon_skip_button.add_theme_color_override("font_color", Color(0.9, 0.88, 0.92, 1.0))
+	_summon_skip_button.add_theme_font_size_override("font_size", 16)
+	_summon_skip_button.pressed.connect(_cancel_summon_target_mode)
+	_summon_skip_button.z_index = 600
+	add_child(_summon_skip_button)
+	_summon_skip_button.position = Vector2(viewport_size.x * 0.5 - 60, viewport_size.y * 0.5 + 40)
+
+
+func _dismiss_summon_skip_button() -> void:
+	if _summon_skip_button != null and is_instance_valid(_summon_skip_button):
+		_summon_skip_button.queue_free()
+	_summon_skip_button = null
 
 
 func _show_betray_skip_button() -> void:
