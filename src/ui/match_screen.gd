@@ -4309,6 +4309,16 @@ static func _rewrite_empower_rules_line(line: String, abilities: Array) -> Strin
 				var result := regex.sub(line, "%d-cost creature" % max_cost)
 				if result != line:
 					return result
+			elif op == "summon_from_effect" and int(effect.get("empower_stat_bonus", 0)) > 0:
+				var tmpl = effect.get("card_template", {})
+				if typeof(tmpl) == TYPE_DICTIONARY:
+					var p := int(tmpl.get("power", 0))
+					var h := int(tmpl.get("health", 0))
+					var regex := RegEx.new()
+					regex.compile("\\d+/\\d+ Recruit")
+					var result := regex.sub(line, "%d/%d Recruit" % [p, h])
+					if result != line:
+						return result
 	return line
 
 

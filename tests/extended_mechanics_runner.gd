@@ -32,6 +32,9 @@ func _run_all_tests() -> bool:
 		_test_empower_add_support_uses() and
 		_test_empower_summon_stat_bonus() and
 		_test_empower_resets_at_end_of_turn() and
+		_test_empower_summon_random_cost_scaling() and
+		_test_empower_banish_per_attribute() and
+		_test_empower_permanent_across_turns() and
 		_test_invade_and_shout_pack() and
 		_test_treasure_hunt_and_consume_pack() and
 		_test_wax_and_wane_pack()
@@ -476,6 +479,99 @@ func _test_empower_resets_at_end_of_turn() -> bool:
 		_assert(empower_before == 2, "Empower count should be 2 after 2 damage instances, got %d." % empower_before) and
 		_assert(empower_after == 0, "Empower should reset to 0 after turn ends, got %d." % empower_after) and
 		_assert(target_health == 7, "After reset, empower deal_damage should only do base 3 damage, target should have 7hp, got %d." % target_health)
+	)
+
+
+func _test_empower_summon_random_cost_scaling() -> bool:
+	# Wish style: summon_random_creature with max_cost scaled by empower
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Deal damage 3 times = empower count 3
+	for i in range(3):
+		var ping := ScenarioFixtures.add_hand_card(player, "ping_src_%d" % i, {"card_type": "action", "cost": 0, "triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "damage", "target_player": "target_player", "amount": 1}]}]})
+		MatchTiming.play_action_from_hand(match_state, pid, str(ping.get("instance_id", "")), {"target_player_id": oid})
+	# Count creatures in lanes before
+	var creatures_before := 0
+	for lane in match_state.get("lanes", []):
+		creatures_before += lane.get("player_slots", {}).get(pid, []).size()
+	# Play summon_random_creature: max_cost=2, empower_bonus_cost=1, empower=3 -> max_cost=5
+	var wish := ScenarioFixtures.add_hand_card(player, "empower_wish", {"card_type": "action", "cost": 0, "triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "summon_random_creature", "max_cost": 2, "empower_bonus_cost": 1}]}]})
+	MatchTiming.play_action_from_hand(match_state, pid, str(wish.get("instance_id", "")))
+	# Count after — should have 1 more creature
+	var creatures_after := 0
+	var summoned_cost := -1
+	for lane in match_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(pid, []):
+			creatures_after += 1
+			if str(card.get("instance_id", "")).contains("generated"):
+				summoned_cost = int(card.get("cost", 0))
+	return (
+		_assert(creatures_after == creatures_before + 1, "Empower summon_random_creature should summon exactly 1 creature.") and
+		_assert(summoned_cost >= 0 and summoned_cost <= 5, "Empower summon: max_cost 2 + 3 empower = 5, summoned cost %d should be <= 5." % summoned_cost)
+	)
+
+
+func _test_empower_banish_per_attribute() -> bool:
+	# Soul Shred style: banish count_per_attribute cards, empower adds to per-attribute count
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Give opponent deck with 2 attributes (intelligence, strength) — 10 cards total
+	opponent["deck"] = []
+	for i in range(5):
+		opponent["deck"].append(ScenarioFixtures.make_card(oid, "int_card_%d" % i, {"zone": "deck", "card_type": "creature", "attributes": ["intelligence"]}))
+	for i in range(5):
+		opponent["deck"].append(ScenarioFixtures.make_card(oid, "str_card_%d" % i, {"zone": "deck", "card_type": "creature", "attributes": ["strength"]}))
+	var initial_deck_size: int = opponent["deck"].size()
+	# Deal damage once = empower count 1
+	var ping := ScenarioFixtures.add_hand_card(player, "ping_bpa", {"card_type": "action", "cost": 0, "triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "damage", "target_player": "target_player", "amount": 1}]}]})
+	MatchTiming.play_action_from_hand(match_state, pid, str(ping.get("instance_id", "")), {"target_player_id": oid})
+	# Play banish: count_per_attribute=2, empower_bonus=1, empower=1 -> 3 per attribute * 2 attributes = 6 banished
+	var shred := ScenarioFixtures.add_hand_card(player, "empower_shred", {"card_type": "action", "cost": 0, "triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "banish_from_opponent_deck", "count_per_attribute": 2, "empower_bonus": 1}]}]})
+	MatchTiming.play_action_from_hand(match_state, pid, str(shred.get("instance_id", "")))
+	var remaining_deck_size: int = opponent["deck"].size()
+	var banished_count: int = initial_deck_size - remaining_deck_size
+	return _assert(banished_count == 6, "Empower banish: (2 base + 1 empower) * 2 attributes = 6 banished, got %d." % banished_count)
+
+
+func _test_empower_permanent_across_turns() -> bool:
+	# Mystic of Ancient Rites: empower bonuses persist across turns
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Summon a creature with permanent_empower passive
+	ScenarioFixtures.summon_creature(player, match_state, "mystic", "field", 2, 3, [], -1, {
+		"passive_abilities": [{"type": "permanent_empower"}],
+	})
+	# Deal damage twice = empower count 2
+	for i in range(2):
+		var ping := ScenarioFixtures.add_hand_card(player, "ping_perm_%d" % i, {"card_type": "action", "cost": 0, "triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "damage", "target_player": "target_player", "amount": 1}]}]})
+		MatchTiming.play_action_from_hand(match_state, pid, str(ping.get("instance_id", "")), {"target_player_id": oid})
+	# End turn (empower_count=2 should be accumulated into _permanent_empower_accumulated)
+	MatchTurnLoop.end_turn(match_state, pid)
+	MatchTurnLoop.end_turn(match_state, oid)
+	# New turn: empower_count_this_turn reset to 0, but _permanent_empower_accumulated = 2
+	var empower_count := int(player.get("empower_count_this_turn", 0))
+	var permanent_accumulated := int(player.get("_permanent_empower_accumulated", 0))
+	# Deal 1 more damage this turn = empower count 1, total empower = 1 + 2 = 3
+	var ping_new := ScenarioFixtures.add_hand_card(player, "ping_perm_new", {"card_type": "action", "cost": 0, "triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "damage", "target_player": "target_player", "amount": 1}]}]})
+	MatchTiming.play_action_from_hand(match_state, pid, str(ping_new.get("instance_id", "")), {"target_player_id": oid})
+	# Play empowered action: base 3 + empower_bonus 1 * total_empower 3 = 6 damage
+	var target := _summon_generated_creature(match_state, oid, "perm_target", "field", 1, 10)
+	var storm := ScenarioFixtures.add_hand_card(player, "perm_storm", {"card_type": "action", "cost": 0, "triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "deal_damage", "target": "event_target", "amount": 3, "empower_bonus": 1}]}]})
+	MatchTiming.play_action_from_hand(match_state, pid, str(storm.get("instance_id", "")), {"target_instance_id": str(target.get("instance_id", ""))})
+	var target_health := EvergreenRules.get_remaining_health(target)
+	return (
+		_assert(empower_count == 0, "Empower count should reset to 0 at start of new turn, got %d." % empower_count) and
+		_assert(permanent_accumulated == 2, "Permanent empower should accumulate 2 from previous turn, got %d." % permanent_accumulated) and
+		_assert(target_health == 4, "Permanent empower: base 3 + (1+2) empower = 6 damage, 10hp target should have 4hp, got %d." % target_health)
 	)
 
 
