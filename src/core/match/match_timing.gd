@@ -2768,6 +2768,27 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"new_power": EvergreenRules.get_power(card),
 						"reason": reason,
 					})
+			"buff_creatures_in_deck", "buff_creatures_in_discard", "buff_items_in_deck":
+				var bcid_power := int(effect.get("power", 0))
+				var bcid_health := int(effect.get("health", 0))
+				var bcid_controller := str(trigger.get("controller_player_id", ""))
+				var bcid_player := _get_player_state(match_state, bcid_controller)
+				if not bcid_player.is_empty():
+					var bcid_zone_name := ZONE_DISCARD if op == "buff_creatures_in_discard" else ZONE_DECK
+					var bcid_zone: Array = bcid_player.get(bcid_zone_name, [])
+					var bcid_filter_type := "item" if op == "buff_items_in_deck" else "creature"
+					var bcid_filter_subtype := str(effect.get("filter_subtype", ""))
+					for card in bcid_zone:
+						if typeof(card) != TYPE_DICTIONARY:
+							continue
+						if str(card.get("card_type", "")) != bcid_filter_type:
+							continue
+						if not bcid_filter_subtype.is_empty():
+							var subtypes: Array = card.get("subtypes", [])
+							if typeof(subtypes) != TYPE_ARRAY or not subtypes.has(bcid_filter_subtype):
+								continue
+						EvergreenRules.apply_stat_bonus(card, bcid_power, bcid_health, reason)
+					generated_events.append({"event_type": "zone_buffed", "player_id": bcid_controller, "zone": bcid_zone_name, "power": bcid_power, "health": bcid_health, "reason": reason})
 			"discard_hand":
 				for player_id in _resolve_player_targets(match_state, trigger, event, effect):
 					var player := _get_player_state(match_state, player_id)
