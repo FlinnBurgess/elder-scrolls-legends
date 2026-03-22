@@ -1024,6 +1024,26 @@ static func resolve_pending_player_choice(match_state: Dictionary, player_id: St
 	patched_descriptor["effects"] = chosen_effects
 	patched_trigger["descriptor"] = patched_descriptor
 	events.append_array(_apply_effects(match_state, patched_trigger, event, {}))
+	# choose_two: re-queue a second choice with the chosen option removed
+	var remaining := int(choice.get("_choose_two_remaining", 0))
+	if remaining > 0:
+		var new_options: Array = choice.get("options", []).duplicate(true)
+		var new_effects: Array = effects_per_option.duplicate(true)
+		if chosen_index < new_options.size():
+			new_options.remove_at(chosen_index)
+		if chosen_index < new_effects.size():
+			new_effects.remove_at(chosen_index)
+		if new_options.size() > 0 and new_effects.size() > 0:
+			choices.append({
+				"player_id": player_id,
+				"source_instance_id": str(choice.get("source_instance_id", "")),
+				"prompt": "Choose the second ability.",
+				"options": new_options,
+				"effects_per_option": new_effects,
+				"trigger": trigger.duplicate(true),
+				"event": event.duplicate(true),
+				"_choose_two_remaining": remaining - 1,
+			})
 	var timing_result := publish_events(match_state, events)
 	return {
 		"is_valid": true,

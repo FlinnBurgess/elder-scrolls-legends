@@ -139,10 +139,8 @@ The 10 new trigger families (on_card_drawn, on_enemy_summon, etc.) don't need UX
 #### ~~21. `_on_player_choice_selected` drops events from resolved choices~~ FIXED
 - **Fixed in commit below.** Added `_record_feedback_from_events` call after `resolve_pending_player_choice`.
 
-#### 22. `choose_two` — No second-choice re-prompt
-- Cards: Assembled Titan
-- After the first choice resolves via `pending_player_choices`, the code sets `_choose_two_remaining: 1` but `resolve_pending_player_choice` doesn't re-queue a second choice. The second ability is never selected.
-- **Need:** `resolve_pending_player_choice` must detect `_choose_two_remaining > 0` and re-queue a new pending choice (minus the already-chosen option) with decremented count.
+#### ~~22. `choose_two` — No second-choice re-prompt~~ FIXED
+- **Fixed in commit below.** `resolve_pending_player_choice` now detects `_choose_two_remaining > 0` and re-queues a new choice with the chosen option removed and remaining decremented.
 
 ### Critical — Core Mechanic Has No Feedback
 
