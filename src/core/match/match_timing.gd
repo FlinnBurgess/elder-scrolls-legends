@@ -2768,6 +2768,37 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"new_power": EvergreenRules.get_power(card),
 						"reason": reason,
 					})
+			"deal_damage_from_creature":
+				var ddfc_amount := int(effect.get("amount", 1))
+				var ddfc_source_target := str(effect.get("source", "event_target"))
+				var ddfc_source_id := ""
+				if ddfc_source_target == "event_target":
+					ddfc_source_id = _event_target_instance_id(event)
+				else:
+					ddfc_source_id = str(trigger.get("source_instance_id", ""))
+				var ddfc_source := _find_card_anywhere(match_state, ddfc_source_id)
+				if ddfc_source.is_empty():
+					continue
+				var ddfc_secondary_id := str(trigger.get("_secondary_target_id", ""))
+				if not ddfc_secondary_id.is_empty():
+					var ddfc_defender := _find_card_anywhere(match_state, ddfc_secondary_id)
+					if not ddfc_defender.is_empty():
+						var ddfc_result := EvergreenRules.apply_damage_to_creature(ddfc_defender, ddfc_amount)
+						generated_events.append({"event_type": "damage_resolved", "source_instance_id": ddfc_source_id, "source_controller_player_id": str(ddfc_source.get("controller_player_id", "")), "target_instance_id": ddfc_secondary_id, "target_type": "creature", "amount": int(ddfc_result.get("applied", 0)), "damage_kind": "ability", "reason": reason})
+						if EvergreenRules.is_creature_destroyed(ddfc_defender, false):
+							var ddfc_moved := MatchMutations.discard_card(match_state, ddfc_secondary_id)
+							if bool(ddfc_moved.get("is_valid", false)):
+								generated_events.append({"event_type": "creature_destroyed", "instance_id": ddfc_secondary_id, "reason": reason})
+				else:
+					var ddfc_enemies := _resolve_card_targets_by_name(match_state, trigger, event, "random_enemy")
+					if not ddfc_enemies.is_empty():
+						var ddfc_defender: Dictionary = ddfc_enemies[0]
+						var ddfc_result := EvergreenRules.apply_damage_to_creature(ddfc_defender, ddfc_amount)
+						generated_events.append({"event_type": "damage_resolved", "source_instance_id": ddfc_source_id, "source_controller_player_id": str(ddfc_source.get("controller_player_id", "")), "target_instance_id": str(ddfc_defender.get("instance_id", "")), "target_type": "creature", "amount": int(ddfc_result.get("applied", 0)), "damage_kind": "ability", "reason": reason})
+						if EvergreenRules.is_creature_destroyed(ddfc_defender, false):
+							var ddfc_moved := MatchMutations.discard_card(match_state, str(ddfc_defender.get("instance_id", "")))
+							if bool(ddfc_moved.get("is_valid", false)):
+								generated_events.append({"event_type": "creature_destroyed", "instance_id": str(ddfc_defender.get("instance_id", "")), "reason": reason})
 			"shuffle_copies_to_deck":
 				var sctd_count := int(effect.get("count", 1))
 				var sctd_cost_override: Variant = effect.get("cost_override", null)
