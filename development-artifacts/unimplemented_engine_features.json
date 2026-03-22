@@ -16,7 +16,15 @@
     "implemented_families": 35,
     "implemented_cost_reduction_auras": 5,
     "implemented_partial_families": 3,
-    "implemented_passive_abilities": 10
+    "implemented_passive_abilities": 10,
+    "implemented_unimplemented_ops": 125,
+    "implemented_unimplemented_families": 35,
+    "implemented_partially_handled_families": 3,
+    "implemented_unhandled_target_modes": 13,
+    "implemented_unhandled_action_target_modes": 8,
+    "implemented_unhandled_passive_abilities": 12,
+    "implemented_unhandled_cost_reduction_auras": 5,
+    "implemented_other_unhandled_mechanisms": 3
   },
   "unimplemented_ops": [
     {
@@ -1397,7 +1405,7 @@
   "unhandled_action_target_modes": [
     {
       "mode": "choose_lane",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "hos_str_unrelenting_force",
         "hos_agi_drain_vitality",
@@ -1456,7 +1464,7 @@
     },
     {
       "mode": "friendly_creature_then_enemy_creature",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "iom_end_squish_the_wimpy"
       ],
@@ -1576,7 +1584,7 @@
   "unhandled_passive_abilities": [
     {
       "type": "permanent_empower",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "aw_wil_mystic_of_ancient_rites"
       ],
@@ -1600,7 +1608,7 @@
     },
     {
       "type": "copy_expertise_abilities",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "aw_tri_master_of_incunabula"
       ],
@@ -1722,7 +1730,7 @@
     {
       "type": "attack_condition",
       "condition": "action_played_this_turn",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "cwc_neu_dormant_centurion"
       ],
@@ -1731,7 +1739,7 @@
     {
       "type": "self_cost_reduction",
       "condition": "creatures_died_this_turn",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "iom_neu_ghost_fanatic"
       ],
@@ -1740,7 +1748,7 @@
     {
       "type": "action_immune_conditional",
       "condition": "creature_in_each_lane",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "aw_agi_daedric_titan"
       ],

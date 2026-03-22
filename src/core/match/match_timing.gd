@@ -510,6 +510,33 @@ static func get_valid_targets_for_mode(match_state: Dictionary, source_instance_
 					return true
 				return str(c.get("instance_id", "")) == protectors[c_controller]
 			)
+		# action_immune_conditional: creature immune to opponent actions when condition met
+		targets = targets.filter(func(c):
+			if not c.has("instance_id"):
+				return true
+			if str(c.get("controller_player_id", "")) == controller_id:
+				return true  # Own creatures are always targetable
+			if not EvergreenRules._has_passive(c, "action_immune_conditional"):
+				return true
+			var aic_passives = c.get("passive_abilities", [])
+			if typeof(aic_passives) != TYPE_ARRAY:
+				return true
+			for p in aic_passives:
+				if typeof(p) != TYPE_DICTIONARY or str(p.get("type", "")) != "action_immune_conditional":
+					continue
+				var aic_cond := str(p.get("condition", ""))
+				if aic_cond == "creature_in_each_lane":
+					var aic_controller := str(c.get("controller_player_id", ""))
+					var aic_has_in_each := true
+					for aic_lane in match_state.get("lanes", []):
+						var aic_slots: Array = aic_lane.get("player_slots", {}).get(aic_controller, [])
+						if aic_slots.is_empty():
+							aic_has_in_each = false
+							break
+					if aic_has_in_each:
+						return false  # Condition met, immune
+			return true
+		)
 	# Convert to target info format
 	var result: Array = []
 	for t in targets:
@@ -1685,7 +1712,22 @@ static func recalculate_auras(match_state: Dictionary) -> void:
 					existing.append(kw)
 				target["aura_keywords"] = existing
 
-	# Step 3b: Apply grant_keyword_to_keyword passives
+	# Step 3b: Scan for permanent_empower and copy_expertise_abilities passives
+	for player in match_state.get("players", []):
+		if typeof(player) != TYPE_DICTIONARY:
+			continue
+		var pid := str(player.get("player_id", ""))
+		var has_perm_empower := false
+		for lane in lanes:
+			for card in lane.get("player_slots", {}).get(pid, []):
+				if typeof(card) == TYPE_DICTIONARY and EvergreenRules._has_passive(card, "permanent_empower"):
+					has_perm_empower = true
+					break
+			if has_perm_empower:
+				break
+		player["_permanent_empower_active"] = has_perm_empower
+
+	# Step 3c: Apply grant_keyword_to_keyword passives
 	for lane in lanes:
 		var player_slots_by_id: Dictionary = lane.get("player_slots", {})
 		for player_id in player_slots_by_id.keys():
@@ -1889,8 +1931,55 @@ static func rebuild_trigger_registry(match_state: Dictionary) -> Array:
 					for attached_item in card.get("attached_items", []):
 						_append_card_triggers(registry, attached_item, ZONE_LANE, str(player_id), lane_index, slot_index)
 	_inject_granted_triggers(match_state, registry, lanes)
+	# copy_expertise_abilities: Master of Incunabula copies all friendly expertise triggers
+	_inject_copied_expertise_triggers(registry, lanes)
 	match_state["trigger_registry"] = registry.duplicate(true)
 	return registry
+
+
+static func _inject_copied_expertise_triggers(registry: Array, lanes: Array) -> void:
+	# Find creatures with copy_expertise_abilities passive
+	for lane_index in range(lanes.size()):
+		var lane: Dictionary = lanes[lane_index]
+		for player_id in lane.get("player_slots", {}).keys():
+			var slots: Array = lane.get("player_slots", {}).get(player_id, [])
+			for slot_index in range(slots.size()):
+				var card = slots[slot_index]
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				if not EvergreenRules._has_passive(card, "copy_expertise_abilities"):
+					continue
+				if EvergreenRules.has_raw_status(card, EvergreenRules.STATUS_SILENCED):
+					continue
+				var copier_id := str(card.get("instance_id", ""))
+				var copier_controller := str(card.get("controller_player_id", player_id))
+				# Collect expertise triggers from all other friendly creatures
+				for ce_lane_index in range(lanes.size()):
+					for ce_card in lanes[ce_lane_index].get("player_slots", {}).get(copier_controller, []):
+						if typeof(ce_card) != TYPE_DICTIONARY:
+							continue
+						if str(ce_card.get("instance_id", "")) == copier_id:
+							continue
+						var ce_triggers = ce_card.get("triggered_abilities", [])
+						if typeof(ce_triggers) != TYPE_ARRAY:
+							continue
+						for ce_idx in range(ce_triggers.size()):
+							var ce_trigger = ce_triggers[ce_idx]
+							if typeof(ce_trigger) != TYPE_DICTIONARY:
+								continue
+							if str(ce_trigger.get("family", "")) != FAMILY_EXPERTISE:
+								continue
+							registry.append({
+								"trigger_id": "%s_copied_expertise_%s_%d" % [copier_id, str(ce_card.get("instance_id", "")), ce_idx],
+								"trigger_index": -1,
+								"source_instance_id": copier_id,
+								"owner_player_id": copier_controller,
+								"controller_player_id": copier_controller,
+								"source_zone": ZONE_LANE,
+								"lane_index": lane_index,
+								"slot_index": slot_index,
+								"descriptor": ce_trigger.duplicate(true),
+							})
 
 
 static func _inject_granted_triggers(match_state: Dictionary, registry: Array, lanes: Array) -> void:

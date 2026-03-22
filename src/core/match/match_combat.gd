@@ -305,6 +305,10 @@ static func _check_attack_condition(match_state: Dictionary, attacker: Dictionar
 					var slots = lane.get("player_slots", {}).get(controller_id, [])
 					var capacity := int(lane.get("slot_capacity", 4))
 					return slots.size() >= capacity
+		"action_played_this_turn":
+			var controller_id := str(attacker.get("controller_player_id", ""))
+			var player := _get_player_state(match_state, controller_id)
+			return int(player.get("noncreature_plays_this_turn", 0)) > 0
 	return true
 
 

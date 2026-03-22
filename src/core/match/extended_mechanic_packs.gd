@@ -54,16 +54,22 @@ static func ensure_player_state(player: Dictionary) -> void:
 		player["damage_dealt_to_opponent_this_turn"] = 0
 	if not player.has("creature_summons_this_turn"):
 		player["creature_summons_this_turn"] = 0
+	if not player.has("creatures_died_this_turn"):
+		player["creatures_died_this_turn"] = 0
 	if not player.has("wax_wane_state"):
 		player["wax_wane_state"] = WAX
 
 
 static func reset_turn_state(player: Dictionary) -> void:
 	ensure_player_state(player)
+	# permanent_empower: accumulate empower bonus across turns
+	if bool(player.get("_permanent_empower_active", false)):
+		player["_permanent_empower_accumulated"] = int(player.get("_permanent_empower_accumulated", 0)) + int(player.get("damage_dealt_to_opponent_this_turn", 0))
 	player["cards_played_this_turn"] = 0
 	player["noncreature_plays_this_turn"] = 0
 	player["damage_dealt_to_opponent_this_turn"] = 0
 	player["creature_summons_this_turn"] = 0
+	player["creatures_died_this_turn"] = 0
 
 
 static func toggle_wax_wane(player: Dictionary) -> void:
@@ -81,6 +87,13 @@ static func observe_event(match_state: Dictionary, event: Dictionary) -> void:
 		player["cards_played_this_turn"] = int(player.get("cards_played_this_turn", 0)) + 1
 		if str(event.get("card_type", "")) != "creature":
 			player["noncreature_plays_this_turn"] = int(player.get("noncreature_plays_this_turn", 0)) + 1
+		return
+	if event_type == "creature_destroyed":
+		# Increment death counter for both players (Ghost Fanatic counts all deaths)
+		for p in match_state.get("players", []):
+			if typeof(p) == TYPE_DICTIONARY:
+				ensure_player_state(p)
+				p["creatures_died_this_turn"] = int(p.get("creatures_died_this_turn", 0)) + 1
 		return
 	if event_type == EVENT_CREATURE_SUMMONED:
 		var summon_player := _get_player_state(match_state, str(event.get("source_controller_player_id", event.get("player_id", ""))))

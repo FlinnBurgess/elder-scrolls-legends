@@ -5060,6 +5060,24 @@ func _action_target_mode_allows(action_card: Dictionary, target_instance_id: Str
 				mode_allowed = typeof(attrs) == TYPE_ARRAY and attrs.has("neutral")
 		"enemy_creature_or_support":
 			mode_allowed = target_controller != controller_id
+		"choose_lane":
+			mode_allowed = true  # Lane targeting handled by _on_lane_pressed
+		"creature_1_power_or_less":
+			mode_allowed = EvergreenRules.get_power(target_card) <= 1
+		"creature_4_power_or_less":
+			mode_allowed = EvergreenRules.get_power(target_card) <= 4
+		"creature_4_power_or_more":
+			mode_allowed = EvergreenRules.get_power(target_card) >= 4
+		"creature_with_0_power":
+			mode_allowed = EvergreenRules.get_power(target_card) == 0
+		"enemy_creature_3_power_or_less":
+			mode_allowed = target_controller != controller_id and EvergreenRules.get_power(target_card) <= 3
+		"enemy_creature_and_friendly_creature":
+			mode_allowed = true
+		"friendly_creature_then_enemy_creature":
+			mode_allowed = true
+		"any_creature_or_player":
+			mode_allowed = true
 	if not mode_allowed:
 		return false
 	# Check triggered_abilities for additional conditions

@@ -273,6 +273,13 @@ static func get_effective_play_cost(match_state: Dictionary, player_id: String, 
 		var per_amount := int(self_reduction.get("amount", 1))
 		if per_source == "creature_summons_this_turn":
 			reduction += int(player.get("creature_summons_this_turn", 0)) * per_amount
+		elif per_source == "creatures_died_this_turn":
+			reduction += int(player.get("creatures_died_this_turn", 0)) * per_amount
+		elif per_source == "empower":
+			var empower_total := int(player.get("damage_dealt_to_opponent_this_turn", 0)) + int(player.get("_permanent_empower_accumulated", 0))
+			reduction += empower_total * per_amount
+		elif per_source == "per_action_played_this_turn":
+			reduction += int(player.get("noncreature_plays_this_turn", 0)) * per_amount
 	var effective := maxi(0, base_cost - reduction)
 	# min_card_cost passive: all cards cost at least N
 	var min_cost := _get_min_card_cost(match_state)
