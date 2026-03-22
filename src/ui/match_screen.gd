@@ -438,6 +438,10 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 		card["first_turn_hand_cost"] = int(definition["first_turn_hand_cost"])
 	if definition.has("self_cost_reduction"):
 		card["self_cost_reduction"] = definition["self_cost_reduction"].duplicate(true)
+	if definition.has("passive_abilities"):
+		card["passive_abilities"] = definition["passive_abilities"].duplicate(true)
+	if definition.has("_empower_target_bonus"):
+		card["_empower_target_bonus"] = int(definition["_empower_target_bonus"])
 	var innate_statuses: Array = definition.get("innate_statuses", [])
 	if not innate_statuses.is_empty():
 		card["innate_statuses"] = innate_statuses.duplicate(true)
@@ -4194,12 +4198,118 @@ func _build_card_display_component(card: Dictionary, surface: String, instance_i
 		var base_cost := int(card.get("_base_cost", card.get("cost", 0)))
 		if effective_cost < base_cost:
 			display_card["_effective_cost"] = effective_cost
+		_apply_empower_text_updates(display_card, _active_player_id())
 	component.apply_card(display_card, _card_presentation_mode(card, surface))
 	if component.has_method("set_relationship_context"):
 		component.set_relationship_context(_build_match_relationship_context())
 	if surface == "support" and bool(card.get("activation_used_this_turn", false)):
 		component.modulate = Color(0.5, 0.5, 0.55, 0.8)
 	return component
+
+
+func _apply_empower_text_updates(display_card: Dictionary, player_id: String) -> void:
+	var effect_ids = display_card.get("effect_ids", [])
+	if typeof(effect_ids) != TYPE_ARRAY or not effect_ids.has("empower"):
+		return
+	var empower_amount := MatchTiming._get_empower_amount(_match_state, player_id)
+	if empower_amount <= 0:
+		return
+	var abilities: Array = display_card.get("triggered_abilities", [])
+	for ability in abilities:
+		if typeof(ability) != TYPE_DICTIONARY:
+			continue
+		for effect in ability.get("effects", []):
+			if typeof(effect) != TYPE_DICTIONARY:
+				continue
+			var eb := int(effect.get("empower_bonus", 0))
+			if eb > 0:
+				var bonus := eb * empower_amount
+				var op := str(effect.get("op", ""))
+				if op == "deal_damage":
+					var base_amount := int(effect.get("amount", 0))
+					effect["amount"] = base_amount + bonus
+				elif op == "destroy_creature":
+					var base_max := int(effect.get("max_power", 0))
+					effect["max_power"] = base_max + bonus
+				elif op == "add_support_uses":
+					var base_uses := int(effect.get("amount", 0))
+					effect["amount"] = base_uses + bonus
+				elif op == "banish_from_opponent_deck":
+					var base_count := int(effect.get("count_per_attribute", effect.get("count", 0)))
+					if effect.has("count_per_attribute"):
+						effect["count_per_attribute"] = base_count + bonus
+					else:
+						effect["count"] = base_count + bonus
+			var ebc := int(effect.get("empower_bonus_cost", 0))
+			if ebc > 0:
+				var bonus := ebc * empower_amount
+				if effect.has("max_cost"):
+					effect["max_cost"] = int(effect.get("max_cost", 0)) + bonus
+			var ebs := int(effect.get("empower_stat_bonus", 0))
+			if ebs > 0:
+				var bonus := ebs * empower_amount
+				var tmpl = effect.get("card_template", {})
+				if typeof(tmpl) == TYPE_DICTIONARY and not tmpl.is_empty():
+					tmpl["power"] = int(tmpl.get("power", 0)) + bonus
+					tmpl["health"] = int(tmpl.get("health", 0)) + bonus
+	# Rebuild rules_text from empowered effect values
+	var rules_text := str(display_card.get("rules_text", ""))
+	if rules_text.is_empty():
+		return
+	var new_lines: Array = []
+	for line in rules_text.split("\n"):
+		if line.begins_with("Empower:"):
+			new_lines.append(line + " [+" + str(empower_amount) + "]")
+		else:
+			new_lines.append(_rewrite_empower_rules_line(line, abilities))
+	display_card["rules_text"] = "\n".join(new_lines)
+
+
+static func _rewrite_empower_rules_line(line: String, abilities: Array) -> String:
+	for ability in abilities:
+		if typeof(ability) != TYPE_DICTIONARY:
+			continue
+		for effect in ability.get("effects", []):
+			if typeof(effect) != TYPE_DICTIONARY:
+				continue
+			var op := str(effect.get("op", ""))
+			if op == "deal_damage" and int(effect.get("empower_bonus", 0)) > 0:
+				var amount := int(effect.get("amount", 0))
+				# Match patterns like "Deal 3 damage" and replace the number
+				var regex := RegEx.new()
+				regex.compile("Deal \\d+ damage")
+				var result := regex.sub(line, "Deal %d damage" % amount)
+				if result != line:
+					return result
+			elif op == "destroy_creature" and int(effect.get("empower_bonus", 0)) > 0:
+				var max_power := int(effect.get("max_power", 0))
+				var regex := RegEx.new()
+				regex.compile("\\d+ power or less")
+				var result := regex.sub(line, "%d power or less" % max_power)
+				if result != line:
+					return result
+			elif op == "banish_from_opponent_deck" and int(effect.get("empower_bonus", 0)) > 0:
+				var count := int(effect.get("count_per_attribute", effect.get("count", 0)))
+				var regex := RegEx.new()
+				regex.compile("top \\d+ cards")
+				var result := regex.sub(line, "top %d cards" % count)
+				if result != line:
+					return result
+			elif op == "add_support_uses" and int(effect.get("empower_bonus", 0)) > 0:
+				var amount := int(effect.get("amount", 0))
+				var regex := RegEx.new()
+				regex.compile("\\d+ extra use")
+				var result := regex.sub(line, "%d extra use" % amount)
+				if result != line:
+					return result
+			elif op == "summon_random_creature" and int(effect.get("empower_bonus_cost", 0)) > 0:
+				var max_cost := int(effect.get("max_cost", 0))
+				var regex := RegEx.new()
+				regex.compile("\\d+-cost creature")
+				var result := regex.sub(line, "%d-cost creature" % max_cost)
+				if result != line:
+					return result
+	return line
 
 
 func _card_presentation_mode(card: Dictionary, surface: String) -> String:

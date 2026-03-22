@@ -352,6 +352,30 @@ static func _check_missing_effects(card: Dictionary) -> void:
 		# "destroy" maps to "destroy" or "destroy_creature" op or "lethal" keyword
 		if id == "destroy" and ("destroy" in configured_ops or "destroy_creature" in configured_ops or "lethal" in keywords):
 			continue
+		# "empower" is handled via empower_bonus/empower_stat_bonus/empower_bonus_cost params
+		# on existing ops, or via self_cost_reduction with type "empower", or via permanent_empower passive
+		if id == "empower":
+			var has_empower_param := false
+			for ability in card.get("triggered_abilities", []):
+				if typeof(ability) != TYPE_DICTIONARY:
+					continue
+				for effect in ability.get("effects", []):
+					if typeof(effect) != TYPE_DICTIONARY:
+						continue
+					if effect.has("empower_bonus") or effect.has("empower_stat_bonus") or effect.has("empower_bonus_cost"):
+						has_empower_param = true
+						break
+				if has_empower_param:
+					break
+			var self_red = card.get("self_cost_reduction", {})
+			if typeof(self_red) == TYPE_DICTIONARY and str(self_red.get("type", "")) == "empower":
+				has_empower_param = true
+			for passive in card.get("passive_abilities", []):
+				if typeof(passive) == TYPE_DICTIONARY and str(passive.get("type", "")) == "permanent_empower":
+					has_empower_param = true
+					break
+			if has_empower_param:
+				continue
 		uncovered.append(id)
 
 	if not uncovered.is_empty():

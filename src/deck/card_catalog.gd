@@ -180,6 +180,28 @@ static func _seed(card_id: String, name: String, attributes: Array, card_type: S
 		result["shout_level"] = int(extra["shout_level"])
 	if extra.has("shout_levels"):
 		result["shout_levels"] = extra["shout_levels"].duplicate(true)
+	if extra.has("self_cost_reduction"):
+		result["self_cost_reduction"] = extra["self_cost_reduction"].duplicate(true)
+	if extra.has("passive_abilities"):
+		result["passive_abilities"] = extra["passive_abilities"].duplicate(true)
+	if extra.has("play_condition"):
+		result["play_condition"] = extra["play_condition"].duplicate(true)
+	if extra.has("attack_condition"):
+		result["attack_condition"] = extra["attack_condition"].duplicate(true)
+	if extra.has("first_turn_hand_cost"):
+		result["first_turn_hand_cost"] = int(extra["first_turn_hand_cost"])
+	if extra.has("cost_increase_aura"):
+		result["cost_increase_aura"] = extra["cost_increase_aura"].duplicate(true)
+	if extra.has("innate_statuses"):
+		result["innate_statuses"] = extra["innate_statuses"].duplicate(true)
+	if extra.has("self_immunity"):
+		result["self_immunity"] = extra["self_immunity"].duplicate(true)
+	if extra.has("_empower_target_bonus"):
+		result["_empower_target_bonus"] = int(extra["_empower_target_bonus"])
+	if extra.has("set_id"):
+		result["set_id"] = str(extra["set_id"])
+	if extra.has("release_group_id"):
+		result["release_group_id"] = str(extra["release_group_id"])
 	return result
 
 

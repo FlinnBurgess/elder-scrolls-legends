@@ -21,57 +21,54 @@ static func build_test_match_state() -> Dictionary:
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — enough magicka to play Expertise triggers
+	# Player 1 (you) — 12 magicka to play expensive Empower cards
 	var p1_health := 30
-	var p1_max_magicka := 10
-	var p1_current_magicka := 10
+	var p1_max_magicka := 12
+	var p1_current_magicka := 12
 	var p1_rune_thresholds := [25, 20, 15, 10, 5]
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — actions/items/supports to trigger Expertise at end of turn
-	# Expertise: at end of your turn, if you played an action, item, or support, trigger
+	# Player 1 hand — cheap face-ping actions + Empower cards to test
 	var p1_hand_ids: Array = [
-		"str_steel_scimitar",               # Cost 1, Item +2/+2 — cheapest Expertise trigger
-		"str_rapid_shot",                   # Cost 1, Action: Deal 1 damage, draw if survives — trigger
-		"str_fireball",                     # Cost 4, Action: Deal 1 to all enemies — trigger
-		"str_raiding_party",                # Cost 3, Action: Two 1/1 Nord Firebrands — trigger
-		"str_orcish_warhammer",             # Cost 4, Item +3/+3 Breakthrough — trigger + equip
+		"aw_int_forked_bolt",               # Cost 0, Deal 1 to creature + 1 to opponent — free empower trigger
+		"aw_int_forked_bolt",               # Second copy for more empower stacking
+		"int_ice_spike",                    # Cost 2, Deal 2 to opponent + draw — empower trigger
+		"aw_int_channeled_storm",           # Cost 3, Deal 3 to creature, Empower: +1 damage
+		"aw_wil_luminous_shards",           # Cost 3, Destroy <=1 power, Empower: +1 power threshold
+		"aw_agi_debilitate",                # Cost 7, All creatures -2/-2, Empower: Costs 1 less
 	]
 
-	# Player 1 deck — more triggers + Expertise creatures to play
+	# Player 1 deck — more Empower cards + face damage to draw into
 	var p1_deck_ids: Array = [
-		"aw_str_fighters_guild_elite",      # Cost 5, 2/2, Expertise: Double power and health
-		"aw_wil_guildsworn_cavalier",       # Cost 5, 3/3, Expertise: Give friendly creatures +1/+1
-		"aw_tri_master_of_incunabula",      # Cost 4, 3/6, Has all friendly Expertise abilities
-		"str_intimidate",                   # Cost 1, Action: Enemies lose Guard — trigger
-		"str_plunder",                      # Cost 2, Action: 2 random items — trigger + more items
-		"str_gladiator_arena",              # Cost 4, Support: Ongoing — trigger
+		"aw_agi_spoils_of_war",             # Cost 5, Draw 2, Empower: Costs 1 less
+		"aw_wil_wish",                      # Cost 4, Summon random 2-cost, Empower: +1 cost creature
+		"aw_int_soul_shred",                # Cost 5, Banish per attribute, Empower: +1 per attribute
+		"aw_wil_alchemy",                   # Cost 2, +1 support use, Empower: +1 use
+		"aw_wil_mystic_of_ancient_rites",   # Cost 2, 2/3, Permanent Empower (doesn't expire)
+		"aw_int_ravaging_elixir",           # Cost 1, Support 3 uses: 1 damage to opponent — repeatable empower
 	]
 
-	# Player 1 — Expertise creatures already in lane, ready for end-of-turn triggers
+	# Player 1 — Nord Firebrands ready to attack face for empower triggers
 	var p1_field_creatures: Array = [
-		_make_lane_creature("player_1", "aw_int_guildsworn_wayfarer", 100),   # 2/2, Expertise: +1/+1
-		_make_lane_creature("player_1", "aw_str_guildsworn_incendiary", 101), # 2/6, Expertise: 1 damage to all in lane
-		_make_lane_creature("player_1", "aw_str_fighters_guild_berserker", 102), # 4/2, Expertise: Deal 2 to opponent
+		_make_lane_creature("player_1", "str_nord_firebrand", 100, {"can_attack": true}),  # 1/1 Charge, hit face
+		_make_lane_creature("player_1", "str_nord_firebrand", 101, {"can_attack": true}),  # 1/1 Charge, hit face
 	]
 	var p1_shadow_creatures: Array = [
-		_make_lane_creature("player_1", "aw_wil_guildsworn_revitalizer", 103), # 1/5, Expertise: Gain 2 health
-		_make_lane_creature("player_1", "aw_wil_renowned_instructor", 104),   # 3/4, Expertise: Summon Recruit
+		_make_lane_creature("player_1", "str_nord_firebrand", 102, {"can_attack": true}),  # 1/1 Charge, hit face
 	]
 
-	# Player 2 (AI) — weak enemies
+	# Player 2 (AI) — weak enemies, no runes so face hits don't break runes
 	var p2_health := 30
-	var p2_max_magicka := 2
-	var p2_current_magicka := 2
+	var p2_max_magicka := 1
+	var p2_current_magicka := 1
 	var p2_rune_thresholds := []
 	var p2_has_ring := false
 	var p2_ring_charges := 0
 
 	# Player 2 hand
 	var p2_hand_ids: Array = [
-		"str_fiery_imp",
-		"str_fiery_imp",
+		"str_fiery_imp",                    # 1/1 — AI filler
 	]
 
 	# Player 2 deck
@@ -81,16 +78,16 @@ static func build_test_match_state() -> Dictionary:
 		"str_fiery_imp",
 		"str_fiery_imp",
 		"str_fiery_imp",
-		"str_fiery_imp",
 	]
 
-	# Player 2 — enemies in both lanes for Incendiary to damage
+	# Player 2 — various power creatures for Luminous Shards testing
 	var p2_field_creatures: Array = [
-		_make_lane_creature("player_2", "str_fiery_imp", 100),
-		_make_lane_creature("player_2", "str_fiery_imp", 101),
+		_make_lane_creature("player_2", "str_fiery_imp", 100),             # 1/1 — destroyable at 0 empower
+		_make_lane_creature("player_2", "end_fharun_defender", 101),        # 1/4 Guard — destroyable at 0 empower
+		_make_lane_creature("player_2", "end_young_mammoth", 102),          # 4/4 — needs 3 empower for Luminous Shards
 	]
 	var p2_shadow_creatures: Array = [
-		_make_lane_creature("player_2", "str_fiery_imp", 102),
+		_make_lane_creature("player_2", "str_whiterun_trooper", 103),       # 2/4 — needs 1 empower for Luminous Shards
 	]
 
 	## ── END CONFIGURATION ──────────────────────────────────────────────
