@@ -2768,6 +2768,18 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"new_power": EvergreenRules.get_power(card),
 						"reason": reason,
 					})
+			"equip_item", "equip_generated_item":
+				var ei_template_raw = effect.get("card_template", {})
+				var ei_template: Dictionary = ei_template_raw if typeof(ei_template_raw) == TYPE_DICTIONARY else {}
+				if ei_template.is_empty():
+					continue
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var ei_controller := str(card.get("controller_player_id", trigger.get("controller_player_id", "")))
+					var ei_item := MatchMutations.build_generated_card(match_state, ei_controller, ei_template)
+					var ei_result := MatchMutations.attach_item_to_creature(match_state, ei_controller, ei_item, str(card.get("instance_id", "")), {"source_zone": MatchMutations.ZONE_GENERATED})
+					if bool(ei_result.get("is_valid", false)):
+						generated_events.append_array(ei_result.get("events", []))
+						generated_events.append({"event_type": "item_equipped", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "item_instance_id": str(ei_item.get("instance_id", "")), "reason": reason})
 			"reduce_cost_in_hand":
 				var rcih_amount := int(effect.get("amount", 1))
 				var rcih_controller := str(trigger.get("controller_player_id", ""))
