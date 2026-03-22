@@ -744,7 +744,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				dfomb_deck.insert(0, dfomb_top_card)
 				return {"handled": true, "events": [{"event_type": "card_moved_to_bottom", "player_id": dfomb_controller_id, "instance_id": str(dfomb_top_card.get("instance_id", ""))}]}
 		"vision_and_transform":
-			var vat_targets := _timing_rules()._resolve_card_targets(match_state, trigger, event, effect)
+			var vat_targets: Array = _timing_rules()._resolve_card_targets(match_state, trigger, event, effect)
 			if vat_targets.is_empty():
 				return {"handled": true, "events": []}
 			var vat_target: Dictionary = vat_targets[0]
@@ -753,14 +753,30 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			for seed in vat_seeds:
 				if typeof(seed) == TYPE_DICTIONARY and str(seed.get("card_type", "")) == "creature" and bool(seed.get("collectible", true)):
 					vat_creatures.append(seed)
-			if vat_creatures.is_empty():
+			if vat_creatures.size() < 2:
 				return {"handled": true, "events": []}
-			var vat_pick_idx := _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_vat", vat_creatures.size())
-			var vat_pick: Dictionary = vat_creatures[vat_pick_idx]
-			var vat_template: Dictionary = vat_pick.duplicate(true)
-			vat_template["definition_id"] = str(vat_template.get("card_id", ""))
-			var vat_result := MatchMutations.transform_card(match_state, str(vat_target.get("instance_id", "")), vat_template, {"reason": "vision_and_transform"})
-			return {"handled": true, "events": vat_result.get("events", [])}
+			var vat_idx1: int = _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_vat1", vat_creatures.size())
+			var vat_idx2: int = _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_vat2", vat_creatures.size())
+			var vat_t1: Dictionary = vat_creatures[vat_idx1].duplicate(true)
+			vat_t1["definition_id"] = str(vat_t1.get("card_id", ""))
+			var vat_t2: Dictionary = vat_creatures[vat_idx2].duplicate(true)
+			vat_t2["definition_id"] = str(vat_t2.get("card_id", ""))
+			var vat_target_id := str(vat_target.get("instance_id", ""))
+			var vat_pending: Array = match_state.get("pending_player_choices", [])
+			vat_pending.append({
+				"player_id": str(trigger.get("controller_player_id", "")),
+				"source_instance_id": str(trigger.get("source_instance_id", "")),
+				"prompt": "Choose a creature to transform into:",
+				"mode": "card",
+				"options": [{"label": str(vat_t1.get("name", "")), "card": vat_t1}, {"label": str(vat_t2.get("name", "")), "card": vat_t2}],
+				"effects_per_option": [
+					[{"op": "transform", "target_instance_id": vat_target_id, "card_template": vat_t1}],
+					[{"op": "transform", "target_instance_id": vat_target_id, "card_template": vat_t2}],
+				],
+				"trigger": trigger.duplicate(true),
+				"event": event.duplicate(true),
+			})
+			return {"handled": true, "events": [{"event_type": "player_choice_pending", "player_id": str(trigger.get("controller_player_id", ""))}]}
 		"guess_opponent_card":
 			var goc_controller := str(trigger.get("controller_player_id", ""))
 			var goc_opponent := ""
@@ -769,25 +785,30 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 					goc_opponent = str(player.get("player_id", ""))
 					break
 			var goc_opp := _get_player_state(match_state, goc_opponent)
-			var goc_my := _get_player_state(match_state, goc_controller)
-			if goc_opp.is_empty() or goc_my.is_empty():
+			if goc_opp.is_empty():
 				return {"handled": true, "events": []}
 			var goc_opp_deck: Array = goc_opp.get("deck", [])
 			if goc_opp_deck.size() < 2:
 				return {"handled": true, "events": []}
-			# Show 2 cards, guess which one opponent has (50/50 for AI)
-			var goc_roll := _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_goc", 2)
-			if goc_roll == 0:
-				# Correct guess — copy the card to hand
-				var goc_pick := goc_opp_deck[goc_opp_deck.size() - 1]
-				if typeof(goc_pick) == TYPE_DICTIONARY:
-					var goc_template: Dictionary = goc_pick.duplicate(true)
-					goc_template.erase("instance_id")
-					var goc_copy := MatchMutations.build_generated_card(match_state, goc_controller, goc_template)
-					goc_copy["zone"] = "hand"
-					goc_my.get("hand", []).append(goc_copy)
-					return {"handled": true, "events": [{"event_type": "guess_correct", "player_id": goc_controller, "instance_id": str(goc_copy.get("instance_id", ""))}]}
-			return {"handled": true, "events": [{"event_type": "guess_incorrect", "player_id": goc_controller}]}
+			var goc_card1: Dictionary = goc_opp_deck[goc_opp_deck.size() - 1].duplicate(true) if typeof(goc_opp_deck[goc_opp_deck.size() - 1]) == TYPE_DICTIONARY else {}
+			var goc_card2: Dictionary = goc_opp_deck[goc_opp_deck.size() - 2].duplicate(true) if typeof(goc_opp_deck[goc_opp_deck.size() - 2]) == TYPE_DICTIONARY else {}
+			goc_card1.erase("instance_id")
+			goc_card2.erase("instance_id")
+			var goc_pending: Array = match_state.get("pending_player_choices", [])
+			goc_pending.append({
+				"player_id": goc_controller,
+				"source_instance_id": str(trigger.get("source_instance_id", "")),
+				"prompt": "Guess which card your opponent has:",
+				"mode": "card",
+				"options": [{"label": str(goc_card1.get("name", "")), "card": goc_card1}, {"label": str(goc_card2.get("name", "")), "card": goc_card2}],
+				"effects_per_option": [
+					[{"op": "copy_card_to_hand", "card_template": goc_card1, "target_player": "controller"}],
+					[{"op": "copy_card_to_hand", "card_template": goc_card2, "target_player": "controller"}],
+				],
+				"trigger": trigger.duplicate(true),
+				"event": event.duplicate(true),
+			})
+			return {"handled": true, "events": [{"event_type": "player_choice_pending", "player_id": goc_controller}]}
 		"opponent_gives_card_from_hand":
 			var ogcfh_controller := str(trigger.get("controller_player_id", ""))
 			var ogcfh_opponent := ""
@@ -846,7 +867,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			thcfod_discarded["zone"] = "discard"
 			thcfod_my.get("discard", []).append(thcfod_discarded)
 			# Draw random from opponent deck
-			var thcfod_pick_idx := _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_barter", thcfod_opp_deck.size())
+			var thcfod_pick_idx: int = _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_barter", thcfod_opp_deck.size())
 			var thcfod_gained: Dictionary = thcfod_opp_deck[thcfod_pick_idx]
 			thcfod_opp_deck.remove_at(thcfod_pick_idx)
 			thcfod_gained["zone"] = "hand"
@@ -856,31 +877,24 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 		"waves_of_the_fallen_choice":
 			var wotf_controller := str(trigger.get("controller_player_id", ""))
 			var wotf_lane_id := str(event.get("lane_id", "field"))
-			var wotf_events: Array = []
-			# AI heuristic: debuff enemies if present, otherwise buff friendlies
-			var wotf_debuff := false
-			for lane in match_state.get("lanes", []):
-				if str(lane.get("lane_id", lane.get("lane_type", ""))) == wotf_lane_id or str(lane.get("lane_index", "")) == wotf_lane_id:
-					for pid in lane.get("player_slots", {}).keys():
-						if pid != wotf_controller:
-							var enemy_cards: Array = lane["player_slots"][pid]
-							if not enemy_cards.is_empty():
-								wotf_debuff = true
-								for card in enemy_cards:
-									if typeof(card) == TYPE_DICTIONARY:
-										var pw_diff := 2 - EvergreenRules.get_power(card)
-										var hw_diff := 2 - EvergreenRules.get_health(card)
-										EvergreenRules.apply_stat_bonus(card, pw_diff, hw_diff, "waves_of_the_fallen")
-										wotf_events.append({"event_type": "stats_set", "target_instance_id": str(card.get("instance_id", "")), "new_power": 2, "new_health": 2})
-					if not wotf_debuff:
-						for card in lane.get("player_slots", {}).get(wotf_controller, []):
-							if typeof(card) == TYPE_DICTIONARY:
-								var pw_diff := 5 - EvergreenRules.get_power(card)
-								var hw_diff := 5 - EvergreenRules.get_health(card)
-								EvergreenRules.apply_stat_bonus(card, pw_diff, hw_diff, "waves_of_the_fallen")
-								wotf_events.append({"event_type": "stats_set", "target_instance_id": str(card.get("instance_id", "")), "new_power": 5, "new_health": 5})
-					break
-			return {"handled": true, "events": wotf_events}
+			var wotf_pending: Array = match_state.get("pending_player_choices", [])
+			wotf_pending.append({
+				"player_id": wotf_controller,
+				"source_instance_id": str(trigger.get("source_instance_id", "")),
+				"prompt": "Waves of the Fallen:",
+				"mode": "text",
+				"options": [
+					{"label": "Debuff Enemies", "description": "Set all enemy creatures in this lane to 2/2"},
+					{"label": "Buff Friendlies", "description": "Set all friendly creatures in this lane to 5/5"},
+				],
+				"effects_per_option": [
+					[{"op": "set_stats", "target": "all_enemies_in_event_lane", "power": 2, "health": 2}],
+					[{"op": "set_stats", "target": "all_friendly_in_event_lane", "power": 5, "health": 5}],
+				],
+				"trigger": trigger.duplicate(true),
+				"event": event.duplicate(true),
+			})
+			return {"handled": true, "events": [{"event_type": "player_choice_pending", "player_id": wotf_controller}]}
 		"merchant_offer":
 			var mo_controller := str(trigger.get("controller_player_id", ""))
 			var mo_opponent := ""
@@ -888,10 +902,6 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				if str(player.get("player_id", "")) != mo_controller:
 					mo_opponent = str(player.get("player_id", ""))
 					break
-			var mo_my_player := _get_player_state(match_state, mo_controller)
-			var mo_opp_player := _get_player_state(match_state, mo_opponent)
-			if mo_my_player.is_empty() or mo_opp_player.is_empty():
-				return {"handled": true, "events": []}
 			var mo_seeds: Array = CardCatalog._card_seeds()
 			var mo_collectible: Array = []
 			for seed in mo_seeds:
@@ -899,20 +909,27 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 					mo_collectible.append(seed)
 			if mo_collectible.size() < 2:
 				return {"handled": true, "events": []}
-			# Pick 2 random cards, AI picks the first
-			var mo_pick1_idx := _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_mo1", mo_collectible.size())
-			var mo_pick2_idx := _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_mo2", mo_collectible.size())
-			var mo_template1: Dictionary = mo_collectible[mo_pick1_idx].duplicate(true)
-			mo_template1["definition_id"] = str(mo_template1.get("card_id", ""))
-			var mo_template2: Dictionary = mo_collectible[mo_pick2_idx].duplicate(true)
-			mo_template2["definition_id"] = str(mo_template2.get("card_id", ""))
-			var mo_card1 := MatchMutations.build_generated_card(match_state, mo_controller, mo_template1)
-			mo_card1["zone"] = "hand"
-			mo_my_player.get("hand", []).append(mo_card1)
-			var mo_card2 := MatchMutations.build_generated_card(match_state, mo_opponent, mo_template2)
-			mo_card2["zone"] = "hand"
-			mo_opp_player.get("hand", []).append(mo_card2)
-			return {"handled": true, "events": [{"event_type": "merchant_offer_resolved", "controller_got": str(mo_card1.get("instance_id", "")), "opponent_got": str(mo_card2.get("instance_id", ""))}]}
+			var mo_pick1_idx: int = _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_mo1", mo_collectible.size())
+			var mo_pick2_idx: int = _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_mo2", mo_collectible.size())
+			var mo_t1: Dictionary = mo_collectible[mo_pick1_idx].duplicate(true)
+			mo_t1["definition_id"] = str(mo_t1.get("card_id", ""))
+			var mo_t2: Dictionary = mo_collectible[mo_pick2_idx].duplicate(true)
+			mo_t2["definition_id"] = str(mo_t2.get("card_id", ""))
+			var mo_pending: Array = match_state.get("pending_player_choices", [])
+			mo_pending.append({
+				"player_id": mo_controller,
+				"source_instance_id": str(trigger.get("source_instance_id", "")),
+				"prompt": "The Merchant has two cards for sale. Choose one:",
+				"mode": "card",
+				"options": [{"label": str(mo_t1.get("name", "")), "card": mo_t1}, {"label": str(mo_t2.get("name", "")), "card": mo_t2}],
+				"effects_per_option": [
+					[{"op": "generate_card_to_hand", "card_template": mo_t1, "target_player": "controller"}, {"op": "generate_card_to_hand", "card_template": mo_t2, "target_player": "opponent"}],
+					[{"op": "generate_card_to_hand", "card_template": mo_t2, "target_player": "controller"}, {"op": "generate_card_to_hand", "card_template": mo_t1, "target_player": "opponent"}],
+				],
+				"trigger": trigger.duplicate(true),
+				"event": event.duplicate(true),
+			})
+			return {"handled": true, "events": [{"event_type": "player_choice_pending", "player_id": mo_controller}]}
 		"transform_deck_to_dragons":
 			var ttd_controller := str(trigger.get("controller_player_id", ""))
 			var ttd_player := _get_player_state(match_state, ttd_controller)
@@ -932,7 +949,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				var card: Dictionary = ttd_deck[di]
 				if typeof(card) != TYPE_DICTIONARY or str(card.get("card_type", "")) != "creature":
 					continue
-				var pick := ttd_dragons[_timing_rules()._deterministic_index(match_state, str(card.get("instance_id", "")) + "_ttd", ttd_dragons.size())]
+				var pick: Variant = ttd_dragons[_timing_rules()._deterministic_index(match_state, str(card.get("instance_id", "")) + "_ttd", ttd_dragons.size())]
 				var template: Dictionary = pick.duplicate(true)
 				template["definition_id"] = str(template.get("card_id", ""))
 				MatchMutations.transform_card(match_state, str(card.get("instance_id", "")), template, {"reason": "transform_deck_to_dragons"})
@@ -1009,7 +1026,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			for i in range(grsh_count):
 				if grsh_shouts.is_empty():
 					break
-				var pick_idx := _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_grsh_" + str(i), grsh_shouts.size())
+				var pick_idx: int = _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_grsh_" + str(i), grsh_shouts.size())
 				var grsh_pick: Dictionary = grsh_shouts[pick_idx]
 				var grsh_template: Dictionary = grsh_pick.duplicate(true)
 				grsh_template["definition_id"] = str(grsh_template.get("card_id", ""))
@@ -1103,7 +1120,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			var lg_player := _get_player_state(match_state, lg_controller_id)
 			if lg_player.is_empty():
 				return {"handled": true, "events": []}
-			var lg_roll := _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_lockpick", 2)
+			var lg_roll: int = _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_lockpick", 2)
 			if lg_roll == 0:
 				# Success: put another Lockpick into hand with +1 cost
 				var lg_template := {"definition_id": "hos_agi_lockpick", "name": "Lockpick", "card_type": "action", "attributes": ["agility"], "cost": 3, "power": 0, "health": 0, "base_power": 0, "base_health": 0, "rules_text": "50% chance: Put another Lockpick into your hand. 50% chance: Draw a card and reduce its cost by 2.", "triggered_abilities": [{"family": "on_play", "effects": [{"op": "lockpick_gamble"}]}]}
