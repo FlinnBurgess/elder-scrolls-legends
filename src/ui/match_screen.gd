@@ -4904,6 +4904,22 @@ func _action_target_mode_allows(action_card: Dictionary, target_instance_id: Str
 			return typeof(attrs) == TYPE_ARRAY and attrs.has("neutral")
 		"enemy_creature_or_support":
 			return target_controller != controller_id
+	# Check triggered_abilities for additional conditions
+	for trigger in action_card.get("triggered_abilities", []):
+		if typeof(trigger) != TYPE_DICTIONARY:
+			continue
+		if bool(trigger.get("required_friendly_higher_power", false)):
+			var target_power := EvergreenRules.get_power(target_card)
+			var has_higher := false
+			for lane in _match_state.get("lanes", []):
+				for card in lane.get("player_slots", {}).get(controller_id, []):
+					if typeof(card) == TYPE_DICTIONARY and EvergreenRules.get_power(card) > target_power:
+						has_higher = true
+						break
+				if has_higher:
+					break
+			if not has_higher:
+				return false
 	return true
 
 

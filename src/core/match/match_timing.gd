@@ -247,6 +247,15 @@ static func get_valid_targets_for_mode(match_state: Dictionary, source_instance_
 		targets = targets.filter(func(c): return c.has("instance_id") and EvergreenRules.get_power(c) <= max_power)
 	if bool(trigger.get("target_filter_wounded", false)):
 		targets = targets.filter(func(c): return c.has("instance_id") and EvergreenRules.has_status(c, EvergreenRules.STATUS_WOUNDED))
+	if bool(trigger.get("required_friendly_higher_power", false)):
+		var max_friendly_power := 0
+		for lane in match_state.get("lanes", []):
+			for card in lane.get("player_slots", {}).get(controller_id, []):
+				if typeof(card) == TYPE_DICTIONARY:
+					var p := EvergreenRules.get_power(card)
+					if p > max_friendly_power:
+						max_friendly_power = p
+		targets = targets.filter(func(c): return c.has("instance_id") and EvergreenRules.get_power(c) < max_friendly_power)
 	# Convert to target info format
 	var result: Array = []
 	for t in targets:
