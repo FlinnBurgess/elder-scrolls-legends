@@ -836,6 +836,7 @@ static func draw_cards(match_state: Dictionary, player_id: String, count: int, c
 			continue
 		drawn_card["zone"] = ZONE_HAND
 		hand.append(drawn_card)
+		MatchMutations.apply_first_turn_hand_cost(match_state, drawn_card, player_id)
 		result["cards"].append(drawn_card)
 		var draw_event := {
 			"event_type": EVENT_CARD_DRAWN,
@@ -2320,6 +2321,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							continue
 						generated_card["zone"] = ZONE_HAND
 						hand.append(generated_card)
+						MatchMutations.apply_first_turn_hand_cost(match_state, generated_card, player_id)
 						generated_events.append({"event_type": "card_drawn", "player_id": player_id, "source_instance_id": str(generated_card.get("instance_id", "")), "reason": reason})
 			"change":
 				var change_template := _resolve_effect_template(match_state, trigger, event, effect)

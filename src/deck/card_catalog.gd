@@ -93,6 +93,8 @@ static func _build_card(seed: Dictionary, registry) -> Dictionary:
 		card["innate_statuses"] = seed["innate_statuses"].duplicate(true)
 	if seed.has("self_immunity"):
 		card["self_immunity"] = seed["self_immunity"].duplicate(true)
+	if seed.has("first_turn_hand_cost"):
+		card["first_turn_hand_cost"] = int(seed["first_turn_hand_cost"])
 	return card
 
 
@@ -379,7 +381,7 @@ static func _card_seeds() -> Array:
 		_seed("agi_moonlight_werebat", "Moonlight Werebat", ["agility"], "creature", 4, 4, 2, {"rarity": "epic", "keywords": ["drain"], "rules_tags": ["prophecy"], "subtypes": ["Beast"], "rules_text": "Prophecy, Drain"}),
 		_seed("agi_mournhold_guardian", "Mournhold Guardian", ["agility"], "creature", 1, 2, 1, {"keywords": ["guard"], "subtypes": ["Dark Elf"], "rules_text": "Guard"}),
 		_seed("agi_mournhold_traitor", "Mournhold Traitor", ["agility"], "creature", 2, 4, 4, {"rarity": "epic", "keywords": ["guard"], "effect_ids": ["last_gasp"], "subtypes": ["Dark Elf"], "rules_text": "Last Gasp: Your opponent summons a 2/1 Mournhold Guardian with Guard.", "triggered_abilities": [{"family": "last_gasp", "effects": [{"op": "summon_from_effect", "target_player": "opponent", "card_template": {"definition_id": "agi_mournhold_guardian", "name": "Mournhold Guardian", "card_type": "creature", "subtypes": ["Dark Elf"], "attributes": ["agility"], "cost": 1, "power": 2, "health": 1, "base_power": 2, "base_health": 1, "keywords": ["guard"], "rules_text": "Guard"}}]}]}),
-		_seed("agi_murkwater_butcher", "Murkwater Butcher", ["agility"], "creature", 3, 3, 2, {"subtypes": ["Goblin"], "rules_text": "If Murkwater Butcher is in your hand during your first turn, reduce his cost to 1."}),
+		_seed("agi_murkwater_butcher", "Murkwater Butcher", ["agility"], "creature", 3, 3, 2, {"subtypes": ["Goblin"], "rules_text": "If Murkwater Butcher is in your hand during your first turn, reduce his cost to 1.", "first_turn_hand_cost": 1}),
 		_seed("agi_murkwater_goblin", "Murkwater Goblin", ["agility"], "creature", 0, 0, 1, {"effect_ids": ["modify_stats"], "subtypes": ["Goblin"], "rules_text": "Murkwater Goblin has +2/+0 on your turn.", "aura": {"scope": "self", "condition": "your_turn", "power": 2}}),
 		_seed("agi_murkwater_savage", "Murkwater Savage", ["agility"], "creature", 3, 2, 2, {"rarity": "rare", "effect_ids": ["modify_stats"], "subtypes": ["Goblin"], "rules_text": "When you summon another  creature, Murkwater Savage gains +1/+1.", "triggered_abilities": [{"id": "murkwater_savage_on_agility_summon", "family": "summon", "match_role": "controller", "required_zone": "lane", "exclude_self": true, "required_event_source_attribute": "agility", "effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 1}]}]}),
 		_seed("agi_murkwater_shaman", "Murkwater Shaman", ["agility"], "creature", 4, 3, 3, {"rarity": "epic", "effect_ids": ["create"], "subtypes": ["Goblin"], "rules_text": "At the start of your turn, put a Curse into your hand.", "triggered_abilities": [{"family": "start_of_turn", "required_zone": "lane", "effects": [{"op": "generate_card_to_hand", "card_template": {"definition_id": "agi_curse", "name": "Curse", "card_type": "action", "attributes": ["agility"], "cost": 0, "power": 0, "health": 0, "base_power": 0, "base_health": 0, "rules_text": "Give a creature -1/-1.", "effect_ids": ["modify_stats"], "action_target_mode": "any_creature", "triggered_abilities": [{"family": "on_play", "effects": [{"op": "modify_stats", "target": "event_target", "power": -1, "health": -1}]}]}}]}]}),

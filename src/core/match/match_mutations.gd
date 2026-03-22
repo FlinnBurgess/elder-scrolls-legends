@@ -20,7 +20,8 @@ const IDENTITY_FIELDS := [
 	"definition_id", "name", "card_type", "cost", "power", "health", "base_power", "base_health",
 	"keywords", "rules_tags", "triggered_abilities", "support_uses", "subtypes", "attributes",
 	"class_id", "rarity", "is_unique", "effect_ids", "rules_text", "source_ids", "collectible",
-	"generated_by_rules", "shout_level", "shout_chain_id", "shout_levels", "action_target_mode"
+	"generated_by_rules", "shout_level", "shout_chain_id", "shout_levels", "action_target_mode",
+	"innate_statuses"
 ]
 
 
@@ -256,6 +257,8 @@ static func move_card_to_zone(match_state: Dictionary, instance_id: String, zone
 	_clear_attachment_state(card)
 	if zone_name == ZONE_HAND or zone_name == ZONE_DISCARD or zone_name == ZONE_BANISHED:
 		reset_transient_state(card)
+	if zone_name == ZONE_HAND:
+		apply_first_turn_hand_cost(match_state, card, target_player_id)
 	return {
 		"is_valid": true,
 		"errors": [],
@@ -437,6 +440,11 @@ static func build_generated_card(match_state: Dictionary, controller_player_id: 
 				var seed_aura = seed.get("aura", null)
 				if seed_aura != null and not card.has("aura"):
 					card["aura"] = seed_aura.duplicate(true)
+				var seed_innate: Array = seed.get("innate_statuses", [])
+				if not seed_innate.is_empty() and not card.has("innate_statuses"):
+					card["innate_statuses"] = seed_innate.duplicate(true)
+				if seed.has("first_turn_hand_cost") and not card.has("first_turn_hand_cost"):
+					card["first_turn_hand_cost"] = int(seed["first_turn_hand_cost"])
 				break
 	if not card.has("instance_id") or str(card.get("instance_id", "")).is_empty():
 		card["instance_id"] = "%s_generated_%03d" % [controller_player_id, int(match_state.get("generated_card_sequence", 0))]
@@ -582,6 +590,7 @@ static func _apply_lane_entry(match_state: Dictionary, controller_player_id: Str
 	var lane_controller_player_id := str(options.get("override_controller_player_id", controller_player_id))
 	var player_slots: Array = lane["player_slots"][lane_controller_player_id]
 	EvergreenRules.ensure_card_state(card)
+	_apply_innate_statuses(card)
 	card["controller_player_id"] = lane_controller_player_id
 	if not card.has("owner_player_id"):
 		card["owner_player_id"] = lane_controller_player_id
@@ -692,10 +701,36 @@ static func reset_transient_state(card: Dictionary) -> void:
 	card["granted_keywords"] = []
 	card["damage_marked"] = 0
 	card["status_markers"] = []
+	_apply_innate_statuses(card)
 	card.erase("cover_expires_on_turn")
 	card.erase("cover_granted_by")
 	card.erase("temporary_stat_bonuses")
 	card.erase("temporary_keywords")
+
+
+static func apply_first_turn_hand_cost(match_state: Dictionary, card: Dictionary, player_id: String) -> void:
+	if not card.has("first_turn_hand_cost"):
+		return
+	var player := {}
+	for p in match_state.get("players", []):
+		if str(p.get("player_id", "")) == player_id:
+			player = p
+			break
+	if player.is_empty():
+		return
+	if int(player.get("turns_started", 0)) == 1:
+		card["cost"] = int(card.get("first_turn_hand_cost", card.get("cost", 0)))
+
+
+static func _apply_innate_statuses(card: Dictionary) -> void:
+	var innate: Array = card.get("innate_statuses", [])
+	if innate.is_empty():
+		return
+	var markers: Array = card.get("status_markers", [])
+	for status_id in innate:
+		if not markers.has(status_id):
+			markers.append(status_id)
+	card["status_markers"] = markers
 
 
 static func _clear_lane_state(card: Dictionary) -> void:

@@ -3,6 +3,7 @@ extends RefCounted
 
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const ExtendedMechanicPacks = preload("res://src/core/match/extended_mechanic_packs.gd")
+const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const PHASE_READY_FOR_FIRST_TURN := "ready_for_first_turn"
@@ -172,6 +173,10 @@ static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionar
 	var drawn_instance_id := ""
 	if not drawn_cards.is_empty():
 		drawn_instance_id = str(drawn_cards[0].get("instance_id", ""))
+	if int(player.get("turns_started", 0)) == 1:
+		for hand_card in player.get("hand", []):
+			if typeof(hand_card) == TYPE_DICTIONARY:
+				MatchMutations.apply_first_turn_hand_cost(match_state, hand_card, player_id)
 	if str(match_state.get("winner_player_id", "")).is_empty():
 		match_state["phase"] = PHASE_ACTION
 		events.append({
