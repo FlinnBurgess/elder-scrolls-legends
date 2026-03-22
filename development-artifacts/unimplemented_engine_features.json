@@ -10,11 +10,13 @@
     "unhandled_passive_abilities": 12,
     "unhandled_cost_reduction_auras": 5,
     "other_unhandled_mechanisms": 3,
-    "implemented_ops": 95,
+    "implemented_ops": 109,
     "implemented_target_modes": 6,
     "implemented_action_target_modes": 5,
-    "implemented_families": 25,
-    "implemented_cost_reduction_auras": 5
+    "implemented_families": 29,
+    "implemented_cost_reduction_auras": 5,
+    "implemented_partial_families": 3,
+    "implemented_passive_abilities": 6
   },
   "unimplemented_ops": [
     {
@@ -209,7 +211,7 @@
     },
     {
       "op": "add_counter",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "cwc_agi_cog_collector",
         "mc_dual_dragonfire_wizard"
@@ -407,7 +409,7 @@
     },
     {
       "op": "look_draw_discard",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "mhc_neu_merchants_camel"
       ],
@@ -439,7 +441,7 @@
     },
     {
       "op": "look_give_draw",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "fsc_agi_shadowmarking"
       ],
@@ -488,7 +490,7 @@
     },
     {
       "op": "mark_target",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "joo_end_miscarcand_lich",
         "iom_agi_preying_elytra"
@@ -497,7 +499,7 @@
     },
     {
       "op": "change_lane_type",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "iom_str_syl_duchess_of_dementia",
         "iom_wil_thadon_duke_of_mania"
@@ -522,7 +524,7 @@
     },
     {
       "op": "transform_deck",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "iom_neu_gates_of_madness"
       ],
@@ -596,7 +598,7 @@
     },
     {
       "op": "consume_or_sacrifice",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "moe_agi_tenarr_zalviit_nightstalker"
       ],
@@ -628,7 +630,7 @@
     },
     {
       "op": "copy_drawn_card_to_hand",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "moe_agi_razum_dar"
       ],
@@ -636,7 +638,7 @@
     },
     {
       "op": "trigger_wax",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "moe_agi_rebellion_general"
       ],
@@ -644,7 +646,7 @@
     },
     {
       "op": "trigger_wane",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "moe_agi_rebellion_general"
       ],
@@ -652,7 +654,7 @@
     },
     {
       "op": "enable_dual_wax_wane",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "moe_neu_moon_gate"
       ],
@@ -669,7 +671,7 @@
     },
     {
       "op": "consume_all_creatures_in_discard_this_turn",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "moe_end_ruin_shambler"
       ],
@@ -872,7 +874,7 @@
     },
     {
       "op": "summon_random_from_collection",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "tc_neu_call_dragon"
       ],
@@ -986,7 +988,7 @@
     },
     {
       "op": "redirect_damage_to_self",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "joo_wil_jauffre"
       ],
@@ -1184,7 +1186,7 @@
     },
     {
       "family": "on_friendly_wax",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "moe_int_frazzled_alfiq"
       ],
@@ -1192,7 +1194,7 @@
     },
     {
       "family": "on_friendly_wane",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "moe_int_frazzled_alfiq"
       ],
@@ -1208,7 +1210,7 @@
     },
     {
       "family": "on_gain_max_magicka",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "mc_end_pure_blood_elder"
       ],
@@ -1265,7 +1267,7 @@
     },
     {
       "family": "on_rally_empty_hand",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "hom_tri_bolvyn_venim"
       ],
@@ -1356,7 +1358,7 @@
   "partially_handled_families": [
     {
       "family": "exalt",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "tc_tri_ordinator_of_the_almsivi",
         "mc_end_prophet_of_bones"
@@ -1365,7 +1367,7 @@
     },
     {
       "family": "wax",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "moe_agi_moonphase_suthay",
         "moe_str_pouncing_senche",
@@ -1379,7 +1381,7 @@
     },
     {
       "family": "wane",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "moe_agi_moonphase_suthay",
         "moe_str_pouncing_senche",
@@ -1582,7 +1584,7 @@
     },
     {
       "type": "grant_extra_attack",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "aw_agi_unrelenting_siege"
       ],
@@ -1606,7 +1608,7 @@
     },
     {
       "type": "max_magicka_cap",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "db_str_garnag_dark_adherent"
       ],
@@ -1622,7 +1624,7 @@
     },
     {
       "type": "all_subtypes",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "cwc_neu_reflective_automaton"
       ],
@@ -1646,7 +1648,7 @@
     },
     {
       "type": "protect_friendly_from_actions",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "iom_end_tavyar_the_knight"
       ],
@@ -1654,7 +1656,7 @@
     },
     {
       "type": "lane_attack_limit",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "iom_end_the_gatekeeper"
       ],
@@ -1662,7 +1664,7 @@
     },
     {
       "type": "power_equals_health",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "fsc_end_death_hound"
       ],

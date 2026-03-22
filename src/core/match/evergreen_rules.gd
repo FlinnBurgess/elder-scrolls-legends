@@ -385,6 +385,8 @@ static func get_remaining_health(card: Dictionary) -> int:
 
 
 static func get_power(card: Dictionary) -> int:
+	if _has_passive(card, "power_equals_health"):
+		return max(0, get_health(card))
 	var base_value := 0
 	if card.has("power"):
 		base_value = int(card.get("power", 0))
@@ -411,6 +413,23 @@ static func _sync_wounded_status(card: Dictionary) -> void:
 		add_status(card, STATUS_WOUNDED)
 	else:
 		remove_status(card, STATUS_WOUNDED)
+
+
+static func _has_passive(card: Dictionary, passive_type: String) -> bool:
+	var passives = card.get("passive_abilities", [])
+	if typeof(passives) != TYPE_ARRAY:
+		return false
+	for p in passives:
+		if typeof(p) == TYPE_DICTIONARY and str(p.get("type", "")) == passive_type:
+			return true
+	return false
+
+
+static func has_subtype(card: Dictionary, subtype: String) -> bool:
+	if _has_passive(card, "all_subtypes"):
+		return true
+	var subtypes = card.get("subtypes", [])
+	return typeof(subtypes) == TYPE_ARRAY and subtypes.has(subtype)
 
 
 static func _sum_attached_item_bonus(card: Dictionary, field_name: String) -> int:

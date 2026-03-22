@@ -276,7 +276,14 @@ static func _validate_attacker_readiness(match_state: Dictionary, attacker: Dict
 			return _invalid_result("This creature can't attack right now.")
 
 	if bool(attacker.get("has_attacked_this_turn", false)):
-		return _invalid_result("Creatures can only attack once per turn.")
+		# Check for grant_extra_attack passives on supports/creatures
+		var extra_attacks := int(attacker.get("extra_attacks_remaining", 0))
+		if extra_attacks <= 0 and not _has_extra_attack_passive(match_state, attacker):
+			return _invalid_result("Creatures can only attack once per turn.")
+
+	# lane_attack_limit passive: only one creature in the lane can attack per turn
+	if _lane_attack_limit_reached(match_state, attacker):
+		return _invalid_result("Only one creature in this lane can attack each turn.")
 
 	if _entered_lane_this_turn(match_state, attacker) and not EvergreenRules.has_keyword(attacker, EvergreenRules.KEYWORD_CHARGE):
 		return _invalid_result("Creatures without Charge cannot attack on the turn they enter a lane.")
@@ -299,6 +306,79 @@ static func _check_attack_condition(match_state: Dictionary, attacker: Dictionar
 					var capacity := int(lane.get("slot_capacity", 4))
 					return slots.size() >= capacity
 	return true
+
+
+static func _has_extra_attack_passive(match_state: Dictionary, attacker: Dictionary) -> bool:
+	var controller_id := str(attacker.get("controller_player_id", ""))
+	# Check supports and lane creatures for grant_extra_attack passive
+	for lane in match_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(controller_id, []):
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			var passives = card.get("passive_abilities", [])
+			if typeof(passives) != TYPE_ARRAY:
+				continue
+			for p in passives:
+				if typeof(p) != TYPE_DICTIONARY or str(p.get("type", "")) != "grant_extra_attack":
+					continue
+				var condition = p.get("condition", {})
+				if typeof(condition) == TYPE_DICTIONARY and not condition.is_empty():
+					var max_power := int(condition.get("max_power", -1))
+					if max_power >= 0 and EvergreenRules.get_power(attacker) > max_power:
+						continue
+				return true
+	for support in _get_player_state(match_state, controller_id).get("support", []):
+		if typeof(support) != TYPE_DICTIONARY:
+			continue
+		var passives = support.get("passive_abilities", [])
+		if typeof(passives) != TYPE_ARRAY:
+			continue
+		for p in passives:
+			if typeof(p) != TYPE_DICTIONARY or str(p.get("type", "")) != "grant_extra_attack":
+				continue
+			var condition = p.get("condition", {})
+			if typeof(condition) == TYPE_DICTIONARY and not condition.is_empty():
+				var max_power := int(condition.get("max_power", -1))
+				if max_power >= 0 and EvergreenRules.get_power(attacker) > max_power:
+					continue
+			return true
+	return false
+
+
+static func _lane_attack_limit_reached(match_state: Dictionary, attacker: Dictionary) -> bool:
+	var attacker_id := str(attacker.get("instance_id", ""))
+	var lane_id := str(attacker.get("lane_id", ""))
+	if lane_id.is_empty():
+		return false
+	# Check if any creature in this lane has the lane_attack_limit passive
+	var has_limit := false
+	for lane in match_state.get("lanes", []):
+		if str(lane.get("lane_id", "")) != lane_id:
+			continue
+		for pid in lane.get("player_slots", {}).keys():
+			for card in lane.get("player_slots", {}).get(pid, []):
+				if typeof(card) == TYPE_DICTIONARY and EvergreenRules._has_passive(card, "lane_attack_limit"):
+					has_limit = true
+					break
+			if has_limit:
+				break
+		if has_limit:
+			break
+	if not has_limit:
+		return false
+	# Check if another creature in this lane has already attacked
+	for lane in match_state.get("lanes", []):
+		if str(lane.get("lane_id", "")) != lane_id:
+			continue
+		for pid in lane.get("player_slots", {}).keys():
+			for card in lane.get("player_slots", {}).get(pid, []):
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				if str(card.get("instance_id", "")) == attacker_id:
+					continue
+				if bool(card.get("has_attacked_this_turn", false)):
+					return true
+	return false
 
 
 static func _entered_lane_this_turn(match_state: Dictionary, attacker: Dictionary) -> bool:
