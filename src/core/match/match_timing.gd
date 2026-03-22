@@ -150,6 +150,8 @@ static func ensure_match_state(match_state: Dictionary) -> void:
 		match_state["pending_player_choices"] = []
 	if not match_state.has("pending_rune_break_queue") or typeof(match_state["pending_rune_break_queue"]) != TYPE_ARRAY:
 		match_state["pending_rune_break_queue"] = []
+	if not match_state.has("pending_summon_effect_targets") or typeof(match_state["pending_summon_effect_targets"]) != TYPE_ARRAY:
+		match_state["pending_summon_effect_targets"] = []
 	if not match_state.has("out_of_cards_sequence"):
 		match_state["out_of_cards_sequence"] = 0
 
@@ -783,6 +785,77 @@ static func resolve_pending_secondary_target(match_state: Dictionary, player_id:
 				events.append({"event_type": "creature_destroyed", "instance_id": target_instance_id, "reason": "deal_damage_from_creature"})
 	var timing_result := publish_events(match_state, events)
 	return {"is_valid": true, "errors": [], "events": timing_result.get("processed_events", [])}
+
+
+static func has_pending_summon_effect_target(match_state: Dictionary, player_id: String = "") -> bool:
+	return not get_pending_summon_effect_target(match_state, player_id).is_empty()
+
+
+static func get_pending_summon_effect_target(match_state: Dictionary, player_id: String = "") -> Dictionary:
+	ensure_match_state(match_state)
+	for raw in match_state.get("pending_summon_effect_targets", []):
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		if not player_id.is_empty() and str(raw.get("player_id", "")) != player_id:
+			continue
+		return raw.duplicate(true)
+	return {}
+
+
+static func resolve_pending_summon_effect_target(match_state: Dictionary, player_id: String, target_info: Dictionary) -> Dictionary:
+	ensure_match_state(match_state)
+	var pending: Array = match_state.get("pending_summon_effect_targets", [])
+	var idx := -1
+	var entry := {}
+	for i in range(pending.size()):
+		if typeof(pending[i]) == TYPE_DICTIONARY and str(pending[i].get("player_id", "")) == player_id:
+			idx = i
+			entry = pending[i]
+			break
+	if idx == -1:
+		return {"is_valid": false, "errors": ["No pending summon effect target for %s." % player_id]}
+	pending.remove_at(idx)
+	var source_id := str(entry.get("source_instance_id", ""))
+	return resolve_targeted_effect(match_state, source_id, target_info)
+
+
+static func decline_pending_summon_effect_target(match_state: Dictionary, player_id: String) -> Dictionary:
+	ensure_match_state(match_state)
+	var pending: Array = match_state.get("pending_summon_effect_targets", [])
+	var idx := -1
+	for i in range(pending.size()):
+		if typeof(pending[i]) == TYPE_DICTIONARY and str(pending[i].get("player_id", "")) == player_id:
+			idx = i
+			break
+	if idx == -1:
+		return {"is_valid": false, "errors": ["No pending summon effect target for %s." % player_id]}
+	pending.remove_at(idx)
+	return {"is_valid": true, "events": [], "trigger_resolutions": []}
+
+
+static func _check_summon_effect_target_mode(match_state: Dictionary, summoned_card: Dictionary) -> void:
+	var summon_abilities: Array = []
+	for ab in get_target_mode_abilities(summoned_card):
+		if str(ab.get("family", "")) == FAMILY_SUMMON:
+			summon_abilities.append(ab)
+	if summon_abilities.is_empty():
+		return
+	var instance_id := str(summoned_card.get("instance_id", ""))
+	var controller_id := str(summoned_card.get("controller_player_id", ""))
+	var valid := get_all_valid_targets(match_state, instance_id)
+	if valid.is_empty():
+		return
+	var is_mandatory := false
+	for ab in summon_abilities:
+		if bool(ab.get("mandatory", false)):
+			is_mandatory = true
+			break
+	var pending_arr: Array = match_state.get("pending_summon_effect_targets", [])
+	pending_arr.append({
+		"player_id": controller_id,
+		"source_instance_id": instance_id,
+		"mandatory": is_mandatory,
+	})
 
 
 static func apply_player_damage(match_state: Dictionary, player_id: String, amount: int, context: Dictionary = {}) -> Dictionary:
@@ -2517,6 +2590,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							generated_events.append(_build_summon_event(summon_existing["card"], summon_players[0], s_lane_id, int(summon_existing.get("slot_index", -1)), reason))
 							if bool(summon_existing.get("granted_cover", false)):
 								generated_events.append({"event_type": "status_granted", "source_instance_id": str(summon_existing["card"].get("instance_id", "")), "target_instance_id": str(summon_existing["card"].get("instance_id", "")), "status_id": "cover"})
+							_check_summon_effect_target_mode(match_state, summon_existing["card"])
 				else:
 					for player_id in summon_players:
 						for s_lane_id in summon_lane_ids:
@@ -2531,6 +2605,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							generated_events.append(_build_summon_event(summon_result["card"], player_id, s_lane_id, int(summon_result.get("slot_index", -1)), reason))
 							if bool(summon_result.get("granted_cover", false)):
 								generated_events.append({"event_type": "status_granted", "source_instance_id": str(summon_result["card"].get("instance_id", "")), "target_instance_id": str(summon_result["card"].get("instance_id", "")), "status_id": "cover"})
+							_check_summon_effect_target_mode(match_state, summon_result["card"])
 			"fill_lane_with":
 				var fill_controller_id := str(trigger.get("controller_player_id", ""))
 				var fill_lane_id := str(effect.get("lane_id", effect.get("target_lane_id", event.get("lane_id", ""))))

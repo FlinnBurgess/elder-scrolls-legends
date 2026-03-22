@@ -31,6 +31,8 @@ const KIND_TOP_DECK_DISCARD := "top_deck_discard"
 const KIND_TOP_DECK_KEEP := "top_deck_keep"
 const KIND_CHOOSE_PLAYER_CHOICE := "choose_player_choice"
 const KIND_CHOOSE_SECONDARY_TARGET := "choose_secondary_target"
+const KIND_CHOOSE_SUMMON_EFFECT_TARGET := "choose_summon_effect_target"
+const KIND_DECLINE_SUMMON_EFFECT_TARGET := "decline_summon_effect_target"
 const ACTION_KIND_ORDER := {
 	KIND_SUMMON_CREATURE: 10,
 	KIND_DECLINE_PROPHECY: 11,
@@ -101,6 +103,28 @@ static func enumerate_legal_actions(match_state: Dictionary, player_id: String =
 				continue
 			sec_actions.append(_build_descriptor(KIND_CHOOSE_SECONDARY_TARGET, match_state, decision_player_id, {"target_instance_id": str(card.get("instance_id", ""))}, {}, {"timing_window": TIMING_INTERRUPT}))
 		result["actions"] = sec_actions
+	elif MatchTiming.has_pending_summon_effect_target(match_state):
+		var summon_eff_target := MatchTiming.get_pending_summon_effect_target(match_state)
+		var summon_eff_player_id := str(summon_eff_target.get("player_id", ""))
+		if decision_player_id != summon_eff_player_id:
+			result["blocked_reason"] = "Pending summon effect target belongs to another player."
+			return result
+		result["timing_window"] = TIMING_INTERRUPT
+		result["has_pending_summon_effect_target"] = true
+		var source_id := str(summon_eff_target.get("source_instance_id", ""))
+		var set_actions: Array = []
+		for target_info in MatchTiming.get_all_valid_targets(match_state, source_id):
+			var tid := str(target_info.get("instance_id", ""))
+			var tpid := str(target_info.get("player_id", ""))
+			var params := {}
+			if not tid.is_empty():
+				params["target_instance_id"] = tid
+			if not tpid.is_empty():
+				params["target_player_id"] = tpid
+			set_actions.append(_build_descriptor(KIND_CHOOSE_SUMMON_EFFECT_TARGET, match_state, decision_player_id, params, {}, {"timing_window": TIMING_INTERRUPT}))
+		if not bool(summon_eff_target.get("mandatory", false)):
+			set_actions.append(_build_descriptor(KIND_DECLINE_SUMMON_EFFECT_TARGET, match_state, decision_player_id, {}, {}, {"timing_window": TIMING_INTERRUPT}))
+		result["actions"] = set_actions
 	elif MatchTiming.has_pending_player_choice(match_state):
 		var player_choice := MatchTiming.get_pending_player_choice(match_state)
 		var player_choice_player_id := str(player_choice.get("player_id", ""))
@@ -168,8 +192,19 @@ static func action_is_legal(match_state: Dictionary, action: Dictionary) -> bool
 			return bool(MatchTiming.resolve_pending_player_choice(match_state.duplicate(true), player_id, int(parameters.get("chosen_index", 0))).get("is_valid", false))
 		KIND_CHOOSE_SECONDARY_TARGET:
 			return bool(MatchTiming.resolve_pending_secondary_target(match_state.duplicate(true), player_id, str(parameters.get("target_instance_id", ""))).get("is_valid", false))
+		KIND_CHOOSE_SUMMON_EFFECT_TARGET:
+			var set_target_info := {}
+			var set_tid := str(parameters.get("target_instance_id", ""))
+			var set_tpid := str(parameters.get("target_player_id", ""))
+			if not set_tid.is_empty():
+				set_target_info["target_instance_id"] = set_tid
+			if not set_tpid.is_empty():
+				set_target_info["target_player_id"] = set_tpid
+			return bool(MatchTiming.resolve_pending_summon_effect_target(match_state.duplicate(true), player_id, set_target_info).get("is_valid", false))
+		KIND_DECLINE_SUMMON_EFFECT_TARGET:
+			return MatchTiming.has_pending_summon_effect_target(match_state, player_id)
 		KIND_END_TURN:
-			if MatchTiming.has_pending_prophecy(match_state) or MatchTiming.has_pending_discard_choice(match_state) or MatchTiming.has_pending_hand_selection(match_state) or MatchTiming.has_pending_top_deck_choice(match_state) or MatchTiming.has_pending_player_choice(match_state) or MatchTiming.has_pending_secondary_target(match_state):
+			if MatchTiming.has_pending_prophecy(match_state) or MatchTiming.has_pending_discard_choice(match_state) or MatchTiming.has_pending_hand_selection(match_state) or MatchTiming.has_pending_top_deck_choice(match_state) or MatchTiming.has_pending_player_choice(match_state) or MatchTiming.has_pending_secondary_target(match_state) or MatchTiming.has_pending_summon_effect_target(match_state):
 				return false
 			var clone := match_state.duplicate(true)
 			var active_before := str(clone.get("active_player_id", ""))

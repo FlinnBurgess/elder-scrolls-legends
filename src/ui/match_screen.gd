@@ -5329,6 +5329,8 @@ func _finalize_engine_result(result: Dictionary, success_message: String, clear_
 	else:
 		_status_message = str(result.get("errors", ["Action failed."])[0])
 	_refresh_ui()
+	if bool(result.get("is_valid", false)):
+		_check_pending_summon_effect_target()
 	return result
 
 
@@ -6122,7 +6124,7 @@ func _is_local_prophecy_interrupt_open() -> bool:
 
 
 func _local_player_has_pending_interrupt() -> bool:
-	return _is_local_prophecy_interrupt_open() or not _pending_summon_target.is_empty() or _has_local_pending_discard_choice() or not _hand_selection_state.is_empty()
+	return _is_local_prophecy_interrupt_open() or not _pending_summon_target.is_empty() or _has_local_pending_discard_choice() or not _hand_selection_state.is_empty() or MatchTiming.has_pending_summon_effect_target(_match_state, _local_player_id())
 
 
 func _is_local_match_ai_enabled() -> bool:
@@ -6146,6 +6148,8 @@ func _ai_controls_current_decision_window() -> bool:
 	if MatchTiming.has_pending_player_choice(_match_state, ai_player_id):
 		return true
 	if MatchTiming.has_pending_secondary_target(_match_state, ai_player_id):
+		return true
+	if MatchTiming.has_pending_summon_effect_target(_match_state, ai_player_id):
 		return true
 	if MatchTiming.has_pending_prophecy(_match_state):
 		return _has_pending_prophecy_for_player(ai_player_id)
@@ -6952,10 +6956,15 @@ func _resolve_summon_target_card(target_instance_id: String) -> void:
 	if not is_valid:
 		_report_invalid_interaction("Not a valid target.", {"instance_ids": [target_instance_id]})
 		return
-	var result := MatchTiming.resolve_targeted_effect(_match_state, source_id, {"target_instance_id": target_instance_id})
+	var is_effect_summon := bool(_pending_summon_target.get("is_effect_summon", false))
 	_pending_summon_target = {}
 	_cancel_targeting_mode_silent()
-	_finalize_engine_result(result, "Targeted %s." % _card_name(_card_from_instance_id(target_instance_id)))
+	if is_effect_summon:
+		var result := MatchTiming.resolve_pending_summon_effect_target(_match_state, _local_player_id(), {"target_instance_id": target_instance_id})
+		_finalize_engine_result(result, "Targeted %s." % _card_name(_card_from_instance_id(target_instance_id)))
+	else:
+		var result := MatchTiming.resolve_targeted_effect(_match_state, source_id, {"target_instance_id": target_instance_id})
+		_finalize_engine_result(result, "Targeted %s." % _card_name(_card_from_instance_id(target_instance_id)))
 
 
 func _resolve_summon_target_player(player_id: String) -> void:
@@ -6969,16 +6978,24 @@ func _resolve_summon_target_player(player_id: String) -> void:
 	if not is_valid:
 		_report_invalid_interaction("Not a valid target.", {"player_ids": [player_id]})
 		return
-	var result := MatchTiming.resolve_targeted_effect(_match_state, source_id, {"target_player_id": player_id})
+	var is_effect_summon := bool(_pending_summon_target.get("is_effect_summon", false))
 	_pending_summon_target = {}
 	_cancel_targeting_mode_silent()
-	_finalize_engine_result(result, "Targeted %s." % _player_name(player_id))
+	if is_effect_summon:
+		var result := MatchTiming.resolve_pending_summon_effect_target(_match_state, _local_player_id(), {"target_player_id": player_id})
+		_finalize_engine_result(result, "Targeted %s." % _player_name(player_id))
+	else:
+		var result := MatchTiming.resolve_targeted_effect(_match_state, source_id, {"target_player_id": player_id})
+		_finalize_engine_result(result, "Targeted %s." % _player_name(player_id))
 
 
 func _is_pending_summon_mandatory() -> bool:
 	var source_id := str(_pending_summon_target.get("source_instance_id", ""))
 	if source_id.is_empty():
 		return false
+	if bool(_pending_summon_target.get("is_effect_summon", false)):
+		var pending := MatchTiming.get_pending_summon_effect_target(_match_state, _local_player_id())
+		return bool(pending.get("mandatory", false))
 	var card := _card_from_instance_id(source_id)
 	for ability in MatchTiming.get_target_mode_abilities(card):
 		if bool(ability.get("mandatory", false)):
@@ -6987,9 +7004,38 @@ func _is_pending_summon_mandatory() -> bool:
 
 
 func _cancel_summon_target_mode() -> void:
+	if bool(_pending_summon_target.get("is_effect_summon", false)):
+		MatchTiming.decline_pending_summon_effect_target(_match_state, _local_player_id())
 	_pending_summon_target = {}
 	_cancel_targeting_mode()
 	_status_message = "Effect declined."
+	_refresh_ui()
+
+
+func _check_pending_summon_effect_target() -> void:
+	var local_id := _local_player_id()
+	if not MatchTiming.has_pending_summon_effect_target(_match_state, local_id):
+		return
+	if not _pending_summon_target.is_empty():
+		return
+	var pending := MatchTiming.get_pending_summon_effect_target(_match_state, local_id)
+	var source_id := str(pending.get("source_instance_id", ""))
+	var card := _card_from_instance_id(source_id)
+	if card.is_empty():
+		MatchTiming.decline_pending_summon_effect_target(_match_state, local_id)
+		return
+	var valid_targets := MatchTiming.get_all_valid_targets(_match_state, source_id)
+	if valid_targets.is_empty():
+		MatchTiming.decline_pending_summon_effect_target(_match_state, local_id)
+		return
+	_pending_summon_target = {
+		"source_instance_id": source_id,
+		"is_effect_summon": true,
+	}
+	_selected_instance_id = source_id
+	_enter_targeting_mode(source_id)
+	var abilities := MatchTiming.get_target_mode_abilities(card)
+	_status_message = _summon_target_prompt(card, abilities)
 	_refresh_ui()
 
 

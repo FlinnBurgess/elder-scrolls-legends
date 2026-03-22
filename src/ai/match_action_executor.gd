@@ -93,6 +93,17 @@ static func execute_action(match_state: Dictionary, action: Dictionary) -> Dicti
 			result = MatchTiming.resolve_pending_player_choice(match_state, player_id, int(parameters.get("chosen_index", 0)))
 		MatchActionEnumerator.KIND_CHOOSE_SECONDARY_TARGET:
 			result = MatchTiming.resolve_pending_secondary_target(match_state, player_id, str(parameters.get("target_instance_id", "")))
+		MatchActionEnumerator.KIND_CHOOSE_SUMMON_EFFECT_TARGET:
+			var set_target_info := {}
+			var set_tid := str(parameters.get("target_instance_id", ""))
+			var set_tpid := str(parameters.get("target_player_id", ""))
+			if not set_tid.is_empty():
+				set_target_info["target_instance_id"] = set_tid
+			if not set_tpid.is_empty():
+				set_target_info["target_player_id"] = set_tpid
+			result = MatchTiming.resolve_pending_summon_effect_target(match_state, player_id, set_target_info)
+		MatchActionEnumerator.KIND_DECLINE_SUMMON_EFFECT_TARGET:
+			result = MatchTiming.decline_pending_summon_effect_target(match_state, player_id)
 		_:
 			return {"is_valid": false, "errors": ["Unsupported action kind: %s" % kind], "match_state": match_state}
 	result["match_state"] = match_state
