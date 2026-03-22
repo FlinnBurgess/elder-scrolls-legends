@@ -3022,6 +3022,12 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var health_bonus := current_health if cds_stat in ["both", "health"] else 0
 					EvergreenRules.apply_stat_bonus(card, power_bonus, health_bonus, reason)
 					generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "power_bonus": power_bonus, "health_bonus": health_bonus, "reason": reason})
+			"unsummon_end_of_turn":
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var ueot_pending: Array = match_state.get("pending_end_of_turn_unsummons", [])
+					ueot_pending.append(str(card.get("instance_id", "")))
+					match_state["pending_end_of_turn_unsummons"] = ueot_pending
+					generated_events.append({"event_type": "unsummon_scheduled", "instance_id": str(card.get("instance_id", "")), "reason": reason})
 			"may_move_between_lanes":
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					var mml_loc := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
