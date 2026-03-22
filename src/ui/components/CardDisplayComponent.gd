@@ -28,6 +28,7 @@ const KEYWORD_ICON_PATHS := {
 	"pilfer": "res://assets/images/keywords/pilfer.png",
 	"regenerate": "res://assets/images/keywords/regenerate.png",
 	"slay": "res://assets/images/keywords/slay.png",
+	"rally": "res://assets/images/keywords/rally.png",
 }
 
 const KEYWORD_NAMES := [
