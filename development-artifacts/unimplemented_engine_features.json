@@ -10,13 +10,13 @@
     "unhandled_passive_abilities": 12,
     "unhandled_cost_reduction_auras": 5,
     "other_unhandled_mechanisms": 3,
-    "implemented_ops": 119,
-    "implemented_target_modes": 6,
-    "implemented_action_target_modes": 5,
+    "implemented_ops": 125,
+    "implemented_target_modes": 13,
+    "implemented_action_target_modes": 6,
     "implemented_families": 35,
     "implemented_cost_reduction_auras": 5,
     "implemented_partial_families": 3,
-    "implemented_passive_abilities": 9
+    "implemented_passive_abilities": 10
   },
   "unimplemented_ops": [
     {
@@ -252,7 +252,7 @@
     },
     {
       "op": "build_custom_fabricant",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "cwc_neu_fabricate"
       ],
@@ -268,7 +268,7 @@
     },
     {
       "op": "stitch_creatures_from_decks",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "cwc_neu_mecinar"
       ],
@@ -311,7 +311,7 @@
     },
     {
       "op": "choose_two",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "cwc_neu_assembled_titan"
       ],
@@ -319,7 +319,7 @@
     },
     {
       "op": "player_battle_creature",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "cwc_neu_dragon_aspect"
       ],
@@ -799,7 +799,7 @@
     },
     {
       "op": "learn_action",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "joo_int_hannibal_traven"
       ],
@@ -807,7 +807,7 @@
     },
     {
       "op": "play_learned_actions",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "joo_int_hannibal_traven"
       ],
@@ -1448,7 +1448,7 @@
     },
     {
       "mode": "enemy_creature_and_friendly_creature",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "hom_wil_orvas_bargain"
       ],
@@ -1482,7 +1482,7 @@
     },
     {
       "mode": "choose_lane_and_owner",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "aw_wil_strategists_map"
       ],
@@ -1490,7 +1490,7 @@
     },
     {
       "mode": "creature_in_hand",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "tc_int_strange_brew",
         "mc_neu_heroic_rebirth"
@@ -1509,7 +1509,7 @@
     },
     {
       "mode": "enemy_creature_and_friendly_creature",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "moe_agi_whispering_claw_strike"
       ],
@@ -1533,7 +1533,7 @@
     },
     {
       "mode": "friendly_creature_with_3_items",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "mc_dual_monster_perfection_lab"
       ],
@@ -1549,7 +1549,7 @@
     },
     {
       "mode": "opponent_discard_card",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "fsc_int_piercing_twilight"
       ],
@@ -1557,7 +1557,7 @@
     },
     {
       "mode": "three_creatures",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "joo_int_fingers_of_the_mountain"
       ],
@@ -1565,7 +1565,7 @@
     },
     {
       "mode": "two_creatures",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "joo_str_lord_of_the_arena",
         "joo_end_mute"
@@ -1616,7 +1616,7 @@
     },
     {
       "type": "pilfer_is_slay",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "db_agi_skooma_underboss"
       ],

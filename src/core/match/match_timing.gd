@@ -440,6 +440,32 @@ static func get_valid_targets_for_mode(match_state: Dictionary, source_instance_
 			var self_health_eclptsh := int(source_card.get("health", 0))
 			targets = _player_lane_creatures(match_state, opponent_id)
 			targets = targets.filter(func(c): return EvergreenRules.get_power(c) < self_health_eclptsh)
+		"two_creatures", "three_creatures":
+			targets = _all_lane_creatures(match_state)
+		"creature_in_hand":
+			var cih_player := _get_player_state(match_state, controller_id)
+			if not cih_player.is_empty():
+				for card in cih_player.get(ZONE_HAND, []):
+					if typeof(card) == TYPE_DICTIONARY and str(card.get("card_type", "")) == CARD_TYPE_CREATURE:
+						targets.append(card)
+		"opponent_discard_card":
+			var odc_opponent := _get_player_state(match_state, opponent_id)
+			if not odc_opponent.is_empty():
+				for card in odc_opponent.get(ZONE_DISCARD, []):
+					if typeof(card) == TYPE_DICTIONARY:
+						targets.append(card)
+		"choose_lane_and_owner":
+			# Return both player IDs as targets — UI will present lane selection
+			targets.append({"player_id": controller_id})
+			targets.append({"player_id": opponent_id})
+		"friendly_creature_with_3_items":
+			targets = _player_lane_creatures(match_state, controller_id)
+			targets = targets.filter(func(c):
+				var items = c.get("attached_items", [])
+				return typeof(items) == TYPE_ARRAY and items.size() >= 3)
+		"enemy_creature_and_friendly_creature":
+			# Return all creatures — UI handles the two-step pick
+			targets = _all_lane_creatures(match_state)
 	# Apply additional filters from trigger descriptor
 	var max_power := int(trigger.get("target_filter_max_power", -1))
 	if max_power >= 0:
@@ -1983,10 +2009,28 @@ static func _trigger_matches_event(match_state: Dictionary, trigger: Dictionary,
 	var family_spec: Dictionary = FAMILY_SPECS.get(family, {})
 	var expected_event_type := str(descriptor.get("event_type", family_spec.get("event_type", "")))
 	if event_type != expected_event_type:
+		# pilfer_is_slay: slay triggers also fire on pilfer events
+		if family == FAMILY_SLAY and event_type == EVENT_DAMAGE_RESOLVED and str(event.get("target_type", "")) == "player" and int(event.get("amount", 0)) > 0:
+			var pis_source_id := str(trigger.get("source_instance_id", ""))
+			if str(event.get("source_instance_id", "")) == pis_source_id:
+				var pis_controller := str(trigger.get("controller_player_id", ""))
+				if _has_pilfer_is_slay_active(match_state, pis_controller):
+					return _matches_conditions(match_state, trigger, descriptor, family_spec, event)
 		return false
 	if not _matches_trigger_role(match_state, trigger, descriptor, family_spec, event):
 		return false
 	return _matches_conditions(match_state, trigger, descriptor, family_spec, event)
+
+
+static func _has_pilfer_is_slay_active(match_state: Dictionary, controller_id: String) -> bool:
+	for lane in match_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(controller_id, []):
+			if typeof(card) == TYPE_DICTIONARY and EvergreenRules._has_passive(card, "pilfer_is_slay"):
+				return true
+	for support in _get_player_state(match_state, controller_id).get("support", []):
+		if typeof(support) == TYPE_DICTIONARY and EvergreenRules._has_passive(support, "pilfer_is_slay"):
+			return true
+	return false
 
 
 static func _matches_required_zone(trigger: Dictionary, descriptor: Dictionary) -> bool:
@@ -5712,6 +5756,161 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							"mode": "give_one_draw_rest",
 							"prompt": "Choose a card to give to your opponent.",
 						})
+			"choose_two":
+				# Assembled Titan: player picks 2 abilities from a list
+				var ct_controller_id := str(trigger.get("controller_player_id", ""))
+				var ct_ability_options: Array = effect.get("ability_options", [])
+				if ct_ability_options.size() >= 2:
+					var ct_display_options: Array = []
+					var ct_effects_per: Array = []
+					for ct_opt in ct_ability_options:
+						if typeof(ct_opt) != TYPE_DICTIONARY:
+							continue
+						ct_display_options.append({"label": str(ct_opt.get("label", "Ability")), "description": str(ct_opt.get("description", ""))})
+						ct_effects_per.append(ct_opt.get("effects", []))
+					match_state["pending_player_choices"].append({
+						"player_id": ct_controller_id,
+						"source_instance_id": str(trigger.get("source_instance_id", "")),
+						"prompt": "Choose the first ability.",
+						"options": ct_display_options,
+						"effects_per_option": ct_effects_per,
+						"trigger": trigger.duplicate(true),
+						"event": event.duplicate(true),
+						"_choose_two_remaining": 1,
+						"_all_options": ct_ability_options,
+					})
+			"build_custom_fabricant":
+				# Fabricate: choose attack, health, keywords to build a creature
+				var bcf_controller_id := str(trigger.get("controller_player_id", ""))
+				var bcf_options: Array = effect.get("options", [
+					{"label": "+3/+3", "description": "3 power, 3 health", "effects": [{"op": "summon_from_effect", "card_template": {"definition_id": "cwc_neu_custom_fabricant", "name": "Custom Fabricant", "card_type": "creature", "subtypes": ["Fabricant"], "attributes": ["neutral"], "cost": 0, "power": 3, "health": 3, "base_power": 3, "base_health": 3}}]},
+					{"label": "+5/+5", "description": "5 power, 5 health", "effects": [{"op": "summon_from_effect", "card_template": {"definition_id": "cwc_neu_custom_fabricant", "name": "Custom Fabricant", "card_type": "creature", "subtypes": ["Fabricant"], "attributes": ["neutral"], "cost": 0, "power": 5, "health": 5, "base_power": 5, "base_health": 5}}]},
+				])
+				var bcf_display: Array = []
+				var bcf_effects: Array = []
+				for bcf_opt in bcf_options:
+					if typeof(bcf_opt) == TYPE_DICTIONARY:
+						bcf_display.append({"label": str(bcf_opt.get("label", "")), "description": str(bcf_opt.get("description", ""))})
+						bcf_effects.append(bcf_opt.get("effects", []))
+				match_state["pending_player_choices"].append({
+					"player_id": bcf_controller_id,
+					"source_instance_id": str(trigger.get("source_instance_id", "")),
+					"prompt": "Choose your Fabricant's design.",
+					"options": bcf_display,
+					"effects_per_option": bcf_effects,
+					"trigger": trigger.duplicate(true),
+					"event": event.duplicate(true),
+				})
+			"stitch_creatures_from_decks":
+				# Mecinar: combine top creature of each deck into an Abomination
+				var scfd_controller_id := str(trigger.get("controller_player_id", ""))
+				var scfd_opponent_id := _get_opposing_player_id(match_state.get("players", []), scfd_controller_id)
+				var scfd_player := _get_player_state(match_state, scfd_controller_id)
+				var scfd_opponent := _get_player_state(match_state, scfd_opponent_id)
+				if not scfd_player.is_empty() and not scfd_opponent.is_empty():
+					var scfd_p_deck: Array = scfd_player.get(ZONE_DECK, [])
+					var scfd_o_deck: Array = scfd_opponent.get(ZONE_DECK, [])
+					var scfd_p_creature: Dictionary = {}
+					var scfd_o_creature: Dictionary = {}
+					for i in range(scfd_p_deck.size() - 1, -1, -1):
+						if str(scfd_p_deck[i].get("card_type", "")) == CARD_TYPE_CREATURE:
+							scfd_p_creature = scfd_p_deck[i]
+							scfd_p_deck.remove_at(i)
+							break
+					for i in range(scfd_o_deck.size() - 1, -1, -1):
+						if str(scfd_o_deck[i].get("card_type", "")) == CARD_TYPE_CREATURE:
+							scfd_o_creature = scfd_o_deck[i]
+							scfd_o_deck.remove_at(i)
+							break
+					var scfd_power := int(scfd_p_creature.get("power", scfd_p_creature.get("base_power", 0))) + int(scfd_o_creature.get("power", scfd_o_creature.get("base_power", 0)))
+					var scfd_health := int(scfd_p_creature.get("health", scfd_p_creature.get("base_health", 0))) + int(scfd_o_creature.get("health", scfd_o_creature.get("base_health", 0)))
+					var scfd_keywords: Array = []
+					for kw in scfd_p_creature.get("keywords", []):
+						if not scfd_keywords.has(str(kw)):
+							scfd_keywords.append(str(kw))
+					for kw in scfd_o_creature.get("keywords", []):
+						if not scfd_keywords.has(str(kw)):
+							scfd_keywords.append(str(kw))
+					var scfd_template: Dictionary = {
+						"definition_id": "cwc_neu_abomination",
+						"name": "Abomination",
+						"card_type": "creature",
+						"subtypes": ["Fabricant"],
+						"attributes": ["neutral"],
+						"cost": 0,
+						"power": scfd_power,
+						"health": scfd_health,
+						"base_power": scfd_power,
+						"base_health": scfd_health,
+						"keywords": scfd_keywords,
+					}
+					var scfd_card := MatchMutations.build_generated_card(match_state, scfd_controller_id, scfd_template)
+					var scfd_lane_id := _resolve_summon_lane_id(match_state, trigger, event, effect, scfd_controller_id)
+					if not scfd_lane_id.is_empty():
+						var scfd_result := MatchMutations.summon_card_to_lane(match_state, scfd_controller_id, scfd_card, scfd_lane_id, {"source_zone": ZONE_GENERATED})
+						if bool(scfd_result.get("is_valid", false)):
+							generated_events.append_array(scfd_result.get("events", []))
+							generated_events.append(_build_summon_event(scfd_result["card"], scfd_controller_id, scfd_lane_id, int(scfd_result.get("slot_index", -1)), reason))
+			"player_battle_creature":
+				# Dragon Aspect: player gains attack power and fights a creature
+				var pbc_controller_id := str(trigger.get("controller_player_id", ""))
+				var pbc_attack_power := int(effect.get("attack_power", 3))
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var pbc_damage := pbc_attack_power
+					var pbc_result := EvergreenRules.apply_damage_to_creature(card, pbc_damage)
+					generated_events.append({
+						"event_type": EVENT_DAMAGE_RESOLVED,
+						"source_instance_id": str(trigger.get("source_instance_id", "")),
+						"target_instance_id": str(card.get("instance_id", "")),
+						"amount": pbc_damage,
+						"damage_kind": "ability",
+						"ward_removed": bool(pbc_result.get("ward_removed", false)),
+					})
+					# Player takes damage from the creature's power
+					var pbc_creature_power := EvergreenRules.get_power(card)
+					if pbc_creature_power > 0:
+						var pbc_player := _get_player_state(match_state, pbc_controller_id)
+						if not pbc_player.is_empty():
+							pbc_player["health"] = int(pbc_player.get("health", 0)) - pbc_creature_power
+							generated_events.append({
+								"event_type": EVENT_DAMAGE_RESOLVED,
+								"target_player_id": pbc_controller_id,
+								"target_type": "player",
+								"amount": pbc_creature_power,
+								"damage_kind": "combat",
+							})
+					if int(card.get("health", 0)) <= 0:
+						var pbc_destroy := MatchMutations.discard_card(match_state, str(card.get("instance_id", "")), {"reason": reason})
+						generated_events.append({"event_type": EVENT_CREATURE_DESTROYED, "instance_id": str(card.get("instance_id", "")), "controller_player_id": str(card.get("controller_player_id", ""))})
+						generated_events.append_array(pbc_destroy.get("events", []))
+			"learn_action":
+				var la_controller_id := str(trigger.get("controller_player_id", ""))
+				var la_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+				if not la_source.is_empty():
+					for card in _resolve_card_targets(match_state, trigger, event, effect):
+						var la_learned: Array = la_source.get("_learned_actions", [])
+						if typeof(la_learned) != TYPE_ARRAY:
+							la_learned = []
+						la_learned.append(card.duplicate(true))
+						la_source["_learned_actions"] = la_learned
+						generated_events.append({"event_type": "action_learned", "source_instance_id": str(trigger.get("source_instance_id", "")), "learned_card": str(card.get("name", ""))})
+			"play_learned_actions":
+				var pla_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+				if not pla_source.is_empty():
+					var pla_learned: Array = pla_source.get("_learned_actions", [])
+					if typeof(pla_learned) == TYPE_ARRAY:
+						var pla_controller := str(trigger.get("controller_player_id", ""))
+						for pla_action in pla_learned:
+							if typeof(pla_action) != TYPE_DICTIONARY:
+								continue
+							var pla_abilities = pla_action.get("triggered_abilities", [])
+							if typeof(pla_abilities) != TYPE_ARRAY:
+								continue
+							for pla_ab in pla_abilities:
+								if typeof(pla_ab) == TYPE_DICTIONARY and str(pla_ab.get("family", "")) == FAMILY_ON_PLAY:
+									var pla_trigger := trigger.duplicate(true)
+									pla_trigger["descriptor"] = pla_ab
+									generated_events.append_array(_apply_effects(match_state, pla_trigger, event, {}))
 			_:
 				var custom_result := ExtendedMechanicPacks.apply_custom_effect(match_state, trigger, event, effect)
 				if bool(custom_result.get("handled", false)):

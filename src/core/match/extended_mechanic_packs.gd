@@ -1831,4 +1831,19 @@ static func _card_matches_target_mode(target_mode: String, card: Dictionary, con
 			return true
 		"enemy_creature_less_power_than_self_health":
 			return card_controller != controller_player_id
+		"two_creatures", "three_creatures":
+			return true
+		"creature_in_hand":
+			return true
+		"opponent_discard_card":
+			return card_controller != controller_player_id
+		"choose_lane_and_owner":
+			return true
+		"friendly_creature_with_3_items":
+			if card_controller != controller_player_id:
+				return false
+			var items = card.get("attached_items", [])
+			return typeof(items) == TYPE_ARRAY and items.size() >= 3
+		"enemy_creature_and_friendly_creature":
+			return true
 	return true
