@@ -651,7 +651,7 @@ static func _expand_betray_replay_targets(match_state: Dictionary, player_id: St
 					continue
 				if str(card.get("instance_id", "")) == sacrifice_id:
 					continue
-				if ExtendedMechanicPacks._card_matches_target_mode(target_mode, card, player_id):
+				if ExtendedMechanicPacks._card_matches_target_mode(target_mode, card, player_id, match_state, action_card):
 					var params := base_parameters.duplicate(true)
 					params["betray_replay_target_instance_id"] = str(card.get("instance_id", ""))
 					expanded.append(params)

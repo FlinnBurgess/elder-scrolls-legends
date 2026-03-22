@@ -269,14 +269,14 @@ static func get_effective_play_cost(match_state: Dictionary, player_id: String, 
 	reduction += _get_aura_cost_reduction(match_state, player_id, card)
 	var self_reduction = card.get("self_cost_reduction", {})
 	if typeof(self_reduction) == TYPE_DICTIONARY and not self_reduction.is_empty():
-		var per_source := str(self_reduction.get("per", ""))
+		var per_source := str(self_reduction.get("per", self_reduction.get("type", "")))
 		var per_amount := int(self_reduction.get("amount", 1))
 		if per_source == "creature_summons_this_turn":
 			reduction += int(player.get("creature_summons_this_turn", 0)) * per_amount
 		elif per_source == "creatures_died_this_turn":
 			reduction += int(player.get("creatures_died_this_turn", 0)) * per_amount
 		elif per_source == "empower":
-			var empower_total := int(player.get("damage_dealt_to_opponent_this_turn", 0)) + int(player.get("_permanent_empower_accumulated", 0))
+			var empower_total := int(player.get("empower_count_this_turn", 0)) + int(player.get("_permanent_empower_accumulated", 0))
 			reduction += empower_total * per_amount
 		elif per_source == "per_action_played_this_turn":
 			reduction += int(player.get("noncreature_plays_this_turn", 0)) * per_amount

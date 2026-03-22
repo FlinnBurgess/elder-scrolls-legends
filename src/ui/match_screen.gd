@@ -5322,7 +5322,7 @@ func _card_interaction_state(card: Dictionary, surface: String) -> String:
 			# Replay targeting phase — highlight valid replay targets
 			var action_card: Dictionary = _pending_betray.get("action_card", {})
 			var sacrifice_id := str(_pending_betray.get("sacrifice_instance_id", ""))
-			if instance_id != sacrifice_id and ExtendedMechanicPacks._card_matches_target_mode(str(action_card.get("action_target_mode", "")), card, _active_player_id()):
+			if instance_id != sacrifice_id and ExtendedMechanicPacks._card_matches_target_mode(str(action_card.get("action_target_mode", "")), card, _active_player_id(), _match_state, action_card):
 				return "valid"
 			return "invalid"
 		else:

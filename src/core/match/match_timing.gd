@@ -402,8 +402,12 @@ static func get_valid_targets_for_mode(match_state: Dictionary, source_instance_
 					if typeof(card) == TYPE_DICTIONARY:
 						targets.append(card)
 		"creature_1_power_or_less":
+			var c1pol_max := 1
+			var c1pol_empower := int(source_card.get("_empower_target_bonus", 0))
+			if c1pol_empower > 0:
+				c1pol_max += c1pol_empower * _get_empower_amount(match_state, controller_id)
 			targets = _all_lane_creatures(match_state)
-			targets = targets.filter(func(c): return EvergreenRules.get_power(c) <= 1)
+			targets = targets.filter(func(c): return EvergreenRules.get_power(c) <= c1pol_max)
 		"creature_4_power_or_less":
 			targets = _all_lane_creatures(match_state)
 			targets = targets.filter(func(c): return EvergreenRules.get_power(c) <= 4)
@@ -1514,6 +1518,18 @@ static func play_action_from_hand(match_state: Dictionary, player_id: String, in
 	var base_action_cost := int(played_card.get("cost", 0)) + (1 if bool(options.get("exalt", false)) else 0)
 	var action_cost_reduction := int(player.get("next_card_cost_reduction", 0))
 	action_cost_reduction += _get_aura_cost_reduction(match_state, player_id, played_card)
+	var self_reduction = played_card.get("self_cost_reduction", {})
+	if typeof(self_reduction) == TYPE_DICTIONARY and not self_reduction.is_empty():
+		var sr_source := str(self_reduction.get("per", self_reduction.get("type", "")))
+		var sr_amount := int(self_reduction.get("amount", 1))
+		if sr_source == "empower":
+			action_cost_reduction += _get_empower_amount(match_state, player_id) * sr_amount
+		elif sr_source == "creature_summons_this_turn":
+			action_cost_reduction += int(player.get("creature_summons_this_turn", 0)) * sr_amount
+		elif sr_source == "creatures_died_this_turn":
+			action_cost_reduction += int(player.get("creatures_died_this_turn", 0)) * sr_amount
+		elif sr_source == "per_action_played_this_turn":
+			action_cost_reduction += int(player.get("noncreature_plays_this_turn", 0)) * sr_amount
 	var play_cost := 0 if played_for_free else maxi(0, base_action_cost - action_cost_reduction)
 	if play_cost > _get_available_magicka(player):
 		return _invalid_result("Player does not have enough magicka to play %s." % instance_id)
@@ -2658,6 +2674,9 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						})
 			"deal_damage":
 				var damage_amount := int(effect.get("amount", 0)) * _resolve_count_multiplier(match_state, trigger, event, effect)
+				var dd_empower_bonus := int(effect.get("empower_bonus", 0))
+				if dd_empower_bonus > 0:
+					damage_amount += dd_empower_bonus * _get_empower_amount(match_state, str(trigger.get("controller_player_id", "")))
 				var damage_source_id := str(trigger.get("source_instance_id", ""))
 				var deal_damage_targets := _resolve_card_targets(match_state, trigger, event, effect)
 				if deal_damage_targets.is_empty():
@@ -2889,7 +2908,14 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 								generated_events.append({"event_type": "creature_destroyed", "instance_id": battle_source_id, "source_instance_id": battle_source_id, "owner_player_id": str(battle_source.get("owner_player_id", "")), "controller_player_id": atk_controller, "destroyed_by_instance_id": str(defender.get("instance_id", "")), "lane_id": str(atk_loc.get("lane_id", "")), "source_zone": ZONE_LANE})
 			"destroy_creature":
 				var destroy_source_id := str(trigger.get("source_instance_id", ""))
+				var dc_max_power := int(effect.get("max_power", -1))
+				if dc_max_power >= 0:
+					var dc_empower_bonus := int(effect.get("empower_bonus", 0))
+					if dc_empower_bonus > 0:
+						dc_max_power += dc_empower_bonus * _get_empower_amount(match_state, str(trigger.get("controller_player_id", "")))
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					if dc_max_power >= 0 and EvergreenRules.get_power(card) > dc_max_power:
+						continue
 					var card_location := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
 					if not bool(card_location.get("is_valid", false)):
 						continue
@@ -3054,9 +3080,20 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 								generated_events.append({"event_type": "status_granted", "source_instance_id": str(summon_existing["card"].get("instance_id", "")), "target_instance_id": str(summon_existing["card"].get("instance_id", "")), "status_id": "cover"})
 							_check_summon_effect_target_mode(match_state, summon_existing["card"])
 				else:
+					var sfe_empower_stat := int(effect.get("empower_stat_bonus", 0))
+					var sfe_stat_bonus := 0
+					if sfe_empower_stat > 0:
+						sfe_stat_bonus = sfe_empower_stat * _get_empower_amount(match_state, str(trigger.get("controller_player_id", "")))
+					var sfe_template := summon_template
+					if sfe_stat_bonus > 0:
+						sfe_template = summon_template.duplicate(true)
+						sfe_template["power"] = int(sfe_template.get("power", 0)) + sfe_stat_bonus
+						sfe_template["health"] = int(sfe_template.get("health", 0)) + sfe_stat_bonus
+						sfe_template["base_power"] = int(sfe_template.get("base_power", 0)) + sfe_stat_bonus
+						sfe_template["base_health"] = int(sfe_template.get("base_health", 0)) + sfe_stat_bonus
 					for player_id in summon_players:
 						for s_lane_id in summon_lane_ids:
-							var generated_card := MatchMutations.build_generated_card(match_state, player_id, summon_template)
+							var generated_card := MatchMutations.build_generated_card(match_state, player_id, sfe_template)
 							var summon_result := MatchMutations.summon_card_to_lane(match_state, player_id, generated_card, s_lane_id, {
 								"slot_index": int(effect.get("slot_index", -1)),
 								"source_zone": MatchMutations.ZONE_GENERATED,
@@ -3872,6 +3909,9 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					generated_events.append({"event_type": "move_back_scheduled", "instance_id": str(card.get("instance_id", "")), "reason": reason})
 			"add_support_uses":
 				var asu_amount := int(effect.get("amount", 1))
+				var asu_empower_bonus := int(effect.get("empower_bonus", 0))
+				if asu_empower_bonus > 0:
+					asu_amount += asu_empower_bonus * _get_empower_amount(match_state, str(trigger.get("controller_player_id", "")))
 				var asu_controller := str(trigger.get("controller_player_id", ""))
 				var asu_player := _get_player_state(match_state, asu_controller)
 				if not asu_player.is_empty():
@@ -4432,6 +4472,18 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				var bfod_controller_id := str(trigger.get("controller_player_id", ""))
 				var bfod_opponent_id := _get_opposing_player_id(match_state.get("players", []), bfod_controller_id)
 				var bfod_count := int(effect.get("count", 2))
+				var bfod_count_per_attr := int(effect.get("count_per_attribute", 0))
+				if bfod_count_per_attr > 0:
+					var bfod_opp_attrs := _count_player_attributes(match_state, bfod_opponent_id)
+					var bfod_empower_bonus := int(effect.get("empower_bonus", 0))
+					var bfod_per_attr := bfod_count_per_attr
+					if bfod_empower_bonus > 0:
+						bfod_per_attr += bfod_empower_bonus * _get_empower_amount(match_state, bfod_controller_id)
+					bfod_count = bfod_per_attr * bfod_opp_attrs
+				else:
+					var bfod_empower_bonus := int(effect.get("empower_bonus", 0))
+					if bfod_empower_bonus > 0:
+						bfod_count += bfod_empower_bonus * _get_empower_amount(match_state, bfod_controller_id)
 				var bfod_opponent := _get_player_state(match_state, bfod_opponent_id)
 				if not bfod_opponent.is_empty():
 					var bfod_deck: Array = bfod_opponent.get(ZONE_DECK, [])
@@ -4679,6 +4731,12 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					if src_exact_cost >= 0:
 						src_filter["max_cost"] = src_exact_cost
 						src_filter["min_cost"] = src_exact_cost
+				var src_max_cost := int(effect.get("max_cost", -1))
+				if src_max_cost >= 0:
+					var src_empower_cost := int(effect.get("empower_bonus_cost", 0))
+					if src_empower_cost > 0:
+						src_max_cost += src_empower_cost * _get_empower_amount(match_state, str(trigger.get("controller_player_id", "")))
+					src_filter["max_cost"] = src_max_cost
 				var src_delegated := {"op": "summon_random_from_catalog", "filter": src_filter}
 				for src_key in ["lane_id", "target_lane_id"]:
 					if effect.has(src_key):
@@ -6907,6 +6965,40 @@ static func _find_card_anywhere(match_state: Dictionary, instance_id: String) ->
 					if typeof(attached_item) == TYPE_DICTIONARY and str(attached_item.get("instance_id", "")) == instance_id:
 						return attached_item
 	return {}
+
+
+static func _count_player_attributes(match_state: Dictionary, player_id: String) -> int:
+	var seen: Dictionary = {}
+	var player := _get_player_state(match_state, player_id)
+	if player.is_empty():
+		return 0
+	for zone_name in ["deck", "hand", "discard", "support"]:
+		for card in player.get(zone_name, []):
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			var attrs = card.get("attributes", [])
+			if typeof(attrs) == TYPE_ARRAY:
+				for attr in attrs:
+					if str(attr) != "neutral":
+						seen[str(attr)] = true
+	for lane in match_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(player_id, []):
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			var attrs = card.get("attributes", [])
+			if typeof(attrs) == TYPE_ARRAY:
+				for attr in attrs:
+					if str(attr) != "neutral":
+						seen[str(attr)] = true
+	return seen.size()
+
+
+static func _get_empower_amount(match_state: Dictionary, controller_player_id: String) -> int:
+	var player := _get_player_state(match_state, controller_player_id)
+	if player.is_empty():
+		return 0
+	ExtendedMechanicPacks.ensure_player_state(player)
+	return int(player.get("empower_count_this_turn", 0)) + int(player.get("_permanent_empower_accumulated", 0))
 
 
 static func _get_player_state(match_state: Dictionary, player_id: String) -> Dictionary:

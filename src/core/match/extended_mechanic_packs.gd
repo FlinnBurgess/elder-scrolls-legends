@@ -50,8 +50,8 @@ static func ensure_player_state(player: Dictionary) -> void:
 		player["cards_played_this_turn"] = 0
 	if not player.has("noncreature_plays_this_turn"):
 		player["noncreature_plays_this_turn"] = 0
-	if not player.has("damage_dealt_to_opponent_this_turn"):
-		player["damage_dealt_to_opponent_this_turn"] = 0
+	if not player.has("empower_count_this_turn"):
+		player["empower_count_this_turn"] = 0
 	if not player.has("creature_summons_this_turn"):
 		player["creature_summons_this_turn"] = 0
 	if not player.has("creatures_died_this_turn"):
@@ -64,10 +64,10 @@ static func reset_turn_state(player: Dictionary) -> void:
 	ensure_player_state(player)
 	# permanent_empower: accumulate empower bonus across turns
 	if bool(player.get("_permanent_empower_active", false)):
-		player["_permanent_empower_accumulated"] = int(player.get("_permanent_empower_accumulated", 0)) + int(player.get("damage_dealt_to_opponent_this_turn", 0))
+		player["_permanent_empower_accumulated"] = int(player.get("_permanent_empower_accumulated", 0)) + int(player.get("empower_count_this_turn", 0))
 	player["cards_played_this_turn"] = 0
 	player["noncreature_plays_this_turn"] = 0
-	player["damage_dealt_to_opponent_this_turn"] = 0
+	player["empower_count_this_turn"] = 0
 	player["creature_summons_this_turn"] = 0
 	player["creatures_died_this_turn"] = 0
 
@@ -107,7 +107,7 @@ static func observe_event(match_state: Dictionary, event: Dictionary) -> void:
 		if source_player.is_empty() or target_player_id.is_empty() or str(source_player.get("player_id", "")) == target_player_id:
 			return
 		ensure_player_state(source_player)
-		source_player["damage_dealt_to_opponent_this_turn"] = int(source_player.get("damage_dealt_to_opponent_this_turn", 0)) + int(event.get("amount", 0))
+		source_player["empower_count_this_turn"] = int(source_player.get("empower_count_this_turn", 0)) + 1
 
 
 static func apply_pre_play_options(card: Dictionary, options: Dictionary) -> void:
@@ -365,7 +365,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 		"empower_damage":
 			var controller := _get_player_state(match_state, str(trigger.get("controller_player_id", "")))
 			ensure_player_state(controller)
-			var empower_amount := int(effect.get("amount", 0)) + int(effect.get("amount_per_damage", 0)) * int(controller.get("damage_dealt_to_opponent_this_turn", 0))
+			var empower_amount := int(effect.get("amount", 0)) + int(effect.get("amount_per_damage", 0)) * int(controller.get("empower_count_this_turn", 0))
 			return {"handled": true, "events": _resolve_player_damage(match_state, trigger, event, effect, empower_amount)}
 		"gain_magicka":
 			var gm_player := _get_player_state(match_state, str(trigger.get("controller_player_id", "")))
@@ -1795,14 +1795,14 @@ static func betray_replay_has_valid_target(match_state: Dictionary, player_id: S
 					continue
 				if str(card.get("instance_id", "")) == excluding_instance_id:
 					continue
-				if _card_matches_target_mode(action_target_mode, card, player_id):
+				if _card_matches_target_mode(action_target_mode, card, player_id, match_state, action_card):
 					return true
 	if action_target_mode == "creature_or_player" or action_target_mode == "any_creature_or_player":
 		return true
 	return false
 
 
-static func _card_matches_target_mode(target_mode: String, card: Dictionary, controller_player_id: String) -> bool:
+static func _card_matches_target_mode(target_mode: String, card: Dictionary, controller_player_id: String, match_state: Dictionary = {}, source_card: Dictionary = {}) -> bool:
 	var card_controller := str(card.get("controller_player_id", ""))
 	match target_mode:
 		"any_creature":
@@ -1823,7 +1823,14 @@ static func _card_matches_target_mode(target_mode: String, card: Dictionary, con
 		"enemy_creature_or_support":
 			return card_controller != controller_player_id
 		"creature_1_power_or_less":
-			return EvergreenRules.get_power(card) <= 1
+			var c1pol_max := 1
+			var c1pol_empower := int(source_card.get("_empower_target_bonus", 0))
+			if c1pol_empower > 0 and not match_state.is_empty():
+				var c1pol_player := _get_player_state(match_state, controller_player_id)
+				if not c1pol_player.is_empty():
+					ensure_player_state(c1pol_player)
+					c1pol_max += c1pol_empower * (int(c1pol_player.get("empower_count_this_turn", 0)) + int(c1pol_player.get("_permanent_empower_accumulated", 0)))
+			return EvergreenRules.get_power(card) <= c1pol_max
 		"creature_4_power_or_less":
 			return EvergreenRules.get_power(card) <= 4
 		"creature_4_power_or_more":
