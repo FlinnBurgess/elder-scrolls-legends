@@ -155,6 +155,7 @@ var _match_end_button: Button
 var _arena_mode := false
 var _pause_overlay: PanelContainer
 var _attack_arrow_state := {}
+var _support_arrow_state := {}
 
 # Error report hover tracking
 var _error_report_hovered_type := ""
@@ -784,6 +785,8 @@ func _execute_local_match_ai_step() -> Dictionary:
 			_animate_enemy_item_reveal(action, result)
 		elif is_enemy and str(action.get("kind", "")) == MatchActionEnumerator.KIND_ATTACK:
 			_animate_enemy_attack_arrow(action, result)
+		elif is_enemy and str(action.get("kind", "")) == MatchActionEnumerator.KIND_ACTIVATE_SUPPORT and _has_support_activation_target(action):
+			_animate_enemy_support_activation_arrow(action, result)
 		else:
 			_refresh_ui()
 	if _arena_mode:
@@ -3111,6 +3114,71 @@ func _animate_enemy_attack_arrow(action: Dictionary, _result: Dictionary) -> voi
 	tween.tween_interval(0.35)
 	tween.tween_callback(func():
 		_dismiss_attack_arrow()
+		_refresh_ui()
+	)
+
+
+static func _has_support_activation_target(action: Dictionary) -> bool:
+	var params: Dictionary = action.get("parameters", {})
+	return not str(params.get("target_instance_id", "")).is_empty() or not str(params.get("target_player_id", "")).is_empty()
+
+
+func _dismiss_support_arrow() -> void:
+	var arrow: Line2D = _support_arrow_state.get("arrow")
+	if arrow != null and is_instance_valid(arrow):
+		arrow.queue_free()
+	_support_arrow_state = {}
+
+
+func _animate_enemy_support_activation_arrow(action: Dictionary, _result: Dictionary) -> void:
+	var support_id := str(action.get("source_instance_id", ""))
+	var params: Dictionary = action.get("parameters", {})
+	var target_instance_id := str(params.get("target_instance_id", ""))
+	var target_player_id := str(params.get("target_player_id", ""))
+
+	var support_button: Button = _card_buttons.get(support_id)
+	if support_button == null or not is_instance_valid(support_button):
+		_refresh_ui()
+		return
+
+	var support_size: Vector2 = support_button.get_meta("card_size", support_button.size)
+	var arrow_start := support_button.global_position + Vector2(support_size.x * 0.5, support_size.y * 0.5)
+
+	var arrow_end := Vector2.ZERO
+	if not target_instance_id.is_empty():
+		var target_button: Button = _card_buttons.get(target_instance_id)
+		if target_button == null or not is_instance_valid(target_button):
+			_refresh_ui()
+			return
+		var target_size: Vector2 = target_button.get_meta("card_size", target_button.size)
+		arrow_end = target_button.global_position + Vector2(target_size.x * 0.5, target_size.y * 0.5)
+	elif not target_player_id.is_empty():
+		var section: Dictionary = _player_sections.get(target_player_id, {})
+		var avatar: Control = section.get("avatar_component")
+		if avatar != null and is_instance_valid(avatar):
+			arrow_end = avatar.global_position + Vector2(avatar.size.x * 0.5, avatar.size.y * 0.5)
+		else:
+			_refresh_ui()
+			return
+	else:
+		_refresh_ui()
+		return
+
+	var arrow := Line2D.new()
+	arrow.width = 4.0
+	arrow.default_color = Color(1.0, 0.85, 0.3, 0.95)
+	arrow.z_index = 500
+	arrow.antialiased = true
+	_prophecy_card_overlay.add_child(arrow)
+	_support_arrow_state = {"arrow": arrow}
+
+	var tween := create_tween()
+	tween.tween_method(func(progress: float):
+		_draw_spell_reveal_arrow_partial(progress, arrow, arrow_start, arrow_end)
+	, 0.0, 1.0, 0.3)
+	tween.tween_interval(0.35)
+	tween.tween_callback(func():
+		_dismiss_support_arrow()
 		_refresh_ui()
 	)
 
