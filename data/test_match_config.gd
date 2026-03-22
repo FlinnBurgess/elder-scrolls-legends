@@ -21,30 +21,31 @@ static func build_test_match_state() -> Dictionary:
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — enough magicka to test exalt affordability
+	# Player 1 (you) — plenty of magicka to play multiple cards per turn
 	var p1_health := 30
-	var p1_max_magicka := 10
-	var p1_current_magicka := 10
+	var p1_max_magicka := 12
+	var p1_current_magicka := 12
 	var p1_rune_thresholds := [25, 20, 15, 10, 5]
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — exalt creatures with varying costs
+	# Player 1 hand — cheap filler + Plot cards to test
+	# Play a cheap card first, then play a Plot card as your 2nd+ card to trigger the bonus
 	var p1_hand_ids: Array = [
-		"hom_int_poetic_armiger",           # Cost 2, Exalt 1: random keyword
-		"hom_int_clockwork_city_pilgrim",   # Cost 3, Exalt 3: +2/+2 (Guard)
-		"hom_int_ghostgate_defender",       # Cost 1, Exalt 3: deal 2 damage (targeted)
-		"hom_wil_grand_inquisitor",         # Cost 4, Exalt 4: +3/+3, summon destroys creature
-		"str_fiery_imp",                    # Cost 1, no exalt (for comparison)
+		"str_fiery_imp",                    # Cost 1 — play this first to enable Plot
+		"hom_agi_twin_lamps_consul",        # Cost 3, Plot: Lethal and Guard
+		"hom_agi_suran_pawnbroker",         # Cost 2, Plot: random 0-cost card to hand
+		"hom_wil_moonmoth_castellan",       # Cost 4, Plot: random Guard to hand (Guard)
+		"hom_agi_glass_greaves",            # Cost 1, Item, Plot: reduce random hand card cost by 1
 	]
 
-	# Player 1 deck
+	# Player 1 deck — more Plot cards to draw into
 	var p1_deck_ids: Array = [
-		"hom_wil_vivec_city_pilgrim",       # Cost 2, Exalt 3: +2/+2 (Drain)
-		"hom_end_almalexias_disciple",      # Cost 2, Exalt 2: heal all friendly
-		"str_fiery_imp",
-		"str_fiery_imp",
-		"str_fiery_imp",
+		"hom_str_camonna_tong_heavy",       # Cost 5, Plot: unsummon creature with less power
+		"hom_str_hlaalu_sharpshooter",      # Cost 3, Plot: silence + 1 damage
+		"hom_str_lower_canton_smith",       # Cost 3, Plot: equip +2/+2 Steel Scimitar
+		"hom_str_sharp_eyed_ashkhan",       # Cost 6, Plot: discard hand, draw 3 (Legendary)
+		"hom_tri_balmora_puppeteer",        # Cost 2, Plot: +1/+1 per other card played this turn
 		"str_fiery_imp",
 	]
 
@@ -53,7 +54,7 @@ static func build_test_match_state() -> Dictionary:
 	# Player 1 creatures in shadow lane
 	var p1_shadow_creatures: Array = []
 
-	# Player 2 (AI) — has a creature on board for targeting tests
+	# Player 2 (AI) — creatures on board for Plot targeting tests
 	var p2_health := 20
 	var p2_max_magicka := 3
 	var p2_current_magicka := 3
@@ -63,7 +64,7 @@ static func build_test_match_state() -> Dictionary:
 
 	# Player 2 hand
 	var p2_hand_ids: Array = [
-		"hom_int_poetic_armiger",           # AI can also test exalt
+		"str_fiery_imp",
 	]
 
 	# Player 2 deck (index 0 drawn first)
@@ -76,12 +77,15 @@ static func build_test_match_state() -> Dictionary:
 		"str_fiery_imp",
 	]
 
-	# Player 2 creatures in field lane — target for Ghostgate Defender / Grand Inquisitor
+	# Player 2 creatures in field lane — targets for Plot effects
 	var p2_field_creatures: Array = [
 		_make_lane_creature("player_2", "str_fiery_imp", 100),
+		_make_lane_creature("player_2", "str_fiery_imp", 101),
 	]
 	# Player 2 creatures in shadow lane
-	var p2_shadow_creatures: Array = []
+	var p2_shadow_creatures: Array = [
+		_make_lane_creature("player_2", "str_fiery_imp", 102),
+	]
 
 	## ── END CONFIGURATION ──────────────────────────────────────────────
 

@@ -9,7 +9,7 @@ Process all in-game error reports that were submitted via the error reporting po
 
 ## Report File
 
-- **Path:** `res://reports/error_reports.jsonl`
+- **Path:** `res://reports/error_reports.jsonl` (Godot virtual path — use the actual filesystem path `reports/error_reports.jsonl` relative to the project root when reading with tools)
 - **Format:** JSONL — one JSON object per line
 - Each report contains:
   - `screen` — which screen the report was filed from (match, arena_draft, deck_editor)
