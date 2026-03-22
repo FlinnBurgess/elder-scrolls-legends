@@ -66,7 +66,20 @@ Before any agent work, run a script to extract every `"op"` value from `card_cat
 
 Similarly, verify all `"family"` values exist in `FAMILY_SPECS` and all `action_target_mode` values are handled.
 
-### Step 1c — Skip Simple Cards
+### Step 1c — Unimplemented Effect Sweep
+
+Scan every `_seed()` call for cards that have `rules_text` describing an active ability but **no implementation data** backing it — no `triggered_abilities`, no `aura`, no `innate_statuses`, no `self_immunity`, no `grants_trigger`, no `grants_immunity`, no `equip_power_bonus`/`equip_health_bonus`, and no `first_turn_hand_cost`.
+
+Exclude cards where `rules_text`:
+- Is empty or absent
+- Contains only keywords (`Guard`, `Charge`, `Drain`, `Ward`, `Lethal`, `Breakthrough`, `Regenerate`, `Prophecy`, `Rally`, or combinations thereof)
+- Is purely flavour text (e.g. the Chicken)
+
+Any card that promises an effect in its rules_text but has zero implementation fields is flagged as NEEDS_FIX with reason "unimplemented effect". This catches the Murkwater Butcher pattern — cards where the rules text was written but the effect was never wired up.
+
+This check is fast (single file scan, no wiki fetches) and catches a class of bug that the op/family sweep misses, since these cards have no ops to verify in the first place.
+
+### Step 1d — Skip Simple Cards
 
 Before processing, auto-pass cards that have no meaningful logic to audit:
 
