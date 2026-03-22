@@ -1357,4 +1357,6 @@ static func _card_matches_target_mode(target_mode: String, card: Dictionary, con
 				return false
 			var attrs: Array = card.get("attributes", [])
 			return typeof(attrs) == TYPE_ARRAY and attrs.has("neutral")
+		"enemy_creature_or_support":
+			return card_controller != controller_player_id
 	return true

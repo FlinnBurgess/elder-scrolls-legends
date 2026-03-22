@@ -686,6 +686,9 @@ static func _expand_target_parameter_sets(match_state: Dictionary, requirements:
 						var card_attrs: Array = card.get("attributes", [])
 						if typeof(card_attrs) != TYPE_ARRAY or not card_attrs.has("neutral"):
 							continue
+					elif atm == "enemy_creature_or_support":
+						if card_controller == atm_controller:
+							continue
 				var next_parameters: Dictionary = parameters.duplicate(true)
 				next_parameters["target_instance_id"] = str(card.get("instance_id", ""))
 				expanded_card_sets.append(next_parameters)

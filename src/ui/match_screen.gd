@@ -4757,6 +4757,8 @@ func _action_target_mode_allows(action_card: Dictionary, target_instance_id: Str
 				return false
 			var attrs: Array = target_card.get("attributes", [])
 			return typeof(attrs) == TYPE_ARRAY and attrs.has("neutral")
+		"enemy_creature_or_support":
+			return target_controller != controller_id
 	return true
 
 

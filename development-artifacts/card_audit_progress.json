@@ -1500,12 +1500,12 @@
     {
       "card_id": "end_nahagliiv",
       "card_name": "Nahagliiv",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_necromancers_amulet",
       "card_name": "Necromancer's Amulet",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_night_predator",
@@ -1520,12 +1520,12 @@
     {
       "card_id": "end_night_talon_lord",
       "card_name": "Night Talon Lord",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_northpoint_captain",
       "card_name": "Northpoint Captain",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_oldgate_warden",
@@ -1535,37 +1535,37 @@
     {
       "card_id": "end_plea_to_kynareth",
       "card_name": "Plea to Kynareth",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_preserver_of_the_root",
       "card_name": "Preserver of the Root",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_restless_templar",
       "card_name": "Restless Templar",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_shadowfen_priest",
       "card_name": "Shadowfen Priest",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_siege_catapult",
       "card_name": "Siege Catapult",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_stalwart_ally",
       "card_name": "Stalwart Ally",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_stampeding_mammoth",
       "card_name": "Stampeding Mammoth",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_stonetooth_scrapper",
@@ -1575,12 +1575,12 @@
     {
       "card_id": "end_stormhold_henchman",
       "card_name": "Stormhold Henchman",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_suppress",
       "card_name": "Suppress",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_swamp_leviathan",
@@ -1590,12 +1590,12 @@
     {
       "card_id": "end_tree_minder",
       "card_name": "Tree Minder",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_watch_commander",
       "card_name": "Watch Commander",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_wind_keep_spellsword",
@@ -1605,17 +1605,17 @@
     {
       "card_id": "end_wrothgar_artisan",
       "card_name": "Wrothgar Artisan",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_wrothgar_kingpin",
       "card_name": "Wrothgar Kingpin",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_yew_shield",
       "card_name": "Yew Shield",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_young_mammoth",
@@ -1625,32 +1625,32 @@
     {
       "card_id": "neu_ageless_automaton",
       "card_name": "Ageless Automaton",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "neu_barded_guar",
       "card_name": "Barded Guar",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "neu_crushing_blow",
       "card_name": "Crushing Blow",
-      "status": "pending"
+      "status": "fixed"
     },
     {
       "card_id": "neu_dark_harvester",
       "card_name": "Dark Harvester",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "neu_dreugh_shell_armor",
       "card_name": "Dreugh Shell Armor",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "neu_dwarven_armaments",
       "card_name": "Dwarven Armaments",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "neu_dwarven_ballista",
@@ -1660,12 +1660,12 @@
     {
       "card_id": "neu_dwarven_centurion",
       "card_name": "Dwarven Centurion",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "neu_dwarven_sphere",
       "card_name": "Dwarven Sphere",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "neu_dwarven_spider",
@@ -1675,7 +1675,7 @@
     {
       "card_id": "neu_elixir_of_conflict",
       "card_name": "Elixir of Conflict",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "neu_enraged_mudcrab",
@@ -1690,22 +1690,22 @@
     {
       "card_id": "neu_forsworn_guide",
       "card_name": "Forsworn Guide",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "neu_frenzied_witchman",
       "card_name": "Frenzied Witchman",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "neu_goldbrand",
       "card_name": "Goldbrand",
-      "status": "pending"
+      "status": "fixed"
     },
     {
       "card_id": "neu_halls_of_the_dwemer",
       "card_name": "Halls of the Dwemer",
-      "status": "pending"
+      "status": "fixed"
     },
     {
       "card_id": "neu_lurking_crocodile",
@@ -1715,22 +1715,22 @@
     {
       "card_id": "neu_maple_shield",
       "card_name": "Maple Shield",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "neu_mundus_stone",
       "card_name": "Mundus Stone",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "neu_odahviing",
       "card_name": "Odahviing",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "neu_orb_of_vaermina",
       "card_name": "Orb of Vaermina",
-      "status": "pending"
+      "status": "fixed"
     },
     {
       "card_id": "neu_portcullis",
@@ -1740,17 +1740,17 @@
     {
       "card_id": "neu_ravenous_crocodile",
       "card_name": "Ravenous Crocodile",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "neu_reachman_shaman",
       "card_name": "Reachman Shaman",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "neu_slaughterfish_spawning",
       "card_name": "Slaughterfish Spawning",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "neu_sparking_spider",
@@ -1760,62 +1760,62 @@
     {
       "card_id": "neu_spider_worker",
       "card_name": "Spider Worker",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "neu_stronghold_eradicator",
       "card_name": "Stronghold Eradicator",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "neu_stronghold_incubator",
       "card_name": "Stronghold Incubator",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "neu_vicious_dreugh",
       "card_name": "Vicious Dreugh",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "neu_wabbajack",
       "card_name": "Wabbajack",
-      "status": "pending"
+      "status": "fixed"
     },
     {
       "card_id": "dual_ahnassi",
       "card_name": "Ahnassi",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "dual_allena_benoch",
       "card_name": "Allena Benoch",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "dual_ayrenn",
       "card_name": "Ayrenn",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "dual_edict_of_azura",
       "card_name": "Edict of Azura",
-      "status": "pending"
+      "status": "fixed"
     },
     {
       "card_id": "dual_falinesti_reaver",
       "card_name": "Falinesti Reaver",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "dual_general_tullius",
       "card_name": "General Tullius",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "dual_gortwog_gronagorm",
       "card_name": "Gortwog gro-Nagorm",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "dual_high_king_emeric",
