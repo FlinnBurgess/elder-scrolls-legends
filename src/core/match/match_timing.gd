@@ -138,7 +138,7 @@ const FAMILY_SPECS := {
 	FAMILY_LAST_GASP: {"event_type": EVENT_CREATURE_DESTROYED, "window": WINDOW_AFTER, "match_role": "subject"},
 	FAMILY_SLAY: {"event_type": EVENT_CREATURE_DESTROYED, "window": WINDOW_AFTER, "match_role": "killer"},
 	FAMILY_PILFER: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "source", "target_type": "player", "min_amount": 1},
-	FAMILY_VETERAN: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "target", "require_survived": true, "min_amount": 1},
+	FAMILY_VETERAN: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "source", "damage_kind": "combat", "exclude_retaliation": true, "require_survived": true},
 	FAMILY_EXPERTISE: {"event_type": EVENT_TURN_ENDING, "window": WINDOW_AFTER, "match_role": "controller"},
 	FAMILY_PLOT: {"event_type": EVENT_TURN_ENDING, "window": WINDOW_AFTER, "match_role": "controller"},
 	FAMILY_RUNE_BREAK: {"event_type": EVENT_RUNE_BROKEN, "window": WINDOW_INTERRUPT, "match_role": "controller"},
@@ -2266,8 +2266,14 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 	if min_played_cost > 0 and int(event.get("played_cost", 0)) < min_played_cost:
 		return false
 	var require_survived := bool(descriptor.get("require_survived", family_spec.get("require_survived", false)))
-	if require_survived and bool(event.get("target_destroyed", false)):
-		return false
+	if require_survived:
+		# Check that the trigger's source creature is still alive in a lane
+		var survive_check_id := str(trigger.get("source_instance_id", ""))
+		var survive_card := _find_card_anywhere(match_state, survive_check_id)
+		if survive_card.is_empty() or str(survive_card.get("zone", "")) != ZONE_LANE:
+			return false
+		if int(survive_card.get("health", 0)) <= 0:
+			return false
 	var required_damage_kind := str(descriptor.get("damage_kind", family_spec.get("damage_kind", "")))
 	if not required_damage_kind.is_empty() and str(event.get("damage_kind", "")) != required_damage_kind:
 		return false
@@ -2410,7 +2416,8 @@ static func _build_trigger_resolution(match_state: Dictionary, trigger: Dictiona
 
 static func _mark_once_trigger_if_needed(match_state: Dictionary, trigger: Dictionary) -> void:
 	var descriptor: Dictionary = trigger.get("descriptor", {})
-	if bool(descriptor.get("once_per_instance", false)):
+	var is_once_per_instance := bool(descriptor.get("once_per_instance", false)) or str(descriptor.get("family", "")) == FAMILY_VETERAN
+	if is_once_per_instance:
 		var resolved_once_triggers: Dictionary = match_state.get("resolved_once_triggers", {})
 		resolved_once_triggers[str(trigger.get("trigger_id", ""))] = true
 		match_state["resolved_once_triggers"] = resolved_once_triggers
@@ -2422,7 +2429,9 @@ static func _mark_once_trigger_if_needed(match_state: Dictionary, trigger: Dicti
 
 static func _is_once_trigger_consumed(match_state: Dictionary, trigger: Dictionary) -> bool:
 	var descriptor: Dictionary = trigger.get("descriptor", {})
-	if bool(descriptor.get("once_per_instance", false)):
+	# Veteran is inherently once-per-instance (first attack only)
+	var is_once_per_instance := bool(descriptor.get("once_per_instance", false)) or str(descriptor.get("family", "")) == FAMILY_VETERAN
+	if is_once_per_instance:
 		var resolved_once_triggers: Dictionary = match_state.get("resolved_once_triggers", {})
 		if bool(resolved_once_triggers.get(str(trigger.get("trigger_id", "")), false)):
 			return true

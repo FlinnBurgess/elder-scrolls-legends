@@ -134,24 +134,24 @@ func _test_pilfer_and_veteran_trigger_from_damage_windows() -> bool:
 	):
 		return false
 
-	var veteran := _summon_creature(opponent, match_state, "veteran", "field", 1, 5, [], 0, {
+	# Veteran: triggers on the creature's first attack if it survives
+	var veteran := _summon_creature(active_player, match_state, "veteran", "field", 2, 5, [], 1, {
 		"triggered_abilities": [{
 			"family": MatchTiming.FAMILY_VETERAN,
 			"required_zone": "lane",
 			"effects": [{"op": "modify_stats", "target": "self", "power": 0, "health": 1}],
 		}]
 	})
-	var attacker := _summon_creature(active_player, match_state, "poker", "field", 2, 2, [], 1)
+	var blocker := _summon_creature(opponent, match_state, "blocker", "field", 1, 1, [], 0)
 	_target_ready_for_attack(veteran, match_state)
-	_target_ready_for_attack(attacker, match_state)
-	var veteran_result := MatchCombat.resolve_attack(match_state, active_player["player_id"], attacker["instance_id"], {
+	var veteran_result := MatchCombat.resolve_attack(match_state, active_player["player_id"], veteran["instance_id"], {
 		"type": "creature",
-		"instance_id": veteran["instance_id"],
+		"instance_id": blocker["instance_id"],
 	})
 	return (
 		_assert(veteran_result["is_valid"], "Veteran combat fixture should resolve.") and
-		_assert(_families_from_resolutions(veteran_result.get("trigger_resolutions", [])) == [MatchTiming.FAMILY_VETERAN], "Veteran should trigger when the creature survives damage.") and
-		_assert(veteran["health_bonus"] == 1, "Veteran effect should apply to the damaged creature that survived.")
+		_assert(_families_from_resolutions(veteran_result.get("trigger_resolutions", [])) == [MatchTiming.FAMILY_VETERAN], "Veteran should trigger when the creature attacks and survives.") and
+		_assert(veteran["health_bonus"] == 1, "Veteran effect should apply to the attacking creature that survived.")
 	)
 
 
