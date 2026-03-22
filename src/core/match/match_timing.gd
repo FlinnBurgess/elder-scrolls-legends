@@ -1645,7 +1645,14 @@ static func _trigger_matches_event(match_state: Dictionary, trigger: Dictionary,
 
 static func _matches_required_zone(trigger: Dictionary, descriptor: Dictionary) -> bool:
 	if descriptor.has("required_zone"):
-		return str(descriptor.get("required_zone", "")) == str(trigger.get("source_zone", ""))
+		var required := str(descriptor.get("required_zone", ""))
+		var actual := str(trigger.get("source_zone", ""))
+		if required == actual:
+			return true
+		# Slay triggers fire even if the creature just died (moved from lane to discard in same combat)
+		if required == ZONE_LANE and actual == ZONE_DISCARD and str(descriptor.get("family", "")) == FAMILY_SLAY:
+			return true
+		return false
 	var required_zones = descriptor.get("required_zones", [])
 	if typeof(required_zones) == TYPE_ARRAY and not required_zones.is_empty():
 		return required_zones.has(str(trigger.get("source_zone", "")))
