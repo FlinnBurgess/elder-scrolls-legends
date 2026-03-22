@@ -379,15 +379,30 @@ static func build_mobilize_recruit(player_id: String, instance_id: String, item_
 
 
 const _MOBILIZE_RECRUIT_RACE := {
-	# Breton Recruit items
+	# Argonian Recruit
+	"end_black_marsh_warden": "Argonian",
+	# Breton Recruit
 	"aw_str_covenant_plate": "Breton",
 	"aw_str_ebonthread_cloak": "Breton",
 	"aw_end_poisoned_dagger": "Breton",
 	"aw_int_staff_of_ice": "Breton",
-	# Orc Recruit items
+	# Dark Elf Recruit
+	"aw_agi_inspiring_soldier": "Dark Elf",
+	# High Elf Recruit
+	"aw_tri_ayrenns_chosen": "High Elf",
+	# Imperial Recruit
+	"aw_tri_clivia_tharn": "Imperial",
+	"aw_tri_empire_recruiter": "Imperial",
+	"aw_end_imperial_lackey": "Imperial",
+	"aw_end_strategic_deployment": "Imperial",
+	# Khajiit Recruit
+	"moe_wil_rebel_warden": "Khajiit",
+	# Nord Recruit
+	"aw_wil_renowned_instructor": "Nord",
+	# Orc Recruit
 	"aw_end_cruel_axe": "Orc",
 	"aw_end_covenant_mail": "Orc",
-	# Redguard Recruit items
+	# Redguard Recruit
 	"aw_tri_covenant_masterpiece": "Redguard",
 	"tc_tri_enchanted_ring": "Redguard",
 	"aw_int_lion_guard_armaments": "Redguard",
