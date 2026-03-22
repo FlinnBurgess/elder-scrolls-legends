@@ -2768,6 +2768,23 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"new_power": EvergreenRules.get_power(card),
 						"reason": reason,
 					})
+			"sacrifice_and_resummon":
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var sar_def_id := str(card.get("definition_id", ""))
+					var sar_controller := str(card.get("controller_player_id", ""))
+					var sar_loc := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
+					var sar_lane_id := str(sar_loc.get("lane_id", ""))
+					var sar_lane_index := int(sar_loc.get("lane_index", -1))
+					var moved := MatchMutations.discard_card(match_state, str(card.get("instance_id", "")))
+					if bool(moved.get("is_valid", false)):
+						generated_events.append({"event_type": "creature_destroyed", "instance_id": str(card.get("instance_id", "")), "reason": "sacrifice_and_resummon"})
+						var sar_template := {"definition_id": sar_def_id}
+						var sar_copy := MatchMutations.build_generated_card(match_state, sar_controller, sar_template)
+						if sar_lane_index >= 0:
+							var sar_summon := MatchMutations.summon_card_to_lane(match_state, sar_controller, sar_copy, sar_lane_id, {"source_zone": MatchMutations.ZONE_GENERATED})
+							if bool(sar_summon.get("is_valid", false)):
+								generated_events.append_array(sar_summon.get("events", []))
+								generated_events.append(_build_summon_event(sar_summon["card"], sar_controller, sar_lane_id, int(sar_summon.get("slot_index", -1)), "sacrifice_and_resummon"))
 			"equip_item", "equip_generated_item":
 				var ei_template_raw = effect.get("card_template", {})
 				var ei_template: Dictionary = ei_template_raw if typeof(ei_template_raw) == TYPE_DICTIONARY else {}
