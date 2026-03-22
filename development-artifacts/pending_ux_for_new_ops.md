@@ -133,15 +133,11 @@ The 10 new trigger families (on_card_drawn, on_enemy_summon, etc.) don't need UX
 
 ### Functionally Broken — Needs Fix Before Cards Are Playable
 
-#### 20. `look_draw_discard` / `look_give_draw` — Multi-card choice panel missing
-- Cards: Merchant's Camel, Shadowmarking
-- Both ops push to `pending_top_deck_choices` with a `cards` array (multiple cards) and a `mode` field. But the existing UI in `_enter_top_deck_choice_mode` reads only `choice.get("revealed_card", {})` — a single card — so it gets an empty dict and shows nothing. `resolve_pending_top_deck_choice` only handles `discard: bool` (binary choice) and ignores the `mode` field.
-- **Need:** New multi-card selection panel that shows all revealed cards, lets the player pick one, and resolves with the chosen index. Modes: `keep_one_discard_rest` (draw selected, discard rest) and `give_one_draw_rest` (give selected to opponent, draw rest).
+#### ~~20. `look_draw_discard` / `look_give_draw` — Multi-card choice panel missing~~ FIXED
+- **Fixed in commit 89fe0de.** Added `resolve_pending_top_deck_multi_choice()` engine resolver and multi-card overlay panel in match_screen.gd.
 
-#### 21. `_on_player_choice_selected` drops events from resolved choices
-- Cards: All cards using `pending_player_choices` — Assembled Titan (choose_two), Fabricate, Haskill, Seducer Darkfire, Forsaken Champion, Fortress Guard, etc.
-- `_on_player_choice_selected` calls `resolve_pending_player_choice` but does NOT call `_record_feedback_from_events` on the result. Any events from the chosen effects (keyword_granted, stats_modified, creature_summoned, etc.) are silently dropped.
-- **Need:** Add `_record_feedback_from_events(result.get("events", []))` after `resolve_pending_player_choice` in `_on_player_choice_selected`.
+#### ~~21. `_on_player_choice_selected` drops events from resolved choices~~ FIXED
+- **Fixed in commit below.** Added `_record_feedback_from_events` call after `resolve_pending_player_choice`.
 
 #### 22. `choose_two` — No second-choice re-prompt
 - Cards: Assembled Titan

@@ -2799,6 +2799,7 @@ func _on_player_choice_selected(index: int) -> void:
 	_dismiss_player_choice_overlay()
 	var result := MatchTiming.resolve_pending_player_choice(_match_state, local_id, index)
 	if bool(result.get("is_valid", false)):
+		_record_feedback_from_events(_copy_array(result.get("events", [])))
 		_refresh_ui()
 
 
