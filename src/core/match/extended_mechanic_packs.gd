@@ -743,6 +743,32 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				dfomb_deck.pop_back()
 				dfomb_deck.insert(0, dfomb_top_card)
 				return {"handled": true, "events": [{"event_type": "card_moved_to_bottom", "player_id": dfomb_controller_id, "instance_id": str(dfomb_top_card.get("instance_id", ""))}]}
+		"lockpick_gamble":
+			var lg_controller_id := str(trigger.get("controller_player_id", ""))
+			var lg_player := _get_player_state(match_state, lg_controller_id)
+			if lg_player.is_empty():
+				return {"handled": true, "events": []}
+			var lg_roll := _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_lockpick", 2)
+			if lg_roll == 0:
+				# Success: put another Lockpick into hand with +1 cost
+				var lg_template := {"definition_id": "hos_agi_lockpick", "name": "Lockpick", "card_type": "action", "attributes": ["agility"], "cost": 3, "power": 0, "health": 0, "base_power": 0, "base_health": 0, "rules_text": "50% chance: Put another Lockpick into your hand. 50% chance: Draw a card and reduce its cost by 2.", "triggered_abilities": [{"family": "on_play", "effects": [{"op": "lockpick_gamble"}]}]}
+				var lg_card := MatchMutations.build_generated_card(match_state, lg_controller_id, lg_template)
+				lg_card["zone"] = "hand"
+				var lg_hand: Array = lg_player.get("hand", [])
+				lg_hand.append(lg_card)
+				return {"handled": true, "events": [{"event_type": "lockpick_success", "player_id": lg_controller_id}]}
+			else:
+				# Fail: draw a card and reduce its cost by 2
+				var lg_deck: Array = lg_player.get("deck", [])
+				if lg_deck.is_empty():
+					return {"handled": true, "events": [{"event_type": "lockpick_fail_empty_deck", "player_id": lg_controller_id}]}
+				var lg_drawn: Dictionary = lg_deck.pop_back()
+				lg_drawn["zone"] = "hand"
+				var lg_current_cost := int(lg_drawn.get("cost", 0))
+				lg_drawn["cost"] = maxi(0, lg_current_cost - 2)
+				var lg_hand: Array = lg_player.get("hand", [])
+				lg_hand.append(lg_drawn)
+				return {"handled": true, "events": [{"event_type": "lockpick_fail_draw", "player_id": lg_controller_id, "instance_id": str(lg_drawn.get("instance_id", "")), "cost_reduced_by": 2}]}
 	return {"handled": false, "events": []}
 
 
