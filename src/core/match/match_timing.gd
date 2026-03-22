@@ -2768,6 +2768,26 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"new_power": EvergreenRules.get_power(card),
 						"reason": reason,
 					})
+			"shuffle_copies_to_deck":
+				var sctd_count := int(effect.get("count", 1))
+				var sctd_cost_override: Variant = effect.get("cost_override", null)
+				var sctd_controller := str(trigger.get("controller_player_id", ""))
+				var sctd_player := _get_player_state(match_state, sctd_controller)
+				var sctd_source_id := str(event.get("source_instance_id", trigger.get("source_instance_id", "")))
+				var sctd_source := _find_card_anywhere(match_state, sctd_source_id)
+				if not sctd_player.is_empty() and not sctd_source.is_empty():
+					var sctd_deck: Array = sctd_player.get(ZONE_DECK, [])
+					for ci in range(sctd_count):
+						var copy_template: Dictionary = sctd_source.duplicate(true)
+						copy_template.erase("instance_id")
+						copy_template.erase("status_markers")
+						if sctd_cost_override != null:
+							copy_template["cost"] = int(sctd_cost_override)
+						var sctd_copy := MatchMutations.build_generated_card(match_state, sctd_controller, copy_template)
+						sctd_copy["zone"] = ZONE_DECK
+						var insert_pos := _deterministic_index(match_state, str(sctd_copy.get("instance_id", "")) + "_sctd", sctd_deck.size() + 1)
+						sctd_deck.insert(insert_pos, sctd_copy)
+					generated_events.append({"event_type": "copies_shuffled_to_deck", "player_id": sctd_controller, "count": sctd_count, "reason": reason})
 			"shuffle_discard_creatures_to_deck_with_buff":
 				var sdctd_power := int(effect.get("power", 0))
 				var sdctd_health := int(effect.get("health", 0))
