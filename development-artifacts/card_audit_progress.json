@@ -1820,62 +1820,62 @@
     {
       "card_id": "dual_high_king_emeric",
       "card_name": "High King Emeric",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "dual_master_of_thieves",
       "card_name": "Master of Thieves",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "dual_merricataswala",
       "card_name": "Merric-at-Aswala",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "dual_militant_chieftain",
       "card_name": "Militant Chieftain",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "dual_queen_barenziah",
       "card_name": "Queen Barenziah",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "dual_red_bramman",
       "card_name": "Red Bramman",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "dual_rift_thane",
       "card_name": "Rift Thane",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "dual_sadras_agent",
       "card_name": "Sadras Agent",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "dual_sentinel_battlemace",
       "card_name": "Sentinel Battlemace",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "dual_shornhelm_champion",
       "card_name": "Shornhelm Champion",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "dual_skywatch_vindicator",
       "card_name": "Skywatch Vindicator",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "dual_thorn_histmage",
       "card_name": "Thorn Histmage",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "dual_tyr",
@@ -1885,12 +1885,12 @@
     {
       "card_id": "int_alfe_fyr",
       "card_name": "Alfe Fyr",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "neu_ancient_giant",
       "card_name": "Ancient Giant",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_argonian_veteran",
@@ -1900,22 +1900,22 @@
     {
       "card_id": "int_beyte_fyr",
       "card_name": "Beyte Fyr",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_brotherhood_assassin",
       "card_name": "Brotherhood Assassin",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_cavern_spinner",
       "card_name": "Cavern Spinner",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "neu_chicken",
       "card_name": "Chicken",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_colovian_trooper",
@@ -1925,12 +1925,12 @@
     {
       "card_id": "end_corpse_curse",
       "card_name": "Corpse Curse",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_delte_fyr",
       "card_name": "Delte Fyr",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_deshaan_sneak",
@@ -1940,7 +1940,7 @@
     {
       "card_id": "end_drain_life",
       "card_name": "Drain Life",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_durzog",
@@ -1970,7 +1970,7 @@
     {
       "card_id": "int_iron_sword",
       "card_name": "Iron Sword",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_northpoint_herald",
@@ -1990,7 +1990,7 @@
     {
       "card_id": "end_raise_dead",
       "card_name": "Raise Dead",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_rotting_draugr",
@@ -2015,7 +2015,7 @@
     {
       "card_id": "neu_slaughterfish",
       "card_name": "Slaughterfish",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_snow_fox",
@@ -2030,7 +2030,7 @@
     {
       "card_id": "neu_steel_dagger",
       "card_name": "Steel Dagger",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_storm_atronach",
@@ -2045,12 +2045,12 @@
     {
       "card_id": "neu_sweet_roll",
       "card_name": "Sweet Roll",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "int_uupse_fyr",
       "card_name": "Uupse Fyr",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_wood_elf_scout",
@@ -2065,32 +2065,32 @@
     {
       "card_id": "hos_str_aela_the_huntress",
       "card_name": "Aela the Huntress",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_str_aelas_huntmate",
       "card_name": "Aela's Huntmate",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_str_ancestors_battleaxe",
       "card_name": "Ancestor's Battleaxe",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_str_battlefield_scrounger",
       "card_name": "Battlefield Scrounger",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_str_berserker_of_the_pale",
       "card_name": "Berserker of the Pale",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_str_blades_lookout",
       "card_name": "Blades Lookout",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_str_candlehearth_brawler",
@@ -2100,52 +2100,52 @@
     {
       "card_id": "hos_str_circle_initiate",
       "card_name": "Circle Initiate",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_str_duel_atop_the_world",
       "card_name": "Duel Atop the World",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_str_hit_and_run",
       "card_name": "Hit and Run",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_str_inspiring_stormcloak",
       "card_name": "Inspiring Stormcloak",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_str_shield_breaker",
       "card_name": "Shield Breaker",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_str_skyborn_dragon",
       "card_name": "Skyborn Dragon",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_str_skyforge",
       "card_name": "Skyforge",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_str_stormcloak_avenger",
       "card_name": "Stormcloak Avenger",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_str_stormcloak_camp",
       "card_name": "Stormcloak Camp",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_str_stormcloak_vanguard",
       "card_name": "Stormcloak Vanguard",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_str_stoutheart_giant",
@@ -2155,7 +2155,7 @@
     {
       "card_id": "hos_str_stronghold_patrol",
       "card_name": "Stronghold Patrol",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_str_swiftwing_dragon",
@@ -2165,77 +2165,77 @@
     {
       "card_id": "hos_str_ulfric_stormcloak",
       "card_name": "Ulfric Stormcloak",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_str_ulfrics_zealot",
       "card_name": "Ulfric's Zealot",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_str_unrelenting_force",
       "card_name": "Unrelenting Force",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_str_wildfire_dragon",
       "card_name": "Wildfire Dragon",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_str_world_eaters_eyrie",
       "card_name": "World-Eater's Eyrie",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_int_ancano",
       "card_name": "Ancano",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_int_arcane_enchanter",
       "card_name": "Arcane Enchanter",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_int_bringer_of_nightmares",
       "card_name": "Bringer of Nightmares",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_int_college_of_winterhold",
       "card_name": "College of Winterhold",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_int_conjuration_scholar",
       "card_name": "Conjuration Scholar",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_int_court_wizard",
       "card_name": "Court Wizard",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_int_dark_rebirth",
       "card_name": "Dark Rebirth",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_int_dragon_priest_mask",
       "card_name": "Dragon Priest Mask",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_int_dragons_fury",
       "card_name": "Dragon's Fury",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_int_echo_of_akatosh",
       "card_name": "Echo of Akatosh",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_int_embassy_guard",
@@ -2245,37 +2245,37 @@
     {
       "card_id": "hos_int_fire_breath",
       "card_name": "Fire Breath",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_int_ghost_sea_lookout",
       "card_name": "Ghost Sea Lookout",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_int_icewing_dragon",
       "card_name": "Icewing Dragon",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_int_insightful_scholar",
       "card_name": "Insightful Scholar",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_int_jzargo",
       "card_name": "J'zargo",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_int_master_swordsmith",
       "card_name": "Master Swordsmith",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_int_mistveil_enchanter",
       "card_name": "Mistveil Enchanter",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_int_mystic_dragon",
@@ -2285,27 +2285,27 @@
     {
       "card_id": "hos_int_revealing_the_unseen",
       "card_name": "Revealing the Unseen",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_int_riften_pickpocket",
       "card_name": "Riften Pickpocket",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_int_studious_greybeard",
       "card_name": "Studious Greybeard",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_int_thalmor_embassy",
       "card_name": "Thalmor Embassy",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_int_thief_of_dreams",
       "card_name": "Thief of Dreams",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_int_vigilant_of_stendarr",
@@ -2315,87 +2315,87 @@
     {
       "card_id": "hos_wil_a_land_divided",
       "card_name": "A Land Divided",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_wil_arrest",
       "card_name": "Arrest",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_wil_bandit_ringleader",
       "card_name": "Bandit Ringleader",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_wil_call_of_valor",
       "card_name": "Call of Valor",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_wil_cauldron_keeper",
       "card_name": "Cauldron Keeper",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_wil_cleric_of_kyne",
       "card_name": "Cleric of Kyne",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_wil_cliffside_lookout",
       "card_name": "Cliffside Lookout",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_wil_devour",
       "card_name": "Devour",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_wil_elixir_of_vitality",
       "card_name": "Elixir of Vitality",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_wil_grisly_gourmet",
       "card_name": "Grisly Gourmet",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_wil_imperial_camp",
       "card_name": "Imperial Camp",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_wil_jarl_balgruuf",
       "card_name": "Jarl Balgruuf",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_wil_karthspire_scourge",
       "card_name": "Karthspire Scourge",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_wil_legate_rikke",
       "card_name": "Legate Rikke",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_wil_lydia",
       "card_name": "Lydia",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_wil_praetorian_commander",
       "card_name": "Praetorian Commander",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_wil_priest_of_the_eight",
       "card_name": "Priest of the Eight",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_wil_revered_guardian",
@@ -2405,7 +2405,7 @@
     {
       "card_id": "hos_wil_snowhawk_detachment",
       "card_name": "Snowhawk Detachment",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_wil_solitude_stalwart",
@@ -2415,42 +2415,42 @@
     {
       "card_id": "hos_wil_thalmor_justiciar",
       "card_name": "Thalmor Justiciar",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_wil_thieves_guild_shadowfoot",
       "card_name": "Thieves Guild Shadowfoot",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_wil_undying_dragon",
       "card_name": "Undying Dragon",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_wil_winterhold_illusionist",
       "card_name": "Winterhold Illusionist",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_wil_wolf_cage",
       "card_name": "Wolf Cage",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_agi_barter",
       "card_name": "Barter",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_agi_brynjolf",
       "card_name": "Brynjolf",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_agi_caravan_enforcer",
       "card_name": "Caravan Enforcer",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_agi_chaurus",
@@ -2460,17 +2460,17 @@
     {
       "card_id": "hos_agi_deepwood_trapper",
       "card_name": "Deepwood Trapper",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_agi_dovah_of_the_voice",
       "card_name": "Dovah of the Voice",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_agi_drain_vitality",
       "card_name": "Drain Vitality",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "hos_agi_eldergleam_matron",
