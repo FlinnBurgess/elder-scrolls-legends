@@ -3022,6 +3022,70 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var health_bonus := current_health if cds_stat in ["both", "health"] else 0
 					EvergreenRules.apply_stat_bonus(card, power_bonus, health_bonus, reason)
 					generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "power_bonus": power_bonus, "health_bonus": health_bonus, "reason": reason})
+			"draw_from_deck_filtered":
+				for player_id in _resolve_player_targets(match_state, trigger, event, effect):
+					var dfdf_player := _get_player_state(match_state, player_id)
+					if dfdf_player.is_empty():
+						continue
+					var dfdf_deck: Array = dfdf_player.get(ZONE_DECK, [])
+					var dfdf_filter_raw = effect.get("filter", {})
+					var dfdf_filter: Dictionary = dfdf_filter_raw if typeof(dfdf_filter_raw) == TYPE_DICTIONARY else {}
+					var dfdf_candidates: Array = []
+					for di in range(dfdf_deck.size()):
+						var card: Dictionary = dfdf_deck[di]
+						if typeof(card) != TYPE_DICTIONARY:
+							continue
+						var dfdf_match := true
+						if dfdf_filter.has("card_type") and str(card.get("card_type", "")) != str(dfdf_filter["card_type"]):
+							dfdf_match = false
+						if dfdf_filter.has("multi_attribute"):
+							var attrs: Array = card.get("attributes", [])
+							if typeof(attrs) != TYPE_ARRAY or attrs.size() < 2:
+								dfdf_match = false
+						if dfdf_filter.has("cost_equals_remaining_magicka"):
+							var remaining := int(dfdf_player.get("current_magicka", 0))
+							if int(card.get("cost", -1)) != remaining:
+								dfdf_match = false
+						if dfdf_match:
+							dfdf_candidates.append(di)
+					if not dfdf_candidates.is_empty():
+						var pick_idx := dfdf_candidates[_deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_dfdf", dfdf_candidates.size())]
+						var drawn: Dictionary = dfdf_deck[pick_idx]
+						dfdf_deck.remove_at(pick_idx)
+						drawn["zone"] = ZONE_HAND
+						var dfdf_hand: Array = dfdf_player.get(ZONE_HAND, [])
+						dfdf_hand.append(drawn)
+						generated_events.append({"event_type": "card_drawn", "player_id": player_id, "instance_id": str(drawn.get("instance_id", "")), "source": "draw_from_deck_filtered", "reason": reason})
+			"draw_specific_from_deck":
+				var dsfd_source_id := str(trigger.get("source_instance_id", ""))
+				var dsfd_controller := str(trigger.get("controller_player_id", ""))
+				var dsfd_player := _get_player_state(match_state, dsfd_controller)
+				if not dsfd_player.is_empty():
+					var dsfd_deck: Array = dsfd_player.get(ZONE_DECK, [])
+					for di in range(dsfd_deck.size()):
+						if typeof(dsfd_deck[di]) == TYPE_DICTIONARY and str(dsfd_deck[di].get("definition_id", "")) == str(_find_card_anywhere(match_state, dsfd_source_id).get("definition_id", "")):
+							var drawn: Dictionary = dsfd_deck[di]
+							dsfd_deck.remove_at(di)
+							drawn["zone"] = ZONE_HAND
+							var dsfd_hand: Array = dsfd_player.get(ZONE_HAND, [])
+							dsfd_hand.append(drawn)
+							generated_events.append({"event_type": "card_drawn", "player_id": dsfd_controller, "instance_id": str(drawn.get("instance_id", "")), "source": "draw_specific_from_deck", "reason": reason})
+							break
+			"draw_all_creatures_from_discard":
+				var dacfd_controller := str(trigger.get("controller_player_id", ""))
+				var dacfd_player := _get_player_state(match_state, dacfd_controller)
+				if not dacfd_player.is_empty():
+					var dacfd_discard: Array = dacfd_player.get(ZONE_DISCARD, [])
+					var dacfd_hand: Array = dacfd_player.get(ZONE_HAND, [])
+					var dacfd_to_draw: Array = []
+					for card in dacfd_discard:
+						if typeof(card) == TYPE_DICTIONARY and str(card.get("card_type", "")) == "creature":
+							dacfd_to_draw.append(card)
+					for card in dacfd_to_draw:
+						dacfd_discard.erase(card)
+						card["zone"] = ZONE_HAND
+						dacfd_hand.append(card)
+						generated_events.append({"event_type": "card_drawn", "player_id": dacfd_controller, "instance_id": str(card.get("instance_id", "")), "source": "draw_all_creatures_from_discard", "reason": reason})
 			"buff_random_hand_card":
 				var brhc_power := int(effect.get("power", 0))
 				var brhc_health := int(effect.get("health", 0))
