@@ -21,7 +21,7 @@ static func build_test_match_state() -> Dictionary:
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — plenty of magicka for Veteran testing
+	# Player 1 (you) — plenty of magicka for Mobilize testing
 	var p1_health := 30
 	var p1_max_magicka := 12
 	var p1_current_magicka := 12
@@ -29,44 +29,44 @@ static func build_test_match_state() -> Dictionary:
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — Veteran creatures to play and test
-	# Veteran: triggers the first time this creature takes damage and survives
+	# Player 1 hand — Mobilize items to test playing to empty lanes
+	# Mobilize: items can be played to an empty lane to summon a 1/1 Recruit and equip it
 	var p1_hand_ids: Array = [
-		"aw_end_great_moot_squire",         # Cost 1, 1/2, Veteran: +1/+1
-		"aw_agi_dunmer_tyro",               # Cost 3, 1/4, Charge + Veteran: +2/+0
-		"aw_end_black_marsh_prodigy",       # Cost 3, 1/1, Veteran: +4/+4
-		"aw_str_windhelm_gatekeeper",       # Cost 4, 2/4, Guard + Veteran: +3/+0
-		"aw_agi_inspiring_soldier",          # Cost 2, 3/2, Veteran: Summon a 1/1 Recruit
+		"aw_str_ornamented_sword",          # Cost 2, +2/+1, Mobilize + Breakthrough
+		"aw_str_ebonthread_cloak",          # Cost 2, +1/+2, Mobilize + Summon: can't be targeted
+		"aw_end_covenant_mail",             # Cost 3, +1/+3, Prophecy + Mobilize + Guard
+		"aw_end_poisoned_dagger",           # Cost 2, +1/+0, Mobilize + Lethal
+		"aw_str_covenant_plate",            # Cost 3, +3/+1, Prophecy + Mobilize + Guard
 	]
 
-	# Player 1 deck — more Veteran creatures
+	# Player 1 deck — bigger Mobilize items + Emeric's Warlord synergy
 	var p1_deck_ids: Array = [
-		"aw_end_black_marsh_centurion",     # Cost 6, 4/8, Veteran: Guard
-		"aw_str_jorunns_vanguard",          # Cost 5, 4/4, Veteran: +2/+2 and buff top deck
-		"aw_agi_invoker_of_the_hist",       # Cost 6, 3/6, Veteran: Restore magicka
-		"aw_agi_shadowscale_hunter",        # Cost 3, 4/3, Veteran: Move
-		"aw_tri_mournhold_taskmaster",      # Cost 4, 5/4, Passive: Veteran creatures have Charge
-		"str_fiery_imp",
+		"aw_int_lion_guard_armaments",      # Cost 5, +3/+4, Mobilize
+		"aw_int_staff_of_ice",              # Cost 5, +1/+1, Prophecy + Mobilize + Summon: deal 2 damage
+		"tc_tri_enchanted_ring",            # Cost 1, +1/+1, Mobilize + equip copies from discard
+		"aw_tri_covenant_masterpiece",      # Cost 7, +3/+3, Mobilize + Breakthrough + Regenerate + Guard + Ward
+		"aw_int_emerics_warlord",           # Cost 2, 1/4, Your items have Mobilize + Recruit equip synergy
+		"aw_end_cruel_axe",                 # Cost 2, Mobilize + Summon: +1/+1 per enemy in lane
 	]
 
-	# Player 1 — one Veteran creature already in lane ready to take damage
+	# Player 1 — one creature in field lane (to test equipping Mobilize items onto existing creature)
 	var p1_field_creatures: Array = [
-		_make_lane_creature("player_1", "aw_end_great_moot_squire", 100),  # 1/2, Veteran: +1/+1
+		_make_lane_creature("player_1", "str_whiterun_trooper", 100),  # 2/4 vanilla — equip target
 	]
-	# Player 1 creatures in shadow lane
+	# Shadow lane empty — test Mobilize summoning into empty lane
 	var p1_shadow_creatures: Array = []
 
-	# Player 2 (AI) — low magicka, weak creatures to attack into for Veteran triggers
+	# Player 2 (AI) — low magicka, enemies in field lane only (shadow lane empty for Mobilize deploy)
 	var p2_health := 30
-	var p2_max_magicka := 3
-	var p2_current_magicka := 3
+	var p2_max_magicka := 2
+	var p2_current_magicka := 2
 	var p2_rune_thresholds := []
 	var p2_has_ring := false
 	var p2_ring_charges := 0
 
 	# Player 2 hand
 	var p2_hand_ids: Array = [
-		"str_fiery_imp",                    # 1/1 — weak attacker to trigger Veteran
+		"str_fiery_imp",
 		"str_fiery_imp",
 	]
 
@@ -80,14 +80,13 @@ static func build_test_match_state() -> Dictionary:
 		"str_fiery_imp",
 	]
 
-	# Player 2 — weak creatures in both lanes for Veteran combat testing
+	# Player 2 — enemies in field lane, shadow lane empty for Mobilize testing
 	var p2_field_creatures: Array = [
-		_make_lane_creature("player_2", "str_fiery_imp", 100),      # 1/1 — attacks your Veteran
-		_make_lane_creature("player_2", "str_nord_firebrand", 101), # 1/1 Charge
+		_make_lane_creature("player_2", "str_fiery_imp", 100),
+		_make_lane_creature("player_2", "str_fiery_imp", 101),
+		_make_lane_creature("player_2", "str_fiery_imp", 102),  # 3 enemies for Cruel Axe testing
 	]
-	var p2_shadow_creatures: Array = [
-		_make_lane_creature("player_2", "str_fiery_imp", 102),      # 1/1 in shadow lane
-	]
+	var p2_shadow_creatures: Array = []
 
 	## ── END CONFIGURATION ──────────────────────────────────────────────
 
