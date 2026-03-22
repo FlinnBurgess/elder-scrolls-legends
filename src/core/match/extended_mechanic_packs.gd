@@ -743,6 +743,41 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				dfomb_deck.pop_back()
 				dfomb_deck.insert(0, dfomb_top_card)
 				return {"handled": true, "events": [{"event_type": "card_moved_to_bottom", "player_id": dfomb_controller_id, "instance_id": str(dfomb_top_card.get("instance_id", ""))}]}
+		"transform_deck_to_dragons":
+			var ttd_controller := str(trigger.get("controller_player_id", ""))
+			var ttd_player := _get_player_state(match_state, ttd_controller)
+			if ttd_player.is_empty():
+				return {"handled": true, "events": []}
+			var ttd_deck: Array = ttd_player.get("deck", [])
+			var ttd_seeds: Array = CardCatalog._card_seeds()
+			var ttd_dragons: Array = []
+			for seed in ttd_seeds:
+				if typeof(seed) == TYPE_DICTIONARY:
+					var subtypes: Array = seed.get("subtypes", [])
+					if typeof(subtypes) == TYPE_ARRAY and subtypes.has("Dragon"):
+						ttd_dragons.append(seed)
+			if ttd_dragons.is_empty():
+				return {"handled": true, "events": []}
+			for di in range(ttd_deck.size()):
+				var card: Dictionary = ttd_deck[di]
+				if typeof(card) != TYPE_DICTIONARY or str(card.get("card_type", "")) != "creature":
+					continue
+				var pick := ttd_dragons[_timing_rules()._deterministic_index(match_state, str(card.get("instance_id", "")) + "_ttd", ttd_dragons.size())]
+				var template: Dictionary = pick.duplicate(true)
+				template["definition_id"] = str(template.get("card_id", ""))
+				MatchMutations.transform_card(match_state, str(card.get("instance_id", "")), template, {"reason": "transform_deck_to_dragons"})
+			return {"handled": true, "events": [{"event_type": "deck_transformed_to_dragons", "player_id": ttd_controller}]}
+		"apply_cost_reduction_aura":
+			var acra_controller := str(trigger.get("controller_player_id", ""))
+			var acra_filter_raw = effect.get("filter", {})
+			var acra_filter: Dictionary = acra_filter_raw if typeof(acra_filter_raw) == TYPE_DICTIONARY else {}
+			var acra_amount := int(effect.get("amount", 1))
+			var acra_filter_subtype := str(acra_filter.get("subtype", ""))
+			# Store as a persistent aura on the match state
+			var acra_auras: Array = match_state.get("card_cost_reduction_auras", [])
+			acra_auras.append({"controller_player_id": acra_controller, "filter_subtype": acra_filter_subtype, "amount": acra_amount, "source_instance_id": str(trigger.get("source_instance_id", ""))})
+			match_state["card_cost_reduction_auras"] = acra_auras
+			return {"handled": true, "events": [{"event_type": "cost_reduction_aura_applied", "player_id": acra_controller, "filter_subtype": acra_filter_subtype, "amount": acra_amount}]}
 		"look_at_top_deck_may_discard_then_draw":
 			var ltdmd_td_controller := str(trigger.get("controller_player_id", ""))
 			var ltdmd_td_player := _get_player_state(match_state, ltdmd_td_controller)
