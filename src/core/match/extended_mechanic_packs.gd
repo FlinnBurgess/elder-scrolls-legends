@@ -743,6 +743,38 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				dfomb_deck.pop_back()
 				dfomb_deck.insert(0, dfomb_top_card)
 				return {"handled": true, "events": [{"event_type": "card_moved_to_bottom", "player_id": dfomb_controller_id, "instance_id": str(dfomb_top_card.get("instance_id", ""))}]}
+		"merchant_offer":
+			var mo_controller := str(trigger.get("controller_player_id", ""))
+			var mo_opponent := ""
+			for player in match_state.get("players", []):
+				if str(player.get("player_id", "")) != mo_controller:
+					mo_opponent = str(player.get("player_id", ""))
+					break
+			var mo_my_player := _get_player_state(match_state, mo_controller)
+			var mo_opp_player := _get_player_state(match_state, mo_opponent)
+			if mo_my_player.is_empty() or mo_opp_player.is_empty():
+				return {"handled": true, "events": []}
+			var mo_seeds: Array = CardCatalog._card_seeds()
+			var mo_collectible: Array = []
+			for seed in mo_seeds:
+				if typeof(seed) == TYPE_DICTIONARY and bool(seed.get("collectible", true)):
+					mo_collectible.append(seed)
+			if mo_collectible.size() < 2:
+				return {"handled": true, "events": []}
+			# Pick 2 random cards, AI picks the first
+			var mo_pick1_idx := _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_mo1", mo_collectible.size())
+			var mo_pick2_idx := _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_mo2", mo_collectible.size())
+			var mo_template1: Dictionary = mo_collectible[mo_pick1_idx].duplicate(true)
+			mo_template1["definition_id"] = str(mo_template1.get("card_id", ""))
+			var mo_template2: Dictionary = mo_collectible[mo_pick2_idx].duplicate(true)
+			mo_template2["definition_id"] = str(mo_template2.get("card_id", ""))
+			var mo_card1 := MatchMutations.build_generated_card(match_state, mo_controller, mo_template1)
+			mo_card1["zone"] = "hand"
+			mo_my_player.get("hand", []).append(mo_card1)
+			var mo_card2 := MatchMutations.build_generated_card(match_state, mo_opponent, mo_template2)
+			mo_card2["zone"] = "hand"
+			mo_opp_player.get("hand", []).append(mo_card2)
+			return {"handled": true, "events": [{"event_type": "merchant_offer_resolved", "controller_got": str(mo_card1.get("instance_id", "")), "opponent_got": str(mo_card2.get("instance_id", ""))}]}
 		"transform_deck_to_dragons":
 			var ttd_controller := str(trigger.get("controller_player_id", ""))
 			var ttd_player := _get_player_state(match_state, ttd_controller)
