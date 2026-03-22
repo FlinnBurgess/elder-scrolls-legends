@@ -279,29 +279,54 @@ static func get_effective_play_cost(match_state: Dictionary, player_id: String, 
 static func _get_aura_cost_reduction(match_state: Dictionary, player_id: String, card: Dictionary) -> int:
 	var total := 0
 	var card_type := str(card.get("card_type", ""))
+	var all_aura_sources: Array = []
 	for lane in match_state.get("lanes", []):
 		for lane_card in lane.get("player_slots", {}).get(player_id, []):
 			if typeof(lane_card) != TYPE_DICTIONARY:
 				continue
 			var aura = lane_card.get("cost_reduction_aura", {})
-			if typeof(aura) != TYPE_DICTIONARY or aura.is_empty():
-				continue
-			var required_type := str(aura.get("card_type", ""))
-			if not required_type.is_empty() and card_type != required_type:
-				continue
-			total += int(aura.get("amount", 0))
+			if typeof(aura) == TYPE_DICTIONARY and not aura.is_empty():
+				all_aura_sources.append(aura)
 	for support_card in _get_player_state(match_state, player_id).get("support", []):
 		if typeof(support_card) != TYPE_DICTIONARY:
 			continue
 		var aura = support_card.get("cost_reduction_aura", {})
-		if typeof(aura) != TYPE_DICTIONARY or aura.is_empty():
-			continue
+		if typeof(aura) == TYPE_DICTIONARY and not aura.is_empty():
+			all_aura_sources.append(aura)
+	for aura in all_aura_sources:
 		var required_type := str(aura.get("card_type", ""))
 		if not required_type.is_empty() and card_type != required_type:
 			continue
+		var condition := str(aura.get("condition", ""))
+		if not condition.is_empty():
+			if not _cost_reduction_condition_met(match_state, player_id, card, condition, aura):
+				continue
 		total += int(aura.get("amount", 0))
 	total -= _get_global_cost_increase(match_state, card_type)
 	return total
+
+
+static func _cost_reduction_condition_met(match_state: Dictionary, player_id: String, card: Dictionary, condition: String, aura: Dictionary) -> bool:
+	match condition:
+		"creature_in_each_lane":
+			for lane in match_state.get("lanes", []):
+				var slots: Array = lane.get("player_slots", {}).get(player_id, [])
+				if slots.is_empty():
+					return false
+			return true
+		"required_singleton_deck":
+			return bool(_get_player_state(match_state, player_id).get("_singleton_deck", false))
+		"filter_deals_damage":
+			if str(card.get("card_type", "")) != "action":
+				return false
+			var effect_ids = card.get("effect_ids", [])
+			return typeof(effect_ids) == TYPE_ARRAY and (effect_ids.has("damage") or effect_ids.has("deal_damage"))
+		"filter_min_power":
+			var min_power := int(aura.get("min_power", 5))
+			return int(card.get("power", card.get("base_power", 0))) >= min_power
+		"filter_not_in_starting_deck":
+			return bool(card.get("_not_in_starting_deck", false))
+	return true
 
 
 static func _get_global_cost_increase(match_state: Dictionary, card_type: String) -> int:

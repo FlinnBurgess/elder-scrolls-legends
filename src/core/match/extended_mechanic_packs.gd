@@ -35,6 +35,10 @@ const GATE_KEYWORD_POOL := [
 ]
 
 
+static func get_catalog_seeds() -> Array:
+	return CardCatalog._card_seeds()
+
+
 static func ensure_match_state(match_state: Dictionary) -> void:
 	for player in match_state.get("players", []):
 		if typeof(player) == TYPE_DICTIONARY:

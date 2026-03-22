@@ -10,15 +10,16 @@
     "unhandled_passive_abilities": 12,
     "unhandled_cost_reduction_auras": 5,
     "other_unhandled_mechanisms": 3,
-    "implemented_ops": 44,
+    "implemented_ops": 64,
     "implemented_target_modes": 6,
     "implemented_action_target_modes": 5,
-    "implemented_families": 10
+    "implemented_families": 20,
+    "implemented_cost_reduction_auras": 5
   },
   "unimplemented_ops": [
     {
       "op": "play_prophecy_from_hand",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "aw_agi_assassin_beetle"
       ],
@@ -43,7 +44,7 @@
     },
     {
       "op": "copy_summon_ability",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "aw_int_abnur_tharn"
       ],
@@ -59,7 +60,7 @@
     },
     {
       "op": "grant_keyword_to_all_copies",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "aw_int_nereid_sister"
       ],
@@ -83,7 +84,7 @@
     },
     {
       "op": "swap_creatures",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "aw_wil_guildsworn_honeytongue"
       ],
@@ -91,7 +92,7 @@
     },
     {
       "op": "summon_random_creature",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "aw_wil_wish"
       ],
@@ -99,7 +100,7 @@
     },
     {
       "op": "prevent_rune_draw",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "aw_wil_varen_aquilarios"
       ],
@@ -107,7 +108,7 @@
     },
     {
       "op": "cost_increase_next_turn",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "db_end_wrath_of_sithis"
       ],
@@ -192,7 +193,7 @@
     },
     {
       "op": "transform_hand",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "db_neu_flesh_sculpture"
       ],
@@ -217,7 +218,7 @@
     },
     {
       "op": "choose_card_in_hand_and_shuffle_copies",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "cwc_end_galyn_the_shelterer"
       ],
@@ -257,7 +258,7 @@
     },
     {
       "op": "summon_all_from_discard_by_name",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "cwc_neu_gearwork_spider"
       ],
@@ -273,7 +274,7 @@
     },
     {
       "op": "conditional_lane_bonus",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "cwc_neu_clockwork_dragon"
       ],
@@ -281,7 +282,7 @@
     },
     {
       "op": "change_attribute",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "cwc_wil_clockwork_apostle"
       ],
@@ -299,7 +300,7 @@
     },
     {
       "op": "restore_rune",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "cwc_wil_the_mechanical_heart",
         "fhc_neu_morokei_the_deathless"
@@ -333,7 +334,7 @@
     },
     {
       "op": "steal_item_from_opponent_discard",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "dg_agi_knowledge_plagiarist"
       ],
@@ -349,7 +350,7 @@
     },
     {
       "op": "optional_consume_for_keyword",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "dg_end_vampire_fledgling"
       ],
@@ -357,7 +358,7 @@
     },
     {
       "op": "grant_temporary_immunity",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "dg_wil_penitus_oculatus_envoy"
       ],
@@ -389,7 +390,7 @@
     },
     {
       "op": "summon_each_unique_from_deck",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "fhc_neu_tullius_conscription",
         "mc_neu_old_saltys_assault"
@@ -553,7 +554,7 @@
     },
     {
       "op": "transform_in_hand",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "aw_end_dark_anchor",
         "iom_neu_dawnfang",
@@ -828,7 +829,7 @@
     },
     {
       "op": "summon_random_by_cost",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "cwc_agi_cog_collector",
         "iom_wil_brellach_commander"
@@ -879,7 +880,7 @@
     },
     {
       "op": "transform_in_hand_to_random",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "iom_int_gardeners_harvest",
         "tc_int_strange_brew",
@@ -1058,7 +1059,7 @@
     },
     {
       "family": "on_consumed",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "moe_str_imbued_minotaur",
         "moe_int_imbued_breton",
@@ -1126,7 +1127,7 @@
     },
     {
       "family": "on_enemy_prophecy_drawn",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "db_end_dark_guardian",
         "cwc_wil_phalanx_exemplar"
@@ -1159,7 +1160,7 @@
     },
     {
       "family": "on_friendly_sacrifice",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "iom_agi_eager_torturer"
       ],
@@ -1223,7 +1224,7 @@
     },
     {
       "family": "on_opponent_card_drawn",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "moe_agi_razum_dar"
       ],
@@ -1255,7 +1256,7 @@
     },
     {
       "family": "on_rally",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "hom_str_skar_drillmaster",
         "mc_str_seasoned_captain"
@@ -1272,7 +1273,7 @@
     },
     {
       "family": "on_support_count_reached",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "aw_wil_forward_camp"
       ],
@@ -1280,7 +1281,7 @@
     },
     {
       "family": "on_targeted_by_action",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "iom_int_gnarl_rootbender"
       ],
@@ -1288,7 +1289,7 @@
     },
     {
       "family": "on_deal_damage_to_creature",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "iom_int_icy_shambles",
         "iom_agi_preying_elytra"
@@ -1305,7 +1306,7 @@
     },
     {
       "family": "on_enemy_damaged",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "hos_agi_deepwood_trapper"
       ],
@@ -1345,7 +1346,7 @@
     },
     {
       "family": "after_friendly_action_damages_enemy",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "mc_int_renegade_magister"
       ],
@@ -1672,7 +1673,7 @@
     {
       "type": "cost_reduction_aura",
       "condition": "creature_in_each_lane",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "aw_tri_transitus_shrine"
       ],
@@ -1681,7 +1682,7 @@
     {
       "type": "cost_reduction_aura",
       "condition": "required_singleton_deck",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "fhc_neu_sehts_masterwork"
       ],
@@ -1690,7 +1691,7 @@
     {
       "type": "cost_reduction_aura",
       "condition": "filter_deals_damage",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "fsc_int_destruction_tutor"
       ],
@@ -1699,7 +1700,7 @@
     {
       "type": "cost_reduction_aura",
       "condition": "filter_min_power",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "tc_tri_red_mountain"
       ],
@@ -1708,7 +1709,7 @@
     {
       "type": "cost_reduction_aura",
       "condition": "filter_not_in_starting_deck",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "mc_neu_skooma_cats_whimsy"
       ],
