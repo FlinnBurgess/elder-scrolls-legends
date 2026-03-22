@@ -743,6 +743,33 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				dfomb_deck.pop_back()
 				dfomb_deck.insert(0, dfomb_top_card)
 				return {"handled": true, "events": [{"event_type": "card_moved_to_bottom", "player_id": dfomb_controller_id, "instance_id": str(dfomb_top_card.get("instance_id", ""))}]}
+		"guess_opponent_card":
+			var goc_controller := str(trigger.get("controller_player_id", ""))
+			var goc_opponent := ""
+			for player in match_state.get("players", []):
+				if str(player.get("player_id", "")) != goc_controller:
+					goc_opponent = str(player.get("player_id", ""))
+					break
+			var goc_opp := _get_player_state(match_state, goc_opponent)
+			var goc_my := _get_player_state(match_state, goc_controller)
+			if goc_opp.is_empty() or goc_my.is_empty():
+				return {"handled": true, "events": []}
+			var goc_opp_deck: Array = goc_opp.get("deck", [])
+			if goc_opp_deck.size() < 2:
+				return {"handled": true, "events": []}
+			# Show 2 cards, guess which one opponent has (50/50 for AI)
+			var goc_roll := _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_goc", 2)
+			if goc_roll == 0:
+				# Correct guess — copy the card to hand
+				var goc_pick := goc_opp_deck[goc_opp_deck.size() - 1]
+				if typeof(goc_pick) == TYPE_DICTIONARY:
+					var goc_template: Dictionary = goc_pick.duplicate(true)
+					goc_template.erase("instance_id")
+					var goc_copy := MatchMutations.build_generated_card(match_state, goc_controller, goc_template)
+					goc_copy["zone"] = "hand"
+					goc_my.get("hand", []).append(goc_copy)
+					return {"handled": true, "events": [{"event_type": "guess_correct", "player_id": goc_controller, "instance_id": str(goc_copy.get("instance_id", ""))}]}
+			return {"handled": true, "events": [{"event_type": "guess_incorrect", "player_id": goc_controller}]}
 		"opponent_gives_card_from_hand":
 			var ogcfh_controller := str(trigger.get("controller_player_id", ""))
 			var ogcfh_opponent := ""
