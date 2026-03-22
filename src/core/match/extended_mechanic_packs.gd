@@ -48,6 +48,8 @@ static func ensure_player_state(player: Dictionary) -> void:
 		player["noncreature_plays_this_turn"] = 0
 	if not player.has("damage_dealt_to_opponent_this_turn"):
 		player["damage_dealt_to_opponent_this_turn"] = 0
+	if not player.has("creature_summons_this_turn"):
+		player["creature_summons_this_turn"] = 0
 	if not player.has("wax_wane_state"):
 		player["wax_wane_state"] = WAX
 
@@ -57,6 +59,7 @@ static func reset_turn_state(player: Dictionary) -> void:
 	player["cards_played_this_turn"] = 0
 	player["noncreature_plays_this_turn"] = 0
 	player["damage_dealt_to_opponent_this_turn"] = 0
+	player["creature_summons_this_turn"] = 0
 
 
 static func toggle_wax_wane(player: Dictionary) -> void:
@@ -74,6 +77,12 @@ static func observe_event(match_state: Dictionary, event: Dictionary) -> void:
 		player["cards_played_this_turn"] = int(player.get("cards_played_this_turn", 0)) + 1
 		if str(event.get("card_type", "")) != "creature":
 			player["noncreature_plays_this_turn"] = int(player.get("noncreature_plays_this_turn", 0)) + 1
+		return
+	if event_type == EVENT_CREATURE_SUMMONED:
+		var summon_player := _get_player_state(match_state, str(event.get("source_controller_player_id", event.get("player_id", ""))))
+		if not summon_player.is_empty():
+			ensure_player_state(summon_player)
+			summon_player["creature_summons_this_turn"] = int(summon_player.get("creature_summons_this_turn", 0)) + 1
 		return
 	if event_type == EVENT_DAMAGE_RESOLVED and str(event.get("target_type", "")) == "player":
 		var source_player := _get_player_state(match_state, str(event.get("source_controller_player_id", "")))
@@ -100,6 +109,9 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 		if int(descriptor.get("min_cards_played_this_turn", 0)) > int(controller.get("cards_played_this_turn", 0)):
 			return false
 		if int(descriptor.get("min_noncreature_plays_this_turn", 0)) > int(controller.get("noncreature_plays_this_turn", 0)):
+			return false
+		var req_summon_idx := int(descriptor.get("required_summon_index_this_turn", 0))
+		if req_summon_idx > 0 and int(controller.get("creature_summons_this_turn", 0)) != req_summon_idx:
 			return false
 		var required_phase := str(descriptor.get("required_wax_wane_phase", ""))
 		if not required_phase.is_empty() and required_phase != str(controller.get("wax_wane_state", WAX)):
