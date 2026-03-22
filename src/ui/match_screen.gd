@@ -4759,6 +4759,12 @@ func _on_lane_row_gui_input(event: InputEvent, lane_id: String, player_id: Strin
 		_play_action_to_lane(lane_id)
 		accept_event()
 		return
+	# Mobilize: item in targeting mode can be played to a lane (summon Recruit + equip)
+	if not _targeting_arrow_state.is_empty() and _selected_action_mode(card) == SELECTION_MODE_ITEM:
+		if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_MOBILIZE):
+			_play_mobilize_item_to_lane(lane_id)
+			accept_event()
+			return
 	if not _selected_support_row_target_player_id(card).is_empty():
 		_play_selected_to_support_row(_selected_support_row_target_player_id(card))
 		accept_event()
@@ -4804,6 +4810,12 @@ func _on_lane_panel_gui_input(event: InputEvent, lane_id: String) -> void:
 		_play_action_to_lane(lane_id)
 		accept_event()
 		return
+	# Mobilize: item in targeting mode can be played to a lane (summon Recruit + equip)
+	if not _targeting_arrow_state.is_empty() and _selected_action_mode(card) == SELECTION_MODE_ITEM:
+		if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_MOBILIZE):
+			_play_mobilize_item_to_lane(lane_id)
+			accept_event()
+			return
 	if not _selected_support_row_target_player_id(card).is_empty():
 		_play_selected_to_support_row(_selected_support_row_target_player_id(card))
 		accept_event()
@@ -7203,6 +7215,18 @@ func _enter_targeting_mode(instance_id: String) -> void:
 		"origin": arrow_origin,
 		"button": button,
 	}
+
+
+func _play_mobilize_item_to_lane(lane_id: String) -> void:
+	var card := _selected_card()
+	if card.is_empty():
+		return
+	var saved_instance_id := _selected_instance_id
+	_cancel_targeting_mode()
+	var result := PersistentCardRules.play_item_from_hand(_match_state, _active_player_id(), saved_instance_id, {"lane_id": lane_id})
+	var finalized := _finalize_engine_result(result, "Mobilized %s." % _card_name(card))
+	if not bool(finalized.get("is_valid", false)):
+		_report_invalid_interaction(str(finalized.get("message", "Cannot Mobilize here.")), {"lane_ids": [lane_id]})
 
 
 func _play_action_to_lane(lane_id: String) -> void:
