@@ -353,7 +353,8 @@ static func get_mobilize_lane_options(match_state: Dictionary, player_id: String
 	return options
 
 
-static func build_mobilize_recruit(player_id: String, instance_id: String, item_definition_id: String = "") -> Dictionary:
+static func build_mobilize_recruit(player_id: String, instance_id: String, item_attributes: Array = []) -> Dictionary:
+	var recruit_race := _recruit_race_for_attributes(item_attributes)
 	var recruit := {
 		"instance_id": instance_id,
 		"definition_id": "generated_recruit",
@@ -361,7 +362,7 @@ static func build_mobilize_recruit(player_id: String, instance_id: String, item_
 		"owner_player_id": player_id,
 		"controller_player_id": player_id,
 		"card_type": CARD_TYPE_CREATURE,
-		"subtypes": [],
+		"subtypes": [recruit_race] if not recruit_race.is_empty() else [],
 		"attributes": ["neutral"],
 		"cost": 0,
 		"base_power": 1,
@@ -371,11 +372,28 @@ static func build_mobilize_recruit(player_id: String, instance_id: String, item_
 		"health": 1,
 		"rules_text": "",
 		"rules_tags": [KEYWORD_MOBILIZE],
+		"art_path": "res://assets/images/cards/recruit_%s.png" % recruit_race.to_lower().replace(" ", "_"),
 	}
-	if not item_definition_id.is_empty():
-		recruit["art_path"] = "res://assets/images/cards/" + item_definition_id + ".png"
 	ensure_card_state(recruit)
 	return recruit
+
+
+static func _recruit_race_for_attributes(attributes: Array) -> String:
+	if attributes.is_empty():
+		return "Imperial"
+	var primary := str(attributes[0]).to_lower()
+	match primary:
+		"strength":
+			return "Nord"
+		"intelligence":
+			return "High Elf"
+		"willpower":
+			return "Imperial"
+		"agility":
+			return "Wood Elf"
+		"endurance":
+			return "Argonian"
+	return "Imperial"
 
 
 static func get_attached_items(card: Dictionary) -> Array:
