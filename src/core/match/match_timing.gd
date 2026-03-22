@@ -2768,6 +2768,25 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"new_power": EvergreenRules.get_power(card),
 						"reason": reason,
 					})
+			"discard_hand":
+				for player_id in _resolve_player_targets(match_state, trigger, event, effect):
+					var player := _get_player_state(match_state, player_id)
+					if player.is_empty():
+						continue
+					var hand: Array = player.get(ZONE_HAND, [])
+					var discard: Array = player.get(ZONE_DISCARD, [])
+					for card in hand:
+						if typeof(card) == TYPE_DICTIONARY:
+							card["zone"] = ZONE_DISCARD
+							discard.append(card)
+							generated_events.append({"event_type": "card_discarded", "player_id": player_id, "instance_id": str(card.get("instance_id", "")), "source": "discard_hand", "reason": reason})
+					hand.clear()
+			"discard_hand_end_of_turn":
+				var dheoet_player_id := str(trigger.get("controller_player_id", ""))
+				var dheoet_pending: Array = match_state.get("pending_end_of_turn_discards", [])
+				dheoet_pending.append(dheoet_player_id)
+				match_state["pending_end_of_turn_discards"] = dheoet_pending
+				generated_events.append({"event_type": "discard_hand_scheduled", "player_id": dheoet_player_id, "reason": reason})
 			"discard_top_of_deck":
 				for player_id in _resolve_player_targets(match_state, trigger, event, effect):
 					var player := _get_player_state(match_state, player_id)
