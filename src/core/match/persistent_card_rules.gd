@@ -68,8 +68,7 @@ static func play_item_from_hand(match_state: Dictionary, player_id: String, inst
 		var mobilize_lane := _select_mobilize_lane(match_state, player_id, str(options.get("lane_id", "")))
 		if mobilize_lane.is_empty():
 			return _invalid_result("Mobilize item play requires an empty friendly lane option.")
-		var item_attrs = item_card.get("attributes", [])
-		var recruit_template := EvergreenRules.build_mobilize_recruit(player_id, "", item_attrs if typeof(item_attrs) == TYPE_ARRAY else [])
+		var recruit_template := EvergreenRules.build_mobilize_recruit(player_id, "", str(item_card.get("definition_id", "")))
 		var recruit := MatchMutations.build_generated_card(match_state, player_id, recruit_template)
 		var summon_result := MatchMutations.summon_card_to_lane(match_state, player_id, recruit, str(mobilize_lane.get("lane_id", "")), {
 			"slot_index": int(mobilize_lane.get("slot_index", -1)),

@@ -353,8 +353,8 @@ static func get_mobilize_lane_options(match_state: Dictionary, player_id: String
 	return options
 
 
-static func build_mobilize_recruit(player_id: String, instance_id: String, item_attributes: Array = []) -> Dictionary:
-	var recruit_race := _recruit_race_for_attributes(item_attributes)
+static func build_mobilize_recruit(player_id: String, instance_id: String, item_definition_id: String = "") -> Dictionary:
+	var recruit_race := _recruit_race_for_item(item_definition_id)
 	var recruit := {
 		"instance_id": instance_id,
 		"definition_id": "generated_recruit",
@@ -378,22 +378,25 @@ static func build_mobilize_recruit(player_id: String, instance_id: String, item_
 	return recruit
 
 
-static func _recruit_race_for_attributes(attributes: Array) -> String:
-	if attributes.is_empty():
-		return "Imperial"
-	var primary := str(attributes[0]).to_lower()
-	match primary:
-		"strength":
-			return "Nord"
-		"intelligence":
-			return "High Elf"
-		"willpower":
-			return "Imperial"
-		"agility":
-			return "Wood Elf"
-		"endurance":
-			return "Argonian"
-	return "Imperial"
+const _MOBILIZE_RECRUIT_RACE := {
+	# Breton Recruit items
+	"aw_str_covenant_plate": "Breton",
+	"aw_str_ebonthread_cloak": "Breton",
+	"aw_end_poisoned_dagger": "Breton",
+	"aw_int_staff_of_ice": "Breton",
+	# Orc Recruit items
+	"aw_end_cruel_axe": "Orc",
+	"aw_end_covenant_mail": "Orc",
+	# Redguard Recruit items
+	"aw_tri_covenant_masterpiece": "Redguard",
+	"tc_tri_enchanted_ring": "Redguard",
+	"aw_int_lion_guard_armaments": "Redguard",
+	"aw_str_ornamented_sword": "Redguard",
+}
+
+
+static func _recruit_race_for_item(item_definition_id: String) -> String:
+	return _MOBILIZE_RECRUIT_RACE.get(item_definition_id, "Imperial")
 
 
 static func get_attached_items(card: Dictionary) -> Array:
