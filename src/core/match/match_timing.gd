@@ -2768,6 +2768,17 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"new_power": EvergreenRules.get_power(card),
 						"reason": reason,
 					})
+			"delayed_destroy":
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var dd_pending: Array = match_state.get("pending_delayed_destroys", [])
+					dd_pending.append({
+						"target_instance_id": str(card.get("instance_id", "")),
+						"controller_player_id": str(trigger.get("controller_player_id", "")),
+						"on_destroy_effects": effect.get("on_destroy_effects", []),
+						"source_instance_id": str(trigger.get("source_instance_id", "")),
+					})
+					match_state["pending_delayed_destroys"] = dd_pending
+					generated_events.append({"event_type": "delayed_destroy_scheduled", "target_instance_id": str(card.get("instance_id", "")), "reason": reason})
 			"sacrifice_and_resummon":
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					var sar_def_id := str(card.get("definition_id", ""))
