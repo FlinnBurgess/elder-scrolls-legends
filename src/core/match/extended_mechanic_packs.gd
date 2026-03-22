@@ -743,6 +743,35 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				dfomb_deck.pop_back()
 				dfomb_deck.insert(0, dfomb_top_card)
 				return {"handled": true, "events": [{"event_type": "card_moved_to_bottom", "player_id": dfomb_controller_id, "instance_id": str(dfomb_top_card.get("instance_id", ""))}]}
+		"opponent_gives_card_from_hand":
+			var ogcfh_controller := str(trigger.get("controller_player_id", ""))
+			var ogcfh_opponent := ""
+			for player in match_state.get("players", []):
+				if str(player.get("player_id", "")) != ogcfh_controller:
+					ogcfh_opponent = str(player.get("player_id", ""))
+					break
+			var ogcfh_opp := _get_player_state(match_state, ogcfh_opponent)
+			var ogcfh_my := _get_player_state(match_state, ogcfh_controller)
+			if ogcfh_opp.is_empty() or ogcfh_my.is_empty():
+				return {"handled": true, "events": []}
+			var ogcfh_opp_hand: Array = ogcfh_opp.get("hand", [])
+			if ogcfh_opp_hand.is_empty():
+				return {"handled": true, "events": []}
+			# Opponent gives cheapest card
+			var ogcfh_idx := 0
+			var ogcfh_min_cost := 999
+			for i in range(ogcfh_opp_hand.size()):
+				if typeof(ogcfh_opp_hand[i]) == TYPE_DICTIONARY:
+					var c := int(ogcfh_opp_hand[i].get("cost", 0))
+					if c < ogcfh_min_cost:
+						ogcfh_min_cost = c
+						ogcfh_idx = i
+			var ogcfh_given: Dictionary = ogcfh_opp_hand[ogcfh_idx]
+			ogcfh_opp_hand.remove_at(ogcfh_idx)
+			ogcfh_given["zone"] = "hand"
+			ogcfh_given["controller_player_id"] = ogcfh_controller
+			ogcfh_my.get("hand", []).append(ogcfh_given)
+			return {"handled": true, "events": [{"event_type": "card_given_from_opponent", "player_id": ogcfh_controller, "from_player_id": ogcfh_opponent, "instance_id": str(ogcfh_given.get("instance_id", ""))}]}
 		"trade_hand_card_for_opponent_deck":
 			var thcfod_controller := str(trigger.get("controller_player_id", ""))
 			var thcfod_opponent := ""
