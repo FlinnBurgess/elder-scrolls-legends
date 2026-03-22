@@ -123,15 +123,23 @@ func _test_3rd_loss_on_boss() -> void:
 	var dummy_deck: Array = [{"card_id": "card_a", "quantity": 3}]
 	manager.complete_draft(dummy_deck)
 
-	# Win 6, lose 2, then play to boss and lose
-	for i in range(6):
+	# Win 8, lose 2 along the way, then lose on boss for 3rd loss
+	# Losses don't advance current_match, so we need 8 wins to reach match 9
+	for i in range(4):
 		manager.start_match()
 		manager.record_win()
 		manager.complete_post_match_pick({"card_id": "pick_%d" % i})
 
-	# 2 losses
+	# 1st loss
 	manager.start_match()
 	manager.record_loss()
+
+	for i in range(4):
+		manager.start_match()
+		manager.record_win()
+		manager.complete_post_match_pick({"card_id": "pick_%d" % (i + 4)})
+
+	# 2nd loss
 	manager.start_match()
 	manager.record_loss()
 
@@ -140,7 +148,7 @@ func _test_3rd_loss_on_boss() -> void:
 	manager.start_match()
 	manager.record_loss()
 	_assert(manager.state == ArenaRunManagerScript.State.RUN_COMPLETE, "boss_loss: should be RUN_COMPLETE after 3rd loss on boss")
-	_assert(manager.wins == 6, "boss_loss: should have 6 wins, got %d" % manager.wins)
+	_assert(manager.wins == 8, "boss_loss: should have 8 wins, got %d" % manager.wins)
 	_assert(manager.losses == 3, "boss_loss: should have 3 losses, got %d" % manager.losses)
 
 

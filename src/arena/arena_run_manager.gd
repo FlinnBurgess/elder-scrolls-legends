@@ -92,7 +92,6 @@ func record_win() -> void:
 func record_loss() -> void:
 	losses += 1
 	match_config = null
-	current_match += 1
 	if losses >= 3:
 		state = State.RUN_COMPLETE
 		clear_run()
