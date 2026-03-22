@@ -353,18 +353,27 @@ static func get_mobilize_lane_options(match_state: Dictionary, player_id: String
 	return options
 
 
-static func build_mobilize_recruit(player_id: String, instance_id: String) -> Dictionary:
+static func build_mobilize_recruit(player_id: String, instance_id: String, item_definition_id: String = "") -> Dictionary:
 	var recruit := {
 		"instance_id": instance_id,
 		"definition_id": "generated_recruit",
+		"name": "Recruit",
 		"owner_player_id": player_id,
 		"controller_player_id": player_id,
 		"card_type": CARD_TYPE_CREATURE,
+		"subtypes": [],
+		"attributes": ["neutral"],
+		"cost": 0,
+		"base_power": 1,
+		"base_health": 1,
 		"zone": "generated",
 		"power": 1,
 		"health": 1,
+		"rules_text": "",
 		"rules_tags": [KEYWORD_MOBILIZE],
 	}
+	if not item_definition_id.is_empty():
+		recruit["art_path"] = "res://assets/images/cards/" + item_definition_id + ".png"
 	ensure_card_state(recruit)
 	return recruit
 
