@@ -3022,6 +3022,24 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var health_bonus := current_health if cds_stat in ["both", "health"] else 0
 					EvergreenRules.apply_stat_bonus(card, power_bonus, health_bonus, reason)
 					generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "power_bonus": power_bonus, "health_bonus": health_bonus, "reason": reason})
+			"copy_rallied_creature_to_hand":
+				var crch_target_id := str(event.get("target_instance_id", ""))
+				var crch_target := _find_card_anywhere(match_state, crch_target_id)
+				if not crch_target.is_empty():
+					var crch_controller := str(trigger.get("controller_player_id", ""))
+					var crch_template: Dictionary = crch_target.duplicate(true)
+					crch_template.erase("instance_id")
+					crch_template.erase("status_markers")
+					var crch_bonus_power := int(effect.get("bonus_power", 0))
+					var crch_bonus_health := int(effect.get("bonus_health", 0))
+					var crch_copy := MatchMutations.build_generated_card(match_state, crch_controller, crch_template)
+					EvergreenRules.apply_stat_bonus(crch_copy, crch_bonus_power, crch_bonus_health, reason)
+					crch_copy["zone"] = ZONE_HAND
+					var crch_player := _get_player_state(match_state, crch_controller)
+					if not crch_player.is_empty():
+						var crch_hand: Array = crch_player.get(ZONE_HAND, [])
+						crch_hand.append(crch_copy)
+						generated_events.append({"event_type": "card_generated_to_hand", "player_id": crch_controller, "instance_id": str(crch_copy.get("instance_id", "")), "reason": reason})
 			"trigger_exalt_all_friendly":
 				var teaf_controller := str(trigger.get("controller_player_id", ""))
 				for lane in match_state.get("lanes", []):
