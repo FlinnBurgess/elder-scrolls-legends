@@ -3022,6 +3022,29 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var health_bonus := current_health if cds_stat in ["both", "health"] else 0
 					EvergreenRules.apply_stat_bonus(card, power_bonus, health_bonus, reason)
 					generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "power_bonus": power_bonus, "health_bonus": health_bonus, "reason": reason})
+			"trigger_summon_ability":
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var tsa_abilities: Array = card.get("triggered_abilities", [])
+					for ability in tsa_abilities:
+						if typeof(ability) != TYPE_DICTIONARY:
+							continue
+						if str(ability.get("family", "")) == FAMILY_SUMMON:
+							var tsa_loc := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
+							var tsa_fake_event := {
+								"event_type": EVENT_CREATURE_SUMMONED,
+								"source_instance_id": str(card.get("instance_id", "")),
+								"source_controller_player_id": str(card.get("controller_player_id", "")),
+								"player_id": str(card.get("controller_player_id", "")),
+								"lane_id": str(tsa_loc.get("lane_id", "")),
+								"lane_index": int(tsa_loc.get("lane_index", -1)),
+							}
+							var tsa_trigger := ability.duplicate(true)
+							tsa_trigger["source_instance_id"] = str(card.get("instance_id", ""))
+							tsa_trigger["controller_player_id"] = str(card.get("controller_player_id", ""))
+							tsa_trigger["lane_index"] = int(tsa_loc.get("lane_index", -1))
+							var tsa_resolution := {"effects": tsa_trigger.get("effects", [])}
+							generated_events.append_array(_apply_effects(match_state, tsa_trigger, tsa_fake_event, tsa_resolution))
+							break
 			"grant_immunity":
 				var gi_type := str(effect.get("immunity_type", ""))
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
