@@ -2768,6 +2768,30 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"new_power": EvergreenRules.get_power(card),
 						"reason": reason,
 					})
+			"conditional_double_stat":
+				var cds_stat := str(effect.get("stat", "both"))
+				var cds_required_attr := str(effect.get("required_friendly_attribute", ""))
+				if not cds_required_attr.is_empty():
+					var cds_has_attr := false
+					var cds_controller := str(trigger.get("controller_player_id", ""))
+					for lane in match_state.get("lanes", []):
+						for card in lane.get("player_slots", {}).get(cds_controller, []):
+							if typeof(card) == TYPE_DICTIONARY:
+								var attrs: Array = card.get("attributes", [])
+								if typeof(attrs) == TYPE_ARRAY and attrs.has(cds_required_attr):
+									cds_has_attr = true
+									break
+						if cds_has_attr:
+							break
+					if not cds_has_attr:
+						continue
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var current_power := EvergreenRules.get_power(card)
+					var current_health := EvergreenRules.get_health(card)
+					var power_bonus := current_power if cds_stat in ["both", "power"] else 0
+					var health_bonus := current_health if cds_stat in ["both", "health"] else 0
+					EvergreenRules.apply_stat_bonus(card, power_bonus, health_bonus, reason)
+					generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "power_bonus": power_bonus, "health_bonus": health_bonus, "reason": reason})
 			"buff_random_hand_card":
 				var brhc_power := int(effect.get("power", 0))
 				var brhc_health := int(effect.get("health", 0))
