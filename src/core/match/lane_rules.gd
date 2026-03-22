@@ -53,6 +53,14 @@ static func validate_summon_from_hand(match_state: Dictionary, player_id: String
 		return _invalid_result("Card %s is not in %s's hand." % [instance_id, player_id])
 
 	var card: Dictionary = player[ZONE_HAND][hand_index]
+	if not bool(options.get("played_for_free", false)):
+		var play_limit := PersistentCardRules.get_play_limit_per_turn(match_state, player_id)
+		if play_limit >= 0 and int(player.get("cards_played_this_turn", 0)) >= play_limit:
+			return _invalid_result("You may only play %d card(s) per turn." % play_limit)
+	var play_condition = card.get("play_condition", {})
+	if typeof(play_condition) == TYPE_DICTIONARY and not play_condition.is_empty():
+		if not _check_play_condition(match_state, player_id, play_condition):
+			return _invalid_result(str(play_condition.get("error_message", "This card can't be played right now.")))
 	if not bool(options.get("played_for_free", false)) and PersistentCardRules.get_effective_play_cost(match_state, player_id, card) > _get_available_magicka(player):
 		return _invalid_result("Player does not have enough magicka to play %s." % instance_id)
 	var validation := _validate_lane_entry(match_state, player_id, card, lane_id, options)
@@ -299,6 +307,19 @@ static func _ensure_dictionary(value) -> Dictionary:
 	if typeof(value) == TYPE_DICTIONARY:
 		return value
 	return {}
+
+
+static func _check_play_condition(match_state: Dictionary, player_id: String, condition: Dictionary) -> bool:
+	var type := str(condition.get("type", ""))
+	match type:
+		"friendly_creature_in_each_lane":
+			var lanes: Array = match_state.get("lanes", [])
+			for lane in lanes:
+				var slots = lane.get("player_slots", {}).get(player_id, [])
+				if typeof(slots) != TYPE_ARRAY or slots.is_empty():
+					return false
+			return true
+	return true
 
 
 static func _invalid_result(message: String) -> Dictionary:

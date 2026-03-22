@@ -419,6 +419,8 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 		card["aura"] = definition["aura"].duplicate(true)
 	if definition.has("cost_reduction_aura"):
 		card["cost_reduction_aura"] = definition["cost_reduction_aura"].duplicate(true)
+	if definition.has("cost_increase_aura"):
+		card["cost_increase_aura"] = definition["cost_increase_aura"].duplicate(true)
 	if definition.has("grants_immunity"):
 		card["grants_immunity"] = definition["grants_immunity"].duplicate(true)
 	if definition.has("magicka_aura"):
@@ -427,6 +429,8 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 		card["self_immunity"] = definition["self_immunity"].duplicate(true)
 	if definition.has("first_turn_hand_cost"):
 		card["first_turn_hand_cost"] = int(definition["first_turn_hand_cost"])
+	if definition.has("self_cost_reduction"):
+		card["self_cost_reduction"] = definition["self_cost_reduction"].duplicate(true)
 	var innate_statuses: Array = definition.get("innate_statuses", [])
 	if not innate_statuses.is_empty():
 		card["innate_statuses"] = innate_statuses.duplicate(true)

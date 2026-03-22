@@ -147,7 +147,8 @@ static func validate_activate_support(match_state: Dictionary, player_id: String
 	if bool(card.get("activation_used_this_turn", false)):
 		return _invalid_result("Supports can only be activated once per turn.")
 	if card.has("remaining_support_uses") and card.get("remaining_support_uses") != null and int(card.get("remaining_support_uses", 0)) <= 0:
-		return _invalid_result("Support %s has no remaining uses." % instance_id)
+		if not _has_unlimited_support_uses(match_state, player_id):
+			return _invalid_result("Support %s has no remaining uses." % instance_id)
 	if not _has_activate_trigger(card):
 		return _invalid_result("Support %s has no activate trigger descriptor." % instance_id)
 	var activation_cost := int(card.get("activation_cost", 0))
@@ -165,7 +166,8 @@ static func activate_support(match_state: Dictionary, player_id: String, instanc
 	if activation_cost > 0:
 		_spend_magicka(match_state, player_id, activation_cost)
 	card["activation_used_this_turn"] = true
-	if card.has("remaining_support_uses") and card.get("remaining_support_uses") != null:
+	var has_unlimited := _has_unlimited_support_uses(match_state, player_id)
+	if card.has("remaining_support_uses") and card.get("remaining_support_uses") != null and not has_unlimited:
 		card["remaining_support_uses"] = maxi(0, int(card.get("remaining_support_uses", 0)) - 1)
 	var timing_result := MatchTiming.publish_events(match_state, [{
 		"event_type": MatchTiming.EVENT_SUPPORT_ACTIVATED,
@@ -180,7 +182,7 @@ static func activate_support(match_state: Dictionary, player_id: String, instanc
 	}])
 	var processed_events: Array = timing_result.get("processed_events", []).duplicate(true)
 	var trigger_resolutions: Array = timing_result.get("trigger_resolutions", []).duplicate(true)
-	if card.has("remaining_support_uses") and card.get("remaining_support_uses") != null and int(card.get("remaining_support_uses", 0)) == 0:
+	if card.has("remaining_support_uses") and card.get("remaining_support_uses") != null and int(card.get("remaining_support_uses", 0)) == 0 and not has_unlimited:
 		var exhaustion_events := [{
 			"event_type": "support_uses_exhausted",
 			"player_id": player_id,
@@ -265,6 +267,12 @@ static func get_effective_play_cost(match_state: Dictionary, player_id: String, 
 	var player := _get_player_state(match_state, player_id)
 	var reduction := int(player.get("next_card_cost_reduction", 0))
 	reduction += _get_aura_cost_reduction(match_state, player_id, card)
+	var self_reduction = card.get("self_cost_reduction", {})
+	if typeof(self_reduction) == TYPE_DICTIONARY and not self_reduction.is_empty():
+		var per_source := str(self_reduction.get("per", ""))
+		var per_amount := int(self_reduction.get("amount", 1))
+		if per_source == "creature_summons_this_turn":
+			reduction += int(player.get("creature_summons_this_turn", 0)) * per_amount
 	return maxi(0, base_cost - reduction)
 
 
@@ -292,7 +300,45 @@ static func _get_aura_cost_reduction(match_state: Dictionary, player_id: String,
 		if not required_type.is_empty() and card_type != required_type:
 			continue
 		total += int(aura.get("amount", 0))
+	total -= _get_global_cost_increase(match_state, card_type)
 	return total
+
+
+static func _get_global_cost_increase(match_state: Dictionary, card_type: String) -> int:
+	var total := 0
+	for lane in match_state.get("lanes", []):
+		for pid in lane.get("player_slots", {}).keys():
+			for lane_card in lane["player_slots"][pid]:
+				if typeof(lane_card) != TYPE_DICTIONARY:
+					continue
+				var aura = lane_card.get("cost_increase_aura", {})
+				if typeof(aura) != TYPE_DICTIONARY or aura.is_empty():
+					continue
+				var required_type := str(aura.get("card_type", ""))
+				if not required_type.is_empty() and card_type != required_type:
+					continue
+				total += int(aura.get("amount", 0))
+	return total
+
+
+static func get_play_limit_per_turn(match_state: Dictionary, player_id: String) -> int:
+	var limit := -1  # -1 = no limit
+	var player := _get_player_state(match_state, player_id)
+	for support_card in player.get("support", []):
+		if typeof(support_card) != TYPE_DICTIONARY:
+			continue
+		var pl := int(support_card.get("play_limit_per_turn", -1))
+		if pl >= 0 and (limit < 0 or pl < limit):
+			limit = pl
+	return limit
+
+
+static func _has_unlimited_support_uses(match_state: Dictionary, player_id: String) -> bool:
+	for lane in match_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(player_id, []):
+			if typeof(card) == TYPE_DICTIONARY and EvergreenRules.has_status(card, "unlimited_support_uses"):
+				return true
+	return false
 
 
 static func _consume_cost_reduction(match_state: Dictionary, player_id: String) -> void:

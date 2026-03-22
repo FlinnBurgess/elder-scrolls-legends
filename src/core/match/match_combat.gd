@@ -268,6 +268,11 @@ static func _validate_attacker_readiness(match_state: Dictionary, attacker: Dict
 	if EvergreenRules.has_status(attacker, EvergreenRules.STATUS_SHACKLED):
 		return _invalid_result("Shackled creatures cannot attack.")
 
+	var attack_condition = attacker.get("attack_condition", {})
+	if typeof(attack_condition) == TYPE_DICTIONARY and not attack_condition.is_empty():
+		if not _check_attack_condition(match_state, attacker, attack_condition):
+			return _invalid_result("This creature can't attack right now.")
+
 	if bool(attacker.get("has_attacked_this_turn", false)):
 		return _invalid_result("Creatures can only attack once per turn.")
 
@@ -278,6 +283,20 @@ static func _validate_attacker_readiness(match_state: Dictionary, attacker: Dict
 		"is_valid": true,
 		"errors": [],
 	}
+
+
+static func _check_attack_condition(match_state: Dictionary, attacker: Dictionary, condition: Dictionary) -> bool:
+	var type := str(condition.get("type", ""))
+	match type:
+		"lane_full":
+			var controller_id := str(attacker.get("controller_player_id", ""))
+			var lane_id := str(attacker.get("lane_id", ""))
+			for lane in match_state.get("lanes", []):
+				if str(lane.get("lane_id", "")) == lane_id:
+					var slots = lane.get("player_slots", {}).get(controller_id, [])
+					var capacity := int(lane.get("slot_capacity", 4))
+					return slots.size() >= capacity
+	return true
 
 
 static func _entered_lane_this_turn(match_state: Dictionary, attacker: Dictionary) -> bool:
@@ -296,14 +315,25 @@ static func _get_lane_guard_instance_ids(match_state: Dictionary, lane_index: in
 
 	var lane: Dictionary = lanes[lane_index]
 	var player_slots_by_id: Dictionary = lane.get("player_slots", {})
-	if not player_slots_by_id.has(player_id):
-		return guards
+	if player_slots_by_id.has(player_id):
+		for card in player_slots_by_id[player_id]:
+			if card == null:
+				continue
+			if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_GUARD):
+				guards.append(str(card.get("instance_id", "")))
 
-	for card in player_slots_by_id[player_id]:
-		if card == null:
+	# Check other lanes for creatures that guard both lanes
+	for other_lane_index in range(lanes.size()):
+		if other_lane_index == lane_index:
 			continue
-		if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_GUARD):
-			guards.append(str(card.get("instance_id", "")))
+		var other_slots = lanes[other_lane_index].get("player_slots", {}).get(player_id, [])
+		for card in other_slots:
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_GUARD) and EvergreenRules.has_status(card, "guards_both_lanes"):
+				var cid := str(card.get("instance_id", ""))
+				if not guards.has(cid):
+					guards.append(cid)
 	return guards
 
 
@@ -364,15 +394,16 @@ static func _resolve_drain(match_state: Dictionary, attacker: Dictionary, damage
 		return 0
 
 	var player := _get_player_state(match_state, controller_player_id)
-	player["health"] = int(player.get("health", 0)) + damage_dealt
+	var heal_amount := damage_dealt * MatchTiming._get_heal_multiplier(match_state, controller_player_id)
+	player["health"] = int(player.get("health", 0)) + heal_amount
 	events.append({
 		"event_type": "player_healed",
 		"target_player_id": controller_player_id,
 		"source_instance_id": str(attacker.get("instance_id", "")),
-		"amount": damage_dealt,
+		"amount": heal_amount,
 		"reason": EvergreenRules.KEYWORD_DRAIN,
 	})
-	return damage_dealt
+	return heal_amount
 
 
 static func _is_creature_destroyed(card: Dictionary, destroyed_by_lethal: bool) -> bool:

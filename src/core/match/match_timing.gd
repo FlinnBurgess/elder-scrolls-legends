@@ -5,6 +5,7 @@ const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const ExtendedMechanicPacks = preload("res://src/core/match/extended_mechanic_packs.gd")
 const GameLogger = preload("res://src/core/match/game_logger.gd")
 const MatchMutations = preload("res://src/core/match/match_mutations.gd")
+const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
 
 const ZONE_HAND := "hand"
 const ZONE_DECK := "deck"
@@ -256,6 +257,16 @@ static func get_valid_targets_for_mode(match_state: Dictionary, source_instance_
 					if p > max_friendly_power:
 						max_friendly_power = p
 		targets = targets.filter(func(c): return c.has("instance_id") and EvergreenRules.get_power(c) < max_friendly_power)
+	# Filter out creatures immune to action targeting (e.g. Iron Atronach, Nahagliiv)
+	if str(source_card.get("card_type", "")) == "action":
+		targets = targets.filter(func(c):
+			if not c.has("instance_id"):
+				return true
+			var immunities = c.get("self_immunity", [])
+			if typeof(immunities) != TYPE_ARRAY or not immunities.has("action_targeting"):
+				return true
+			return str(c.get("controller_player_id", "")) == controller_id
+		)
 	# Convert to target info format
 	var result: Array = []
 	for t in targets:
@@ -1080,6 +1091,10 @@ static func play_action_from_hand(match_state: Dictionary, player_id: String, in
 	if str(played_card.get("card_type", "")) != CARD_TYPE_ACTION:
 		return _invalid_result("Selected mode for %s is not playable as an action." % instance_id)
 	var played_for_free := bool(options.get("played_for_free", false))
+	if not played_for_free:
+		var play_limit := PersistentCardRules.get_play_limit_per_turn(match_state, player_id)
+		if play_limit >= 0 and int(player.get("cards_played_this_turn", 0)) >= play_limit:
+			return _invalid_result("You may only play %d card(s) per turn." % play_limit)
 	var base_action_cost := int(played_card.get("cost", 0)) + (1 if bool(options.get("exalt", false)) else 0)
 	var action_cost_reduction := int(player.get("next_card_cost_reduction", 0))
 	action_cost_reduction += _get_aura_cost_reduction(match_state, player_id, played_card)
@@ -1539,9 +1554,8 @@ static func rebuild_trigger_registry(match_state: Dictionary) -> Array:
 static func _inject_granted_triggers(match_state: Dictionary, registry: Array, lanes: Array) -> void:
 	for player in match_state.get("players", []):
 		var player_id := str(player.get("player_id", ""))
-		var support_cards: Array = player.get(ZONE_SUPPORT, [])
 		var granted_triggers: Array = []
-		for support_card in support_cards:
+		for support_card in player.get(ZONE_SUPPORT, []):
 			if typeof(support_card) != TYPE_DICTIONARY:
 				continue
 			if EvergreenRules.has_raw_status(support_card, EvergreenRules.STATUS_SILENCED):
@@ -1552,6 +1566,18 @@ static func _inject_granted_triggers(match_state: Dictionary, registry: Array, l
 			for grant in grants:
 				if typeof(grant) == TYPE_DICTIONARY:
 					granted_triggers.append(grant)
+		for lane in lanes:
+			for lane_card in lane.get("player_slots", {}).get(player_id, []):
+				if typeof(lane_card) != TYPE_DICTIONARY:
+					continue
+				if EvergreenRules.has_raw_status(lane_card, EvergreenRules.STATUS_SILENCED):
+					continue
+				var grants = lane_card.get("grants_trigger", [])
+				if typeof(grants) != TYPE_ARRAY:
+					continue
+				for grant in grants:
+					if typeof(grant) == TYPE_DICTIONARY:
+						granted_triggers.append(grant)
 		if granted_triggers.is_empty():
 			continue
 		for lane_index in range(lanes.size()):
@@ -1567,6 +1593,9 @@ static func _inject_granted_triggers(match_state: Dictionary, registry: Array, l
 				for g_index in range(granted_triggers.size()):
 					var descriptor: Dictionary = granted_triggers[g_index].duplicate(true)
 					if not str(descriptor.get("target_mode", "")).is_empty():
+						continue
+					var required_keyword := str(descriptor.get("required_keyword", ""))
+					if not required_keyword.is_empty() and not EvergreenRules.has_keyword(card, required_keyword):
 						continue
 					registry.append({
 						"trigger_id": "%s_granted_%d" % [instance_id, g_index],
@@ -2012,6 +2041,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						heal_amount = int(event.get("amount", 0))
 					if heal_amount <= 0:
 						continue
+					heal_amount *= _get_heal_multiplier(match_state, player_id)
 					heal_player["health"] = int(heal_player.get("health", 0)) + heal_amount
 					generated_events.append({
 						"event_type": "player_healed",
@@ -4160,7 +4190,22 @@ static func _get_aura_cost_reduction(match_state: Dictionary, player_id: String,
 		if not required_type.is_empty() and card_type != required_type:
 			continue
 		total += int(aura.get("amount", 0))
+	total -= PersistentCardRules._get_global_cost_increase(match_state, card_type)
 	return total
+
+
+static func _get_heal_multiplier(match_state: Dictionary, player_id: String) -> int:
+	var multiplier := 1
+	for lane in match_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(player_id, []):
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			var passives = card.get("passive_abilities", [])
+			if typeof(passives) == TYPE_ARRAY:
+				for p in passives:
+					if typeof(p) == TYPE_DICTIONARY and str(p.get("type", "")) == "double_health_gain":
+						multiplier *= 2
+	return multiplier
 
 
 static func _is_immune_to_effect(match_state: Dictionary, target_card: Dictionary, effect_type: String) -> bool:
