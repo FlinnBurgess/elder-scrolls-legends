@@ -110,6 +110,8 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 			return false
 		if int(descriptor.get("min_noncreature_plays_this_turn", 0)) > int(controller.get("noncreature_plays_this_turn", 0)):
 			return false
+		if bool(descriptor.get("plot_bonus", false)) and int(controller.get("cards_played_this_turn", 0)) < 2:
+			return false
 		var req_summon_idx := int(descriptor.get("required_summon_index_this_turn", 0))
 		if req_summon_idx > 0 and int(controller.get("creature_summons_this_turn", 0)) != req_summon_idx:
 			return false
