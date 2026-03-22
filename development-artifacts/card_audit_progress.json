@@ -655,52 +655,52 @@
     {
       "card_id": "int_wispmother",
       "card_name": "Wispmother",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_aldmeri_patriot",
       "card_name": "Aldmeri Patriot",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_alpha_wolf",
       "card_name": "Alpha Wolf",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_arrow_storm",
       "card_name": "Arrow Storm",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_artaeum_savant",
       "card_name": "Artaeum Savant",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_auridon_paladin",
       "card_name": "Auridon Paladin",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_auroran_sentry",
       "card_name": "Auroran Sentry",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_blackmail",
       "card_name": "Blackmail",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_bruma_profiteer",
       "card_name": "Bruma Profiteer",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_calm",
       "card_name": "Calm",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_cathayraht_veteran",
@@ -715,82 +715,82 @@
     {
       "card_id": "wil_cloudrest_illusionist",
       "card_name": "Cloudrest Illusionist",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_dagiraht_mystic",
       "card_name": "Dagi-raht Mystic",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_dawns_wrath",
       "card_name": "Dawn's Wrath",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_dawnbreaker",
       "card_name": "Dawnbreaker",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_dawnstar_healer",
       "card_name": "Dawnstar Healer",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_descendant_of_alkosh",
       "card_name": "Descendant of Alkosh",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_divine_fervor",
       "card_name": "Divine Fervor",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_eastmarch_crusader",
       "card_name": "Eastmarch Crusader",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_elixir_of_the_defender",
       "card_name": "Elixir of the Defender",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_execute",
       "card_name": "Execute",
-      "status": "pending"
+      "status": "fixed"
     },
     {
       "card_id": "wil_fifth_legion_trainer",
       "card_name": "Fifth Legion Trainer",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_golden_saint",
       "card_name": "Golden Saint",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_haafingar_marauder",
       "card_name": "Haafingar Marauder",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_healing_potion",
       "card_name": "Healing Potion",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_helgen_squad_leader",
       "card_name": "Helgen Squad Leader",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_hero_of_anvil",
       "card_name": "Hero of Anvil",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_hive_defender",
@@ -805,7 +805,7 @@
     {
       "card_id": "wil_immolating_blast",
       "card_name": "Immolating Blast",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_imperial_legionnaire",
@@ -815,22 +815,22 @@
     {
       "card_id": "wil_imperial_might",
       "card_name": "Imperial Might",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_imperial_reinforcements",
       "card_name": "Imperial Reinforcements",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_imperial_siege_engine",
       "card_name": "Imperial Siege Engine",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_imprison",
       "card_name": "Imprison",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_kvatch_soldier",
@@ -840,87 +840,87 @@
     {
       "card_id": "wil_legion_praefect",
       "card_name": "Legion Praefect",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_legion_shield",
       "card_name": "Legion Shield",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_loyal_housecarl",
       "card_name": "Loyal Housecarl",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_mantikora",
       "card_name": "Mantikora",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_miraak_dragonborn",
       "card_name": "Miraak, Dragonborn",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_morthal_executioner",
       "card_name": "Morthal Executioner",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_pack_wolf",
       "card_name": "Pack Wolf",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_piercing_javelin",
       "card_name": "Piercing Javelin",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_pillaging_tribune",
       "card_name": "Pillaging Tribune",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_pit_lion",
       "card_name": "Pit Lion",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_priest_of_the_moons",
       "card_name": "Priest of the Moons",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_rajhini_highwayman",
       "card_name": "Rajhini Highwayman",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_ravenous_hunger",
       "card_name": "Ravenous Hunger",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_renowned_legate",
       "card_name": "Renowned Legate",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_resolute_ally",
       "card_name": "Resolute Ally",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_riverhold_escort",
       "card_name": "Riverhold Escort",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_scouting_patrol",
       "card_name": "Scouting Patrol",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_senchetiger",
@@ -940,27 +940,27 @@
     {
       "card_id": "wil_snow_wolf",
       "card_name": "Snow Wolf",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_spiteful_dremora",
       "card_name": "Spiteful Dremora",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_summerset_shieldmage",
       "card_name": "Summerset Shieldmage",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_sunhold_medic",
       "card_name": "Sunhold Medic",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_tower_alchemist",
       "card_name": "Tower Alchemist",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_tusked_bristleback",
@@ -970,12 +970,12 @@
     {
       "card_id": "wil_twomoons_contemplation",
       "card_name": "Two-Moons Contemplation",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "wil_war_cry",
       "card_name": "War Cry",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_anxileel_invader",
@@ -985,17 +985,17 @@
     {
       "card_id": "agi_arenthia_swindler",
       "card_name": "Arenthia Swindler",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_arrow_in_the_knee",
       "card_name": "Arrow in the Knee",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_baandari_bruiser",
       "card_name": "Baandari Bruiser",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_blacksap_protector",
@@ -1005,12 +1005,12 @@
     {
       "card_id": "agi_camoran_scout_leader",
       "card_name": "Camoran Scout Leader",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_chaurus_reaper",
       "card_name": "Chaurus Reaper",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_cliff_racer",
@@ -1020,42 +1020,42 @@
     {
       "card_id": "agi_curse",
       "card_name": "Curse",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_daring_cutpurse",
       "card_name": "Daring Cutpurse",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_deshaan_avenger",
       "card_name": "Deshaan Avenger",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_dune_smuggler",
       "card_name": "Dune Smuggler",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_dune_stalker",
       "card_name": "Dune Stalker",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_elder_centaur",
       "card_name": "Elder Centaur",
-      "status": "pending"
+      "status": "fixed"
     },
     {
       "card_id": "agi_elixir_of_light_feet",
       "card_name": "Elixir of Light Feet",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_feasting_vulture",
       "card_name": "Feasting Vulture",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_fighters_guild_recruit",
@@ -1065,7 +1065,7 @@
     {
       "card_id": "agi_finish_off",
       "card_name": "Finish Off",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_giant_bat",
@@ -1075,22 +1075,22 @@
     {
       "card_id": "agi_giant_snake",
       "card_name": "Giant Snake",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_goblin_skulk",
       "card_name": "Goblin Skulk",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_green_pact_stalker",
       "card_name": "Green Pact Stalker",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_greentouched_spriggan",
       "card_name": "Green-Touched Spriggan",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_greenheart_knight",
@@ -1105,7 +1105,7 @@
     {
       "card_id": "agi_hidden_trail",
       "card_name": "Hidden Trail",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_highland_lurcher",
@@ -1115,22 +1115,22 @@
     {
       "card_id": "agi_house_kinsman",
       "card_name": "House Kinsman",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_leaflurker",
       "card_name": "Leaflurker",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_leafwater_blessing",
       "card_name": "Leafwater Blessing",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_malefic_wreath",
       "card_name": "Malefic Wreath",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_moonlight_werebat",
@@ -1145,62 +1145,62 @@
     {
       "card_id": "agi_mournhold_traitor",
       "card_name": "Mournhold Traitor",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_murkwater_butcher",
       "card_name": "Murkwater Butcher",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_murkwater_goblin",
       "card_name": "Murkwater Goblin",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_murkwater_savage",
       "card_name": "Murkwater Savage",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_murkwater_shaman",
       "card_name": "Murkwater Shaman",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_murkwater_skirmisher",
       "card_name": "Murkwater Skirmisher",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_murkwater_witch",
       "card_name": "Murkwater Witch",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_necrom_mastermind",
       "card_name": "Necrom Mastermind",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_nest_of_vipers",
       "card_name": "Nest of Vipers",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_nimble_ally",
       "card_name": "Nimble Ally",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_pahmarraht_renegade",
       "card_name": "Pahmar-raht Renegade",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_quinrawl_burglar",
       "card_name": "Quin'rawl Burglar",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_ransack",
