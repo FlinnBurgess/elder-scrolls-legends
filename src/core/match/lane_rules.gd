@@ -137,6 +137,131 @@ static func summon_from_hand(match_state: Dictionary, player_id: String, instanc
 	}
 
 
+static func validate_summon_with_sacrifice(match_state: Dictionary, player_id: String, instance_id: String, lane_id: String, sacrifice_instance_id: String, options: Dictionary = {}) -> Dictionary:
+	var player_lookup := _find_player(match_state.get("players", []), player_id)
+	if not player_lookup["is_valid"]:
+		return player_lookup
+	var player: Dictionary = player_lookup["player"]
+	var hand_index := _find_card_index(player.get(ZONE_HAND, []), instance_id)
+	if hand_index == -1:
+		return _invalid_result("Card %s is not in %s's hand." % [instance_id, player_id])
+	var card: Dictionary = player[ZONE_HAND][hand_index]
+	if str(card.get("card_type", "")) != CARD_TYPE_CREATURE:
+		return _invalid_result("Only creatures can be summoned with sacrifice.")
+	if not bool(options.get("played_for_free", false)):
+		var play_limit := PersistentCardRules.get_play_limit_per_turn(match_state, player_id)
+		if play_limit >= 0 and int(player.get("cards_played_this_turn", 0)) >= play_limit:
+			return _invalid_result("You may only play %d card(s) per turn." % play_limit)
+	var play_condition = card.get("play_condition", {})
+	if typeof(play_condition) == TYPE_DICTIONARY and not play_condition.is_empty():
+		if not _check_play_condition(match_state, player_id, play_condition):
+			return _invalid_result(str(play_condition.get("error_message", "This card can't be played right now.")))
+	if not bool(options.get("played_for_free", false)) and PersistentCardRules.get_effective_play_cost(match_state, player_id, card) > _get_available_magicka(player):
+		return _invalid_result("Player does not have enough magicka to play %s." % instance_id)
+	var sacrifice_location := _find_creature_on_board(match_state.get("lanes", []), sacrifice_instance_id)
+	if not sacrifice_location["is_valid"]:
+		return _invalid_result("Sacrifice target %s is not on the board." % sacrifice_instance_id)
+	if str(sacrifice_location["player_id"]) != player_id:
+		return _invalid_result("Sacrifice target %s is not controlled by %s." % [sacrifice_instance_id, player_id])
+	if str(sacrifice_location["lane_id"]) != lane_id:
+		return _invalid_result("Sacrifice target must be in the same lane.")
+	var lane_index := _find_lane_index(match_state.get("lanes", []), lane_id)
+	if lane_index == -1:
+		return _invalid_result("Unknown lane_id: %s" % lane_id)
+	var lane: Dictionary = match_state["lanes"][lane_index]
+	var player_slots: Array = lane.get("player_slots", {}).get(player_id, [])
+	var slot_capacity := int(lane.get("slot_capacity", 0))
+	if player_slots.size() < slot_capacity:
+		return _invalid_result("Lane %s is not full. Use normal summon." % lane_id)
+	return {
+		"is_valid": true,
+		"errors": [],
+		"player_index": player_lookup["player_index"],
+		"hand_index": hand_index,
+		"lane_index": lane_index,
+		"lane_id": lane_id,
+		"sacrifice_instance_id": sacrifice_instance_id,
+	}
+
+
+static func summon_with_sacrifice(match_state: Dictionary, player_id: String, instance_id: String, lane_id: String, sacrifice_instance_id: String, options: Dictionary = {}) -> Dictionary:
+	var validation := validate_summon_with_sacrifice(match_state, player_id, instance_id, lane_id, sacrifice_instance_id, options)
+	if not validation["is_valid"]:
+		return validation
+	var player_lookup := _find_player(match_state.get("players", []), player_id)
+	if not bool(player_lookup.get("is_valid", false)):
+		return player_lookup
+	var player: Dictionary = player_lookup["player"]
+	var hand_index := _find_card_index(player.get(ZONE_HAND, []), instance_id)
+	if hand_index >= 0:
+		ExtendedMechanicPacks.apply_pre_play_options(player[ZONE_HAND][hand_index], options)
+	var hand_card: Dictionary = player.get(ZONE_HAND, [])[hand_index]
+	var play_cost := 0 if bool(options.get("played_for_free", false)) else PersistentCardRules.get_effective_play_cost(match_state, player_id, hand_card)
+	if play_cost > 0:
+		_spend_magicka(match_state, player_id, play_cost)
+	PersistentCardRules._consume_cost_reduction(match_state, player_id)
+	# Step 1: Sacrifice the target creature (frees a lane slot)
+	var sacrifice_result := MatchMutations.sacrifice_card(match_state, player_id, sacrifice_instance_id, options)
+	if not bool(sacrifice_result.get("is_valid", false)):
+		return sacrifice_result
+	var sacrifice_events: Array = sacrifice_result.get("events", [])
+	# Step 2: Summon the new creature into the now-available slot
+	var summon_result := MatchMutations.summon_card_to_lane(match_state, player_id, instance_id, lane_id, options)
+	if not bool(summon_result.get("is_valid", false)):
+		return summon_result
+	var card: Dictionary = summon_result["card"]
+	var play_event := {
+		"event_type": MatchTiming.EVENT_CARD_PLAYED,
+		"playing_player_id": player_id,
+		"player_id": player_id,
+		"source_instance_id": str(card.get("instance_id", "")),
+		"source_controller_player_id": player_id,
+		"source_zone": ZONE_HAND,
+		"target_zone": ZONE_LANE,
+		"card_type": str(card.get("card_type", "")),
+		"played_cost": int(card.get("cost", 0)),
+	}
+	var summon_event := {
+		"event_type": MatchTiming.EVENT_CREATURE_SUMMONED,
+		"playing_player_id": player_id,
+		"player_id": player_id,
+		"source_instance_id": str(card.get("instance_id", "")),
+		"source_controller_player_id": player_id,
+		"lane_id": lane_id,
+		"slot_index": int(summon_result.get("slot_index", -1)),
+		"granted_cover": bool(summon_result.get("granted_cover", false)),
+	}
+	for key in _ensure_dictionary(options.get("play_event_overrides", {})).keys():
+		play_event[key] = options["play_event_overrides"][key]
+	for key in _ensure_dictionary(options.get("summon_event_overrides", {})).keys():
+		summon_event[key] = options["summon_event_overrides"][key]
+	# Publish sacrifice events first, then play/summon events together
+	var publish_list: Array = []
+	publish_list.append_array(sacrifice_events)
+	publish_list.append(play_event)
+	publish_list.append(summon_event)
+	if bool(summon_result.get("granted_cover", false)):
+		publish_list.append({
+			"event_type": "status_granted",
+			"source_instance_id": str(card.get("instance_id", "")),
+			"target_instance_id": str(card.get("instance_id", "")),
+			"status_id": "cover",
+		})
+	var timing_result := MatchTiming.publish_events(match_state, publish_list, _ensure_dictionary(options.get("event_context", {})))
+	return {
+		"is_valid": true,
+		"errors": [],
+		"lane_id": lane_id,
+		"lane_index": summon_result["lane_index"],
+		"slot_index": summon_result["slot_index"],
+		"card": card,
+		"sacrifice_instance_id": sacrifice_instance_id,
+		"granted_cover": bool(summon_result.get("granted_cover", false)),
+		"events": timing_result.get("processed_events", []),
+		"trigger_resolutions": timing_result.get("trigger_resolutions", []),
+	}
+
+
 static func validate_move(match_state: Dictionary, player_id: String, instance_id: String, target_lane_id: String, options: Dictionary = {}) -> Dictionary:
 	var source := _find_creature_on_board(match_state.get("lanes", []), instance_id)
 	if not source["is_valid"]:

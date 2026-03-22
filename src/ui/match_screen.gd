@@ -105,6 +105,9 @@ var _pending_summon_target := {}
 var _pending_betray := {}
 var _betray_skip_button: Button = null
 var _betray_prompt_label: Label = null
+var _pending_sacrifice_summon := {}
+var _sacrifice_prompt_label: Label = null
+var _sacrifice_cancel_button: Button = null
 var _prophecy_overlay_state := {}
 var _spell_reveal_state := {}
 var _deck_reveal_state := {}
@@ -4423,6 +4426,9 @@ func _on_card_pressed(instance_id: String) -> void:
 		else:
 			_report_invalid_interaction("Not a valid selection.", {"instance_ids": [instance_id]})
 		return
+	if not _pending_sacrifice_summon.is_empty():
+		_resolve_sacrifice_summon(instance_id)
+		return
 	if not _pending_betray.is_empty():
 		if _pending_betray.has("sacrifice_instance_id"):
 			# Betray replay targeting phase — resolve replay target card
@@ -4586,6 +4592,9 @@ func _on_lane_panel_gui_input(event: InputEvent, lane_id: String) -> void:
 					"lane_ids": [lane_id],
 				})
 				accept_event()
+		elif _selected_action_mode(card) == SELECTION_MODE_SUMMON and _lane_is_full_with_friendly(lane_id, target_player):
+			_enter_sacrifice_summon_mode(_selected_instance_id, lane_id)
+			accept_event()
 
 
 func _on_lane_pressed(lane_id: String) -> void:
@@ -4964,6 +4973,9 @@ func _valid_lane_slot_keys() -> Array:
 			var append_index := slots.size()
 			if bool(_validate_selected_lane_play(lane_id, player_id, append_index).get("is_valid", false)):
 				keys.append(_lane_slot_key(lane_id, player_id, append_index))
+		elif slots.size() >= slot_capacity and slots.size() > 0:
+			# Full lane with friendly creatures — sacrifice-to-play is available
+			keys.append(_lane_slot_key(lane_id, player_id, slots.size()))
 	return keys
 
 
@@ -5034,6 +5046,11 @@ func _valid_player_target_ids() -> Array:
 func _card_interaction_state(card: Dictionary, surface: String) -> String:
 	var instance_id := str(card.get("instance_id", ""))
 	if _copy_array(_invalid_feedback.get("instance_ids", [])).has(instance_id):
+		return "invalid"
+	if not _pending_sacrifice_summon.is_empty() and surface == "lane":
+		var target_lane := str(_pending_sacrifice_summon.get("lane_id", ""))
+		if str(card.get("controller_player_id", "")) == _active_player_id() and str(card.get("card_type", "")) == "creature" and str(card.get("lane_id", "")) == target_lane:
+			return "valid"
 		return "invalid"
 	if not _pending_betray.is_empty() and surface == "lane":
 		if _pending_betray.has("sacrifice_instance_id"):
@@ -6967,6 +6984,96 @@ func _resolve_betray_replay_target_player(player_id: String) -> void:
 	_pending_betray = {}
 	_cancel_targeting_mode_silent()
 	_finalize_engine_result(result, "Betray replay resolved.")
+
+
+func _lane_is_full_with_friendly(lane_id: String, player_id: String) -> bool:
+	var slots := _lane_slots(lane_id, player_id)
+	var slot_capacity := _lane_slot_capacity(lane_id)
+	return slots.size() >= slot_capacity and slots.size() > 0
+
+
+func _enter_sacrifice_summon_mode(card_instance_id: String, lane_id: String) -> void:
+	_pending_sacrifice_summon = {
+		"card_instance_id": card_instance_id,
+		"lane_id": lane_id,
+	}
+	_selected_instance_id = ""
+	_show_sacrifice_summon_prompt()
+	_status_message = "Choose a creature to sacrifice."
+	_refresh_ui()
+
+
+func _show_sacrifice_summon_prompt() -> void:
+	_dismiss_sacrifice_summon_prompt()
+	var viewport_size := get_viewport_rect().size
+	_sacrifice_prompt_label = Label.new()
+	_sacrifice_prompt_label.text = "Choose a creature to sacrifice"
+	_sacrifice_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_sacrifice_prompt_label.add_theme_color_override("font_color", Color(0.95, 0.35, 0.25, 1.0))
+	_sacrifice_prompt_label.add_theme_font_size_override("font_size", 20)
+	_sacrifice_prompt_label.z_index = 600
+	_sacrifice_prompt_label.size = Vector2(300, 30)
+	_sacrifice_prompt_label.position = Vector2(viewport_size.x * 0.5 - 150, viewport_size.y * 0.5 + 10)
+	add_child(_sacrifice_prompt_label)
+	_sacrifice_cancel_button = Button.new()
+	_sacrifice_cancel_button.text = "Cancel"
+	_sacrifice_cancel_button.custom_minimum_size = Vector2(160, 50)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.25, 0.22, 0.28, 0.92)
+	style.border_color = Color(0.6, 0.55, 0.65, 0.8)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(6)
+	style.set_content_margin_all(10)
+	_sacrifice_cancel_button.add_theme_stylebox_override("normal", style)
+	_sacrifice_cancel_button.add_theme_stylebox_override("hover", style)
+	_sacrifice_cancel_button.add_theme_stylebox_override("pressed", style)
+	_sacrifice_cancel_button.add_theme_color_override("font_color", Color(0.9, 0.88, 0.92, 1.0))
+	_sacrifice_cancel_button.add_theme_font_size_override("font_size", 18)
+	_sacrifice_cancel_button.pressed.connect(_cancel_sacrifice_summon_mode)
+	_sacrifice_cancel_button.z_index = 600
+	add_child(_sacrifice_cancel_button)
+	_sacrifice_cancel_button.position = Vector2(viewport_size.x * 0.5 - 80, viewport_size.y * 0.5 + 50)
+
+
+func _dismiss_sacrifice_summon_prompt() -> void:
+	if _sacrifice_prompt_label != null and is_instance_valid(_sacrifice_prompt_label):
+		_sacrifice_prompt_label.queue_free()
+	_sacrifice_prompt_label = null
+	if _sacrifice_cancel_button != null and is_instance_valid(_sacrifice_cancel_button):
+		_sacrifice_cancel_button.queue_free()
+	_sacrifice_cancel_button = null
+
+
+func _cancel_sacrifice_summon_mode() -> void:
+	_pending_sacrifice_summon = {}
+	_dismiss_sacrifice_summon_prompt()
+	_status_message = "Sacrifice cancelled."
+	_refresh_ui()
+
+
+func _resolve_sacrifice_summon(sacrifice_instance_id: String) -> void:
+	var lane_id := str(_pending_sacrifice_summon.get("lane_id", ""))
+	var card_instance_id := str(_pending_sacrifice_summon.get("card_instance_id", ""))
+	var sacrifice_card := _card_from_instance_id(sacrifice_instance_id)
+	if sacrifice_card.is_empty():
+		_report_invalid_interaction("Not a valid sacrifice target.", {"instance_ids": [sacrifice_instance_id]})
+		return
+	if str(sacrifice_card.get("controller_player_id", "")) != _active_player_id():
+		_report_invalid_interaction("Not a valid sacrifice target.", {"instance_ids": [sacrifice_instance_id]})
+		return
+	if str(sacrifice_card.get("lane_id", "")) != lane_id:
+		_report_invalid_interaction("Sacrifice target must be in the same lane.", {"instance_ids": [sacrifice_instance_id]})
+		return
+	_dismiss_sacrifice_summon_prompt()
+	var saved_instance_id := card_instance_id
+	var summoned_card := _card_from_instance_id(card_instance_id)
+	var sacrifice_name := _card_name(sacrifice_card)
+	var summoned_name := _card_name(summoned_card)
+	var result := LaneRules.summon_with_sacrifice(_match_state, _active_player_id(), card_instance_id, lane_id, sacrifice_instance_id)
+	_pending_sacrifice_summon = {}
+	var finalized := _finalize_engine_result(result, "Sacrificed %s to play %s." % [sacrifice_name, summoned_name])
+	if bool(finalized.get("is_valid", false)):
+		_check_summon_target_mode(saved_instance_id)
 
 
 func _summon_target_prompt(card: Dictionary, abilities: Array) -> String:

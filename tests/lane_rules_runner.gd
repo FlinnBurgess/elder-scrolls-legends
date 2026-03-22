@@ -20,7 +20,11 @@ func _run_all_tests() -> bool:
 		_test_field_summon_places_creature_without_cover() and
 		_test_shadow_lane_grants_cover_except_for_guard() and
 		_test_lane_capacity_and_slot_validation() and
-		_test_move_between_lanes_updates_slots_and_shadow_cover()
+		_test_move_between_lanes_updates_slots_and_shadow_cover() and
+		_test_sacrifice_summon_into_full_lane() and
+		_test_sacrifice_summon_publishes_correct_events() and
+		_test_sacrifice_summon_rejects_wrong_lane() and
+		_test_sacrifice_summon_rejects_non_full_lane()
 	)
 
 
@@ -140,6 +144,119 @@ func _test_move_between_lanes_updates_slots_and_shadow_cover() -> bool:
 		_assert(shadow_slots[0]["lane_id"] == "shadow" and shadow_slots[0]["slot_index"] == 0, "Moved creature should track its new lane position.") and
 		_assert(_has_status(shadow_slots[0], "cover"), "Moving into shadow should apply Cover status.")
 	)
+
+
+func _test_sacrifice_summon_into_full_lane() -> bool:
+	var match_state := _build_match()
+	var player: Dictionary = match_state["players"][0]
+	var player_id: String = player["player_id"]
+	# Fill the field lane to capacity (4 creatures)
+	var creatures: Array = []
+	for i in range(4):
+		var creature := _append_creature_to_hand(player, "sac_fill_%d" % i)
+		var summon_result := LaneRules.summon_from_hand(match_state, player_id, creature["instance_id"], "field")
+		if not _assert(summon_result["is_valid"], "Expected slot %d fill to succeed." % i):
+			return false
+		creatures.append(creature)
+	# Verify lane is full
+	var field_slots: Array = match_state["lanes"][0]["player_slots"][player_id]
+	if not _assert(field_slots.size() == 4, "Field lane should be full with 4 creatures."):
+		return false
+	# Summon a new creature by sacrificing the first one
+	var new_creature := _append_creature_to_hand(player, "sac_new")
+	var sacrifice_target_id: String = creatures[0]["instance_id"]
+	var result := LaneRules.summon_with_sacrifice(match_state, player_id, new_creature["instance_id"], "field", sacrifice_target_id)
+	if not _assert(result["is_valid"], "Sacrifice-summon should succeed."):
+		return false
+	# Verify lane still has 4 creatures and new creature is present
+	field_slots = match_state["lanes"][0]["player_slots"][player_id]
+	if not _assert(field_slots.size() == 4, "Field lane should still have 4 creatures after sacrifice-summon."):
+		return false
+	var found_new := false
+	var found_sacrificed := false
+	for slot_card in field_slots:
+		if str(slot_card.get("instance_id", "")) == new_creature["instance_id"]:
+			found_new = true
+		if str(slot_card.get("instance_id", "")) == sacrifice_target_id:
+			found_sacrificed = true
+	if not _assert(found_new, "New creature should be in the lane after sacrifice-summon."):
+		return false
+	if not _assert(not found_sacrificed, "Sacrificed creature should not be in the lane."):
+		return false
+	# Verify sacrificed creature is in discard
+	var discard: Array = player.get("discard", [])
+	var in_discard := false
+	for card in discard:
+		if str(card.get("instance_id", "")) == sacrifice_target_id:
+			in_discard = true
+			break
+	return _assert(in_discard, "Sacrificed creature should be in the discard pile.")
+
+
+func _test_sacrifice_summon_publishes_correct_events() -> bool:
+	var match_state := _build_match()
+	var player: Dictionary = match_state["players"][0]
+	var player_id: String = player["player_id"]
+	for i in range(4):
+		var creature := _append_creature_to_hand(player, "sac_evt_%d" % i)
+		LaneRules.summon_from_hand(match_state, player_id, creature["instance_id"], "field")
+	var new_creature := _append_creature_to_hand(player, "sac_evt_new")
+	var sacrifice_id: String = match_state["lanes"][0]["player_slots"][player_id][0]["instance_id"]
+	var result := LaneRules.summon_with_sacrifice(match_state, player_id, new_creature["instance_id"], "field", sacrifice_id)
+	if not _assert(result["is_valid"], "Sacrifice-summon for event test should succeed."):
+		return false
+	var events: Array = result.get("events", [])
+	# Find event indices
+	var sacrifice_idx := -1
+	var played_idx := -1
+	var summoned_idx := -1
+	for i in range(events.size()):
+		var evt_type := str(events[i].get("event_type", ""))
+		if evt_type == "card_sacrificed" and sacrifice_idx == -1:
+			sacrifice_idx = i
+		if evt_type == "card_played" and played_idx == -1:
+			played_idx = i
+		if evt_type == "creature_summoned" and summoned_idx == -1:
+			summoned_idx = i
+	return (
+		_assert(sacrifice_idx >= 0, "Should publish card_sacrificed event.") and
+		_assert(played_idx >= 0, "Should publish card_played event.") and
+		_assert(summoned_idx >= 0, "Should publish creature_summoned event.") and
+		_assert(sacrifice_idx < played_idx, "card_sacrificed should come before card_played.") and
+		_assert(played_idx < summoned_idx, "card_played should come before creature_summoned.")
+	)
+
+
+func _test_sacrifice_summon_rejects_wrong_lane() -> bool:
+	var match_state := _build_match()
+	var player: Dictionary = match_state["players"][0]
+	var player_id: String = player["player_id"]
+	# Fill field lane
+	for i in range(4):
+		var creature := _append_creature_to_hand(player, "sac_wl_%d" % i)
+		LaneRules.summon_from_hand(match_state, player_id, creature["instance_id"], "field")
+	# Put a creature in shadow lane
+	var shadow_creature := _append_creature_to_hand(player, "sac_shadow")
+	LaneRules.summon_from_hand(match_state, player_id, shadow_creature["instance_id"], "shadow")
+	# Try to sacrifice the shadow creature while summoning into field
+	var new_creature := _append_creature_to_hand(player, "sac_wl_new")
+	var result := LaneRules.validate_summon_with_sacrifice(match_state, player_id, new_creature["instance_id"], "field", shadow_creature["instance_id"])
+	return _assert(not result["is_valid"], "Should reject sacrifice of creature in a different lane.")
+
+
+func _test_sacrifice_summon_rejects_non_full_lane() -> bool:
+	var match_state := _build_match()
+	var player: Dictionary = match_state["players"][0]
+	var player_id: String = player["player_id"]
+	# Put only 2 creatures in field (not full)
+	var creatures: Array = []
+	for i in range(2):
+		var creature := _append_creature_to_hand(player, "sac_nf_%d" % i)
+		LaneRules.summon_from_hand(match_state, player_id, creature["instance_id"], "field")
+		creatures.append(creature)
+	var new_creature := _append_creature_to_hand(player, "sac_nf_new")
+	var result := LaneRules.validate_summon_with_sacrifice(match_state, player_id, new_creature["instance_id"], "field", creatures[0]["instance_id"])
+	return _assert(not result["is_valid"], "Should reject sacrifice-summon when lane is not full.")
 
 
 func _build_match() -> Dictionary:
