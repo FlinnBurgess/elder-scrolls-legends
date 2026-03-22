@@ -743,6 +743,22 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				dfomb_deck.pop_back()
 				dfomb_deck.insert(0, dfomb_top_card)
 				return {"handled": true, "events": [{"event_type": "card_moved_to_bottom", "player_id": dfomb_controller_id, "instance_id": str(dfomb_top_card.get("instance_id", ""))}]}
+		"check_win_condition":
+			var cwc_condition := str(effect.get("condition", ""))
+			var cwc_controller := str(trigger.get("controller_player_id", ""))
+			if cwc_condition == "both_lanes_have_friendly":
+				var cwc_lanes_with_friendly := 0
+				for lane in match_state.get("lanes", []):
+					var cwc_slots: Array = lane.get("player_slots", {}).get(cwc_controller, [])
+					for card in cwc_slots:
+						if typeof(card) == TYPE_DICTIONARY:
+							cwc_lanes_with_friendly += 1
+							break
+				if cwc_lanes_with_friendly >= 2:
+					match_state["winner_player_id"] = cwc_controller
+					match_state["win_reason"] = "check_win_condition"
+					return {"handled": true, "events": [{"event_type": "game_won", "player_id": cwc_controller, "reason": "both_lanes_have_friendly"}]}
+			return {"handled": true, "events": []}
 		"summon_conditional_atronach":
 			var sca_controller := str(trigger.get("controller_player_id", ""))
 			var sca_condition_raw = effect.get("condition", {})
