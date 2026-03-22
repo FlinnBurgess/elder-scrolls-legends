@@ -3022,6 +3022,22 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var health_bonus := current_health if cds_stat in ["both", "health"] else 0
 					EvergreenRules.apply_stat_bonus(card, power_bonus, health_bonus, reason)
 					generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "power_bonus": power_bonus, "health_bonus": health_bonus, "reason": reason})
+			"may_move_between_lanes":
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var mml_loc := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
+					if bool(mml_loc.get("is_valid", false)):
+						var mml_result := MatchMutations.move_card_between_lanes(match_state, str(card.get("instance_id", "")))
+						if bool(mml_result.get("is_valid", false)):
+							generated_events.append_array(mml_result.get("events", []))
+			"move_back_end_of_turn":
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var mbeot_pending: Array = match_state.get("pending_move_backs", [])
+					mbeot_pending.append(str(card.get("instance_id", "")))
+					match_state["pending_move_backs"] = mbeot_pending
+					var mbeot_result := MatchMutations.move_card_between_lanes(match_state, str(card.get("instance_id", "")))
+					if bool(mbeot_result.get("is_valid", false)):
+						generated_events.append_array(mbeot_result.get("events", []))
+					generated_events.append({"event_type": "move_back_scheduled", "instance_id": str(card.get("instance_id", "")), "reason": reason})
 			"add_support_uses":
 				var asu_amount := int(effect.get("amount", 1))
 				var asu_controller := str(trigger.get("controller_player_id", ""))
