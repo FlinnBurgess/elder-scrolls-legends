@@ -743,6 +743,20 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				dfomb_deck.pop_back()
 				dfomb_deck.insert(0, dfomb_top_card)
 				return {"handled": true, "events": [{"event_type": "card_moved_to_bottom", "player_id": dfomb_controller_id, "instance_id": str(dfomb_top_card.get("instance_id", ""))}]}
+		"win_game_if_all_attributes":
+			var wgiaa_controller := str(trigger.get("controller_player_id", ""))
+			var wgiaa_found: Dictionary = {}
+			for lane in match_state.get("lanes", []):
+				for card in lane.get("player_slots", {}).get(wgiaa_controller, []):
+					if typeof(card) == TYPE_DICTIONARY:
+						for attr in card.get("attributes", []):
+							wgiaa_found[str(attr)] = true
+			var wgiaa_all := wgiaa_found.has("strength") and wgiaa_found.has("intelligence") and wgiaa_found.has("willpower") and wgiaa_found.has("agility") and wgiaa_found.has("endurance")
+			if wgiaa_all:
+				match_state["winner_player_id"] = wgiaa_controller
+				match_state["win_reason"] = "unite_the_houses"
+				return {"handled": true, "events": [{"event_type": "game_won", "player_id": wgiaa_controller, "reason": "all_attributes_in_play"}]}
+			return {"handled": true, "events": []}
 		"check_win_condition":
 			var cwc_condition := str(effect.get("condition", ""))
 			var cwc_controller := str(trigger.get("controller_player_id", ""))
