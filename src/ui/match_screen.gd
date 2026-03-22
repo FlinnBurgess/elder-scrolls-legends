@@ -4507,6 +4507,10 @@ func _on_lane_row_gui_input(event: InputEvent, lane_id: String, player_id: Strin
 	if card.is_empty():
 		return
 	if not _targeting_arrow_state.is_empty() and _selected_action_mode(card) == SELECTION_MODE_ACTION:
+		if _action_needs_explicit_target(card):
+			_report_invalid_interaction("Choose a valid target for this action.", {})
+			accept_event()
+			return
 		_play_action_to_lane(lane_id)
 		accept_event()
 		return
@@ -4548,6 +4552,10 @@ func _on_lane_panel_gui_input(event: InputEvent, lane_id: String) -> void:
 	if card.is_empty():
 		return
 	if not _targeting_arrow_state.is_empty() and _selected_action_mode(card) == SELECTION_MODE_ACTION:
+		if _action_needs_explicit_target(card):
+			_report_invalid_interaction("Choose a valid target for this action.", {})
+			accept_event()
+			return
 		_play_action_to_lane(lane_id)
 		accept_event()
 		return
