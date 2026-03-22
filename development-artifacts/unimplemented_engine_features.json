@@ -10,10 +10,10 @@
     "unhandled_passive_abilities": 12,
     "unhandled_cost_reduction_auras": 5,
     "other_unhandled_mechanisms": 3,
-    "implemented_ops": 64,
+    "implemented_ops": 95,
     "implemented_target_modes": 6,
     "implemented_action_target_modes": 5,
-    "implemented_families": 20,
+    "implemented_families": 25,
     "implemented_cost_reduction_auras": 5
   },
   "unimplemented_ops": [
@@ -366,7 +366,7 @@
     },
     {
       "op": "return_to_deck_and_draw_later",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "exc_neu_adoring_fan"
       ],
@@ -374,7 +374,7 @@
     },
     {
       "op": "play_random_from_deck",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "fhc_neu_siege_of_stros_mkai"
       ],
@@ -415,7 +415,7 @@
     },
     {
       "op": "equip_copy_of_item",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "mhc_int_gardener_of_swords"
       ],
@@ -464,7 +464,7 @@
     },
     {
       "op": "summon_from_hand_to_full_lane",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "fsc_str_green_pact_ambusher"
       ],
@@ -506,7 +506,7 @@
     },
     {
       "op": "conditional_transform",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "iom_str_unstable_madman"
       ],
@@ -564,7 +564,7 @@
     },
     {
       "op": "top_deck_attribute_bonus",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "iom_neu_doomfang_ally"
       ],
@@ -572,7 +572,7 @@
     },
     {
       "op": "optional_discard_and_summon",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "iom_wil_fortress_guard"
       ],
@@ -580,7 +580,7 @@
     },
     {
       "op": "grant_effect_this_turn",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "iom_wil_heretic_conjurer"
       ],
@@ -588,7 +588,7 @@
     },
     {
       "op": "sacrifice_and_absorb_stats",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "iom_end_xavara_atronach"
       ],
@@ -604,7 +604,7 @@
     },
     {
       "op": "consume_card",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "mc_dual_headless_zombie"
       ],
@@ -612,7 +612,7 @@
     },
     {
       "op": "draw_copy_of_consumed",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "mc_dual_headless_zombie"
       ],
@@ -677,7 +677,7 @@
     },
     {
       "op": "mark_for_resummon",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "moe_end_zumog_phoom"
       ],
@@ -701,7 +701,7 @@
     },
     {
       "op": "consume_and_copy_veteran",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "tc_tri_pact_outcast"
       ],
@@ -709,7 +709,7 @@
     },
     {
       "op": "consume_and_reduce_matching_subtype_cost",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "mc_agi_rimmen_purveyor"
       ],
@@ -749,7 +749,7 @@
     },
     {
       "op": "modify_stats_if_shares_subtype_with_top_deck",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "mc_neu_training_grounds"
       ],
@@ -757,7 +757,7 @@
     },
     {
       "op": "grant_double_summon_this_turn",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "mc_neu_yagrums_workshop"
       ],
@@ -773,7 +773,7 @@
     },
     {
       "op": "set_power_cap_in_lane",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "mc_dual_supreme_dragon"
       ],
@@ -781,7 +781,7 @@
     },
     {
       "op": "increase_opponent_action_cost",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "aw_str_pact_shieldbearer"
       ],
@@ -890,7 +890,7 @@
     },
     {
       "op": "play_top_of_deck",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "tc_tri_altar_of_spellmaking"
       ],
@@ -898,7 +898,7 @@
     },
     {
       "op": "equip_copies_from_discard",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "tc_tri_enchanted_ring"
       ],
@@ -906,7 +906,7 @@
     },
     {
       "op": "draw_if_wielder_has_items",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "tc_tri_enchanted_ring"
       ],
@@ -930,7 +930,7 @@
     },
     {
       "op": "copy_creature_from_deck_to_discard",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "tc_end_midnight_burial"
       ],
@@ -946,7 +946,7 @@
     },
     {
       "op": "grant_slay_ability",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "joo_agi_dead_drop"
       ],
@@ -954,7 +954,7 @@
     },
     {
       "op": "destroy_front_rune_and_steal_draw",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "joo_agi_the_ultimate_heist"
       ],
@@ -970,7 +970,7 @@
     },
     {
       "op": "reveal_opponent_hand_card",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "joo_agi_the_gray_fox"
       ],
@@ -978,7 +978,7 @@
     },
     {
       "op": "randomize_attribute",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "joo_neu_painted_troll"
       ],
@@ -1002,7 +1002,7 @@
     },
     {
       "op": "return_stolen",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "moe_dual_euraxia_tharn"
       ],
@@ -1010,7 +1010,7 @@
     },
     {
       "op": "gain_unspent_magicka_from_last_turn",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "joo_dual_martin_septim"
       ],
@@ -1018,7 +1018,7 @@
     },
     {
       "op": "double_max_magicka_gain",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "mc_end_pure_blood_elder"
       ],
@@ -1026,7 +1026,7 @@
     },
     {
       "op": "destroy_all_except_strongest_in_lane",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "cwc_str_trial_of_flame"
       ],
@@ -1034,7 +1034,7 @@
     },
     {
       "op": "copy_from_opponent_deck",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "cwc_agi_daring_heist"
       ],
@@ -1119,7 +1119,7 @@
     },
     {
       "family": "on_friendly_creature_death_count",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "db_neu_the_night_mother"
       ],
@@ -1144,7 +1144,7 @@
     },
     {
       "family": "on_friendly_pilfer_or_drain",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "hos_agi_brynjolf"
       ],
@@ -1248,7 +1248,7 @@
     },
     {
       "family": "on_player_health_zero",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "cwc_wil_the_mechanical_heart"
       ],
@@ -1314,7 +1314,7 @@
     },
     {
       "family": "on_enemy_stat_reduction",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "joo_agi_bloody_hand_chef"
       ],
@@ -1322,7 +1322,7 @@
     },
     {
       "family": "on_friendly_dragon_damage",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "moe_int_glacial_dragon"
       ],
