@@ -2768,6 +2768,52 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"new_power": EvergreenRules.get_power(card),
 						"reason": reason,
 					})
+			"battle_strongest_enemy":
+				for attacker in _resolve_card_targets(match_state, trigger, event, effect):
+					var bse_controller := str(attacker.get("controller_player_id", ""))
+					var bse_lane_idx := -1
+					for li in range(match_state.get("lanes", []).size()):
+						for card in match_state["lanes"][li].get("player_slots", {}).get(bse_controller, []):
+							if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) == str(attacker.get("instance_id", "")):
+								bse_lane_idx = li
+								break
+						if bse_lane_idx >= 0:
+							break
+					if bse_lane_idx < 0:
+						continue
+					var best_enemy: Dictionary = {}
+					var best_power := -1
+					for pid in match_state["lanes"][bse_lane_idx].get("player_slots", {}).keys():
+						if pid == bse_controller:
+							continue
+						for card in match_state["lanes"][bse_lane_idx]["player_slots"][pid]:
+							if typeof(card) == TYPE_DICTIONARY:
+								var p := EvergreenRules.get_power(card)
+								if p > best_power:
+									best_power = p
+									best_enemy = card
+					if not best_enemy.is_empty():
+						var patched := trigger.duplicate(true)
+						patched["source_instance_id"] = str(attacker.get("instance_id", ""))
+						patched["_chosen_target_id"] = str(best_enemy.get("instance_id", ""))
+						generated_events.append_array(_apply_effects(match_state, patched, event, {"effects": [{"op": "battle_creature", "target": "chosen_target"}]}))
+			"battle_random_enemy":
+				for attacker in _resolve_card_targets(match_state, trigger, event, effect):
+					var bre_controller := str(attacker.get("controller_player_id", ""))
+					var enemies: Array = []
+					for lane in match_state.get("lanes", []):
+						for pid in lane.get("player_slots", {}).keys():
+							if pid == bre_controller:
+								continue
+							for card in lane["player_slots"][pid]:
+								if typeof(card) == TYPE_DICTIONARY:
+									enemies.append(card)
+					if not enemies.is_empty():
+						var pick: Dictionary = enemies[_deterministic_index(match_state, str(attacker.get("instance_id", "")) + "_bre", enemies.size())]
+						var patched := trigger.duplicate(true)
+						patched["source_instance_id"] = str(attacker.get("instance_id", ""))
+						patched["_chosen_target_id"] = str(pick.get("instance_id", ""))
+						generated_events.append_array(_apply_effects(match_state, patched, event, {"effects": [{"op": "battle_creature", "target": "chosen_target"}]}))
 			"conditional_double_stat":
 				var cds_stat := str(effect.get("stat", "both"))
 				var cds_required_attr := str(effect.get("required_friendly_attribute", ""))
