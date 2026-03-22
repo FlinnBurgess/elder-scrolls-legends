@@ -3022,6 +3022,32 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var health_bonus := current_health if cds_stat in ["both", "health"] else 0
 					EvergreenRules.apply_stat_bonus(card, power_bonus, health_bonus, reason)
 					generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "power_bonus": power_bonus, "health_bonus": health_bonus, "reason": reason})
+			"trigger_exalt_all_friendly":
+				var teaf_controller := str(trigger.get("controller_player_id", ""))
+				for lane in match_state.get("lanes", []):
+					for card in lane.get("player_slots", {}).get(teaf_controller, []):
+						if typeof(card) != TYPE_DICTIONARY:
+							continue
+						var teaf_abilities: Array = card.get("triggered_abilities", [])
+						for ability in teaf_abilities:
+							if typeof(ability) != TYPE_DICTIONARY:
+								continue
+							if str(ability.get("family", "")) != FAMILY_SUMMON:
+								continue
+							var teaf_exalt_cost := int(ability.get("exalt_cost", 0))
+							if teaf_exalt_cost <= 0:
+								continue
+							if EvergreenRules.has_status(card, EvergreenRules.STATUS_EXALTED):
+								continue
+							EvergreenRules.add_status(card, EvergreenRules.STATUS_EXALTED)
+							var teaf_loc := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
+							var teaf_trigger := ability.duplicate(true)
+							teaf_trigger["source_instance_id"] = str(card.get("instance_id", ""))
+							teaf_trigger["controller_player_id"] = teaf_controller
+							teaf_trigger["lane_index"] = int(teaf_loc.get("lane_index", -1))
+							generated_events.append_array(_apply_effects(match_state, teaf_trigger, event, {"effects": teaf_trigger.get("effects", [])}))
+							generated_events.append({"event_type": "exalt_triggered", "instance_id": str(card.get("instance_id", "")), "reason": reason})
+							break
 			"unsummon_end_of_turn":
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					var ueot_pending: Array = match_state.get("pending_end_of_turn_unsummons", [])
