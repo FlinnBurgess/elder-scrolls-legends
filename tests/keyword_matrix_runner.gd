@@ -23,6 +23,7 @@ func _run_all_tests() -> bool:
 		_test_regenerate_and_shackle_refresh_on_controller_turn() and
 		_test_silenced_suppresses_guard_and_cover_behavior() and
 		_test_rally_buffs_a_deterministic_hand_creature() and
+		_test_rally_stacks_multiple_triggers() and
 		_test_mobilize_exposes_empty_lane_options_and_recruit_template()
 	)
 
@@ -131,6 +132,31 @@ func _test_rally_buffs_a_deterministic_hand_creature() -> bool:
 	if not _assert(buffed_creatures == 1, "Rally should buff exactly one creature in hand."):
 		return false
 	return _has_event(result["events"], "rally_resolved")
+
+
+func _test_rally_stacks_multiple_triggers() -> bool:
+	var match_state := _build_started_match(18, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var attacker := _summon_creature(active_player, match_state, "double_rally", "field", 3, 3, ["rally", "rally"])
+	_target_ready_for_attack(attacker, match_state)
+	var hand_creature := _append_hand_creature(active_player, "hand_target", 2, 2)
+
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], attacker["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	if not _assert(result["is_valid"], "Double rally attack should resolve successfully."):
+		return false
+	if not _assert(int(hand_creature.get("power_bonus", 0)) == 2, "Double rally should grant +2 power total."):
+		return false
+	if not _assert(int(hand_creature.get("health_bonus", 0)) == 2, "Double rally should grant +2 health total."):
+		return false
+	var rally_event_count := 0
+	for event in result.get("events", []):
+		if str(event.get("event_type", "")) == "rally_resolved":
+			rally_event_count += 1
+	return _assert(rally_event_count == 2, "Double rally should emit two rally_resolved events.")
 
 
 func _test_mobilize_exposes_empty_lane_options_and_recruit_template() -> bool:

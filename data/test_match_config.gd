@@ -29,35 +29,37 @@ static func build_test_match_state() -> Dictionary:
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — cheap filler + Plot cards to test
-	# Play a cheap card first, then play a Plot card as your 2nd+ card to trigger the bonus
+	# Player 1 hand — Rally creatures + hand creatures to receive buffs
+	# Rally: when this creature attacks, give a random creature in your hand +1/+1
 	var p1_hand_ids: Array = [
-		"str_fiery_imp",                    # Cost 1 — play this first to enable Plot
-		"hom_agi_twin_lamps_consul",        # Cost 3, Plot: Lethal and Guard
-		"hom_agi_suran_pawnbroker",         # Cost 2, Plot: random 0-cost card to hand
-		"hom_wil_moonmoth_castellan",       # Cost 4, Plot: random Guard to hand (Guard)
-		"hom_agi_glass_greaves",            # Cost 1, Item, Plot: reduce random hand card cost by 1
+		"hom_str_sarethi_scion",            # Cost 1, 1/1, Rally
+		"hom_wil_warclaw_mercenary",        # Cost 2, 2/2, Rally
+		"hom_wil_khuul_lawkeeper",          # Cost 3, 1/6, Guard + Rally
+		"hom_str_aldruhn_arms_master",      # Cost 4, 2/3, Charge + Rally
+		"str_fiery_imp",                    # Cost 1 — non-Rally creature to receive buffs in hand
 	]
 
-	# Player 1 deck — more Plot cards to draw into
+	# Player 1 deck — more creatures to draw into (Rally buff targets)
 	var p1_deck_ids: Array = [
-		"hom_str_camonna_tong_heavy",       # Cost 5, Plot: unsummon creature with less power
-		"hom_str_hlaalu_sharpshooter",      # Cost 3, Plot: silence + 1 damage
-		"hom_str_lower_canton_smith",       # Cost 3, Plot: equip +2/+2 Steel Scimitar
-		"hom_str_sharp_eyed_ashkhan",       # Cost 6, Plot: discard hand, draw 3 (Legendary)
-		"hom_tri_balmora_puppeteer",        # Cost 2, Plot: +1/+1 per other card played this turn
+		"hom_end_ald_velothi_assassin",     # Cost 2, 1/2, Lethal + Rally
+		"hom_str_redoran_battlespear",      # Cost 3, Item, Rally +1/+3 (equip to stack Rally)
+		"str_fiery_imp",
+		"str_fiery_imp",
+		"str_fiery_imp",
 		"str_fiery_imp",
 	]
 
-	# Player 1 creatures in field lane
-	var p1_field_creatures: Array = []
+	# Player 1 creatures in field lane — a Rally creature ready to attack right away
+	var p1_field_creatures: Array = [
+		_make_lane_creature("player_1", "hom_str_sarethi_scion", 100),  # 1/1 Rally, ready to swing
+	]
 	# Player 1 creatures in shadow lane
 	var p1_shadow_creatures: Array = []
 
-	# Player 2 (AI) — creatures on board for Plot targeting tests
-	var p2_health := 20
-	var p2_max_magicka := 3
-	var p2_current_magicka := 3
+	# Player 2 (AI) — punching bag with no runes for clean Rally testing
+	var p2_health := 30
+	var p2_max_magicka := 1
+	var p2_current_magicka := 1
 	var p2_rune_thresholds := []
 	var p2_has_ring := false
 	var p2_ring_charges := 0
@@ -77,15 +79,12 @@ static func build_test_match_state() -> Dictionary:
 		"str_fiery_imp",
 	]
 
-	# Player 2 creatures in field lane — targets for Plot effects
+	# Player 2 creatures — one target to attack into
 	var p2_field_creatures: Array = [
 		_make_lane_creature("player_2", "str_fiery_imp", 100),
-		_make_lane_creature("player_2", "str_fiery_imp", 101),
 	]
 	# Player 2 creatures in shadow lane
-	var p2_shadow_creatures: Array = [
-		_make_lane_creature("player_2", "str_fiery_imp", 102),
-	]
+	var p2_shadow_creatures: Array = []
 
 	## ── END CONFIGURATION ──────────────────────────────────────────────
 

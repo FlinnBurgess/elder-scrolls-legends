@@ -81,6 +81,29 @@ static func has_keyword(card: Dictionary, keyword_id: String) -> bool:
 	return false
 
 
+static func count_keyword(card: Dictionary, keyword_id: String) -> int:
+	ensure_card_state(card)
+	var count := 0
+	# Aura keywords
+	for kw in _ensure_array(card.get("aura_keywords", [])):
+		if kw == keyword_id:
+			count += 1
+	# Item-granted keywords
+	for item in get_attached_items(card):
+		if typeof(item) != TYPE_DICTIONARY:
+			continue
+		for kw in _ensure_array(item.get("equip_keywords", [])):
+			if kw == keyword_id:
+				count += 1
+	if has_raw_status(card, STATUS_SILENCED):
+		return count
+	for key in ["keywords", "granted_keywords"]:
+		for kw in _ensure_array(card.get(key, [])):
+			if kw == keyword_id:
+				count += 1
+	return count
+
+
 static func remove_keyword(card: Dictionary, keyword_id: String) -> bool:
 	ensure_card_state(card)
 	var removed := false
@@ -275,12 +298,13 @@ static func sync_derived_state(card: Dictionary) -> void:
 	_sync_wounded_status(card)
 
 
-static func resolve_rally(match_state: Dictionary, attacker: Dictionary) -> Dictionary:
-	if not has_keyword(attacker, KEYWORD_RALLY):
-		return {"triggered": false}
+static func resolve_rally(match_state: Dictionary, attacker: Dictionary) -> Array:
+	var rally_count := count_keyword(attacker, KEYWORD_RALLY)
+	if rally_count == 0:
+		return []
 	var controller_player := _get_player_state(match_state, str(attacker.get("controller_player_id", "")))
 	if controller_player.is_empty():
-		return {"triggered": false}
+		return []
 	var candidates: Array = []
 	for card in controller_player.get("hand", []):
 		if typeof(card) != TYPE_DICTIONARY:
@@ -289,16 +313,22 @@ static func resolve_rally(match_state: Dictionary, attacker: Dictionary) -> Dict
 		if str(card.get("card_type", "")) == CARD_TYPE_CREATURE:
 			candidates.append(card)
 	if candidates.is_empty():
-		return {"triggered": false}
-	var selected_index := _choose_deterministic_candidate_index(match_state, str(attacker.get("instance_id", "")), candidates)
-	var target: Dictionary = candidates[selected_index]
-	apply_stat_bonus(target, 1, 1, KEYWORD_RALLY)
-	return {
-		"triggered": true,
-		"target_instance_id": str(target.get("instance_id", "")),
-		"power_bonus": 1,
-		"health_bonus": 1,
-	}
+		return []
+	var results: Array = []
+	for i in range(rally_count):
+		var suffix := str(attacker.get("instance_id", ""))
+		if i > 0:
+			suffix += "_rally_" + str(i)
+		var selected_index := _choose_deterministic_candidate_index(match_state, suffix, candidates)
+		var target: Dictionary = candidates[selected_index]
+		apply_stat_bonus(target, 1, 1, KEYWORD_RALLY)
+		results.append({
+			"triggered": true,
+			"target_instance_id": str(target.get("instance_id", "")),
+			"power_bonus": 1,
+			"health_bonus": 1,
+		})
+	return results
 
 
 static func get_mobilize_lane_options(match_state: Dictionary, player_id: String) -> Array:

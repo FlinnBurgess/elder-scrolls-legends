@@ -69,8 +69,8 @@ static func resolve_attack(match_state: Dictionary, player_id: String, attacker_
 		"target_instance_id": str(validation.get("target_instance_id", "")),
 		"target_player_id": str(validation.get("target_player_id", "")),
 	})
-	var rally_result := EvergreenRules.resolve_rally(match_state, attacker)
-	if bool(rally_result.get("triggered", false)):
+	var rally_results := EvergreenRules.resolve_rally(match_state, attacker)
+	for rally_result in rally_results:
 		events.append({
 			"event_type": "rally_resolved",
 			"source_instance_id": str(attacker.get("instance_id", "")),

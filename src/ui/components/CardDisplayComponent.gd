@@ -967,7 +967,19 @@ func _rules_preview(card: Dictionary) -> String:
 			keywords.append(display_name)
 	if keywords.is_empty():
 		return rules_text
-	var keyword_line := ", ".join(keywords)
+	# Show stacked keyword counts (e.g. "Rally 2") for stackable keywords
+	var display_keywords: Array[String] = []
+	for kw_display in keywords:
+		var kw_id := kw_display.to_lower()
+		if kw_id == "rally":
+			var count := EvergreenRules.count_keyword(card, kw_id)
+			if count > 1:
+				display_keywords.append(kw_display + " " + str(count))
+			else:
+				display_keywords.append(kw_display)
+		else:
+			display_keywords.append(kw_display)
+	var keyword_line := ", ".join(display_keywords)
 	if remaining.is_empty() and rules_text.is_empty():
 		return keyword_line
 	if remaining.is_empty():

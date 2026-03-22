@@ -6458,10 +6458,25 @@ func _card_inspector_text(card: Dictionary) -> String:
 
 func _card_tag_text(card: Dictionary) -> String:
 	var terms: Array = []
+	var keyword_counts := {}
 	for keyword in card.get("keywords", []):
-		terms.append(_term_label(str(keyword)))
+		var kw_id := str(keyword)
+		keyword_counts[kw_id] = keyword_counts.get(kw_id, 0) + 1
 	for keyword in card.get("granted_keywords", []):
-		terms.append(_term_label(str(keyword)))
+		var kw_id := str(keyword)
+		keyword_counts[kw_id] = keyword_counts.get(kw_id, 0) + 1
+	for item in EvergreenRules.get_attached_items(card):
+		if typeof(item) != TYPE_DICTIONARY:
+			continue
+		for kw in item.get("equip_keywords", []):
+			var kw_id := str(kw)
+			keyword_counts[kw_id] = keyword_counts.get(kw_id, 0) + 1
+	for kw_id in keyword_counts:
+		var count: int = keyword_counts[kw_id]
+		var label := _term_label(kw_id)
+		if kw_id == "rally" and count > 1:
+			label += " " + str(count)
+		terms.append(label)
 	for status in card.get("status_markers", []):
 		var status_id := str(status)
 		if status_id == EvergreenRules.STATUS_COVER and not EvergreenRules.is_cover_active(_match_state, card):
