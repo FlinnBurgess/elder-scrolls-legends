@@ -21,6 +21,7 @@ func _initialize() -> void:
 	_test_plays_strong_prophecy(failures)
 	_test_declines_bad_prophecy(failures)
 	_test_ends_turn_when_only_bad_ring_remains(failures)
+	_test_prioritizes_ongoing_effect_creature(failures)
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)
@@ -185,6 +186,28 @@ func _test_ends_turn_when_only_bad_ring_remains(failures: Array) -> void:
 	player["hand"] = []
 	ScenarioFixtures.add_hand_card(player, "too_expensive", {"card_type": "creature", "cost": 7, "power": 7, "health": 7})
 	_assert_policy_pick(match_state, "end_turn:player_2:", failures, "Policy should end the turn when Ring usage does not unlock a worthwhile follow-up.")
+
+
+func _test_prioritizes_ongoing_effect_creature(failures: Array) -> void:
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 5, "first_player_index": 0})
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	player["hand"] = []
+	# A 4/5 attacker that can kill either target.
+	var attacker := ScenarioFixtures.summon_creature(player, match_state, "threat_hunter", "field", 4, 5, [], 0, {"cost": 0})
+	ScenarioFixtures.ready_for_attack(attacker, match_state)
+	# Vanilla 3/3 — decent stats but no ongoing threat.
+	ScenarioFixtures.summon_creature(opponent, match_state, "vanilla_brute", "field", 3, 3, [], 0, {"cost": 0})
+	# 0/4 with start_of_turn deal 4 damage — a Trebuchet-style ongoing threat.
+	ScenarioFixtures.summon_creature(opponent, match_state, "siege_engine", "field", 0, 4, [], 1, {
+		"cost": 4,
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_START_OF_TURN,
+			"required_zone": "lane",
+			"effects": [{"op": "deal_damage", "target": "random_enemy", "amount": 4}],
+		}],
+	})
+	_assert_policy_pick(match_state, "attack:player_1:player_1_threat_hunter:target_type=creature:target=player_2_siege_engine", failures, "Policy should prioritize a 0-power creature with a dangerous ongoing effect over a vanilla creature with higher stats.")
 
 
 func _assert_policy_pick(match_state: Dictionary, expected_prefix: String, failures: Array, message: String) -> void:

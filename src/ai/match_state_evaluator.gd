@@ -103,6 +103,8 @@ static func _creature_value(match_state: Dictionary, card: Dictionary) -> float:
 		value += 0.9
 	if _can_attack_now(match_state, card):
 		value += 1.2 + float(EvergreenRules.get_power(card)) * 0.35
+	value += _ongoing_effect_value(card)
+	value += _aura_source_value(card)
 	return value
 
 
@@ -144,14 +146,152 @@ static func _incoming_face_threat(match_state: Dictionary, defending_player_id: 
 	var total := 0
 	for lane in match_state.get("lanes", []):
 		var friendly_guards := _lane_guards(lane, defending_player_id)
-		if not friendly_guards.is_empty():
-			continue
+		var lane_unguarded := friendly_guards.is_empty()
 		for card in lane.get("player_slots", {}).get(attacker_player_id, []):
 			if typeof(card) != TYPE_DICTIONARY:
 				continue
-			if _can_threaten_face_next_turn(card):
+			# Standard attack threat (only if lane is unguarded).
+			if lane_unguarded and _can_threaten_face_next_turn(card):
 				total += EvergreenRules.get_power(card)
+			# Start-of-turn damage effects bypass guards entirely, so always count them.
+			total += _start_of_turn_damage_threat(card)
 	return total
+
+
+## Returns the guaranteed damage per turn from start_of_turn triggered abilities
+## that target enemies (random_enemy, all_enemies, opponent player, etc.).
+static func _start_of_turn_damage_threat(card: Dictionary) -> int:
+	var triggers = card.get("triggered_abilities", [])
+	if typeof(triggers) != TYPE_ARRAY:
+		return 0
+	var threat := 0
+	for trigger in triggers:
+		if typeof(trigger) != TYPE_DICTIONARY:
+			continue
+		if str(trigger.get("family", "")) != "start_of_turn":
+			continue
+		var required_zone := str(trigger.get("required_zone", ""))
+		if required_zone != "" and required_zone != "lane":
+			continue
+		var effects = trigger.get("effects", [])
+		if typeof(effects) != TYPE_ARRAY:
+			continue
+		for effect in effects:
+			if typeof(effect) != TYPE_DICTIONARY:
+				continue
+			var op := str(effect.get("op", ""))
+			if op != "deal_damage" and op != "damage":
+				continue
+			var target := str(effect.get("target", effect.get("target_player", "")))
+			# Count effects that damage enemies or the opponent player.
+			if target in ["random_enemy", "all_enemies", "all_enemies_in_lane", "opponent"]:
+				threat += int(effect.get("amount", 0))
+	return threat
+
+
+## Scores the ongoing threat from a creature's triggered_abilities that fire
+## repeatedly while the creature is in lane (start_of_turn, end_of_turn, pilfer,
+## slay, on_attack, after_action_played, on_friendly_summon).
+static func _ongoing_effect_value(card: Dictionary) -> float:
+	var triggers = card.get("triggered_abilities", [])
+	if typeof(triggers) != TYPE_ARRAY or triggers.is_empty():
+		return 0.0
+	var total := 0.0
+	for trigger in triggers:
+		if typeof(trigger) != TYPE_DICTIONARY:
+			continue
+		var family := str(trigger.get("family", ""))
+		# Only score recurring triggers that fire while the creature sits in lane.
+		# One-shot triggers (summon, last_gasp, on_play, etc.) don't add ongoing value.
+		var weight := 0.0
+		match family:
+			"start_of_turn":
+				weight = 1.5   # guaranteed each turn
+			"end_of_turn":
+				weight = 1.2   # guaranteed but opponent responds first
+			"on_attack":
+				weight = 1.0   # fires each attack
+			"pilfer":
+				weight = 0.8   # requires hitting face
+			"slay":
+				weight = 0.6   # requires killing a creature
+			"after_action_played":
+				weight = 0.7   # conditional on playing actions
+			"on_friendly_summon":
+				weight = 0.5   # conditional on summoning
+		if weight == 0.0:
+			continue
+		# Only count triggers that require the card to be in lane (ongoing presence).
+		var required_zone := str(trigger.get("required_zone", ""))
+		if required_zone != "" and required_zone != "lane":
+			continue
+		total += _trigger_effect_value(trigger) * weight
+	return total
+
+
+## Estimates the value of a single trigger's effects based on the operations it
+## performs (damage, draw, stat buffs, etc.).
+static func _trigger_effect_value(trigger: Dictionary) -> float:
+	var effects = trigger.get("effects", [])
+	if typeof(effects) != TYPE_ARRAY:
+		return 0.0
+	var total := 0.0
+	for effect in effects:
+		if typeof(effect) != TYPE_DICTIONARY:
+			continue
+		var op := str(effect.get("op", ""))
+		match op:
+			"deal_damage", "damage":
+				total += float(int(effect.get("amount", 0))) * 1.0
+			"draw_cards":
+				total += float(int(effect.get("count", 1))) * 2.0
+			"modify_stats":
+				var p := absf(float(int(effect.get("power", 0))))
+				var h := absf(float(int(effect.get("health", 0))))
+				total += p * 1.0 + h * 0.7
+			"grant_keyword":
+				total += 1.0
+			"heal":
+				total += float(int(effect.get("amount", 0))) * 0.5
+			"shackle":
+				total += 1.5
+			"silence":
+				total += 1.5
+			"destroy_creature":
+				total += 4.0
+			"summon_random_from_catalog", "summon_creature":
+				total += 3.0
+			_:
+				total += 0.5  # unknown but present effect has some value
+	return total
+
+
+## Scores the value this creature provides as an aura source, buffing other
+## friendly creatures on the board.
+static func _aura_source_value(card: Dictionary) -> float:
+	var aura = card.get("aura", {})
+	if typeof(aura) != TYPE_DICTIONARY or aura.is_empty():
+		return 0.0
+	# Self-only auras are already reflected in the creature's own stats via
+	# aura_power_bonus / aura_health_bonus, so skip them here.
+	var scope := str(aura.get("scope", ""))
+	var target := str(aura.get("target", ""))
+	if scope == "self":
+		return 0.0
+	var value := 0.0
+	var p := float(int(aura.get("power", 0)))
+	var h := float(int(aura.get("health", 0)))
+	value += p * 1.5 + h * 1.0
+	var kw = aura.get("keywords", [])
+	if typeof(kw) == TYPE_ARRAY:
+		value += float(kw.size()) * 0.8
+	# Wider scope is more valuable.
+	if scope == "all_lanes":
+		value *= 1.4
+	# Filtered auras (subtype/attribute restricted) are slightly less reliable.
+	if aura.has("filter_subtype") or aura.has("filter_attribute"):
+		value *= 0.75
+	return value
 
 
 static func _can_attack_now(match_state: Dictionary, card: Dictionary) -> bool:
