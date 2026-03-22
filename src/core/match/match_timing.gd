@@ -3142,7 +3142,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 								continue
 							EvergreenRules.add_status(card, EvergreenRules.STATUS_EXALTED)
 							var teaf_loc := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
-							var teaf_trigger := ability.duplicate(true)
+							var teaf_trigger: Dictionary = ability.duplicate(true)
 							teaf_trigger["source_instance_id"] = str(card.get("instance_id", ""))
 							teaf_trigger["controller_player_id"] = teaf_controller
 							teaf_trigger["lane_index"] = int(teaf_loc.get("lane_index", -1))
@@ -3157,17 +3157,24 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					generated_events.append({"event_type": "unsummon_scheduled", "instance_id": str(card.get("instance_id", "")), "reason": reason})
 			"may_move_between_lanes":
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var mml_controller := str(card.get("controller_player_id", ""))
 					var mml_loc := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
 					if bool(mml_loc.get("is_valid", false)):
-						var mml_result := MatchMutations.move_card_between_lanes(match_state, str(card.get("instance_id", "")))
+						var mml_current_lane := str(mml_loc.get("lane_id", ""))
+						var mml_target_lane := "shadow" if mml_current_lane == "field" else "field"
+						var mml_result := MatchMutations.move_card_between_lanes(match_state, mml_controller, str(card.get("instance_id", "")), mml_target_lane)
 						if bool(mml_result.get("is_valid", false)):
 							generated_events.append_array(mml_result.get("events", []))
 			"move_back_end_of_turn":
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var mbeot_controller := str(card.get("controller_player_id", ""))
 					var mbeot_pending: Array = match_state.get("pending_move_backs", [])
 					mbeot_pending.append(str(card.get("instance_id", "")))
 					match_state["pending_move_backs"] = mbeot_pending
-					var mbeot_result := MatchMutations.move_card_between_lanes(match_state, str(card.get("instance_id", "")))
+					var mbeot_loc := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
+					var mbeot_current_lane := str(mbeot_loc.get("lane_id", ""))
+					var mbeot_target_lane := "shadow" if mbeot_current_lane == "field" else "field"
+					var mbeot_result := MatchMutations.move_card_between_lanes(match_state, mbeot_controller, str(card.get("instance_id", "")), mbeot_target_lane)
 					if bool(mbeot_result.get("is_valid", false)):
 						generated_events.append_array(mbeot_result.get("events", []))
 					generated_events.append({"event_type": "move_back_scheduled", "instance_id": str(card.get("instance_id", "")), "reason": reason})
@@ -3201,7 +3208,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 								"lane_id": str(tsa_loc.get("lane_id", "")),
 								"lane_index": int(tsa_loc.get("lane_index", -1)),
 							}
-							var tsa_trigger := ability.duplicate(true)
+							var tsa_trigger: Dictionary = ability.duplicate(true)
 							tsa_trigger["source_instance_id"] = str(card.get("instance_id", ""))
 							tsa_trigger["controller_player_id"] = str(card.get("controller_player_id", ""))
 							tsa_trigger["lane_index"] = int(tsa_loc.get("lane_index", -1))
@@ -3260,7 +3267,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						if dfdf_match:
 							dfdf_candidates.append(di)
 					if not dfdf_candidates.is_empty():
-						var pick_idx := dfdf_candidates[_deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_dfdf", dfdf_candidates.size())]
+						var pick_idx: int = dfdf_candidates[_deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_dfdf", dfdf_candidates.size())]
 						var drawn: Dictionary = dfdf_deck[pick_idx]
 						dfdf_deck.remove_at(pick_idx)
 						drawn["zone"] = ZONE_HAND
