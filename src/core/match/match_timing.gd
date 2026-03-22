@@ -145,6 +145,8 @@ static func ensure_match_state(match_state: Dictionary) -> void:
 		match_state["pending_hand_selections"] = []
 	if not match_state.has("pending_top_deck_choices") or typeof(match_state["pending_top_deck_choices"]) != TYPE_ARRAY:
 		match_state["pending_top_deck_choices"] = []
+	if not match_state.has("pending_player_choices") or typeof(match_state["pending_player_choices"]) != TYPE_ARRAY:
+		match_state["pending_player_choices"] = []
 	if not match_state.has("pending_rune_break_queue") or typeof(match_state["pending_rune_break_queue"]) != TYPE_ARRAY:
 		match_state["pending_rune_break_queue"] = []
 	if not match_state.has("out_of_cards_sequence"):
@@ -631,6 +633,56 @@ static func resolve_pending_top_deck_choice(match_state: Dictionary, player_id: 
 		"is_valid": true,
 		"errors": [],
 		"discarded": discard,
+		"events": timing_result.get("processed_events", []),
+	}
+
+
+static func has_pending_player_choice(match_state: Dictionary, player_id: String = "") -> bool:
+	return not get_pending_player_choice(match_state, player_id).is_empty()
+
+
+static func get_pending_player_choice(match_state: Dictionary, player_id: String = "") -> Dictionary:
+	ensure_match_state(match_state)
+	for raw_choice in match_state.get("pending_player_choices", []):
+		if typeof(raw_choice) != TYPE_DICTIONARY:
+			continue
+		if not player_id.is_empty() and str(raw_choice.get("player_id", "")) != player_id:
+			continue
+		return raw_choice.duplicate(true)
+	return {}
+
+
+static func resolve_pending_player_choice(match_state: Dictionary, player_id: String, chosen_index: int) -> Dictionary:
+	ensure_match_state(match_state)
+	var choices: Array = match_state.get("pending_player_choices", [])
+	var choice_idx := -1
+	var choice := {}
+	for i in range(choices.size()):
+		if typeof(choices[i]) == TYPE_DICTIONARY and str(choices[i].get("player_id", "")) == player_id:
+			choice_idx = i
+			choice = choices[i]
+			break
+	if choice_idx == -1:
+		return {"is_valid": false, "errors": ["No pending player choice for %s." % player_id]}
+	var effects_per_option: Array = choice.get("effects_per_option", [])
+	if chosen_index < 0 or chosen_index >= effects_per_option.size():
+		return {"is_valid": false, "errors": ["Invalid choice index: %d" % chosen_index]}
+	choices.remove_at(choice_idx)
+	var trigger: Dictionary = choice.get("trigger", {})
+	var event: Dictionary = choice.get("event", {})
+	var chosen_effects: Array = effects_per_option[chosen_index]
+	trigger["_chosen_option_index"] = chosen_index
+	var events: Array = []
+	for sub_effect in chosen_effects:
+		if typeof(sub_effect) != TYPE_DICTIONARY:
+			continue
+		var sub_resolution := {"effects": [sub_effect]}
+		events.append_array(_apply_effects(match_state, trigger, event, sub_resolution))
+	var timing_result := publish_events(match_state, events)
+	return {
+		"is_valid": true,
+		"errors": [],
+		"chosen_index": chosen_index,
 		"events": timing_result.get("processed_events", []),
 	}
 
@@ -3034,19 +3086,25 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				var co_choices: Array = co_choices_raw if typeof(co_choices_raw) == TYPE_ARRAY else []
 				if co_choices.is_empty():
 					continue
-				# Check if a choice was pre-selected (from UI), otherwise AI picks first
-				var co_pick_idx := int(trigger.get("_chosen_option_index", 0))
-				if co_pick_idx < 0 or co_pick_idx >= co_choices.size():
-					co_pick_idx = 0
-				var co_chosen: Dictionary = co_choices[co_pick_idx] if typeof(co_choices[co_pick_idx]) == TYPE_DICTIONARY else {}
-				var co_effects: Array = co_chosen.get("effects", []) if typeof(co_chosen.get("effects", [])) == TYPE_ARRAY else []
-				for co_sub_effect in co_effects:
-					if typeof(co_sub_effect) != TYPE_DICTIONARY:
+				var co_options: Array = []
+				var co_effects_per_option: Array = []
+				for co_choice in co_choices:
+					if typeof(co_choice) != TYPE_DICTIONARY:
 						continue
-					var co_sub_op := str(co_sub_effect.get("op", ""))
-					var co_sub_resolution := {"effects": [co_sub_effect]}
-					generated_events.append_array(_apply_effects(match_state, trigger, event, co_sub_resolution))
-				generated_events.append({"event_type": "choice_made", "source_instance_id": str(trigger.get("source_instance_id", "")), "chosen_label": str(co_chosen.get("label", "")), "reason": reason})
+					co_options.append({"label": str(co_choice.get("label", "")), "description": str(co_choice.get("description", ""))})
+					co_effects_per_option.append(co_choice.get("effects", []))
+				var co_pending: Array = match_state.get("pending_player_choices", [])
+				co_pending.append({
+					"player_id": str(trigger.get("controller_player_id", "")),
+					"source_instance_id": str(trigger.get("source_instance_id", "")),
+					"prompt": "Choose one:",
+					"mode": "text",
+					"options": co_options,
+					"effects_per_option": co_effects_per_option,
+					"trigger": trigger.duplicate(true),
+					"event": event.duplicate(true),
+				})
+				generated_events.append({"event_type": "player_choice_pending", "player_id": str(trigger.get("controller_player_id", "")), "source_instance_id": str(trigger.get("source_instance_id", "")), "reason": reason})
 			"copy_rallied_creature_to_hand":
 				var crch_target_id := str(event.get("target_instance_id", ""))
 				var crch_target := _find_card_anywhere(match_state, crch_target_id)

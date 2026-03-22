@@ -29,6 +29,7 @@ const KIND_CHOOSE_HAND_SELECTION := "choose_hand_selection"
 const KIND_DECLINE_HAND_SELECTION := "decline_hand_selection"
 const KIND_TOP_DECK_DISCARD := "top_deck_discard"
 const KIND_TOP_DECK_KEEP := "top_deck_keep"
+const KIND_CHOOSE_PLAYER_CHOICE := "choose_player_choice"
 const ACTION_KIND_ORDER := {
 	KIND_SUMMON_CREATURE: 10,
 	KIND_DECLINE_PROPHECY: 11,
@@ -83,6 +84,23 @@ static func enumerate_legal_actions(match_state: Dictionary, player_id: String =
 		result["timing_window"] = TIMING_INTERRUPT
 		result["has_pending_hand_selection"] = true
 		result["actions"] = _enumerate_pending_hand_selection_actions(match_state, decision_player_id, hand_selection)
+	elif MatchTiming.has_pending_player_choice(match_state):
+		var player_choice := MatchTiming.get_pending_player_choice(match_state)
+		var player_choice_player_id := str(player_choice.get("player_id", ""))
+		if decision_player_id != player_choice_player_id:
+			result["blocked_reason"] = "Pending player choice belongs to another player."
+			return result
+		result["timing_window"] = TIMING_INTERRUPT
+		result["has_pending_player_choice"] = true
+		var pc_options: Array = player_choice.get("options", [])
+		var pc_actions: Array = []
+		for oi in range(pc_options.size()):
+			var pc_label := str(pc_options[oi].get("label", "Option %d" % (oi + 1))) if typeof(pc_options[oi]) == TYPE_DICTIONARY else "Option %d" % (oi + 1)
+			pc_actions.append(_build_descriptor(KIND_CHOOSE_PLAYER_CHOICE, match_state, decision_player_id, {"chosen_index": oi}, {}, {
+				"timing_window": TIMING_INTERRUPT,
+				"label": pc_label,
+			}))
+		result["actions"] = pc_actions
 	elif MatchTiming.has_pending_discard_choice(match_state):
 		var discard_choice := MatchTiming.get_pending_discard_choice(match_state)
 		var discard_choice_player_id := str(discard_choice.get("player_id", ""))
@@ -129,8 +147,10 @@ static func action_is_legal(match_state: Dictionary, action: Dictionary) -> bool
 	match str(action.get("kind", "")):
 		KIND_RING_USE:
 			return MatchTurnLoop.can_activate_ring_of_magicka(match_state, player_id)
+		KIND_CHOOSE_PLAYER_CHOICE:
+			return bool(MatchTiming.resolve_pending_player_choice(match_state.duplicate(true), player_id, int(parameters.get("chosen_index", 0))).get("is_valid", false))
 		KIND_END_TURN:
-			if MatchTiming.has_pending_prophecy(match_state) or MatchTiming.has_pending_discard_choice(match_state) or MatchTiming.has_pending_hand_selection(match_state) or MatchTiming.has_pending_top_deck_choice(match_state):
+			if MatchTiming.has_pending_prophecy(match_state) or MatchTiming.has_pending_discard_choice(match_state) or MatchTiming.has_pending_hand_selection(match_state) or MatchTiming.has_pending_top_deck_choice(match_state) or MatchTiming.has_pending_player_choice(match_state):
 				return false
 			var clone := match_state.duplicate(true)
 			var active_before := str(clone.get("active_player_id", ""))

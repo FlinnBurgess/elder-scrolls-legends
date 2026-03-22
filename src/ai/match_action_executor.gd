@@ -89,6 +89,8 @@ static func execute_action(match_state: Dictionary, action: Dictionary) -> Dicti
 			result = MatchTiming.resolve_pending_top_deck_choice(match_state, player_id, true)
 		MatchActionEnumerator.KIND_TOP_DECK_KEEP:
 			result = MatchTiming.resolve_pending_top_deck_choice(match_state, player_id, false)
+		MatchActionEnumerator.KIND_CHOOSE_PLAYER_CHOICE:
+			result = MatchTiming.resolve_pending_player_choice(match_state, player_id, int(parameters.get("chosen_index", 0)))
 		_:
 			return {"is_valid": false, "errors": ["Unsupported action kind: %s" % kind], "match_state": match_state}
 	result["match_state"] = match_state

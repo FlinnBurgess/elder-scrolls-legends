@@ -208,6 +208,7 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int 
 	_dismiss_prophecy_overlay()
 	_dismiss_discard_viewer()
 	_dismiss_discard_choice_overlay()
+	_dismiss_player_choice_overlay()
 	_exit_hand_selection_mode()
 	_exit_top_deck_choice_mode()
 	_dismiss_spell_reveal()
@@ -267,6 +268,7 @@ func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_confi
 	_dismiss_prophecy_overlay()
 	_dismiss_discard_viewer()
 	_dismiss_discard_choice_overlay()
+	_dismiss_player_choice_overlay()
 	_exit_hand_selection_mode()
 	_exit_top_deck_choice_mode()
 	_dismiss_spell_reveal()
@@ -459,6 +461,7 @@ func resume_from_state(saved_state: Dictionary) -> void:
 	_dismiss_prophecy_overlay()
 	_dismiss_discard_viewer()
 	_dismiss_discard_choice_overlay()
+	_dismiss_player_choice_overlay()
 	_exit_hand_selection_mode()
 	_exit_top_deck_choice_mode()
 	_dismiss_spell_reveal()
@@ -602,6 +605,7 @@ func load_scenario(scenario_id: String) -> bool:
 	_dismiss_prophecy_overlay()
 	_dismiss_discard_viewer()
 	_dismiss_discard_choice_overlay()
+	_dismiss_player_choice_overlay()
 	_exit_hand_selection_mode()
 	_exit_top_deck_choice_mode()
 	_dismiss_spell_reveal()
@@ -1922,6 +1926,7 @@ func _refresh_ui() -> void:
 	_refresh_turn_presentation()
 	_refresh_prophecy_overlay()
 	_refresh_discard_choice_overlay()
+	_refresh_player_choice_overlay()
 	_refresh_hand_selection_state()
 	_refresh_top_deck_choice_state()
 	_refresh_player_sections()
@@ -2610,6 +2615,138 @@ func _dismiss_discard_choice_overlay() -> void:
 	if overlay != null and is_instance_valid(overlay):
 		overlay.queue_free()
 	_discard_choice_overlay_state = {}
+
+
+# --- Player choice overlay ---
+
+
+var _player_choice_overlay_state := {}
+
+
+func _has_local_pending_player_choice() -> bool:
+	return MatchTiming.has_pending_player_choice(_match_state, _local_player_id())
+
+
+func _refresh_player_choice_overlay() -> void:
+	var has_choice := _has_local_pending_player_choice()
+	var overlay_active := not _player_choice_overlay_state.is_empty()
+	if has_choice and not overlay_active:
+		_show_player_choice_overlay()
+	elif not has_choice and overlay_active:
+		_dismiss_player_choice_overlay()
+
+
+func _show_player_choice_overlay() -> void:
+	_dismiss_player_choice_overlay()
+	var choice := MatchTiming.get_pending_player_choice(_match_state, _local_player_id())
+	if choice.is_empty():
+		return
+	var prompt := str(choice.get("prompt", "Choose one:"))
+	var mode := str(choice.get("mode", "text"))
+	var options: Array = choice.get("options", [])
+	if options.is_empty():
+		return
+
+	var overlay := Control.new()
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.z_index = 480
+
+	var bg := ColorRect.new()
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.color = Color(0.04, 0.05, 0.07, 0.88)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.add_child(bg)
+
+	var margin := MarginContainer.new()
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 60)
+	margin.add_theme_constant_override("margin_right", 60)
+	margin.add_theme_constant_override("margin_top", 40)
+	margin.add_theme_constant_override("margin_bottom", 40)
+	overlay.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", 20)
+	margin.add_child(vbox)
+
+	var title := Label.new()
+	title.text = prompt
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", Color(0.95, 0.9, 0.72, 1.0))
+	vbox.add_child(title)
+
+	var hbox := HBoxContainer.new()
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	hbox.add_theme_constant_override("separation", 20)
+	vbox.add_child(hbox)
+
+	for oi in range(options.size()):
+		var option: Dictionary = options[oi] if typeof(options[oi]) == TYPE_DICTIONARY else {}
+		var label := str(option.get("label", "Option %d" % (oi + 1)))
+		var description := str(option.get("description", ""))
+
+		if mode == "card" and option.has("card"):
+			var card_button := Button.new()
+			card_button.custom_minimum_size = CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+			var card_display = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+			card_display.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			card_button.add_child(card_display)
+			card_display.apply_card(option["card"], CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+			_apply_button_style(card_button, Color(0.12, 0.13, 0.17, 0.95), Color(0.4, 0.38, 0.5, 0.8), Color.WHITE)
+			var idx := oi
+			card_button.pressed.connect(func(): _on_player_choice_selected(idx))
+			hbox.add_child(card_button)
+		else:
+			var btn := Button.new()
+			btn.custom_minimum_size = Vector2(180, 80)
+			var btn_vbox := VBoxContainer.new()
+			btn_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+			btn_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var btn_label := Label.new()
+			btn_label.text = label
+			btn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			btn_label.add_theme_font_size_override("font_size", 18)
+			btn_label.add_theme_color_override("font_color", Color(0.95, 0.92, 0.82, 1.0))
+			btn_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			btn_vbox.add_child(btn_label)
+			if not description.is_empty():
+				var desc_label := Label.new()
+				desc_label.text = description
+				desc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				desc_label.add_theme_font_size_override("font_size", 13)
+				desc_label.add_theme_color_override("font_color", Color(0.75, 0.72, 0.65, 0.9))
+				desc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				btn_vbox.add_child(desc_label)
+			btn.add_child(btn_vbox)
+			_apply_button_style(btn, Color(0.15, 0.14, 0.2, 0.95), Color(0.5, 0.45, 0.55, 0.8), Color.WHITE)
+			var idx := oi
+			btn.pressed.connect(func(): _on_player_choice_selected(idx))
+			hbox.add_child(btn)
+
+	add_child(overlay)
+	_player_choice_overlay_state = {"overlay": overlay}
+
+
+func _on_player_choice_selected(index: int) -> void:
+	if _player_choice_overlay_state.is_empty():
+		return
+	var local_id := _local_player_id()
+	_dismiss_player_choice_overlay()
+	var result := MatchTiming.resolve_pending_player_choice(_match_state, local_id, index)
+	if bool(result.get("is_valid", false)):
+		_rebuild_match_ui()
+
+
+func _dismiss_player_choice_overlay() -> void:
+	if _player_choice_overlay_state.is_empty():
+		return
+	var overlay: Control = _player_choice_overlay_state.get("overlay")
+	if overlay != null and is_instance_valid(overlay):
+		overlay.queue_free()
+	_player_choice_overlay_state = {}
 
 
 # --- Hand selection mechanic ---
@@ -5820,6 +5957,8 @@ func _ai_controls_current_decision_window() -> bool:
 	if MatchTiming.has_pending_hand_selection(_match_state, ai_player_id):
 		return true
 	if MatchTiming.has_pending_discard_choice(_match_state, ai_player_id):
+		return true
+	if MatchTiming.has_pending_player_choice(_match_state, ai_player_id):
 		return true
 	if MatchTiming.has_pending_prophecy(_match_state):
 		return _has_pending_prophecy_for_player(ai_player_id)
