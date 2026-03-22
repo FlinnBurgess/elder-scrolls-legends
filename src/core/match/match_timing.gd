@@ -3022,6 +3022,13 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var health_bonus := current_health if cds_stat in ["both", "health"] else 0
 					EvergreenRules.apply_stat_bonus(card, power_bonus, health_bonus, reason)
 					generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "power_bonus": power_bonus, "health_bonus": health_bonus, "reason": reason})
+			"secretly_choose_creature":
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var scc_source_id := str(trigger.get("source_instance_id", ""))
+					var scc_source := _find_card_anywhere(match_state, scc_source_id)
+					if not scc_source.is_empty():
+						scc_source["_secretly_chosen_target_id"] = str(card.get("instance_id", ""))
+						generated_events.append({"event_type": "creature_secretly_chosen", "source_instance_id": scc_source_id, "target_instance_id": str(card.get("instance_id", "")), "reason": reason})
 			"choose_one":
 				var co_choices_raw = effect.get("choices", [])
 				var co_choices: Array = co_choices_raw if typeof(co_choices_raw) == TYPE_ARRAY else []
@@ -3565,6 +3572,15 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 				var chosen_card := _find_card_anywhere(match_state, chosen_id)
 				if not chosen_card.is_empty():
 					targets.append(chosen_card)
+		"secretly_chosen_target":
+			var sct_source_id := str(trigger.get("source_instance_id", ""))
+			var sct_source := _find_card_anywhere(match_state, sct_source_id)
+			if not sct_source.is_empty():
+				var sct_target_id := str(sct_source.get("_secretly_chosen_target_id", ""))
+				if not sct_target_id.is_empty():
+					var sct_target := _find_card_anywhere(match_state, sct_target_id)
+					if not sct_target.is_empty():
+						targets.append(sct_target)
 		"random_enemy":
 			var all_enemies := _resolve_card_targets_by_name(match_state, trigger, event, "all_enemies")
 			if not all_enemies.is_empty():
