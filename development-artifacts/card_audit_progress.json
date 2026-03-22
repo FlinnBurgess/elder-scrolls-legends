@@ -1205,57 +1205,57 @@
     {
       "card_id": "agi_ransack",
       "card_name": "Ransack",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_shadow_shift",
       "card_name": "Shadow Shift",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_skooma_racketeer",
       "card_name": "Skooma Racketeer",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_snake_tooth_necklace",
       "card_name": "Snake Tooth Necklace",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_snowy_sabre_cat",
       "card_name": "Snowy Sabre Cat",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_soulrest_marshal",
       "card_name": "Soulrest Marshal",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_spider_daedra",
       "card_name": "Spider Daedra",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_spider_lair",
       "card_name": "Spider Lair",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_swift_strike",
       "card_name": "Swift Strike",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_tazkad_the_packmaster",
       "card_name": "Tazkad the Packmaster",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_tenmar_swiftclaw",
       "card_name": "Tenmar Swiftclaw",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_territorial_viper",
@@ -1265,32 +1265,32 @@
     {
       "card_id": "agi_thievery",
       "card_name": "Thievery",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_thieves_guild_recruit",
       "card_name": "Thieves Guild Recruit",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_thieves_den",
       "card_name": "Thieves' Den",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_torval_crook",
       "card_name": "Torval Crook",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_ungolim_the_listener",
       "card_name": "Ungolim the Listener",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_varanis_courier",
       "card_name": "Varanis Courier",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "agi_voracious_spriggan",
@@ -1300,12 +1300,12 @@
     {
       "card_id": "agi_wild_beastcaller",
       "card_name": "Wild Beastcaller",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_angry_grahl",
       "card_name": "Angry Grahl",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_archein_elite",
@@ -1315,52 +1315,52 @@
     {
       "card_id": "end_archein_venomtongue",
       "card_name": "Archein Venomtongue",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_black_marsh_warden",
       "card_name": "Black Marsh Warden",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_black_worm_necromancer",
       "card_name": "Black Worm Necromancer",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_blackrose_herbalist",
       "card_name": "Blackrose Herbalist",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_blood_magic_lord",
       "card_name": "Blood Magic Lord",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_bone_colossus",
       "card_name": "Bone Colossus",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_bruma_armorer",
       "card_name": "Bruma Armorer",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_chieftains_banner",
       "card_name": "Chieftain's Banner",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_cursed_spectre",
       "card_name": "Cursed Spectre",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_daedric_dagger",
       "card_name": "Daedric Dagger",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_deadly_draugr",
@@ -1370,32 +1370,32 @@
     {
       "card_id": "end_deathless_draugr",
       "card_name": "Deathless Draugr",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_disciple_of_namira",
       "card_name": "Disciple of Namira",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_doomcrag_vampire",
       "card_name": "Doomcrag Vampire",
-      "status": "pending"
+      "status": "fixed"
     },
     {
       "card_id": "end_dragontail_savior",
       "card_name": "Dragontail Savior",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_elixir_of_vigor",
       "card_name": "Elixir of Vigor",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_enchanted_plate",
       "card_name": "Enchanted Plate",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_fharun_defender",
@@ -1405,7 +1405,7 @@
     {
       "card_id": "end_flesh_atronach",
       "card_name": "Flesh Atronach",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_frostbite_spider",
@@ -1415,57 +1415,57 @@
     {
       "card_id": "end_gloom_wraith",
       "card_name": "Gloom Wraith",
-      "status": "pending"
+      "status": "fixed"
     },
     {
       "card_id": "end_grim_champion",
       "card_name": "Grim Champion",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_hackwing_feather",
       "card_name": "Hackwing Feather",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_haunting_spirit",
       "card_name": "Haunting Spirit",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_healing_hands",
       "card_name": "Healing Hands",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_hist_speaker",
       "card_name": "Hist Speaker",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_iliac_sorcerer",
       "card_name": "Iliac Sorcerer",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_imperial_armor",
       "card_name": "Imperial Armor",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_imprisoned_deathlord",
       "card_name": "Imprisoned Deathlord",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_iron_atronach",
       "card_name": "Iron Atronach",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_lion_guard_strategist",
       "card_name": "Lion Guard Strategist",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_lowland_troll",
@@ -1475,7 +1475,7 @@
     {
       "card_id": "end_lucien_lachance",
       "card_name": "Lucien Lachance",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_lurking_mummy",
@@ -1485,7 +1485,7 @@
     {
       "card_id": "end_midnight_sweep",
       "card_name": "Midnight Sweep",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_mountain_tyrant",
@@ -1495,7 +1495,7 @@
     {
       "card_id": "end_mummify",
       "card_name": "Mummify",
-      "status": "pending"
+      "status": "pass"
     },
     {
       "card_id": "end_nahagliiv",
