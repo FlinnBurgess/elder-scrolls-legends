@@ -743,6 +743,36 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				dfomb_deck.pop_back()
 				dfomb_deck.insert(0, dfomb_top_card)
 				return {"handled": true, "events": [{"event_type": "card_moved_to_bottom", "player_id": dfomb_controller_id, "instance_id": str(dfomb_top_card.get("instance_id", ""))}]}
+		"summon_conditional_atronach":
+			var sca_controller := str(trigger.get("controller_player_id", ""))
+			var sca_condition_raw = effect.get("condition", {})
+			var sca_condition: Dictionary = sca_condition_raw if typeof(sca_condition_raw) == TYPE_DICTIONARY else {}
+			var sca_min_power := int(sca_condition.get("required_friendly_creature_min_power", 0))
+			var sca_has_condition := false
+			for lane in match_state.get("lanes", []):
+				for card in lane.get("player_slots", {}).get(sca_controller, []):
+					if typeof(card) == TYPE_DICTIONARY and EvergreenRules.get_power(card) >= sca_min_power:
+						sca_has_condition = true
+						break
+				if sca_has_condition:
+					break
+			var sca_lane_id := str(event.get("lane_id", "field"))
+			var sca_events: Array = []
+			if sca_has_condition:
+				var sca_template_raw = effect.get("on_met", {})
+				var sca_template: Dictionary = sca_template_raw if typeof(sca_template_raw) == TYPE_DICTIONARY else {}
+				var sca_card := MatchMutations.build_generated_card(match_state, sca_controller, sca_template)
+				var sca_summon := MatchMutations.summon_card_to_lane(match_state, sca_controller, sca_card, sca_lane_id, {"source_zone": MatchMutations.ZONE_GENERATED})
+				if bool(sca_summon.get("is_valid", false)):
+					sca_events.append_array(sca_summon.get("events", []))
+					sca_events.append(_timing_rules()._build_summon_event(sca_summon["card"], sca_controller, sca_lane_id, int(sca_summon.get("slot_index", -1)), "summon_conditional_atronach"))
+			else:
+				var sca_unmet_raw = effect.get("on_unmet", {})
+				var sca_unmet: Dictionary = sca_unmet_raw if typeof(sca_unmet_raw) == TYPE_DICTIONARY else {}
+				var sca_filter: Dictionary = sca_unmet.get("filter", {}) if typeof(sca_unmet.get("filter", {})) == TYPE_DICTIONARY else {}
+				var sca_custom_result := apply_custom_effect(match_state, trigger, event, {"op": "summon_random_from_catalog", "filter": {"card_type": "creature", "required_subtype": str(sca_filter.get("subtype", "Atronach"))}})
+				sca_events.append_array(sca_custom_result.get("events", []))
+			return {"handled": true, "events": sca_events}
 		"summon_imposter":
 			var si_controller := str(trigger.get("controller_player_id", ""))
 			var si_best_power := 0
