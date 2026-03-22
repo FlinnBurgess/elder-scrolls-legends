@@ -743,6 +743,42 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				dfomb_deck.pop_back()
 				dfomb_deck.insert(0, dfomb_top_card)
 				return {"handled": true, "events": [{"event_type": "card_moved_to_bottom", "player_id": dfomb_controller_id, "instance_id": str(dfomb_top_card.get("instance_id", ""))}]}
+		"trade_hand_card_for_opponent_deck":
+			var thcfod_controller := str(trigger.get("controller_player_id", ""))
+			var thcfod_opponent := ""
+			for player in match_state.get("players", []):
+				if str(player.get("player_id", "")) != thcfod_controller:
+					thcfod_opponent = str(player.get("player_id", ""))
+					break
+			var thcfod_my := _get_player_state(match_state, thcfod_controller)
+			var thcfod_opp := _get_player_state(match_state, thcfod_opponent)
+			if thcfod_my.is_empty() or thcfod_opp.is_empty():
+				return {"handled": true, "events": []}
+			var thcfod_hand: Array = thcfod_my.get("hand", [])
+			var thcfod_opp_deck: Array = thcfod_opp.get("deck", [])
+			if thcfod_hand.is_empty() or thcfod_opp_deck.is_empty():
+				return {"handled": true, "events": []}
+			# AI: discard cheapest card from hand
+			var thcfod_cheapest_idx := 0
+			var thcfod_cheapest_cost := 999
+			for i in range(thcfod_hand.size()):
+				if typeof(thcfod_hand[i]) == TYPE_DICTIONARY:
+					var c := int(thcfod_hand[i].get("cost", 0))
+					if c < thcfod_cheapest_cost:
+						thcfod_cheapest_cost = c
+						thcfod_cheapest_idx = i
+			var thcfod_discarded: Dictionary = thcfod_hand[thcfod_cheapest_idx]
+			thcfod_hand.remove_at(thcfod_cheapest_idx)
+			thcfod_discarded["zone"] = "discard"
+			thcfod_my.get("discard", []).append(thcfod_discarded)
+			# Draw random from opponent deck
+			var thcfod_pick_idx := _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_barter", thcfod_opp_deck.size())
+			var thcfod_gained: Dictionary = thcfod_opp_deck[thcfod_pick_idx]
+			thcfod_opp_deck.remove_at(thcfod_pick_idx)
+			thcfod_gained["zone"] = "hand"
+			thcfod_gained["controller_player_id"] = thcfod_controller
+			thcfod_hand.append(thcfod_gained)
+			return {"handled": true, "events": [{"event_type": "card_traded", "player_id": thcfod_controller, "discarded_id": str(thcfod_discarded.get("instance_id", "")), "gained_id": str(thcfod_gained.get("instance_id", ""))}]}
 		"waves_of_the_fallen_choice":
 			var wotf_controller := str(trigger.get("controller_player_id", ""))
 			var wotf_lane_id := str(event.get("lane_id", "field"))
