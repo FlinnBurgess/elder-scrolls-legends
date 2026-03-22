@@ -1,0 +1,12 @@
+{
+  "eval_set": [
+    {"query": "Audit Nord Firebrand against the wiki", "should_trigger": true},
+    {"query": "Run a full card audit of the entire catalog", "should_trigger": true},
+    {"query": "Check if Northwind Outpost data matches UESP", "should_trigger": true},
+    {"query": "Audit these 3 cards — no edits", "should_trigger": true},
+    {"query": "Resume the card audit from where we left off", "should_trigger": true},
+    {"query": "Fix the bug in Morthal Watchman's summon ability", "should_trigger": false},
+    {"query": "Import the Heroes of Skyrim expansion", "should_trigger": false},
+    {"query": "Download missing card art for all cards", "should_trigger": false}
+  ]
+}
