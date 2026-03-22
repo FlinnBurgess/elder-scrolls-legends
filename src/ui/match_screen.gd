@@ -106,8 +106,8 @@ var _pending_betray := {}
 var _betray_skip_button: Button = null
 var _betray_prompt_label: Label = null
 var _pending_sacrifice_summon := {}
-var _sacrifice_prompt_label: Label = null
-var _sacrifice_cancel_button: Button = null
+var _sacrifice_hover_target_id: String = ""
+var _sacrifice_hover_label: PanelContainer = null
 var _prophecy_overlay_state := {}
 var _spell_reveal_state := {}
 var _deck_reveal_state := {}
@@ -2085,6 +2085,11 @@ func _refresh_player_sections() -> void:
 
 func _refresh_lanes() -> void:
 	_clear_insertion_preview(false)
+	# Reset sacrifice hover since lane buttons are being rebuilt
+	_sacrifice_hover_target_id = ""
+	if _sacrifice_hover_label != null and is_instance_valid(_sacrifice_hover_label):
+		_sacrifice_hover_label.queue_free()
+	_sacrifice_hover_label = null
 	for lane in _lane_entries():
 		var lane_id := str(lane.get("id", ""))
 		var lane_panel: PanelContainer = _lane_panels.get(lane_id)
@@ -4355,6 +4360,8 @@ func _input(event: InputEvent) -> void:
 			if preview != null and is_instance_valid(preview):
 				preview.position = mouse_pos + Vector2(-preview.size.x * 0.5, -preview.size.y * 0.62)
 			_update_insertion_preview_from_mouse(mouse_pos)
+			_update_sacrifice_hover_from_mouse(mouse_pos)
+			_update_sacrifice_hover_label_position()
 		if not _targeting_arrow_state.is_empty():
 			_update_targeting_arrow(mouse_pos)
 	elif event is InputEventKey:
@@ -4459,9 +4466,6 @@ func _on_card_pressed(instance_id: String) -> void:
 		else:
 			_report_invalid_interaction("Not a valid selection.", {"instance_ids": [instance_id]})
 		return
-	if not _pending_sacrifice_summon.is_empty():
-		_resolve_sacrifice_summon(instance_id)
-		return
 	if not _pending_betray.is_empty():
 		if _pending_betray.has("sacrifice_instance_id"):
 			# Betray replay targeting phase — resolve replay target card
@@ -4489,6 +4493,9 @@ func _on_card_pressed(instance_id: String) -> void:
 		_report_invalid_interaction("Not a valid target.", {"instance_ids": [instance_id]})
 		return
 	if not _detached_card_state.is_empty():
+		if _sacrifice_hover_target_id != "" and instance_id == _sacrifice_hover_target_id:
+			_resolve_sacrifice_hover()
+			return
 		var target_card := _card_from_instance_id(instance_id)
 		if _try_resolve_selected_support_row_card(target_card):
 			return
@@ -4626,7 +4633,8 @@ func _on_lane_panel_gui_input(event: InputEvent, lane_id: String) -> void:
 				})
 				accept_event()
 		elif _selected_action_mode(card) == SELECTION_MODE_SUMMON and _lane_is_full_with_friendly(lane_id, target_player):
-			_enter_sacrifice_summon_mode(_selected_instance_id, lane_id)
+			if not _detached_card_state.is_empty() and _sacrifice_hover_target_id != "":
+				_resolve_sacrifice_hover()
 			accept_event()
 
 
@@ -5079,11 +5087,6 @@ func _valid_player_target_ids() -> Array:
 func _card_interaction_state(card: Dictionary, surface: String) -> String:
 	var instance_id := str(card.get("instance_id", ""))
 	if _copy_array(_invalid_feedback.get("instance_ids", [])).has(instance_id):
-		return "invalid"
-	if not _pending_sacrifice_summon.is_empty() and surface == "lane":
-		var target_lane := str(_pending_sacrifice_summon.get("lane_id", ""))
-		if str(card.get("controller_player_id", "")) == _active_player_id() and str(card.get("card_type", "")) == "creature" and str(card.get("lane_id", "")) == target_lane:
-			return "valid"
 		return "invalid"
 	if not _pending_betray.is_empty() and surface == "lane":
 		if _pending_betray.has("sacrifice_instance_id"):
@@ -6567,6 +6570,7 @@ func _enter_prophecy_targeting_mode(instance_id: String) -> void:
 
 func _cancel_detached_card() -> void:
 	_clear_insertion_preview()
+	_clear_sacrifice_hover()
 	var preview: Control = _detached_card_state.get("preview")
 	if preview != null and is_instance_valid(preview):
 		preview.queue_free()
@@ -6577,6 +6581,7 @@ func _cancel_detached_card() -> void:
 
 func _cancel_detached_card_silent() -> void:
 	_clear_insertion_preview()
+	_clear_sacrifice_hover()
 	var preview: Control = _detached_card_state.get("preview")
 	if preview != null and is_instance_valid(preview):
 		preview.queue_free()
@@ -7025,79 +7030,144 @@ func _lane_is_full_with_friendly(lane_id: String, player_id: String) -> bool:
 	return slots.size() >= slot_capacity and slots.size() > 0
 
 
-func _enter_sacrifice_summon_mode(card_instance_id: String, lane_id: String) -> void:
-	_pending_sacrifice_summon = {
-		"card_instance_id": card_instance_id,
-		"lane_id": lane_id,
-	}
-	_selected_instance_id = ""
-	_show_sacrifice_summon_prompt()
-	_status_message = "Choose a creature to sacrifice."
-	_refresh_ui()
+func _update_sacrifice_hover_from_mouse(mouse_pos: Vector2) -> void:
+	if _detached_card_state.is_empty():
+		_clear_sacrifice_hover()
+		return
+	var card := _selected_card()
+	if card.is_empty() or _selected_action_mode(card) != SELECTION_MODE_SUMMON:
+		_clear_sacrifice_hover()
+		return
+	var target_player := _target_lane_player_id()
+	for lane in _lane_entries():
+		var lane_id := str(lane.get("id", ""))
+		var row_key := _lane_row_key(lane_id, target_player)
+		var row_panel: PanelContainer = _lane_row_panels.get(row_key)
+		if row_panel == null or not is_instance_valid(row_panel):
+			continue
+		if not Rect2(row_panel.global_position, row_panel.size).has_point(mouse_pos):
+			continue
+		if not _lane_is_full_with_friendly(lane_id, target_player):
+			_clear_sacrifice_hover()
+			return
+		var nearest_id := _find_nearest_friendly_creature_in_lane(lane_id, target_player, mouse_pos)
+		if nearest_id != "" and nearest_id != _sacrifice_hover_target_id:
+			_clear_sacrifice_hover()
+			_apply_sacrifice_hover(nearest_id)
+		elif nearest_id == "":
+			_clear_sacrifice_hover()
+		return
+	_clear_sacrifice_hover()
 
 
-func _show_sacrifice_summon_prompt() -> void:
-	_dismiss_sacrifice_summon_prompt()
-	var viewport_size := get_viewport_rect().size
-	_sacrifice_prompt_label = Label.new()
-	_sacrifice_prompt_label.text = "Choose a creature to sacrifice"
-	_sacrifice_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_sacrifice_prompt_label.add_theme_color_override("font_color", Color(0.95, 0.35, 0.25, 1.0))
-	_sacrifice_prompt_label.add_theme_font_size_override("font_size", 20)
-	_sacrifice_prompt_label.z_index = 600
-	_sacrifice_prompt_label.size = Vector2(300, 30)
-	_sacrifice_prompt_label.position = Vector2(viewport_size.x * 0.5 - 150, viewport_size.y * 0.5 + 10)
-	add_child(_sacrifice_prompt_label)
-	_sacrifice_cancel_button = Button.new()
-	_sacrifice_cancel_button.text = "Cancel"
-	_sacrifice_cancel_button.custom_minimum_size = Vector2(160, 50)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.25, 0.22, 0.28, 0.92)
-	style.border_color = Color(0.6, 0.55, 0.65, 0.8)
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(6)
-	style.set_content_margin_all(10)
-	_sacrifice_cancel_button.add_theme_stylebox_override("normal", style)
-	_sacrifice_cancel_button.add_theme_stylebox_override("hover", style)
-	_sacrifice_cancel_button.add_theme_stylebox_override("pressed", style)
-	_sacrifice_cancel_button.add_theme_color_override("font_color", Color(0.9, 0.88, 0.92, 1.0))
-	_sacrifice_cancel_button.add_theme_font_size_override("font_size", 18)
-	_sacrifice_cancel_button.pressed.connect(_cancel_sacrifice_summon_mode)
-	_sacrifice_cancel_button.z_index = 600
-	add_child(_sacrifice_cancel_button)
-	_sacrifice_cancel_button.position = Vector2(viewport_size.x * 0.5 - 80, viewport_size.y * 0.5 + 50)
+func _find_nearest_friendly_creature_in_lane(lane_id: String, player_id: String, mouse_pos: Vector2) -> String:
+	var row_key := _lane_row_key(lane_id, player_id)
+	var row: HBoxContainer = _lane_row_containers.get(row_key)
+	if row == null or not is_instance_valid(row):
+		return ""
+	var best_id := ""
+	var best_dist := INF
+	for child in row.get_children():
+		if not (child is Button):
+			continue
+		if child.has_meta("is_insertion_spacer"):
+			continue
+		var instance_id: String = child.get_meta("instance_id", "")
+		if instance_id.is_empty():
+			continue
+		var c := _card_from_instance_id(instance_id)
+		if c.is_empty():
+			continue
+		if str(c.get("controller_player_id", "")) != _active_player_id():
+			continue
+		if str(c.get("card_type", "")) != "creature":
+			continue
+		var ctrl := child as Control
+		var center_x: float = ctrl.global_position.x + ctrl.size.x * 0.5
+		var dist: float = absf(mouse_pos.x - center_x)
+		if dist < best_dist:
+			best_dist = dist
+			best_id = instance_id
+	return best_id
 
 
-func _dismiss_sacrifice_summon_prompt() -> void:
-	if _sacrifice_prompt_label != null and is_instance_valid(_sacrifice_prompt_label):
-		_sacrifice_prompt_label.queue_free()
-	_sacrifice_prompt_label = null
-	if _sacrifice_cancel_button != null and is_instance_valid(_sacrifice_cancel_button):
-		_sacrifice_cancel_button.queue_free()
-	_sacrifice_cancel_button = null
+func _apply_sacrifice_hover(instance_id: String) -> void:
+	_sacrifice_hover_target_id = instance_id
+	var button: Button = _card_buttons.get(instance_id)
+	if button != null and is_instance_valid(button):
+		_apply_betray_target_glow(button, "lane")
+	var target_card := _card_from_instance_id(instance_id)
+	_sacrifice_hover_label = PanelContainer.new()
+	var bg_style := StyleBoxFlat.new()
+	bg_style.bg_color = Color(0.0, 0.0, 0.0, 0.85)
+	bg_style.set_corner_radius_all(4)
+	bg_style.set_content_margin_all(6)
+	_sacrifice_hover_label.add_theme_stylebox_override("panel", bg_style)
+	_sacrifice_hover_label.z_index = 501
+	_sacrifice_hover_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var label := Label.new()
+	label.text = "Sacrifice %s" % _card_name(target_card)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_color_override("font_color", Color(0.95, 0.35, 0.25, 1.0))
+	label.add_theme_font_size_override("font_size", 16)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sacrifice_hover_label.add_child(label)
+	add_child(_sacrifice_hover_label)
+	_update_sacrifice_hover_label_position()
 
 
-func _cancel_sacrifice_summon_mode() -> void:
-	_pending_sacrifice_summon = {}
-	_dismiss_sacrifice_summon_prompt()
-	_status_message = "Sacrifice cancelled."
-	_refresh_ui()
+func _update_sacrifice_hover_label_position() -> void:
+	if _sacrifice_hover_label == null or not is_instance_valid(_sacrifice_hover_label):
+		return
+	var preview: Control = _detached_card_state.get("preview")
+	if preview == null or not is_instance_valid(preview):
+		return
+	var label_size := _sacrifice_hover_label.size
+	_sacrifice_hover_label.position = Vector2(
+		preview.position.x + preview.size.x * 0.5 - label_size.x * 0.5,
+		preview.position.y + preview.size.y + 4.0
+	)
+
+
+func _clear_sacrifice_hover() -> void:
+	if _sacrifice_hover_target_id.is_empty():
+		return
+	var button: Button = _card_buttons.get(_sacrifice_hover_target_id)
+	if button != null and is_instance_valid(button):
+		var glow := button.find_child("valid_target_glow", false, false)
+		if glow != null:
+			glow.queue_free()
+	_sacrifice_hover_target_id = ""
+	if _sacrifice_hover_label != null and is_instance_valid(_sacrifice_hover_label):
+		_sacrifice_hover_label.queue_free()
+	_sacrifice_hover_label = null
+
+
+func _resolve_sacrifice_hover() -> void:
+	var sacrifice_id := _sacrifice_hover_target_id
+	var detached_id := str(_detached_card_state.get("instance_id", ""))
+	var location := MatchMutations.find_card_location(_match_state, sacrifice_id)
+	var lane_id := str(location.get("lane_id", ""))
+	_clear_sacrifice_hover()
+	_cancel_detached_card_silent()
+	_pending_sacrifice_summon = {"card_instance_id": detached_id, "lane_id": lane_id}
+	_resolve_sacrifice_summon(sacrifice_id)
 
 
 func _resolve_sacrifice_summon(sacrifice_instance_id: String) -> void:
 	var lane_id := str(_pending_sacrifice_summon.get("lane_id", ""))
 	var card_instance_id := str(_pending_sacrifice_summon.get("card_instance_id", ""))
-	var sacrifice_card := _card_from_instance_id(sacrifice_instance_id)
+	var sacrifice_location := MatchMutations.find_card_location(_match_state, sacrifice_instance_id)
+	var sacrifice_card: Dictionary = sacrifice_location.get("card", {})
 	if sacrifice_card.is_empty():
 		_report_invalid_interaction("Not a valid sacrifice target.", {"instance_ids": [sacrifice_instance_id]})
 		return
 	if str(sacrifice_card.get("controller_player_id", "")) != _active_player_id():
 		_report_invalid_interaction("Not a valid sacrifice target.", {"instance_ids": [sacrifice_instance_id]})
 		return
-	if str(sacrifice_card.get("lane_id", "")) != lane_id:
+	if str(sacrifice_location.get("lane_id", "")) != lane_id:
 		_report_invalid_interaction("Sacrifice target must be in the same lane.", {"instance_ids": [sacrifice_instance_id]})
 		return
-	_dismiss_sacrifice_summon_prompt()
 	var saved_instance_id := card_instance_id
 	var summoned_card := _card_from_instance_id(card_instance_id)
 	var sacrifice_name := _card_name(sacrifice_card)

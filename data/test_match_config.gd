@@ -23,14 +23,16 @@ static func build_test_match_state() -> Dictionary:
 
 	# Player 1 (you)
 	var p1_health := 30
-	var p1_max_magicka := 1
-	var p1_current_magicka := 1
+	var p1_max_magicka := 3
+	var p1_current_magicka := 3
 	var p1_rune_thresholds := [25, 20, 15, 10, 5]
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
 	# Player 1 hand — cards the player starts with in hand
-	var p1_hand_ids: Array = []
+	var p1_hand_ids: Array = [
+		"str_fiery_imp",
+	]
 
 	# Player 1 deck — cards remaining in deck (index 0 drawn first)
 	var p1_deck_ids: Array = [
@@ -38,9 +40,12 @@ static func build_test_match_state() -> Dictionary:
 		"str_morthal_watchman",
 	]
 
-	# Player 1 creatures in field lane
+	# Player 1 creatures in field lane (4 creatures with ward)
 	var p1_field_creatures: Array = [
-		_make_lane_creature("player_1", "str_fiery_imp", 1, {"status_markers": ["shackled"], "shackle_expires_on_turn": turn_number + 1}),
+		_make_lane_creature("player_1", "end_wind_keep_spellsword", 1, {"keywords": ["ward"]}),
+		_make_lane_creature("player_1", "int_evermore_steward", 2, {"keywords": ["guard", "ward"]}),
+		_make_lane_creature("player_1", "int_glenumbra_sorceress", 3, {"keywords": ["ward"]}),
+		_make_lane_creature("player_1", "end_iliac_sorcerer", 4, {"keywords": ["ward"]}),
 	]
 	# Player 1 creatures in shadow lane
 	var p1_shadow_creatures: Array = []
@@ -68,6 +73,12 @@ static func build_test_match_state() -> Dictionary:
 	var p2_shadow_creatures: Array = []
 
 	## ── END CONFIGURATION ──────────────────────────────────────────────
+
+	# Auto-assign unique instance IDs across all cards for each player
+	_reassign_instance_ids("player_1", p1_hand_ids, p1_deck_ids,
+		p1_field_creatures, p1_shadow_creatures)
+	_reassign_instance_ids("player_2", p2_hand_ids, p2_deck_ids,
+		p2_field_creatures, p2_shadow_creatures)
 
 	# Build player states
 	var p1 := _build_player("player_1", p1_health, p1_max_magicka, p1_current_magicka,
@@ -183,6 +194,20 @@ static func _make_lane_creature(player_id: String, definition_id: String,
 	if overrides.has("status_markers"):
 		card["status_markers"] = overrides["status_markers"].duplicate()
 	return card
+
+
+## Re-number instance_ids so hand, deck, and lane creatures never collide.
+## Hand/deck cards are created later by _build_player using their array index,
+## so we just need lane creatures to start after hand + deck count.
+static func _reassign_instance_ids(player_id: String, hand_ids: Array,
+		deck_ids: Array, field_creatures: Array, shadow_creatures: Array) -> void:
+	var next_index := hand_ids.size() + deck_ids.size() + 1
+	for creature in field_creatures:
+		creature["instance_id"] = "%s_card_%03d" % [player_id, next_index]
+		next_index += 1
+	for creature in shadow_creatures:
+		creature["instance_id"] = "%s_card_%03d" % [player_id, next_index]
+		next_index += 1
 
 
 static func _build_lanes_with_creatures(
