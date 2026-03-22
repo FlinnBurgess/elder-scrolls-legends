@@ -2768,6 +2768,37 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"new_power": EvergreenRules.get_power(card),
 						"reason": reason,
 					})
+			"summon_copy":
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var sc_controller := str(card.get("controller_player_id", trigger.get("controller_player_id", "")))
+					var sc_loc := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
+					var sc_lane_id := str(sc_loc.get("lane_id", event.get("lane_id", "field")))
+					var sc_template: Dictionary = card.duplicate(true)
+					sc_template.erase("instance_id")
+					sc_template.erase("status_markers")
+					sc_template.erase("has_attacked_this_turn")
+					sc_template.erase("entered_lane_on_turn")
+					var sc_copy := MatchMutations.build_generated_card(match_state, sc_controller, sc_template)
+					var sc_summon := MatchMutations.summon_card_to_lane(match_state, sc_controller, sc_copy, sc_lane_id, {"source_zone": MatchMutations.ZONE_GENERATED})
+					if bool(sc_summon.get("is_valid", false)):
+						generated_events.append_array(sc_summon.get("events", []))
+						generated_events.append(_build_summon_event(sc_summon["card"], sc_controller, sc_lane_id, int(sc_summon.get("slot_index", -1)), "summon_copy"))
+			"summon_copy_of_self":
+				var scos_source_id := str(trigger.get("source_instance_id", ""))
+				var scos_source := _find_card_anywhere(match_state, scos_source_id)
+				if not scos_source.is_empty():
+					var scos_controller := str(scos_source.get("controller_player_id", ""))
+					var scos_loc := MatchMutations.find_card_location(match_state, scos_source_id)
+					var scos_lane_id := str(scos_loc.get("lane_id", event.get("lane_id", "field")))
+					var scos_template: Dictionary = scos_source.duplicate(true)
+					scos_template.erase("instance_id")
+					scos_template.erase("status_markers")
+					scos_template.erase("has_attacked_this_turn")
+					var scos_copy := MatchMutations.build_generated_card(match_state, scos_controller, scos_template)
+					var scos_summon := MatchMutations.summon_card_to_lane(match_state, scos_controller, scos_copy, scos_lane_id, {"source_zone": MatchMutations.ZONE_GENERATED})
+					if bool(scos_summon.get("is_valid", false)):
+						generated_events.append_array(scos_summon.get("events", []))
+						generated_events.append(_build_summon_event(scos_summon["card"], scos_controller, scos_lane_id, int(scos_summon.get("slot_index", -1)), "summon_copy_of_self"))
 			"deal_damage_from_creature":
 				var ddfc_amount := int(effect.get("amount", 1))
 				var ddfc_source_target := str(effect.get("source", "event_target"))
