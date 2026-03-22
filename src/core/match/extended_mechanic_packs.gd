@@ -743,6 +743,26 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				dfomb_deck.pop_back()
 				dfomb_deck.insert(0, dfomb_top_card)
 				return {"handled": true, "events": [{"event_type": "card_moved_to_bottom", "player_id": dfomb_controller_id, "instance_id": str(dfomb_top_card.get("instance_id", ""))}]}
+		"steal_top_deck_card":
+			var stdc_controller := str(trigger.get("controller_player_id", ""))
+			var stdc_opponent := ""
+			for player in match_state.get("players", []):
+				if str(player.get("player_id", "")) != stdc_controller:
+					stdc_opponent = str(player.get("player_id", ""))
+					break
+			var stdc_opp_player := _get_player_state(match_state, stdc_opponent)
+			var stdc_my_player := _get_player_state(match_state, stdc_controller)
+			if stdc_opp_player.is_empty() or stdc_my_player.is_empty():
+				return {"handled": true, "events": []}
+			var stdc_opp_deck: Array = stdc_opp_player.get("deck", [])
+			if stdc_opp_deck.is_empty():
+				return {"handled": true, "events": []}
+			var stdc_stolen: Dictionary = stdc_opp_deck.pop_back()
+			stdc_stolen["zone"] = "hand"
+			stdc_stolen["controller_player_id"] = stdc_controller
+			var stdc_hand: Array = stdc_my_player.get("hand", [])
+			stdc_hand.append(stdc_stolen)
+			return {"handled": true, "events": [{"event_type": "card_stolen_from_deck", "player_id": stdc_controller, "from_player_id": stdc_opponent, "instance_id": str(stdc_stolen.get("instance_id", ""))}]}
 		"generate_random_shouts_to_hand":
 			var grsh_controller := str(trigger.get("controller_player_id", ""))
 			var grsh_player := _get_player_state(match_state, grsh_controller)
