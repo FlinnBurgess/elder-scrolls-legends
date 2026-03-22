@@ -719,6 +719,30 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				var trfc_result := MatchMutations.transform_card(match_state, str(trfc_card.get("instance_id", "")), trfc_template, {"reason": "transform_random"})
 				trfc_events.append_array(trfc_result.get("events", []))
 			return {"handled": true, "events": trfc_events}
+		"draw_filtered_or_move_to_bottom":
+			var dfomb_controller_id := str(trigger.get("controller_player_id", ""))
+			var dfomb_player := _get_player_state(match_state, dfomb_controller_id)
+			if dfomb_player.is_empty():
+				return {"handled": true, "events": []}
+			var dfomb_deck: Array = dfomb_player.get("deck", [])
+			if dfomb_deck.is_empty():
+				return {"handled": true, "events": []}
+			var dfomb_top_card: Dictionary = dfomb_deck.back()
+			if typeof(dfomb_top_card) != TYPE_DICTIONARY:
+				return {"handled": true, "events": []}
+			var dfomb_filter_raw = effect.get("filter", {})
+			var dfomb_filter: Dictionary = dfomb_filter_raw if typeof(dfomb_filter_raw) == TYPE_DICTIONARY else {}
+			var dfomb_required_type := str(dfomb_filter.get("card_type", ""))
+			var dfomb_card_type := str(dfomb_top_card.get("card_type", ""))
+			if not dfomb_required_type.is_empty() and dfomb_card_type == dfomb_required_type:
+				dfomb_deck.pop_back()
+				var dfomb_hand: Array = dfomb_player.get("hand", [])
+				dfomb_hand.append(dfomb_top_card)
+				return {"handled": true, "events": [{"event_type": "card_drawn", "player_id": dfomb_controller_id, "instance_id": str(dfomb_top_card.get("instance_id", "")), "source": "draw_filtered"}]}
+			else:
+				dfomb_deck.pop_back()
+				dfomb_deck.insert(0, dfomb_top_card)
+				return {"handled": true, "events": [{"event_type": "card_moved_to_bottom", "player_id": dfomb_controller_id, "instance_id": str(dfomb_top_card.get("instance_id", ""))}]}
 	return {"handled": false, "events": []}
 
 

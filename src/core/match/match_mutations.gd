@@ -1,6 +1,7 @@
 class_name MatchMutations
 extends RefCounted
 
+const CardCatalog = preload("res://src/deck/card_catalog.gd")
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 
 const CARD_TYPE_CREATURE := "creature"
@@ -426,6 +427,17 @@ static func update_card_owner(match_state: Dictionary, instance_id: String, owne
 static func build_generated_card(match_state: Dictionary, controller_player_id: String, template: Dictionary) -> Dictionary:
 	match_state["generated_card_sequence"] = int(match_state.get("generated_card_sequence", 0)) + 1
 	var card := template.duplicate(true)
+	var def_id := str(card.get("definition_id", ""))
+	if not def_id.is_empty() and not card.has("triggered_abilities"):
+		for seed in CardCatalog._card_seeds():
+			if typeof(seed) == TYPE_DICTIONARY and str(seed.get("card_id", "")) == def_id:
+				var seed_abilities: Array = seed.get("triggered_abilities", [])
+				if not seed_abilities.is_empty():
+					card["triggered_abilities"] = seed_abilities.duplicate(true)
+				var seed_aura = seed.get("aura", null)
+				if seed_aura != null and not card.has("aura"):
+					card["aura"] = seed_aura.duplicate(true)
+				break
 	if not card.has("instance_id") or str(card.get("instance_id", "")).is_empty():
 		card["instance_id"] = "%s_generated_%03d" % [controller_player_id, int(match_state.get("generated_card_sequence", 0))]
 	if not card.has("owner_player_id"):
