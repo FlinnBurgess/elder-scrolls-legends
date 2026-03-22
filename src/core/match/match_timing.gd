@@ -2737,6 +2737,49 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"health_bonus": health_bonus,
 						"reason": reason,
 					})
+			"set_stats":
+				var set_power_val: Variant = effect.get("power", null)
+				var set_health_val: Variant = effect.get("health", null)
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var power_diff := 0
+					var health_diff := 0
+					if set_power_val != null:
+						power_diff = int(set_power_val) - EvergreenRules.get_power(card)
+					if set_health_val != null:
+						health_diff = int(set_health_val) - EvergreenRules.get_health(card)
+					EvergreenRules.apply_stat_bonus(card, power_diff, health_diff, reason)
+					generated_events.append({
+						"event_type": "stats_set",
+						"source_instance_id": str(trigger.get("source_instance_id", "")),
+						"target_instance_id": str(card.get("instance_id", "")),
+						"new_power": EvergreenRules.get_power(card),
+						"new_health": EvergreenRules.get_health(card),
+						"reason": reason,
+					})
+			"set_power":
+				var sp_value := int(effect.get("value", 1))
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var power_diff := sp_value - EvergreenRules.get_power(card)
+					EvergreenRules.apply_stat_bonus(card, power_diff, 0, reason)
+					generated_events.append({
+						"event_type": "stats_set",
+						"source_instance_id": str(trigger.get("source_instance_id", "")),
+						"target_instance_id": str(card.get("instance_id", "")),
+						"new_power": EvergreenRules.get_power(card),
+						"reason": reason,
+					})
+			"set_power_equal_to_health":
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var current_health := EvergreenRules.get_health(card)
+					var power_diff := current_health - EvergreenRules.get_power(card)
+					EvergreenRules.apply_stat_bonus(card, power_diff, 0, reason)
+					generated_events.append({
+						"event_type": "stats_set",
+						"source_instance_id": str(trigger.get("source_instance_id", "")),
+						"target_instance_id": str(card.get("instance_id", "")),
+						"new_power": EvergreenRules.get_power(card),
+						"reason": reason,
+					})
 			"copy_card_to_hand":
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					var copy_template: Dictionary = card.duplicate(true)
