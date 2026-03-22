@@ -743,6 +743,24 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				dfomb_deck.pop_back()
 				dfomb_deck.insert(0, dfomb_top_card)
 				return {"handled": true, "events": [{"event_type": "card_moved_to_bottom", "player_id": dfomb_controller_id, "instance_id": str(dfomb_top_card.get("instance_id", ""))}]}
+		"vision_and_transform":
+			var vat_targets := _timing_rules()._resolve_card_targets(match_state, trigger, event, effect)
+			if vat_targets.is_empty():
+				return {"handled": true, "events": []}
+			var vat_target: Dictionary = vat_targets[0]
+			var vat_seeds: Array = CardCatalog._card_seeds()
+			var vat_creatures: Array = []
+			for seed in vat_seeds:
+				if typeof(seed) == TYPE_DICTIONARY and str(seed.get("card_type", "")) == "creature" and bool(seed.get("collectible", true)):
+					vat_creatures.append(seed)
+			if vat_creatures.is_empty():
+				return {"handled": true, "events": []}
+			var vat_pick_idx := _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_vat", vat_creatures.size())
+			var vat_pick: Dictionary = vat_creatures[vat_pick_idx]
+			var vat_template: Dictionary = vat_pick.duplicate(true)
+			vat_template["definition_id"] = str(vat_template.get("card_id", ""))
+			var vat_result := MatchMutations.transform_card(match_state, str(vat_target.get("instance_id", "")), vat_template, {"reason": "vision_and_transform"})
+			return {"handled": true, "events": vat_result.get("events", [])}
 		"guess_opponent_card":
 			var goc_controller := str(trigger.get("controller_player_id", ""))
 			var goc_opponent := ""
