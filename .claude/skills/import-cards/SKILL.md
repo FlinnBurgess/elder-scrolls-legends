@@ -6,6 +6,8 @@ Import card data into the Elder Scrolls Legends card catalog.
 
 The user provides card data (from a wiki page, JSON, or other source) and asks to import it into the game.
 
+**Preferred source:** `data/wiki_scrape/cards.json` contains pre-scraped wiki data for all cards across all expansions. Search by card name or filter by `card_set`/`card_set_source`. Beast form / multi-form cards have multiple entries with `is_alternate_form: true` — use the base form for the `_seed()` and the transformed form for the inline `card_template`.
+
 ## Card Catalog Location
 
 Cards are defined as `_seed()` calls inside `_card_seeds()` in `src/deck/card_catalog.gd`.

@@ -16,7 +16,8 @@ Systematically audit every card in the catalog by running the `wiki-fix` skill o
 
 When the user asks to audit a specific card (optionally providing catalog data inline):
 
-1. **Fetch the UESP wiki page** for the card and compare every field: name, attribute(s), type, cost, power, health, rarity, subtypes, keywords, and rules text.
+1. **Look up the card in `data/wiki_scrape/cards.json`** first (search the `cards` array by name, case-insensitive). If not found there, fall back to fetching the UESP wiki page. Compare every field: name, attribute(s), type, cost, power, health, rarity, subtypes, keywords, and rules text.
+   - **Beast Form / multi-form cards**: The scraped data may contain multiple entries with the same `name` but different `wiki_page` values and `is_alternate_form: true` (e.g., `Circle Initiate (Nord)` and `Circle Initiate (Werewolf)`). Match the base form entry against the `_seed()` base stats, and match the transformed form entry against the inline `card_template` inside the card's `transform` effect in `triggered_abilities`.
 2. **Verify engine integration** in `src/core/match/match_timing.gd` and `src/core/match/extended_mechanic_packs.gd` (ops may be handled in either file's `_apply_effects` / `apply_custom_effect`):
    - Each `op` in `effect_ids` / `triggered_abilities` is handled (e.g. `deal_damage`, `modify_stats`).
    - The `family` (e.g. `summon`, `last_gasp`) is a recognized trigger constant.
@@ -95,7 +96,7 @@ Cards with any of the following **must still be audited**: `triggered_abilities`
 Take the next 20 cards with `"status": "pending"` as the current batch.
 
 **Phase 1 — Parallel Audit (Haiku agents):** Launch 5 Agent subagents simultaneously using `model: "haiku"`, each auditing 10 cards. Each agent:
-1. For each card: fetches the UESP wiki page, compares all data fields, and checks that all ops/families/conditions are valid.
+1. For each card: looks up wiki data from `data/wiki_scrape/cards.json` (search by card name, case-insensitive). If not found in scraped data, falls back to fetching the UESP wiki page. For beast form / multi-form cards, match both the base form entry and the transformed form entry (see Single Card Mode above). Compares all data fields and checks that all ops/families/conditions are valid.
 2. **Only reports NEEDS_FIX cards** with specific details. Passing cards are listed by name only (e.g., "PASS: Card A, Card B, Card C").
 3. **Does NOT make edits** — audit only.
 4. Uses the **known-good ops/families list** (see below) to skip re-verifying common mechanics. Only grep the engine for ops/families/conditions NOT on the list.

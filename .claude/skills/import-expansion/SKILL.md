@@ -15,7 +15,9 @@ Import all cards from an Elder Scrolls Legends expansion into the game's card ca
 
 ### 1a. Get the card list
 
-Fetch the wiki page at `$ARGUMENTS` to identify:
+**Check scraped data first:** Read `data/wiki_scrape/cards.json` and filter by `card_set` or `card_set_source` matching the expansion name. This contains pre-scraped data for all cards across all expansions, including beast form / multi-form cards (entries with `is_alternate_form: true`).
+
+**If the expansion is not in scraped data**, fetch the wiki page at `$ARGUMENTS` to identify:
 - Total number of collectible cards
 - Card sections (by attribute + neutral + dual-attribute)
 - Any new keywords or mechanics introduced
@@ -56,7 +58,9 @@ The main expansion page and the category page may not match perfectly. Cross-ref
 
 ### 1e. Get card details
 
-For large expansions (100+ cards), fetching every individual wiki page is impractical. Instead:
+**When using scraped data (`data/wiki_scrape/cards.json`):** Each card entry already contains all needed fields: `name`, `card_type`, `subtypes`, `attributes`, `cost`, `power`, `health`, `rarity`, `deck_code_id`, `card_set`, `card_text`, `art_url`, `is_unique`, and `wiki_page`. For beast form cards, both the base form and transformed form are separate entries with `is_alternate_form: true`. This is sufficient for generating `_seed()` calls — no additional wiki fetching should be needed for data fields.
+
+**When scraped data is unavailable:** For large expansions (100+ cards), fetching every individual wiki page is impractical. Instead:
 1. Use the main expansion page for bulk stats (name, type, cost, power/health, rarity, subtypes)
 2. Fetch individual pages only for complex cards (legendaries, cards with new mechanics, cards with ambiguous abilities)
 3. **Parallelize research** by launching multiple agents, each handling one attribute section
@@ -169,4 +173,4 @@ List any new mechanics added and any complex cards that may need additional engi
 
 ## Phase 7: Fetch Card Art
 
-After all cards are added and verified, run the `/download-missing-art` skill to fetch artwork for the newly imported cards.
+After all cards are added and verified, download artwork for the newly imported cards. The scraped data in `data/wiki_scrape/cards.json` includes `art_url` for each card — use these URLs directly with `curl` to download art to `assets/images/cards/<card_id>.png` rather than re-scraping the wiki. Fall back to the `/download-missing-art` skill for any cards missing `art_url` in the scraped data.
