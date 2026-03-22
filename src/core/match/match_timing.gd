@@ -687,6 +687,50 @@ static func resolve_pending_player_choice(match_state: Dictionary, player_id: St
 	}
 
 
+static func has_pending_secondary_target(match_state: Dictionary, player_id: String = "") -> bool:
+	return not get_pending_secondary_target(match_state, player_id).is_empty()
+
+
+static func get_pending_secondary_target(match_state: Dictionary, player_id: String = "") -> Dictionary:
+	ensure_match_state(match_state)
+	for raw in match_state.get("pending_secondary_targets", []):
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		if not player_id.is_empty() and str(raw.get("player_id", "")) != player_id:
+			continue
+		return raw.duplicate(true)
+	return {}
+
+
+static func resolve_pending_secondary_target(match_state: Dictionary, player_id: String, target_instance_id: String) -> Dictionary:
+	ensure_match_state(match_state)
+	var pending: Array = match_state.get("pending_secondary_targets", [])
+	var idx := -1
+	var entry := {}
+	for i in range(pending.size()):
+		if typeof(pending[i]) == TYPE_DICTIONARY and str(pending[i].get("player_id", "")) == player_id:
+			idx = i
+			entry = pending[i]
+			break
+	if idx == -1:
+		return {"is_valid": false, "errors": ["No pending secondary target for %s." % player_id]}
+	pending.remove_at(idx)
+	var source_id := str(entry.get("source_instance_id", ""))
+	var damage_amount := int(entry.get("damage_amount", 1))
+	var source := _find_card_anywhere(match_state, source_id)
+	var events: Array = []
+	var defender := _find_card_anywhere(match_state, target_instance_id)
+	if not defender.is_empty():
+		var result := EvergreenRules.apply_damage_to_creature(defender, damage_amount)
+		events.append({"event_type": "damage_resolved", "source_instance_id": source_id, "source_controller_player_id": str(source.get("controller_player_id", "")), "target_instance_id": target_instance_id, "target_type": "creature", "amount": int(result.get("applied", 0)), "damage_kind": "ability"})
+		if EvergreenRules.is_creature_destroyed(defender, false):
+			var moved := MatchMutations.discard_card(match_state, target_instance_id)
+			if bool(moved.get("is_valid", false)):
+				events.append({"event_type": "creature_destroyed", "instance_id": target_instance_id, "reason": "deal_damage_from_creature"})
+	var timing_result := publish_events(match_state, events)
+	return {"is_valid": true, "errors": [], "events": timing_result.get("processed_events", [])}
+
+
 static func apply_player_damage(match_state: Dictionary, player_id: String, amount: int, context: Dictionary = {}) -> Dictionary:
 	ensure_match_state(match_state)
 	var result := {
@@ -2873,15 +2917,18 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							if bool(ddfc_moved.get("is_valid", false)):
 								generated_events.append({"event_type": "creature_destroyed", "instance_id": ddfc_secondary_id, "reason": reason})
 				else:
-					var ddfc_enemies := _resolve_card_targets_by_name(match_state, trigger, event, "random_enemy")
-					if not ddfc_enemies.is_empty():
-						var ddfc_defender: Dictionary = ddfc_enemies[0]
-						var ddfc_result := EvergreenRules.apply_damage_to_creature(ddfc_defender, ddfc_amount)
-						generated_events.append({"event_type": "damage_resolved", "source_instance_id": ddfc_source_id, "source_controller_player_id": str(ddfc_source.get("controller_player_id", "")), "target_instance_id": str(ddfc_defender.get("instance_id", "")), "target_type": "creature", "amount": int(ddfc_result.get("applied", 0)), "damage_kind": "ability", "reason": reason})
-						if EvergreenRules.is_creature_destroyed(ddfc_defender, false):
-							var ddfc_moved := MatchMutations.discard_card(match_state, str(ddfc_defender.get("instance_id", "")))
-							if bool(ddfc_moved.get("is_valid", false)):
-								generated_events.append({"event_type": "creature_destroyed", "instance_id": str(ddfc_defender.get("instance_id", "")), "reason": reason})
+					# No secondary target pre-selected — push pending for UI, AI picks random
+					var ddfc_pending: Array = match_state.get("pending_secondary_targets", [])
+					ddfc_pending.append({
+						"player_id": str(ddfc_source.get("controller_player_id", "")),
+						"source_instance_id": ddfc_source_id,
+						"damage_amount": ddfc_amount,
+						"target_mode": str(effect.get("target_mode", "creature_or_player")),
+						"trigger": trigger.duplicate(true),
+						"event": event.duplicate(true),
+					})
+					match_state["pending_secondary_targets"] = ddfc_pending
+					generated_events.append({"event_type": "secondary_target_pending", "player_id": str(ddfc_source.get("controller_player_id", "")), "source_instance_id": ddfc_source_id})
 			"shuffle_copies_to_deck":
 				var sctd_count := int(effect.get("count", 1))
 				var sctd_cost_override: Variant = effect.get("cost_override", null)

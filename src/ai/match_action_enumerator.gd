@@ -30,6 +30,7 @@ const KIND_DECLINE_HAND_SELECTION := "decline_hand_selection"
 const KIND_TOP_DECK_DISCARD := "top_deck_discard"
 const KIND_TOP_DECK_KEEP := "top_deck_keep"
 const KIND_CHOOSE_PLAYER_CHOICE := "choose_player_choice"
+const KIND_CHOOSE_SECONDARY_TARGET := "choose_secondary_target"
 const ACTION_KIND_ORDER := {
 	KIND_SUMMON_CREATURE: 10,
 	KIND_DECLINE_PROPHECY: 11,
@@ -84,6 +85,22 @@ static func enumerate_legal_actions(match_state: Dictionary, player_id: String =
 		result["timing_window"] = TIMING_INTERRUPT
 		result["has_pending_hand_selection"] = true
 		result["actions"] = _enumerate_pending_hand_selection_actions(match_state, decision_player_id, hand_selection)
+	elif MatchTiming.has_pending_secondary_target(match_state):
+		var sec_target := MatchTiming.get_pending_secondary_target(match_state)
+		var sec_player_id := str(sec_target.get("player_id", ""))
+		if decision_player_id != sec_player_id:
+			result["blocked_reason"] = "Pending secondary target belongs to another player."
+			return result
+		result["timing_window"] = TIMING_INTERRUPT
+		result["has_pending_secondary_target"] = true
+		var sec_actions: Array = []
+		# Enumerate all valid targets (enemies + opponent player)
+		for card in _all_lane_cards(match_state):
+			var card_controller := str(card.get("controller_player_id", ""))
+			if card_controller == sec_player_id:
+				continue
+			sec_actions.append(_build_descriptor(KIND_CHOOSE_SECONDARY_TARGET, match_state, decision_player_id, {"target_instance_id": str(card.get("instance_id", ""))}, {}, {"timing_window": TIMING_INTERRUPT}))
+		result["actions"] = sec_actions
 	elif MatchTiming.has_pending_player_choice(match_state):
 		var player_choice := MatchTiming.get_pending_player_choice(match_state)
 		var player_choice_player_id := str(player_choice.get("player_id", ""))
@@ -149,8 +166,10 @@ static func action_is_legal(match_state: Dictionary, action: Dictionary) -> bool
 			return MatchTurnLoop.can_activate_ring_of_magicka(match_state, player_id)
 		KIND_CHOOSE_PLAYER_CHOICE:
 			return bool(MatchTiming.resolve_pending_player_choice(match_state.duplicate(true), player_id, int(parameters.get("chosen_index", 0))).get("is_valid", false))
+		KIND_CHOOSE_SECONDARY_TARGET:
+			return bool(MatchTiming.resolve_pending_secondary_target(match_state.duplicate(true), player_id, str(parameters.get("target_instance_id", ""))).get("is_valid", false))
 		KIND_END_TURN:
-			if MatchTiming.has_pending_prophecy(match_state) or MatchTiming.has_pending_discard_choice(match_state) or MatchTiming.has_pending_hand_selection(match_state) or MatchTiming.has_pending_top_deck_choice(match_state) or MatchTiming.has_pending_player_choice(match_state):
+			if MatchTiming.has_pending_prophecy(match_state) or MatchTiming.has_pending_discard_choice(match_state) or MatchTiming.has_pending_hand_selection(match_state) or MatchTiming.has_pending_top_deck_choice(match_state) or MatchTiming.has_pending_player_choice(match_state) or MatchTiming.has_pending_secondary_target(match_state):
 				return false
 			var clone := match_state.duplicate(true)
 			var active_before := str(clone.get("active_player_id", ""))

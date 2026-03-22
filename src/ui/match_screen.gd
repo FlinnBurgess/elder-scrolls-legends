@@ -2737,7 +2737,7 @@ func _on_player_choice_selected(index: int) -> void:
 	_dismiss_player_choice_overlay()
 	var result := MatchTiming.resolve_pending_player_choice(_match_state, local_id, index)
 	if bool(result.get("is_valid", false)):
-		_rebuild_match_ui()
+		_refresh_ui()
 
 
 func _dismiss_player_choice_overlay() -> void:
@@ -5959,6 +5959,8 @@ func _ai_controls_current_decision_window() -> bool:
 	if MatchTiming.has_pending_discard_choice(_match_state, ai_player_id):
 		return true
 	if MatchTiming.has_pending_player_choice(_match_state, ai_player_id):
+		return true
+	if MatchTiming.has_pending_secondary_target(_match_state, ai_player_id):
 		return true
 	if MatchTiming.has_pending_prophecy(_match_state):
 		return _has_pending_prophecy_for_player(ai_player_id)
