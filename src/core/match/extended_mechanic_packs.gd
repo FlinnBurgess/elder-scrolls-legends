@@ -520,6 +520,8 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			if rrhcc_candidates.is_empty():
 				return {"handled": true, "events": []}
 			var rrhcc_chosen: Dictionary = rrhcc_candidates[randi() % rrhcc_candidates.size()]
+			if not rrhcc_chosen.has("_base_cost"):
+				rrhcc_chosen["_base_cost"] = int(rrhcc_chosen.get("cost", 0))
 			rrhcc_chosen["cost"] = maxi(0, int(rrhcc_chosen.get("cost", 0)) - rrhcc_amount)
 			return {"handled": true, "events": [{"event_type": "card_cost_modified", "player_id": rrhcc_controller_id, "target_instance_id": str(rrhcc_chosen.get("instance_id", "")), "amount": -rrhcc_amount, "source_instance_id": str(trigger.get("source_instance_id", ""))}]}
 		"conditional_equip_bonus":
