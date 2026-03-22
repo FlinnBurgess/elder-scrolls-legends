@@ -2768,6 +2768,25 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"new_power": EvergreenRules.get_power(card),
 						"reason": reason,
 					})
+			"shuffle_discard_creatures_to_deck_with_buff":
+				var sdctd_power := int(effect.get("power", 0))
+				var sdctd_health := int(effect.get("health", 0))
+				var sdctd_controller := str(trigger.get("controller_player_id", ""))
+				var sdctd_player := _get_player_state(match_state, sdctd_controller)
+				if not sdctd_player.is_empty():
+					var sdctd_discard: Array = sdctd_player.get(ZONE_DISCARD, [])
+					var sdctd_deck: Array = sdctd_player.get(ZONE_DECK, [])
+					var sdctd_to_move: Array = []
+					for card in sdctd_discard:
+						if typeof(card) == TYPE_DICTIONARY and str(card.get("card_type", "")) == "creature":
+							sdctd_to_move.append(card)
+					for card in sdctd_to_move:
+						sdctd_discard.erase(card)
+						EvergreenRules.apply_stat_bonus(card, sdctd_power, sdctd_health, reason)
+						card["zone"] = ZONE_DECK
+						var insert_pos := _deterministic_index(match_state, str(card.get("instance_id", "")) + "_sdctd", sdctd_deck.size() + 1)
+						sdctd_deck.insert(insert_pos, card)
+					generated_events.append({"event_type": "discard_shuffled_to_deck", "player_id": sdctd_controller, "count": sdctd_to_move.size(), "power_buff": sdctd_power, "health_buff": sdctd_health, "reason": reason})
 			"summon_from_discard":
 				var sfd_controller := str(trigger.get("controller_player_id", ""))
 				var sfd_chosen_id := str(trigger.get("_chosen_target_id", ""))
