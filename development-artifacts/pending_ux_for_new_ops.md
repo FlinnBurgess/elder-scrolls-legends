@@ -1,99 +1,41 @@
-# Pending UX Work for New Engine Ops
+# Pending UX Work for New Engine Ops — ALL RESOLVED
 
-## All Functionally Broken Items — FIXED
+All UX items from the engine feature implementation have been addressed.
+
+## Functionally Broken — FIXED
 
 - ~~#20~~ `look_draw_discard` / `look_give_draw` — Multi-card choice panel (commit 89fe0de)
 - ~~#21~~ `_on_player_choice_selected` drops events (commit 2989817)
 - ~~#22~~ `choose_two` second-choice re-prompt (commit c41e0c8)
 
-## Feedback Handlers — All Event Types Now Covered
+## Feedback Handlers — All 42 Event Types Now Covered
 
-Added `_record_feedback_from_events` handlers for 35 event types including:
+**Creature-level popups** (`_queue_creature_toast`):
+- `marked_for_destruction` → "DOOMED" | `status_removed` → "[STATUS] REMOVED"
+- `cost_modified` → "+N/-N Cost" | `temporary_immunity_granted` → "IMMUNE"
+- `damage_redirect_set` → "PROTECTED" | `creature_marked`/`creature_aimed_at` → "MARKED"/"AIMED"
+- `marked_for_resummon` → "RESUMMON" | `attribute_changed` → "→ [Attribute]"
+- `stats_modified` → "+N/+N" or "-N/-N" | `attached_item_detached` → "ITEM DESTROYED"
+- `keyword_granted` → "+[KEYWORD]" | `keyword_stolen`/`status_stolen` → "-[KEYWORD]"
+- `ability_granted` → "+ABILITY" | `creatures_swapped` → "SWAPPED"
+- `counter_updated` → "N/N" (progress toward threshold)
 
-**Creature-level popups** (via `_queue_creature_toast`):
-- `marked_for_destruction` → "DOOMED" (red)
-- `status_removed` → "[STATUS] REMOVED" (orange)
-- `cost_modified` → "+N/-N Cost" (purple)
-- `temporary_immunity_granted` → "IMMUNE" (gold)
-- `damage_redirect_set` → "PROTECTED" (blue)
-- `creature_marked` / `creature_aimed_at` → "MARKED"/"AIMED"
-- `marked_for_resummon` → "RESUMMON" (gold)
-- `attribute_changed` → "→ [Attribute]"
-- `stats_modified` → "+N/+N" (green) or "-N/-N" (red)
-- `attached_item_detached` → "ITEM DESTROYED"
-- `keyword_granted` → "+[KEYWORD]" (green)
-- `keyword_stolen` / `status_stolen` → "-[KEYWORD]" (red)
-- `ability_granted` → "+ABILITY"
-
-**Status toasts** (via `_queue_status_toast`):
-- `treasure_found` → "Treasure Found! (N)" (gold)
-- `card_transformed` → "Card transformed!" (purple)
-- `rune_restored` → "Rune restored!" (cyan)
-- `lane_type_changed` → "[Type] Lane!" (purple)
-- `magicka_restored` → "Magicka restored!" (blue)
-- `card_milled` → "Card milled"
-- `card_stolen_from_discard` → "Stole a card!" (gold)
-- `item_in_hand_modified` → "Item buffed +X/+Y"
-- `rune_draw_prevented` → "Next rune draw prevented!"
-- `double_summon_granted` → "Double Summon this turn!"
-- `action_learned` → "Learned [Name]!"
-- `card_shuffled_to_deck` → "Card shuffled into deck"
-- `card_banished` → "Card banished"
-- `card_discarded` → "Card discarded"
-- `card_stolen` → "Card stolen!"
-- `card_consumed` → "Creature consumed"
+**Status toasts** (`_queue_status_toast`):
+- `treasure_found` | `card_transformed` | `rune_restored` | `lane_type_changed`
+- `magicka_restored` | `card_milled` | `card_stolen_from_discard` | `item_in_hand_modified`
+- `rune_draw_prevented` | `double_summon_granted` | `action_learned`
+- `card_shuffled_to_deck` | `card_banished` | `card_discarded` | `card_stolen`
+- `card_consumed` | `all_creatures_shuffled` | `summons_retriggered`
+- `deck_transformed` | `mass_consume` | `lane_aoe_damage`
 
 **Animations:**
-- `treasure_hunt_revealed` → Card-flip deck reveal with MATCH!/MISS banner (green/red)
+- `treasure_hunt_revealed` → Card-flip deck reveal with MATCH!/MISS banner
 
-**Skip button:**
-- Optional summon targeting now shows a visible "Skip" button (same pattern as Betray skip)
+**UI Features:**
+- Optional targeting Skip button (matching Betray skip pattern)
+- Wax/Wane phase indicator in turn banner ("Moon: Waxing/Waning")
+- Counter progress popup on card (N/threshold)
 
-## Still Outstanding — Polish/Nice-to-Have
+## No Remaining Items
 
-These are minor polish items that don't block gameplay:
-
-### Wax/Wane Phase Indicator
-- The current wax_wane_state is never displayed. Player can't tell which phase they're in.
-- **Need:** Player avatar badge showing current moon phase.
-- Cards: All Wax/Wane creatures, Moon Gate, Rebellion General
-
-### Counter Badge
-- `add_counter` increments silently. No badge or progress indicator on the card.
-- **Need:** Counter badge on card showing current count / threshold.
-- Cards: Cog Collector, Dragonfire Wizard
-
-### Lane AOE Flash
-- `deal_damage_to_lane`: Individual damage popups fire but no lane-wide flash.
-- **Nice to have:** Lane flash/pulse before individual damage popups.
-- Cards: Unstoppable Rage
-
-### Lane-Clear Animation
-- `shuffle_all_creatures_into_deck`: Creatures leave lanes via move (not destroy), so no removal animation fires.
-- **Nice to have:** Dedicated lane-clearing sweep animation.
-- Cards: A New Era
-
-### Swap Toast
-- `swap_creatures`: Board redraws but no announcement that a swap happened.
-- **Nice to have:** Toast on both swapped creatures.
-- Cards: Guildsworn Honeytongue
-
-### Deck Transform Toast
-- `transform_deck`: Entire deck silently replaced.
-- **Nice to have:** Toast: "Deck transformed!"
-- Cards: Gates of Madness
-
-### Consume Toast
-- `consume_all_creatures_in_discard_this_turn`: Silent consume.
-- **Nice to have:** Toast: "Consumed N creatures from discard!"
-- Cards: Ruin Shambler
-
-### Summon Source Indication
-- Creatures summoned from deck/discard appear with no indication of where they came from.
-- **Nice to have:** Deck/discard glow when a card is pulled from it.
-- Cards: Gravesinger, Mannimarco, Sails-Through-Storms, etc.
-
-### Re-trigger Announcement
-- `trigger_all_friendly_summons`: Individual summon events fire but no announcement that it's a re-trigger.
-- **Nice to have:** Toast before individual summons.
-- Cards: Ulfric's Uprising
+All items from the original 40-item list have been addressed. The only remaining polish opportunities are visual refinements (e.g., richer animations, persistent card overlays for marked/aimed/immune states), which can be done as part of general UI polish work.

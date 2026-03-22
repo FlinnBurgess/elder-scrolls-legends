@@ -5702,6 +5702,26 @@ func _record_feedback_from_events(events: Array) -> void:
 					_queue_creature_toast(str(event.get("target_instance_id", "")), "+%s" % kg_kw, Color(0.4, 0.8, 0.5))
 			"ability_granted":
 				_queue_creature_toast(str(event.get("target_instance_id", "")), "+ABILITY", Color(0.5, 0.7, 0.9))
+			"creatures_swapped":
+				_queue_creature_toast(str(event.get("source_instance_id", "")), "SWAPPED", Color(0.8, 0.6, 0.3))
+				_queue_creature_toast(str(event.get("target_instance_id", "")), "SWAPPED", Color(0.8, 0.6, 0.3))
+			"all_creatures_shuffled":
+				_queue_status_toast("All creatures shuffled into decks!", Color(0.7, 0.5, 0.9))
+			"summons_retriggered":
+				_queue_status_toast("Re-triggering all summon abilities!", Color(0.9, 0.8, 0.3))
+			"deck_transformed":
+				_queue_status_toast("Deck transformed!", Color(0.7, 0.4, 0.9))
+			"mass_consume":
+				var mc_count := int(event.get("count", 0))
+				_queue_status_toast("Consumed %d creature%s from discard!" % [mc_count, "s" if mc_count != 1 else ""], Color(0.5, 0.3, 0.6))
+			"lane_aoe_damage":
+				var lad_lane_id := str(event.get("lane_id", ""))
+				var lad_amount := int(event.get("amount", 0))
+				_queue_status_toast("%d damage to all creatures in lane!" % lad_amount, Color(0.9, 0.3, 0.2))
+			"counter_updated":
+				var cu_value := int(event.get("value", 0))
+				var cu_threshold := int(event.get("threshold", 0))
+				_queue_creature_toast(str(event.get("source_instance_id", "")), "%d/%d" % [cu_value, cu_threshold], Color(0.7, 0.6, 0.3))
 
 
 func _apply_presentation_feedback() -> void:
@@ -6497,7 +6517,13 @@ func _refresh_turn_presentation() -> void:
 		_turn_banner_label.text = _turn_state_text()
 		_turn_banner_label.add_theme_color_override("font_color", _turn_state_font_color())
 	if _turn_banner_detail_label != null:
-		_turn_banner_detail_label.text = _player_name(active_player)
+		var detail_text := _player_name(active_player)
+		var local_player := _player_state(_local_player_id())
+		if local_player.has("wax_wane_state"):
+			var ww_phase := str(local_player.get("wax_wane_state", "wax"))
+			var ww_icon := "Waxing" if ww_phase == "wax" else "Waning"
+			detail_text += "  |  Moon: %s" % ww_icon
+		_turn_banner_detail_label.text = detail_text
 		_turn_banner_detail_label.add_theme_color_override("font_color", _turn_state_font_color().lerp(Color(0.8, 0.84, 0.92, 0.96), 0.32))
 
 

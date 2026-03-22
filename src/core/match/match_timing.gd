@@ -4352,6 +4352,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var ddtl_lane_id := str(ddtl_location.get("lane_id", ""))
 					if ddtl_lane_id.is_empty():
 						continue
+					generated_events.append({"event_type": "lane_aoe_damage", "source_instance_id": ddtl_source_id, "lane_id": ddtl_lane_id, "amount": ddtl_power})
 					for ddtl_lane in match_state.get("lanes", []):
 						if str(ddtl_lane.get("lane_id", "")) != ddtl_lane_id:
 							continue
@@ -4809,6 +4810,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						generated_events.append_array(rait_result.get("events", []))
 			"shuffle_all_creatures_into_deck":
 				var sacid_all := _all_lane_creatures(match_state)
+				generated_events.append({"event_type": "all_creatures_shuffled", "source_instance_id": str(trigger.get("source_instance_id", "")), "count": sacid_all.size()})
 				var sacid_ids: Array = []
 				for card in sacid_all:
 					sacid_ids.append({"id": str(card.get("instance_id", "")), "controller": str(card.get("controller_player_id", ""))})
@@ -4865,6 +4867,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 			"trigger_all_friendly_summons":
 				var tafs_controller_id := str(trigger.get("controller_player_id", ""))
 				var tafs_creatures := _player_lane_creatures(match_state, tafs_controller_id)
+				generated_events.append({"event_type": "summons_retriggered", "source_instance_id": str(trigger.get("source_instance_id", "")), "controller_player_id": tafs_controller_id, "count": tafs_creatures.size()})
 				for card in tafs_creatures:
 					var tafs_lane_location := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
 					var tafs_lane_id := str(tafs_lane_location.get("lane_id", ""))
@@ -5213,6 +5216,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					# Give source to target's controller
 					var sc_give := MatchMutations.steal_card(match_state, sc_target_controller, sc_source_id, {})
 					generated_events.append_array(sc_give.get("events", []))
+					generated_events.append({"event_type": "creatures_swapped", "source_instance_id": sc_source_id, "target_instance_id": sc_target_id})
 			"increase_opponent_action_cost":
 				var ioac_controller_id := str(trigger.get("controller_player_id", ""))
 				var ioac_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
@@ -5812,6 +5816,8 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					for cacidt_card in cacidt_discard:
 						if typeof(cacidt_card) == TYPE_DICTIONARY and str(cacidt_card.get("card_type", "")) == CARD_TYPE_CREATURE:
 							cacidt_targets.append(cacidt_card)
+					if not cacidt_targets.is_empty():
+						generated_events.append({"event_type": "mass_consume", "source_instance_id": cacidt_source_id, "player_id": cacidt_controller_id, "count": cacidt_targets.size()})
 					for cacidt_target in cacidt_targets:
 						var cacidt_result := MatchMutations.consume_card(match_state, cacidt_controller_id, cacidt_source_id, str(cacidt_target.get("instance_id", "")), {"reason": reason})
 						generated_events.append_array(cacidt_result.get("events", []))
@@ -5837,6 +5843,9 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var ac_current := int(ac_source.get("_counter_" + ac_counter_name, 0))
 					ac_source["_counter_" + ac_counter_name] = ac_current + int(effect.get("amount", 1))
 					var ac_threshold := int(effect.get("threshold", 0))
+					var ac_new_value: int = ac_source["_counter_" + ac_counter_name]
+					if ac_threshold > 0:
+						generated_events.append({"event_type": "counter_updated", "source_instance_id": str(trigger.get("source_instance_id", "")), "counter": ac_counter_name, "value": ac_new_value, "threshold": ac_threshold})
 					if ac_threshold > 0 and ac_source["_counter_" + ac_counter_name] >= ac_threshold:
 						ac_source["_counter_" + ac_counter_name] = 0
 						var ac_then_effects: Array = effect.get("then_effects", [])
@@ -5886,6 +5895,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							var td_card: Dictionary = td_deck[i]
 							var td_idx := _deterministic_index(match_state, str(td_card.get("instance_id", "")) + "_transform_deck", td_collectible.size())
 							MatchMutations.change_card(td_card, td_collectible[td_idx])
+						generated_events.append({"event_type": "deck_transformed", "source_instance_id": str(trigger.get("source_instance_id", "")), "player_id": td_controller_id, "count": td_deck.size()})
 			"look_draw_discard":
 				var ldd_controller_id := str(trigger.get("controller_player_id", ""))
 				var ldd_player := _get_player_state(match_state, ldd_controller_id)
