@@ -2768,6 +2768,18 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"new_power": EvergreenRules.get_power(card),
 						"reason": reason,
 					})
+			"sacrifice_if_no_ward":
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					if not EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_WARD):
+						var loc := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
+						if bool(loc.get("is_valid", false)):
+							var moved := MatchMutations.discard_card(match_state, str(card.get("instance_id", "")))
+							if bool(moved.get("is_valid", false)):
+								generated_events.append({
+									"event_type": "creature_destroyed",
+									"instance_id": str(card.get("instance_id", "")),
+									"reason": "sacrifice_if_no_ward",
+								})
 			"swap_stats":
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					var current_power := EvergreenRules.get_power(card)
