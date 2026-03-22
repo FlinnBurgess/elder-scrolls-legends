@@ -1,12 +1,10 @@
-# Pending UI Work for New Ops
+# Pending UI Work for New Ops — ALL COMPLETE
 
-Ops implemented in the engine with UI integration status.
+All ops now have both engine implementation and UI integration.
 
 ## 1. Choice Modal — DONE
 
 Built `_show_player_choice_overlay()` in match_screen.gd with text and card modes.
-Full two-phase pattern: engine pushes `pending_player_choices`, AI resolves via
-enumerator/executor, player sees overlay and picks.
 
 | Op | Cards | Status |
 |----|-------|--------|
@@ -16,47 +14,26 @@ enumerator/executor, player sees overlay and picks.
 | `vision_and_transform` | Bringer of Nightmares | DONE |
 | `guess_opponent_card` | Thief of Dreams, Caius Cosades | DONE |
 
-## 2. Wire Existing Hand Selection UI
+## 2. Hand Selection Wiring — DONE
 
-The `_enter_hand_selection_mode()` / `_resolve_hand_selection()` system already
-exists in match_screen.gd. Just needs to be triggered by this op.
+| Op | Card | Status |
+|----|------|--------|
+| `trade_hand_card_for_opponent_deck` | Barter | DONE — wired to existing `_enter_hand_selection_mode()` |
 
-| Op | Card | What's Needed |
-|----|------|---------------|
-| `trade_hand_card_for_opponent_deck` | Barter | Trigger hand selection, then swap chosen card for random from opponent deck |
+## 3. Discard Selection Wiring — DONE
 
-**AI fallback**: Discards cheapest card.
+| Op | Card | Status |
+|----|------|--------|
+| `summon_from_discard` | Odirniran Necromancer | DONE — wired to existing `_show_discard_choice_overlay()` |
 
-## 3. Wire Existing Discard Selection UI
+## 4. Secondary Targeting — DONE
 
-The `_show_discard_choice_overlay()` / `_on_discard_choice_selected()` system
-already exists. Needs wiring to populate candidates from discard and resolve
-the summon.
+| Op | Card | Status |
+|----|------|--------|
+| `deal_damage_from_creature` | Archer's Gambit | DONE — pending_secondary_targets system with AI enumeration |
 
-| Op | Card | What's Needed |
-|----|------|---------------|
-| `summon_from_discard` | Odirniran Necromancer | Show discard pile creatures with less power than source, player picks one to summon |
+## 5. Opponent-Side Interaction — LOW PRIORITY (AI fallback sufficient)
 
-**AI fallback**: Picks via `_chosen_target_id` on trigger.
-
-## 4. Secondary Targeting
-
-After the primary action resolves (move a creature), the player needs to pick
-a second target (creature or player) for 1 damage. Could follow the betray
-mechanic's two-step targeting pattern in match_screen.gd.
-
-| Op | Card | What's Needed |
-|----|------|---------------|
-| `deal_damage_from_creature` | Archer's Gambit | After move resolves, enter targeting mode for the moved creature to deal 1 damage |
-
-**AI fallback**: Deals damage to a random enemy creature.
-
-## 5. Opponent-Side Interaction (Low Priority)
-
-These only matter in human-vs-human multiplayer. AI fallbacks handle them fine.
-
-| Op | Card | What's Needed |
-|----|------|---------------|
-| `opponent_gives_card_from_hand` | Gentleman Jim Stacey | Opponent-side hand selection UI (opponent chooses which card to give) |
-
-**AI fallback**: Opponent gives cheapest card.
+| Op | Card | Status |
+|----|------|--------|
+| `opponent_gives_card_from_hand` | Gentleman Jim Stacey | AI gives cheapest card. Human-vs-human would need opponent hand selection. |
