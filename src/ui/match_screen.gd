@@ -421,6 +421,16 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 		card["grants_immunity"] = definition["grants_immunity"].duplicate(true)
 	if definition.has("magicka_aura"):
 		card["magicka_aura"] = int(definition["magicka_aura"])
+	if definition.has("self_immunity"):
+		card["self_immunity"] = definition["self_immunity"].duplicate(true)
+	var innate_statuses: Array = definition.get("innate_statuses", [])
+	if not innate_statuses.is_empty():
+		card["innate_statuses"] = innate_statuses.duplicate(true)
+		var markers: Array = card.get("status_markers", [])
+		for status_id in innate_statuses:
+			if not markers.has(status_id):
+				markers.append(status_id)
+		card["status_markers"] = markers
 
 
 static func _hydrate_all_zones(match_state: Dictionary, card_by_id: Dictionary) -> void:

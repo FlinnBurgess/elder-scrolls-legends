@@ -754,6 +754,9 @@ static func _should_grant_cover(lane: Dictionary, card: Dictionary, apply_shadow
 		return false
 	if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_GUARD):
 		return false
+	var self_immunities = card.get("self_immunity", [])
+	if typeof(self_immunities) == TYPE_ARRAY and self_immunities.has("cover"):
+		return false
 	return not EvergreenRules.has_raw_status(card, EvergreenRules.STATUS_COVER)
 
 

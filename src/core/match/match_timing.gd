@@ -1805,6 +1805,9 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 			"grant_status":
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					var status_id := str(effect.get("status_id", ""))
+					var target_self_immunities = card.get("self_immunity", [])
+					if typeof(target_self_immunities) == TYPE_ARRAY and target_self_immunities.has(status_id):
+						continue
 					if status_id == EvergreenRules.STATUS_COVER:
 						var offset := int(effect.get("expires_on_turn_offset", 1))
 						EvergreenRules.grant_cover(card, int(match_state.get("turn_number", 0)) + offset, reason)
@@ -1952,8 +1955,11 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						patched_trigger["_chosen_target_player_id"] = chosen_player
 						var custom_result := ExtendedMechanicPacks.apply_custom_effect(match_state, patched_trigger, event, {"op": "damage", "amount": damage_amount, "target_player": "chosen_target_player"})
 						generated_events.append_array(custom_result.get("events", []))
+				var is_action_damage := str(event.get("card_type", "")) == "action"
 				for card in deal_damage_targets:
 					if damage_amount <= 0:
+						continue
+					if is_action_damage and _is_immune_to_effect(match_state, card, "action_damage"):
 						continue
 					var damage_result := EvergreenRules.apply_damage_to_creature(card, damage_amount)
 					if bool(damage_result.get("ward_removed", false)):
@@ -3374,6 +3380,9 @@ static func _get_aura_cost_reduction(match_state: Dictionary, player_id: String,
 
 
 static func _is_immune_to_effect(match_state: Dictionary, target_card: Dictionary, effect_type: String) -> bool:
+	var self_immunities = target_card.get("self_immunity", [])
+	if typeof(self_immunities) == TYPE_ARRAY and self_immunities.has(effect_type):
+		return true
 	var controller_id := str(target_card.get("controller_player_id", ""))
 	var target_id := str(target_card.get("instance_id", ""))
 	for lane in match_state.get("lanes", []):

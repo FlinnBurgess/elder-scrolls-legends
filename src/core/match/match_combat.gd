@@ -99,7 +99,7 @@ static func _validate_player_attack_target(attacker_lookup: Dictionary, defendin
 	if str(target.get("player_id", "")) != defending_player_id:
 		return _invalid_result("Creatures can only attack the opposing player.")
 
-	if not enemy_guards.is_empty():
+	if not enemy_guards.is_empty() and not EvergreenRules.has_status(attacker_lookup["card"], "ignore_guard"):
 		return _invalid_result("Guard creatures in lane %s must be attacked first." % attacker_lookup["lane_id"])
 
 	return {
@@ -124,14 +124,16 @@ static func _validate_creature_attack_target(match_state: Dictionary, attacker_l
 	if str(defender_lookup["player_id"]) != defending_player_id:
 		return _invalid_result("Creatures can only attack enemy creatures.")
 
-	if str(defender_lookup["lane_id"]) != str(attacker_lookup["lane_id"]):
+	var attacker_can_attack_any_lane := EvergreenRules.has_status(attacker_lookup["card"], "attack_any_lane")
+	if str(defender_lookup["lane_id"]) != str(attacker_lookup["lane_id"]) and not attacker_can_attack_any_lane:
 		return _invalid_result("Creatures can only attack enemy creatures in the same lane.")
 
 	var defender: Dictionary = defender_lookup["card"]
 	if _is_cover_active(match_state, defender) and not _has_keyword(defender, EvergreenRules.KEYWORD_GUARD):
 		return _invalid_result("Covered creatures cannot be attacked by enemy creatures.")
 
-	if not enemy_guards.is_empty() and not _has_keyword(defender, EvergreenRules.KEYWORD_GUARD):
+	var attacker_ignores_guard := EvergreenRules.has_status(attacker_lookup["card"], "ignore_guard")
+	if not enemy_guards.is_empty() and not _has_keyword(defender, EvergreenRules.KEYWORD_GUARD) and not attacker_ignores_guard:
 		return _invalid_result("Guard creatures in lane %s must be attacked first." % attacker_lookup["lane_id"])
 
 	return {

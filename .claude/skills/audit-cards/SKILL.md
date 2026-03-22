@@ -1,6 +1,6 @@
 ---
 name: audit-cards
-description: Systematically audit every card in the catalog for data accuracy and functional correctness. Compares against UESP wiki, validates engine integration, and fixes issues. Processes in batches of 10 with progress tracking.
+description: Audit cards for data accuracy and engine correctness. Supports single-card audit (compare against UESP wiki, verify engine ops/targets/families, report PASS or NEEDS_FIX) or full-catalog batch audit with progress tracking.
 ---
 
 # Audit All Cards
@@ -9,7 +9,25 @@ Systematically audit every card in the catalog by running the `wiki-fix` skill o
 
 ## Input
 
-No arguments required. Operates on the full card catalog.
+- **No arguments** — runs a full batch audit of the entire catalog.
+- **Single card name** (e.g. `"Grahtwood Ambusher"`) — audits just that card. See "Single Card Mode" below.
+
+## Single Card Mode
+
+When the user asks to audit a specific card (optionally providing catalog data inline):
+
+1. **Fetch the UESP wiki page** for the card and compare every field: name, attribute(s), type, cost, power, health, rarity, subtypes, keywords, and rules text.
+2. **Verify engine integration** in `src/core/match/match_timing.gd` and `src/core/match/extended_mechanic_packs.gd` (ops may be handled in either file's `_apply_effects` / `apply_custom_effect`):
+   - Each `op` in `effect_ids` / `triggered_abilities` is handled (e.g. `deal_damage`, `modify_stats`).
+   - The `family` (e.g. `summon`, `last_gasp`) is a recognized trigger constant.
+   - Each `target` value (e.g. `all_enemies_in_lane`) resolves correctly in `_resolve_card_targets`.
+   - Each `target_mode` value (e.g. `creature_or_player`, `enemy_creature`) is handled in the targeting system — check both `match_timing.gd` (target list construction) and `extended_mechanic_packs.gd` (`_card_matches_target_mode`). Note: `target_mode` controls what the player can select as a target, while `target` in the effect dict controls what the effect actually hits.
+   - **For item cards**: verify `equip_power_bonus`/`equip_health_bonus` values match the wiki's +X/+Y, confirm `equip_keywords` lists all granted keywords, and check that each keyword exists in `data/legends/registries/keyword_effect_registry.json`. Validate that `evergreen_rules.gd` reads these fields (`_sum_attached_item_bonus` for stats, `equip_keywords` array for keyword granting).
+   - **For aura cards** (cards with an `aura` dict): verify each aura field is handled by `_get_aura_targets` in `match_timing.gd` — specifically that `scope` (e.g. `all_lanes`, `same_lane`, `self`), `target` (e.g. `all_friendly`, `other_friendly`), `filter_attribute`, `filter_subtype`, `power`, `health`, and `keywords` are all read and applied correctly. For support cards, confirm `recalculate_auras` collects aura sources from the support zone.
+3. **Report** a field-by-field comparison table and a final verdict: **PASS** or **NEEDS_FIX** (with details).
+4. If the user said "audit only" / "no edits", do not modify any files regardless of findings.
+
+When finished, proceed to the full-catalog workflow below only if no single card was specified.
 
 ## Workflow
 
@@ -40,30 +58,30 @@ Check if `development-artifacts/card_audit_progress.json` exists.
 1. Read the file and find the first card with `"status": "pending"`.
 2. Report how many cards remain vs. how many have been processed.
 
-### Step 2 — Process Cards in Batches
+### Step 2 — Process Cards in Parallel Batches
 
-Take the next 10 cards with `"status": "pending"` as the current batch.
+Take the next 5 cards with `"status": "pending"` as the current batch.
 
-For each card in the batch:
+**Phase 1 — Parallel Audit:** Launch 5 Agent subagents simultaneously (in a single message with multiple Agent tool calls), one per card. Each agent:
+1. Runs the full `wiki-fix` analysis for its card (fetch wiki data, compare fields, code-level validation).
+2. Reports back whether the card **passes** (no issues) or **needs fixes** (with details of what's wrong).
+3. **Does NOT make edits** — audit only. This avoids conflicts from multiple agents editing `card_catalog.gd` concurrently.
 
-1. **Invoke the `wiki-fix` skill** with the card's name as the argument.
-   - wiki-fix will fetch wiki data, compare all fields, run code-level validation (effect ops exist, target modes handled, keywords recognized, conditions valid, synergy/alt-view integrity), fix any issues, and run tests.
-   - If the wiki page cannot be fetched, wiki-fix will still run code-level checks (Steps 3e-3i in wiki-fix).
+**Phase 2 — Sequential Fixes:** After all 5 agents complete, for each card that needs fixes:
+1. Apply the fixes to `card_catalog.gd` and any other files, one card at a time.
+2. Run tests after each fix to ensure no regressions.
+3. If tests fail, debug and resolve before moving to the next fix.
 
-2. **After wiki-fix completes**, update the card's status in `card_audit_progress.json`:
-   - `"pass"` — no issues found
-   - `"fixed"` — issues were found and resolved
-
-3. **If tests fail** after a fix, debug and resolve the test failures before moving to the next card. Never leave tests broken.
-
-4. Move to the next card in the batch.
+**Phase 3 — Update Progress:** After both phases complete, update `card_audit_progress.json` for all cards in the batch:
+- `"pass"` — no issues found
+- `"fixed"` — issues were found and resolved
 
 ### Step 3 — Continue to Next Batch
 
-After completing a batch of 10:
+After completing a batch of 5:
 
 1. Report a brief summary: how many passed, how many fixed, how many remain.
-2. Immediately start the next batch of 10 pending cards. Do not pause for user confirmation.
+2. Immediately start the next batch of 5 pending cards. Do not pause for user confirmation.
 3. Repeat until no pending cards remain.
 
 ### Step 4 — Final Report and Cleanup
@@ -86,4 +104,5 @@ When running as part of the batch audit, **skip wiki-fix Step 6 (Scan for Relate
 - The `wiki-fix` skill handles all analysis and fix logic. This skill is purely orchestration.
 - If the process is interrupted, `development-artifacts/card_audit_progress.json` persists on disk. Re-running `/audit-cards` picks up where it left off.
 - Card images are excluded from this audit — this is purely data, configuration, rules, and behaviour.
-- The batch size of 10 balances throughput with manageability. If a card requires complex engine-level fixes, the batch will take longer but progress is saved after each card.
+- The batch size of 5 balances parallelism with agent overhead. Each batch launches 5 concurrent agents for audit, then applies any needed fixes sequentially to avoid file conflicts.
+- Agents are audit-only in Phase 1 — they read and analyse but do not edit files. This is critical for safe parallel execution.
