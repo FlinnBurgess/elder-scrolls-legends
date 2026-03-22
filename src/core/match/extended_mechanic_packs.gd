@@ -743,6 +743,34 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				dfomb_deck.pop_back()
 				dfomb_deck.insert(0, dfomb_top_card)
 				return {"handled": true, "events": [{"event_type": "card_moved_to_bottom", "player_id": dfomb_controller_id, "instance_id": str(dfomb_top_card.get("instance_id", ""))}]}
+		"waves_of_the_fallen_choice":
+			var wotf_controller := str(trigger.get("controller_player_id", ""))
+			var wotf_lane_id := str(event.get("lane_id", "field"))
+			var wotf_events: Array = []
+			# AI heuristic: debuff enemies if present, otherwise buff friendlies
+			var wotf_debuff := false
+			for lane in match_state.get("lanes", []):
+				if str(lane.get("lane_id", lane.get("lane_type", ""))) == wotf_lane_id or str(lane.get("lane_index", "")) == wotf_lane_id:
+					for pid in lane.get("player_slots", {}).keys():
+						if pid != wotf_controller:
+							var enemy_cards: Array = lane["player_slots"][pid]
+							if not enemy_cards.is_empty():
+								wotf_debuff = true
+								for card in enemy_cards:
+									if typeof(card) == TYPE_DICTIONARY:
+										var pw_diff := 2 - EvergreenRules.get_power(card)
+										var hw_diff := 2 - EvergreenRules.get_health(card)
+										EvergreenRules.apply_stat_bonus(card, pw_diff, hw_diff, "waves_of_the_fallen")
+										wotf_events.append({"event_type": "stats_set", "target_instance_id": str(card.get("instance_id", "")), "new_power": 2, "new_health": 2})
+					if not wotf_debuff:
+						for card in lane.get("player_slots", {}).get(wotf_controller, []):
+							if typeof(card) == TYPE_DICTIONARY:
+								var pw_diff := 5 - EvergreenRules.get_power(card)
+								var hw_diff := 5 - EvergreenRules.get_health(card)
+								EvergreenRules.apply_stat_bonus(card, pw_diff, hw_diff, "waves_of_the_fallen")
+								wotf_events.append({"event_type": "stats_set", "target_instance_id": str(card.get("instance_id", "")), "new_power": 5, "new_health": 5})
+					break
+			return {"handled": true, "events": wotf_events}
 		"merchant_offer":
 			var mo_controller := str(trigger.get("controller_player_id", ""))
 			var mo_opponent := ""
