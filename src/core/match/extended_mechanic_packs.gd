@@ -1780,7 +1780,7 @@ static func betray_replay_has_valid_target(match_state: Dictionary, player_id: S
 					continue
 				if _card_matches_target_mode(action_target_mode, card, player_id):
 					return true
-	if action_target_mode == "creature_or_player":
+	if action_target_mode == "creature_or_player" or action_target_mode == "any_creature_or_player":
 		return true
 	return false
 
@@ -1804,5 +1804,27 @@ static func _card_matches_target_mode(target_mode: String, card: Dictionary, con
 			var attrs: Array = card.get("attributes", [])
 			return typeof(attrs) == TYPE_ARRAY and attrs.has("neutral")
 		"enemy_creature_or_support":
+			return card_controller != controller_player_id
+		"creature_1_power_or_less":
+			return EvergreenRules.get_power(card) <= 1
+		"creature_4_power_or_less":
+			return EvergreenRules.get_power(card) <= 4
+		"creature_4_power_or_more":
+			return EvergreenRules.get_power(card) >= 4
+		"creature_with_0_power":
+			return EvergreenRules.get_power(card) == 0
+		"enemy_creature_3_power_or_less":
+			return card_controller != controller_player_id and EvergreenRules.get_power(card) <= 3
+		"creature_in_other_lane":
+			return true
+		"friendly_creature_without_guard":
+			return card_controller == controller_player_id and not EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_GUARD)
+		"enemy_creature_optional":
+			return card_controller != controller_player_id
+		"another_friendly_creature_optional":
+			return card_controller == controller_player_id
+		"any_creature_or_player":
+			return true
+		"enemy_creature_less_power_than_self_health":
 			return card_controller != controller_player_id
 	return true

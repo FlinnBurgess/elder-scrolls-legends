@@ -80,7 +80,23 @@ Any card that promises an effect in its rules_text but has zero implementation f
 
 This check is fast (single file scan, no wiki fetches) and catches a class of bug that the op/family sweep misses, since these cards have no ops to verify in the first place.
 
-### Step 1d — Skip Simple Cards
+### Step 1d — Structural Integrity Checks
+
+Fast single-file scans on `card_catalog.gd` that catch common data errors with zero wiki fetches. Flag any card that fails as NEEDS_FIX.
+
+1. **Items missing equip fields** — `card_type == "item"` with `+X/+Y` in `rules_text` but no `equip_power_bonus`/`equip_health_bonus`. Items MUST have both display fields and equip fields. Note: zero-value bonus fields (e.g. `equip_health_bonus: 0` on a `+3/+0` item) are optional since 0 is the default.
+2. **Supports missing support_uses** — `card_type == "support"` where `rules_text` contains "Uses:" or "Ongoing" but the seed has no `support_uses` field. ("Uses: N" → `support_uses: N`, "Ongoing" → `support_uses: 0`.)
+3. **Keywords in rules_text but not in keywords array** — e.g., `rules_text` says "Guard" but `keywords` doesn't include `"guard"`. Check all evergreen keywords: guard, charge, drain, ward, lethal, breakthrough, regenerate, rally, mobilize. Note: keywords that are conditionally granted (via aura or triggered abilities) should NOT be in the base keywords array.
+4. **Prophecy in rules_text but missing from rules_tags** — `rules_text` contains "Prophecy" but no `"prophecy"` in `rules_tags`.
+5. **Beast Form text without rune_break trigger** — `rules_text` contains "Beast Form" but `triggered_abilities` has no entry with `family: "rune_break"`.
+6. **Shout cards missing shout fields** — `rules_text` mentions "Level 1"/"Level 2"/"Level 3" progression or `rules_tags` includes `"shout"`, but the seed has no `shout_chain_id` or `shout_levels`.
+7. **Unique legendaries missing is_unique** — Cross-reference against `data/wiki_scrape/cards.json` entries with `is_unique: true`. Any card marked unique in the scraped data but missing `"is_unique": true` in its seed is flagged.
+8. **Duplicate card_ids** — Two or more `_seed()` calls sharing the same first argument. This causes silent overwrites in the card_by_id dict.
+9. **TODO markers** — Seeds preceded by `# TODO` comments, indicating unfinished triggered_abilities from bulk import.
+10. **Empty triggered_abilities** — Has a `triggered_abilities` array but with entries containing empty `effects` arrays (silent no-ops at runtime). Exception: `consume: true` entries may intentionally have empty effects.
+11. **card_id prefix vs attributes mismatch** — e.g., card_id starts with `str_` but attributes contain `["intelligence"]`. Prefixes: str_=strength, int_=intelligence, wil_=willpower, agi_=agility, end_=endurance, neu_=neutral, dual_=2 attributes, tri_=3+ attributes. Expansion prefixes like `aw_str_` mean the attribute prefix is after the expansion prefix.
+
+### Step 1e — Skip Simple Cards
 
 Before processing, auto-pass cards that have no meaningful logic to audit:
 
@@ -93,9 +109,9 @@ Cards with any of the following **must still be audited**: `triggered_abilities`
 
 ### Step 2 — Process Cards in Parallel Batches
 
-Take the next 20 cards with `"status": "pending"` as the current batch.
+Take the next 50 cards with `"status": "pending"` as the current batch.
 
-**Phase 1 — Parallel Audit (Haiku agents):** Launch 5 Agent subagents simultaneously using `model: "haiku"`, each auditing 10 cards. Each agent:
+**Phase 1 — Parallel Audit (Haiku agents):** Launch 3–5 Agent subagents simultaneously using `model: "haiku"`, each auditing 10–20 cards. Each agent:
 1. For each card: looks up wiki data from `data/wiki_scrape/cards.json` (search by card name, case-insensitive). If not found in scraped data, falls back to fetching the UESP wiki page. For beast form / multi-form cards, match both the base form entry and the transformed form entry (see Single Card Mode above). Compares all data fields and checks that all ops/families/conditions are valid.
 2. **Only reports NEEDS_FIX cards** with specific details. Passing cards are listed by name only (e.g., "PASS: Card A, Card B, Card C").
 3. **Does NOT make edits** — audit only.
@@ -123,8 +139,11 @@ modify_stats, deal_damage, grant_keyword, grant_random_keyword, remove_keyword, 
 **Verified ops (extended_mechanic_packs.gd `apply_custom_effect`):**
 damage, escalating_damage, summon_random_from_catalog, generate_random_to_hand, draw_filtered_or_move_to_bottom, summon_random_by_target_cost, look_at_top_deck_may_discard, equip_random_item_from_catalog
 
+**Verified ops (match_timing.gd — additional):**
+move_between_lanes, invade
+
 **Verified families (match_timing.gd FAMILY_SPECS):**
-summon, on_play, last_gasp, slay, pilfer, start_of_turn, end_of_turn, on_attack, on_damage, on_equip, on_ward_broken, after_action_played, activate, on_enemy_rune_destroyed, on_enemy_shackled, item_detached, expertise
+summon, on_play, last_gasp, slay, pilfer, start_of_turn, end_of_turn, on_attack, on_damage, on_equip, on_ward_broken, after_action_played, activate, on_enemy_rune_destroyed, on_enemy_shackled, item_detached, expertise, veteran, rune_break, on_friendly_creature_destroyed, on_friendly_damaged
 
 **Verified conditions:**
 required_top_deck_attribute, required_top_deck_card_type, required_subtype_on_board, required_wounded_enemy_in_lane, required_more_health, required_card_type_in_hand, required_played_card_type, min_noncreature_plays_this_turn, max_event_source_cost, require_source_uses_exhausted, required_friendly_higher_power
@@ -163,8 +182,17 @@ When running as part of the batch audit, **skip wiki-fix Step 6 (Scan for Relate
 - The `wiki-fix` skill handles all analysis and fix logic. This skill is purely orchestration.
 - `development-artifacts/card_audit_progress.json` is a permanent artifact. If the process is interrupted, re-running `/audit-cards` picks up where it left off. After completion, it serves as a record of audited cards so future runs only process new additions.
 - Card images are excluded from this audit — this is purely data, configuration, rules, and behaviour.
-- The batch size of 50 (5 Haiku agents × 10 cards each) balances throughput with token efficiency.
+- The batch size of 50 (3–5 Haiku agents × 10–20 cards each) balances throughput with token efficiency.
 - Haiku agents handle mechanical audit work (wiki fetches, field comparison, op/family verification). Opus handles game logic fixes and verifies Haiku findings.
 - Agents are audit-only in Phase 1 — they read and analyse but do not edit files. This is critical for safe parallel execution.
 - Agents should be terse — only detail NEEDS_FIX cards. Passing cards get a one-line mention.
-- **Haiku false positive rate**: Haiku generates ~30-50% false positives on complex cards, especially when seed data is truncated. Always verify findings in Opus before applying fixes. Common false positives: misreading wiki data, claiming ops are missing when they're inside truncated triggered_abilities, flagging cosmetic effect_ids issues as functional bugs.
+- **Haiku false positive rate**: Haiku generates ~90%+ false positives on flagged items in batch audit mode. Always verify findings in Opus before applying fixes. Common false positives:
+  - **Hallucinated values**: Haiku claims a seed has cost=5 when it's actually cost=3, or claims wiki says "Strength" when it says "Intelligence". Always re-read both sources.
+  - **Missing Common rarity**: Rarity defaults to "common" when omitted from the seed. Do NOT flag this.
+  - **Rarity capitalization**: Seed uses lowercase ("rare"), wiki uses title case ("Rare"). Not a mismatch.
+  - **Prophecy not in keywords**: Prophecy is stored in `rules_tags`, not `keywords`. Do NOT flag this.
+  - **Wiki scrape keyword field**: `data/wiki_scrape/cards.json` does NOT have a separate `keywords` field — keywords appear only in `card_text`. Do NOT flag "missing keywords in wiki".
+  - **Wiki scrape stripped attributes**: The scraper strips formatted attribute names from `card_text` (e.g., "If you have a [Neutral] card" becomes "If you have a card"). Not a real mismatch.
+  - **Non-collectible token name collisions**: Multiple cards can share a name (e.g., two "Completed Contract" tokens from different expansions). Match by expansion/set, not just name.
+  - **Actions/items with power/health 0**: The seed format requires power/health args for all card types; 0/0 for non-creatures is correct.
+- **Haiku agent prompt must explicitly list what NOT to flag** to reduce false positive noise. Include all the above in the agent prompt.
