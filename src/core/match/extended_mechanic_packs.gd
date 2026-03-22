@@ -743,6 +743,28 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				dfomb_deck.pop_back()
 				dfomb_deck.insert(0, dfomb_top_card)
 				return {"handled": true, "events": [{"event_type": "card_moved_to_bottom", "player_id": dfomb_controller_id, "instance_id": str(dfomb_top_card.get("instance_id", ""))}]}
+		"look_at_top_deck_may_discard_then_draw":
+			var ltdmd_td_controller := str(trigger.get("controller_player_id", ""))
+			var ltdmd_td_player := _get_player_state(match_state, ltdmd_td_controller)
+			if ltdmd_td_player.is_empty():
+				return {"handled": true, "events": []}
+			var ltdmd_td_deck: Array = ltdmd_td_player.get("deck", [])
+			# Look at top, may discard (AI always discards non-creatures for simplicity)
+			if not ltdmd_td_deck.is_empty():
+				var ltdmd_td_top: Dictionary = ltdmd_td_deck.back()
+				if typeof(ltdmd_td_top) == TYPE_DICTIONARY and str(ltdmd_td_top.get("card_type", "")) != "creature":
+					ltdmd_td_deck.pop_back()
+					ltdmd_td_top["zone"] = "discard"
+					var ltdmd_td_discard: Array = ltdmd_td_player.get("discard", [])
+					ltdmd_td_discard.append(ltdmd_td_top)
+			# Then draw
+			if not ltdmd_td_deck.is_empty():
+				var ltdmd_td_drawn: Dictionary = ltdmd_td_deck.pop_back()
+				ltdmd_td_drawn["zone"] = "hand"
+				var ltdmd_td_hand: Array = ltdmd_td_player.get("hand", [])
+				ltdmd_td_hand.append(ltdmd_td_drawn)
+				return {"handled": true, "events": [{"event_type": "card_drawn", "player_id": ltdmd_td_controller, "instance_id": str(ltdmd_td_drawn.get("instance_id", "")), "source": "look_then_draw"}]}
+			return {"handled": true, "events": []}
 		"steal_top_deck_card":
 			var stdc_controller := str(trigger.get("controller_player_id", ""))
 			var stdc_opponent := ""
