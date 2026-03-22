@@ -208,7 +208,9 @@ static func _resolve_creature_attack(match_state: Dictionary, validation: Dictio
 		events.append(_build_damage_event(attacker, TARGET_TYPE_CREATURE, defender, applied_to_defender, "combat"))
 
 	if applied_to_attacker > 0:
-		events.append(_build_damage_event(defender, TARGET_TYPE_CREATURE, attacker, applied_to_attacker, "combat"))
+		var retaliation_event := _build_damage_event(defender, TARGET_TYPE_CREATURE, attacker, applied_to_attacker, "combat")
+		retaliation_event["is_retaliation"] = true
+		events.append(retaliation_event)
 
 	var defender_destroyed := EvergreenRules.is_creature_destroyed(defender, applied_to_defender > 0 and EvergreenRules.has_keyword(attacker, EvergreenRules.KEYWORD_LETHAL))
 	var attacker_destroyed := EvergreenRules.is_creature_destroyed(attacker, applied_to_attacker > 0 and EvergreenRules.has_keyword(defender, EvergreenRules.KEYWORD_LETHAL))
