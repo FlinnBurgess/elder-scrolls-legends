@@ -3022,6 +3022,16 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var health_bonus := current_health if cds_stat in ["both", "health"] else 0
 					EvergreenRules.apply_stat_bonus(card, power_bonus, health_bonus, reason)
 					generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "power_bonus": power_bonus, "health_bonus": health_bonus, "reason": reason})
+			"grant_immunity":
+				var gi_type := str(effect.get("immunity_type", ""))
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var gi_immunities: Array = card.get("self_immunity", [])
+					if typeof(gi_immunities) != TYPE_ARRAY:
+						gi_immunities = []
+					if not gi_immunities.has(gi_type):
+						gi_immunities.append(gi_type)
+					card["self_immunity"] = gi_immunities
+					generated_events.append({"event_type": "immunity_granted", "target_instance_id": str(card.get("instance_id", "")), "immunity_type": gi_type, "reason": reason})
 			"grant_pilfer_draw", "grant_slay_draw":
 				var gpd_family := "pilfer" if op == "grant_pilfer_draw" else "slay"
 				var gpd_is_temp := str(effect.get("duration", "")) == "end_of_turn"
