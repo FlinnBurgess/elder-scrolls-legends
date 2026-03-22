@@ -2768,6 +2768,21 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"new_power": EvergreenRules.get_power(card),
 						"reason": reason,
 					})
+			"swap_stats":
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var current_power := EvergreenRules.get_power(card)
+					var current_health := EvergreenRules.get_health(card)
+					var power_diff := current_health - current_power
+					var health_diff := current_power - current_health
+					EvergreenRules.apply_stat_bonus(card, power_diff, health_diff, reason)
+					generated_events.append({
+						"event_type": "stats_swapped",
+						"source_instance_id": str(trigger.get("source_instance_id", "")),
+						"target_instance_id": str(card.get("instance_id", "")),
+						"new_power": EvergreenRules.get_power(card),
+						"new_health": EvergreenRules.get_health(card),
+						"reason": reason,
+					})
 			"set_power_equal_to_health":
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					var current_health := EvergreenRules.get_health(card)
