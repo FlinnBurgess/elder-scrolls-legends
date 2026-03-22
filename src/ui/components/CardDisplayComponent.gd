@@ -91,6 +91,7 @@ var _attack_label: Label
 var _health_badge: PanelContainer
 var _health_label: Label
 var _ward_overlay: ColorRect
+var _shackle_overlay: TextureRect
 var _lethal_particles: GPUParticles2D
 var _keyword_icons_container: HBoxContainer
 var _quantity_badge: Label
@@ -287,6 +288,19 @@ func _build_internal_nodes() -> void:
 		ward_mat.shader = ward_shader
 		_ward_overlay.material = ward_mat
 	_content_root.add_child(_ward_overlay)
+
+	# Shackle overlay sits above artwork but below banners and badges
+	_shackle_overlay = TextureRect.new()
+	_shackle_overlay.name = "ShackleOverlay"
+	_shackle_overlay.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_shackle_overlay.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_shackle_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_shackle_overlay.visible = false
+	var shackle_tex := _load_texture_from_path("res://assets/images/keywords/shackle.png")
+	if shackle_tex:
+		_shackle_overlay.texture = shackle_tex
+	_shackle_overlay.modulate = Color(1.0, 1.0, 1.0, 0.7)
+	_art_clip.add_child(_shackle_overlay)
 
 	# Name banner added AFTER art so it renders on top as an overlay
 	_name_banner = PanelContainer.new()
@@ -533,6 +547,7 @@ func _refresh_visibility() -> void:
 	_attack_badge.visible = is_creature and (full or creature_minimal)
 	_health_badge.visible = is_creature and (full or creature_minimal)
 	_ward_overlay.visible = _interactive and is_creature and EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_WARD)
+	_shackle_overlay.visible = _interactive and is_creature and (creature_minimal) and EvergreenRules.has_raw_status(_card_data, EvergreenRules.STATUS_SHACKLED)
 	var show_lethal := _interactive and is_creature and (full or creature_minimal) and EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_LETHAL)
 	_lethal_particles.emitting = show_lethal
 	_lethal_particles.visible = show_lethal
@@ -639,6 +654,7 @@ func _layout_creature_board_minimal(inner_rect: Rect2) -> void:
 	_art_texture.size = _art_frame.size
 	_layout_stat_badges(inner_rect, Rect2(_art_frame.position, _art_frame.size), scale, true)
 	_layout_ward_overlay()
+	_layout_shackle_overlay()
 	_layout_keyword_icons()
 	_name_banner.position = Vector2.ZERO
 	_name_banner.size = Vector2.ZERO
@@ -821,6 +837,16 @@ func _layout_ward_overlay() -> void:
 	# Cover the full art frame area; the shader's vertical fade handles the falloff
 	_ward_overlay.position = _art_frame.position
 	_ward_overlay.size = _art_frame.size
+
+
+func _layout_shackle_overlay() -> void:
+	if _shackle_overlay == null:
+		return
+	var scale_factor := 1.5
+	var scaled_size := _art_clip.size * scale_factor
+	var offset := (_art_clip.size - scaled_size) * 0.5
+	_shackle_overlay.position = offset
+	_shackle_overlay.size = scaled_size
 
 
 func _get_default_art_texture() -> Texture2D:

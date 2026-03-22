@@ -39,7 +39,9 @@ static func build_test_match_state() -> Dictionary:
 	]
 
 	# Player 1 creatures in field lane
-	var p1_field_creatures: Array = []
+	var p1_field_creatures: Array = [
+		_make_lane_creature("player_1", "str_fiery_imp", 1, {"status_markers": ["shackled"], "shackle_expires_on_turn": turn_number + 1}),
+	]
 	# Player 1 creatures in shadow lane
 	var p1_shadow_creatures: Array = []
 
