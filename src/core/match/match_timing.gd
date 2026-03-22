@@ -3022,6 +3022,21 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var health_bonus := current_health if cds_stat in ["both", "health"] else 0
 					EvergreenRules.apply_stat_bonus(card, power_bonus, health_bonus, reason)
 					generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "power_bonus": power_bonus, "health_bonus": health_bonus, "reason": reason})
+			"grant_pilfer_draw", "grant_slay_draw":
+				var gpd_family := "pilfer" if op == "grant_pilfer_draw" else "slay"
+				var gpd_is_temp := str(effect.get("duration", "")) == "end_of_turn"
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var gpd_abilities: Array = card.get("triggered_abilities", [])
+					var gpd_new_trigger := {
+						"family": gpd_family,
+						"required_zone": "lane",
+						"effects": [{"op": "draw_cards", "target_player": "controller", "count": 1}],
+					}
+					if gpd_is_temp:
+						gpd_new_trigger["expires_on_turn"] = int(match_state.get("turn_number", 0))
+					gpd_abilities.append(gpd_new_trigger)
+					card["triggered_abilities"] = gpd_abilities
+					generated_events.append({"event_type": "ability_granted", "target_instance_id": str(card.get("instance_id", "")), "family": gpd_family, "reason": reason})
 			"draw_from_deck_filtered":
 				for player_id in _resolve_player_targets(match_state, trigger, event, effect):
 					var dfdf_player := _get_player_state(match_state, player_id)
