@@ -2887,6 +2887,18 @@ func _enter_top_deck_choice_mode() -> void:
 	var choice := MatchTiming.get_pending_top_deck_choice(_match_state, local_id)
 	if choice.is_empty():
 		return
+	var multi_cards: Array = choice.get("cards", [])
+	if typeof(multi_cards) == TYPE_ARRAY and multi_cards.size() > 1:
+		# Multi-card mode (look_draw_discard / look_give_draw)
+		_top_deck_choice_state = {
+			"multi_card": true,
+			"cards": multi_cards,
+			"mode": str(choice.get("mode", "")),
+			"source_instance_id": str(choice.get("source_instance_id", "")),
+		}
+		_status_message = str(choice.get("prompt", "Choose a card."))
+		_show_multi_card_choice_panel(multi_cards, str(choice.get("prompt", "Choose a card.")))
+		return
 	var revealed_card: Dictionary = choice.get("revealed_card", {})
 	_top_deck_choice_state = {
 		"revealed_card": revealed_card,
@@ -2996,6 +3008,94 @@ func _resolve_top_deck_choice(discard: bool) -> void:
 		_status_message = "Discarded top card." if discard else "Kept top card."
 	else:
 		_status_message = str(result.get("errors", ["Failed to resolve top deck choice."])[0])
+	_refresh_ui()
+
+
+func _show_multi_card_choice_panel(cards: Array, prompt_text: String) -> void:
+	_dismiss_top_deck_choice_panel()
+	var overlay := Control.new()
+	overlay.name = "MultiCardChoiceOverlay"
+	overlay.z_index = 600
+	overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var bg := ColorRect.new()
+	bg.color = Color(0.04, 0.05, 0.07, 0.88)
+	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.add_child(bg)
+
+	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 60)
+	margin.add_theme_constant_override("margin_right", 60)
+	margin.add_theme_constant_override("margin_top", 40)
+	margin.add_theme_constant_override("margin_bottom", 40)
+	margin.mouse_filter = Control.MOUSE_FILTER_PASS
+	overlay.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", 20)
+	vbox.mouse_filter = Control.MOUSE_FILTER_PASS
+	margin.add_child(vbox)
+
+	var title := Label.new()
+	title.text = prompt_text
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", Color(0.95, 0.9, 0.72, 1.0))
+	vbox.add_child(title)
+
+	var hbox := HBoxContainer.new()
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	hbox.add_theme_constant_override("separation", 20)
+	hbox.mouse_filter = Control.MOUSE_FILTER_PASS
+	vbox.add_child(hbox)
+
+	var card_size := CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+	for i in range(cards.size()):
+		var card: Dictionary = cards[i]
+		var card_button := Button.new()
+		card_button.custom_minimum_size = card_size
+		var empty_style := StyleBoxEmpty.new()
+		card_button.add_theme_stylebox_override("normal", empty_style)
+		card_button.add_theme_stylebox_override("pressed", empty_style)
+		card_button.add_theme_stylebox_override("focus", empty_style)
+		var hover_style := StyleBoxFlat.new()
+		hover_style.bg_color = Color(0.3, 0.25, 0.1, 0.6)
+		hover_style.set_corner_radius_all(6)
+		card_button.add_theme_stylebox_override("hover", hover_style)
+
+		var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+		component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+		card_button.add_child(component)
+
+		var idx := i
+		card_button.pressed.connect(func(): _on_multi_card_choice_selected(idx))
+		hbox.add_child(card_button)
+
+	add_child(overlay)
+	_top_deck_choice_panel = overlay
+
+
+func _on_multi_card_choice_selected(chosen_index: int) -> void:
+	if _top_deck_choice_state.is_empty():
+		return
+	var mode := str(_top_deck_choice_state.get("mode", ""))
+	var local_id := _local_player_id()
+	var result := MatchTiming.resolve_pending_top_deck_multi_choice(_match_state, local_id, chosen_index)
+	_exit_top_deck_choice_mode()
+	if bool(result.get("is_valid", false)):
+		_record_feedback_from_events(_copy_array(result.get("events", [])))
+		var chosen_name := str(result.get("chosen_card", {}).get("name", ""))
+		if mode == "give_one_draw_rest":
+			_status_message = "Gave %s to opponent, drew the rest." % chosen_name
+		else:
+			_status_message = "Kept %s, discarded the rest." % chosen_name
+	else:
+		_status_message = str(result.get("errors", ["Failed to resolve choice."])[0])
 	_refresh_ui()
 
 

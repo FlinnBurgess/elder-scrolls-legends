@@ -927,6 +927,61 @@ static func resolve_pending_top_deck_choice(match_state: Dictionary, player_id: 
 	}
 
 
+static func resolve_pending_top_deck_multi_choice(match_state: Dictionary, player_id: String, chosen_index: int) -> Dictionary:
+	ensure_match_state(match_state)
+	var choices: Array = match_state.get("pending_top_deck_choices", [])
+	var choice_idx := -1
+	var choice := {}
+	for i in range(choices.size()):
+		if typeof(choices[i]) == TYPE_DICTIONARY and str(choices[i].get("player_id", "")) == player_id:
+			choice_idx = i
+			choice = choices[i]
+			break
+	if choice_idx == -1:
+		return {"is_valid": false, "errors": ["No pending top deck choice for player %s." % player_id]}
+	var cards: Array = choice.get("cards", [])
+	if chosen_index < 0 or chosen_index >= cards.size():
+		return {"is_valid": false, "errors": ["Invalid choice index: %d" % chosen_index]}
+	choices.remove_at(choice_idx)
+	var mode := str(choice.get("mode", ""))
+	var events: Array = []
+	var player := _get_player_state(match_state, player_id)
+	if player.is_empty():
+		return {"is_valid": false, "errors": ["Player not found."]}
+	var chosen_card: Dictionary = cards[chosen_index]
+	if mode == "keep_one_discard_rest":
+		# Chosen card goes to hand, rest go to discard
+		chosen_card["zone"] = ZONE_HAND
+		player.get(ZONE_HAND, []).append(chosen_card)
+		events.append({"event_type": EVENT_CARD_DRAWN, "player_id": player_id, "source_instance_id": str(chosen_card.get("instance_id", ""))})
+		for i in range(cards.size()):
+			if i == chosen_index:
+				continue
+			var discard_card: Dictionary = cards[i]
+			discard_card["zone"] = ZONE_DISCARD
+			player.get(ZONE_DISCARD, []).push_front(discard_card)
+			events.append({"event_type": "card_discarded", "player_id": player_id, "discarded_instance_id": str(discard_card.get("instance_id", "")), "reason": "top_deck_multi_choice"})
+	elif mode == "give_one_draw_rest":
+		# Chosen card goes to opponent's hand, rest go to controller's hand
+		var opponent_id := _get_opposing_player_id(match_state.get("players", []), player_id)
+		var opponent := _get_player_state(match_state, opponent_id)
+		if not opponent.is_empty():
+			chosen_card["zone"] = ZONE_HAND
+			chosen_card["controller_player_id"] = opponent_id
+			chosen_card["owner_player_id"] = opponent_id
+			opponent.get(ZONE_HAND, []).append(chosen_card)
+			events.append({"event_type": "card_given_to_opponent", "player_id": player_id, "target_player_id": opponent_id, "card_instance_id": str(chosen_card.get("instance_id", ""))})
+		for i in range(cards.size()):
+			if i == chosen_index:
+				continue
+			var draw_card: Dictionary = cards[i]
+			draw_card["zone"] = ZONE_HAND
+			player.get(ZONE_HAND, []).append(draw_card)
+			events.append({"event_type": EVENT_CARD_DRAWN, "player_id": player_id, "source_instance_id": str(draw_card.get("instance_id", ""))})
+	var timing_result := publish_events(match_state, events)
+	return {"is_valid": true, "errors": [], "events": timing_result.get("processed_events", []), "chosen_card": chosen_card}
+
+
 static func has_pending_player_choice(match_state: Dictionary, player_id: String = "") -> bool:
 	return not get_pending_player_choice(match_state, player_id).is_empty()
 
