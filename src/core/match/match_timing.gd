@@ -104,6 +104,12 @@ const FAMILY_ON_FRIENDLY_WANE := "on_friendly_wane"
 const FAMILY_EXALT := "exalt"
 const FAMILY_ON_RALLY_EMPTY_HAND := "on_rally_empty_hand"
 const FAMILY_ON_GAIN_MAX_MAGICKA := "on_gain_max_magicka"
+const FAMILY_TREASURE_HUNT := "treasure_hunt"
+const FAMILY_ON_FRIENDLY_TREASURE_FOUND := "on_friendly_treasure_found"
+const FAMILY_ON_INVADE := "on_invade"
+const FAMILY_ON_MAX_MAGICKA_GAIN_2 := "on_max_magicka_gain"
+const FAMILY_ON_DISCARD_LEAVE := "on_discard_leave"
+const FAMILY_ON_MAGICKA_THRESHOLD := "on_magicka_threshold"
 
 const EVENT_CARD_EQUIPPED := "card_equipped"
 const EVENT_CREATURE_CONSUMED := "card_consumed"
@@ -183,6 +189,12 @@ const FAMILY_SPECS := {
 	FAMILY_EXALT: {"event_type": EVENT_CREATURE_SUMMONED, "window": WINDOW_AFTER, "match_role": "source"},
 	FAMILY_ON_RALLY_EMPTY_HAND: {"event_type": "rally_triggered", "window": WINDOW_AFTER, "match_role": "controller"},
 	FAMILY_ON_GAIN_MAX_MAGICKA: {"event_type": "max_magicka_gained", "window": WINDOW_AFTER, "match_role": "target_player_is_controller"},
+	FAMILY_TREASURE_HUNT: {"event_type": EVENT_TURN_STARTED, "window": WINDOW_AFTER, "match_role": "controller"},
+	FAMILY_ON_FRIENDLY_TREASURE_FOUND: {"event_type": "treasure_found", "window": WINDOW_AFTER, "match_role": "controller"},
+	FAMILY_ON_INVADE: {"event_type": "invade_triggered", "window": WINDOW_AFTER, "match_role": "controller"},
+	FAMILY_ON_MAX_MAGICKA_GAIN_2: {"event_type": "max_magicka_gained", "window": WINDOW_AFTER, "match_role": "target_player_is_controller"},
+	FAMILY_ON_DISCARD_LEAVE: {"event_type": "card_moved", "window": WINDOW_AFTER, "match_role": "subject"},
+	FAMILY_ON_MAGICKA_THRESHOLD: {"event_type": "max_magicka_gained", "window": WINDOW_AFTER, "match_role": "target_player_is_controller"},
 }
 
 
@@ -283,6 +295,12 @@ static func get_supported_trigger_families() -> Array:
 		FAMILY_EXALT,
 		FAMILY_ON_RALLY_EMPTY_HAND,
 		FAMILY_ON_GAIN_MAX_MAGICKA,
+		FAMILY_TREASURE_HUNT,
+		FAMILY_ON_FRIENDLY_TREASURE_FOUND,
+		FAMILY_ON_INVADE,
+		FAMILY_ON_MAX_MAGICKA_GAIN_2,
+		FAMILY_ON_DISCARD_LEAVE,
+		FAMILY_ON_MAGICKA_THRESHOLD,
 	]
 
 
@@ -1641,6 +1659,34 @@ static func recalculate_auras(match_state: Dictionary) -> void:
 					existing.append(kw)
 				target["aura_keywords"] = existing
 
+	# Step 3b: Apply grant_keyword_to_keyword passives
+	for lane in lanes:
+		var player_slots_by_id: Dictionary = lane.get("player_slots", {})
+		for player_id in player_slots_by_id.keys():
+			for card in player_slots_by_id[player_id]:
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				var passives = card.get("passive_abilities", [])
+				if typeof(passives) != TYPE_ARRAY:
+					continue
+				for p in passives:
+					if typeof(p) != TYPE_DICTIONARY or str(p.get("type", "")) != "grant_keyword_to_keyword":
+						continue
+					var gktk_req_kw := str(p.get("required_keyword", ""))
+					var gktk_grant_kw := str(p.get("granted_keyword", ""))
+					if gktk_req_kw.is_empty() or gktk_grant_kw.is_empty():
+						continue
+					var gktk_controller := str(card.get("controller_player_id", ""))
+					for gktk_lane in lanes:
+						for gktk_target in gktk_lane.get("player_slots", {}).get(gktk_controller, []):
+							if typeof(gktk_target) != TYPE_DICTIONARY:
+								continue
+							if EvergreenRules.has_keyword(gktk_target, gktk_req_kw):
+								var gktk_existing: Array = gktk_target.get("aura_keywords", [])
+								if not gktk_existing.has(gktk_grant_kw):
+									gktk_existing.append(gktk_grant_kw)
+									gktk_target["aura_keywords"] = gktk_existing
+
 	# Step 4: Recalculate player magicka auras from lane creatures
 	for player in match_state.get("players", []):
 		var pid := str(player.get("player_id", ""))
@@ -2177,6 +2223,12 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 	var generated_events: Array = []
 	var descriptor: Dictionary = trigger.get("descriptor", {})
 	var reason := str(descriptor.get("family", "trigger"))
+	# Special handling for treasure_hunt family — peek/draw before running effects
+	if reason == FAMILY_TREASURE_HUNT:
+		var th_result := _process_treasure_hunt(match_state, trigger, descriptor)
+		generated_events.append_array(th_result.get("events", []))
+		if not bool(th_result.get("hunt_complete", false)):
+			return generated_events  # Hunt not complete yet, don't fire effects
 	for raw_effect in descriptor.get("effects", []):
 		if typeof(raw_effect) != TYPE_DICTIONARY:
 			continue
@@ -5379,6 +5431,132 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					if gumflt_unspent > 0:
 						gumflt_player["current_magicka"] = int(gumflt_player.get("current_magicka", 0)) + gumflt_unspent
 						generated_events.append({"event_type": "magicka_restored", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_player_id": gumflt_controller_id, "amount": gumflt_unspent})
+			"draw_or_treasure_hunt":
+				var doth_controller_id := str(trigger.get("controller_player_id", ""))
+				var doth_player := _get_player_state(match_state, doth_controller_id)
+				if not doth_player.is_empty():
+					var doth_deck: Array = doth_player.get(ZONE_DECK, [])
+					if not doth_deck.is_empty():
+						var doth_top: Dictionary = doth_deck.back()
+						var doth_hunt_types = effect.get("hunt_types", ["any"])
+						if typeof(doth_hunt_types) != TYPE_ARRAY:
+							doth_hunt_types = ["any"]
+						if _card_matches_treasure_hunt(doth_top, doth_hunt_types):
+							var doth_draw := draw_cards(match_state, doth_controller_id, 1, {"reason": "treasure_hunt", "source_instance_id": str(trigger.get("source_instance_id", ""))})
+							generated_events.append_array(doth_draw.get("events", []))
+							generated_events.append({"event_type": "treasure_found", "source_instance_id": str(trigger.get("source_instance_id", "")), "controller_player_id": doth_controller_id, "player_id": doth_controller_id})
+						else:
+							# Put top card on bottom
+							var doth_card: Dictionary = doth_deck.pop_back()
+							doth_deck.push_front(doth_card)
+							generated_events.append({"event_type": "card_moved_to_bottom", "source_instance_id": str(trigger.get("source_instance_id", "")), "player_id": doth_controller_id})
+			"summon_or_buff":
+				# Aldora the Daring — based on treasure hunt progress, summon or buff
+				var sob_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+				if not sob_source.is_empty():
+					var sob_count := int(sob_source.get("_treasure_hunt_count", 0))
+					var sob_threshold := int(effect.get("threshold", 3))
+					if sob_count >= sob_threshold:
+						var sob_template: Dictionary = effect.get("card_template", {})
+						if not sob_template.is_empty():
+							var sob_controller_id := str(trigger.get("controller_player_id", ""))
+							var sob_lane_id := _resolve_summon_lane_id(match_state, trigger, event, effect, sob_controller_id)
+							if not sob_lane_id.is_empty():
+								var sob_card := MatchMutations.build_generated_card(match_state, sob_controller_id, sob_template)
+								var sob_result := MatchMutations.summon_card_to_lane(match_state, sob_controller_id, sob_card, sob_lane_id, {"source_zone": ZONE_GENERATED})
+								if bool(sob_result.get("is_valid", false)):
+									generated_events.append_array(sob_result.get("events", []))
+									generated_events.append(_build_summon_event(sob_result["card"], sob_controller_id, sob_lane_id, int(sob_result.get("slot_index", -1)), reason))
+					else:
+						# Apply buff effect
+						var sob_power := int(effect.get("buff_power", 1))
+						var sob_health := int(effect.get("buff_health", 1))
+						EvergreenRules.apply_stat_bonus(sob_source, sob_power, sob_health, reason)
+						generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(sob_source.get("instance_id", "")), "power_bonus": sob_power, "health_bonus": sob_health, "reason": reason})
+			"summon_random_daedra_total_cost", "summon_random_daedra_by_gate_level":
+				# Delegate to summon_random_from_catalog with Daedra filter
+				var srd_filter: Dictionary = {"card_type": "creature", "required_subtype": "Daedra"}
+				var srd_delegated := {"op": "summon_random_from_catalog", "filter": srd_filter}
+				var srd_result := ExtendedMechanicPacks.apply_custom_effect(match_state, trigger, event, srd_delegated)
+				if bool(srd_result.get("handled", false)):
+					generated_events.append_array(srd_result.get("events", []))
+			"grant_aura_by_chosen_subtype":
+				# This requires a player choice of subtype — use pending_player_choices
+				var gabcs_controller_id := str(trigger.get("controller_player_id", ""))
+				var gabcs_options: Array = ["Beast", "Orc", "Dark Elf", "Nord", "Khajiit", "Argonian", "Imperial", "High Elf", "Wood Elf", "Breton", "Redguard", "Goblin", "Dragon", "Daedra", "Skeleton", "Spirit", "Vampire"]
+				match_state["pending_player_choices"].append({
+					"player_id": gabcs_controller_id,
+					"source_instance_id": str(trigger.get("source_instance_id", "")),
+					"options": gabcs_options,
+					"then_op": "apply_subtype_aura",
+					"then_context": effect.get("aura_template", {}),
+					"prompt": "Choose a creature type.",
+				})
+			"sacrifice_and_equip_from_deck":
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var saed_controller_id := str(card.get("controller_player_id", ""))
+					var saed_items: Array = card.get("attached_items", [])
+					var saed_item_templates: Array = []
+					for saed_item in saed_items:
+						saed_item_templates.append(saed_item.duplicate(true))
+					var saed_sac := MatchMutations.sacrifice_card(match_state, saed_controller_id, str(card.get("instance_id", "")), {"reason": reason})
+					generated_events.append_array(saed_sac.get("events", []))
+					# Summon a creature from deck and equip the items
+					var saed_player := _get_player_state(match_state, saed_controller_id)
+					if not saed_player.is_empty():
+						var saed_deck: Array = saed_player.get(ZONE_DECK, [])
+						var saed_candidates: Array = []
+						for saed_dc in saed_deck:
+							if str(saed_dc.get("card_type", "")) == CARD_TYPE_CREATURE:
+								saed_candidates.append(saed_dc)
+						if not saed_candidates.is_empty():
+							var saed_idx := _deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_sac_equip", saed_candidates.size())
+							var saed_target: Dictionary = saed_candidates[saed_idx]
+							saed_deck.erase(saed_target)
+							saed_target.erase("zone")
+							var saed_lane_id := _resolve_summon_lane_id(match_state, trigger, event, effect, saed_controller_id)
+							if not saed_lane_id.is_empty():
+								var saed_result := MatchMutations.summon_card_to_lane(match_state, saed_controller_id, saed_target, saed_lane_id, {"source_zone": ZONE_DECK})
+								if bool(saed_result.get("is_valid", false)):
+									generated_events.append_array(saed_result.get("events", []))
+									generated_events.append(_build_summon_event(saed_result["card"], saed_controller_id, saed_lane_id, int(saed_result.get("slot_index", -1)), reason))
+									for saed_item_t in saed_item_templates:
+										var saed_new_item := MatchMutations.build_generated_card(match_state, saed_controller_id, saed_item_t)
+										var saed_equip := MatchMutations.attach_item_to_creature(match_state, saed_controller_id, saed_new_item, str(saed_result["card"].get("instance_id", "")), {"reason": reason})
+										generated_events.append_array(saed_equip.get("events", []))
+			"choose_cost_trigger":
+				var cct_controller_id := str(trigger.get("controller_player_id", ""))
+				var cct_options: Array = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+				match_state["pending_player_choices"].append({
+					"player_id": cct_controller_id,
+					"source_instance_id": str(trigger.get("source_instance_id", "")),
+					"options": cct_options,
+					"then_op": "set_cost_trigger",
+					"then_context": effect.get("trigger_effects", {}),
+					"prompt": "Choose a cost.",
+				})
+			"choose_cost_lock":
+				var ccl_controller_id := str(trigger.get("controller_player_id", ""))
+				var ccl_options: Array = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+				match_state["pending_player_choices"].append({
+					"player_id": ccl_controller_id,
+					"source_instance_id": str(trigger.get("source_instance_id", "")),
+					"options": ccl_options,
+					"then_op": "set_cost_lock",
+					"then_context": {},
+					"prompt": "Choose a cost to lock.",
+				})
+			"aim_at":
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					card["_aimed_by"] = str(trigger.get("source_instance_id", ""))
+					var aim_amount := int(effect.get("amount", 0))
+					card["_aim_damage"] = aim_amount
+					generated_events.append({"event_type": "creature_aimed_at", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "amount": aim_amount})
+			"conditional_drawn_card_bonus":
+				# Gates of Madness: when you draw a card, check condition and apply bonus
+				var cdcb_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+				if not cdcb_source.is_empty():
+					cdcb_source["_drawn_card_bonus"] = effect.get("bonus", {})
 			"trigger_wax":
 				var tw_controller_id := str(trigger.get("controller_player_id", ""))
 				var tw_player := _get_player_state(match_state, tw_controller_id)
@@ -5836,6 +6014,71 @@ static func _resolve_effect_template(match_state: Dictionary, trigger: Dictionar
 		return template
 	var source_cards := _resolve_card_targets_by_name(match_state, trigger, event, str(effect.get("source_target", "event_source")))
 	return {} if source_cards.is_empty() else source_cards[0].duplicate(true)
+
+
+static func _process_treasure_hunt(match_state: Dictionary, trigger: Dictionary, descriptor: Dictionary) -> Dictionary:
+	var events: Array = []
+	var controller_id := str(trigger.get("controller_player_id", ""))
+	var source_id := str(trigger.get("source_instance_id", ""))
+	var source := _find_card_anywhere(match_state, source_id)
+	if source.is_empty():
+		return {"events": events, "hunt_complete": false}
+	var player := _get_player_state(match_state, controller_id)
+	if player.is_empty():
+		return {"events": events, "hunt_complete": false}
+	var deck: Array = player.get(ZONE_DECK, [])
+	if deck.is_empty():
+		return {"events": events, "hunt_complete": false}
+	var hunt_types = descriptor.get("hunt_types", [])
+	if typeof(hunt_types) != TYPE_ARRAY:
+		hunt_types = []
+	var hunt_count := int(descriptor.get("hunt_count", 1))
+	var current_count := int(source.get("_treasure_hunt_count", 0))
+	if current_count >= hunt_count:
+		return {"events": events, "hunt_complete": true}
+	var top_card: Dictionary = deck.back()
+	var matches := _card_matches_treasure_hunt(top_card, hunt_types)
+	events.append({
+		"event_type": "treasure_hunt_revealed",
+		"source_instance_id": source_id,
+		"controller_player_id": controller_id,
+		"revealed_card": top_card.duplicate(true),
+		"matches": matches,
+	})
+	if matches:
+		# Draw the card
+		var draw_result := draw_cards(match_state, controller_id, 1, {"reason": "treasure_hunt", "source_instance_id": source_id})
+		events.append_array(draw_result.get("events", []))
+		current_count += 1
+		source["_treasure_hunt_count"] = current_count
+		events.append({"event_type": "treasure_found", "source_instance_id": source_id, "controller_player_id": controller_id, "player_id": controller_id, "count": current_count})
+		if current_count >= hunt_count:
+			return {"events": events, "hunt_complete": true}
+	return {"events": events, "hunt_complete": false}
+
+
+static func _card_matches_treasure_hunt(card: Dictionary, hunt_types: Array) -> bool:
+	if hunt_types.has("any"):
+		return true
+	var card_type := str(card.get("card_type", ""))
+	for ht in hunt_types:
+		var hunt_type := str(ht)
+		match hunt_type:
+			"creature", "action", "item", "support":
+				if card_type == hunt_type:
+					return true
+			"zero_cost":
+				if int(card.get("cost", 0)) == 0:
+					return true
+			_:
+				# Check as a keyword
+				if EvergreenRules.has_keyword(card, hunt_type):
+					return true
+				# Check in base keywords array
+				var keywords = card.get("keywords", [])
+				if typeof(keywords) == TYPE_ARRAY and keywords.has(hunt_type):
+					return true
+	return false
 
 
 static func _resolve_summon_lane_id(match_state: Dictionary, trigger: Dictionary, event: Dictionary, effect: Dictionary, controller_id: String) -> String:

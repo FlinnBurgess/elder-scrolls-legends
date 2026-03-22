@@ -273,7 +273,28 @@ static func get_effective_play_cost(match_state: Dictionary, player_id: String, 
 		var per_amount := int(self_reduction.get("amount", 1))
 		if per_source == "creature_summons_this_turn":
 			reduction += int(player.get("creature_summons_this_turn", 0)) * per_amount
-	return maxi(0, base_cost - reduction)
+	var effective := maxi(0, base_cost - reduction)
+	# min_card_cost passive: all cards cost at least N
+	var min_cost := _get_min_card_cost(match_state)
+	if min_cost > 0 and effective < min_cost:
+		effective = min_cost
+	return effective
+
+
+static func _get_min_card_cost(match_state: Dictionary) -> int:
+	var result := 0
+	for lane in match_state.get("lanes", []):
+		for pid in lane.get("player_slots", {}).keys():
+			for card in lane.get("player_slots", {}).get(pid, []):
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				var passives = card.get("passive_abilities", [])
+				if typeof(passives) != TYPE_ARRAY:
+					continue
+				for p in passives:
+					if typeof(p) == TYPE_DICTIONARY and str(p.get("type", "")) == "min_card_cost":
+						result = maxi(result, int(p.get("min_cost", 3)))
+	return result
 
 
 static func _get_aura_cost_reduction(match_state: Dictionary, player_id: String, card: Dictionary) -> int:

@@ -10,13 +10,13 @@
     "unhandled_passive_abilities": 12,
     "unhandled_cost_reduction_auras": 5,
     "other_unhandled_mechanisms": 3,
-    "implemented_ops": 109,
+    "implemented_ops": 119,
     "implemented_target_modes": 6,
     "implemented_action_target_modes": 5,
-    "implemented_families": 29,
+    "implemented_families": 35,
     "implemented_cost_reduction_auras": 5,
     "implemented_partial_families": 3,
-    "implemented_passive_abilities": 6
+    "implemented_passive_abilities": 9
   },
   "unimplemented_ops": [
     {
@@ -236,7 +236,7 @@
     },
     {
       "op": "draw_or_treasure_hunt",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "cwc_neu_treasure_map"
       ],
@@ -244,7 +244,7 @@
     },
     {
       "op": "summon_or_buff",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "cwc_str_aldora_the_daring"
       ],
@@ -433,7 +433,7 @@
     },
     {
       "op": "grant_aura_by_chosen_subtype",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "mhc_neu_forsaken_champion"
       ],
@@ -532,7 +532,7 @@
     },
     {
       "op": "conditional_drawn_card_bonus",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "iom_neu_gates_of_madness"
       ],
@@ -540,7 +540,7 @@
     },
     {
       "op": "choose_cost_trigger",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "iom_neu_haskill"
       ],
@@ -548,7 +548,7 @@
     },
     {
       "op": "choose_cost_lock",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "iom_wil_seducer_darkfire"
       ],
@@ -695,7 +695,7 @@
     },
     {
       "op": "aim_at",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "moe_str_flamespear_dragon"
       ],
@@ -767,7 +767,7 @@
     },
     {
       "op": "sacrifice_and_equip_from_deck",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "mc_dual_monster_perfection_lab"
       ],
@@ -815,7 +815,7 @@
     },
     {
       "op": "summon_random_daedra_total_cost",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "joo_int_forces_of_destruction"
       ],
@@ -823,7 +823,7 @@
     },
     {
       "op": "summon_random_daedra_by_gate_level",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "joo_wil_unexpected_arrival"
       ],
@@ -1075,7 +1075,7 @@
     },
     {
       "family": "treasure_hunt",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "cwc_str_aldora_the_daring",
         "cwc_str_ratway_prospector",
@@ -1178,7 +1178,7 @@
     },
     {
       "family": "on_friendly_treasure_found",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "cwc_str_aldora_the_daring"
       ],
@@ -1202,7 +1202,7 @@
     },
     {
       "family": "on_invade",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "joo_str_keeper_of_the_gates"
       ],
@@ -1218,7 +1218,7 @@
     },
     {
       "family": "on_max_magicka_gain",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "joo_end_blackwood_alchemist"
       ],
@@ -1300,7 +1300,7 @@
     },
     {
       "family": "on_discard_leave",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "moe_end_dro_mathra_reaper"
       ],
@@ -1332,7 +1332,7 @@
     },
     {
       "family": "on_magicka_threshold",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "joo_dual_martin_septim"
       ],
@@ -1592,7 +1592,7 @@
     },
     {
       "type": "grant_keyword_to_keyword",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "aw_tri_mournhold_taskmaster"
       ],
@@ -1632,7 +1632,7 @@
     },
     {
       "type": "min_card_cost",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "iom_str_bedeviling_scamp"
       ],
@@ -1640,7 +1640,7 @@
     },
     {
       "type": "drain_on_both_turns",
-      "status": "pending",
+      "status": "implemented",
       "cards": [
         "iom_end_dark_seducer"
       ],

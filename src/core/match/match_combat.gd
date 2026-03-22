@@ -473,7 +473,8 @@ static func _resolve_drain(match_state: Dictionary, attacker: Dictionary, damage
 
 	var controller_player_id := str(attacker.get("controller_player_id", ""))
 	if controller_player_id != str(match_state.get("active_player_id", "")):
-		return 0
+		if not EvergreenRules._has_passive(attacker, "drain_on_both_turns"):
+			return 0
 
 	var player := _get_player_state(match_state, controller_player_id)
 	var heal_amount := damage_dealt * MatchTiming._get_heal_multiplier(match_state, controller_player_id)
