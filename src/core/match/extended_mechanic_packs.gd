@@ -743,6 +743,24 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				dfomb_deck.pop_back()
 				dfomb_deck.insert(0, dfomb_top_card)
 				return {"handled": true, "events": [{"event_type": "card_moved_to_bottom", "player_id": dfomb_controller_id, "instance_id": str(dfomb_top_card.get("instance_id", ""))}]}
+		"summon_imposter":
+			var si_controller := str(trigger.get("controller_player_id", ""))
+			var si_best_power := 0
+			for lane in match_state.get("lanes", []):
+				for card in lane.get("player_slots", {}).get(si_controller, []):
+					if typeof(card) == TYPE_DICTIONARY:
+						var p := EvergreenRules.get_power(card)
+						if p > si_best_power:
+							si_best_power = p
+			var si_template := {"definition_id": "hom_str_imposter", "name": "Imposter", "card_type": "creature", "subtypes": [], "attributes": ["strength"], "cost": si_best_power, "power": si_best_power, "health": si_best_power, "base_power": si_best_power, "base_health": si_best_power, "rules_text": ""}
+			var si_card := MatchMutations.build_generated_card(match_state, si_controller, si_template)
+			var si_lane_id := str(event.get("lane_id", "field"))
+			var si_summon := MatchMutations.summon_card_to_lane(match_state, si_controller, si_card, si_lane_id, {"source_zone": MatchMutations.ZONE_GENERATED})
+			if bool(si_summon.get("is_valid", false)):
+				var si_events: Array = si_summon.get("events", []).duplicate()
+				si_events.append(_timing_rules()._build_summon_event(si_summon["card"], si_controller, si_lane_id, int(si_summon.get("slot_index", -1)), "summon_imposter"))
+				return {"handled": true, "events": si_events}
+			return {"handled": true, "events": []}
 		"lockpick_gamble":
 			var lg_controller_id := str(trigger.get("controller_player_id", ""))
 			var lg_player := _get_player_state(match_state, lg_controller_id)
