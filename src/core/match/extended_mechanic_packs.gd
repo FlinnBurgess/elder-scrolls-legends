@@ -433,6 +433,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			var grth_req_card_type := str(grth_filter.get("card_type", ""))
 			var grth_req_subtype := str(grth_filter.get("required_subtype", ""))
 			var grth_req_rules_tag := str(grth_filter.get("rules_tag", ""))
+			var grth_req_keyword := str(grth_filter.get("keyword", ""))
 			for seed in grth_seeds:
 				if typeof(seed) != TYPE_DICTIONARY:
 					continue
@@ -460,6 +461,10 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				if not grth_req_rules_tag.is_empty():
 					var grth_tags = seed.get("rules_tags", [])
 					if typeof(grth_tags) != TYPE_ARRAY or not grth_tags.has(grth_req_rules_tag):
+						continue
+				if not grth_req_keyword.is_empty():
+					var grth_kws = seed.get("keywords", [])
+					if typeof(grth_kws) != TYPE_ARRAY or not grth_kws.has(grth_req_keyword):
 						continue
 				grth_candidates.append(seed)
 			if grth_candidates.is_empty():
