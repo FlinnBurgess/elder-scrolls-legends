@@ -139,7 +139,7 @@ const FAMILY_SPECS := {
 	FAMILY_SLAY: {"event_type": EVENT_CREATURE_DESTROYED, "window": WINDOW_AFTER, "match_role": "killer"},
 	FAMILY_PILFER: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "source", "target_type": "player", "min_amount": 1},
 	FAMILY_VETERAN: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "target", "require_survived": true, "min_amount": 1},
-	FAMILY_EXPERTISE: {"event_type": EVENT_CARD_PLAYED, "window": WINDOW_AFTER, "match_role": "controller", "min_played_cost": 5},
+	FAMILY_EXPERTISE: {"event_type": EVENT_TURN_ENDING, "window": WINDOW_AFTER, "match_role": "controller"},
 	FAMILY_PLOT: {"event_type": EVENT_TURN_ENDING, "window": WINDOW_AFTER, "match_role": "controller"},
 	FAMILY_RUNE_BREAK: {"event_type": EVENT_RUNE_BROKEN, "window": WINDOW_INTERRUPT, "match_role": "controller"},
 	FAMILY_ON_FRIENDLY_DEATH: {"event_type": EVENT_CREATURE_DESTROYED, "window": WINDOW_AFTER, "match_role": "controller"},
@@ -2354,6 +2354,12 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 	if bool(descriptor.get("require_positive_power_bonus", family_spec.get("require_positive_power_bonus", false))):
 		if int(event.get("power_bonus", 0)) <= 0:
 			return false
+	# Expertise: only fires at end of turn if controller played an action/item/support
+	if str(descriptor.get("family", "")) == FAMILY_EXPERTISE:
+		var expertise_controller := str(trigger.get("controller_player_id", ""))
+		var expertise_player := _get_player_state(match_state, expertise_controller)
+		if int(expertise_player.get("noncreature_plays_this_turn", 0)) <= 0:
+			return false
 	var required_wax_wane := str(descriptor.get("required_wax_wane_phase", family_spec.get("required_wax_wane_phase", "")))
 	if not required_wax_wane.is_empty():
 		var controller_player_id := str(trigger.get("controller_player_id", ""))
@@ -2408,8 +2414,7 @@ static func _mark_once_trigger_if_needed(match_state: Dictionary, trigger: Dicti
 		var resolved_once_triggers: Dictionary = match_state.get("resolved_once_triggers", {})
 		resolved_once_triggers[str(trigger.get("trigger_id", ""))] = true
 		match_state["resolved_once_triggers"] = resolved_once_triggers
-	var is_once_per_turn := bool(descriptor.get("once_per_turn", false)) or str(descriptor.get("family", "")) == FAMILY_EXPERTISE
-	if is_once_per_turn:
+	if bool(descriptor.get("once_per_turn", false)):
 		var resolved_turn_triggers: Dictionary = match_state.get("resolved_turn_triggers", {})
 		resolved_turn_triggers[str(trigger.get("trigger_id", ""))] = true
 		match_state["resolved_turn_triggers"] = resolved_turn_triggers
@@ -2421,9 +2426,7 @@ static func _is_once_trigger_consumed(match_state: Dictionary, trigger: Dictiona
 		var resolved_once_triggers: Dictionary = match_state.get("resolved_once_triggers", {})
 		if bool(resolved_once_triggers.get(str(trigger.get("trigger_id", "")), false)):
 			return true
-	# Expertise is inherently once-per-turn per the game rules
-	var is_once_per_turn := bool(descriptor.get("once_per_turn", false)) or str(descriptor.get("family", "")) == FAMILY_EXPERTISE
-	if is_once_per_turn:
+	if bool(descriptor.get("once_per_turn", false)):
 		var resolved_turn_triggers: Dictionary = match_state.get("resolved_turn_triggers", {})
 		if bool(resolved_turn_triggers.get(str(trigger.get("trigger_id", "")), false)):
 			return true

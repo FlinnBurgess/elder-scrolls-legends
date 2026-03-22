@@ -21,42 +21,46 @@ static func build_test_match_state() -> Dictionary:
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — plenty of magicka for Mobilize testing
+	# Player 1 (you) — enough magicka to play Expertise triggers
 	var p1_health := 30
-	var p1_max_magicka := 12
-	var p1_current_magicka := 12
+	var p1_max_magicka := 10
+	var p1_current_magicka := 10
 	var p1_rune_thresholds := [25, 20, 15, 10, 5]
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — Mobilize items to test playing to empty lanes
-	# Mobilize: items can be played to an empty lane to summon a 1/1 Recruit and equip it
+	# Player 1 hand — actions/items/supports to trigger Expertise at end of turn
+	# Expertise: at end of your turn, if you played an action, item, or support, trigger
 	var p1_hand_ids: Array = [
-		"aw_str_ornamented_sword",          # Cost 2, +2/+1, Mobilize + Breakthrough
-		"aw_str_ebonthread_cloak",          # Cost 2, +1/+2, Mobilize + Summon: can't be targeted
-		"aw_end_covenant_mail",             # Cost 3, +1/+3, Prophecy + Mobilize + Guard
-		"aw_end_poisoned_dagger",           # Cost 2, +1/+0, Mobilize + Lethal
-		"aw_str_covenant_plate",            # Cost 3, +3/+1, Prophecy + Mobilize + Guard
+		"str_steel_scimitar",               # Cost 1, Item +2/+2 — cheapest Expertise trigger
+		"str_rapid_shot",                   # Cost 1, Action: Deal 1 damage, draw if survives — trigger
+		"str_fireball",                     # Cost 4, Action: Deal 1 to all enemies — trigger
+		"str_raiding_party",                # Cost 3, Action: Two 1/1 Nord Firebrands — trigger
+		"str_orcish_warhammer",             # Cost 4, Item +3/+3 Breakthrough — trigger + equip
 	]
 
-	# Player 1 deck — bigger Mobilize items + Emeric's Warlord synergy
+	# Player 1 deck — more triggers + Expertise creatures to play
 	var p1_deck_ids: Array = [
-		"aw_int_lion_guard_armaments",      # Cost 5, +3/+4, Mobilize
-		"aw_int_staff_of_ice",              # Cost 5, +1/+1, Prophecy + Mobilize + Summon: deal 2 damage
-		"tc_tri_enchanted_ring",            # Cost 1, +1/+1, Mobilize + equip copies from discard
-		"aw_tri_covenant_masterpiece",      # Cost 7, +3/+3, Mobilize + Breakthrough + Regenerate + Guard + Ward
-		"aw_int_emerics_warlord",           # Cost 2, 1/4, Your items have Mobilize + Recruit equip synergy
-		"aw_end_cruel_axe",                 # Cost 2, Mobilize + Summon: +1/+1 per enemy in lane
+		"aw_str_fighters_guild_elite",      # Cost 5, 2/2, Expertise: Double power and health
+		"aw_wil_guildsworn_cavalier",       # Cost 5, 3/3, Expertise: Give friendly creatures +1/+1
+		"aw_tri_master_of_incunabula",      # Cost 4, 3/6, Has all friendly Expertise abilities
+		"str_intimidate",                   # Cost 1, Action: Enemies lose Guard — trigger
+		"str_plunder",                      # Cost 2, Action: 2 random items — trigger + more items
+		"str_gladiator_arena",              # Cost 4, Support: Ongoing — trigger
 	]
 
-	# Player 1 — one creature in field lane (to test equipping Mobilize items onto existing creature)
+	# Player 1 — Expertise creatures already in lane, ready for end-of-turn triggers
 	var p1_field_creatures: Array = [
-		_make_lane_creature("player_1", "str_whiterun_trooper", 100),  # 2/4 vanilla — equip target
+		_make_lane_creature("player_1", "aw_int_guildsworn_wayfarer", 100),   # 2/2, Expertise: +1/+1
+		_make_lane_creature("player_1", "aw_str_guildsworn_incendiary", 101), # 2/6, Expertise: 1 damage to all in lane
+		_make_lane_creature("player_1", "aw_str_fighters_guild_berserker", 102), # 4/2, Expertise: Deal 2 to opponent
 	]
-	# Shadow lane empty — test Mobilize summoning into empty lane
-	var p1_shadow_creatures: Array = []
+	var p1_shadow_creatures: Array = [
+		_make_lane_creature("player_1", "aw_wil_guildsworn_revitalizer", 103), # 1/5, Expertise: Gain 2 health
+		_make_lane_creature("player_1", "aw_wil_renowned_instructor", 104),   # 3/4, Expertise: Summon Recruit
+	]
 
-	# Player 2 (AI) — low magicka, enemies in field lane only (shadow lane empty for Mobilize deploy)
+	# Player 2 (AI) — weak enemies
 	var p2_health := 30
 	var p2_max_magicka := 2
 	var p2_current_magicka := 2
@@ -80,13 +84,14 @@ static func build_test_match_state() -> Dictionary:
 		"str_fiery_imp",
 	]
 
-	# Player 2 — enemies in field lane, shadow lane empty for Mobilize testing
+	# Player 2 — enemies in both lanes for Incendiary to damage
 	var p2_field_creatures: Array = [
 		_make_lane_creature("player_2", "str_fiery_imp", 100),
 		_make_lane_creature("player_2", "str_fiery_imp", 101),
-		_make_lane_creature("player_2", "str_fiery_imp", 102),  # 3 enemies for Cruel Axe testing
 	]
-	var p2_shadow_creatures: Array = []
+	var p2_shadow_creatures: Array = [
+		_make_lane_creature("player_2", "str_fiery_imp", 102),
+	]
 
 	## ── END CONFIGURATION ──────────────────────────────────────────────
 

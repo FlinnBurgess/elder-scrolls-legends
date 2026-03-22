@@ -83,44 +83,30 @@ func _test_start_of_turn_triggers_resolve_in_slot_order() -> bool:
 func _test_on_play_summon_and_expertise_share_deterministic_order() -> bool:
 	var match_state := _build_started_match(20, 0)
 	var active_player: Dictionary = match_state["players"][0]
+	# Expertise creature in lane — triggers at end of turn if an action/item/support was played
 	var mentor := _summon_creature(active_player, match_state, "mentor", "field", 2, 2, [], 0, {
 		"triggered_abilities": [{
 			"family": MatchTiming.FAMILY_EXPERTISE,
 			"required_zone": "lane",
-			"min_played_cost": 5,
 			"effects": [{"op": "modify_stats", "target": "self", "power": 0, "health": 1}],
 		}]
 	})
-	var played_card := _add_hand_card(active_player, "expensive_play", {
-		"card_type": "creature",
-		"cost": 6,
-		"power": 3,
-		"health": 3,
-		"triggered_abilities": [
-			{
-				"family": MatchTiming.FAMILY_ON_PLAY,
-				"required_zone": "lane",
-				"effects": [
-					{"op": "log", "message": "played"},
-					{"op": "modify_stats", "target": "self", "power": 1, "health": 0},
-				],
-			},
-			{
-				"family": MatchTiming.FAMILY_SUMMON,
-				"required_zone": "lane",
-				"effects": [{"op": "grant_keyword", "target": "self", "keyword_id": "guard"}],
-			}
-		]
+	# Play an action (non-creature) to satisfy the Expertise condition
+	var action_card := _add_hand_card(active_player, "test_action", {
+		"card_type": "action",
+		"cost": 1,
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"effects": [{"op": "log", "message": "played"}],
+		}]
 	})
-
-	var result := LaneRules.summon_from_hand(match_state, active_player["player_id"], played_card["instance_id"], "field", {"slot_index": 1})
-	var families := _families_from_resolutions(result.get("trigger_resolutions", []))
-	var log_event := _first_event_of_type(result.get("events", []), "timing_effect_logged")
+	var play_result := MatchTiming.play_action_from_hand(match_state, active_player["player_id"], action_card["instance_id"], {})
+	var log_event := _first_event_of_type(play_result.get("events", []), "timing_effect_logged")
+	# End the turn — Expertise should fire now
+	MatchTurnLoop.end_turn(match_state, active_player["player_id"])
 	return (
-		_assert(result["is_valid"], "Expensive summon fixture should succeed.") and
-		_assert(families == [MatchTiming.FAMILY_EXPERTISE, MatchTiming.FAMILY_ON_PLAY, MatchTiming.FAMILY_SUMMON], "Expertise, on-play, and summon should resolve in deterministic order.") and
-		_assert(mentor["health_bonus"] == 1, "Expertise should apply when a five-cost-or-more card is played.") and
-		_assert(played_card["power_bonus"] == 1 and played_card.get("granted_keywords", []).has("guard"), "On-play and summon effects should modify the played creature.") and
+		_assert(play_result["is_valid"], "Action play should succeed.") and
+		_assert(mentor["health_bonus"] == 1, "Expertise should trigger at end of turn after playing an action.") and
 		_assert(str(log_event.get("parent_event_id", "")) != "" and str(log_event.get("produced_by_resolution_id", "")) != "", "Generated timing events should keep replay linkage metadata.")
 	)
 
