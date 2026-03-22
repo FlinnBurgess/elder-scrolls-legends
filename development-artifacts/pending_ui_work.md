@@ -1,23 +1,20 @@
 # Pending UI Work for New Ops
 
-Ops implemented in the engine but needing UI integration for player interaction.
-AI heuristics are in place as fallbacks for all of these.
+Ops implemented in the engine with UI integration status.
 
-## 1. Choice Modal (NEW UI COMPONENT)
+## 1. Choice Modal — DONE
 
-A single reusable `_show_choice_overlay()` component would unblock all 5 cards.
-Should display 2-3 options (buttons or card previews) and resolve the player's pick
-back into the trigger via `_chosen_option_index` or similar.
+Built `_show_player_choice_overlay()` in match_screen.gd with text and card modes.
+Full two-phase pattern: engine pushes `pending_player_choices`, AI resolves via
+enumerator/executor, player sees overlay and picks.
 
-| Op | Cards | Player Sees |
-|----|-------|-------------|
-| `choose_one` | Barbas, Aspect of Hircine, Archcanon Saryoni | 2-3 labeled buttons (e.g. "Strength" / "Speed") |
-| `waves_of_the_fallen_choice` | Waves of the Fallen | Binary: "Debuff enemies to 2/2" / "Buff friendlies to 5/5" |
-| `merchant_offer` | Mudcrab Merchant | 2 card previews, pick one (other goes to opponent) |
-| `vision_and_transform` | Bringer of Nightmares | 2 creature previews, pick one to transform target into |
-| `guess_opponent_card` | Thief of Dreams, Caius Cosades | 2 card previews, guess which opponent has |
-
-**AI fallback**: `choose_one` picks first option. Others use deterministic random.
+| Op | Cards | Status |
+|----|-------|--------|
+| `choose_one` | Barbas, Aspect of Hircine, Archcanon Saryoni | DONE |
+| `waves_of_the_fallen_choice` | Waves of the Fallen | DONE |
+| `merchant_offer` | Mudcrab Merchant | DONE |
+| `vision_and_transform` | Bringer of Nightmares | DONE |
+| `guess_opponent_card` | Thief of Dreams, Caius Cosades | DONE |
 
 ## 2. Wire Existing Hand Selection UI
 
