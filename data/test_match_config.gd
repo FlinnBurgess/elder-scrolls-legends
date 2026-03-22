@@ -21,7 +21,7 @@ static func build_test_match_state() -> Dictionary:
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — plenty of magicka to play multiple cards per turn
+	# Player 1 (you) — plenty of magicka for Veteran testing
 	var p1_health := 30
 	var p1_max_magicka := 12
 	var p1_current_magicka := 12
@@ -29,47 +29,48 @@ static func build_test_match_state() -> Dictionary:
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — Rally creatures + hand creatures to receive buffs
-	# Rally: when this creature attacks, give a random creature in your hand +1/+1
+	# Player 1 hand — Veteran creatures to play and test
+	# Veteran: triggers the first time this creature takes damage and survives
 	var p1_hand_ids: Array = [
-		"hom_str_sarethi_scion",            # Cost 1, 1/1, Rally
-		"hom_wil_warclaw_mercenary",        # Cost 2, 2/2, Rally
-		"hom_wil_khuul_lawkeeper",          # Cost 3, 1/6, Guard + Rally
-		"hom_str_aldruhn_arms_master",      # Cost 4, 2/3, Charge + Rally
-		"str_fiery_imp",                    # Cost 1 — non-Rally creature to receive buffs in hand
+		"aw_end_great_moot_squire",         # Cost 1, 1/2, Veteran: +1/+1
+		"aw_agi_dunmer_tyro",               # Cost 3, 1/4, Charge + Veteran: +2/+0
+		"aw_end_black_marsh_prodigy",       # Cost 3, 1/1, Veteran: +4/+4
+		"aw_str_windhelm_gatekeeper",       # Cost 4, 2/4, Guard + Veteran: +3/+0
+		"aw_agi_inspiring_soldier",          # Cost 2, 3/2, Veteran: Summon a 1/1 Recruit
 	]
 
-	# Player 1 deck — more creatures to draw into (Rally buff targets)
+	# Player 1 deck — more Veteran creatures
 	var p1_deck_ids: Array = [
-		"hom_end_ald_velothi_assassin",     # Cost 2, 1/2, Lethal + Rally
-		"hom_str_redoran_battlespear",      # Cost 3, Item, Rally +1/+3 (equip to stack Rally)
-		"str_fiery_imp",
-		"str_fiery_imp",
-		"str_fiery_imp",
+		"aw_end_black_marsh_centurion",     # Cost 6, 4/8, Veteran: Guard
+		"aw_str_jorunns_vanguard",          # Cost 5, 4/4, Veteran: +2/+2 and buff top deck
+		"aw_agi_invoker_of_the_hist",       # Cost 6, 3/6, Veteran: Restore magicka
+		"aw_agi_shadowscale_hunter",        # Cost 3, 4/3, Veteran: Move
+		"aw_tri_mournhold_taskmaster",      # Cost 4, 5/4, Passive: Veteran creatures have Charge
 		"str_fiery_imp",
 	]
 
-	# Player 1 creatures in field lane — a Rally creature ready to attack right away
+	# Player 1 — one Veteran creature already in lane ready to take damage
 	var p1_field_creatures: Array = [
-		_make_lane_creature("player_1", "hom_str_sarethi_scion", 100),  # 1/1 Rally, ready to swing
+		_make_lane_creature("player_1", "aw_end_great_moot_squire", 100),  # 1/2, Veteran: +1/+1
 	]
 	# Player 1 creatures in shadow lane
 	var p1_shadow_creatures: Array = []
 
-	# Player 2 (AI) — punching bag with no runes for clean Rally testing
+	# Player 2 (AI) — low magicka, weak creatures to attack into for Veteran triggers
 	var p2_health := 30
-	var p2_max_magicka := 1
-	var p2_current_magicka := 1
+	var p2_max_magicka := 3
+	var p2_current_magicka := 3
 	var p2_rune_thresholds := []
 	var p2_has_ring := false
 	var p2_ring_charges := 0
 
 	# Player 2 hand
 	var p2_hand_ids: Array = [
+		"str_fiery_imp",                    # 1/1 — weak attacker to trigger Veteran
 		"str_fiery_imp",
 	]
 
-	# Player 2 deck (index 0 drawn first)
+	# Player 2 deck
 	var p2_deck_ids: Array = [
 		"str_fiery_imp",
 		"str_fiery_imp",
@@ -79,12 +80,14 @@ static func build_test_match_state() -> Dictionary:
 		"str_fiery_imp",
 	]
 
-	# Player 2 creatures — one target to attack into
+	# Player 2 — weak creatures in both lanes for Veteran combat testing
 	var p2_field_creatures: Array = [
-		_make_lane_creature("player_2", "str_fiery_imp", 100),
+		_make_lane_creature("player_2", "str_fiery_imp", 100),      # 1/1 — attacks your Veteran
+		_make_lane_creature("player_2", "str_nord_firebrand", 101), # 1/1 Charge
 	]
-	# Player 2 creatures in shadow lane
-	var p2_shadow_creatures: Array = []
+	var p2_shadow_creatures: Array = [
+		_make_lane_creature("player_2", "str_fiery_imp", 102),      # 1/1 in shadow lane
+	]
 
 	## ── END CONFIGURATION ──────────────────────────────────────────────
 
