@@ -110,6 +110,11 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 			return false
 		if int(descriptor.get("min_noncreature_plays_this_turn", 0)) > int(controller.get("noncreature_plays_this_turn", 0)):
 			return false
+		if int(descriptor.get("exalt_cost", 0)) > 0:
+			var exalt_source_id := str(trigger.get("source_instance_id", ""))
+			var exalt_source := _find_card_anywhere(match_state, exalt_source_id)
+			if not exalt_source.is_empty() and not EvergreenRules.has_raw_status(exalt_source, EvergreenRules.STATUS_EXALTED):
+				return false
 		if bool(descriptor.get("plot_bonus", false)) and int(controller.get("cards_played_this_turn", 0)) < 2:
 			return false
 		var req_summon_idx := int(descriptor.get("required_summon_index_this_turn", 0))
