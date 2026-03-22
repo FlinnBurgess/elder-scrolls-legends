@@ -2923,13 +2923,37 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					generated_events.append({"event_type": "discard_shuffled_to_deck", "player_id": sdctd_controller, "count": sdctd_to_move.size(), "power_buff": sdctd_power, "health_buff": sdctd_health, "reason": reason})
 			"summon_from_discard":
 				var sfd_controller := str(trigger.get("controller_player_id", ""))
-				var sfd_chosen_id := str(trigger.get("_chosen_target_id", ""))
-				if sfd_chosen_id.is_empty():
-					continue
 				var sfd_player := _get_player_state(match_state, sfd_controller)
 				if sfd_player.is_empty():
 					continue
 				var sfd_discard: Array = sfd_player.get(ZONE_DISCARD, [])
+				var sfd_source_id := str(trigger.get("source_instance_id", ""))
+				var sfd_source := _find_card_anywhere(match_state, sfd_source_id)
+				var sfd_source_power := EvergreenRules.get_power(sfd_source) if not sfd_source.is_empty() else 999
+				# Build candidate list from discard
+				var sfd_candidates: Array = []
+				var sfd_candidate_ids: Array = []
+				for di in range(sfd_discard.size()):
+					var d_card: Variant = sfd_discard[di]
+					if typeof(d_card) == TYPE_DICTIONARY and str(d_card.get("card_type", "")) == "creature":
+						if EvergreenRules.get_power(d_card) < sfd_source_power:
+							sfd_candidates.append(di)
+							sfd_candidate_ids.append(str(d_card.get("instance_id", "")))
+				if sfd_candidates.is_empty():
+					continue
+				var sfd_chosen_id := str(trigger.get("_chosen_target_id", ""))
+				if sfd_chosen_id.is_empty():
+					# Push pending discard choice for UI
+					match_state["pending_discard_choices"].append({
+						"player_id": sfd_controller,
+						"source_instance_id": sfd_source_id,
+						"candidate_instance_ids": sfd_candidate_ids,
+						"then_op": "summon_from_discard",
+						"reason": "summon_from_discard",
+					})
+					generated_events.append({"event_type": "discard_choice_pending", "player_id": sfd_controller})
+					continue
+				# Resolve with chosen target
 				var sfd_card: Dictionary = {}
 				var sfd_idx := -1
 				for di in range(sfd_discard.size()):
@@ -2940,7 +2964,6 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				if sfd_card.is_empty() or sfd_idx < 0:
 					continue
 				sfd_discard.remove_at(sfd_idx)
-				var sfd_source_id := str(trigger.get("source_instance_id", ""))
 				var sfd_source_loc := MatchMutations.find_card_location(match_state, sfd_source_id)
 				var sfd_lane_id := str(sfd_source_loc.get("lane_id", ""))
 				if sfd_lane_id.is_empty():
