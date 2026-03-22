@@ -26,15 +26,24 @@ static func extract_synergy_rules_tags(card: Dictionary) -> Array:
 	return seen.keys()
 
 
-## Returns deduplicated lowercase attributes that this card's auras care about.
+## Returns deduplicated lowercase attributes that this card's auras or trigger conditions care about.
 static func extract_synergy_attributes(card: Dictionary) -> Array:
+	var seen: Dictionary = {}
 	var aura_raw = card.get("aura", null)
-	if aura_raw == null or typeof(aura_raw) != TYPE_DICTIONARY:
-		return []
-	var filter_attribute := str((aura_raw as Dictionary).get("filter_attribute", ""))
-	if filter_attribute.is_empty():
-		return []
-	return [filter_attribute.to_lower()]
+	if aura_raw != null and typeof(aura_raw) == TYPE_DICTIONARY:
+		var filter_attribute := str((aura_raw as Dictionary).get("filter_attribute", ""))
+		if not filter_attribute.is_empty():
+			seen[filter_attribute.to_lower()] = true
+	var abilities: Array = card.get("triggered_abilities", [])
+	for ability in abilities:
+		if typeof(ability) != TYPE_DICTIONARY:
+			continue
+		var req_attr_count = ability.get("required_friendly_attribute_count", null)
+		if req_attr_count != null and typeof(req_attr_count) == TYPE_DICTIONARY:
+			var attr := str(req_attr_count.get("attribute", ""))
+			if not attr.is_empty():
+				seen[attr.to_lower()] = true
+	return seen.keys()
 
 
 static func _extract_trigger_condition_subtypes(card: Dictionary, seen: Dictionary) -> void:
