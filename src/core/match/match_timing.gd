@@ -3022,6 +3022,20 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var health_bonus := current_health if cds_stat in ["both", "health"] else 0
 					EvergreenRules.apply_stat_bonus(card, power_bonus, health_bonus, reason)
 					generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "power_bonus": power_bonus, "health_bonus": health_bonus, "reason": reason})
+			"add_support_uses":
+				var asu_amount := int(effect.get("amount", 1))
+				var asu_controller := str(trigger.get("controller_player_id", ""))
+				var asu_player := _get_player_state(match_state, asu_controller)
+				if not asu_player.is_empty():
+					for card in asu_player.get(ZONE_SUPPORT, []):
+						if typeof(card) == TYPE_DICTIONARY:
+							var current_uses := int(card.get("remaining_support_uses", card.get("support_uses", 0)))
+							card["remaining_support_uses"] = current_uses + asu_amount
+					generated_events.append({"event_type": "support_uses_added", "player_id": asu_controller, "amount": asu_amount, "reason": reason})
+			"grant_double_activate":
+				var gda_controller := str(trigger.get("controller_player_id", ""))
+				match_state["double_activate_" + gda_controller] = true
+				generated_events.append({"event_type": "double_activate_granted", "player_id": gda_controller, "reason": reason})
 			"trigger_summon_ability":
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					var tsa_abilities: Array = card.get("triggered_abilities", [])
