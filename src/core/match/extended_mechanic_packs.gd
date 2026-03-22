@@ -743,6 +743,36 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				dfomb_deck.pop_back()
 				dfomb_deck.insert(0, dfomb_top_card)
 				return {"handled": true, "events": [{"event_type": "card_moved_to_bottom", "player_id": dfomb_controller_id, "instance_id": str(dfomb_top_card.get("instance_id", ""))}]}
+		"generate_random_shouts_to_hand":
+			var grsh_controller := str(trigger.get("controller_player_id", ""))
+			var grsh_player := _get_player_state(match_state, grsh_controller)
+			if grsh_player.is_empty():
+				return {"handled": true, "events": []}
+			var grsh_count := int(effect.get("count", 3))
+			var grsh_set_cost: Variant = effect.get("set_cost", null)
+			var grsh_seeds: Array = CardCatalog._card_seeds()
+			var grsh_shouts: Array = []
+			for seed in grsh_seeds:
+				if typeof(seed) == TYPE_DICTIONARY:
+					var tags: Array = seed.get("rules_tags", [])
+					if typeof(tags) == TYPE_ARRAY and tags.has("shout") and int(seed.get("shout_level", 0)) == 1:
+						grsh_shouts.append(seed)
+			var grsh_events: Array = []
+			var grsh_hand: Array = grsh_player.get("hand", [])
+			for i in range(grsh_count):
+				if grsh_shouts.is_empty():
+					break
+				var pick_idx := _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_grsh_" + str(i), grsh_shouts.size())
+				var grsh_pick: Dictionary = grsh_shouts[pick_idx]
+				var grsh_template: Dictionary = grsh_pick.duplicate(true)
+				grsh_template["definition_id"] = str(grsh_template.get("card_id", ""))
+				if grsh_set_cost != null:
+					grsh_template["cost"] = int(grsh_set_cost)
+				var grsh_card := MatchMutations.build_generated_card(match_state, grsh_controller, grsh_template)
+				grsh_card["zone"] = "hand"
+				grsh_hand.append(grsh_card)
+				grsh_events.append({"event_type": "card_generated_to_hand", "player_id": grsh_controller, "instance_id": str(grsh_card.get("instance_id", ""))})
+			return {"handled": true, "events": grsh_events}
 		"win_game_if_all_attributes":
 			var wgiaa_controller := str(trigger.get("controller_player_id", ""))
 			var wgiaa_found: Dictionary = {}
