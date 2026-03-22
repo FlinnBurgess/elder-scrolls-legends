@@ -4888,22 +4888,26 @@ func _action_target_mode_allows(action_card: Dictionary, target_instance_id: Str
 	if target_card.is_empty():
 		return false
 	var target_controller := str(target_card.get("controller_player_id", ""))
+	var mode_allowed := true
 	match atm:
 		"friendly_creature", "another_friendly_creature":
-			return target_controller == controller_id
+			mode_allowed = target_controller == controller_id
 		"enemy_creature":
-			return target_controller != controller_id
+			mode_allowed = target_controller != controller_id
 		"wounded_enemy_creature":
-			return target_controller != controller_id and EvergreenRules.has_status(target_card, EvergreenRules.STATUS_WOUNDED)
+			mode_allowed = target_controller != controller_id and EvergreenRules.has_status(target_card, EvergreenRules.STATUS_WOUNDED)
 		"any_creature", "another_creature":
-			return true
+			mode_allowed = true
 		"enemy_support_or_neutral_creature":
 			if target_controller == controller_id:
-				return false
-			var attrs: Array = target_card.get("attributes", [])
-			return typeof(attrs) == TYPE_ARRAY and attrs.has("neutral")
+				mode_allowed = false
+			else:
+				var attrs: Array = target_card.get("attributes", [])
+				mode_allowed = typeof(attrs) == TYPE_ARRAY and attrs.has("neutral")
 		"enemy_creature_or_support":
-			return target_controller != controller_id
+			mode_allowed = target_controller != controller_id
+	if not mode_allowed:
+		return false
 	# Check triggered_abilities for additional conditions
 	for trigger in action_card.get("triggered_abilities", []):
 		if typeof(trigger) != TYPE_DICTIONARY:
