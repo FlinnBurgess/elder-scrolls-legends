@@ -60,7 +60,13 @@ Check if `development-artifacts/card_audit_progress.json` exists.
 1. Read the file and find the first card with `"status": "pending"`.
 2. Report how many cards remain vs. how many have been processed.
 
-### Step 1b — Skip Simple Cards
+### Step 1b — Programmatic Op/Family Sweep
+
+Before any agent work, run a script to extract every `"op"` value from `card_catalog.gd` and verify each one has a handler in `match_timing.gd` `_apply_effects()` or `extended_mechanic_packs.gd` `apply_custom_effect()`. This catches unimplemented ops instantly with zero false positives — it's the highest-value check in the entire audit. Flag any card referencing an unimplemented op as NEEDS_FIX regardless of other audit results.
+
+Similarly, verify all `"family"` values exist in `FAMILY_SPECS` and all `action_target_mode` values are handled.
+
+### Step 1c — Skip Simple Cards
 
 Before processing, auto-pass cards that have no meaningful logic to audit:
 
