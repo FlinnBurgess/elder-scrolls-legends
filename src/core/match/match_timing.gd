@@ -2408,7 +2408,8 @@ static func _mark_once_trigger_if_needed(match_state: Dictionary, trigger: Dicti
 		var resolved_once_triggers: Dictionary = match_state.get("resolved_once_triggers", {})
 		resolved_once_triggers[str(trigger.get("trigger_id", ""))] = true
 		match_state["resolved_once_triggers"] = resolved_once_triggers
-	if bool(descriptor.get("once_per_turn", false)):
+	var is_once_per_turn := bool(descriptor.get("once_per_turn", false)) or str(descriptor.get("family", "")) == FAMILY_EXPERTISE
+	if is_once_per_turn:
 		var resolved_turn_triggers: Dictionary = match_state.get("resolved_turn_triggers", {})
 		resolved_turn_triggers[str(trigger.get("trigger_id", ""))] = true
 		match_state["resolved_turn_triggers"] = resolved_turn_triggers
@@ -2420,7 +2421,9 @@ static func _is_once_trigger_consumed(match_state: Dictionary, trigger: Dictiona
 		var resolved_once_triggers: Dictionary = match_state.get("resolved_once_triggers", {})
 		if bool(resolved_once_triggers.get(str(trigger.get("trigger_id", "")), false)):
 			return true
-	if bool(descriptor.get("once_per_turn", false)):
+	# Expertise is inherently once-per-turn per the game rules
+	var is_once_per_turn := bool(descriptor.get("once_per_turn", false)) or str(descriptor.get("family", "")) == FAMILY_EXPERTISE
+	if is_once_per_turn:
 		var resolved_turn_triggers: Dictionary = match_state.get("resolved_turn_triggers", {})
 		if bool(resolved_turn_triggers.get(str(trigger.get("trigger_id", "")), false)):
 			return true
@@ -6213,13 +6216,12 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 						targets.append(card)
 		"all_creatures_in_lane":
 			var lane_index := int(trigger.get("lane_index", -1))
-			var self_id := str(trigger.get("source_instance_id", ""))
 			var lanes: Array = match_state.get("lanes", [])
 			if lane_index >= 0 and lane_index < lanes.size():
 				var player_slots: Dictionary = lanes[lane_index].get("player_slots", {})
 				for pid in player_slots.keys():
 					for card in player_slots[pid]:
-						if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) != self_id:
+						if typeof(card) == TYPE_DICTIONARY:
 							targets.append(card)
 		"chosen_target":
 			var chosen_id := str(trigger.get("_chosen_target_id", ""))
