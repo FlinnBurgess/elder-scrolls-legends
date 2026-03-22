@@ -3022,6 +3022,24 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var health_bonus := current_health if cds_stat in ["both", "health"] else 0
 					EvergreenRules.apply_stat_bonus(card, power_bonus, health_bonus, reason)
 					generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "power_bonus": power_bonus, "health_bonus": health_bonus, "reason": reason})
+			"choose_one":
+				var co_choices_raw = effect.get("choices", [])
+				var co_choices: Array = co_choices_raw if typeof(co_choices_raw) == TYPE_ARRAY else []
+				if co_choices.is_empty():
+					continue
+				# Check if a choice was pre-selected (from UI), otherwise AI picks first
+				var co_pick_idx := int(trigger.get("_chosen_option_index", 0))
+				if co_pick_idx < 0 or co_pick_idx >= co_choices.size():
+					co_pick_idx = 0
+				var co_chosen: Dictionary = co_choices[co_pick_idx] if typeof(co_choices[co_pick_idx]) == TYPE_DICTIONARY else {}
+				var co_effects: Array = co_chosen.get("effects", []) if typeof(co_chosen.get("effects", [])) == TYPE_ARRAY else []
+				for co_sub_effect in co_effects:
+					if typeof(co_sub_effect) != TYPE_DICTIONARY:
+						continue
+					var co_sub_op := str(co_sub_effect.get("op", ""))
+					var co_sub_resolution := {"effects": [co_sub_effect]}
+					generated_events.append_array(_apply_effects(match_state, trigger, event, co_sub_resolution))
+				generated_events.append({"event_type": "choice_made", "source_instance_id": str(trigger.get("source_instance_id", "")), "chosen_label": str(co_chosen.get("label", "")), "reason": reason})
 			"copy_rallied_creature_to_hand":
 				var crch_target_id := str(event.get("target_instance_id", ""))
 				var crch_target := _find_card_anywhere(match_state, crch_target_id)
