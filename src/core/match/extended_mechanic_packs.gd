@@ -1282,7 +1282,7 @@ static func _resolve_player_damage(match_state: Dictionary, trigger: Dictionary,
 	if amount <= 0:
 		return []
 	var events: Array = []
-	for player_id in _resolve_player_targets(match_state, event, effect, str(trigger.get("controller_player_id", ""))):
+	for player_id in _resolve_player_targets(match_state, event, effect, str(trigger.get("controller_player_id", "")), trigger):
 		var damage_result: Dictionary = _timing_rules().apply_player_damage(match_state, player_id, amount, {
 			"reason": str(effect.get("reason", "effect_damage")),
 			"source_instance_id": str(trigger.get("source_instance_id", "")),
@@ -1429,7 +1429,7 @@ static func _grant_keyword(card: Dictionary, keyword_id: String) -> bool:
 	return true
 
 
-static func _resolve_player_targets(match_state: Dictionary, event: Dictionary, effect: Dictionary, controller_player_id: String) -> Array:
+static func _resolve_player_targets(match_state: Dictionary, event: Dictionary, effect: Dictionary, controller_player_id: String, trigger: Dictionary = {}) -> Array:
 	match str(effect.get("target_player", "target_player")):
 		"controller":
 			return [controller_player_id]
@@ -1444,6 +1444,9 @@ static func _resolve_player_targets(match_state: Dictionary, event: Dictionary, 
 		"target_player":
 			var target_player_id := str(event.get("target_player_id", ""))
 			return [] if target_player_id.is_empty() else [target_player_id]
+		"chosen_target_player":
+			var chosen_pid := str(trigger.get("_chosen_target_player_id", ""))
+			return [] if chosen_pid.is_empty() else [chosen_pid]
 	return []
 
 
