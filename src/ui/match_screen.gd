@@ -464,6 +464,39 @@ static func _hydrate_all_zones(match_state: Dictionary, card_by_id: Dictionary) 
 						_hydrate_card(attached_item, card_by_id)
 
 
+func start_test_match(test_state: Dictionary) -> void:
+	_cancel_detached_card_silent()
+	_dismiss_mulligan_overlay()
+	_dismiss_prophecy_overlay()
+	_dismiss_discard_viewer()
+	_dismiss_discard_choice_overlay()
+	_dismiss_player_choice_overlay()
+	_exit_hand_selection_mode()
+	_exit_top_deck_choice_mode()
+	_dismiss_spell_reveal()
+	_reset_invalid_feedback()
+	_clear_feedback_state()
+	_reset_local_match_ai_queue()
+	_reset_match_history()
+	_local_match_ai_action_count = 0
+	var catalog_result := CardCatalog.load_default()
+	var card_by_id: Dictionary = catalog_result.get("card_by_id", {})
+	_hydrate_all_zones(test_state, card_by_id)
+	GameLogger.start_match(test_state)
+	_match_state = test_state
+	_ai_options = {}
+	_scenario_id = LOCAL_MATCH_AI_SCENARIO_ID
+	_selected_instance_id = ""
+	_last_turn_owner_id = ""
+	_floating_card_ids.clear()
+	_turn_banner_until_ms = 0
+	_clear_pile_selection()
+	_mulligan_card_by_id = {}
+	_ai_enabled = true
+	_status_message = "Test match started."
+	_refresh_ui()
+
+
 func resume_from_state(saved_state: Dictionary) -> void:
 	_cancel_detached_card_silent()
 	_dismiss_mulligan_overlay()

@@ -6,6 +6,7 @@ const DeckValidator = preload("res://src/deck/deck_validator.gd")
 const MatchScreen = preload("res://src/ui/match_screen.gd")
 const DeckbuilderScreen = preload("res://src/ui/deckbuilder_screen.gd")
 const ArenaControllerScript = preload("res://src/ui/arena/arena_controller.gd")
+const TestMatchConfig = preload("res://data/test_match_config.gd")
 
 const DECKS_DIR := "res://data/decks/"
 
@@ -17,6 +18,7 @@ var _deck_select_buttons: Array = []
 var _deck_entries: Array = []
 var _selected_deck_index := -1
 var _start_match_button: Button
+var _match_button: Button
 
 
 func _ready() -> void:
@@ -61,11 +63,11 @@ func _show_main_menu() -> void:
 	spacer.custom_minimum_size = Vector2(0, 24)
 	center.add_child(spacer)
 
-	var match_button := Button.new()
-	match_button.text = "Match"
-	match_button.custom_minimum_size = Vector2(320, 52)
-	match_button.pressed.connect(_on_match_pressed)
-	center.add_child(match_button)
+	_match_button = Button.new()
+	_match_button.text = "Match"
+	_match_button.custom_minimum_size = Vector2(320, 52)
+	_match_button.pressed.connect(_on_match_pressed)
+	center.add_child(_match_button)
 
 	var arena_button := Button.new()
 	arena_button.text = "Arena"
@@ -305,6 +307,21 @@ func _load_deck_entries() -> Array:
 	return entries
 
 
+func _start_test_match() -> void:
+	_main_menu.visible = false
+	var test_state := TestMatchConfig.build_test_match_state()
+	if test_state.is_empty():
+		push_error("TestMatchConfig returned an empty match state.")
+		_main_menu.visible = true
+		return
+	var match_screen := MatchScreen.new()
+	match_screen.name = "Match"
+	match_screen.return_to_main_menu_requested.connect(_show_main_menu)
+	add_child(match_screen)
+	_active_screen = match_screen
+	match_screen.start_test_match(test_state)
+
+
 func _on_deckbuilder_pressed() -> void:
 	_main_menu.visible = false
 	var deckbuilder_screen := DeckbuilderScreen.new()
@@ -315,6 +332,12 @@ func _on_deckbuilder_pressed() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if _main_menu != null and _main_menu.visible and event.unicode == 63:
+			if _match_button != null and _match_button.is_hovered():
+				get_viewport().set_input_as_handled()
+				_start_test_match()
+				return
 	if _active_screen == null:
 		return
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
