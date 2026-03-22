@@ -2,7 +2,6 @@ shader_type canvas_item;
 
 uniform vec4 mist_color : source_color = vec4(0.45, 0.72, 0.95, 1.0);
 uniform float intensity : hint_range(0.0, 2.0) = 1.0;
-uniform float vertical_fade_power : hint_range(0.5, 4.0) = 1.2;
 
 // Animated ward shimmer using layered sine waves for reliable, visible motion.
 // TIME is used directly; the parent script calls queue_redraw() each frame
@@ -26,16 +25,14 @@ void fragment() {
 
 	float mist = ward_noise(uv * 4.0, t);
 
-	// Vertical fade: strongest at top, fading toward bottom
-	float fade = pow(1.0 - uv.y, vertical_fade_power);
+	// Edge fade on all four sides to avoid hard edges
+	float edge_fade = smoothstep(0.0, 0.12, uv.x) * smoothstep(0.0, 0.12, 1.0 - uv.x)
+		* smoothstep(0.0, 0.08, uv.y) * smoothstep(0.0, 0.08, 1.0 - uv.y);
 
-	// Horizontal edge fade to avoid hard edges on sides
-	float edge_fade = smoothstep(0.0, 0.12, uv.x) * smoothstep(0.0, 0.12, 1.0 - uv.x);
+	// Gentle pulse: slow period (~8s), small intensity variation
+	float pulse = mix(0.9, 1.1, sin(t * 0.8) * 0.5 + 0.5);
 
-	// Bottom edge fade too
-	float bottom_fade = smoothstep(0.0, 0.08, 1.0 - uv.y);
-
-	float alpha = clamp(mist * fade * edge_fade * bottom_fade * intensity, 0.0, 0.65);
+	float alpha = clamp(mist * edge_fade * intensity * pulse, 0.0, 0.55);
 
 	COLOR = vec4(mist_color.rgb, alpha);
 }

@@ -287,7 +287,7 @@ func _build_internal_nodes() -> void:
 		var ward_mat := ShaderMaterial.new()
 		ward_mat.shader = ward_shader
 		_ward_overlay.material = ward_mat
-	_content_root.add_child(_ward_overlay)
+	_art_clip.add_child(_ward_overlay)
 
 	# Shackle overlay sits above artwork but below banners and badges
 	_shackle_overlay = TextureRect.new()
@@ -834,9 +834,11 @@ func _layout_keyword_icons() -> void:
 func _layout_ward_overlay() -> void:
 	if _ward_overlay == null:
 		return
-	# Cover the full art frame area; the shader's vertical fade handles the falloff
-	_ward_overlay.position = _art_frame.position
-	_ward_overlay.size = _art_frame.size
+	# Extend past clip bounds so the shader's edge fade happens outside the visible art
+	var h_pad := _art_clip.size.x * 0.12
+	var v_pad := _art_clip.size.y * 0.08
+	_ward_overlay.position = Vector2(-h_pad, -v_pad)
+	_ward_overlay.size = _art_clip.size + Vector2(h_pad * 2, v_pad * 2)
 
 
 func _layout_shackle_overlay() -> void:
