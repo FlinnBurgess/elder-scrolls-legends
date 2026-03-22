@@ -21,54 +21,65 @@ static func build_test_match_state() -> Dictionary:
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you)
+	# Player 1 (you) — enough magicka to test exalt affordability
 	var p1_health := 30
-	var p1_max_magicka := 3
-	var p1_current_magicka := 3
+	var p1_max_magicka := 10
+	var p1_current_magicka := 10
 	var p1_rune_thresholds := [25, 20, 15, 10, 5]
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — cards the player starts with in hand
+	# Player 1 hand — exalt creatures with varying costs
 	var p1_hand_ids: Array = [
-		"str_fiery_imp",
+		"hom_int_poetic_armiger",           # Cost 2, Exalt 1: random keyword
+		"hom_int_clockwork_city_pilgrim",   # Cost 3, Exalt 3: +2/+2 (Guard)
+		"hom_int_ghostgate_defender",       # Cost 1, Exalt 3: deal 2 damage (targeted)
+		"hom_wil_grand_inquisitor",         # Cost 4, Exalt 4: +3/+3, summon destroys creature
+		"str_fiery_imp",                    # Cost 1, no exalt (for comparison)
 	]
 
-	# Player 1 deck — cards remaining in deck (index 0 drawn first)
+	# Player 1 deck
 	var p1_deck_ids: Array = [
+		"hom_wil_vivec_city_pilgrim",       # Cost 2, Exalt 3: +2/+2 (Drain)
+		"hom_end_almalexias_disciple",      # Cost 2, Exalt 2: heal all friendly
 		"str_fiery_imp",
-		"str_morthal_watchman",
+		"str_fiery_imp",
+		"str_fiery_imp",
+		"str_fiery_imp",
 	]
 
-	# Player 1 creatures in field lane (4 creatures with ward)
-	var p1_field_creatures: Array = [
-		_make_lane_creature("player_1", "end_wind_keep_spellsword", 1, {"keywords": ["ward"]}),
-		_make_lane_creature("player_1", "int_evermore_steward", 2, {"keywords": ["guard", "ward"]}),
-		_make_lane_creature("player_1", "int_glenumbra_sorceress", 3, {"keywords": ["ward"]}),
-		_make_lane_creature("player_1", "end_iliac_sorcerer", 4, {"keywords": ["ward"]}),
-	]
+	# Player 1 creatures in field lane
+	var p1_field_creatures: Array = []
 	# Player 1 creatures in shadow lane
 	var p1_shadow_creatures: Array = []
 
-	# Player 2 (AI)
-	var p2_health := 30
-	var p2_max_magicka := 1
-	var p2_current_magicka := 1
-	var p2_rune_thresholds := [25, 20, 15, 10, 5]
-	var p2_has_ring := true
-	var p2_ring_charges := 3
+	# Player 2 (AI) — has a creature on board for targeting tests
+	var p2_health := 20
+	var p2_max_magicka := 3
+	var p2_current_magicka := 3
+	var p2_rune_thresholds := []
+	var p2_has_ring := false
+	var p2_ring_charges := 0
 
 	# Player 2 hand
-	var p2_hand_ids: Array = []
+	var p2_hand_ids: Array = [
+		"hom_int_poetic_armiger",           # AI can also test exalt
+	]
 
 	# Player 2 deck (index 0 drawn first)
 	var p2_deck_ids: Array = [
 		"str_fiery_imp",
-		"str_morthal_watchman",
+		"str_fiery_imp",
+		"str_fiery_imp",
+		"str_fiery_imp",
+		"str_fiery_imp",
+		"str_fiery_imp",
 	]
 
-	# Player 2 creatures in field lane
-	var p2_field_creatures: Array = []
+	# Player 2 creatures in field lane — target for Ghostgate Defender / Grand Inquisitor
+	var p2_field_creatures: Array = [
+		_make_lane_creature("player_2", "str_fiery_imp", 100),
+	]
 	# Player 2 creatures in shadow lane
 	var p2_shadow_creatures: Array = []
 

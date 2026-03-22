@@ -235,6 +235,39 @@ static func get_valid_targets_for_mode(match_state: Dictionary, source_instance_
 			if source_lane_index >= 0:
 				targets = _lane_creatures_at(match_state, source_lane_index)
 				targets = targets.filter(func(c): return str(c.get("instance_id", "")) != source_instance_id)
+		"creature_less_power_than_self":
+			var self_power := EvergreenRules.get_power(source_card)
+			targets = _all_lane_creatures(match_state)
+			targets = targets.filter(func(c): return str(c.get("instance_id", "")) != source_instance_id and EvergreenRules.get_power(c) < self_power)
+		"creature_in_lane_less_power":
+			var self_power_cilp := EvergreenRules.get_power(source_card)
+			if source_lane_index >= 0:
+				targets = _lane_creatures_at(match_state, source_lane_index)
+				targets = targets.filter(func(c): return str(c.get("instance_id", "")) != source_instance_id and EvergreenRules.get_power(c) < self_power_cilp)
+		"another_neutral_creature":
+			targets = _all_lane_creatures(match_state)
+			targets = targets.filter(func(c):
+				if str(c.get("instance_id", "")) == source_instance_id:
+					return false
+				var attrs = c.get("attributes", [])
+				return typeof(attrs) == TYPE_ARRAY and attrs.has("neutral"))
+		"enemy_creature_2_power_or_less":
+			targets = _player_lane_creatures(match_state, opponent_id)
+			targets = targets.filter(func(c): return EvergreenRules.get_power(c) <= 2)
+		"friendly_creature_5_power":
+			targets = _player_lane_creatures(match_state, controller_id)
+			targets = targets.filter(func(c): return str(c.get("instance_id", "")) != source_instance_id and EvergreenRules.get_power(c) >= 5)
+		"friendly_discard_creature_less_power":
+			var self_power_fdclp := EvergreenRules.get_power(source_card)
+			for player in match_state.get("players", []):
+				if str(player.get("player_id", "")) != controller_id:
+					continue
+				for card in player.get("discard", []):
+					if typeof(card) == TYPE_DICTIONARY and str(card.get("card_type", "")) == "creature" and EvergreenRules.get_power(card) < self_power_fdclp:
+						targets.append(card)
+		"wounded_enemy_creature":
+			targets = _player_lane_creatures(match_state, opponent_id)
+			targets = targets.filter(func(c): return EvergreenRules.has_status(c, EvergreenRules.STATUS_WOUNDED))
 		"enemy_support":
 			for player in match_state.get("players", []):
 				if typeof(player) != TYPE_DICTIONARY or str(player.get("player_id", "")) != opponent_id:

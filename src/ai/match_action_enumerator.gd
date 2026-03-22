@@ -773,7 +773,10 @@ static func _build_descriptor(kind: String, match_state: Dictionary, player_id: 
 static func _build_cost_summary(kind: String, source_card: Dictionary, parameters: Dictionary, extras: Dictionary) -> Dictionary:
 	var played_for_free := bool(extras.get("played_for_free", false))
 	var base_cost := 0 if source_card.is_empty() else int(source_card.get("cost", 0))
-	var total_cost := 0 if played_for_free else base_cost + (1 if bool(parameters.get("exalt", false)) else 0)
+	var exalt_extra := 0
+	if bool(parameters.get("exalt", false)):
+		exalt_extra = LaneRules.get_exalt_extra_cost(source_card) if kind == KIND_SUMMON_CREATURE else 1
+	var total_cost := 0 if played_for_free else base_cost + exalt_extra
 	if kind == KIND_ACTIVATE_SUPPORT:
 		total_cost = 0 if played_for_free else int(source_card.get("activation_cost", 0))
 	return {

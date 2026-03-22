@@ -61,7 +61,10 @@ static func validate_summon_from_hand(match_state: Dictionary, player_id: String
 	if typeof(play_condition) == TYPE_DICTIONARY and not play_condition.is_empty():
 		if not _check_play_condition(match_state, player_id, play_condition):
 			return _invalid_result(str(play_condition.get("error_message", "This card can't be played right now.")))
-	if not bool(options.get("played_for_free", false)) and PersistentCardRules.get_effective_play_cost(match_state, player_id, card) > _get_available_magicka(player):
+	var total_play_cost := PersistentCardRules.get_effective_play_cost(match_state, player_id, card)
+	if bool(options.get("exalt", false)):
+		total_play_cost += get_exalt_extra_cost(card)
+	if not bool(options.get("played_for_free", false)) and total_play_cost > _get_available_magicka(player):
 		return _invalid_result("Player does not have enough magicka to play %s." % instance_id)
 	var validation := _validate_lane_entry(match_state, player_id, card, lane_id, options)
 	validation["player_index"] = player_lookup["player_index"]
@@ -82,6 +85,8 @@ static func summon_from_hand(match_state: Dictionary, player_id: String, instanc
 		ExtendedMechanicPacks.apply_pre_play_options(player[ZONE_HAND][hand_index], options)
 	var hand_card: Dictionary = player.get(ZONE_HAND, [])[hand_index]
 	var play_cost := 0 if bool(options.get("played_for_free", false)) else PersistentCardRules.get_effective_play_cost(match_state, player_id, hand_card)
+	if not bool(options.get("played_for_free", false)) and bool(options.get("exalt", false)):
+		play_cost += get_exalt_extra_cost(hand_card)
 	if play_cost > 0:
 		_spend_magicka(match_state, player_id, play_cost)
 	PersistentCardRules._consume_cost_reduction(match_state, player_id)
@@ -197,6 +202,8 @@ static func summon_with_sacrifice(match_state: Dictionary, player_id: String, in
 		ExtendedMechanicPacks.apply_pre_play_options(player[ZONE_HAND][hand_index], options)
 	var hand_card: Dictionary = player.get(ZONE_HAND, [])[hand_index]
 	var play_cost := 0 if bool(options.get("played_for_free", false)) else PersistentCardRules.get_effective_play_cost(match_state, player_id, hand_card)
+	if not bool(options.get("played_for_free", false)) and bool(options.get("exalt", false)):
+		play_cost += get_exalt_extra_cost(hand_card)
 	if play_cost > 0:
 		_spend_magicka(match_state, player_id, play_cost)
 	PersistentCardRules._consume_cost_reduction(match_state, player_id)
@@ -432,6 +439,13 @@ static func _ensure_dictionary(value) -> Dictionary:
 	if typeof(value) == TYPE_DICTIONARY:
 		return value
 	return {}
+
+
+static func get_exalt_extra_cost(card: Dictionary) -> int:
+	for trigger in card.get("triggered_abilities", []):
+		if int(trigger.get("exalt_cost", 0)) > 0:
+			return int(trigger.get("exalt_cost", 0))
+	return 0
 
 
 static func _check_play_condition(match_state: Dictionary, player_id: String, condition: Dictionary) -> bool:

@@ -108,6 +108,9 @@ var _betray_prompt_label: Label = null
 var _pending_sacrifice_summon := {}
 var _sacrifice_hover_target_id: String = ""
 var _sacrifice_hover_label: PanelContainer = null
+var _pending_exalt := {}
+var _exalt_button_container: Control = null
+var _exalt_card_preview: Control = null
 var _prophecy_overlay_state := {}
 var _spell_reveal_state := {}
 var _deck_reveal_state := {}
@@ -945,6 +948,9 @@ func play_selected_to_lane(lane_id: String, slot_index := -1) -> Dictionary:
 	if _selected_action_mode(card) == SELECTION_MODE_ACTION:
 		_play_action_to_lane(lane_id)
 		return {"is_valid": true}
+	# Check for exalt prompt before committing the play
+	if _check_exalt_creature(card, lane_id, slot_index, _is_pending_prophecy_card(card)):
+		return {"is_valid": true}
 	var saved_instance_id := _selected_instance_id
 	var options := {}
 	if slot_index >= 0:
@@ -1012,6 +1018,8 @@ func play_or_activate_selected() -> Dictionary:
 			"item":
 				return _invalid_ui_result("Select a friendly creature to equip this item.")
 			"action":
+				if _check_exalt_action(card, {}, _is_pending_prophecy_card(card)):
+					return {"is_valid": true}
 				result = MatchTiming.play_action_from_hand(_match_state, _active_player_id(), _selected_instance_id)
 				is_action_play = true
 			_:
@@ -1047,6 +1055,8 @@ func target_selected_card(target_instance_id: String) -> Dictionary:
 	elif bool(selected_location.get("is_valid", false)) and str(selected_location.get("zone", "")) == MatchMutations.ZONE_HAND and str(selected_card.get("card_type", "")) == "action":
 		saved_action_id = _selected_instance_id
 		saved_action_card = selected_card.duplicate(true)
+		if _check_exalt_action(selected_card, {"target_instance_id": target_instance_id}, _is_pending_prophecy_card(selected_card)):
+			return {"is_valid": true}
 		if _is_pending_prophecy_card(selected_card):
 			result = MatchTiming.play_pending_prophecy(_match_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"target_instance_id": target_instance_id})
 		else:
@@ -1104,6 +1114,8 @@ func use_ring() -> bool:
 
 
 func end_turn_action() -> bool:
+	if not _pending_exalt.is_empty():
+		return false
 	if MatchTiming.has_pending_prophecy(_match_state):
 		_status_message = "Resolve the open Prophecy window before ending the turn."
 		_refresh_ui()
@@ -4355,7 +4367,7 @@ func _on_end_turn_pressed() -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		var mouse_pos := (event as InputEventMouseMotion).position
-		if not _detached_card_state.is_empty():
+		if not _detached_card_state.is_empty() and _pending_exalt.is_empty():
 			var preview: Control = _detached_card_state.get("preview")
 			if preview != null and is_instance_valid(preview):
 				preview.position = mouse_pos + Vector2(-preview.size.x * 0.5, -preview.size.y * 0.62)
@@ -4380,6 +4392,10 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 			return
 		if key_event.pressed and not key_event.echo and key_event.keycode == KEY_ESCAPE:
+			if not _pending_exalt.is_empty():
+				_resolve_exalt(false)
+				get_viewport().set_input_as_handled()
+				return
 			if not _pending_betray.is_empty():
 				_cancel_betray_mode()
 				get_viewport().set_input_as_handled()
@@ -4388,6 +4404,9 @@ func _input(event: InputEvent) -> void:
 				_toggle_pause_menu()
 				get_viewport().set_input_as_handled()
 				return
+		if not _pending_exalt.is_empty():
+			get_viewport().set_input_as_handled()
+			return
 		if key_event.pressed and not key_event.echo:
 			if key_event.keycode == KEY_UP or key_event.keycode == KEY_DOWN:
 				var direction := 1 if key_event.keycode == KEY_DOWN else -1
@@ -4414,7 +4433,10 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton:
 		var button_event := event as InputEventMouseButton
 		if button_event.button_index == MOUSE_BUTTON_RIGHT and button_event.pressed:
-			if not _hand_selection_state.is_empty():
+			if not _pending_exalt.is_empty():
+				_resolve_exalt(false)
+				get_viewport().set_input_as_handled()
+			elif not _hand_selection_state.is_empty():
 				_cancel_hand_selection()
 				get_viewport().set_input_as_handled()
 			elif not _pending_betray.is_empty():
@@ -4459,6 +4481,8 @@ func _on_lane_card_gui_input(event: InputEvent, instance_id: String) -> void:
 
 
 func _on_card_pressed(instance_id: String) -> void:
+	if not _pending_exalt.is_empty():
+		return
 	if not _hand_selection_state.is_empty():
 		var candidates: Array = _hand_selection_state.get("candidate_ids", [])
 		if candidates.has(instance_id):
@@ -4639,6 +4663,8 @@ func _on_lane_panel_gui_input(event: InputEvent, lane_id: String) -> void:
 
 
 func _on_lane_pressed(lane_id: String) -> void:
+	if not _pending_exalt.is_empty():
+		return
 	var card := _selected_card()
 	if not _targeting_arrow_state.is_empty() and _selected_action_mode(card) == SELECTION_MODE_ACTION:
 		_play_action_to_lane(lane_id)
@@ -4673,6 +4699,8 @@ func _on_avatar_gui_input(event: InputEvent, player_id: String) -> void:
 
 
 func _on_player_pressed(player_id: String) -> void:
+	if not _pending_exalt.is_empty():
+		return
 	if not _pending_betray.is_empty() and _pending_betray.has("sacrifice_instance_id"):
 		_resolve_betray_replay_target_player(player_id)
 		return
@@ -4824,6 +4852,8 @@ func _try_resolve_selected_player_target(player_id: String) -> bool:
 			validation = MatchTiming.play_action_from_hand(action_state, controller_id, _selected_instance_id, {"target_player_id": player_id})
 		if bool(validation.get("is_valid", false)):
 			_reset_invalid_feedback()
+			if _check_exalt_action(selected_card, {"target_player_id": player_id}, _is_pending_prophecy_card(selected_card)):
+				return true
 			var result: Dictionary
 			if _is_pending_prophecy_card(selected_card):
 				result = MatchTiming.play_pending_prophecy(_match_state, controller_id, _selected_instance_id, {"target_player_id": player_id})
@@ -6774,6 +6804,9 @@ func _play_action_to_lane(lane_id: String) -> void:
 	var card := _selected_card()
 	if card.is_empty():
 		return
+	# Check for exalt prompt before committing the play
+	if _check_exalt_action(card, {"lane_id": lane_id}, _is_pending_prophecy_card(card)):
+		return
 	var saved_instance_id := _selected_instance_id
 	var saved_card := card.duplicate(true)
 	var options := {"lane_id": lane_id}
@@ -6955,6 +6988,217 @@ func _cancel_betray_mode() -> void:
 	_cancel_targeting_mode_silent()
 	_status_message = "Betray declined."
 	_refresh_ui()
+
+
+# ── Exalt prompt ──────────────────────────────────────────────────────────────
+
+
+static func _card_exalt_extra_cost(card: Dictionary) -> int:
+	# Creatures: exalt_cost on triggered ability
+	for trigger in card.get("triggered_abilities", []):
+		if int(trigger.get("exalt_cost", 0)) > 0:
+			return int(trigger.get("exalt_cost", 0))
+	# Actions: fixed +1 if any effect has required_source_status == "exalted"
+	for trigger in card.get("triggered_abilities", []):
+		for effect in trigger.get("effects", []):
+			if typeof(effect) == TYPE_DICTIONARY and str(effect.get("required_source_status", "")) == EvergreenRules.STATUS_EXALTED:
+				return 1
+	return 0
+
+
+func _can_player_afford_exalt(card: Dictionary) -> bool:
+	var extra := _card_exalt_extra_cost(card)
+	if extra == 0:
+		return false
+	var player_id := _active_player_id()
+	var player := _player_state(player_id)
+	var available := maxi(0, int(player.get("current_magicka", 0)) + int(player.get("temporary_magicka", 0)))
+	var base_cost := PersistentCardRules.get_effective_play_cost(_match_state, player_id, card)
+	return available >= base_cost + extra
+
+
+func _show_exalt_prompt(anchor_pos: Vector2, exalt_cost: int) -> void:
+	_dismiss_exalt_prompt()
+	var container := HBoxContainer.new()
+	container.name = "ExaltPromptButtons"
+	container.z_index = 700
+	container.set("theme_override_constants/separation", 12)
+
+	# Exalt button — gold/amber
+	var exalt_btn := Button.new()
+	exalt_btn.text = "Exalt (%d)" % exalt_cost
+	exalt_btn.custom_minimum_size = Vector2(140, 44)
+	var exalt_style := StyleBoxFlat.new()
+	exalt_style.bg_color = Color(0.6, 0.45, 0.1, 0.95)
+	exalt_style.border_color = Color(0.85, 0.7, 0.2, 0.9)
+	exalt_style.set_border_width_all(2)
+	exalt_style.set_corner_radius_all(6)
+	exalt_style.set_content_margin_all(12)
+	exalt_btn.add_theme_stylebox_override("normal", exalt_style)
+	var exalt_hover := exalt_style.duplicate()
+	exalt_hover.bg_color = Color(0.7, 0.55, 0.15, 0.95)
+	exalt_btn.add_theme_stylebox_override("hover", exalt_hover)
+	exalt_btn.add_theme_stylebox_override("pressed", exalt_style)
+	exalt_btn.add_theme_color_override("font_color", Color(1.0, 0.95, 0.8, 1.0))
+	exalt_btn.add_theme_font_size_override("font_size", 18)
+	exalt_btn.pressed.connect(_resolve_exalt.bind(true))
+	container.add_child(exalt_btn)
+
+	# Skip button — muted
+	var skip_btn := Button.new()
+	skip_btn.text = "Skip"
+	skip_btn.custom_minimum_size = Vector2(100, 44)
+	var skip_style := StyleBoxFlat.new()
+	skip_style.bg_color = Color(0.25, 0.22, 0.28, 0.92)
+	skip_style.border_color = Color(0.6, 0.55, 0.65, 0.8)
+	skip_style.set_border_width_all(2)
+	skip_style.set_corner_radius_all(6)
+	skip_style.set_content_margin_all(12)
+	skip_btn.add_theme_stylebox_override("normal", skip_style)
+	var skip_hover := skip_style.duplicate()
+	skip_hover.bg_color = Color(0.35, 0.32, 0.38, 0.92)
+	skip_btn.add_theme_stylebox_override("hover", skip_hover)
+	skip_btn.add_theme_stylebox_override("pressed", skip_style)
+	skip_btn.add_theme_color_override("font_color", Color(0.9, 0.88, 0.92, 1.0))
+	skip_btn.add_theme_font_size_override("font_size", 18)
+	skip_btn.pressed.connect(_resolve_exalt.bind(false))
+	container.add_child(skip_btn)
+
+	add_child(container)
+	# Position: centered above anchor point
+	container.size = container.get_minimum_size()
+	container.position = Vector2(anchor_pos.x - container.size.x * 0.5, anchor_pos.y - container.size.y - 8)
+	_exalt_button_container = container
+
+
+func _dismiss_exalt_prompt() -> void:
+	if _exalt_button_container != null and is_instance_valid(_exalt_button_container):
+		_exalt_button_container.queue_free()
+	_exalt_button_container = null
+	if _exalt_card_preview != null and is_instance_valid(_exalt_card_preview):
+		_exalt_card_preview.queue_free()
+	_exalt_card_preview = null
+
+
+func _create_centered_exalt_card_preview(card: Dictionary) -> Vector2:
+	"""Creates a card display centered on the board for action exalt prompts.
+	Returns the top-center position for button anchoring."""
+	var viewport_size := get_viewport_rect().size
+	var base_size := CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+	var wrapper := Control.new()
+	wrapper.name = "ExaltCardPreview"
+	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrapper.z_index = 600
+	wrapper.size = base_size
+	wrapper.custom_minimum_size = base_size
+	var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+	component.setup_card(card, "compact", true)
+	wrapper.add_child(component)
+	add_child(wrapper)
+	wrapper.position = Vector2(viewport_size.x * 0.5 - base_size.x * 0.5, viewport_size.y * 0.5 - base_size.y * 0.5)
+	_exalt_card_preview = wrapper
+	return Vector2(viewport_size.x * 0.5, wrapper.position.y)
+
+
+func _get_exalt_anchor_for_detached_card() -> Vector2:
+	"""Returns the top-center of the detached card preview for button anchoring."""
+	var preview: Control = _detached_card_state.get("preview")
+	if preview != null and is_instance_valid(preview):
+		return Vector2(preview.global_position.x + preview.size.x * 0.5, preview.global_position.y)
+	# Fallback: center of screen
+	var viewport_size := get_viewport_rect().size
+	return Vector2(viewport_size.x * 0.5, viewport_size.y * 0.5 - 80)
+
+
+func _check_exalt_creature(card: Dictionary, lane_id: String, slot_index: int, is_prophecy: bool) -> bool:
+	"""Checks if a creature has exalt and the player can afford it.
+	If so, shows the exalt prompt and returns true (play deferred).
+	Otherwise returns false (caller should proceed normally)."""
+	if not _can_player_afford_exalt(card):
+		return false
+	var exalt_cost := _card_exalt_extra_cost(card)
+	_pending_exalt = {
+		"card_type": "creature",
+		"instance_id": _selected_instance_id,
+		"card": card.duplicate(true),
+		"exalt_cost": exalt_cost,
+		"lane_id": lane_id,
+		"slot_index": slot_index,
+		"is_prophecy": is_prophecy,
+	}
+	var anchor := _get_exalt_anchor_for_detached_card()
+	_show_exalt_prompt(anchor, exalt_cost)
+	_status_message = "Exalt %s?" % _card_name(card)
+	_refresh_ui()
+	return true
+
+
+func _check_exalt_action(card: Dictionary, options: Dictionary, is_prophecy: bool) -> bool:
+	"""Checks if an action has exalt and the player can afford it.
+	If so, shows the exalt prompt and returns true (play deferred).
+	Otherwise returns false (caller should proceed normally)."""
+	if not _can_player_afford_exalt(card):
+		return false
+	var exalt_cost := _card_exalt_extra_cost(card)
+	_pending_exalt = {
+		"card_type": "action",
+		"instance_id": _selected_instance_id,
+		"card": card.duplicate(true),
+		"exalt_cost": exalt_cost,
+		"action_options": options.duplicate(true),
+		"is_prophecy": is_prophecy,
+	}
+	# For actions: if detached card exists, anchor above it; otherwise create centered preview
+	var anchor: Vector2
+	if not _detached_card_state.is_empty():
+		anchor = _get_exalt_anchor_for_detached_card()
+	else:
+		_cancel_targeting_mode_silent()
+		anchor = _create_centered_exalt_card_preview(card)
+	_show_exalt_prompt(anchor, exalt_cost)
+	_status_message = "Exalt %s?" % _card_name(card)
+	_refresh_ui()
+	return true
+
+
+func _resolve_exalt(exalted: bool) -> void:
+	var pending := _pending_exalt
+	_pending_exalt = {}
+	_dismiss_exalt_prompt()
+	_cancel_detached_card_silent()
+
+	var instance_id := str(pending.get("instance_id", ""))
+	var card: Dictionary = pending.get("card", {})
+	var is_prophecy := bool(pending.get("is_prophecy", false))
+
+	if str(pending.get("card_type", "")) == "creature":
+		var options := {}
+		var slot_index := int(pending.get("slot_index", -1))
+		if slot_index >= 0:
+			options["slot_index"] = slot_index
+		if exalted:
+			options["exalt"] = true
+		var lane_id := str(pending.get("lane_id", ""))
+		var result: Dictionary
+		if is_prophecy:
+			result = MatchTiming.play_pending_prophecy(_match_state, str(card.get("controller_player_id", "")), instance_id, options.merged({"lane_id": lane_id}, true))
+		else:
+			result = LaneRules.summon_from_hand(_match_state, _active_player_id(), instance_id, lane_id, options)
+		var finalized := _finalize_engine_result(result, "Played %s into %s." % [_card_name(card), _lane_name(lane_id)])
+		if bool(finalized.get("is_valid", false)):
+			_check_summon_target_mode(instance_id)
+	elif str(pending.get("card_type", "")) == "action":
+		var options: Dictionary = pending.get("action_options", {}).duplicate(true)
+		if exalted:
+			options["exalt"] = true
+		var result: Dictionary
+		if is_prophecy:
+			result = MatchTiming.play_pending_prophecy(_match_state, str(card.get("controller_player_id", "")), instance_id, options)
+		else:
+			result = MatchTiming.play_action_from_hand(_match_state, _active_player_id(), instance_id, options)
+		var finalized := _finalize_engine_result(result, "Played %s." % _card_name(card))
+		if bool(finalized.get("is_valid", false)):
+			_check_betray_mode(instance_id, card)
 
 
 func _resolve_betray_sacrifice(sacrifice_instance_id: String) -> void:
