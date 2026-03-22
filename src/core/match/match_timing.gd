@@ -2768,6 +2768,25 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"new_power": EvergreenRules.get_power(card),
 						"reason": reason,
 					})
+			"discard_top_of_deck":
+				for player_id in _resolve_player_targets(match_state, trigger, event, effect):
+					var player := _get_player_state(match_state, player_id)
+					if player.is_empty():
+						continue
+					var deck: Array = player.get(ZONE_DECK, [])
+					if deck.is_empty():
+						continue
+					var top_card: Dictionary = deck.pop_back()
+					top_card["zone"] = ZONE_DISCARD
+					var discard: Array = player.get(ZONE_DISCARD, [])
+					discard.append(top_card)
+					generated_events.append({
+						"event_type": "card_discarded",
+						"player_id": player_id,
+						"instance_id": str(top_card.get("instance_id", "")),
+						"source": "discard_top_of_deck",
+						"reason": reason,
+					})
 			"sacrifice_if_no_ward":
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					if not EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_WARD):
