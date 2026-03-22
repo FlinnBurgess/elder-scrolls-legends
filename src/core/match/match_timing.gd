@@ -2768,6 +2768,27 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"new_power": EvergreenRules.get_power(card),
 						"reason": reason,
 					})
+			"buff_random_hand_card":
+				var brhc_power := int(effect.get("power", 0))
+				var brhc_health := int(effect.get("health", 0))
+				var brhc_controller := str(trigger.get("controller_player_id", ""))
+				var brhc_player := _get_player_state(match_state, brhc_controller)
+				if not brhc_player.is_empty():
+					var brhc_hand: Array = brhc_player.get(ZONE_HAND, [])
+					var brhc_filter_raw = effect.get("filter", {})
+					var brhc_filter: Dictionary = brhc_filter_raw if typeof(brhc_filter_raw) == TYPE_DICTIONARY else {}
+					var brhc_filter_type := str(brhc_filter.get("card_type", ""))
+					var brhc_candidates: Array = []
+					for card in brhc_hand:
+						if typeof(card) != TYPE_DICTIONARY:
+							continue
+						if not brhc_filter_type.is_empty() and str(card.get("card_type", "")) != brhc_filter_type:
+							continue
+						brhc_candidates.append(card)
+					if not brhc_candidates.is_empty():
+						var pick: Dictionary = brhc_candidates[_deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_brhc", brhc_candidates.size())]
+						EvergreenRules.apply_stat_bonus(pick, brhc_power, brhc_health, reason)
+						generated_events.append({"event_type": "hand_card_buffed", "player_id": brhc_controller, "instance_id": str(pick.get("instance_id", "")), "power": brhc_power, "health": brhc_health, "reason": reason})
 			"buff_creatures_in_deck", "buff_creatures_in_discard", "buff_items_in_deck":
 				var bcid_power := int(effect.get("power", 0))
 				var bcid_health := int(effect.get("health", 0))
