@@ -682,11 +682,12 @@ static func resolve_pending_player_choice(match_state: Dictionary, player_id: St
 	var chosen_effects: Array = effects_per_option[chosen_index]
 	trigger["_chosen_option_index"] = chosen_index
 	var events: Array = []
-	for sub_effect in chosen_effects:
-		if typeof(sub_effect) != TYPE_DICTIONARY:
-			continue
-		var sub_resolution := {"effects": [sub_effect]}
-		events.append_array(_apply_effects(match_state, trigger, event, sub_resolution))
+	# Inject chosen effects into the trigger descriptor so _apply_effects can find them
+	var patched_trigger := trigger.duplicate(true)
+	var patched_descriptor: Dictionary = patched_trigger.get("descriptor", {})
+	patched_descriptor["effects"] = chosen_effects
+	patched_trigger["descriptor"] = patched_descriptor
+	events.append_array(_apply_effects(match_state, patched_trigger, event, {}))
 	var timing_result := publish_events(match_state, events)
 	return {
 		"is_valid": true,
