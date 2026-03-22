@@ -2768,6 +2768,21 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"new_power": EvergreenRules.get_power(card),
 						"reason": reason,
 					})
+			"reduce_cost_in_hand":
+				var rcih_amount := int(effect.get("amount", 1))
+				var rcih_controller := str(trigger.get("controller_player_id", ""))
+				var rcih_player := _get_player_state(match_state, rcih_controller)
+				if not rcih_player.is_empty():
+					var rcih_hand: Array = rcih_player.get(ZONE_HAND, [])
+					var rcih_target := str(effect.get("target", ""))
+					for card in rcih_hand:
+						if typeof(card) != TYPE_DICTIONARY:
+							continue
+						if rcih_target == "all_creatures_in_hand" and str(card.get("card_type", "")) != "creature":
+							continue
+						var current_cost := int(card.get("cost", 0))
+						card["cost"] = maxi(0, current_cost - rcih_amount)
+					generated_events.append({"event_type": "hand_costs_reduced", "player_id": rcih_controller, "amount": rcih_amount, "reason": reason})
 			"battle_strongest_enemy":
 				for attacker in _resolve_card_targets(match_state, trigger, event, effect):
 					var bse_controller := str(attacker.get("controller_player_id", ""))
