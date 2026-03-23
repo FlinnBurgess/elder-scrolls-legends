@@ -585,6 +585,7 @@ func _process(_delta: float) -> void:
 	_process_lane_card_hover_preview()
 	_process_support_card_hover_preview()
 	_process_local_match_ai_turn()
+	_check_pending_forced_play()
 	if _pending_layout_scale_frames > 0:
 		_pending_layout_scale_frames -= 1
 		_apply_match_layout_scale()
@@ -3008,6 +3009,7 @@ func _on_consume_selection_chosen(instance_id: String) -> void:
 		_status_message = "Creature consumed."
 		# Check if consume chained into target mode selection
 		_check_pending_summon_effect_target()
+		_check_pending_forced_play()
 	else:
 		_status_message = str(result.get("errors", ["Failed to resolve consume selection."])[0])
 	_refresh_ui()
@@ -5953,6 +5955,7 @@ func _finalize_engine_result(result: Dictionary, success_message: String, clear_
 	_refresh_ui()
 	if bool(result.get("is_valid", false)):
 		_check_pending_summon_effect_target()
+		_check_pending_forced_play()
 	return result
 
 
@@ -6939,7 +6942,7 @@ func _is_local_prophecy_interrupt_open() -> bool:
 
 
 func _local_player_has_pending_interrupt() -> bool:
-	return _is_local_prophecy_interrupt_open() or not _pending_summon_target.is_empty() or _has_local_pending_discard_choice() or _has_local_pending_consume_selection() or _has_local_pending_deck_selection() or not _hand_selection_state.is_empty() or MatchTiming.has_pending_summon_effect_target(_match_state, _local_player_id())
+	return _is_local_prophecy_interrupt_open() or not _pending_summon_target.is_empty() or _has_local_pending_discard_choice() or _has_local_pending_consume_selection() or _has_local_pending_deck_selection() or not _hand_selection_state.is_empty() or MatchTiming.has_pending_summon_effect_target(_match_state, _local_player_id()) or MatchTiming.has_pending_forced_play(_match_state, _local_player_id())
 
 
 func _is_local_match_ai_enabled() -> bool:
@@ -7894,6 +7897,28 @@ func _check_pending_summon_effect_target() -> void:
 	_status_message = _summon_target_prompt(card, abilities)
 	if not _is_pending_summon_mandatory():
 		_show_summon_skip_button()
+	_refresh_ui()
+
+
+func _check_pending_forced_play() -> void:
+	var local_id := _local_player_id()
+	if not MatchTiming.has_pending_forced_play(_match_state, local_id):
+		return
+	# Don't interrupt other active interactions
+	if not _pending_summon_target.is_empty() or not _selected_instance_id.is_empty():
+		return
+	if not _detached_card_state.is_empty() or not _targeting_arrow_state.is_empty():
+		return
+	var pending := MatchTiming.get_pending_forced_play(_match_state, local_id)
+	var instance_id := str(pending.get("instance_id", ""))
+	var card := _card_from_instance_id(instance_id)
+	if card.is_empty():
+		MatchTiming.consume_pending_forced_play(_match_state, local_id)
+		return
+	# Consume the pending entry and auto-select the card for play
+	MatchTiming.consume_pending_forced_play(_match_state, local_id)
+	_selected_instance_id = instance_id
+	_status_message = "Choose a lane for %s." % _card_name(card)
 	_refresh_ui()
 
 

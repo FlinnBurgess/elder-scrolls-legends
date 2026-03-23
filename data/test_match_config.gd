@@ -21,7 +21,7 @@ static func build_test_match_state() -> Dictionary:
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — 12 magicka, starts in wax phase
+	# Player 1 (you) — 12 magicka, Abandoned Imperfect already in play
 	var p1_health := 30
 	var p1_max_magicka := 12
 	var p1_current_magicka := 12
@@ -29,36 +29,40 @@ static func build_test_match_state() -> Dictionary:
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — variety of wax/wane cards + Moon Gate
+	# Player 1 hand — card draw creatures to trigger treasure hunt within 1-2 turns
 	var p1_hand_ids: Array = [
-		"moe_wil_moon_bishop",              # Cost 1, 1/1, Wax: +0/+4, Wane: heal 4
-		"moe_int_cartel_arcanist",          # Cost 3, 2/3, Wax: +2/+0, Wane: shackle enemy (target_mode)
-		"moe_end_servant_of_ja_khajay",     # Cost 3, 2/2, Wax: +2/+2, Wane: silence creature (target_mode)
-		"moe_wil_queens_captain",           # Cost 8, 4/4, Wax: draw 2, Wane: destroy creature (target_mode)
-		"moe_neu_lunar_sway",               # Cost 1, Action, Wax: get 3/3, Wane: get 4/4 Guard
-		"moe_neu_moon_gate",                # Cost 1, Support, Activate: dual wax+wane this turn
+		"neu_spider_worker",                # Cost 2, 0/1, Guard, Summon: Draw a card → draw neutral (1/3)
+		"neu_spider_worker",                # Cost 2, 0/1, Guard, Summon: Draw a card → draw neutral (2/3)
+		"int_elusive_schemer",              # Cost 4, 3/1, Summon: Draw a card → draw neutral (3/3) → HUNT COMPLETES
+		"neu_enraged_mudcrab",              # Cost 1, 1/1 neutral creature — extra body
+		"neu_lurking_crocodile",            # Cost 2, 2/3 neutral creature — extra body
 	]
 
-	# Player 1 deck — more wax/wane cards to draw
+	# Player 1 deck — stacked with neutrals so draws trigger the treasure hunt
+	# Abandoned Imperfect hunts for 3 neutral cards. Index 0 is drawn first.
 	var p1_deck_ids: Array = [
-		"moe_str_war_hardened_senche",       # Cost 4, 4/3, Wax: +1/+1, Wane: battle enemy (target_mode)
-		"moe_agi_moonphase_suthay",          # Cost 3, 2/2, Wax: +1/+1 and Drain, Wane: draw card
-		"moe_int_frazzled_alfiq",            # Cost 2, 1/2, Wax/Wane + on_friendly_wax/wane triggers
-		"moe_agi_rebellion_general",         # Cost 4, 4/4, Wax/Wane: trigger all other friendlies
-		"moe_wil_alfiq_illusionist",         # Cost 3, 2/1, Wax: summon copy other lane, Wane: +1/+2 Guard
+		"neu_enraged_mudcrab",              # Neutral creature — 1st treasure hunt match
+		"neu_lurking_crocodile",            # Neutral creature — 2nd treasure hunt match
+		"neu_barded_guar",                  # Neutral creature — 3rd match → HUNT COMPLETES → Awakened Imperfect to hand
+		"str_fiery_imp",                    # Non-neutral filler (won't match hunt)
+		"str_fiery_imp",                    # Non-neutral filler
+		"str_fiery_imp",                    # Non-neutral filler
+		"str_fiery_imp",                    # Non-neutral filler
+		"str_fiery_imp",                    # Non-neutral filler
 	]
 
 	var p1_discard_ids: Array = []
 
-	# Player 1 — pre-place a wax/wane creature so it triggers on turn 1
-	var p1_field_creatures: Array = [
-		_make_lane_creature("player_1", "moe_str_pouncing_senche", 100, {"can_attack": true}),  # 7 cost, 4/7, Guard, Wax: +3/+0, Wane: Charge
-	]
-	var p1_shadow_creatures: Array = [
-		_make_lane_creature("player_1", "moe_int_goutfang_adept", 101, {"can_attack": true}),   # 4 cost, 2/4, Wax: draw card, Wane: +1/+1 and Guard
+	# Player 1 supports — Abandoned Imperfect already on the board
+	var p1_support_ids: Array = [
+		"cwc_neu_abandoned_imperfect",      # Cost 5, Ongoing, TH - Three neutral cards: sacrifice → summon 8/8 Awakened Imperfect
 	]
 
-	# Player 2 (AI) — weak enemies as targets for wane effects
+	# No lane creatures needed (the Awakened Imperfect will be summoned via the hunt)
+	var p1_field_creatures: Array = []
+	var p1_shadow_creatures: Array = []
+
+	# Player 2 (AI) — weak, no runes, minimal magicka
 	var p2_health := 30
 	var p2_max_magicka := 1
 	var p2_current_magicka := 1
@@ -80,15 +84,13 @@ static func build_test_match_state() -> Dictionary:
 		"str_fiery_imp",
 	]
 
-	# Player 2 — enemies for shackle/silence/battle/destroy targets
+	# Player 2 — weak enemies as punching bags
 	var p2_field_creatures: Array = [
-		_make_lane_creature("player_2", "str_fiery_imp", 100),             # 1/1 — shackle/battle target
-		_make_lane_creature("player_2", "end_fharun_defender", 101),        # 1/4 Guard — silence target
-		_make_lane_creature("player_2", "end_young_mammoth", 102),          # 4/4 — destroy target
+		_make_lane_creature("player_2", "str_fiery_imp", 100),             # 1/1
+		_make_lane_creature("player_2", "str_fiery_imp", 101),             # 1/1
 	]
 	var p2_shadow_creatures: Array = [
-		_make_lane_creature("player_2", "str_fiery_imp", 103),             # 1/1 — extra target
-		_make_lane_creature("player_2", "str_fiery_imp", 104),             # 1/1 — extra target
+		_make_lane_creature("player_2", "str_fiery_imp", 102),             # 1/1
 	]
 
 	## ── END CONFIGURATION ──────────────────────────────────────────────
@@ -106,6 +108,11 @@ static func build_test_match_state() -> Dictionary:
 	var p2 := _build_player("player_2", p2_health, p2_max_magicka, p2_current_magicka,
 		p2_rune_thresholds, p2_has_ring, p2_ring_charges,
 		p2_hand_ids, p2_deck_ids, turn_number)
+
+	# Place pre-played support cards into the support zone
+	var p1_support_start: int = p1["hand"].size() + p1["deck"].size() + p1["discard"].size() + p1_field_creatures.size() + p1_shadow_creatures.size() + 1
+	for i in range(p1_support_ids.size()):
+		p1["support"].append(_make_card("player_1", p1_support_ids[i], "support", p1_support_start + i))
 
 	# Build lanes with creatures
 	var lanes := _build_lanes_with_creatures(

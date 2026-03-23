@@ -189,7 +189,7 @@ const FAMILY_SPECS := {
 	FAMILY_EXALT: {"event_type": EVENT_CREATURE_SUMMONED, "window": WINDOW_AFTER, "match_role": "source"},
 	FAMILY_ON_RALLY_EMPTY_HAND: {"event_type": "rally_triggered", "window": WINDOW_AFTER, "match_role": "controller"},
 	FAMILY_ON_GAIN_MAX_MAGICKA: {"event_type": "max_magicka_gained", "window": WINDOW_AFTER, "match_role": "target_player_is_controller"},
-	FAMILY_TREASURE_HUNT: {"event_type": EVENT_TURN_STARTED, "window": WINDOW_AFTER, "match_role": "controller"},
+	FAMILY_TREASURE_HUNT: {"event_type": EVENT_CARD_DRAWN, "window": WINDOW_AFTER, "match_role": "controller"},
 	FAMILY_ON_FRIENDLY_TREASURE_FOUND: {"event_type": "treasure_found", "window": WINDOW_AFTER, "match_role": "controller"},
 	FAMILY_ON_INVADE: {"event_type": "invade_triggered", "window": WINDOW_AFTER, "match_role": "controller"},
 	FAMILY_ON_MAX_MAGICKA_GAIN_2: {"event_type": "max_magicka_gained", "window": WINDOW_AFTER, "match_role": "target_player_is_controller"},
@@ -236,6 +236,8 @@ static func ensure_match_state(match_state: Dictionary) -> void:
 		match_state["pending_consume_selections"] = []
 	if not match_state.has("pending_deck_selections") or typeof(match_state["pending_deck_selections"]) != TYPE_ARRAY:
 		match_state["pending_deck_selections"] = []
+	if not match_state.has("pending_forced_plays") or typeof(match_state["pending_forced_plays"]) != TYPE_ARRAY:
+		match_state["pending_forced_plays"] = []
 	if not match_state.has("out_of_cards_sequence"):
 		match_state["out_of_cards_sequence"] = 0
 
@@ -1163,6 +1165,41 @@ static func decline_pending_summon_effect_target(match_state: Dictionary, player
 		return {"is_valid": false, "errors": ["No pending summon effect target for %s." % player_id]}
 	pending.remove_at(idx)
 	return {"is_valid": true, "events": [], "trigger_resolutions": []}
+
+
+## Pending forced play system — for effects that generate a card to hand and require immediate play.
+## The UI auto-selects the card and the player drops it on a lane using the normal play flow.
+
+
+static func has_pending_forced_play(match_state: Dictionary, player_id: String = "") -> bool:
+	return not get_pending_forced_play(match_state, player_id).is_empty()
+
+
+static func get_pending_forced_play(match_state: Dictionary, player_id: String = "") -> Dictionary:
+	ensure_match_state(match_state)
+	for raw in match_state.get("pending_forced_plays", []):
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		if not player_id.is_empty() and str(raw.get("player_id", "")) != player_id:
+			continue
+		return raw.duplicate(true)
+	return {}
+
+
+static func consume_pending_forced_play(match_state: Dictionary, player_id: String) -> Dictionary:
+	ensure_match_state(match_state)
+	var pending: Array = match_state.get("pending_forced_plays", [])
+	var idx := -1
+	var entry := {}
+	for i in range(pending.size()):
+		if typeof(pending[i]) == TYPE_DICTIONARY and str(pending[i].get("player_id", "")) == player_id:
+			idx = i
+			entry = pending[i]
+			break
+	if idx == -1:
+		return {}
+	pending.remove_at(idx)
+	return entry
 
 
 ## Pending turn trigger target system — for wax/wane triggers with target_mode.
@@ -2995,9 +3032,9 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 			"trigger_index": int(trigger.get("trigger_index", 0)),
 		})
 		return generated_events  # Defer — effects will fire after consume resolves
-	# Special handling for treasure_hunt family — peek/draw before running effects
+	# Special handling for treasure_hunt family — check drawn card against hunt requirements
 	if reason == FAMILY_TREASURE_HUNT:
-		var th_result := _process_treasure_hunt(match_state, trigger, descriptor)
+		var th_result := _process_treasure_hunt(match_state, trigger, event, descriptor)
 		generated_events.append_array(th_result.get("events", []))
 		if not bool(th_result.get("hunt_complete", false)):
 			return generated_events  # Hunt not complete yet, don't fire effects
@@ -3497,8 +3534,14 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 			"generate_card_to_hand":
 				var gen_template: Dictionary = effect.get("card_template", {})
 				if gen_template.is_empty():
+					# Fall back to resolved target card as template (e.g. treasure_card_copy)
+					var gen_target_cards := _resolve_card_targets(match_state, trigger, event, effect)
+					if not gen_target_cards.is_empty():
+						gen_template = gen_target_cards[0].duplicate(true)
+				if gen_template.is_empty():
 					continue
 				var gen_count := int(effect.get("count", 1))
+				var gen_force_play := bool(effect.get("force_play", false))
 				for player_id in _resolve_player_targets(match_state, trigger, event, effect):
 					var gen_player := _get_player_state(match_state, player_id)
 					if gen_player.is_empty():
@@ -3512,6 +3555,9 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						hand.append(generated_card)
 						MatchMutations.apply_first_turn_hand_cost(match_state, generated_card, player_id)
 						generated_events.append({"event_type": "card_drawn", "player_id": player_id, "source_instance_id": str(generated_card.get("instance_id", "")), "reason": reason})
+						if gen_force_play:
+							var gen_pending: Array = match_state.get("pending_forced_plays", [])
+							gen_pending.append({"player_id": player_id, "instance_id": str(generated_card.get("instance_id", ""))})
 			"change":
 				var change_template := _resolve_effect_template(match_state, trigger, event, effect)
 				if change_template.is_empty():
@@ -6326,28 +6372,35 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							doth_deck.push_front(doth_card)
 							generated_events.append({"event_type": "card_moved_to_bottom", "source_instance_id": str(trigger.get("source_instance_id", "")), "player_id": doth_controller_id})
 			"summon_or_buff":
-				# Aldora the Daring — based on treasure hunt progress, summon or buff
-				var sob_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
-				if not sob_source.is_empty():
-					var sob_count := int(sob_source.get("_treasure_hunt_count", 0))
-					var sob_threshold := int(effect.get("threshold", 3))
-					if sob_count >= sob_threshold:
-						var sob_template: Dictionary = effect.get("card_template", {})
-						if not sob_template.is_empty():
-							var sob_controller_id := str(trigger.get("controller_player_id", ""))
-							var sob_lane_id := _resolve_summon_lane_id(match_state, trigger, event, effect, sob_controller_id)
-							if not sob_lane_id.is_empty():
-								var sob_card := MatchMutations.build_generated_card(match_state, sob_controller_id, sob_template)
-								var sob_result := MatchMutations.summon_card_to_lane(match_state, sob_controller_id, sob_card, sob_lane_id, {"source_zone": ZONE_GENERATED})
-								if bool(sob_result.get("is_valid", false)):
-									generated_events.append_array(sob_result.get("events", []))
-									generated_events.append(_build_summon_event(sob_result["card"], sob_controller_id, sob_lane_id, int(sob_result.get("slot_index", -1)), reason))
-					else:
-						# Apply buff effect
-						var sob_power := int(effect.get("buff_power", 1))
-						var sob_health := int(effect.get("buff_health", 1))
-						EvergreenRules.apply_stat_bonus(sob_source, sob_power, sob_health, reason)
-						generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(sob_source.get("instance_id", "")), "power_bonus": sob_power, "health_bonus": sob_health, "reason": reason})
+				# Aldora the Daring — summon token or buff existing token
+				var sob_controller_id := str(trigger.get("controller_player_id", ""))
+				var sob_template: Dictionary = effect.get("card_template", {})
+				var sob_target_def_id := str(sob_template.get("definition_id", ""))
+				# Look for an existing friendly creature matching the template's definition_id
+				var sob_existing: Dictionary = {}
+				if not sob_target_def_id.is_empty():
+					for sob_lane in match_state.get("lanes", []):
+						for sob_card in sob_lane.get("player_slots", {}).get(sob_controller_id, []):
+							if typeof(sob_card) == TYPE_DICTIONARY and str(sob_card.get("definition_id", "")) == sob_target_def_id:
+								sob_existing = sob_card
+								break
+						if not sob_existing.is_empty():
+							break
+				if sob_existing.is_empty() and not sob_template.is_empty():
+					# No existing token — summon one
+					var sob_lane_id := _resolve_summon_lane_id(match_state, trigger, event, effect, sob_controller_id)
+					if not sob_lane_id.is_empty():
+						var sob_card := MatchMutations.build_generated_card(match_state, sob_controller_id, sob_template)
+						var sob_result := MatchMutations.summon_card_to_lane(match_state, sob_controller_id, sob_card, sob_lane_id, {"source_zone": ZONE_GENERATED})
+						if bool(sob_result.get("is_valid", false)):
+							generated_events.append_array(sob_result.get("events", []))
+							generated_events.append(_build_summon_event(sob_result["card"], sob_controller_id, sob_lane_id, int(sob_result.get("slot_index", -1)), reason))
+				elif not sob_existing.is_empty():
+					# Token exists — buff it
+					var sob_power := int(effect.get("buff_power", 1))
+					var sob_health := int(effect.get("buff_health", 1))
+					EvergreenRules.apply_stat_bonus(sob_existing, sob_power, sob_health, reason)
+					generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(sob_existing.get("instance_id", "")), "power_bonus": sob_power, "health_bonus": sob_health, "reason": reason})
 			"summon_random_daedra_total_cost", "summon_random_daedra_by_gate_level":
 				# Delegate to summon_random_from_catalog with Daedra filter
 				var srd_filter: Dictionary = {"card_type": "creature", "required_subtype": "Daedra"}
@@ -7368,43 +7421,81 @@ static func _resolve_effect_template(match_state: Dictionary, trigger: Dictionar
 	return {} if source_cards.is_empty() else source_cards[0].duplicate(true)
 
 
-static func _process_treasure_hunt(match_state: Dictionary, trigger: Dictionary, descriptor: Dictionary) -> Dictionary:
+static func _process_treasure_hunt(match_state: Dictionary, trigger: Dictionary, event: Dictionary, descriptor: Dictionary) -> Dictionary:
 	var events: Array = []
-	var controller_id := str(trigger.get("controller_player_id", ""))
 	var source_id := str(trigger.get("source_instance_id", ""))
 	var source := _find_card_anywhere(match_state, source_id)
 	if source.is_empty():
 		return {"events": events, "hunt_complete": false}
-	var player := _get_player_state(match_state, controller_id)
-	if player.is_empty():
-		return {"events": events, "hunt_complete": false}
-	var deck: Array = player.get(ZONE_DECK, [])
-	if deck.is_empty():
+	var trigger_index := int(trigger.get("trigger_index", 0))
+	var spent_key := "_th_%d_spent" % trigger_index
+	if bool(source.get(spent_key, false)):
 		return {"events": events, "hunt_complete": false}
 	var hunt_types = descriptor.get("hunt_types", [])
-	if typeof(hunt_types) != TYPE_ARRAY:
-		hunt_types = []
-	var hunt_count := int(descriptor.get("hunt_count", 1))
-	var current_count := int(source.get("_treasure_hunt_count", 0))
-	if current_count >= hunt_count:
-		return {"events": events, "hunt_complete": true}
-	var top_card: Dictionary = deck.back()
-	var matches := _card_matches_treasure_hunt(top_card, hunt_types)
-	events.append({
-		"event_type": "treasure_hunt_revealed",
-		"source_instance_id": source_id,
-		"controller_player_id": controller_id,
-		"revealed_card": top_card.duplicate(true),
-		"matches": matches,
-	})
-	if matches:
-		# Draw the card
-		var draw_result := draw_cards(match_state, controller_id, 1, {"reason": "treasure_hunt", "source_instance_id": source_id})
-		events.append_array(draw_result.get("events", []))
+	if typeof(hunt_types) != TYPE_ARRAY or hunt_types.is_empty():
+		return {"events": events, "hunt_complete": false}
+	# Get the drawn card from the event
+	var drawn_id := str(event.get("drawn_instance_id", event.get("instance_id", "")))
+	if drawn_id.is_empty():
+		return {"events": events, "hunt_complete": false}
+	var drawn_card := _find_card_anywhere(match_state, drawn_id)
+	if drawn_card.is_empty():
+		return {"events": events, "hunt_complete": false}
+	var controller_id := str(trigger.get("controller_player_id", ""))
+	var hunt_count := int(descriptor.get("hunt_count", 0))
+	var is_multi_type: bool = hunt_types.size() > 1 and not hunt_types.has("any") and hunt_count == 0
+	if is_multi_type:
+		# Multi-type hunt (e.g. Aldora: Action, Creature, Item, Support) — need one of each type
+		var found_key := "_th_%d_found" % trigger_index
+		var found_types: Array = []
+		var raw_found = source.get(found_key, [])
+		if typeof(raw_found) == TYPE_ARRAY:
+			found_types = raw_found.duplicate()
+		# Find which unfound type this drawn card matches
+		var matched_type := ""
+		for ht in hunt_types:
+			if found_types.has(str(ht)):
+				continue
+			if _card_matches_treasure_hunt(drawn_card, [ht]):
+				matched_type = str(ht)
+				break
+		if matched_type.is_empty():
+			return {"events": events, "hunt_complete": false}
+		found_types.append(matched_type)
+		source[found_key] = found_types
+		source["_treasure_card_instance_id"] = drawn_id
+		events.append({
+			"event_type": "treasure_found",
+			"source_instance_id": source_id,
+			"controller_player_id": controller_id,
+			"player_id": controller_id,
+			"count": found_types.size(),
+			"drawn_instance_id": drawn_id,
+		})
+		if found_types.size() >= hunt_types.size():
+			source[spent_key] = true
+			return {"events": events, "hunt_complete": true}
+	else:
+		# Single-type or "any" hunt — count matches until hunt_count reached
+		if not _card_matches_treasure_hunt(drawn_card, hunt_types):
+			return {"events": events, "hunt_complete": false}
+		if hunt_count <= 0:
+			hunt_count = 1
+		var count_key := "_th_%d_count" % trigger_index
+		var current_count := int(source.get(count_key, 0))
 		current_count += 1
-		source["_treasure_hunt_count"] = current_count
-		events.append({"event_type": "treasure_found", "source_instance_id": source_id, "controller_player_id": controller_id, "player_id": controller_id, "count": current_count})
+		source[count_key] = current_count
+		source["_treasure_card_instance_id"] = drawn_id
+		events.append({
+			"event_type": "treasure_found",
+			"source_instance_id": source_id,
+			"controller_player_id": controller_id,
+			"player_id": controller_id,
+			"count": current_count,
+			"drawn_instance_id": drawn_id,
+		})
 		if current_count >= hunt_count:
+			source[spent_key] = true
 			return {"events": events, "hunt_complete": true}
 	return {"events": events, "hunt_complete": false}
 
@@ -7422,6 +7513,11 @@ static func _card_matches_treasure_hunt(card: Dictionary, hunt_types: Array) -> 
 			"zero_cost":
 				if int(card.get("cost", 0)) == 0:
 					return true
+			"neutral":
+				# Neutral cards have no primary attributes (attributes array is empty after normalization)
+				var neutral_attrs = card.get("attributes", [])
+				if typeof(neutral_attrs) != TYPE_ARRAY or neutral_attrs.is_empty():
+					return true
 			_:
 				# Check as a keyword
 				if EvergreenRules.has_keyword(card, hunt_type):
@@ -7429,6 +7525,10 @@ static func _card_matches_treasure_hunt(card: Dictionary, hunt_types: Array) -> 
 				# Check in base keywords array
 				var keywords = card.get("keywords", [])
 				if typeof(keywords) == TYPE_ARRAY and keywords.has(hunt_type):
+					return true
+				# Check as an attribute
+				var attributes = card.get("attributes", [])
+				if typeof(attributes) == TYPE_ARRAY and attributes.has(hunt_type):
 					return true
 	return false
 

@@ -37,6 +37,7 @@ func _run_all_tests() -> bool:
 		_test_empower_permanent_across_turns() and
 		_test_invade_and_shout_pack() and
 		_test_treasure_hunt_and_consume_pack() and
+		_test_treasure_hunt_count_based() and
 		_test_wax_and_wane_pack() and
 		_test_dual_wax_wane() and
 		_test_wax_creature_turn_trigger()
@@ -648,10 +649,10 @@ func _test_treasure_hunt_and_consume_pack() -> bool:
 func _test_treasure_hunt_completion() -> bool:
 	var match_state := _build_started_match()
 	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	# Multi-type treasure hunt: needs one item AND one action to complete, then +2/+2
 	var treasure_hunter := ScenarioFixtures.summon_creature(player, match_state, "treasure_hunter", "field", 2, 2, [], -1, {
 		"triggered_abilities": [
-			{"event_type": MatchTiming.EVENT_CARD_DRAWN, "match_role": "controller", "required_zone": "lane", "effects": [{"op": "track_treasure_hunt", "requirements": [{"card_type": "item"}, {"card_type": "action"}]}]},
-			{"event_type": "treasure_hunt_completed", "match_role": "source", "required_zone": "lane", "effects": [{"op": "modify_stats", "target": "self", "power": 2, "health": 2}]},
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["item", "action"], "effects": [{"op": "modify_stats", "target": "self", "power": 2, "health": 2}]},
 		],
 	})
 	player["deck"] = [
@@ -659,9 +660,47 @@ func _test_treasure_hunt_completion() -> bool:
 		ScenarioFixtures.make_card(str(player.get("player_id", "")), "draw_action", {"zone": "deck", "card_type": "action"}),
 		ScenarioFixtures.make_card(str(player.get("player_id", "")), "draw_item", {"zone": "deck", "card_type": "item"}),
 	]
+	# Draw 2 cards: item (top) then action — both match, completing the hunt
 	var draw_result := MatchTiming.draw_cards(match_state, str(player.get("player_id", "")), 2, {"reason": "treasure_test", "source_controller_player_id": str(player.get("player_id", ""))})
 	MatchTiming.publish_events(match_state, draw_result.get("events", []))
-	return _assert(EvergreenRules.get_power(treasure_hunter) == 4 and EvergreenRules.get_health(treasure_hunter) == 4, "Treasure Hunt should track matching draws and fire its completion trigger once all requirements are found.")
+	var hunt_complete := EvergreenRules.get_power(treasure_hunter) == 4 and EvergreenRules.get_health(treasure_hunter) == 4
+	if not _assert(hunt_complete, "Treasure Hunt should track matching draws and fire effects once all required types are found."):
+		return false
+	# Draw again — the hunt is spent, should NOT trigger again
+	var draw_result2 := MatchTiming.draw_cards(match_state, str(player.get("player_id", "")), 1, {"reason": "treasure_test", "source_controller_player_id": str(player.get("player_id", ""))})
+	MatchTiming.publish_events(match_state, draw_result2.get("events", []))
+	return _assert(EvergreenRules.get_power(treasure_hunter) == 4 and EvergreenRules.get_health(treasure_hunter) == 4, "Treasure Hunt should be spent after completing — subsequent draws should not re-trigger.")
+
+
+func _test_treasure_hunt_count_based() -> bool:
+	# Single-type hunt with count 3 (like Abandoned Imperfect pattern)
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var hunter := ScenarioFixtures.summon_creature(player, match_state, "count_hunter", "field", 1, 1, [], -1, {
+		"triggered_abilities": [
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["action"], "hunt_count": 3, "effects": [{"op": "modify_stats", "target": "self", "power": 5, "health": 5}]},
+		],
+	})
+	player["deck"] = [
+		ScenarioFixtures.make_card(str(player.get("player_id", "")), "filler", {"zone": "deck", "card_type": "creature"}),
+		ScenarioFixtures.make_card(str(player.get("player_id", "")), "action3", {"zone": "deck", "card_type": "action"}),
+		ScenarioFixtures.make_card(str(player.get("player_id", "")), "action2", {"zone": "deck", "card_type": "action"}),
+		ScenarioFixtures.make_card(str(player.get("player_id", "")), "action1", {"zone": "deck", "card_type": "action"}),
+	]
+	# Draw 2 actions — should be 2/3, NOT complete
+	var draw1 := MatchTiming.draw_cards(match_state, str(player.get("player_id", "")), 2, {"reason": "test", "source_controller_player_id": str(player.get("player_id", ""))})
+	MatchTiming.publish_events(match_state, draw1.get("events", []))
+	if not _assert(EvergreenRules.get_power(hunter) == 1 and EvergreenRules.get_health(hunter) == 1, "Treasure Hunt with count 3 should NOT complete after only 2 matching draws."):
+		return false
+	# Draw 3rd action — should complete (3/3)
+	var draw2 := MatchTiming.draw_cards(match_state, str(player.get("player_id", "")), 1, {"reason": "test", "source_controller_player_id": str(player.get("player_id", ""))})
+	MatchTiming.publish_events(match_state, draw2.get("events", []))
+	if not _assert(EvergreenRules.get_power(hunter) == 6 and EvergreenRules.get_health(hunter) == 6, "Treasure Hunt with count 3 should complete after 3 matching draws (+5/+5)."):
+		return false
+	# Draw a non-matching card — should not re-trigger (spent)
+	var draw3 := MatchTiming.draw_cards(match_state, str(player.get("player_id", "")), 1, {"reason": "test", "source_controller_player_id": str(player.get("player_id", ""))})
+	MatchTiming.publish_events(match_state, draw3.get("events", []))
+	return _assert(EvergreenRules.get_power(hunter) == 6 and EvergreenRules.get_health(hunter) == 6, "Treasure Hunt should be spent after count-based completion.")
 
 
 func _test_consume_reuse() -> bool:

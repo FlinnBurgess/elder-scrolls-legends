@@ -213,6 +213,9 @@ static func enumerate_legal_actions(match_state: Dictionary, player_id: String =
 		if decision_player_id != str(match_state.get("active_player_id", "")):
 			result["blocked_reason"] = "Only the active player can act during the action phase."
 			return result
+		# Auto-consume forced plays — the card is already in hand, normal enumeration picks it up
+		while MatchTiming.has_pending_forced_play(match_state, decision_player_id):
+			MatchTiming.consume_pending_forced_play(match_state, decision_player_id)
 		var actions: Array = []
 		actions.append_array(_enumerate_ring_actions(match_state, decision_player_id))
 		actions.append_array(_enumerate_creature_summons(match_state, decision_player_id, false))
