@@ -44,7 +44,8 @@ func _run_all_tests() -> bool:
 		_test_aldora_the_daring_pack() and
 		_test_mistveil_warden_pack() and
 		_test_murkwater_guide_pack() and
-		_test_ratway_prospector_pack()
+		_test_ratway_prospector_pack() and
+		_test_ruthless_freebooter_pack()
 	)
 
 
@@ -1414,6 +1415,125 @@ func _test_ratway_prospector_cover_persists_each_attack() -> bool:
 	if not _assert(bool(attack2.get("is_valid", false)), "Second attack should resolve."):
 		return false
 	return _assert(EvergreenRules.is_cover_active(match_state, prospector), "Cover should be re-granted after second attack.")
+
+
+func _test_ruthless_freebooter_pack() -> bool:
+	return (
+		_test_ruthless_freebooter_drain_hunt() and
+		_test_ruthless_freebooter_lethal_hunt() and
+		_test_ruthless_freebooter_both_hunts_independent() and
+		_test_ruthless_freebooter_spent_hunts_no_retrigger()
+	)
+
+
+func _test_ruthless_freebooter_drain_hunt() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	var freebooter := ScenarioFixtures.summon_creature(player, match_state, "freebooter_drain", "field", 2, 2, [], -1, {
+		"definition_id": "cwc_agi_ruthless_freebooter",
+		"triggered_abilities": [
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["drain"], "effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 1}, {"op": "grant_keyword", "target": "self", "keyword_id": "drain"}]},
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["lethal"], "effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 1}, {"op": "grant_keyword", "target": "self", "keyword_id": "lethal"}]},
+		],
+	})
+	# Stack deck with a drain creature
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "drain_creature", {"zone": "deck", "card_type": "creature", "keywords": ["drain"]}),
+	]
+	var draw := MatchTiming.draw_cards(match_state, player_id, 1, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw.get("events", []))
+	return (
+		_assert(EvergreenRules.get_power(freebooter) == 3, "Drain hunt: 2 + 1 = 3 power.") and
+		_assert(EvergreenRules.get_health(freebooter) == 3, "Drain hunt: 2 + 1 = 3 health.") and
+		_assert(EvergreenRules.has_keyword(freebooter, "drain"), "Drain hunt grants drain keyword.")
+	)
+
+
+func _test_ruthless_freebooter_lethal_hunt() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	var freebooter := ScenarioFixtures.summon_creature(player, match_state, "freebooter_lethal", "field", 2, 2, [], -1, {
+		"definition_id": "cwc_agi_ruthless_freebooter",
+		"triggered_abilities": [
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["drain"], "effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 1}, {"op": "grant_keyword", "target": "self", "keyword_id": "drain"}]},
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["lethal"], "effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 1}, {"op": "grant_keyword", "target": "self", "keyword_id": "lethal"}]},
+		],
+	})
+	# Stack deck with a lethal creature
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "lethal_creature", {"zone": "deck", "card_type": "creature", "keywords": ["lethal"]}),
+	]
+	var draw := MatchTiming.draw_cards(match_state, player_id, 1, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw.get("events", []))
+	return (
+		_assert(EvergreenRules.get_power(freebooter) == 3, "Lethal hunt: 2 + 1 = 3 power.") and
+		_assert(EvergreenRules.get_health(freebooter) == 3, "Lethal hunt: 2 + 1 = 3 health.") and
+		_assert(EvergreenRules.has_keyword(freebooter, "lethal"), "Lethal hunt grants lethal keyword.")
+	)
+
+
+func _test_ruthless_freebooter_both_hunts_independent() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	var freebooter := ScenarioFixtures.summon_creature(player, match_state, "freebooter_both", "field", 2, 2, [], -1, {
+		"definition_id": "cwc_agi_ruthless_freebooter",
+		"triggered_abilities": [
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["drain"], "effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 1}, {"op": "grant_keyword", "target": "self", "keyword_id": "drain"}]},
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["lethal"], "effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 1}, {"op": "grant_keyword", "target": "self", "keyword_id": "lethal"}]},
+		],
+	})
+	# Stack deck: drain creature first, then lethal creature
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "lethal_card", {"zone": "deck", "card_type": "creature", "keywords": ["lethal"]}),
+		ScenarioFixtures.make_card(player_id, "drain_card", {"zone": "deck", "card_type": "creature", "keywords": ["drain"]}),
+	]
+	# Draw drain card — only drain hunt fires
+	var draw1 := MatchTiming.draw_cards(match_state, player_id, 1, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw1.get("events", []))
+	if not _assert(EvergreenRules.get_power(freebooter) == 3, "After drain draw: 2 + 1 = 3 power."):
+		return false
+	if not _assert(EvergreenRules.has_keyword(freebooter, "drain"), "Has drain after first draw."):
+		return false
+	if not _assert(not EvergreenRules.has_keyword(freebooter, "lethal"), "No lethal yet after first draw."):
+		return false
+	# Draw lethal card — lethal hunt fires independently
+	var draw2 := MatchTiming.draw_cards(match_state, player_id, 1, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw2.get("events", []))
+	return (
+		_assert(EvergreenRules.get_power(freebooter) == 4, "After both hunts: 2 + 1 + 1 = 4 power.") and
+		_assert(EvergreenRules.get_health(freebooter) == 4, "After both hunts: 2 + 1 + 1 = 4 health.") and
+		_assert(EvergreenRules.has_keyword(freebooter, "drain"), "Still has drain.") and
+		_assert(EvergreenRules.has_keyword(freebooter, "lethal"), "Now has lethal too.")
+	)
+
+
+func _test_ruthless_freebooter_spent_hunts_no_retrigger() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	var freebooter := ScenarioFixtures.summon_creature(player, match_state, "freebooter_spent", "field", 2, 2, [], -1, {
+		"definition_id": "cwc_agi_ruthless_freebooter",
+		"triggered_abilities": [
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["drain"], "effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 1}, {"op": "grant_keyword", "target": "self", "keyword_id": "drain"}]},
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["lethal"], "effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 1}, {"op": "grant_keyword", "target": "self", "keyword_id": "lethal"}]},
+		],
+	})
+	# Stack deck: drain, lethal, then another drain
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "extra_drain", {"zone": "deck", "card_type": "creature", "keywords": ["drain"]}),
+		ScenarioFixtures.make_card(player_id, "lethal_card", {"zone": "deck", "card_type": "creature", "keywords": ["lethal"]}),
+		ScenarioFixtures.make_card(player_id, "drain_card", {"zone": "deck", "card_type": "creature", "keywords": ["drain"]}),
+	]
+	# Draw all 3 — drain and lethal complete, extra drain does nothing
+	var draw := MatchTiming.draw_cards(match_state, player_id, 3, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw.get("events", []))
+	return (
+		_assert(EvergreenRules.get_power(freebooter) == 4, "Spent hunts: 2 + 1 + 1 = 4 power (no extra from 2nd drain).") and
+		_assert(EvergreenRules.get_health(freebooter) == 4, "Spent hunts: 2 + 1 + 1 = 4 health (no extra from 2nd drain).")
+	)
 
 
 func _build_started_match() -> Dictionary:

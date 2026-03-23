@@ -21,7 +21,7 @@ static func build_test_match_state() -> Dictionary:
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — 12 magicka, triple treasure hunter test
+	# Player 1 (you) — 12 magicka, Ruthless Freebooter dual treasure hunt test
 	var p1_health := 30
 	var p1_max_magicka := 12
 	var p1_current_magicka := 12
@@ -29,7 +29,7 @@ static func build_test_match_state() -> Dictionary:
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — card-draw creatures to trigger draws from deck
+	# Player 1 hand — card-draw creatures to pull drain/lethal cards from deck
 	var p1_hand_ids: Array = [
 		"neu_spider_worker",                # Cost 2, 0/1, Guard, Summon: Draw a card
 		"neu_spider_worker",                # Cost 2, 0/1, Guard, Summon: Draw a card
@@ -37,28 +37,26 @@ static func build_test_match_state() -> Dictionary:
 		"int_elusive_schemer",              # Cost 4, 3/1, Summon: Draw a card
 	]
 
-	# Player 1 deck — mix of items, supports, and actions for all three hunters
+	# Player 1 deck — drain and lethal cards to trigger both hunts
 	# Index 0 is drawn first.
 	var p1_deck_ids: Array = [
-		"str_steel_scimitar",               # Item (cost 1, +2/+2) — Relic Hunter: +1/+1 buff, Ratway: item ✓
-		"agi_elixir_of_light_feet",         # Support (cost 2, Uses:3 Cover) — Ruin Archaeologist: draw, Ratway: support ✓
-		"str_rapid_shot",                   # Action (cost 1, deal 1 dmg) — Ratway: action ✓ → hunt completes → +5/+5
-		"str_steel_scimitar",               # Item — Relic Hunter already spent, no buff
+		"wil_cheydinhal_sapper",            # Cost 1, 1/3, Drain — triggers drain hunt → +1/+1, Drain
+		"end_deadly_draugr",                # Cost 1, 1/1, Lethal — triggers lethal hunt → +1/+1, Lethal
+		"agi_voracious_spriggan",           # Cost 1, 2/1, Drain — spent, should NOT retrigger
+		"end_frostbite_spider",             # Cost 3, 3/2, Lethal — spent, should NOT retrigger
+		"agi_giant_bat",                    # Cost 3, 2/2, Charge+Drain — extra drain creature to play
+		"end_daedric_dagger",               # Cost 2, Lethal item +1/+1 — equip for lethal
 		"str_fiery_imp",                    # Creature filler
-		"str_fiery_imp",                    # Extra filler
-		"str_fiery_imp",                    # Extra filler
-		"str_fiery_imp",                    # Extra filler
+		"str_fiery_imp",                    # Creature filler
 	]
 
 	var p1_discard_ids: Array = []
 
 	var p1_support_ids: Array = []
 
-	# All three treasure hunters pre-placed in field lane
+	# Ruthless Freebooter pre-placed in field lane, ready to hunt
 	var p1_field_creatures: Array = [
-		_make_lane_creature("player_1", "cwc_str_ratway_prospector", 100),    # 1/2, TH: Support+Item+Action → +5/+5, Cover on attack
-		_make_lane_creature("player_1", "cwc_str_relic_hunter", 101),         # 3/2, TH: Item → give item +1/+1
-		_make_lane_creature("player_1", "cwc_wil_ruin_archaeologist", 102),   # 2/5, TH: Support → draw a card
+		_make_lane_creature("player_1", "cwc_agi_ruthless_freebooter", 100),  # 2/2, TH-Drain: +1/+1 & Drain, TH-Lethal: +1/+1 & Lethal
 	]
 	var p1_shadow_creatures: Array = []
 
@@ -84,7 +82,7 @@ static func build_test_match_state() -> Dictionary:
 		"str_fiery_imp",
 	]
 
-	# Player 2 — weak enemies as punching bags (for Ratway Prospector cover test)
+	# Player 2 — weak enemies as punching bags
 	var p2_field_creatures: Array = [
 		_make_lane_creature("player_2", "str_fiery_imp", 100),             # 1/1
 		_make_lane_creature("player_2", "str_fiery_imp", 101),             # 1/1
