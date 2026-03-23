@@ -21,7 +21,7 @@ static func build_test_match_state() -> Dictionary:
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — 12 magicka, Murkwater Guide treasure hunt test
+	# Player 1 (you) — 12 magicka, triple treasure hunter test
 	var p1_health := 30
 	var p1_max_magicka := 12
 	var p1_current_magicka := 12
@@ -37,14 +37,14 @@ static func build_test_match_state() -> Dictionary:
 		"int_elusive_schemer",              # Cost 4, 3/1, Summon: Draw a card
 	]
 
-	# Player 1 deck — 0-cost cards so Murkwater Guide's treasure hunt triggers on first draw
+	# Player 1 deck — mix of items, supports, and actions for all three hunters
 	# Index 0 is drawn first.
 	var p1_deck_ids: Array = [
-		"str_nord_firebrand",               # 0-cost creature (1/1, Charge) — triggers hunt, copy goes to hand
-		"str_improvised_weapon",            # 0-cost item (Breakthrough, +1/+1) — hunt spent, no copy
-		"int_lesser_ward",                  # 0-cost action (Give Ward) — hunt spent, no copy
-		"str_fiery_imp",                    # 1-cost creature — would not trigger even if hunt weren't spent
-		"str_fiery_imp",                    # Extra filler
+		"str_steel_scimitar",               # Item (cost 1, +2/+2) — Relic Hunter: +1/+1 buff, Ratway: item ✓
+		"agi_elixir_of_light_feet",         # Support (cost 2, Uses:3 Cover) — Ruin Archaeologist: draw, Ratway: support ✓
+		"str_rapid_shot",                   # Action (cost 1, deal 1 dmg) — Ratway: action ✓ → hunt completes → +5/+5
+		"str_steel_scimitar",               # Item — Relic Hunter already spent, no buff
+		"str_fiery_imp",                    # Creature filler
 		"str_fiery_imp",                    # Extra filler
 		"str_fiery_imp",                    # Extra filler
 		"str_fiery_imp",                    # Extra filler
@@ -54,9 +54,11 @@ static func build_test_match_state() -> Dictionary:
 
 	var p1_support_ids: Array = []
 
-	# Murkwater Guide pre-placed in field lane — hunts 0-cost, copies treasure to hand
+	# All three treasure hunters pre-placed in field lane
 	var p1_field_creatures: Array = [
-		_make_lane_creature("player_1", "cwc_agi_murkwater_guide", 100),  # 4/2, TH: 0-cost → copy to hand
+		_make_lane_creature("player_1", "cwc_str_ratway_prospector", 100),    # 1/2, TH: Support+Item+Action → +5/+5, Cover on attack
+		_make_lane_creature("player_1", "cwc_str_relic_hunter", 101),         # 3/2, TH: Item → give item +1/+1
+		_make_lane_creature("player_1", "cwc_wil_ruin_archaeologist", 102),   # 2/5, TH: Support → draw a card
 	]
 	var p1_shadow_creatures: Array = []
 
@@ -82,7 +84,7 @@ static func build_test_match_state() -> Dictionary:
 		"str_fiery_imp",
 	]
 
-	# Player 2 — weak enemies as punching bags
+	# Player 2 — weak enemies as punching bags (for Ratway Prospector cover test)
 	var p2_field_creatures: Array = [
 		_make_lane_creature("player_2", "str_fiery_imp", 100),             # 1/1
 		_make_lane_creature("player_2", "str_fiery_imp", 101),             # 1/1

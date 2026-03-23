@@ -43,7 +43,8 @@ func _run_all_tests() -> bool:
 		_test_wax_creature_turn_trigger() and
 		_test_aldora_the_daring_pack() and
 		_test_mistveil_warden_pack() and
-		_test_murkwater_guide_pack()
+		_test_murkwater_guide_pack() and
+		_test_ratway_prospector_pack()
 	)
 
 
@@ -1317,6 +1318,102 @@ func _test_murkwater_guide_spent_no_second_copy() -> bool:
 	MatchTiming.publish_events(match_state, draw2.get("events", []))
 	var hand: Array = player.get("hand", [])
 	return _assert(hand.size() == hand_after_first + 1, "Second 0-cost draw should NOT create a copy (hunt spent).")
+
+
+func _test_ratway_prospector_pack() -> bool:
+	return (
+		_test_ratway_prospector_treasure_hunt() and
+		_test_ratway_prospector_cover_on_attack() and
+		_test_ratway_prospector_cover_persists_each_attack()
+	)
+
+
+func _test_ratway_prospector_treasure_hunt() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	var prospector := ScenarioFixtures.summon_creature(player, match_state, "ratway_th", "field", 1, 2, [], -1, {
+		"definition_id": "cwc_str_ratway_prospector",
+		"triggered_abilities": [
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["support", "item", "action"], "effects": [{"op": "modify_stats", "target": "self", "power": 5, "health": 5}]},
+			{"family": "on_attack", "required_zone": "lane", "effects": [{"op": "grant_status", "target": "self", "status_id": "cover"}]},
+		],
+	})
+	# Stack deck: support, item, action — draws complete the multi-type hunt
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "deck_action", {"zone": "deck", "card_type": "action"}),
+		ScenarioFixtures.make_card(player_id, "deck_item", {"zone": "deck", "card_type": "item"}),
+		ScenarioFixtures.make_card(player_id, "deck_support", {"zone": "deck", "card_type": "support"}),
+	]
+	# Draw 2 — partial match (support + item found, action still missing)
+	var draw1 := MatchTiming.draw_cards(match_state, player_id, 2, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw1.get("events", []))
+	if not _assert(EvergreenRules.get_power(prospector) == 1, "Hunt incomplete after 2 draws — power stays 1."):
+		return false
+	# Draw 3rd — action completes the hunt
+	var draw2 := MatchTiming.draw_cards(match_state, player_id, 1, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw2.get("events", []))
+	return (
+		_assert(EvergreenRules.get_power(prospector) == 6, "Hunt complete: 1 + 5 = 6 power.") and
+		_assert(EvergreenRules.get_health(prospector) == 7, "Hunt complete: 2 + 5 = 7 health.")
+	)
+
+
+func _test_ratway_prospector_cover_on_attack() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var player_id := str(player.get("player_id", ""))
+	var opponent_id := str(opponent.get("player_id", ""))
+	var prospector := ScenarioFixtures.summon_creature(player, match_state, "ratway_cover", "field", 1, 2, [], -1, {
+		"definition_id": "cwc_str_ratway_prospector",
+		"triggered_abilities": [
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["support", "item", "action"], "effects": [{"op": "modify_stats", "target": "self", "power": 5, "health": 5}]},
+			{"family": "on_attack", "required_zone": "lane", "effects": [{"op": "grant_status", "target": "self", "status_id": "cover"}]},
+		],
+	})
+	ScenarioFixtures.ready_for_attack(prospector, match_state)
+	var dummy := _summon_generated_creature(match_state, opponent_id, "dummy_target", "field", 1, 1)
+	# Verify no cover before attack
+	if not _assert(not EvergreenRules.is_cover_active(match_state, prospector), "No cover before attacking."):
+		return false
+	# Attack
+	var attack := MatchCombat.resolve_attack(match_state, player_id, str(prospector.get("instance_id", "")), {"type": "creature", "instance_id": str(dummy.get("instance_id", ""))})
+	if not _assert(bool(attack.get("is_valid", false)), "Attack should resolve."):
+		return false
+	return _assert(EvergreenRules.is_cover_active(match_state, prospector), "Prospector should have cover after attacking.")
+
+
+func _test_ratway_prospector_cover_persists_each_attack() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var player_id := str(player.get("player_id", ""))
+	var opponent_id := str(opponent.get("player_id", ""))
+	var prospector := ScenarioFixtures.summon_creature(player, match_state, "ratway_multi", "field", 3, 5, [], -1, {
+		"definition_id": "cwc_str_ratway_prospector",
+		"triggered_abilities": [
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["support", "item", "action"], "effects": [{"op": "modify_stats", "target": "self", "power": 5, "health": 5}]},
+			{"family": "on_attack", "required_zone": "lane", "effects": [{"op": "grant_status", "target": "self", "status_id": "cover"}]},
+		],
+	})
+	ScenarioFixtures.ready_for_attack(prospector, match_state)
+	var dummy1 := _summon_generated_creature(match_state, opponent_id, "dummy1", "field", 1, 1)
+	# First attack — gains cover
+	MatchCombat.resolve_attack(match_state, player_id, str(prospector.get("instance_id", "")), {"type": "creature", "instance_id": str(dummy1.get("instance_id", ""))})
+	if not _assert(EvergreenRules.is_cover_active(match_state, prospector), "Cover after first attack."):
+		return false
+	# Advance turns so cover expires and prospector can attack again
+	MatchTurnLoop.end_turn(match_state, player_id)
+	MatchTurnLoop.end_turn(match_state, opponent_id)
+	if not _assert(not EvergreenRules.is_cover_active(match_state, prospector), "Cover should expire at start of next turn."):
+		return false
+	# Second attack — gains cover again
+	var dummy2 := _summon_generated_creature(match_state, opponent_id, "dummy2", "field", 1, 1)
+	var attack2 := MatchCombat.resolve_attack(match_state, player_id, str(prospector.get("instance_id", "")), {"type": "creature", "instance_id": str(dummy2.get("instance_id", ""))})
+	if not _assert(bool(attack2.get("is_valid", false)), "Second attack should resolve."):
+		return false
+	return _assert(EvergreenRules.is_cover_active(match_state, prospector), "Cover should be re-granted after second attack.")
 
 
 func _build_started_match() -> Dictionary:
