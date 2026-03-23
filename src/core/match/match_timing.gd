@@ -2308,6 +2308,7 @@ static func _find_player_by_id(match_state: Dictionary, player_id: String) -> Di
 static func rebuild_trigger_registry(match_state: Dictionary) -> Array:
 	ensure_match_state(match_state)
 	var registry: Array = []
+	var current_turn := int(match_state.get("turn_number", -1))
 	var players: Array = match_state.get("players", [])
 	for player in players:
 		var player_id := str(player.get("player_id", ""))
@@ -2316,7 +2317,7 @@ static func rebuild_trigger_registry(match_state: Dictionary) -> Array:
 			if typeof(cards) != TYPE_ARRAY:
 				continue
 			for card in cards:
-				_append_card_triggers(registry, card, zone_name, player_id)
+				_append_card_triggers(registry, card, zone_name, player_id, -1, -1, current_turn)
 	var lanes: Array = match_state.get("lanes", [])
 	for lane_index in range(lanes.size()):
 		var lane: Dictionary = lanes[lane_index]
@@ -2327,10 +2328,10 @@ static func rebuild_trigger_registry(match_state: Dictionary) -> Array:
 				continue
 			for slot_index in range(slots.size()):
 				var card = slots[slot_index]
-				_append_card_triggers(registry, card, ZONE_LANE, str(player_id), lane_index, slot_index)
+				_append_card_triggers(registry, card, ZONE_LANE, str(player_id), lane_index, slot_index, current_turn)
 				if typeof(card) == TYPE_DICTIONARY:
 					for attached_item in card.get("attached_items", []):
-						_append_card_triggers(registry, attached_item, ZONE_LANE, str(player_id), lane_index, slot_index)
+						_append_card_triggers(registry, attached_item, ZONE_LANE, str(player_id), lane_index, slot_index, current_turn)
 	_inject_granted_triggers(match_state, registry, lanes)
 	# copy_expertise_abilities: Master of Incunabula copies all friendly expertise triggers
 	_inject_copied_expertise_triggers(registry, lanes)
@@ -2442,7 +2443,7 @@ static func _inject_granted_triggers(match_state: Dictionary, registry: Array, l
 					})
 
 
-static func _append_card_triggers(registry: Array, card, zone_name: String, controller_player_id: String, lane_index := -1, slot_index := -1) -> void:
+static func _append_card_triggers(registry: Array, card, zone_name: String, controller_player_id: String, lane_index := -1, slot_index := -1, current_turn := -1) -> void:
 	if typeof(card) != TYPE_DICTIONARY:
 		return
 	var raw_triggers = card.get("triggered_abilities", [])
@@ -2454,6 +2455,8 @@ static func _append_card_triggers(registry: Array, card, zone_name: String, cont
 			continue
 		var descriptor: Dictionary = raw_trigger
 		if not bool(descriptor.get("enabled", true)):
+			continue
+		if current_turn >= 0 and descriptor.has("expires_on_turn") and int(descriptor.get("expires_on_turn", -1)) < current_turn:
 			continue
 		if not str(descriptor.get("target_mode", "")).is_empty():
 			continue  # Target-choice triggers resolved manually via resolve_targeted_effect
