@@ -21,7 +21,7 @@ static func build_test_match_state() -> Dictionary:
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — 12 magicka, Abandoned Imperfect already in play
+	# Player 1 (you) — 12 magicka, Aldora the Daring treasure hunt test
 	var p1_health := 30
 	var p1_max_magicka := 12
 	var p1_current_magicka := 12
@@ -29,37 +29,36 @@ static func build_test_match_state() -> Dictionary:
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — card draw creatures to trigger treasure hunt within 1-2 turns
+	# Player 1 hand — Aldora + card-draw creatures to trigger treasure hunt draws
 	var p1_hand_ids: Array = [
-		"neu_spider_worker",                # Cost 2, 0/1, Guard, Summon: Draw a card → draw neutral (1/3)
-		"neu_spider_worker",                # Cost 2, 0/1, Guard, Summon: Draw a card → draw neutral (2/3)
-		"int_elusive_schemer",              # Cost 4, 3/1, Summon: Draw a card → draw neutral (3/3) → HUNT COMPLETES
-		"neu_enraged_mudcrab",              # Cost 1, 1/1 neutral creature — extra body
-		"neu_lurking_crocodile",            # Cost 2, 2/3 neutral creature — extra body
+		"cwc_str_aldora_the_daring",        # Cost 3, 3/3, TH: Action+Creature+Item+Support → +6/+6, Skywag on find
+		"neu_spider_worker",                # Cost 2, 0/1, Guard, Summon: Draw a card
+		"neu_spider_worker",                # Cost 2, 0/1, Guard, Summon: Draw a card
+		"int_elusive_schemer",              # Cost 4, 3/1, Summon: Draw a card
+		"int_elusive_schemer",              # Cost 4, 3/1, Summon: Draw a card
 	]
 
-	# Player 1 deck — stacked with neutrals so draws trigger the treasure hunt
-	# Abandoned Imperfect hunts for 3 neutral cards. Index 0 is drawn first.
+	# Player 1 deck — actions first so both Aldora and Scroll Seeker match simultaneously
+	# Index 0 is drawn first.
 	var p1_deck_ids: Array = [
-		"neu_enraged_mudcrab",              # Neutral creature — 1st treasure hunt match
-		"neu_lurking_crocodile",            # Neutral creature — 2nd treasure hunt match
-		"neu_barded_guar",                  # Neutral creature — 3rd match → HUNT COMPLETES → Awakened Imperfect to hand
-		"str_fiery_imp",                    # Non-neutral filler (won't match hunt)
-		"str_fiery_imp",                    # Non-neutral filler
-		"str_fiery_imp",                    # Non-neutral filler
-		"str_fiery_imp",                    # Non-neutral filler
-		"str_fiery_imp",                    # Non-neutral filler
+		"str_rapid_shot",                   # Action — matches Aldora (action type) AND Scroll Seeker (action 1/2)
+		"str_rapid_shot",                   # Action — matches Aldora (already found) AND Scroll Seeker (action 2/2 → completes)
+		"str_steel_scimitar",               # Item — matches Aldora (item type)
+		"agi_elixir_of_light_feet",         # Support — matches Aldora (support type)
+		"str_fiery_imp",                    # Creature — matches Aldora (creature type → HUNT COMPLETES → +6/+6)
+		"str_fiery_imp",                    # Extra creature filler
+		"str_fiery_imp",                    # Extra creature filler
+		"str_fiery_imp",                    # Extra creature filler
 	]
 
 	var p1_discard_ids: Array = []
 
-	# Player 1 supports — Abandoned Imperfect already on the board
-	var p1_support_ids: Array = [
-		"cwc_neu_abandoned_imperfect",      # Cost 5, Ongoing, TH - Three neutral cards: sacrifice → summon 8/8 Awakened Imperfect
-	]
+	var p1_support_ids: Array = []
 
-	# No lane creatures needed (the Awakened Imperfect will be summoned via the hunt)
-	var p1_field_creatures: Array = []
+	# Scroll Seeker pre-placed in field lane — hunts 2 actions, so drawing actions triggers both hunters
+	var p1_field_creatures: Array = [
+		_make_lane_creature("player_1", "cwc_int_scroll_seeker", 100),  # 1/2, Ward, TH: Two actions → +1/+0
+	]
 	var p1_shadow_creatures: Array = []
 
 	# Player 2 (AI) — weak, no runes, minimal magicka

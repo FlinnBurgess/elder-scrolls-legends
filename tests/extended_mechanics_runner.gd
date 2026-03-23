@@ -40,7 +40,8 @@ func _run_all_tests() -> bool:
 		_test_treasure_hunt_count_based() and
 		_test_wax_and_wane_pack() and
 		_test_dual_wax_wane() and
-		_test_wax_creature_turn_trigger()
+		_test_wax_creature_turn_trigger() and
+		_test_aldora_the_daring_pack()
 	)
 
 
@@ -857,6 +858,206 @@ func _test_wax_creature_turn_trigger() -> bool:
 		_assert(not creature2.is_empty(), "Second creature should be summoned.") and
 		_assert(c2_power == 1, "Wane effect gives +0/+2, power stays at 1.") and
 		_assert(c2_health == 3, "Wane effect should fire on summon: 1 + 2 = 3 health.")
+	)
+
+
+func _test_aldora_the_daring_pack() -> bool:
+	return (
+		_test_aldora_treasure_hunt_completion() and
+		_test_aldora_skywag_summon() and
+		_test_aldora_skywag_buff() and
+		_test_aldora_skywag_lane_full() and
+		_test_aldora_multiple_hunters_trigger_skywag() and
+		_test_aldora_spent_hunt_no_skywag()
+	)
+
+
+func _test_aldora_treasure_hunt_completion() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	# Aldora: treasure hunt for action, creature, item, support → +6/+6
+	var aldora := ScenarioFixtures.summon_creature(player, match_state, "aldora", "field", 3, 3, [], -1, {
+		"definition_id": "cwc_str_aldora_the_daring",
+		"triggered_abilities": [
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["action", "creature", "item", "support"], "effects": [{"op": "modify_stats", "target": "self", "power": 6, "health": 6}]},
+		],
+	})
+	# Deck: top→item, action, support, creature (pop_back draws, so last element is drawn first)
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "deck_creature", {"zone": "deck", "card_type": "creature"}),
+		ScenarioFixtures.make_card(player_id, "deck_support", {"zone": "deck", "card_type": "support"}),
+		ScenarioFixtures.make_card(player_id, "deck_action", {"zone": "deck", "card_type": "action"}),
+		ScenarioFixtures.make_card(player_id, "deck_item", {"zone": "deck", "card_type": "item"}),
+	]
+	# Draw 3 cards (item, action, support) — hunt NOT complete yet
+	var draw1 := MatchTiming.draw_cards(match_state, player_id, 3, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw1.get("events", []))
+	if not _assert(EvergreenRules.get_power(aldora) == 3 and EvergreenRules.get_health(aldora) == 3, "Aldora should still be 3/3 after finding 3 of 4 types."):
+		return false
+	# Draw 4th card (creature) — hunt completes → +6/+6 = 9/9
+	var draw2 := MatchTiming.draw_cards(match_state, player_id, 1, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw2.get("events", []))
+	if not _assert(EvergreenRules.get_power(aldora) == 9 and EvergreenRules.get_health(aldora) == 9, "Aldora should be 9/9 after completing treasure hunt (+6/+6)."):
+		return false
+	# Add another action to deck and draw it — hunt is spent, no further buff
+	player["deck"].append(ScenarioFixtures.make_card(player_id, "extra_action", {"zone": "deck", "card_type": "action"}))
+	var draw3 := MatchTiming.draw_cards(match_state, player_id, 1, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw3.get("events", []))
+	return _assert(EvergreenRules.get_power(aldora) == 9 and EvergreenRules.get_health(aldora) == 9, "Aldora should stay 9/9 after hunt is spent.")
+
+
+func _test_aldora_skywag_summon() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	# Aldora with both abilities: treasure hunt + on_friendly_treasure_found
+	var aldora := ScenarioFixtures.summon_creature(player, match_state, "aldora_sky", "field", 3, 3, [], -1, {
+		"definition_id": "cwc_str_aldora_the_daring",
+		"triggered_abilities": [
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["action", "creature", "item", "support"], "effects": [{"op": "modify_stats", "target": "self", "power": 6, "health": 6}]},
+			{"family": "on_friendly_treasure_found", "required_zone": "lane", "effects": [{"op": "summon_or_buff", "card_template": {"definition_id": "cwc_str_skywag", "name": "Skywag", "card_type": "creature", "subtypes": ["Beast"], "attributes": ["strength"], "cost": 1, "power": 1, "health": 1, "base_power": 1, "base_health": 1, "rules_text": ""}, "buff_power": 1, "buff_health": 1}]},
+		],
+	})
+	# Deck with one action card
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "deck_action", {"zone": "deck", "card_type": "action"}),
+	]
+	# Draw the action — partial hunt match → treasure_found → Skywag summoned
+	var draw := MatchTiming.draw_cards(match_state, player_id, 1, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw.get("events", []))
+	var skywag := _find_lane_card(match_state, "field", player_id, "cwc_str_skywag")
+	return (
+		_assert(not skywag.is_empty(), "Skywag should be summoned to Aldora's lane when a treasure is found.") and
+		_assert(EvergreenRules.get_power(skywag) == 1 and EvergreenRules.get_health(skywag) == 1, "Skywag should be 1/1 on initial summon.")
+	)
+
+
+func _test_aldora_skywag_buff() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	var aldora := ScenarioFixtures.summon_creature(player, match_state, "aldora_buff", "field", 3, 3, [], -1, {
+		"definition_id": "cwc_str_aldora_the_daring",
+		"triggered_abilities": [
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["action", "creature", "item", "support"], "effects": [{"op": "modify_stats", "target": "self", "power": 6, "health": 6}]},
+			{"family": "on_friendly_treasure_found", "required_zone": "lane", "effects": [{"op": "summon_or_buff", "card_template": {"definition_id": "cwc_str_skywag", "name": "Skywag", "card_type": "creature", "subtypes": ["Beast"], "attributes": ["strength"], "cost": 1, "power": 1, "health": 1, "base_power": 1, "base_health": 1, "rules_text": ""}, "buff_power": 1, "buff_health": 1}]},
+		],
+	})
+	# Pre-place Skywag in field lane
+	var skywag := _summon_generated_creature(match_state, player_id, "skywag_existing", "field", 1, 1)
+	skywag["definition_id"] = "cwc_str_skywag"
+	# Deck with one action card
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "deck_action", {"zone": "deck", "card_type": "action"}),
+	]
+	# Draw the action — treasure_found → Skywag already exists → buff +1/+1
+	var draw := MatchTiming.draw_cards(match_state, player_id, 1, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw.get("events", []))
+	return (
+		_assert(EvergreenRules.get_power(skywag) == 2 and EvergreenRules.get_health(skywag) == 2, "Existing Skywag should be buffed to 2/2 when a treasure is found.") and
+		_assert(_find_lane_card(match_state, "field", player_id, "cwc_str_skywag") == skywag, "Should not summon a second Skywag when one already exists.")
+	)
+
+
+func _test_aldora_skywag_lane_full() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	# Aldora in field lane
+	var aldora := ScenarioFixtures.summon_creature(player, match_state, "aldora_full", "field", 3, 3, [], -1, {
+		"definition_id": "cwc_str_aldora_the_daring",
+		"triggered_abilities": [
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["action", "creature", "item", "support"], "effects": [{"op": "modify_stats", "target": "self", "power": 6, "health": 6}]},
+			{"family": "on_friendly_treasure_found", "required_zone": "lane", "effects": [{"op": "summon_or_buff", "card_template": {"definition_id": "cwc_str_skywag", "name": "Skywag", "card_type": "creature", "subtypes": ["Beast"], "attributes": ["strength"], "cost": 1, "power": 1, "health": 1, "base_power": 1, "base_health": 1, "rules_text": ""}, "buff_power": 1, "buff_health": 1}]},
+		],
+	})
+	# Fill remaining 3 slots (4 total = capacity)
+	_summon_generated_creature(match_state, player_id, "filler1", "field", 1, 1)
+	_summon_generated_creature(match_state, player_id, "filler2", "field", 1, 1)
+	_summon_generated_creature(match_state, player_id, "filler3", "field", 1, 1)
+	# Deck with one action
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "deck_action", {"zone": "deck", "card_type": "action"}),
+	]
+	# Draw the action — treasure found but lane full, no Skywag on board → nothing happens
+	var draw := MatchTiming.draw_cards(match_state, player_id, 1, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw.get("events", []))
+	var skywag_field := _find_lane_card(match_state, "field", player_id, "cwc_str_skywag")
+	var skywag_shadow := _find_lane_card(match_state, "shadow", player_id, "cwc_str_skywag")
+	return _assert(skywag_field.is_empty() and skywag_shadow.is_empty(), "Skywag should NOT be summoned when Aldora's lane is full and Skywag is not on board.")
+
+
+func _test_aldora_multiple_hunters_trigger_skywag() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	# Aldora with both abilities
+	var aldora := ScenarioFixtures.summon_creature(player, match_state, "aldora_multi", "field", 3, 3, [], -1, {
+		"definition_id": "cwc_str_aldora_the_daring",
+		"triggered_abilities": [
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["action", "creature", "item", "support"], "effects": [{"op": "modify_stats", "target": "self", "power": 6, "health": 6}]},
+			{"family": "on_friendly_treasure_found", "required_zone": "lane", "effects": [{"op": "summon_or_buff", "card_template": {"definition_id": "cwc_str_skywag", "name": "Skywag", "card_type": "creature", "subtypes": ["Beast"], "attributes": ["strength"], "cost": 1, "power": 1, "health": 1, "base_power": 1, "base_health": 1, "rules_text": ""}, "buff_power": 1, "buff_health": 1}]},
+		],
+	})
+	# Second treasure hunter also looking for actions
+	var hunter2 := ScenarioFixtures.summon_creature(player, match_state, "hunter2", "field", 2, 2, [], -1, {
+		"triggered_abilities": [
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["action"], "effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 1}]},
+		],
+	})
+	# Deck with one action
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "deck_action", {"zone": "deck", "card_type": "action"}),
+	]
+	# Draw the action — BOTH hunters match → two treasure_found events
+	# First treasure_found → summon Skywag (1/1), second → buff Skywag to 2/2
+	var draw := MatchTiming.draw_cards(match_state, player_id, 1, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw.get("events", []))
+	var skywag := _find_lane_card(match_state, "field", player_id, "cwc_str_skywag")
+	return (
+		_assert(not skywag.is_empty(), "Skywag should be summoned when multiple hunters find treasure.") and
+		_assert(EvergreenRules.get_power(skywag) == 2 and EvergreenRules.get_health(skywag) == 2, "Skywag should be 2/2 — summoned on first find, buffed +1/+1 on second find.")
+	)
+
+
+func _test_aldora_spent_hunt_no_skywag() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	# Aldora with both abilities
+	var aldora := ScenarioFixtures.summon_creature(player, match_state, "aldora_spent", "field", 3, 3, [], -1, {
+		"definition_id": "cwc_str_aldora_the_daring",
+		"triggered_abilities": [
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["action", "creature", "item", "support"], "effects": [{"op": "modify_stats", "target": "self", "power": 6, "health": 6}]},
+			{"family": "on_friendly_treasure_found", "required_zone": "lane", "effects": [{"op": "summon_or_buff", "card_template": {"definition_id": "cwc_str_skywag", "name": "Skywag", "card_type": "creature", "subtypes": ["Beast"], "attributes": ["strength"], "cost": 1, "power": 1, "health": 1, "base_power": 1, "base_health": 1, "rules_text": ""}, "buff_power": 1, "buff_health": 1}]},
+		],
+	})
+	# Deck: action, creature, item, support, then another action
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "extra_action", {"zone": "deck", "card_type": "action"}),
+		ScenarioFixtures.make_card(player_id, "deck_creature", {"zone": "deck", "card_type": "creature"}),
+		ScenarioFixtures.make_card(player_id, "deck_support", {"zone": "deck", "card_type": "support"}),
+		ScenarioFixtures.make_card(player_id, "deck_item", {"zone": "deck", "card_type": "item"}),
+		ScenarioFixtures.make_card(player_id, "deck_action", {"zone": "deck", "card_type": "action"}),
+	]
+	# Draw all 4 types to complete hunt
+	var draw1 := MatchTiming.draw_cards(match_state, player_id, 4, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw1.get("events", []))
+	# Aldora should be 9/9 and Skywag should exist (summoned + 3 buffs = 4/4)
+	if not _assert(EvergreenRules.get_power(aldora) == 9, "Aldora should be 9/9 after completing treasure hunt."):
+		return false
+	var skywag := _find_lane_card(match_state, "field", player_id, "cwc_str_skywag")
+	if not _assert(not skywag.is_empty(), "Skywag should exist after Aldora's treasure hunt."):
+		return false
+	var skywag_power_before := EvergreenRules.get_power(skywag)
+	var skywag_health_before := EvergreenRules.get_health(skywag)
+	# Draw another action — Aldora's hunt is spent, should NOT trigger another treasure_found
+	var draw2 := MatchTiming.draw_cards(match_state, player_id, 1, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw2.get("events", []))
+	return _assert(
+		EvergreenRules.get_power(skywag) == skywag_power_before and EvergreenRules.get_health(skywag) == skywag_health_before,
+		"Skywag should NOT be buffed further after Aldora's hunt is spent."
 	)
 
 
