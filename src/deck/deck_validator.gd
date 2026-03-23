@@ -95,11 +95,14 @@ static func _validate_card_membership(card_id: String, card_record: Dictionary, 
 				if not deck_attribute_ids.has(attribute_id):
 					errors.append("Card `%s` requires the `%s` attribute." % [card_id, attribute_id])
 		"class":
-			var required_class_id = card_requirement.get("class_id", null)
-			var required_display_name = card_requirement.get("class_display_name", required_class_id)
-			if deck_class_id == null:
-				errors.append("Card `%s` requires the `%s` class." % [card_id, required_display_name])
-			elif deck_class_id != required_class_id:
+			var card_attribute_ids: Array = card_requirement.get("attribute_ids", [])
+			var all_contained := true
+			for attribute_id in card_attribute_ids:
+				if not deck_attribute_ids.has(attribute_id):
+					all_contained = false
+					break
+			if not all_contained:
+				var required_display_name = card_requirement.get("class_display_name", card_requirement.get("class_id", null))
 				errors.append("Card `%s` requires `%s`, but the deck is `%s`." % [card_id, required_display_name, _format_deck_identity(identity)])
 
 

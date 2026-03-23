@@ -89,13 +89,22 @@ func _test_dual_and_triple_deck_sizes(registry, card_catalog: Dictionary) -> voi
 
 
 func _test_class_restrictions(registry, card_catalog: Dictionary) -> void:
-	var mixed_class_deck := {
+	# Dual-class cards whose attributes are a subset of the triple deck should be valid
+	var subset_class_deck := {
 		"attribute_ids": ["strength", "intelligence", "willpower"],
 		"cards": _combine_entries(_build_entries("guildsworn", 72), [{"card_id": "battlemage_1", "quantity": 3}]),
 	}
-	var mixed_class_result = DECK_VALIDATOR_SCRIPT.validate_deck(mixed_class_deck, card_catalog, registry)
-	_assert(not mixed_class_result.is_valid, "Expected Battlemage class cards to be illegal in a Guildsworn deck.")
-	_assert(_has_error_containing(mixed_class_result.errors, "requires `Battlemage`"), "Expected explicit class restriction error for Battlemage card in Guildsworn deck.")
+	var subset_class_result = DECK_VALIDATOR_SCRIPT.validate_deck(subset_class_deck, card_catalog, registry)
+	_assert(subset_class_result.is_valid, "Expected Battlemage cards to be legal in a Guildsworn deck (attributes are a subset): %s" % [str(subset_class_result.errors)])
+
+	# Dual-class cards whose attributes are NOT a subset should be rejected
+	var off_class_deck := {
+		"attribute_ids": ["strength", "intelligence"],
+		"cards": _combine_entries(_build_entries("battlemage", 47), [{"card_id": "guildsworn_1", "quantity": 3}]),
+	}
+	var off_class_result = DECK_VALIDATOR_SCRIPT.validate_deck(off_class_deck, card_catalog, registry)
+	_assert(not off_class_result.is_valid, "Expected Guildsworn class cards to be illegal in a Battlemage deck.")
+	_assert(_has_error_containing(off_class_result.errors, "requires `The Guildsworn`"), "Expected explicit class restriction error for Guildsworn card in Battlemage deck.")
 
 
 func _test_copy_limits(registry, card_catalog: Dictionary) -> void:
