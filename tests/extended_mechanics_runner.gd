@@ -22,6 +22,7 @@ func _initialize() -> void:
 func _run_all_tests() -> bool:
 	return (
 		_test_assemble_pack() and
+		_test_assemble_choose_one_targets() and
 		_test_beast_form_pack() and
 		_test_veteran_hook() and
 		_test_action_pack_matrix() and
@@ -87,6 +88,69 @@ func _test_assemble_pack() -> bool:
 		_assert(EvergreenRules.get_power(assemble_creature) == 2 and EvergreenRules.get_health(assemble_creature) == 2, "Assemble should buff the played Factotum.") and
 		_assert(EvergreenRules.get_power(hand_factotum) == 2 and EvergreenRules.get_health(hand_factotum) == 2, "Assemble should buff Factotums in hand.") and
 		_assert(EvergreenRules.get_power(deck_factotum) == 2 and EvergreenRules.get_health(deck_factotum) == 2, "Assemble should buff Factotums in deck.")
+	)
+
+
+func _test_assemble_choose_one_targets() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Assemble creature with choose_one using assemble_targets
+	var assemble_creature := ScenarioFixtures.add_hand_card(player, "assemble_chooser", {
+		"card_type": "creature",
+		"cost": 0,
+		"power": 1,
+		"health": 2,
+		"subtypes": ["Factotum"],
+		"triggered_abilities": [{
+			"family": "summon",
+			"effects": [{"op": "choose_one", "choices": [
+				{"label": "+2/+0", "effects": [{"op": "modify_stats", "target": "assemble_targets", "power": 2, "health": 0}]},
+				{"label": "Lethal", "effects": [{"op": "grant_keyword", "target": "assemble_targets", "keyword_id": "lethal"}]},
+			]}],
+		}],
+	})
+	var hand_factotum := ScenarioFixtures.add_hand_card(player, "hand_facto", {
+		"card_type": "creature",
+		"cost": 0,
+		"power": 1,
+		"health": 1,
+		"subtypes": ["Factotum"],
+	})
+	var deck_factotum := ScenarioFixtures.make_card(pid, "deck_facto", {
+		"zone": "deck",
+		"card_type": "creature",
+		"cost": 0,
+		"power": 1,
+		"health": 1,
+		"subtypes": ["Factotum"],
+	})
+	player["deck"].append(deck_factotum)
+	# Also place a non-Factotum in hand — should NOT be buffed
+	var non_factotum := ScenarioFixtures.add_hand_card(player, "non_facto", {
+		"card_type": "creature",
+		"cost": 0,
+		"power": 1,
+		"health": 1,
+		"subtypes": ["Nord"],
+	})
+	# Place a Factotum already in lane — should NOT be buffed
+	var lane_factotum := ScenarioFixtures.summon_creature(player, match_state, "lane_facto", "field", 1, 1, [], -1, {
+		"subtypes": ["Factotum"],
+	})
+	LaneRules.summon_from_hand(match_state, pid, str(assemble_creature.get("instance_id", "")), "field", {})
+	# Should now have a pending choice
+	var choice := MatchTiming.get_pending_player_choice(match_state, pid)
+	if choice.is_empty():
+		return _assert(false, "Assemble choose_one should produce a pending player choice.")
+	# Choose option 0: +2/+0
+	MatchTiming.resolve_pending_player_choice(match_state, pid, 0)
+	return (
+		_assert(EvergreenRules.get_power(assemble_creature) == 3, "Assemble choose_one should buff the played creature (+2 power).") and
+		_assert(EvergreenRules.get_power(hand_factotum) == 3, "Assemble choose_one should buff Factotums in hand.") and
+		_assert(EvergreenRules.get_power(deck_factotum) == 3, "Assemble choose_one should buff Factotums in deck.") and
+		_assert(EvergreenRules.get_power(non_factotum) == 1, "Assemble choose_one should NOT buff non-Factotums in hand.") and
+		_assert(EvergreenRules.get_power(lane_factotum) == 1, "Assemble choose_one should NOT buff Factotums already in lane.")
 	)
 
 

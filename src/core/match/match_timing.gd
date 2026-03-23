@@ -6914,6 +6914,8 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 			var self_card := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 			if not self_card.is_empty():
 				targets.append(self_card)
+		"assemble_targets":
+			targets.append_array(ExtendedMechanicPacks._collect_factotums(match_state, str(trigger.get("controller_player_id", "")), str(trigger.get("source_instance_id", ""))))
 		"host", "wielder":
 			var host_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 			var host_id := str(host_source.get("attached_to_instance_id", "")) if not host_source.is_empty() else ""

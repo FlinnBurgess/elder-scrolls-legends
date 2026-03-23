@@ -1435,7 +1435,7 @@ static func _collect_factotums(match_state: Dictionary, player_id: String, sourc
 	if not source_card.is_empty():
 		cards.append(source_card)
 	for card in _collect_owned_cards(match_state, player_id, [ZONE_HAND, ZONE_DECK]):
-		if _card_has_string(card, "subtypes", "factotum"):
+		if _card_has_string(card, "subtypes", "Factotum") or _card_has_string(card, "subtypes", "factotum"):
 			cards.append(card)
 	return cards
 

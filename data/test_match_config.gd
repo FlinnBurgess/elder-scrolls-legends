@@ -21,7 +21,7 @@ static func build_test_match_state() -> Dictionary:
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — 12 magicka, Treasure Map test with multiple treasure hunters
+	# Player 1 (you) — 12 magicka, Assemble (Factotum) mechanic test
 	var p1_health := 30
 	var p1_max_magicka := 12
 	var p1_current_magicka := 12
@@ -29,38 +29,35 @@ static func build_test_match_state() -> Dictionary:
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — Treasure Maps to equip on hunters + one for a plain creature
+	# Player 1 hand — Factotums to play + Yagrum's Workshop for double triggers
 	var p1_hand_ids: Array = [
-		"cwc_neu_treasure_map",             # Cost 3, +1/+1 item, draw matching treasure or top
-		"cwc_neu_treasure_map",             # Second copy to test on different hunters
-		"cwc_neu_treasure_map",             # Third copy to test on non-hunter creature
+		"cwc_neu_assembled_sanitizer",      # Cost 3, 1/2 Factotum, Assemble: +2/+0 or Lethal
+		"cwc_neu_assembled_conduit",        # Cost 5, 3/3 Factotum, Assemble: +1/+0 Breakthrough or +0/+1 Regenerate
+		"cwc_neu_assembled_titan",          # Cost 6, 4/4 Factotum, Assemble: Choose two of four options (legendary)
+		"mc_neu_yagrums_workshop",          # Cost 3, Support, Activate: double Summon/Assemble this turn
+		"cwc_neu_assembled_sentry",         # Cost 2, 1/1 Factotum, Assemble: +0/+2 or Guard (second copy)
 	]
 
-	# Player 1 deck — variety of card types to be found by treasure hunt search
+	# Player 1 deck — more Factotums to draw into
 	# Index 0 is drawn first.
 	var p1_deck_ids: Array = [
-		"str_fiery_imp",                    # Creature — no treasure relevance (filler on top)
-		"str_fiery_imp",                    # Creature filler
-		"str_steel_scimitar",               # Item (cost 1, +2/+2) — Relic Hunter finds this
-		"str_rapid_shot",                   # Action (cost 1) — Ratway Prospector finds this
-		"agi_elixir_of_light_feet",         # Support (cost 2) — Ratway or Ruin Archaeologist
-		"wil_cheydinhal_sapper",            # Drain keyword creature — Freebooter drain hunt
-		"end_deadly_draugr",                # Lethal keyword creature — Freebooter lethal hunt
-		"str_fiery_imp",                    # Creature filler
+		"cwc_neu_assembled_sentry",         # Cost 2, 1/1 Factotum, Assemble: +0/+2 or Guard
+		"cwc_neu_assembled_sanitizer",      # Cost 3, 1/2 Factotum, Assemble: +2/+0 or Lethal
+		"cwc_neu_reflective_automaton",     # Cost 2, 2/3 Factotum, has all creature types
+		"str_fiery_imp",                    # Filler
+		"str_fiery_imp",                    # Filler
 	]
 
 	var p1_discard_ids: Array = []
 
 	var p1_support_ids: Array = []
 
-	# Multiple treasure hunters pre-placed — equip Treasure Map on each to test
+	# Pre-placed Factotums — these receive Assemble buffs when you play new Factotums
 	var p1_field_creatures: Array = [
-		_make_lane_creature("player_1", "cwc_str_relic_hunter", 100),         # 3/2, TH: Item → +1/+1 to item
-		_make_lane_creature("player_1", "cwc_str_ratway_prospector", 101),    # 1/2, TH: Support+Item+Action → +5/+5
+		_make_lane_creature("player_1", "cwc_neu_assembled_sentry", 100),     # 1/1 Factotum — buff target
+		_make_lane_creature("player_1", "cwc_neu_reflective_automaton", 101), # 2/3 Factotum (all types) — buff target
 	]
-	var p1_shadow_creatures: Array = [
-		_make_lane_creature("player_1", "str_whiterun_trooper", 102),         # 2/4, no treasure hunt — control test
-	]
+	var p1_shadow_creatures: Array = []
 
 	# Player 2 (AI) — weak, no runes, minimal magicka
 	var p2_health := 30

@@ -39,6 +39,7 @@ Consider what the player needs to test the mechanic:
 | Cost reduction / Empower | The card + actions or creatures that trigger reduction | Enough health to survive multiple turns |
 | Treasure Hunt | Treasure Hunt creature in lane + matching cards in deck | Doesn't matter |
 | Consume | Consumer + creatures in discard pile | Normal board |
+| Assemble (Factotum) | Factotums already in lane as buff targets + more Factotums in hand to play | Weak enemies, low magicka |
 
 Set these parameters:
 - **Player 1 magicka**: High enough to play the test cards (usually 12)
@@ -55,7 +56,7 @@ The configurable variables are:
 ```
 turn_number, first_player
 p1_health, p1_max_magicka, p1_current_magicka, p1_rune_thresholds, p1_has_ring, p1_ring_charges
-p1_hand_ids, p1_deck_ids, p1_discard_ids, p1_field_creatures, p1_shadow_creatures
+p1_hand_ids, p1_deck_ids, p1_discard_ids, p1_support_ids, p1_field_creatures, p1_shadow_creatures
 p2_health, p2_max_magicka, p2_current_magicka, p2_rune_thresholds, p2_has_ring, p2_ring_charges
 p2_hand_ids, p2_deck_ids, p2_discard_ids, p2_field_creatures, p2_shadow_creatures
 ```
