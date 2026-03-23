@@ -2458,6 +2458,8 @@ static func _append_card_triggers(registry: Array, card, zone_name: String, cont
 			continue
 		if current_turn >= 0 and descriptor.has("expires_on_turn") and int(descriptor.get("expires_on_turn", -1)) < current_turn:
 			continue
+		if current_turn >= 0 and descriptor.has("_expires_on_turn") and int(descriptor.get("_expires_on_turn", -1)) < current_turn:
+			continue
 		if not str(descriptor.get("target_mode", "")).is_empty():
 			continue  # Target-choice triggers resolved manually via resolve_targeted_effect
 		if bool(descriptor.get("consume", false)):
@@ -4261,16 +4263,9 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							generated_events.append_array(mml_result.get("events", []))
 			"move_back_end_of_turn":
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
-					var mbeot_controller := str(card.get("controller_player_id", ""))
 					var mbeot_pending: Array = match_state.get("pending_move_backs", [])
 					mbeot_pending.append(str(card.get("instance_id", "")))
 					match_state["pending_move_backs"] = mbeot_pending
-					var mbeot_loc := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
-					var mbeot_current_lane := str(mbeot_loc.get("lane_id", ""))
-					var mbeot_target_lane := "shadow" if mbeot_current_lane == "field" else "field"
-					var mbeot_result := MatchMutations.move_card_between_lanes(match_state, mbeot_controller, str(card.get("instance_id", "")), mbeot_target_lane)
-					if bool(mbeot_result.get("is_valid", false)):
-						generated_events.append_array(mbeot_result.get("events", []))
 					generated_events.append({"event_type": "move_back_scheduled", "instance_id": str(card.get("instance_id", "")), "reason": reason})
 			"add_support_uses":
 				var asu_amount := int(effect.get("amount", 1))
@@ -7769,6 +7764,53 @@ static func process_end_of_turn_returns(match_state: Dictionary, turn_number: in
 				destroy_events.append_array(d_result.get("events", []))
 	if not destroy_events.is_empty():
 		publish_events(match_state, destroy_events)
+	# Unsummon creatures scheduled via unsummon_end_of_turn
+	var unsummon_pending: Array = match_state.get("pending_end_of_turn_unsummons", [])
+	if not unsummon_pending.is_empty():
+		var unsummon_events: Array = []
+		for instance_id in unsummon_pending:
+			var u_result := MatchMutations.unsummon_card(match_state, str(instance_id))
+			unsummon_events.append_array(u_result.get("events", []))
+		match_state["pending_end_of_turn_unsummons"] = []
+		if not unsummon_events.is_empty():
+			publish_events(match_state, unsummon_events)
+	# Move back creatures scheduled via move_back_end_of_turn
+	var move_back_pending: Array = match_state.get("pending_move_backs", [])
+	if not move_back_pending.is_empty():
+		var move_back_events: Array = []
+		for instance_id in move_back_pending:
+			var mb_card := _find_card_anywhere(match_state, str(instance_id))
+			if mb_card.is_empty():
+				continue
+			var mb_controller := str(mb_card.get("controller_player_id", ""))
+			var mb_loc := MatchMutations.find_card_location(match_state, str(instance_id))
+			var mb_current_lane := str(mb_loc.get("lane_id", ""))
+			var mb_target_lane := "shadow" if mb_current_lane == "field" else "field"
+			var mb_result := MatchMutations.move_card_between_lanes(match_state, mb_controller, str(instance_id), mb_target_lane)
+			if bool(mb_result.get("is_valid", false)):
+				move_back_events.append_array(mb_result.get("events", []))
+		match_state["pending_move_backs"] = []
+		if not move_back_events.is_empty():
+			publish_events(match_state, move_back_events)
+	# Discard hands scheduled via discard_hand_end_of_turn
+	var discard_pending: Array = match_state.get("pending_end_of_turn_discards", [])
+	if not discard_pending.is_empty():
+		var discard_events: Array = []
+		for player_id in discard_pending:
+			var dh_player := _get_player_state(match_state, str(player_id))
+			if dh_player.is_empty():
+				continue
+			var dh_hand: Array = dh_player.get(ZONE_HAND, [])
+			var dh_discard: Array = dh_player.get(ZONE_DISCARD, [])
+			for card in dh_hand:
+				if typeof(card) == TYPE_DICTIONARY:
+					card["zone"] = ZONE_DISCARD
+					dh_discard.append(card)
+					discard_events.append({"event_type": "card_discarded", "player_id": str(player_id), "instance_id": str(card.get("instance_id", "")), "source": "discard_hand_end_of_turn", "reason": "end_of_turn"})
+			dh_hand.clear()
+		match_state["pending_end_of_turn_discards"] = []
+		if not discard_events.is_empty():
+			publish_events(match_state, discard_events)
 
 
 static func _event_subject_instance_id(event: Dictionary) -> String:
