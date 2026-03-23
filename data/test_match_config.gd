@@ -21,7 +21,7 @@ static func build_test_match_state() -> Dictionary:
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — 12 magicka to play Consume creatures
+	# Player 1 (you) — 12 magicka, starts in wax phase
 	var p1_health := 30
 	var p1_max_magicka := 12
 	var p1_current_magicka := 12
@@ -29,41 +29,36 @@ static func build_test_match_state() -> Dictionary:
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — Consume creatures with varied effects
+	# Player 1 hand — variety of wax/wane cards + Moon Gate
 	var p1_hand_ids: Array = [
-		"moe_int_midnight_trespasser",      # Cost 1, 2/2, Consume a creature to gain +1/+1
-		"moe_str_euraxian_berserker",       # Cost 3, 2/4, Consume a creature to gain +2/+0
-		"moe_end_nibenese_mercenary",       # Cost 3, 3/3, Consume a creature to gain +0/+2
-		"moe_wil_mercenary_captain",        # Cost 4, 2/2, Consume a creature to give other friendlies +1/+1
-		"moe_agi_illicit_butcher",          # Cost 4, 4/3, Consume a creature to Shackle an enemy
-		"moe_int_skeletal_mage",            # Cost 7, 3/5, Consume a creature, deal its power as damage
+		"moe_wil_moon_bishop",              # Cost 1, 1/1, Wax: +0/+4, Wane: heal 4
+		"moe_int_cartel_arcanist",          # Cost 3, 2/3, Wax: +2/+0, Wane: shackle enemy (target_mode)
+		"moe_end_servant_of_ja_khajay",     # Cost 3, 2/2, Wax: +2/+2, Wane: silence creature (target_mode)
+		"moe_wil_queens_captain",           # Cost 8, 4/4, Wax: draw 2, Wane: destroy creature (target_mode)
+		"moe_neu_lunar_sway",               # Cost 1, Action, Wax: get 3/3, Wane: get 4/4 Guard
+		"moe_neu_moon_gate",                # Cost 1, Support, Activate: dual wax+wane this turn
 	]
 
-	# Player 1 deck — more Consume cards + on_consumed cards to draw into
+	# Player 1 deck — more wax/wane cards to draw
 	var p1_deck_ids: Array = [
-		"moe_str_enraged_dragonknight",     # Cost 4, 5/4, Consume to deal 2 damage to each player
-		"moe_end_boneweaver",               # Cost 5, 5/5, Guard, Consume to draw same-name from discard
-		"moe_end_bone_armor",               # Cost 2, Item, Wielder Consumes a creature + gains its health
-		"mc_dual_headless_zombie",          # Cost 4, 3/4, Consume a card; Last Gasp: draw copy of consumed
+		"moe_str_war_hardened_senche",       # Cost 4, 4/3, Wax: +1/+1, Wane: battle enemy (target_mode)
+		"moe_agi_moonphase_suthay",          # Cost 3, 2/2, Wax: +1/+1 and Drain, Wane: draw card
+		"moe_int_frazzled_alfiq",            # Cost 2, 1/2, Wax/Wane + on_friendly_wax/wane triggers
+		"moe_agi_rebellion_general",         # Cost 4, 4/4, Wax/Wane: trigger all other friendlies
+		"moe_wil_alfiq_illusionist",         # Cost 3, 2/1, Wax: summon copy other lane, Wane: +1/+2 Guard
 	]
 
-	# Player 1 discard — creatures to Consume (including on_consumed triggers)
-	var p1_discard_ids: Array = [
-		"moe_neu_crocodile_brute",          # 2/2, on_consumed: draw a card
-		"moe_str_imbued_minotaur",          # 5/2, Breakthrough, on_consumed: +1/+1 and Breakthrough to consumer
-		"moe_neu_ill_fated_scholar",        # 3/2, on_consumed: summon a 3/2 Insidious Spirit
-		"moe_neu_crocodile_brute",          # Second copy — more consume fodder
-		"end_young_mammoth",                # 4/4 vanilla — plain consume target
-		"str_whiterun_trooper",             # 2/4 vanilla — plain consume target
-	]
+	var p1_discard_ids: Array = []
 
-	# Player 1 — one creature in lane for Bone Armor item target
+	# Player 1 — pre-place a wax/wane creature so it triggers on turn 1
 	var p1_field_creatures: Array = [
-		_make_lane_creature("player_1", "str_whiterun_trooper", 100, {"can_attack": true}),  # 2/4 — equip target for Bone Armor
+		_make_lane_creature("player_1", "moe_str_pouncing_senche", 100, {"can_attack": true}),  # 7 cost, 4/7, Guard, Wax: +3/+0, Wane: Charge
 	]
-	var p1_shadow_creatures: Array = []
+	var p1_shadow_creatures: Array = [
+		_make_lane_creature("player_1", "moe_int_goutfang_adept", 101, {"can_attack": true}),   # 4 cost, 2/4, Wax: draw card, Wane: +1/+1 and Guard
+	]
 
-	# Player 2 (AI) — weak enemies for Illicit Butcher shackle target + Skeletal Mage damage target
+	# Player 2 (AI) — weak enemies as targets for wane effects
 	var p2_health := 30
 	var p2_max_magicka := 1
 	var p2_current_magicka := 1
@@ -85,14 +80,15 @@ static func build_test_match_state() -> Dictionary:
 		"str_fiery_imp",
 	]
 
-	# Player 2 — enemies for shackle/damage targeting
+	# Player 2 — enemies for shackle/silence/battle/destroy targets
 	var p2_field_creatures: Array = [
-		_make_lane_creature("player_2", "str_fiery_imp", 100),             # 1/1 — shackle/damage target
-		_make_lane_creature("player_2", "end_fharun_defender", 101),        # 1/4 Guard — shackle target
-		_make_lane_creature("player_2", "end_young_mammoth", 102),          # 4/4 — damage target for Skeletal Mage
+		_make_lane_creature("player_2", "str_fiery_imp", 100),             # 1/1 — shackle/battle target
+		_make_lane_creature("player_2", "end_fharun_defender", 101),        # 1/4 Guard — silence target
+		_make_lane_creature("player_2", "end_young_mammoth", 102),          # 4/4 — destroy target
 	]
 	var p2_shadow_creatures: Array = [
 		_make_lane_creature("player_2", "str_fiery_imp", 103),             # 1/1 — extra target
+		_make_lane_creature("player_2", "str_fiery_imp", 104),             # 1/1 — extra target
 	]
 
 	## ── END CONFIGURATION ──────────────────────────────────────────────

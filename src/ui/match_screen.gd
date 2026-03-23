@@ -510,6 +510,17 @@ func start_test_match(test_state: Dictionary) -> void:
 	_clear_pile_selection()
 	_mulligan_card_by_id = {}
 	_ai_enabled = true
+	# Fire initial turn-start triggers for the active player (wax/wane, start_of_turn, etc.)
+	var active_id := str(test_state.get("active_player_id", ""))
+	for p in test_state.get("players", []):
+		if typeof(p) == TYPE_DICTIONARY:
+			ExtendedMechanicPacks.ensure_player_state(p)
+	MatchTiming.publish_events(test_state, [{
+		"event_type": MatchTiming.EVENT_TURN_STARTED,
+		"player_id": active_id,
+		"source_controller_player_id": active_id,
+		"turn_number": int(test_state.get("turn_number", 1)),
+	}])
 	_status_message = "Test match started."
 	_refresh_ui()
 
@@ -1147,7 +1158,6 @@ func end_turn_action() -> bool:
 	_selected_instance_id = ""
 	_status_message = "Ended %s's turn." % _player_name(player_id)
 	_refresh_ui()
-	_check_pending_turn_trigger_target()
 	if _arena_mode:
 		match_state_changed.emit(_match_state.duplicate(true))
 	return true
@@ -4363,6 +4373,8 @@ func _add_hover_preview_to_layer(card: Dictionary, instance_id: String, name_pre
 	component.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+	if component.has_method("set_wax_wane_phases"):
+		component.set_wax_wane_phases(_get_wax_wane_phases_for_card(card))
 	if component.has_method("set_relationship_context"):
 		component.set_relationship_context(_build_match_relationship_context())
 	wrapper.add_child(component)
@@ -4539,11 +4551,28 @@ func _build_card_display_component(card: Dictionary, surface: String, instance_i
 			display_card["_effective_cost"] = effective_cost
 		_apply_empower_text_updates(display_card, _active_player_id())
 	component.apply_card(display_card, _card_presentation_mode(card, surface))
+	if component.has_method("set_wax_wane_phases"):
+		component.set_wax_wane_phases(_get_wax_wane_phases_for_card(card))
 	if component.has_method("set_relationship_context"):
 		component.set_relationship_context(_build_match_relationship_context())
 	if surface == "support" and bool(card.get("activation_used_this_turn", false)):
 		component.modulate = Color(0.5, 0.5, 0.55, 0.8)
 	return component
+
+
+func _get_wax_wane_phases_for_card(card: Dictionary) -> Array:
+	var controller_id := str(card.get("controller_player_id", ""))
+	if controller_id.is_empty():
+		return []
+	for player in _match_state.get("players", []):
+		if typeof(player) == TYPE_DICTIONARY and str(player.get("player_id", "")) == controller_id:
+			var phase := str(player.get("wax_wane_state", ""))
+			if phase.is_empty():
+				return []
+			if bool(player.get("_dual_wax_wane", false)):
+				return ["wax", "wane"]
+			return [phase]
+	return []
 
 
 func _apply_empower_text_updates(display_card: Dictionary, player_id: String) -> void:
@@ -6910,7 +6939,7 @@ func _is_local_prophecy_interrupt_open() -> bool:
 
 
 func _local_player_has_pending_interrupt() -> bool:
-	return _is_local_prophecy_interrupt_open() or not _pending_summon_target.is_empty() or _has_local_pending_discard_choice() or _has_local_pending_consume_selection() or _has_local_pending_deck_selection() or not _hand_selection_state.is_empty() or MatchTiming.has_pending_summon_effect_target(_match_state, _local_player_id()) or MatchTiming.has_pending_turn_trigger_target(_match_state, _local_player_id())
+	return _is_local_prophecy_interrupt_open() or not _pending_summon_target.is_empty() or _has_local_pending_discard_choice() or _has_local_pending_consume_selection() or _has_local_pending_deck_selection() or not _hand_selection_state.is_empty() or MatchTiming.has_pending_summon_effect_target(_match_state, _local_player_id())
 
 
 func _is_local_match_ai_enabled() -> bool:
@@ -7739,8 +7768,21 @@ func _check_summon_target_mode(source_instance_id: String) -> void:
 	if card.is_empty():
 		return
 	var abilities := MatchTiming.get_target_mode_abilities(card)
-	# Filter out abilities with consume: true — those are handled by pending_consume_selections
-	abilities = abilities.filter(func(ab): return not bool(ab.get("consume", false)))
+	# Filter to summon/on_play families and wax/wane (phase-gated).
+	# Exclude consume: true abilities — those are handled by pending_consume_selections.
+	var active_phases := _get_wax_wane_phases_for_card(card)
+	abilities = abilities.filter(func(ab):
+		if bool(ab.get("consume", false)):
+			return false
+		var family := str(ab.get("family", ""))
+		if family == MatchTiming.FAMILY_SUMMON or family == MatchTiming.FAMILY_ON_PLAY:
+			return true
+		if family == MatchTiming.FAMILY_WAX:
+			return active_phases.has("wax")
+		if family == MatchTiming.FAMILY_WANE:
+			return active_phases.has("wane")
+		return false
+	)
 	if abilities.is_empty():
 		return
 	var valid_targets := MatchTiming.get_all_valid_targets(_match_state, source_instance_id)
@@ -7769,15 +7811,10 @@ func _resolve_summon_target_card(target_instance_id: String) -> void:
 		_report_invalid_interaction("Not a valid target.", {"instance_ids": [target_instance_id]})
 		return
 	var is_effect_summon := bool(_pending_summon_target.get("is_effect_summon", false))
-	var is_turn_trigger := bool(_pending_summon_target.get("is_turn_trigger", false))
 	_pending_summon_target = {}
 	_dismiss_summon_skip_button()
 	_cancel_targeting_mode_silent()
-	if is_turn_trigger:
-		var result := MatchTiming.resolve_pending_turn_trigger_target(_match_state, _local_player_id(), {"instance_id": target_instance_id})
-		_finalize_engine_result(result, "Targeted %s." % _card_name(_card_from_instance_id(target_instance_id)))
-		_check_pending_turn_trigger_target()
-	elif is_effect_summon:
+	if is_effect_summon:
 		var result := MatchTiming.resolve_pending_summon_effect_target(_match_state, _local_player_id(), {"target_instance_id": target_instance_id})
 		_finalize_engine_result(result, "Targeted %s." % _card_name(_card_from_instance_id(target_instance_id)))
 	else:
@@ -7797,14 +7834,9 @@ func _resolve_summon_target_player(player_id: String) -> void:
 		_report_invalid_interaction("Not a valid target.", {"player_ids": [player_id]})
 		return
 	var is_effect_summon := bool(_pending_summon_target.get("is_effect_summon", false))
-	var is_turn_trigger := bool(_pending_summon_target.get("is_turn_trigger", false))
 	_pending_summon_target = {}
 	_cancel_targeting_mode_silent()
-	if is_turn_trigger:
-		var result := MatchTiming.resolve_pending_turn_trigger_target(_match_state, _local_player_id(), {"player_id": player_id})
-		_finalize_engine_result(result, "Targeted %s." % _player_name(player_id))
-		_check_pending_turn_trigger_target()
-	elif is_effect_summon:
+	if is_effect_summon:
 		var result := MatchTiming.resolve_pending_summon_effect_target(_match_state, _local_player_id(), {"target_player_id": player_id})
 		_finalize_engine_result(result, "Targeted %s." % _player_name(player_id))
 	else:
@@ -7827,15 +7859,6 @@ func _is_pending_summon_mandatory() -> bool:
 
 
 func _cancel_summon_target_mode() -> void:
-	if bool(_pending_summon_target.get("is_turn_trigger", false)):
-		MatchTiming.decline_pending_turn_trigger_target(_match_state, _local_player_id())
-		_pending_summon_target = {}
-		_dismiss_summon_skip_button()
-		_cancel_targeting_mode()
-		_status_message = "Effect declined."
-		_refresh_ui()
-		_check_pending_turn_trigger_target()  # Check for more
-		return
 	if bool(_pending_summon_target.get("is_effect_summon", false)):
 		MatchTiming.decline_pending_summon_effect_target(_match_state, _local_player_id())
 	_pending_summon_target = {}

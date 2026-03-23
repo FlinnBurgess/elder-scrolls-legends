@@ -67,6 +67,7 @@ var _deck_quantity_current := -1
 var _deck_quantity_max := -1
 
 var _original_card_data: Dictionary = {}
+var _active_wax_wane_phases: Array = []  # e.g. ["wax"], ["wane"], or ["wax", "wane"]
 var _relationships: Array = []
 var _relationship_index := 0
 var _relationship_context: Dictionary = {}
@@ -159,6 +160,12 @@ func apply_card(card: Dictionary, presentation_mode := "") -> void:
 	_relationship_index = 0
 	_rebuild_relationships()
 	_refresh_all()
+
+
+func set_wax_wane_phases(phases: Array) -> void:
+	_active_wax_wane_phases = phases
+	if _is_built and not _card_data.is_empty():
+		_rules_label.text = _rules_bbcode(_card_data)
 
 
 func set_interactive(enabled: bool) -> void:
@@ -990,6 +997,7 @@ func _rules_preview(card: Dictionary) -> String:
 
 func _rules_bbcode(card: Dictionary) -> String:
 	var plain := _rules_preview(card)
+	plain = _apply_wax_wane_colors(plain)
 	var newline_pos := plain.find("\n")
 	if newline_pos < 0:
 		# No newline means either no keywords or keywords-only
@@ -1000,6 +1008,17 @@ func _rules_bbcode(card: Dictionary) -> String:
 	var keyword_line := plain.substr(0, newline_pos)
 	var rest := plain.substr(newline_pos + 1)
 	return "[center][b]" + keyword_line + "[/b]\n" + rest + "[/center]"
+
+
+func _apply_wax_wane_colors(text: String) -> String:
+	if _active_wax_wane_phases.is_empty():
+		return text
+	var active_color := "#66cc66"
+	if _active_wax_wane_phases.has("wax"):
+		text = text.replace("Wax:", "[color=%s]Wax:[/color]" % active_color)
+	if _active_wax_wane_phases.has("wane"):
+		text = text.replace("Wane:", "[color=%s]Wane:[/color]" % active_color)
+	return text
 
 
 func _has_extracted_keywords(card: Dictionary) -> bool:

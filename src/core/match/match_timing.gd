@@ -182,8 +182,8 @@ const FAMILY_SPECS := {
 	FAMILY_ON_ENEMY_STAT_REDUCTION: {"event_type": "stats_modified", "window": WINDOW_AFTER, "match_role": "opponent_player"},
 	FAMILY_ON_FRIENDLY_DRAGON_DAMAGE: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "controller"},
 	FAMILY_ON_PLAYER_HEALTH_ZERO: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "target_player_is_controller", "target_type": "player"},
-	FAMILY_WAX: {"event_type": EVENT_TURN_STARTED, "window": WINDOW_AFTER, "match_role": "controller", "required_wax_wane_phase": "wax"},
-	FAMILY_WANE: {"event_type": EVENT_TURN_STARTED, "window": WINDOW_AFTER, "match_role": "controller", "required_wax_wane_phase": "wane"},
+	FAMILY_WAX: {"event_type": EVENT_CREATURE_SUMMONED, "window": WINDOW_AFTER, "match_role": "source", "required_wax_wane_phase": "wax"},
+	FAMILY_WANE: {"event_type": EVENT_CREATURE_SUMMONED, "window": WINDOW_AFTER, "match_role": "source", "required_wax_wane_phase": "wane"},
 	FAMILY_ON_FRIENDLY_WAX: {"event_type": EVENT_CARD_PLAYED, "window": WINDOW_AFTER, "match_role": "controller", "required_wax_wane_phase": "wax", "exclude_self": true},
 	FAMILY_ON_FRIENDLY_WANE: {"event_type": EVENT_CARD_PLAYED, "window": WINDOW_AFTER, "match_role": "controller", "required_wax_wane_phase": "wane", "exclude_self": true},
 	FAMILY_EXALT: {"event_type": EVENT_CREATURE_SUMMONED, "window": WINDOW_AFTER, "match_role": "source"},
@@ -1306,7 +1306,7 @@ static func resolve_pending_turn_trigger_target(match_state: Dictionary, player_
 		"_chosen_target_player_id": target_player_id,
 	}
 	var synthetic_event := {
-		"event_type": EVENT_TURN_STARTED,
+		"event_type": EVENT_CREATURE_SUMMONED,
 		"player_id": controller_id,
 		"source_controller_player_id": controller_id,
 	}
@@ -1343,16 +1343,29 @@ static func _check_summon_abilities(match_state: Dictionary, summoned_card: Dict
 
 static func _check_summon_effect_target_mode(match_state: Dictionary, summoned_card: Dictionary) -> void:
 	var summon_abilities: Array = []
+	var controller_id := str(summoned_card.get("controller_player_id", ""))
+	var wax_wane_state := ""
+	var dual_wax_wane := false
+	var player := _get_player_state(match_state, controller_id)
+	if not player.is_empty():
+		wax_wane_state = str(player.get("wax_wane_state", "wax"))
+		dual_wax_wane = bool(player.get("_dual_wax_wane", false))
 	for ab in get_target_mode_abilities(summoned_card):
-		if str(ab.get("family", "")) == FAMILY_SUMMON:
+		var family := str(ab.get("family", ""))
+		if family == FAMILY_SUMMON:
 			# Skip abilities with consume: true — handled by _check_consume_abilities
 			if bool(ab.get("consume", false)):
 				continue
 			summon_abilities.append(ab)
+		elif family == FAMILY_WAX:
+			if wax_wane_state == "wax" or dual_wax_wane:
+				summon_abilities.append(ab)
+		elif family == FAMILY_WANE:
+			if wax_wane_state == "wane" or dual_wax_wane:
+				summon_abilities.append(ab)
 	if summon_abilities.is_empty():
 		return
 	var instance_id := str(summoned_card.get("instance_id", ""))
-	var controller_id := str(summoned_card.get("controller_player_id", ""))
 	var valid := get_all_valid_targets(match_state, instance_id)
 	if valid.is_empty():
 		return
@@ -7840,7 +7853,7 @@ static func _fire_wax_wane_on_other_friendly(match_state: Dictionary, controller
 	match_state["_active_forced_wax_wane"] = active_set
 	var generated_events: Array = []
 	var synthetic_event := {
-		"event_type": EVENT_TURN_STARTED,
+		"event_type": EVENT_CREATURE_SUMMONED,
 		"player_id": controller_id,
 		"source_controller_player_id": controller_id,
 		"reason": "trigger_%s" % family,

@@ -191,7 +191,6 @@ static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionar
 		match_state["phase"] = "complete"
 	if not events.is_empty():
 		MatchTiming.publish_events(match_state, events)
-	MatchTiming.queue_turn_trigger_targets(match_state, player_id)
 	return match_state
 
 

@@ -38,7 +38,8 @@ func _run_all_tests() -> bool:
 		_test_invade_and_shout_pack() and
 		_test_treasure_hunt_and_consume_pack() and
 		_test_wax_and_wane_pack() and
-		_test_dual_wax_wane()
+		_test_dual_wax_wane() and
+		_test_wax_creature_turn_trigger()
 	)
 
 
@@ -769,6 +770,54 @@ func _test_dual_wax_wane() -> bool:
 		_assert(phase_after_end == "wane", "Phase should toggle normally to wane after dual turn.") and
 		_assert(not dual_after_end, "Dual wax/wane flag should be cleared at end of turn.") and
 		_assert(health_after_normal == 17, "Only wane effect should fire after dual flag is cleared.")
+	)
+
+
+func _test_wax_creature_turn_trigger() -> bool:
+	# Wax/wane effects fire on summon only, not on turn start.
+	# Summoning during wax phase should fire the wax effect immediately.
+	# Subsequent turn starts should NOT re-trigger the effect.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var player_id := str(player.get("player_id", ""))
+	var opponent_id := str(opponent.get("player_id", ""))
+	# Player starts in wax phase. Summon a creature with wax: +2/+0 and wane: +0/+1.
+	var creature := ScenarioFixtures.summon_creature(player, match_state, "wax_creature", "field", 2, 3, [], -1, {
+		"cost": 0,
+		"triggered_abilities": [
+			{"family": "wax", "required_zone": "lane", "effects": [{"op": "modify_stats", "target": "self", "power": 2, "health": 0}]},
+			{"family": "wane", "required_zone": "lane", "effects": [{"op": "modify_stats", "target": "self", "power": 0, "health": 1}]},
+		],
+	})
+	# Wax effect should have fired on summon: 2 + 2 = 4 power
+	var power_after_summon := EvergreenRules.get_power(creature)
+	var health_after_summon := EvergreenRules.get_health(creature)
+	# End turn and come back — effects should NOT re-trigger
+	MatchTurnLoop.end_turn(match_state, player_id)
+	MatchTurnLoop.end_turn(match_state, opponent_id)
+	var power_after_turn := EvergreenRules.get_power(creature)
+	var health_after_turn := EvergreenRules.get_health(creature)
+	# Now summon another creature during wane phase
+	var creature2 := ScenarioFixtures.summon_creature(player, match_state, "wane_creature", "field", 1, 1, [], -1, {
+		"cost": 0,
+		"triggered_abilities": [
+			{"family": "wax", "required_zone": "lane", "effects": [{"op": "modify_stats", "target": "self", "power": 3, "health": 0}]},
+			{"family": "wane", "required_zone": "lane", "effects": [{"op": "modify_stats", "target": "self", "power": 0, "health": 2}]},
+		],
+	})
+	# Wane effect should fire: 1 + 0 = 1 power, 1 + 2 = 3 health
+	var c2_power := EvergreenRules.get_power(creature2)
+	var c2_health := EvergreenRules.get_health(creature2)
+	return (
+		_assert(not creature.is_empty(), "Creature should be summoned successfully.") and
+		_assert(power_after_summon == 4, "Wax effect should fire on summon: 2 + 2 = 4 power.") and
+		_assert(health_after_summon == 3, "Health unchanged by wax effect (wax gives +2/+0).") and
+		_assert(power_after_turn == 4, "Power should NOT change on subsequent turn starts.") and
+		_assert(health_after_turn == 3, "Health should NOT change on subsequent turn starts.") and
+		_assert(not creature2.is_empty(), "Second creature should be summoned.") and
+		_assert(c2_power == 1, "Wane effect gives +0/+2, power stays at 1.") and
+		_assert(c2_health == 3, "Wane effect should fire on summon: 1 + 2 = 3 health.")
 	)
 
 

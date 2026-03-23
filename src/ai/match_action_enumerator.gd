@@ -264,7 +264,7 @@ static func action_is_legal(match_state: Dictionary, action: Dictionary) -> bool
 		KIND_DECLINE_TURN_TRIGGER_TARGET:
 			return MatchTiming.has_pending_turn_trigger_target(match_state, player_id)
 		KIND_END_TURN:
-			if MatchTiming.has_pending_prophecy(match_state) or MatchTiming.has_pending_discard_choice(match_state) or MatchTiming.has_pending_consume_selection(match_state) or MatchTiming.has_pending_deck_selection(match_state) or MatchTiming.has_pending_hand_selection(match_state) or MatchTiming.has_pending_top_deck_choice(match_state) or MatchTiming.has_pending_player_choice(match_state) or MatchTiming.has_pending_secondary_target(match_state) or MatchTiming.has_pending_summon_effect_target(match_state) or MatchTiming.has_pending_turn_trigger_target(match_state, player_id):
+			if MatchTiming.has_pending_prophecy(match_state) or MatchTiming.has_pending_discard_choice(match_state) or MatchTiming.has_pending_consume_selection(match_state) or MatchTiming.has_pending_deck_selection(match_state) or MatchTiming.has_pending_hand_selection(match_state) or MatchTiming.has_pending_top_deck_choice(match_state) or MatchTiming.has_pending_player_choice(match_state) or MatchTiming.has_pending_secondary_target(match_state) or MatchTiming.has_pending_summon_effect_target(match_state):
 				return false
 			var clone := match_state.duplicate(true)
 			var active_before := str(clone.get("active_player_id", ""))
