@@ -2851,6 +2851,14 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					base_power = int(consumed_info.get("power", 0))
 				if str(effect.get("health_source", "")) == "consumed_creature_health" and not consumed_info.is_empty():
 					base_health = int(consumed_info.get("health", 0))
+				if str(effect.get("power_source", "")) == "self_power" or bool(effect.get("power_from_self_power", false)):
+					var ms_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+					if not ms_source.is_empty():
+						base_power = EvergreenRules.get_power(ms_source)
+				if str(effect.get("health_source", "")) == "self_power" or bool(effect.get("health_from_self_power", false)):
+					var ms_source_h := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+					if not ms_source_h.is_empty():
+						base_health = EvergreenRules.get_power(ms_source_h)
 				var total_power := base_power * stat_multiplier
 				var total_health := base_health * stat_multiplier
 				var is_temp := str(effect.get("duration", "")) == "end_of_turn"
