@@ -6355,24 +6355,72 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						gumflt_player["current_magicka"] = int(gumflt_player.get("current_magicka", 0)) + gumflt_unspent
 						generated_events.append({"event_type": "magicka_restored", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_player_id": gumflt_controller_id, "amount": gumflt_unspent})
 			"draw_or_treasure_hunt":
+				# Treasure Map: draw a card matching the wielder's unfound treasure hunt types,
+				# or draw from the top if no active hunts or no matching card in deck.
 				var doth_controller_id := str(trigger.get("controller_player_id", ""))
 				var doth_player := _get_player_state(match_state, doth_controller_id)
 				if not doth_player.is_empty():
 					var doth_deck: Array = doth_player.get(ZONE_DECK, [])
 					if not doth_deck.is_empty():
-						var doth_top: Dictionary = doth_deck.back()
-						var doth_hunt_types = effect.get("hunt_types", ["any"])
-						if typeof(doth_hunt_types) != TYPE_ARRAY:
-							doth_hunt_types = ["any"]
-						if _card_matches_treasure_hunt(doth_top, doth_hunt_types):
-							var doth_draw := draw_cards(match_state, doth_controller_id, 1, {"reason": "treasure_hunt", "source_instance_id": str(trigger.get("source_instance_id", ""))})
-							generated_events.append_array(doth_draw.get("events", []))
-							generated_events.append({"event_type": "treasure_found", "source_instance_id": str(trigger.get("source_instance_id", "")), "controller_player_id": doth_controller_id, "player_id": doth_controller_id})
+						# Collect unfound hunt types from the wielder's active treasure hunts
+						var doth_unfound_types: Array = []
+						for doth_target in _resolve_card_targets(match_state, trigger, event, effect):
+							var doth_abilities = doth_target.get("triggered_abilities", [])
+							if typeof(doth_abilities) != TYPE_ARRAY:
+								continue
+							for doth_idx in range(doth_abilities.size()):
+								var doth_desc = doth_abilities[doth_idx]
+								if typeof(doth_desc) != TYPE_DICTIONARY:
+									continue
+								if str(doth_desc.get("family", "")) != "treasure_hunt":
+									continue
+								var doth_spent_key := "_th_%d_spent" % doth_idx
+								if bool(doth_target.get(doth_spent_key, false)):
+									continue
+								var doth_hunt_types = doth_desc.get("hunt_types", [])
+								if typeof(doth_hunt_types) != TYPE_ARRAY or doth_hunt_types.is_empty():
+									continue
+								var doth_is_multi: bool = doth_hunt_types.size() > 1 and not doth_hunt_types.has("any") and int(doth_desc.get("hunt_count", 0)) == 0
+								if doth_is_multi:
+									var doth_found_key := "_th_%d_found" % doth_idx
+									var doth_found: Array = []
+									var doth_raw_found = doth_target.get(doth_found_key, [])
+									if typeof(doth_raw_found) == TYPE_ARRAY:
+										doth_found = doth_raw_found
+									for doth_ht in doth_hunt_types:
+										if not doth_found.has(str(doth_ht)) and not doth_unfound_types.has(str(doth_ht)):
+											doth_unfound_types.append(str(doth_ht))
+								else:
+									for doth_ht in doth_hunt_types:
+										if not doth_unfound_types.has(str(doth_ht)):
+											doth_unfound_types.append(str(doth_ht))
+						# Search deck for a matching card
+						var doth_matching_indices: Array = []
+						if not doth_unfound_types.is_empty():
+							for doth_i in range(doth_deck.size()):
+								if _card_matches_treasure_hunt(doth_deck[doth_i], doth_unfound_types):
+									doth_matching_indices.append(doth_i)
+						if not doth_matching_indices.is_empty():
+							# Pick a random matching card from the deck
+							var doth_rand := _deterministic_index(match_state, "treasure_map_%s" % str(trigger.get("source_instance_id", "")), doth_matching_indices.size())
+							var doth_pick_idx: int = doth_matching_indices[doth_rand]
+							var doth_card: Dictionary = doth_deck[doth_pick_idx]
+							doth_deck.remove_at(doth_pick_idx)
+							# Move card to hand
+							var doth_hand: Array = doth_player.get(ZONE_HAND, [])
+							if doth_hand.size() >= MAX_HAND_SIZE:
+								doth_card["zone"] = ZONE_DISCARD
+								doth_player[ZONE_DISCARD].append(doth_card)
+								generated_events.append({"event_type": EVENT_CARD_OVERDRAW, "player_id": doth_controller_id, "instance_id": str(doth_card.get("instance_id", "")), "source_zone": ZONE_DECK})
+							else:
+								doth_card["zone"] = ZONE_HAND
+								doth_hand.append(doth_card)
+								MatchMutations.apply_first_turn_hand_cost(match_state, doth_card, doth_controller_id)
+								generated_events.append({"event_type": EVENT_CARD_DRAWN, "player_id": doth_controller_id, "source_instance_id": str(trigger.get("source_instance_id", "")), "source_controller_player_id": doth_controller_id, "drawn_instance_id": str(doth_card.get("instance_id", "")), "source_zone": ZONE_DECK, "target_zone": ZONE_HAND, "reason": "treasure_map"})
 						else:
-							# Put top card on bottom
-							var doth_card: Dictionary = doth_deck.pop_back()
-							doth_deck.push_front(doth_card)
-							generated_events.append({"event_type": "card_moved_to_bottom", "source_instance_id": str(trigger.get("source_instance_id", "")), "player_id": doth_controller_id})
+							# No active hunts or no matching card — draw from top
+							var doth_draw := draw_cards(match_state, doth_controller_id, 1, {"reason": "treasure_map", "source_instance_id": str(trigger.get("source_instance_id", ""))})
+							generated_events.append_array(doth_draw.get("events", []))
 			"summon_or_buff":
 				# Aldora the Daring — summon token or buff existing token
 				var sob_controller_id := str(trigger.get("controller_player_id", ""))

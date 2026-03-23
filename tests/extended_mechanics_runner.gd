@@ -45,7 +45,8 @@ func _run_all_tests() -> bool:
 		_test_mistveil_warden_pack() and
 		_test_murkwater_guide_pack() and
 		_test_ratway_prospector_pack() and
-		_test_ruthless_freebooter_pack()
+		_test_ruthless_freebooter_pack() and
+		_test_treasure_map_pack()
 	)
 
 
@@ -1534,6 +1535,226 @@ func _test_ruthless_freebooter_spent_hunts_no_retrigger() -> bool:
 		_assert(EvergreenRules.get_power(freebooter) == 4, "Spent hunts: 2 + 1 + 1 = 4 power (no extra from 2nd drain).") and
 		_assert(EvergreenRules.get_health(freebooter) == 4, "Spent hunts: 2 + 1 + 1 = 4 health (no extra from 2nd drain).")
 	)
+
+
+func _test_treasure_map_pack() -> bool:
+	return (
+		_test_treasure_map_finds_hunt_match() and
+		_test_treasure_map_no_hunt_draws_top() and
+		_test_treasure_map_spent_hunt_draws_top() and
+		_test_treasure_map_multi_type_only_unfound() and
+		_test_treasure_map_keyword_hunt() and
+		_test_treasure_map_zero_cost_hunt() and
+		_test_treasure_map_removes_from_deck() and
+		_test_treasure_map_count_based_hunt()
+	)
+
+
+## Helper: add Treasure Map to player hand with proper item definition
+func _add_treasure_map_to_hand(player: Dictionary) -> Dictionary:
+	var player_id := str(player.get("player_id", ""))
+	return ScenarioFixtures.add_hand_card(player, "treasure_map", {
+		"definition_id": "cwc_neu_treasure_map",
+		"card_type": "item",
+		"cost": 3,
+		"equip_power_bonus": 1,
+		"equip_health_bonus": 1,
+		"triggered_abilities": [{"family": "on_play", "effects": [{"op": "draw_or_treasure_hunt", "target": "wielder"}]}],
+	})
+
+
+func _test_treasure_map_finds_hunt_match() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	# Summon creature with Treasure Hunt - Item
+	var hunter := ScenarioFixtures.summon_creature(player, match_state, "item_hunter", "field", 3, 2, [], -1, {
+		"definition_id": "cwc_str_relic_hunter",
+		"triggered_abilities": [{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["item"], "effects": [{"op": "modify_stats", "target": "treasure_card", "power": 1, "health": 1}]}],
+	})
+	# Stack deck: creature on top, item buried underneath
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "buried_item", {"zone": "deck", "card_type": "item", "cost": 2}),
+		ScenarioFixtures.make_card(player_id, "top_creature", {"zone": "deck", "card_type": "creature", "cost": 1}),
+	]
+	var hand_before: int = player.get("hand", []).size()
+	var tm := _add_treasure_map_to_hand(player)
+	var result := PersistentCardRules.play_item_from_hand(match_state, player_id, str(tm.get("instance_id", "")), {"target_instance_id": str(hunter.get("instance_id", ""))})
+	if not _assert(bool(result.get("is_valid", false)), "Treasure Map play should be valid."):
+		return false
+	# Should have drawn the buried item (not the top creature)
+	var hand: Array = player.get("hand", [])
+	var found_item := false
+	for card in hand:
+		if str(card.get("instance_id", "")).ends_with("buried_item"):
+			found_item = true
+			break
+	return _assert(found_item, "Treasure Map should draw matching item from deck, not top card.")
+
+
+func _test_treasure_map_no_hunt_draws_top() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	# Summon a plain creature with no treasure hunt
+	var plain := ScenarioFixtures.summon_creature(player, match_state, "plain_creature", "field", 2, 2)
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "bottom_card", {"zone": "deck", "card_type": "action"}),
+		ScenarioFixtures.make_card(player_id, "top_card", {"zone": "deck", "card_type": "creature"}),
+	]
+	var tm := _add_treasure_map_to_hand(player)
+	PersistentCardRules.play_item_from_hand(match_state, player_id, str(tm.get("instance_id", "")), {"target_instance_id": str(plain.get("instance_id", ""))})
+	var hand: Array = player.get("hand", [])
+	var found_top := false
+	for card in hand:
+		if str(card.get("instance_id", "")).ends_with("top_card"):
+			found_top = true
+			break
+	return _assert(found_top, "With no treasure hunt, Treasure Map should draw from top of deck.")
+
+
+func _test_treasure_map_spent_hunt_draws_top() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	# Summon creature with spent treasure hunt
+	var hunter := ScenarioFixtures.summon_creature(player, match_state, "spent_hunter", "field", 3, 2, [], -1, {
+		"definition_id": "cwc_str_relic_hunter",
+		"triggered_abilities": [{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["item"], "effects": [{"op": "modify_stats", "target": "treasure_card", "power": 1, "health": 1}]}],
+	})
+	hunter["_th_0_spent"] = true
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "buried_item", {"zone": "deck", "card_type": "item"}),
+		ScenarioFixtures.make_card(player_id, "top_creature", {"zone": "deck", "card_type": "creature"}),
+	]
+	var tm := _add_treasure_map_to_hand(player)
+	PersistentCardRules.play_item_from_hand(match_state, player_id, str(tm.get("instance_id", "")), {"target_instance_id": str(hunter.get("instance_id", ""))})
+	var hand: Array = player.get("hand", [])
+	var found_top := false
+	for card in hand:
+		if str(card.get("instance_id", "")).ends_with("top_creature"):
+			found_top = true
+			break
+	return _assert(found_top, "With spent treasure hunt, Treasure Map should draw from top.")
+
+
+func _test_treasure_map_multi_type_only_unfound() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	# Summon Ratway Prospector with multi-type hunt (support, item, action)
+	# Mark support and item as already found — only action remains
+	var hunter := ScenarioFixtures.summon_creature(player, match_state, "ratway", "field", 1, 2, [], -1, {
+		"definition_id": "cwc_str_ratway_prospector",
+		"triggered_abilities": [{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["support", "item", "action"], "effects": [{"op": "modify_stats", "target": "self", "power": 5, "health": 5}]}],
+	})
+	hunter["_th_0_found"] = ["support", "item"]
+	# Deck: support on bottom (already found type), action buried, creature on top
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "support_card", {"zone": "deck", "card_type": "support"}),
+		ScenarioFixtures.make_card(player_id, "action_card", {"zone": "deck", "card_type": "action"}),
+		ScenarioFixtures.make_card(player_id, "top_creature", {"zone": "deck", "card_type": "creature"}),
+	]
+	var tm := _add_treasure_map_to_hand(player)
+	PersistentCardRules.play_item_from_hand(match_state, player_id, str(tm.get("instance_id", "")), {"target_instance_id": str(hunter.get("instance_id", ""))})
+	var hand: Array = player.get("hand", [])
+	var found_action := false
+	for card in hand:
+		if str(card.get("instance_id", "")).ends_with("action_card"):
+			found_action = true
+			break
+	return _assert(found_action, "Multi-type hunt: should draw the unfound action type, not support or top.")
+
+
+func _test_treasure_map_keyword_hunt() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	# Summon creature hunting for drain keyword
+	var hunter := ScenarioFixtures.summon_creature(player, match_state, "drain_hunter", "field", 2, 2, [], -1, {
+		"triggered_abilities": [{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["drain"], "effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 1}]}],
+	})
+	# Deck: non-drain on top, drain buried
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "drain_creature", {"zone": "deck", "card_type": "creature", "keywords": ["drain"]}),
+		ScenarioFixtures.make_card(player_id, "top_vanilla", {"zone": "deck", "card_type": "creature"}),
+	]
+	var tm := _add_treasure_map_to_hand(player)
+	PersistentCardRules.play_item_from_hand(match_state, player_id, str(tm.get("instance_id", "")), {"target_instance_id": str(hunter.get("instance_id", ""))})
+	var hand: Array = player.get("hand", [])
+	var found_drain := false
+	for card in hand:
+		if str(card.get("instance_id", "")).ends_with("drain_creature"):
+			found_drain = true
+			break
+	return _assert(found_drain, "Keyword hunt: should find drain creature buried in deck.")
+
+
+func _test_treasure_map_zero_cost_hunt() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	# Summon creature hunting for zero-cost cards
+	var hunter := ScenarioFixtures.summon_creature(player, match_state, "zero_hunter", "field", 4, 2, [], -1, {
+		"triggered_abilities": [{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["zero_cost"], "effects": [{"op": "generate_card_to_hand", "target": "treasure_card_copy"}]}],
+	})
+	# Deck: cost-3 on top, zero-cost buried
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "zero_cost_card", {"zone": "deck", "card_type": "creature", "cost": 0}),
+		ScenarioFixtures.make_card(player_id, "top_expensive", {"zone": "deck", "card_type": "creature", "cost": 3}),
+	]
+	var tm := _add_treasure_map_to_hand(player)
+	PersistentCardRules.play_item_from_hand(match_state, player_id, str(tm.get("instance_id", "")), {"target_instance_id": str(hunter.get("instance_id", ""))})
+	var hand: Array = player.get("hand", [])
+	var found_zero := false
+	for card in hand:
+		if str(card.get("instance_id", "")).ends_with("zero_cost_card"):
+			found_zero = true
+			break
+	return _assert(found_zero, "Zero-cost hunt: should find 0-cost card buried in deck.")
+
+
+func _test_treasure_map_removes_from_deck() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	var hunter := ScenarioFixtures.summon_creature(player, match_state, "rem_hunter", "field", 3, 2, [], -1, {
+		"triggered_abilities": [{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["item"], "effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 1}]}],
+	})
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "only_item", {"zone": "deck", "card_type": "item"}),
+		ScenarioFixtures.make_card(player_id, "top_creature", {"zone": "deck", "card_type": "creature"}),
+	]
+	if not _assert(player["deck"].size() == 2, "Deck starts with 2 cards."):
+		return false
+	var tm := _add_treasure_map_to_hand(player)
+	PersistentCardRules.play_item_from_hand(match_state, player_id, str(tm.get("instance_id", "")), {"target_instance_id": str(hunter.get("instance_id", ""))})
+	# Deck should have 1 card left (the creature), item was removed and moved to hand
+	return _assert(player["deck"].size() == 1, "Drawn card should be removed from deck (1 card left).")
+
+
+func _test_treasure_map_count_based_hunt() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	# Scroll Seeker: hunt_count 2 actions, still hunting for action type
+	var hunter := ScenarioFixtures.summon_creature(player, match_state, "scroll_seeker", "field", 1, 2, [], -1, {
+		"triggered_abilities": [{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["action"], "hunt_count": 2, "effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 0}]}],
+	})
+	# Deck: creature on top, action buried
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "buried_action", {"zone": "deck", "card_type": "action"}),
+		ScenarioFixtures.make_card(player_id, "top_creature", {"zone": "deck", "card_type": "creature"}),
+	]
+	var tm := _add_treasure_map_to_hand(player)
+	PersistentCardRules.play_item_from_hand(match_state, player_id, str(tm.get("instance_id", "")), {"target_instance_id": str(hunter.get("instance_id", ""))})
+	var hand: Array = player.get("hand", [])
+	var found_action := false
+	for card in hand:
+		if str(card.get("instance_id", "")).ends_with("buried_action"):
+			found_action = true
+			break
+	return _assert(found_action, "Count-based hunt: should find action even when hunt_count > 1.")
 
 
 func _build_started_match() -> Dictionary:
