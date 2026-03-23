@@ -574,6 +574,14 @@ static func consume_card(match_state: Dictionary, controller_player_id: String, 
 	if not bool(moved.get("is_valid", false)):
 		return moved
 	EvergreenRules.apply_stat_bonus(consumer, power_gain, health_gain, str(options.get("reason", "consume")))
+	var consumer_lane_id := str(consumer.get("lane_id", ""))
+	if consumer_lane_id.is_empty():
+		# Look up lane from location
+		var consumer_lane_index := int(consumer_location.get("lane_index", -1))
+		if consumer_lane_index >= 0:
+			var lanes: Array = match_state.get("lanes", [])
+			if consumer_lane_index < lanes.size():
+				consumer_lane_id = str(lanes[consumer_lane_index].get("lane_id", ""))
 	var events: Array = moved.get("events", []).duplicate(true)
 	events.append({
 		"event_type": "card_consumed",
@@ -581,6 +589,8 @@ static func consume_card(match_state: Dictionary, controller_player_id: String, 
 		"target_instance_id": target_instance_id,
 		"power_gain": power_gain,
 		"health_gain": health_gain,
+		"lane_id": consumer_lane_id,
+		"player_id": controller_player_id,
 	})
 	return {"is_valid": true, "errors": [], "card": consumer, "events": events}
 

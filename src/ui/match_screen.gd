@@ -7562,6 +7562,8 @@ func _check_summon_target_mode(source_instance_id: String) -> void:
 	if card.is_empty():
 		return
 	var abilities := MatchTiming.get_target_mode_abilities(card)
+	# Filter out abilities with consume: true — those are handled by pending_consume_selections
+	abilities = abilities.filter(func(ab): return not bool(ab.get("consume", false)))
 	if abilities.is_empty():
 		return
 	var valid_targets := MatchTiming.get_all_valid_targets(_match_state, source_instance_id)
