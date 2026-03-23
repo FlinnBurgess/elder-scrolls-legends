@@ -41,7 +41,8 @@ func _run_all_tests() -> bool:
 		_test_wax_and_wane_pack() and
 		_test_dual_wax_wane() and
 		_test_wax_creature_turn_trigger() and
-		_test_aldora_the_daring_pack()
+		_test_aldora_the_daring_pack() and
+		_test_mistveil_warden_pack()
 	)
 
 
@@ -1058,6 +1059,151 @@ func _test_aldora_spent_hunt_no_skywag() -> bool:
 	return _assert(
 		EvergreenRules.get_power(skywag) == skywag_power_before and EvergreenRules.get_health(skywag) == skywag_health_before,
 		"Skywag should NOT be buffed further after Aldora's hunt is spent."
+	)
+
+
+func _test_mistveil_warden_pack() -> bool:
+	return (
+		_test_mistveil_warden_buffs_guard_creature() and
+		_test_mistveil_warden_buffs_guard_item() and
+		_test_mistveil_warden_ignores_non_guard() and
+		_test_mistveil_warden_item_equip_transfers_buff()
+	)
+
+
+func _test_mistveil_warden_buffs_guard_creature() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	# Summon Mistveil Warden with treasure hunt for Guard
+	var warden := ScenarioFixtures.summon_creature(player, match_state, "mistveil_warden", "field", 2, 4, [], -1, {
+		"definition_id": "cwc_end_mistveil_warden",
+		"triggered_abilities": [
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["guard"], "effects": [{"op": "modify_stats", "target": "treasure_card", "power": 1, "health": 2}]},
+		],
+	})
+	# Stack deck with a Guard creature (Fharun Defender: 1/4, Guard)
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "guard_creature", {"zone": "deck", "card_type": "creature", "keywords": ["guard"], "power": 1, "health": 4, "base_power": 1, "base_health": 4}),
+	]
+	var draw := MatchTiming.draw_cards(match_state, player_id, 1, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw.get("events", []))
+	# Find the drawn card in hand (instance_id = player_id + "_" + label)
+	var hand: Array = player.get("hand", [])
+	var drawn_card: Dictionary = {}
+	for c in hand:
+		if str(c.get("instance_id", "")).ends_with("guard_creature"):
+			drawn_card = c
+			break
+	if not _assert(not drawn_card.is_empty(), "Guard creature should be in hand after draw."):
+		return false
+	return (
+		_assert(int(drawn_card.get("power_bonus", 0)) == 1, "Guard creature should have +1 power bonus from Mistveil Warden.") and
+		_assert(int(drawn_card.get("health_bonus", 0)) == 2, "Guard creature should have +2 health bonus from Mistveil Warden.")
+	)
+
+
+func _test_mistveil_warden_buffs_guard_item() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	var warden := ScenarioFixtures.summon_creature(player, match_state, "mistveil_warden2", "field", 2, 4, [], -1, {
+		"definition_id": "cwc_end_mistveil_warden",
+		"triggered_abilities": [
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["guard"], "effects": [{"op": "modify_stats", "target": "treasure_card", "power": 1, "health": 2}]},
+		],
+	})
+	# Stack deck with a Guard item (Legion Shield: +1/+3, Guard)
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "guard_item", {"zone": "deck", "card_type": "item", "keywords": ["guard"], "equip_power_bonus": 1, "equip_health_bonus": 3, "equip_keywords": ["guard"]}),
+	]
+	var draw := MatchTiming.draw_cards(match_state, player_id, 1, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw.get("events", []))
+	var hand: Array = player.get("hand", [])
+	var drawn_item: Dictionary = {}
+	for c in hand:
+		if str(c.get("instance_id", "")).ends_with("guard_item"):
+			drawn_item = c
+			break
+	if not _assert(not drawn_item.is_empty(), "Guard item should be in hand after draw."):
+		return false
+	return (
+		_assert(int(drawn_item.get("power_bonus", 0)) == 1, "Guard item should have +1 power bonus.") and
+		_assert(int(drawn_item.get("health_bonus", 0)) == 2, "Guard item should have +2 health bonus.") and
+		_assert(int(drawn_item.get("equip_power_bonus", 0)) == 2, "Guard item equip_power_bonus should be 1+1=2.") and
+		_assert(int(drawn_item.get("equip_health_bonus", 0)) == 5, "Guard item equip_health_bonus should be 3+2=5.")
+	)
+
+
+func _test_mistveil_warden_ignores_non_guard() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	var warden := ScenarioFixtures.summon_creature(player, match_state, "mistveil_warden3", "field", 2, 4, [], -1, {
+		"definition_id": "cwc_end_mistveil_warden",
+		"triggered_abilities": [
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["guard"], "effects": [{"op": "modify_stats", "target": "treasure_card", "power": 1, "health": 2}]},
+		],
+	})
+	# Stack deck with a non-Guard creature
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "no_guard", {"zone": "deck", "card_type": "creature", "keywords": [], "power": 3, "health": 3, "base_power": 3, "base_health": 3}),
+	]
+	var draw := MatchTiming.draw_cards(match_state, player_id, 1, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw.get("events", []))
+	var hand: Array = player.get("hand", [])
+	var drawn_card: Dictionary = {}
+	for c in hand:
+		if str(c.get("instance_id", "")).ends_with("no_guard"):
+			drawn_card = c
+			break
+	if not _assert(not drawn_card.is_empty(), "Non-guard creature should be in hand."):
+		return false
+	return (
+		_assert(int(drawn_card.get("power_bonus", 0)) == 0, "Non-guard creature should NOT be buffed.") and
+		_assert(int(drawn_card.get("health_bonus", 0)) == 0, "Non-guard creature should NOT be buffed.")
+	)
+
+
+func _test_mistveil_warden_item_equip_transfers_buff() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	var warden := ScenarioFixtures.summon_creature(player, match_state, "mistveil_warden4", "field", 2, 4, [], -1, {
+		"definition_id": "cwc_end_mistveil_warden",
+		"triggered_abilities": [
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["guard"], "effects": [{"op": "modify_stats", "target": "treasure_card", "power": 1, "health": 2}]},
+		],
+	})
+	# A target creature to equip the item on
+	var target := ScenarioFixtures.summon_creature(player, match_state, "equip_target", "field", 3, 3, [], -1, {
+		"definition_id": "test_creature",
+	})
+	# Stack deck with Legion Shield (Guard, +1/+3)
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "guard_item2", {"zone": "deck", "card_type": "item", "keywords": ["guard"], "equip_power_bonus": 1, "equip_health_bonus": 3, "equip_keywords": ["guard"]}),
+	]
+	# Draw the Guard item — Mistveil Warden buffs it to +2/+5
+	var draw := MatchTiming.draw_cards(match_state, player_id, 1, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw.get("events", []))
+	# Find the buffed item in hand
+	var hand: Array = player.get("hand", [])
+	var item: Dictionary = {}
+	for c in hand:
+		if str(c.get("instance_id", "")).ends_with("guard_item2"):
+			item = c
+			break
+	if not _assert(not item.is_empty(), "Guard item should be in hand."):
+		return false
+	# Equip the item onto the target creature
+	var target_id := str(target.get("instance_id", ""))
+	var equip_result := MatchMutations.attach_item_to_creature(match_state, player_id, item, target_id)
+	if not _assert(bool(equip_result.get("is_valid", false)), "Equipping buffed item should succeed."):
+		return false
+	# Target creature should now have buffed stats: 3+2=5 power, 3+5=8 health
+	return (
+		_assert(EvergreenRules.get_power(target) == 5, "Creature with buffed item should have 3+2=5 power.") and
+		_assert(EvergreenRules.get_health(target) == 8, "Creature with buffed item should have 3+5=8 health.")
 	)
 
 

@@ -998,6 +998,7 @@ func _rules_preview(card: Dictionary) -> String:
 func _rules_bbcode(card: Dictionary) -> String:
 	var plain := _rules_preview(card)
 	plain = _apply_wax_wane_colors(plain)
+	plain = _apply_item_buff_colors(card, plain)
 	var newline_pos := plain.find("\n")
 	if newline_pos < 0:
 		# No newline means either no keywords or keywords-only
@@ -1019,6 +1020,25 @@ func _apply_wax_wane_colors(text: String) -> String:
 	if _active_wax_wane_phases.has("wane"):
 		text = text.replace("Wane:", "[color=%s]Wane:[/color]" % active_color)
 	return text
+
+
+func _apply_item_buff_colors(card: Dictionary, text: String) -> String:
+	if str(card.get("card_type", "")) != "item":
+		return text
+	var p_bonus := int(card.get("power_bonus", 0))
+	var h_bonus := int(card.get("health_bonus", 0))
+	if p_bonus == 0 and h_bonus == 0:
+		return text
+	# Replace +X/+Y stat grant pattern with buffed values in green
+	var pattern := RegEx.new()
+	pattern.compile("\\+\\d+/\\+\\d+")
+	var m := pattern.search(text)
+	if not m:
+		return text
+	var equip_power := int(card.get("equip_power_bonus", 0))
+	var equip_health := int(card.get("equip_health_bonus", 0))
+	var buffed_text := "[color=#66cc66]+%d/+%d[/color]" % [equip_power, equip_health]
+	return text.substr(0, m.get_start()) + buffed_text + text.substr(m.get_end())
 
 
 func _has_extracted_keywords(card: Dictionary) -> bool:

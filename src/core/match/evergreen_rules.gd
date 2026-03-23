@@ -232,6 +232,10 @@ static func apply_stat_bonus(card: Dictionary, power_bonus: int, health_bonus: i
 	ensure_card_state(card)
 	card["power_bonus"] = int(card.get("power_bonus", 0)) + power_bonus
 	card["health_bonus"] = int(card.get("health_bonus", 0)) + health_bonus
+	# Items transfer stat buffs through equip bonuses so the creature gains them
+	if str(card.get("card_type", "")) == "item":
+		card["equip_power_bonus"] = int(card.get("equip_power_bonus", 0)) + power_bonus
+		card["equip_health_bonus"] = int(card.get("equip_health_bonus", 0)) + health_bonus
 	_sync_wounded_status(card)
 	return {
 		"power_bonus": int(card.get("power_bonus", 0)),

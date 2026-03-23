@@ -21,7 +21,7 @@ static func build_test_match_state() -> Dictionary:
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — 12 magicka, Aldora the Daring treasure hunt test
+	# Player 1 (you) — 12 magicka, Mistveil Warden treasure hunt test
 	var p1_health := 30
 	var p1_max_magicka := 12
 	var p1_current_magicka := 12
@@ -29,35 +29,34 @@ static func build_test_match_state() -> Dictionary:
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — Aldora + card-draw creatures to trigger treasure hunt draws
+	# Player 1 hand — card-draw creatures to trigger treasure hunt draws
 	var p1_hand_ids: Array = [
-		"cwc_str_aldora_the_daring",        # Cost 3, 3/3, TH: Action+Creature+Item+Support → +6/+6, Skywag on find
 		"neu_spider_worker",                # Cost 2, 0/1, Guard, Summon: Draw a card
 		"neu_spider_worker",                # Cost 2, 0/1, Guard, Summon: Draw a card
 		"int_elusive_schemer",              # Cost 4, 3/1, Summon: Draw a card
 		"int_elusive_schemer",              # Cost 4, 3/1, Summon: Draw a card
+		"wil_legion_shield",                # Cost 2, Guard item +1/+3 — play AFTER drawing to see buff text
 	]
 
-	# Player 1 deck — actions first so both Aldora and Scroll Seeker match simultaneously
+	# Player 1 deck — Guard cards so Mistveil Warden's treasure hunt triggers on each draw
 	# Index 0 is drawn first.
 	var p1_deck_ids: Array = [
-		"str_rapid_shot",                   # Action — matches Aldora (action type) AND Scroll Seeker (action 1/2)
-		"str_rapid_shot",                   # Action — matches Aldora (already found) AND Scroll Seeker (action 2/2 → completes)
-		"str_steel_scimitar",               # Item — matches Aldora (item type)
-		"agi_elixir_of_light_feet",         # Support — matches Aldora (support type)
-		"str_fiery_imp",                    # Creature — matches Aldora (creature type → HUNT COMPLETES → +6/+6)
-		"str_fiery_imp",                    # Extra creature filler
-		"str_fiery_imp",                    # Extra creature filler
-		"str_fiery_imp",                    # Extra creature filler
+		"wil_legion_shield",                # Guard item (+1/+3) — first draw triggers hunt, gets +1/+2 → +2/+5 (green text)
+		"wil_kvatch_soldier",               # Guard creature (2/3) — won't trigger (hunt spent after first match)
+		"str_fiery_imp",                    # Non-guard creature — verifies no trigger on non-guard draws
+		"str_fiery_imp",                    # Extra filler
+		"str_fiery_imp",                    # Extra filler
+		"str_fiery_imp",                    # Extra filler
+		"str_fiery_imp",                    # Extra filler
 	]
 
 	var p1_discard_ids: Array = []
 
 	var p1_support_ids: Array = []
 
-	# Scroll Seeker pre-placed in field lane — hunts 2 actions, so drawing actions triggers both hunters
+	# Mistveil Warden pre-placed in field lane — hunts Guard, gives drawn Guard +1/+2
 	var p1_field_creatures: Array = [
-		_make_lane_creature("player_1", "cwc_int_scroll_seeker", 100),  # 1/2, Ward, TH: Two actions → +1/+0
+		_make_lane_creature("player_1", "cwc_end_mistveil_warden", 100),  # 2/4, TH: Guard → +1/+2 to drawn card
 	]
 	var p1_shadow_creatures: Array = []
 
