@@ -55,12 +55,14 @@ The configurable variables are:
 ```
 turn_number, first_player
 p1_health, p1_max_magicka, p1_current_magicka, p1_rune_thresholds, p1_has_ring, p1_ring_charges
-p1_hand_ids, p1_deck_ids, p1_field_creatures, p1_shadow_creatures
+p1_hand_ids, p1_deck_ids, p1_discard_ids, p1_field_creatures, p1_shadow_creatures
 p2_health, p2_max_magicka, p2_current_magicka, p2_rune_thresholds, p2_has_ring, p2_ring_charges
-p2_hand_ids, p2_deck_ids, p2_field_creatures, p2_shadow_creatures
+p2_hand_ids, p2_deck_ids, p2_discard_ids, p2_field_creatures, p2_shadow_creatures
 ```
 
 **Card IDs** are the first argument to `_seed()` in `card_catalog.gd` — e.g. `"aw_end_great_moot_squire"`.
+
+**Discard pile** uses `p1_discard_ids` / `p2_discard_ids` — an array of card IDs placed directly into the discard pile at match start. Essential for Consume testing.
 
 **Lane creatures** use `_make_lane_creature(player_id, definition_id, index, overrides)`:
 - `index`: unique number (start at 100 to avoid collisions with hand/deck)
@@ -79,9 +81,10 @@ Tell the user:
 1. What's in their hand and why
 2. What's already on the board
 3. What's in the deck to draw into
-4. What the enemy board looks like
-5. Step-by-step instructions for testing (e.g. "Attack Squire into the Imp to trigger Veteran")
-6. Remind them: **Launch the game, hover the Match button, press `?`**
+4. What's in the discard pile (if populated)
+5. What the enemy board looks like
+6. Step-by-step instructions for testing (e.g. "Attack Squire into the Imp to trigger Veteran")
+7. Remind them: **Launch the game, hover the Match button, press `?`**
 
 ## Common Card IDs for Testing
 

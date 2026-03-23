@@ -121,6 +121,7 @@ var _mulligan_card_by_id: Dictionary = {}
 var _mulligan_instance_id_order: Array = []
 var _discard_viewer_state := {}
 var _discard_choice_overlay_state := {}
+var _consume_selection_overlay_state := {}
 var _hand_selection_state := {}
 var _top_deck_choice_state := {}
 var _top_deck_choice_panel: Control = null
@@ -215,6 +216,7 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int 
 	_dismiss_prophecy_overlay()
 	_dismiss_discard_viewer()
 	_dismiss_discard_choice_overlay()
+	_dismiss_consume_selection_overlay()
 	_dismiss_player_choice_overlay()
 	_exit_hand_selection_mode()
 	_exit_top_deck_choice_mode()
@@ -275,6 +277,7 @@ func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_confi
 	_dismiss_prophecy_overlay()
 	_dismiss_discard_viewer()
 	_dismiss_discard_choice_overlay()
+	_dismiss_consume_selection_overlay()
 	_dismiss_player_choice_overlay()
 	_exit_hand_selection_mode()
 	_exit_top_deck_choice_mode()
@@ -478,6 +481,7 @@ func start_test_match(test_state: Dictionary) -> void:
 	_dismiss_prophecy_overlay()
 	_dismiss_discard_viewer()
 	_dismiss_discard_choice_overlay()
+	_dismiss_consume_selection_overlay()
 	_dismiss_player_choice_overlay()
 	_exit_hand_selection_mode()
 	_exit_top_deck_choice_mode()
@@ -511,6 +515,7 @@ func resume_from_state(saved_state: Dictionary) -> void:
 	_dismiss_prophecy_overlay()
 	_dismiss_discard_viewer()
 	_dismiss_discard_choice_overlay()
+	_dismiss_consume_selection_overlay()
 	_dismiss_player_choice_overlay()
 	_exit_hand_selection_mode()
 	_exit_top_deck_choice_mode()
@@ -655,6 +660,7 @@ func load_scenario(scenario_id: String) -> bool:
 	_dismiss_prophecy_overlay()
 	_dismiss_discard_viewer()
 	_dismiss_discard_choice_overlay()
+	_dismiss_consume_selection_overlay()
 	_dismiss_player_choice_overlay()
 	_exit_hand_selection_mode()
 	_exit_top_deck_choice_mode()
@@ -1987,6 +1993,7 @@ func _refresh_ui() -> void:
 	_refresh_turn_presentation()
 	_refresh_prophecy_overlay()
 	_refresh_discard_choice_overlay()
+	_refresh_consume_selection_overlay()
 	_refresh_player_choice_overlay()
 	_refresh_hand_selection_state()
 	_refresh_top_deck_choice_state()
@@ -2681,6 +2688,166 @@ func _dismiss_discard_choice_overlay() -> void:
 	if overlay != null and is_instance_valid(overlay):
 		overlay.queue_free()
 	_discard_choice_overlay_state = {}
+
+
+# --- Consume selection overlay ---
+
+
+func _has_local_pending_consume_selection() -> bool:
+	return MatchTiming.has_pending_consume_selection(_match_state, _local_player_id())
+
+
+func _refresh_consume_selection_overlay() -> void:
+	var has_selection := _has_local_pending_consume_selection()
+	var overlay_active := not _consume_selection_overlay_state.is_empty()
+	if has_selection and not overlay_active:
+		_show_consume_selection_overlay()
+	elif not has_selection and overlay_active:
+		_dismiss_consume_selection_overlay()
+
+
+func _show_consume_selection_overlay() -> void:
+	_dismiss_consume_selection_overlay()
+	_dismiss_discard_viewer()
+	var local_id := _local_player_id()
+	var selection := MatchTiming.get_pending_consume_selection(_match_state, local_id)
+	if selection.is_empty():
+		return
+	var candidate_ids: Array = selection.get("candidate_instance_ids", [])
+	if candidate_ids.is_empty():
+		MatchTiming.decline_consume_selection(_match_state, local_id)
+		_refresh_ui()
+		return
+
+	var player := _player_state(local_id)
+	if player.is_empty():
+		return
+	var discard_pile: Array = player.get("discard", [])
+	var candidate_cards: Array = []
+	for card in discard_pile:
+		if typeof(card) == TYPE_DICTIONARY and candidate_ids.has(str(card.get("instance_id", ""))):
+			candidate_cards.append(card)
+
+	var overlay := Control.new()
+	overlay.name = "ConsumeSelectionOverlay"
+	overlay.z_index = 470
+	overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var bg := ColorRect.new()
+	bg.color = Color(0.07, 0.03, 0.1, 0.88)
+	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.add_child(bg)
+
+	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 40)
+	margin.add_theme_constant_override("margin_right", 40)
+	margin.add_theme_constant_override("margin_top", 30)
+	margin.add_theme_constant_override("margin_bottom", 30)
+	margin.mouse_filter = Control.MOUSE_FILTER_PASS
+	overlay.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_BEGIN
+	vbox.add_theme_constant_override("separation", 14)
+	vbox.mouse_filter = Control.MOUSE_FILTER_PASS
+	margin.add_child(vbox)
+
+	var title_label := Label.new()
+	title_label.text = "Choose a creature to Consume"
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_label.add_theme_font_size_override("font_size", 24)
+	title_label.add_theme_color_override("font_color", Color(0.8, 0.6, 0.95, 1.0))
+	vbox.add_child(title_label)
+
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = SIZE_EXPAND_FILL
+	scroll.mouse_filter = Control.MOUSE_FILTER_PASS
+	vbox.add_child(scroll)
+
+	var card_size := CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+	var grid := GridContainer.new()
+	grid.columns = maxi(1, int(get_viewport_rect().size.x - 120) / int(card_size.x + 10))
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	grid.size_flags_horizontal = SIZE_EXPAND_FILL
+	grid.mouse_filter = Control.MOUSE_FILTER_PASS
+	scroll.add_child(grid)
+
+	for card in candidate_cards:
+		var instance_id := str(card.get("instance_id", ""))
+		var card_button := Button.new()
+		card_button.name = "ConsumeChoice_%s" % instance_id
+		card_button.custom_minimum_size = card_size
+		var empty_style := StyleBoxEmpty.new()
+		card_button.add_theme_stylebox_override("normal", empty_style)
+		var hover_style := StyleBoxFlat.new()
+		hover_style.bg_color = Color(0.4, 0.2, 0.5, 0.6)
+		hover_style.corner_radius_top_left = 6
+		hover_style.corner_radius_top_right = 6
+		hover_style.corner_radius_bottom_left = 6
+		hover_style.corner_radius_bottom_right = 6
+		card_button.add_theme_stylebox_override("hover", hover_style)
+		card_button.add_theme_stylebox_override("pressed", empty_style)
+		card_button.add_theme_stylebox_override("focus", empty_style)
+
+		var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+		component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+		card_button.add_child(component)
+
+		card_button.pressed.connect(_on_consume_selection_chosen.bind(instance_id))
+		grid.add_child(card_button)
+
+	# Add skip button
+	var skip_button := Button.new()
+	skip_button.text = "Skip (Escape)"
+	skip_button.custom_minimum_size = Vector2(160, 40)
+	skip_button.size_flags_horizontal = SIZE_SHRINK_CENTER
+	skip_button.pressed.connect(_on_consume_selection_declined)
+	vbox.add_child(skip_button)
+
+	add_child(overlay)
+	_consume_selection_overlay_state = {"overlay": overlay}
+	_status_message = "Choose a creature to Consume"
+
+
+func _on_consume_selection_chosen(instance_id: String) -> void:
+	if _consume_selection_overlay_state.is_empty():
+		return
+	var local_id := _local_player_id()
+	var result := MatchTiming.resolve_consume_selection(_match_state, local_id, instance_id)
+	_dismiss_consume_selection_overlay()
+	if bool(result.get("is_valid", false)):
+		_record_feedback_from_events(_copy_array(result.get("events", [])))
+		_status_message = "Creature consumed."
+		# Check if consume chained into target mode selection
+		_check_pending_summon_effect_target()
+	else:
+		_status_message = str(result.get("errors", ["Failed to resolve consume selection."])[0])
+	_refresh_ui()
+
+
+func _on_consume_selection_declined() -> void:
+	if _consume_selection_overlay_state.is_empty():
+		return
+	var local_id := _local_player_id()
+	MatchTiming.decline_consume_selection(_match_state, local_id)
+	_dismiss_consume_selection_overlay()
+	_status_message = "Consume declined."
+	_refresh_ui()
+
+
+func _dismiss_consume_selection_overlay() -> void:
+	if _consume_selection_overlay_state.is_empty():
+		return
+	var overlay: Control = _consume_selection_overlay_state.get("overlay")
+	if overlay != null and is_instance_valid(overlay):
+		overlay.queue_free()
+	_consume_selection_overlay_state = {}
 
 
 # --- Player choice overlay ---
@@ -6568,7 +6735,7 @@ func _is_local_prophecy_interrupt_open() -> bool:
 
 
 func _local_player_has_pending_interrupt() -> bool:
-	return _is_local_prophecy_interrupt_open() or not _pending_summon_target.is_empty() or _has_local_pending_discard_choice() or not _hand_selection_state.is_empty() or MatchTiming.has_pending_summon_effect_target(_match_state, _local_player_id())
+	return _is_local_prophecy_interrupt_open() or not _pending_summon_target.is_empty() or _has_local_pending_discard_choice() or _has_local_pending_consume_selection() or not _hand_selection_state.is_empty() or MatchTiming.has_pending_summon_effect_target(_match_state, _local_player_id())
 
 
 func _is_local_match_ai_enabled() -> bool:
@@ -6592,6 +6759,8 @@ func _ai_controls_current_decision_window() -> bool:
 	if MatchTiming.has_pending_player_choice(_match_state, ai_player_id):
 		return true
 	if MatchTiming.has_pending_secondary_target(_match_state, ai_player_id):
+		return true
+	if MatchTiming.has_pending_consume_selection(_match_state, ai_player_id):
 		return true
 	if MatchTiming.has_pending_summon_effect_target(_match_state, ai_player_id):
 		return true

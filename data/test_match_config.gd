@@ -21,7 +21,7 @@ static func build_test_match_state() -> Dictionary:
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — 12 magicka to play expensive Empower cards
+	# Player 1 (you) — 12 magicka to play Consume creatures
 	var p1_health := 30
 	var p1_max_magicka := 12
 	var p1_current_magicka := 12
@@ -29,36 +29,41 @@ static func build_test_match_state() -> Dictionary:
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — cheap face-ping actions + Empower cards to test
+	# Player 1 hand — Consume creatures with varied effects
 	var p1_hand_ids: Array = [
-		"aw_int_forked_bolt",               # Cost 0, Deal 1 to creature + 1 to opponent — free empower trigger
-		"aw_int_forked_bolt",               # Second copy for more empower stacking
-		"int_ice_spike",                    # Cost 2, Deal 2 to opponent + draw — empower trigger
-		"aw_int_channeled_storm",           # Cost 3, Deal 3 to creature, Empower: +1 damage
-		"aw_wil_luminous_shards",           # Cost 3, Destroy <=1 power, Empower: +1 power threshold
-		"aw_agi_debilitate",                # Cost 7, All creatures -2/-2, Empower: Costs 1 less
+		"moe_int_midnight_trespasser",      # Cost 1, 2/2, Consume a creature to gain +1/+1
+		"moe_str_euraxian_berserker",       # Cost 3, 2/4, Consume a creature to gain +2/+0
+		"moe_end_nibenese_mercenary",       # Cost 3, 3/3, Consume a creature to gain +0/+2
+		"moe_wil_mercenary_captain",        # Cost 4, 2/2, Consume a creature to give other friendlies +1/+1
+		"moe_agi_illicit_butcher",          # Cost 4, 4/3, Consume a creature to Shackle an enemy
+		"moe_int_skeletal_mage",            # Cost 7, 3/5, Consume a creature, deal its power as damage
 	]
 
-	# Player 1 deck — more Empower cards + face damage to draw into
+	# Player 1 deck — more Consume cards + on_consumed cards to draw into
 	var p1_deck_ids: Array = [
-		"aw_agi_spoils_of_war",             # Cost 5, Draw 2, Empower: Costs 1 less
-		"aw_wil_wish",                      # Cost 4, Summon random 2-cost, Empower: +1 cost creature
-		"aw_int_soul_shred",                # Cost 5, Banish per attribute, Empower: +1 per attribute
-		"aw_wil_alchemy",                   # Cost 2, +1 support use, Empower: +1 use
-		"aw_wil_mystic_of_ancient_rites",   # Cost 2, 2/3, Permanent Empower (doesn't expire)
-		"aw_int_ravaging_elixir",           # Cost 1, Support 3 uses: 1 damage to opponent — repeatable empower
+		"moe_str_enraged_dragonknight",     # Cost 4, 5/4, Consume to deal 2 damage to each player
+		"moe_end_boneweaver",               # Cost 5, 5/5, Guard, Consume to draw same-name from discard
+		"moe_end_bone_armor",               # Cost 2, Item, Wielder Consumes a creature + gains its health
+		"mc_dual_headless_zombie",          # Cost 4, 3/4, Consume a card; Last Gasp: draw copy of consumed
 	]
 
-	# Player 1 — Nord Firebrands ready to attack face for empower triggers
+	# Player 1 discard — creatures to Consume (including on_consumed triggers)
+	var p1_discard_ids: Array = [
+		"moe_neu_crocodile_brute",          # 2/2, on_consumed: draw a card
+		"moe_str_imbued_minotaur",          # 5/2, Breakthrough, on_consumed: +1/+1 and Breakthrough to consumer
+		"moe_neu_ill_fated_scholar",        # 3/2, on_consumed: summon a 3/2 Insidious Spirit
+		"moe_neu_crocodile_brute",          # Second copy — more consume fodder
+		"end_young_mammoth",                # 4/4 vanilla — plain consume target
+		"str_whiterun_trooper",             # 2/4 vanilla — plain consume target
+	]
+
+	# Player 1 — one creature in lane for Bone Armor item target
 	var p1_field_creatures: Array = [
-		_make_lane_creature("player_1", "str_nord_firebrand", 100, {"can_attack": true}),  # 1/1 Charge, hit face
-		_make_lane_creature("player_1", "str_nord_firebrand", 101, {"can_attack": true}),  # 1/1 Charge, hit face
+		_make_lane_creature("player_1", "str_whiterun_trooper", 100, {"can_attack": true}),  # 2/4 — equip target for Bone Armor
 	]
-	var p1_shadow_creatures: Array = [
-		_make_lane_creature("player_1", "str_nord_firebrand", 102, {"can_attack": true}),  # 1/1 Charge, hit face
-	]
+	var p1_shadow_creatures: Array = []
 
-	# Player 2 (AI) — weak enemies, no runes so face hits don't break runes
+	# Player 2 (AI) — weak enemies for Illicit Butcher shackle target + Skeletal Mage damage target
 	var p2_health := 30
 	var p2_max_magicka := 1
 	var p2_current_magicka := 1
@@ -80,28 +85,28 @@ static func build_test_match_state() -> Dictionary:
 		"str_fiery_imp",
 	]
 
-	# Player 2 — various power creatures for Luminous Shards testing
+	# Player 2 — enemies for shackle/damage targeting
 	var p2_field_creatures: Array = [
-		_make_lane_creature("player_2", "str_fiery_imp", 100),             # 1/1 — destroyable at 0 empower
-		_make_lane_creature("player_2", "end_fharun_defender", 101),        # 1/4 Guard — destroyable at 0 empower
-		_make_lane_creature("player_2", "end_young_mammoth", 102),          # 4/4 — needs 3 empower for Luminous Shards
+		_make_lane_creature("player_2", "str_fiery_imp", 100),             # 1/1 — shackle/damage target
+		_make_lane_creature("player_2", "end_fharun_defender", 101),        # 1/4 Guard — shackle target
+		_make_lane_creature("player_2", "end_young_mammoth", 102),          # 4/4 — damage target for Skeletal Mage
 	]
 	var p2_shadow_creatures: Array = [
-		_make_lane_creature("player_2", "str_whiterun_trooper", 103),       # 2/4 — needs 1 empower for Luminous Shards
+		_make_lane_creature("player_2", "str_fiery_imp", 103),             # 1/1 — extra target
 	]
 
 	## ── END CONFIGURATION ──────────────────────────────────────────────
 
 	# Auto-assign unique instance IDs across all cards for each player
 	_reassign_instance_ids("player_1", p1_hand_ids, p1_deck_ids,
-		p1_field_creatures, p1_shadow_creatures)
+		p1_field_creatures, p1_shadow_creatures, p1_discard_ids)
 	_reassign_instance_ids("player_2", p2_hand_ids, p2_deck_ids,
 		p2_field_creatures, p2_shadow_creatures)
 
 	# Build player states
 	var p1 := _build_player("player_1", p1_health, p1_max_magicka, p1_current_magicka,
 		p1_rune_thresholds, p1_has_ring, p1_ring_charges,
-		p1_hand_ids, p1_deck_ids, turn_number)
+		p1_hand_ids, p1_deck_ids, turn_number, p1_discard_ids)
 	var p2 := _build_player("player_2", p2_health, p2_max_magicka, p2_current_magicka,
 		p2_rune_thresholds, p2_has_ring, p2_ring_charges,
 		p2_hand_ids, p2_deck_ids, turn_number)
@@ -143,7 +148,7 @@ static func build_test_match_state() -> Dictionary:
 static func _build_player(player_id: String, health: int, max_magicka: int,
 		current_magicka: int, rune_thresholds: Array, has_ring: bool,
 		ring_charges: int, hand_ids: Array, deck_ids: Array,
-		turn_number: int) -> Dictionary:
+		turn_number: int, discard_ids: Array = []) -> Dictionary:
 	var hand: Array = []
 	for i in range(hand_ids.size()):
 		hand.append(_make_card(player_id, hand_ids[i], "hand", hand.size() + 1))
@@ -153,6 +158,10 @@ static func _build_player(player_id: String, health: int, max_magicka: int,
 	reversed_ids.reverse()
 	for i in range(reversed_ids.size()):
 		deck.append(_make_card(player_id, reversed_ids[i], "deck", hand.size() + deck.size() + 1))
+	var discard: Array = []
+	var discard_start_index := hand.size() + deck.size() + 1
+	for i in range(discard_ids.size()):
+		discard.append(_make_card(player_id, discard_ids[i], "discard", discard_start_index + i))
 
 	return {
 		"player_id": player_id,
@@ -161,7 +170,7 @@ static func _build_player(player_id: String, health: int, max_magicka: int,
 		"deck": deck,
 		"hand": hand,
 		"support": [],
-		"discard": [],
+		"discard": discard,
 		"banished": [],
 		"max_magicka": max_magicka,
 		"current_magicka": current_magicka,
@@ -218,8 +227,9 @@ static func _make_lane_creature(player_id: String, definition_id: String,
 ## Hand/deck cards are created later by _build_player using their array index,
 ## so we just need lane creatures to start after hand + deck count.
 static func _reassign_instance_ids(player_id: String, hand_ids: Array,
-		deck_ids: Array, field_creatures: Array, shadow_creatures: Array) -> void:
-	var next_index := hand_ids.size() + deck_ids.size() + 1
+		deck_ids: Array, field_creatures: Array, shadow_creatures: Array,
+		discard_ids: Array = []) -> void:
+	var next_index := hand_ids.size() + deck_ids.size() + discard_ids.size() + 1
 	for creature in field_creatures:
 		creature["instance_id"] = "%s_card_%03d" % [player_id, next_index]
 		next_index += 1

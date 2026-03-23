@@ -569,7 +569,7 @@ static func consume_card(match_state: Dictionary, controller_player_id: String, 
 	var target: Dictionary = target_location["card"]
 	var power_gain := int(options.get("power_gain", EvergreenRules.get_power(target)))
 	var health_gain := int(options.get("health_gain", EvergreenRules.get_health(target)))
-	var destination_zone := str(options.get("destination_zone", ZONE_DISCARD))
+	var destination_zone := str(options.get("destination_zone", ZONE_BANISHED))
 	var moved := banish_card(match_state, target_instance_id, options) if destination_zone == ZONE_BANISHED else discard_card(match_state, target_instance_id, options)
 	if not bool(moved.get("is_valid", false)):
 		return moved

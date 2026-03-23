@@ -126,6 +126,8 @@ static func play_item_from_hand(match_state: Dictionary, player_id: String, inst
 		"target_instance_id": target_instance_id,
 	})
 	var timing_result := MatchTiming.publish_events(match_state, generated_events)
+	# Check for consume abilities on the played item (e.g., Bone Armor)
+	MatchTiming._check_consume_abilities(match_state, attach_result["card"])
 	return {"is_valid": true, "errors": [], "card": attach_result["card"], "host": attach_result["host"], "events": timing_result.get("processed_events", []), "trigger_resolutions": timing_result.get("trigger_resolutions", [])}
 
 

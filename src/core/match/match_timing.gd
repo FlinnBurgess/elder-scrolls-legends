@@ -230,6 +230,8 @@ static func ensure_match_state(match_state: Dictionary) -> void:
 		match_state["pending_rune_break_queue"] = []
 	if not match_state.has("pending_summon_effect_targets") or typeof(match_state["pending_summon_effect_targets"]) != TYPE_ARRAY:
 		match_state["pending_summon_effect_targets"] = []
+	if not match_state.has("pending_consume_selections") or typeof(match_state["pending_consume_selections"]) != TYPE_ARRAY:
+		match_state["pending_consume_selections"] = []
 	if not match_state.has("out_of_cards_sequence"):
 		match_state["out_of_cards_sequence"] = 0
 
@@ -617,6 +619,10 @@ static func resolve_targeted_effect(match_state: Dictionary, source_instance_id:
 		"_chosen_target_id": chosen_instance_id if not chosen_instance_id.is_empty() else "",
 		"_chosen_target_player_id": chosen_player_id if not chosen_player_id.is_empty() else "",
 	}
+	# Inject consumed card info if available (from prior consume selection)
+	var consumed_info = source_card.get("_consumed_card_info", {})
+	if typeof(consumed_info) == TYPE_DICTIONARY and not consumed_info.is_empty():
+		trigger["_consumed_card_info"] = consumed_info
 	# Build synthetic event
 	var lanes: Array = match_state.get("lanes", [])
 	var lane_id := ""
@@ -1147,10 +1153,20 @@ static func decline_pending_summon_effect_target(match_state: Dictionary, player
 	return {"is_valid": true, "events": [], "trigger_resolutions": []}
 
 
+## Combined check for summon abilities that require player interaction.
+## Checks consume abilities first (consume must resolve before target selection).
+static func _check_summon_abilities(match_state: Dictionary, summoned_card: Dictionary) -> void:
+	_check_consume_abilities(match_state, summoned_card)
+	_check_summon_effect_target_mode(match_state, summoned_card)
+
+
 static func _check_summon_effect_target_mode(match_state: Dictionary, summoned_card: Dictionary) -> void:
 	var summon_abilities: Array = []
 	for ab in get_target_mode_abilities(summoned_card):
 		if str(ab.get("family", "")) == FAMILY_SUMMON:
+			# Skip abilities with consume: true — handled by _check_consume_abilities
+			if bool(ab.get("consume", false)):
+				continue
 			summon_abilities.append(ab)
 	if summon_abilities.is_empty():
 		return
@@ -1170,6 +1186,183 @@ static func _check_summon_effect_target_mode(match_state: Dictionary, summoned_c
 		"source_instance_id": instance_id,
 		"mandatory": is_mandatory,
 	})
+
+
+## Check if a played/summoned card has consume: true abilities and create pending selections.
+## For abilities with target_mode, the consume selection is created instead of the target selection.
+## After consume resolves, the target selection is created.
+static func _check_consume_abilities(match_state: Dictionary, card: Dictionary) -> void:
+	var instance_id := str(card.get("instance_id", ""))
+	var controller_id := str(card.get("controller_player_id", ""))
+	var raw_triggers = card.get("triggered_abilities", [])
+	if typeof(raw_triggers) != TYPE_ARRAY:
+		return
+	var player := _get_player_state(match_state, controller_id)
+	if player.is_empty():
+		return
+	var discard: Array = player.get(ZONE_DISCARD, [])
+	var candidate_ids: Array = []
+	for discard_card in discard:
+		if typeof(discard_card) == TYPE_DICTIONARY and str(discard_card.get("card_type", "")) == CARD_TYPE_CREATURE:
+			candidate_ids.append(str(discard_card.get("instance_id", "")))
+	if candidate_ids.is_empty():
+		return
+	for trigger_index in range(raw_triggers.size()):
+		var ability = raw_triggers[trigger_index]
+		if typeof(ability) != TYPE_DICTIONARY:
+			continue
+		if not bool(ability.get("consume", false)):
+			continue
+		var family := str(ability.get("family", ""))
+		# Only create pending for summon/on_play families here — pilfer is handled in _apply_effects
+		if family != FAMILY_SUMMON and family != "on_play":
+			continue
+		var pending_arr: Array = match_state.get("pending_consume_selections", [])
+		pending_arr.append({
+			"player_id": controller_id,
+			"source_instance_id": instance_id,
+			"candidate_instance_ids": candidate_ids.duplicate(),
+			"has_target_mode": not str(ability.get("target_mode", "")).is_empty(),
+			"trigger_index": trigger_index,
+		})
+
+
+static func has_pending_consume_selection(match_state: Dictionary, player_id: String = "") -> bool:
+	return not get_pending_consume_selection(match_state, player_id).is_empty()
+
+
+static func get_pending_consume_selection(match_state: Dictionary, player_id: String = "") -> Dictionary:
+	ensure_match_state(match_state)
+	for raw in match_state.get("pending_consume_selections", []):
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		if not player_id.is_empty() and str(raw.get("player_id", "")) != player_id:
+			continue
+		return raw.duplicate(true)
+	return {}
+
+
+static func resolve_consume_selection(match_state: Dictionary, player_id: String, chosen_instance_id: String) -> Dictionary:
+	ensure_match_state(match_state)
+	var pending: Array = match_state.get("pending_consume_selections", [])
+	var idx := -1
+	var entry := {}
+	for i in range(pending.size()):
+		if typeof(pending[i]) == TYPE_DICTIONARY and str(pending[i].get("player_id", "")) == player_id:
+			idx = i
+			entry = pending[i]
+			break
+	if idx == -1:
+		return {"is_valid": false, "errors": ["No pending consume selection for %s." % player_id], "events": [], "trigger_resolutions": []}
+	pending.remove_at(idx)
+	var source_id := str(entry.get("source_instance_id", ""))
+	var trigger_index := int(entry.get("trigger_index", 0))
+	var has_target_mode := bool(entry.get("has_target_mode", false))
+	# Find the consumed card to capture its info before banishing
+	var consumed_card := _find_card_anywhere(match_state, chosen_instance_id)
+	if consumed_card.is_empty():
+		return {"is_valid": false, "errors": ["Consumed card not found."], "events": [], "trigger_resolutions": []}
+	var consumed_info := {
+		"instance_id": chosen_instance_id,
+		"definition_id": str(consumed_card.get("definition_id", "")),
+		"name": str(consumed_card.get("name", "")),
+		"power": EvergreenRules.get_power(consumed_card),
+		"health": EvergreenRules.get_health(consumed_card),
+		"subtypes": consumed_card.get("subtypes", []),
+	}
+	# Consume (banish) the selected card — power_gain/health_gain = 0 since effects handle bonuses
+	var consume_result := MatchMutations.consume_card(match_state, player_id, source_id, chosen_instance_id, {
+		"power_gain": 0,
+		"health_gain": 0,
+	})
+	if not bool(consume_result.get("is_valid", false)):
+		return {"is_valid": false, "errors": consume_result.get("errors", []), "events": [], "trigger_resolutions": []}
+	# Publish card_consumed event so on_consumed triggers fire
+	var consume_events: Array = consume_result.get("events", [])
+	var publish_result := publish_events(match_state, consume_events)
+	var all_events: Array = publish_result.get("processed_events", [])
+	var all_resolutions: Array = publish_result.get("trigger_resolutions", [])
+	# Store consumed card info on the source card for effect resolution
+	var source_card := _find_card_anywhere(match_state, source_id)
+	if not source_card.is_empty():
+		source_card["_consumed_card_info"] = consumed_info
+	if has_target_mode:
+		# Chain into target selection — create pending_summon_effect_target
+		if not source_card.is_empty():
+			var valid := get_all_valid_targets(match_state, source_id)
+			if not valid.is_empty():
+				var pending_targets: Array = match_state.get("pending_summon_effect_targets", [])
+				pending_targets.append({
+					"player_id": player_id,
+					"source_instance_id": source_id,
+					"mandatory": false,
+				})
+		return {"is_valid": true, "events": all_events, "trigger_resolutions": all_resolutions}
+	# No target_mode — apply effects directly
+	var source_location := MatchMutations.find_card_location(match_state, source_id)
+	var lane_index := int(source_location.get("lane_index", -1))
+	var slot_index := int(source_location.get("slot_index", -1))
+	var controller_id := str(source_card.get("controller_player_id", player_id))
+	var ability: Dictionary = {}
+	var raw_triggers = source_card.get("triggered_abilities", [])
+	if typeof(raw_triggers) == TYPE_ARRAY and trigger_index < raw_triggers.size():
+		ability = raw_triggers[trigger_index]
+	if ability.is_empty():
+		return {"is_valid": true, "events": all_events, "trigger_resolutions": all_resolutions}
+	var trigger := {
+		"trigger_id": "%s_consume_resolved" % source_id,
+		"trigger_index": trigger_index,
+		"source_instance_id": source_id,
+		"owner_player_id": str(source_card.get("owner_player_id", controller_id)),
+		"controller_player_id": controller_id,
+		"source_zone": ZONE_LANE,
+		"lane_index": lane_index,
+		"slot_index": slot_index,
+		"descriptor": ability.duplicate(true),
+		"_consumed_card_info": consumed_info,
+	}
+	var lanes: Array = match_state.get("lanes", [])
+	var lane_id := ""
+	if lane_index >= 0 and lane_index < lanes.size():
+		lane_id = str(lanes[lane_index].get("lane_id", ""))
+	var event := {
+		"event_type": EVENT_CREATURE_SUMMONED,
+		"source_instance_id": source_id,
+		"player_id": controller_id,
+		"lane_id": lane_id,
+		"lane_index": lane_index,
+	}
+	var resolution := _build_trigger_resolution(match_state, trigger, event)
+	GameLogger.log_trigger_resolution(match_state, resolution, trigger)
+	var generated_events := _apply_effects(match_state, trigger, event, resolution)
+	if not generated_events.is_empty():
+		var effect_publish := publish_events(match_state, generated_events)
+		all_events.append_array(effect_publish.get("processed_events", []))
+		all_resolutions.append_array(effect_publish.get("trigger_resolutions", []))
+	return {"is_valid": true, "events": all_events, "trigger_resolutions": all_resolutions}
+
+
+static func decline_consume_selection(match_state: Dictionary, player_id: String) -> Dictionary:
+	ensure_match_state(match_state)
+	var pending: Array = match_state.get("pending_consume_selections", [])
+	for i in range(pending.size()):
+		if typeof(pending[i]) == TYPE_DICTIONARY and str(pending[i].get("player_id", "")) == player_id:
+			pending.remove_at(i)
+			return {"is_valid": true, "events": [], "trigger_resolutions": []}
+	return {"is_valid": false, "errors": ["No pending consume selection for %s." % player_id]}
+
+
+## Get discard pile creatures available for consume for a given player.
+static func get_consume_candidates(match_state: Dictionary, player_id: String) -> Array:
+	ensure_match_state(match_state)
+	var player := _get_player_state(match_state, player_id)
+	if player.is_empty():
+		return []
+	var candidates: Array = []
+	for card in player.get(ZONE_DISCARD, []):
+		if typeof(card) == TYPE_DICTIONARY and str(card.get("card_type", "")) == CARD_TYPE_CREATURE:
+			candidates.append(card)
+	return candidates
 
 
 static func apply_player_damage(match_state: Dictionary, player_id: String, amount: int, context: Dictionary = {}) -> Dictionary:
@@ -2147,6 +2340,10 @@ static func _append_card_triggers(registry: Array, card, zone_name: String, cont
 			continue
 		if not str(descriptor.get("target_mode", "")).is_empty():
 			continue  # Target-choice triggers resolved manually via resolve_targeted_effect
+		if bool(descriptor.get("consume", false)):
+			var consume_family := str(descriptor.get("family", ""))
+			if consume_family == FAMILY_SUMMON or consume_family == "on_play":
+				continue  # Consume triggers resolved via pending_consume_selections
 		var instance_id := str(card.get("instance_id", ""))
 		var trigger_id := str(descriptor.get("id", "%s_trigger_%d" % [instance_id, trigger_index]))
 		registry.append({
@@ -2465,6 +2662,25 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 	var generated_events: Array = []
 	var descriptor: Dictionary = trigger.get("descriptor", {})
 	var reason := str(descriptor.get("family", "trigger"))
+	# Consume-gated abilities (pilfer, etc.) — defer effects until player picks a consume target
+	if bool(descriptor.get("consume", false)) and not trigger.has("_consumed_card_info"):
+		var consume_controller_id := str(trigger.get("controller_player_id", ""))
+		var consume_source_id := str(trigger.get("source_instance_id", ""))
+		var consume_candidates := get_consume_candidates(match_state, consume_controller_id)
+		if consume_candidates.is_empty():
+			return generated_events  # No discard creatures — consume fails, effects don't fire
+		var consume_candidate_ids: Array = []
+		for cc in consume_candidates:
+			consume_candidate_ids.append(str(cc.get("instance_id", "")))
+		var consume_pending: Array = match_state.get("pending_consume_selections", [])
+		consume_pending.append({
+			"player_id": consume_controller_id,
+			"source_instance_id": consume_source_id,
+			"candidate_instance_ids": consume_candidate_ids,
+			"has_target_mode": false,
+			"trigger_index": int(trigger.get("trigger_index", 0)),
+		})
+		return generated_events  # Defer — effects will fire after consume resolves
 	# Special handling for treasure_hunt family — peek/draw before running effects
 	if reason == FAMILY_TREASURE_HUNT:
 		var th_result := _process_treasure_hunt(match_state, trigger, descriptor)
@@ -2507,8 +2723,17 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						})
 			"modify_stats":
 				var stat_multiplier := _resolve_count_multiplier(match_state, trigger, event, effect)
+				var consumed_info: Dictionary = trigger.get("_consumed_card_info", {})
+				if consumed_info.is_empty():
+					var source_card_for_info := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+					if not source_card_for_info.is_empty():
+						consumed_info = source_card_for_info.get("_consumed_card_info", {})
 				var base_power := int(event.get("amount", 0)) if bool(effect.get("power_from_event_amount", false)) else int(effect.get("power", 0))
 				var base_health := int(event.get("amount", 0)) if bool(effect.get("health_from_event_amount", false)) else int(effect.get("health", 0))
+				if str(effect.get("power_source", "")) == "consumed_creature_power" and not consumed_info.is_empty():
+					base_power = int(consumed_info.get("power", 0))
+				if str(effect.get("health_source", "")) == "consumed_creature_health" and not consumed_info.is_empty():
+					base_health = int(consumed_info.get("health", 0))
 				var total_power := base_power * stat_multiplier
 				var total_health := base_health * stat_multiplier
 				var is_temp := str(effect.get("duration", "")) == "end_of_turn"
@@ -2615,7 +2840,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var heal_player := _get_player_state(match_state, player_id)
 					if heal_player.is_empty():
 						continue
-					var heal_amount := int(effect.get("amount", 0)) * _resolve_count_multiplier(match_state, trigger, event, effect)
+					var heal_amount := _resolve_consumed_amount(trigger, effect) * _resolve_count_multiplier(match_state, trigger, event, effect)
 					if bool(effect.get("amount_from_event", false)):
 						heal_amount = int(event.get("amount", 0))
 					if heal_amount <= 0:
@@ -2673,7 +2898,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							"new_health": available,
 						})
 			"deal_damage":
-				var damage_amount := int(effect.get("amount", 0)) * _resolve_count_multiplier(match_state, trigger, event, effect)
+				var damage_amount := _resolve_consumed_amount(trigger, effect) * _resolve_count_multiplier(match_state, trigger, event, effect)
 				var dd_empower_bonus := int(effect.get("empower_bonus", 0))
 				if dd_empower_bonus > 0:
 					damage_amount += dd_empower_bonus * _get_empower_amount(match_state, str(trigger.get("controller_player_id", "")))
@@ -3078,7 +3303,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							generated_events.append(_build_summon_event(summon_existing["card"], summon_players[0], s_lane_id, int(summon_existing.get("slot_index", -1)), reason))
 							if bool(summon_existing.get("granted_cover", false)):
 								generated_events.append({"event_type": "status_granted", "source_instance_id": str(summon_existing["card"].get("instance_id", "")), "target_instance_id": str(summon_existing["card"].get("instance_id", "")), "status_id": "cover"})
-							_check_summon_effect_target_mode(match_state, summon_existing["card"])
+							_check_summon_abilities(match_state, summon_existing["card"])
 				else:
 					var sfe_empower_stat := int(effect.get("empower_stat_bonus", 0))
 					var sfe_stat_bonus := 0
@@ -3104,7 +3329,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							generated_events.append(_build_summon_event(summon_result["card"], player_id, s_lane_id, int(summon_result.get("slot_index", -1)), reason))
 							if bool(summon_result.get("granted_cover", false)):
 								generated_events.append({"event_type": "status_granted", "source_instance_id": str(summon_result["card"].get("instance_id", "")), "target_instance_id": str(summon_result["card"].get("instance_id", "")), "status_id": "cover"})
-							_check_summon_effect_target_mode(match_state, summon_result["card"])
+							_check_summon_abilities(match_state, summon_result["card"])
 			"fill_lane_with":
 				var fill_controller_id := str(trigger.get("controller_player_id", ""))
 				var fill_lane_id := str(effect.get("lane_id", effect.get("target_lane_id", event.get("lane_id", ""))))
@@ -3178,7 +3403,17 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 			"draw_from_discard_filtered":
 				var discard_filter_card_type := str(effect.get("required_card_type", ""))
 				var discard_filter_subtype := str(effect.get("required_subtype", ""))
+				var discard_filter_match := str(effect.get("filter_match", ""))
 				var is_player_choice := bool(effect.get("player_choice", false))
+				# Resolve consumed creature name for filter matching
+				var discard_filter_name := ""
+				if discard_filter_match == "consumed_creature_name":
+					var dfm_consumed := _get_consumed_card_info(trigger)
+					if dfm_consumed.is_empty():
+						var dfm_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+						if not dfm_source.is_empty():
+							dfm_consumed = dfm_source.get("_consumed_card_info", {})
+					discard_filter_name = str(dfm_consumed.get("definition_id", ""))
 				for player_id in _resolve_player_targets(match_state, trigger, event, effect):
 					var discard_player := _get_player_state(match_state, player_id)
 					if discard_player.is_empty():
@@ -3196,6 +3431,8 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							var d_subtypes = d_card.get("subtypes", [])
 							if typeof(d_subtypes) != TYPE_ARRAY or not d_subtypes.has(discard_filter_subtype):
 								continue
+						if not discard_filter_name.is_empty() and str(d_card.get("definition_id", "")) != discard_filter_name:
+							continue
 						discard_candidates.append(d_index)
 						candidate_instance_ids.append(str(d_card.get("instance_id", "")))
 					if discard_candidates.is_empty():
@@ -4611,7 +4848,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							if bool(sfdh_result.get("is_valid", false)):
 								generated_events.append_array(sfdh_result.get("events", []))
 								generated_events.append(_build_summon_event(sfdh_result["card"], sfdh_controller_id, sfdh_lane_id, int(sfdh_result.get("slot_index", -1)), reason))
-								_check_summon_effect_target_mode(match_state, sfdh_result["card"])
+								_check_summon_abilities(match_state, sfdh_result["card"])
 			"summon_from_opponent_discard":
 				var sfod_controller_id := str(trigger.get("controller_player_id", ""))
 				var sfod_opponent_id := _get_opposing_player_id(match_state.get("players", []), sfod_controller_id)
@@ -4635,7 +4872,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							if bool(sfod_result.get("is_valid", false)):
 								generated_events.append_array(sfod_result.get("events", []))
 								generated_events.append(_build_summon_event(sfod_result["card"], sfod_controller_id, sfod_lane_id, int(sfod_result.get("slot_index", -1)), reason))
-								_check_summon_effect_target_mode(match_state, sfod_result["card"])
+								_check_summon_abilities(match_state, sfod_result["card"])
 			"summon_top_creature_from_deck":
 				var stcfd_controller_id := str(trigger.get("controller_player_id", ""))
 				var stcfd_player := _get_player_state(match_state, stcfd_controller_id)
@@ -4658,7 +4895,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							if bool(stcfd_result.get("is_valid", false)):
 								generated_events.append_array(stcfd_result.get("events", []))
 								generated_events.append(_build_summon_event(stcfd_result["card"], stcfd_controller_id, stcfd_lane_id, int(stcfd_result.get("slot_index", -1)), reason))
-								_check_summon_effect_target_mode(match_state, stcfd_result["card"])
+								_check_summon_abilities(match_state, stcfd_result["card"])
 			"summon_from_deck_by_cost":
 				var sfdc_controller_id := str(trigger.get("controller_player_id", ""))
 				var sfdc_player := _get_player_state(match_state, sfdc_controller_id)
@@ -4689,7 +4926,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							if bool(sfdc_result.get("is_valid", false)):
 								generated_events.append_array(sfdc_result.get("events", []))
 								generated_events.append(_build_summon_event(sfdc_result["card"], sfdc_controller_id, sfdc_lane_id, int(sfdc_result.get("slot_index", -1)), reason))
-								_check_summon_effect_target_mode(match_state, sfdc_result["card"])
+								_check_summon_abilities(match_state, sfdc_result["card"])
 			"summon_from_deck_filtered":
 				var sfdf_controller_id := str(trigger.get("controller_player_id", ""))
 				var sfdf_player := _get_player_state(match_state, sfdf_controller_id)
@@ -4722,7 +4959,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							if bool(sfdf_result.get("is_valid", false)):
 								generated_events.append_array(sfdf_result.get("events", []))
 								generated_events.append(_build_summon_event(sfdf_result["card"], sfdf_controller_id, sfdf_lane_id, int(sfdf_result.get("slot_index", -1)), reason))
-								_check_summon_effect_target_mode(match_state, sfdf_result["card"])
+								_check_summon_abilities(match_state, sfdf_result["card"])
 			"summon_random_creature", "summon_random_by_cost":
 				# Delegate to summon_random_from_catalog with appropriate filters
 				var src_filter: Dictionary = {"card_type": "creature"}
@@ -4983,7 +5220,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 								if bool(sasd_result.get("is_valid", false)):
 									generated_events.append_array(sasd_result.get("events", []))
 									generated_events.append(_build_summon_event(sasd_result["card"], sasd_controller_id, sasd_lane_id, int(sasd_result.get("slot_index", -1)), reason))
-									_check_summon_effect_target_mode(match_state, sasd_result["card"])
+									_check_summon_abilities(match_state, sasd_result["card"])
 			"transform_in_hand":
 				var tih_controller_id := str(trigger.get("controller_player_id", ""))
 				var tih_template: Dictionary = effect.get("card_template", {})
@@ -5207,24 +5444,21 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							"prompt": "Choose a creature to shuffle copies of into your deck.",
 						})
 			"optional_consume_for_keyword":
-				# Handled via pending player choice — consume from discard or skip
+				# Handled via pending consume selection
 				var ocfk_controller_id := str(trigger.get("controller_player_id", ""))
-				var ocfk_player := _get_player_state(match_state, ocfk_controller_id)
-				if not ocfk_player.is_empty():
-					var ocfk_discard: Array = ocfk_player.get(ZONE_DISCARD, [])
-					var ocfk_creatures: Array = []
-					for ocfk_card in ocfk_discard:
-						if typeof(ocfk_card) == TYPE_DICTIONARY and str(ocfk_card.get("card_type", "")) == CARD_TYPE_CREATURE:
-							ocfk_creatures.append(str(ocfk_card.get("instance_id", "")))
-					if not ocfk_creatures.is_empty():
-						match_state["pending_hand_selections"].append({
-							"player_id": ocfk_controller_id,
-							"source_instance_id": str(trigger.get("source_instance_id", "")),
-							"candidate_instance_ids": ocfk_creatures,
-							"then_op": "consume_and_grant_keyword",
-							"then_context": {"keyword_id": str(effect.get("keyword_id", "")), "consumer_instance_id": str(trigger.get("source_instance_id", ""))},
-							"prompt": "Choose a creature to consume, or press Escape to skip.",
-						})
+				var ocfk_candidates := get_consume_candidates(match_state, ocfk_controller_id)
+				if not ocfk_candidates.is_empty():
+					var ocfk_candidate_ids: Array = []
+					for ocfk_c in ocfk_candidates:
+						ocfk_candidate_ids.append(str(ocfk_c.get("instance_id", "")))
+					var ocfk_pending: Array = match_state.get("pending_consume_selections", [])
+					ocfk_pending.append({
+						"player_id": ocfk_controller_id,
+						"source_instance_id": str(trigger.get("source_instance_id", "")),
+						"candidate_instance_ids": ocfk_candidate_ids,
+						"has_target_mode": false,
+						"trigger_index": int(trigger.get("trigger_index", 0)),
+					})
 			"summon_each_unique_from_deck":
 				var seufd_controller_id := str(trigger.get("controller_player_id", ""))
 				var seufd_player := _get_player_state(match_state, seufd_controller_id)
@@ -5371,7 +5605,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 								if bool(prfd_result.get("is_valid", false)):
 									generated_events.append_array(prfd_result.get("events", []))
 									generated_events.append(_build_summon_event(prfd_result["card"], prfd_controller_id, prfd_lane, int(prfd_result.get("slot_index", -1)), reason))
-									_check_summon_effect_target_mode(match_state, prfd_result["card"])
+									_check_summon_abilities(match_state, prfd_result["card"])
 			"play_top_of_deck":
 				var ptod_controller_id := str(trigger.get("controller_player_id", ""))
 				var ptod_player := _get_player_state(match_state, ptod_controller_id)
@@ -5388,7 +5622,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 								if bool(ptod_result.get("is_valid", false)):
 									generated_events.append_array(ptod_result.get("events", []))
 									generated_events.append(_build_summon_event(ptod_result["card"], ptod_controller_id, ptod_lane, int(ptod_result.get("slot_index", -1)), reason))
-									_check_summon_effect_target_mode(match_state, ptod_result["card"])
+									_check_summon_abilities(match_state, ptod_result["card"])
 			"copy_creature_from_deck_to_discard":
 				var ccfdtd_controller_id := str(trigger.get("controller_player_id", ""))
 				var ccfdtd_player := _get_player_state(match_state, ccfdtd_controller_id)
@@ -5485,18 +5719,19 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 			"consume_card":
 				var cc_controller_id := str(trigger.get("controller_player_id", ""))
 				var cc_source_id := str(trigger.get("source_instance_id", ""))
-				var cc_player := _get_player_state(match_state, cc_controller_id)
-				if not cc_player.is_empty():
-					var cc_discard: Array = cc_player.get(ZONE_DISCARD, [])
-					var cc_creatures: Array = []
-					for cc_card in cc_discard:
-						if typeof(cc_card) == TYPE_DICTIONARY and str(cc_card.get("card_type", "")) == CARD_TYPE_CREATURE:
-							cc_creatures.append(cc_card)
-					if not cc_creatures.is_empty():
-						var cc_idx := _deterministic_index(match_state, cc_source_id + "_consume", cc_creatures.size())
-						var cc_target: Dictionary = cc_creatures[cc_idx]
-						var cc_result := MatchMutations.consume_card(match_state, cc_controller_id, cc_source_id, str(cc_target.get("instance_id", "")), {"reason": reason})
-						generated_events.append_array(cc_result.get("events", []))
+				var cc_candidates := get_consume_candidates(match_state, cc_controller_id)
+				if not cc_candidates.is_empty():
+					var cc_candidate_ids: Array = []
+					for cc_card in cc_candidates:
+						cc_candidate_ids.append(str(cc_card.get("instance_id", "")))
+					var cc_pending: Array = match_state.get("pending_consume_selections", [])
+					cc_pending.append({
+						"player_id": cc_controller_id,
+						"source_instance_id": cc_source_id,
+						"candidate_instance_ids": cc_candidate_ids,
+						"has_target_mode": false,
+						"trigger_index": int(trigger.get("trigger_index", 0)),
+					})
 			"draw_copy_of_consumed":
 				# Draw a copy of the last consumed card — check event for consumed card info
 				var dcoc_controller_id := str(trigger.get("controller_player_id", ""))
@@ -5527,36 +5762,33 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 									cacv_candidates.append(cacv_card)
 									break
 					if not cacv_candidates.is_empty():
-						var cacv_idx := _deterministic_index(match_state, cacv_source_id + "_consume_veteran", cacv_candidates.size())
-						var cacv_target: Dictionary = cacv_candidates[cacv_idx]
-						var cacv_consume := MatchMutations.consume_card(match_state, cacv_controller_id, cacv_source_id, str(cacv_target.get("instance_id", "")), {"reason": reason})
-						generated_events.append_array(cacv_consume.get("events", []))
+						var cacv_candidate_ids: Array = []
+						for cacv_c in cacv_candidates:
+							cacv_candidate_ids.append(str(cacv_c.get("instance_id", "")))
+						var cacv_pending: Array = match_state.get("pending_consume_selections", [])
+						cacv_pending.append({
+							"player_id": cacv_controller_id,
+							"source_instance_id": cacv_source_id,
+							"candidate_instance_ids": cacv_candidate_ids,
+							"has_target_mode": false,
+							"trigger_index": int(trigger.get("trigger_index", 0)),
+						})
 			"consume_and_reduce_matching_subtype_cost":
 				var carmsc_controller_id := str(trigger.get("controller_player_id", ""))
 				var carmsc_source_id := str(trigger.get("source_instance_id", ""))
-				var carmsc_player := _get_player_state(match_state, carmsc_controller_id)
-				if not carmsc_player.is_empty():
-					var carmsc_discard: Array = carmsc_player.get(ZONE_DISCARD, [])
-					var carmsc_creatures: Array = []
-					for carmsc_card in carmsc_discard:
-						if typeof(carmsc_card) == TYPE_DICTIONARY and str(carmsc_card.get("card_type", "")) == CARD_TYPE_CREATURE:
-							carmsc_creatures.append(carmsc_card)
-					if not carmsc_creatures.is_empty():
-						var carmsc_idx := _deterministic_index(match_state, carmsc_source_id + "_consume_reduce", carmsc_creatures.size())
-						var carmsc_target: Dictionary = carmsc_creatures[carmsc_idx]
-						var carmsc_subtypes = carmsc_target.get("subtypes", [])
-						var carmsc_consume := MatchMutations.consume_card(match_state, carmsc_controller_id, carmsc_source_id, str(carmsc_target.get("instance_id", "")), {"reason": reason})
-						generated_events.append_array(carmsc_consume.get("events", []))
-						if typeof(carmsc_subtypes) == TYPE_ARRAY and not carmsc_subtypes.is_empty():
-							var carmsc_amount := int(effect.get("amount", 1))
-							for carmsc_hand_card in carmsc_player.get(ZONE_HAND, []):
-								var carmsc_hand_subtypes = carmsc_hand_card.get("subtypes", [])
-								if typeof(carmsc_hand_subtypes) == TYPE_ARRAY:
-									for carmsc_st in carmsc_subtypes:
-										if carmsc_hand_subtypes.has(carmsc_st):
-											carmsc_hand_card["cost"] = maxi(0, int(carmsc_hand_card.get("cost", 0)) - carmsc_amount)
-											generated_events.append({"event_type": "cost_modified", "source_instance_id": carmsc_source_id, "target_instance_id": str(carmsc_hand_card.get("instance_id", "")), "amount": -carmsc_amount})
-											break
+				var carmsc_candidates := get_consume_candidates(match_state, carmsc_controller_id)
+				if not carmsc_candidates.is_empty():
+					var carmsc_candidate_ids: Array = []
+					for carmsc_c in carmsc_candidates:
+						carmsc_candidate_ids.append(str(carmsc_c.get("instance_id", "")))
+					var carmsc_pending: Array = match_state.get("pending_consume_selections", [])
+					carmsc_pending.append({
+						"player_id": carmsc_controller_id,
+						"source_instance_id": carmsc_source_id,
+						"candidate_instance_ids": carmsc_candidate_ids,
+						"has_target_mode": false,
+						"trigger_index": int(trigger.get("trigger_index", 0)),
+					})
 			"modify_stats_if_shares_subtype_with_top_deck":
 				var msisswtd_controller_id := str(trigger.get("controller_player_id", ""))
 				var msisswtd_player := _get_player_state(match_state, msisswtd_controller_id)
@@ -5863,25 +6095,22 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				if not edww_player.is_empty():
 					edww_player["_dual_wax_wane"] = true
 			"consume_or_sacrifice":
-				# Player chooses to consume from discard or sacrifice from board
+				# Player chooses to consume from discard
 				var cos_controller_id := str(trigger.get("controller_player_id", ""))
 				var cos_source_id := str(trigger.get("source_instance_id", ""))
-				var cos_player := _get_player_state(match_state, cos_controller_id)
-				if not cos_player.is_empty():
-					var cos_discard: Array = cos_player.get(ZONE_DISCARD, [])
-					var cos_creatures: Array = []
-					for cos_card in cos_discard:
-						if typeof(cos_card) == TYPE_DICTIONARY and str(cos_card.get("card_type", "")) == CARD_TYPE_CREATURE:
-							cos_creatures.append(str(cos_card.get("instance_id", "")))
-					if not cos_creatures.is_empty():
-						match_state["pending_hand_selections"].append({
-							"player_id": cos_controller_id,
-							"source_instance_id": cos_source_id,
-							"candidate_instance_ids": cos_creatures,
-							"then_op": "consume_target",
-							"then_context": {"consumer_instance_id": cos_source_id},
-							"prompt": "Choose a creature to consume, or press Escape to skip.",
-						})
+				var cos_candidates := get_consume_candidates(match_state, cos_controller_id)
+				if not cos_candidates.is_empty():
+					var cos_candidate_ids: Array = []
+					for cos_c in cos_candidates:
+						cos_candidate_ids.append(str(cos_c.get("instance_id", "")))
+					var cos_pending: Array = match_state.get("pending_consume_selections", [])
+					cos_pending.append({
+						"player_id": cos_controller_id,
+						"source_instance_id": cos_source_id,
+						"candidate_instance_ids": cos_candidate_ids,
+						"has_target_mode": false,
+						"trigger_index": int(trigger.get("trigger_index", 0)),
+					})
 			"consume_all_creatures_in_discard_this_turn":
 				var cacidt_controller_id := str(trigger.get("controller_player_id", ""))
 				var cacidt_source_id := str(trigger.get("source_instance_id", ""))
@@ -6170,6 +6399,9 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 
 static func _resolve_card_targets(match_state: Dictionary, trigger: Dictionary, event: Dictionary, effect: Dictionary) -> Array:
 	var target := str(effect.get("target", "self"))
+	# copies_in_hand_and_deck needs effect context, handled here instead of _resolve_card_targets_by_name
+	if target == "copies_in_hand_and_deck":
+		return _resolve_copies_in_hand_and_deck(match_state, trigger, effect)
 	var targets := _resolve_card_targets_by_name(match_state, trigger, event, target)
 	var filter_subtype := str(effect.get("target_filter_subtype", ""))
 	if not filter_subtype.is_empty():
@@ -6251,6 +6483,15 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 			var killer_card := _find_card_anywhere(match_state, str(event.get("destroyed_by_instance_id", "")))
 			if not killer_card.is_empty():
 				targets.append(killer_card)
+		"consuming_creature":
+			var consumer_id := str(event.get("source_instance_id", ""))
+			if not consumer_id.is_empty():
+				var consumer_card := _find_card_anywhere(match_state, consumer_id)
+				if not consumer_card.is_empty():
+					targets.append(consumer_card)
+		"copies_in_hand_and_deck":
+			# Resolved in _resolve_card_targets where effect dict is available
+			pass
 		"all_enemies_in_lane":
 			var lane_index := int(trigger.get("lane_index", -1))
 			var controller_id := str(trigger.get("controller_player_id", ""))
@@ -6366,6 +6607,53 @@ static func _resolve_player_targets(match_state: Dictionary, trigger: Dictionary
 			var chosen_pid := str(trigger.get("_chosen_target_player_id", ""))
 			return [] if chosen_pid.is_empty() else [chosen_pid]
 	return []
+
+
+## Resolve copies_in_hand_and_deck target with consumed creature name matching.
+static func _resolve_copies_in_hand_and_deck(match_state: Dictionary, trigger: Dictionary, effect: Dictionary) -> Array:
+	var targets: Array = []
+	var controller_id := str(trigger.get("controller_player_id", ""))
+	var match_field := str(effect.get("match", ""))
+	var definition_id := ""
+	if match_field == "consumed_creature_name":
+		var consumed := _get_consumed_card_info(trigger)
+		if consumed.is_empty():
+			var source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+			if not source.is_empty():
+				consumed = source.get("_consumed_card_info", {})
+		definition_id = str(consumed.get("definition_id", ""))
+	if not definition_id.is_empty():
+		var player := _get_player_state(match_state, controller_id)
+		if not player.is_empty():
+			for card in player.get(ZONE_HAND, []):
+				if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == definition_id:
+					targets.append(card)
+			for card in player.get(ZONE_DECK, []):
+				if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == definition_id:
+					targets.append(card)
+	return targets
+
+
+## Resolve an effect amount, checking for consumed_creature_* source references.
+static func _resolve_consumed_amount(trigger: Dictionary, effect: Dictionary) -> int:
+	var amount_source := str(effect.get("amount_source", ""))
+	if amount_source.begins_with("consumed_creature_"):
+		var consumed_info: Dictionary = _get_consumed_card_info(trigger)
+		if amount_source == "consumed_creature_power":
+			return int(consumed_info.get("power", 0))
+		elif amount_source == "consumed_creature_health":
+			return int(consumed_info.get("health", 0))
+	return int(effect.get("amount", 0))
+
+
+## Get consumed card info from trigger context or from the source card.
+static func _get_consumed_card_info(trigger: Dictionary) -> Dictionary:
+	var info: Dictionary = trigger.get("_consumed_card_info", {})
+	if not info.is_empty():
+		return info
+	# Fallback: check the source card for stored consumed info
+	# This is used when effects fire via resolve_targeted_effect after consume
+	return {}
 
 
 static func _resolve_count_multiplier(match_state: Dictionary, trigger: Dictionary, _event: Dictionary, effect: Dictionary) -> int:

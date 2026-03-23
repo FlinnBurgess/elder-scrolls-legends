@@ -128,6 +128,8 @@ static func summon_from_hand(match_state: Dictionary, player_id: String, instanc
 			"status_id": "cover",
 		})
 	var timing_result := MatchTiming.publish_events(match_state, publish_list, _ensure_dictionary(options.get("event_context", {})))
+	# Check for consume abilities on the summoned card (must happen before target mode)
+	MatchTiming._check_consume_abilities(match_state, card)
 
 	return {
 		"is_valid": true,
