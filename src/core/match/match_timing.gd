@@ -2708,7 +2708,7 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 	if not required_wax_wane.is_empty():
 		var controller_player_id := str(trigger.get("controller_player_id", ""))
 		var ww_player := _get_player_state(match_state, controller_player_id)
-		if str(ww_player.get("wax_wane_state", "wax")) != required_wax_wane:
+		if str(ww_player.get("wax_wane_state", "wax")) != required_wax_wane and not bool(ww_player.get("_dual_wax_wane", false)):
 			return false
 	return ExtendedMechanicPacks.matches_additional_conditions(match_state, trigger, descriptor, event)
 

@@ -37,7 +37,8 @@ func _run_all_tests() -> bool:
 		_test_empower_permanent_across_turns() and
 		_test_invade_and_shout_pack() and
 		_test_treasure_hunt_and_consume_pack() and
-		_test_wax_and_wane_pack()
+		_test_wax_and_wane_pack() and
+		_test_dual_wax_wane()
 	)
 
 
@@ -712,6 +713,62 @@ func _test_wax_and_wane_pack() -> bool:
 	return (
 		_assert(bool(wax_play.get("is_valid", false)) and bool(wane_play.get("is_valid", false)), "Wax/Wane fixture actions should be playable across turns.") and
 		_assert(int(opponent.get("health", 0)) == 27, "Wax/Wane should swap between its two effect packages at the end of the controller's turn.")
+	)
+
+
+func _test_dual_wax_wane() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	# Player starts in wax phase. Enable dual wax/wane, then play a wane-only spell.
+	# Without dual, the wane effect should not fire. With dual, both should fire.
+	var spell := ScenarioFixtures.add_hand_card(player, "dual_test_spell", {
+		"card_type": "action",
+		"cost": 0,
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"required_zone": "discard",
+			"effects": [
+				{"op": "damage", "target_player": "target_player", "amount": 3, "required_wax_wane_phase": "wax"},
+				{"op": "damage", "target_player": "target_player", "amount": 5, "required_wax_wane_phase": "wane"},
+			],
+		}],
+	})
+	# Confirm player is in wax phase
+	var initial_phase := str(player.get("wax_wane_state", "wax"))
+	# Enable dual wax/wane
+	player["_dual_wax_wane"] = true
+	var play_result := MatchTiming.play_action_from_hand(match_state, str(player.get("player_id", "")), str(spell.get("instance_id", "")), {"target_player_id": str(opponent.get("player_id", ""))})
+	# Both wax (3) and wane (5) effects should fire: 30 - 8 = 22
+	var health_after_dual := int(opponent.get("health", 0))
+	# End turn to verify dual flag is cleared and toggle proceeds normally
+	MatchTurnLoop.end_turn(match_state, str(player.get("player_id", "")))
+	var phase_after_end := str(player.get("wax_wane_state", ""))
+	var dual_after_end := bool(player.get("_dual_wax_wane", false))
+	# Play another spell next turn to confirm only wane fires (dual cleared)
+	MatchTurnLoop.end_turn(match_state, str(opponent.get("player_id", "")))
+	var spell2 := ScenarioFixtures.add_hand_card(player, "dual_test_spell_2", {
+		"card_type": "action",
+		"cost": 0,
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"required_zone": "discard",
+			"effects": [
+				{"op": "damage", "target_player": "target_player", "amount": 3, "required_wax_wane_phase": "wax"},
+				{"op": "damage", "target_player": "target_player", "amount": 5, "required_wax_wane_phase": "wane"},
+			],
+		}],
+	})
+	MatchTiming.play_action_from_hand(match_state, str(player.get("player_id", "")), str(spell2.get("instance_id", "")), {"target_player_id": str(opponent.get("player_id", ""))})
+	# Only wane (5) should fire: 22 - 5 = 17
+	var health_after_normal := int(opponent.get("health", 0))
+	return (
+		_assert(initial_phase == "wax", "Player should start in wax phase.") and
+		_assert(bool(play_result.get("is_valid", false)), "Dual wax/wane spell should be playable.") and
+		_assert(health_after_dual == 22, "Both wax and wane effects should fire when dual_wax_wane is active.") and
+		_assert(phase_after_end == "wane", "Phase should toggle normally to wane after dual turn.") and
+		_assert(not dual_after_end, "Dual wax/wane flag should be cleared at end of turn.") and
+		_assert(health_after_normal == 17, "Only wane effect should fire after dual flag is cleared.")
 	)
 
 

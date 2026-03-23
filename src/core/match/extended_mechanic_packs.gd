@@ -138,7 +138,7 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 		if req_summon_idx > 0 and int(controller.get("creature_summons_this_turn", 0)) != req_summon_idx:
 			return false
 		var required_phase := str(descriptor.get("required_wax_wane_phase", ""))
-		if not required_phase.is_empty() and required_phase != str(controller.get("wax_wane_state", WAX)):
+		if not required_phase.is_empty() and required_phase != str(controller.get("wax_wane_state", WAX)) and not bool(controller.get("_dual_wax_wane", false)):
 			return false
 	if bool(descriptor.get("require_attacker_survived", false)) and bool(event.get("attacker_destroyed", false)):
 		return false
@@ -307,7 +307,7 @@ static func effect_is_enabled(match_state: Dictionary, trigger: Dictionary, effe
 	if not required_phase.is_empty():
 		var controller := _get_player_state(match_state, str(trigger.get("controller_player_id", "")))
 		ensure_player_state(controller)
-		if required_phase != str(controller.get("wax_wane_state", WAX)):
+		if required_phase != str(controller.get("wax_wane_state", WAX)) and not bool(controller.get("_dual_wax_wane", false)):
 			return false
 	var min_friendly_attr: Dictionary = effect.get("required_min_friendly_with_attribute", {})
 	if not min_friendly_attr.is_empty():
