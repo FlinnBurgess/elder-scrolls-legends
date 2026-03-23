@@ -232,6 +232,8 @@ static func ensure_match_state(match_state: Dictionary) -> void:
 		match_state["pending_summon_effect_targets"] = []
 	if not match_state.has("pending_consume_selections") or typeof(match_state["pending_consume_selections"]) != TYPE_ARRAY:
 		match_state["pending_consume_selections"] = []
+	if not match_state.has("pending_deck_selections") or typeof(match_state["pending_deck_selections"]) != TYPE_ARRAY:
+		match_state["pending_deck_selections"] = []
 	if not match_state.has("out_of_cards_sequence"):
 		match_state["out_of_cards_sequence"] = 0
 
@@ -1363,6 +1365,121 @@ static func get_consume_candidates(match_state: Dictionary, player_id: String) -
 		if typeof(card) == TYPE_DICTIONARY and str(card.get("card_type", "")) == CARD_TYPE_CREATURE:
 			candidates.append(card)
 	return candidates
+
+
+# --- Pending deck selections (player chooses a card from their deck) ---
+
+
+static func has_pending_deck_selection(match_state: Dictionary, player_id: String = "") -> bool:
+	return not get_pending_deck_selection(match_state, player_id).is_empty()
+
+
+static func get_pending_deck_selection(match_state: Dictionary, player_id: String = "") -> Dictionary:
+	ensure_match_state(match_state)
+	for raw in match_state.get("pending_deck_selections", []):
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		if not player_id.is_empty() and str(raw.get("player_id", "")) != player_id:
+			continue
+		return raw.duplicate(true)
+	return {}
+
+
+static func resolve_pending_deck_selection(match_state: Dictionary, player_id: String, chosen_instance_id: String) -> Dictionary:
+	ensure_match_state(match_state)
+	var pending: Array = match_state.get("pending_deck_selections", [])
+	var idx := -1
+	var entry := {}
+	for i in range(pending.size()):
+		if typeof(pending[i]) == TYPE_DICTIONARY and str(pending[i].get("player_id", "")) == player_id:
+			idx = i
+			entry = pending[i]
+			break
+	if idx == -1:
+		return {"is_valid": false, "errors": ["No pending deck selection for %s." % player_id], "events": [], "trigger_resolutions": []}
+	pending.remove_at(idx)
+	var source_id := str(entry.get("source_instance_id", ""))
+	var then_op := str(entry.get("then_op", ""))
+	var then_context: Dictionary = entry.get("then_context", {})
+	# Find the chosen card in the deck
+	var player := _get_player_state(match_state, player_id)
+	if player.is_empty():
+		return {"is_valid": false, "errors": ["Player not found."], "events": [], "trigger_resolutions": []}
+	var deck: Array = player.get(ZONE_DECK, [])
+	var chosen_card: Dictionary = {}
+	var chosen_idx := -1
+	for i in range(deck.size()):
+		if typeof(deck[i]) == TYPE_DICTIONARY and str(deck[i].get("instance_id", "")) == chosen_instance_id:
+			chosen_card = deck[i]
+			chosen_idx = i
+			break
+	if chosen_card.is_empty():
+		return {"is_valid": false, "errors": ["Card not found in deck."], "events": [], "trigger_resolutions": []}
+	var generated_events: Array = []
+	match then_op:
+		"summon_support_from_deck":
+			deck.remove_at(chosen_idx)
+			chosen_card["zone"] = MatchMutations.ZONE_SUPPORT
+			chosen_card["controller_player_id"] = player_id
+			if not chosen_card.has("owner_player_id"):
+				chosen_card["owner_player_id"] = player_id
+			var supports: Array = player.get(MatchMutations.ZONE_SUPPORT, [])
+			supports.append(chosen_card)
+			generated_events.append({
+				"event_type": EVENT_CARD_PLAYED,
+				"playing_player_id": player_id,
+				"player_id": player_id,
+				"source_instance_id": str(chosen_card.get("instance_id", "")),
+				"source_zone": "deck",
+				"target_zone": MatchMutations.ZONE_SUPPORT,
+				"card_type": "support",
+				"reason": str(then_context.get("reason", "deck_selection")),
+			})
+		"summon_creature_from_deck":
+			deck.remove_at(chosen_idx)
+			chosen_card.erase("zone")
+			var lane_id := str(then_context.get("lane_id", ""))
+			if lane_id.is_empty():
+				# Default to first lane with space
+				for lane in match_state.get("lanes", []):
+					var lid := str(lane.get("lane_id", ""))
+					var slots: Array = lane.get("player_slots", {}).get(player_id, [])
+					if slots.size() < int(lane.get("slot_capacity", 4)):
+						lane_id = lid
+						break
+			if not lane_id.is_empty():
+				var summon_result := MatchMutations.summon_card_to_lane(match_state, player_id, chosen_card, lane_id, {"source_zone": ZONE_DECK})
+				if bool(summon_result.get("is_valid", false)):
+					generated_events.append_array(summon_result.get("events", []))
+					generated_events.append({
+						"event_type": EVENT_CREATURE_SUMMONED,
+						"playing_player_id": player_id,
+						"player_id": player_id,
+						"source_instance_id": str(chosen_card.get("instance_id", "")),
+						"source_controller_player_id": player_id,
+						"lane_id": lane_id,
+						"slot_index": int(summon_result.get("slot_index", -1)),
+						"reason": str(then_context.get("reason", "deck_selection")),
+					})
+					_check_summon_abilities(match_state, summon_result["card"])
+	# Publish events
+	var all_events: Array = []
+	var all_resolutions: Array = []
+	if not generated_events.is_empty():
+		var publish_result := publish_events(match_state, generated_events)
+		all_events = publish_result.get("processed_events", [])
+		all_resolutions = publish_result.get("trigger_resolutions", [])
+	return {"is_valid": true, "events": all_events, "trigger_resolutions": all_resolutions, "card": chosen_card}
+
+
+static func decline_pending_deck_selection(match_state: Dictionary, player_id: String) -> Dictionary:
+	ensure_match_state(match_state)
+	var pending: Array = match_state.get("pending_deck_selections", [])
+	for i in range(pending.size()):
+		if typeof(pending[i]) == TYPE_DICTIONARY and str(pending[i].get("player_id", "")) == player_id:
+			pending.remove_at(i)
+			return {"is_valid": true, "events": [], "trigger_resolutions": []}
+	return {"is_valid": false, "errors": ["No pending deck selection for %s." % player_id]}
 
 
 static func apply_player_damage(match_state: Dictionary, player_id: String, amount: int, context: Dictionary = {}) -> Dictionary:
@@ -4962,27 +5079,22 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 								continue
 						sfdf_candidates.append(sfdf_card)
 					if not sfdf_candidates.is_empty():
-						var sfdf_idx := _deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_deck_filtered", sfdf_candidates.size())
-						var sfdf_target: Dictionary = sfdf_candidates[sfdf_idx]
-						sfdf_deck.erase(sfdf_target)
-						sfdf_target.erase("zone")
-						if sfdf_filter_type == "support":
-							# Supports go to the support zone, not a lane
-							sfdf_target["zone"] = MatchMutations.ZONE_SUPPORT
-							sfdf_target["controller_player_id"] = sfdf_controller_id
-							if not sfdf_target.has("owner_player_id"):
-								sfdf_target["owner_player_id"] = sfdf_controller_id
-							var sfdf_supports: Array = sfdf_player.get(MatchMutations.ZONE_SUPPORT, [])
-							sfdf_supports.append(sfdf_target)
-							generated_events.append({"event_type": EVENT_CARD_PLAYED, "playing_player_id": sfdf_controller_id, "player_id": sfdf_controller_id, "source_instance_id": str(sfdf_target.get("instance_id", "")), "source_zone": "deck", "target_zone": MatchMutations.ZONE_SUPPORT, "card_type": "support", "reason": reason})
-						else:
-							var sfdf_lane_id := _resolve_summon_lane_id(match_state, trigger, event, effect, sfdf_controller_id)
-							if not sfdf_lane_id.is_empty():
-								var sfdf_result := MatchMutations.summon_card_to_lane(match_state, sfdf_controller_id, sfdf_target, sfdf_lane_id, {"source_zone": ZONE_DECK})
-								if bool(sfdf_result.get("is_valid", false)):
-									generated_events.append_array(sfdf_result.get("events", []))
-									generated_events.append(_build_summon_event(sfdf_result["card"], sfdf_controller_id, sfdf_lane_id, int(sfdf_result.get("slot_index", -1)), reason))
-									_check_summon_abilities(match_state, sfdf_result["card"])
+						var sfdf_candidate_ids: Array = []
+						for sfdf_c in sfdf_candidates:
+							sfdf_candidate_ids.append(str(sfdf_c.get("instance_id", "")))
+						var sfdf_then_op := "summon_support_from_deck" if sfdf_filter_type == "support" else "summon_creature_from_deck"
+						var sfdf_then_context := {"reason": reason}
+						if sfdf_filter_type != "support":
+							sfdf_then_context["lane_id"] = _resolve_summon_lane_id(match_state, trigger, event, effect, sfdf_controller_id)
+						var sfdf_pending: Array = match_state.get("pending_deck_selections", [])
+						sfdf_pending.append({
+							"player_id": sfdf_controller_id,
+							"source_instance_id": str(trigger.get("source_instance_id", "")),
+							"candidate_instance_ids": sfdf_candidate_ids,
+							"then_op": sfdf_then_op,
+							"then_context": sfdf_then_context,
+							"prompt": "Choose a card from your deck.",
+						})
 			"summon_random_creature", "summon_random_by_cost":
 				# Delegate to summon_random_from_catalog with appropriate filters
 				var src_filter: Dictionary = {"card_type": "creature"}

@@ -27,6 +27,8 @@ const KIND_CHOOSE_DISCARD := "choose_discard"
 const KIND_DECLINE_DISCARD := "decline_discard"
 const KIND_CHOOSE_CONSUME := "choose_consume"
 const KIND_DECLINE_CONSUME := "decline_consume"
+const KIND_CHOOSE_DECK_SELECTION := "choose_deck_selection"
+const KIND_DECLINE_DECK_SELECTION := "decline_deck_selection"
 const KIND_CHOOSE_HAND_SELECTION := "choose_hand_selection"
 const KIND_DECLINE_HAND_SELECTION := "decline_hand_selection"
 const KIND_TOP_DECK_DISCARD := "top_deck_discard"
@@ -93,6 +95,19 @@ static func enumerate_legal_actions(match_state: Dictionary, player_id: String =
 			consume_actions.append(_build_descriptor(KIND_CHOOSE_CONSUME, match_state, decision_player_id, {"chosen_instance_id": str(candidate_id)}, {}, {"timing_window": TIMING_INTERRUPT}))
 		consume_actions.append(_build_descriptor(KIND_DECLINE_CONSUME, match_state, decision_player_id, {}, {}, {"timing_window": TIMING_INTERRUPT}))
 		result["actions"] = consume_actions
+	elif MatchTiming.has_pending_deck_selection(match_state):
+		var deck_selection := MatchTiming.get_pending_deck_selection(match_state)
+		var deck_selection_player_id := str(deck_selection.get("player_id", ""))
+		if decision_player_id != deck_selection_player_id:
+			result["blocked_reason"] = "Pending deck selection belongs to another player."
+			return result
+		result["timing_window"] = TIMING_INTERRUPT
+		result["has_pending_deck_selection"] = true
+		var deck_actions: Array = []
+		for candidate_id in deck_selection.get("candidate_instance_ids", []):
+			deck_actions.append(_build_descriptor(KIND_CHOOSE_DECK_SELECTION, match_state, decision_player_id, {"chosen_instance_id": str(candidate_id)}, {}, {"timing_window": TIMING_INTERRUPT}))
+		deck_actions.append(_build_descriptor(KIND_DECLINE_DECK_SELECTION, match_state, decision_player_id, {}, {}, {"timing_window": TIMING_INTERRUPT}))
+		result["actions"] = deck_actions
 	elif MatchTiming.has_pending_hand_selection(match_state):
 		var hand_selection := MatchTiming.get_pending_hand_selection(match_state)
 		var hand_selection_player_id := str(hand_selection.get("player_id", ""))
@@ -219,7 +234,7 @@ static func action_is_legal(match_state: Dictionary, action: Dictionary) -> bool
 		KIND_DECLINE_SUMMON_EFFECT_TARGET:
 			return MatchTiming.has_pending_summon_effect_target(match_state, player_id)
 		KIND_END_TURN:
-			if MatchTiming.has_pending_prophecy(match_state) or MatchTiming.has_pending_discard_choice(match_state) or MatchTiming.has_pending_consume_selection(match_state) or MatchTiming.has_pending_hand_selection(match_state) or MatchTiming.has_pending_top_deck_choice(match_state) or MatchTiming.has_pending_player_choice(match_state) or MatchTiming.has_pending_secondary_target(match_state) or MatchTiming.has_pending_summon_effect_target(match_state):
+			if MatchTiming.has_pending_prophecy(match_state) or MatchTiming.has_pending_discard_choice(match_state) or MatchTiming.has_pending_consume_selection(match_state) or MatchTiming.has_pending_deck_selection(match_state) or MatchTiming.has_pending_hand_selection(match_state) or MatchTiming.has_pending_top_deck_choice(match_state) or MatchTiming.has_pending_player_choice(match_state) or MatchTiming.has_pending_secondary_target(match_state) or MatchTiming.has_pending_summon_effect_target(match_state):
 				return false
 			var clone := match_state.duplicate(true)
 			var active_before := str(clone.get("active_player_id", ""))
@@ -255,6 +270,10 @@ static func action_is_legal(match_state: Dictionary, action: Dictionary) -> bool
 			return bool(MatchTiming.resolve_consume_selection(match_state.duplicate(true), player_id, str(parameters.get("chosen_instance_id", ""))).get("is_valid", false))
 		KIND_DECLINE_CONSUME:
 			return bool(MatchTiming.decline_consume_selection(match_state.duplicate(true), player_id).get("is_valid", false))
+		KIND_CHOOSE_DECK_SELECTION:
+			return bool(MatchTiming.resolve_pending_deck_selection(match_state.duplicate(true), player_id, str(parameters.get("chosen_instance_id", ""))).get("is_valid", false))
+		KIND_DECLINE_DECK_SELECTION:
+			return bool(MatchTiming.decline_pending_deck_selection(match_state.duplicate(true), player_id).get("is_valid", false))
 		KIND_CHOOSE_HAND_SELECTION:
 			return bool(MatchTiming.resolve_pending_hand_selection(match_state.duplicate(true), player_id, str(parameters.get("chosen_instance_id", ""))).get("is_valid", false))
 		KIND_DECLINE_HAND_SELECTION:
@@ -936,6 +955,12 @@ static func _resolve_decision_player_id(match_state: Dictionary, requested_playe
 		if not requested_player_id.is_empty():
 			return requested_player_id
 		return consume_player_id
+	if MatchTiming.has_pending_deck_selection(match_state):
+		var deck_selection := MatchTiming.get_pending_deck_selection(match_state)
+		var deck_player_id := str(deck_selection.get("player_id", ""))
+		if not requested_player_id.is_empty():
+			return requested_player_id
+		return deck_player_id
 	if MatchTiming.has_pending_hand_selection(match_state):
 		var hand_selection := MatchTiming.get_pending_hand_selection(match_state)
 		var hand_selection_player_id := str(hand_selection.get("player_id", ""))
