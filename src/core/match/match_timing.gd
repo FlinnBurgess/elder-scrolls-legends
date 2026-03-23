@@ -6456,7 +6456,7 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 			var self_card := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 			if not self_card.is_empty():
 				targets.append(self_card)
-		"host":
+		"host", "wielder":
 			var host_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 			var host_id := str(host_source.get("attached_to_instance_id", "")) if not host_source.is_empty() else ""
 			if not host_id.is_empty():
@@ -6475,14 +6475,60 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 			var target_card := _find_card_anywhere(match_state, _event_target_instance_id(event))
 			if not target_card.is_empty():
 				targets.append(target_card)
-		"event_subject":
-			var subject_card := _find_card_anywhere(match_state, str(event.get("instance_id", event.get("drawn_instance_id", ""))))
+		"event_subject", "event_drawn_card", "event_action":
+			var subject_card := _find_card_anywhere(match_state, str(event.get("instance_id", event.get("drawn_instance_id", event.get("source_instance_id", "")))))
 			if not subject_card.is_empty():
 				targets.append(subject_card)
 		"event_killer":
 			var killer_card := _find_card_anywhere(match_state, str(event.get("destroyed_by_instance_id", "")))
 			if not killer_card.is_empty():
 				targets.append(killer_card)
+		"event_damaged_creature", "damaged_creature":
+			var dmc_id := _event_target_instance_id(event)
+			if dmc_id.is_empty():
+				dmc_id = str(event.get("instance_id", ""))
+			if not dmc_id.is_empty():
+				var dmc_card := _find_card_anywhere(match_state, dmc_id)
+				if not dmc_card.is_empty():
+					targets.append(dmc_card)
+		"damage_source":
+			var ds_id := str(event.get("source_instance_id", event.get("attacker_instance_id", "")))
+			if not ds_id.is_empty():
+				var ds_card := _find_card_anywhere(match_state, ds_id)
+				if not ds_card.is_empty():
+					targets.append(ds_card)
+		"last_drawn_card":
+			var ldc_id := str(event.get("drawn_instance_id", event.get("instance_id", "")))
+			if not ldc_id.is_empty():
+				var ldc_card := _find_card_anywhere(match_state, ldc_id)
+				if not ldc_card.is_empty():
+					targets.append(ldc_card)
+		"last_summoned":
+			var ls_id := str(event.get("source_instance_id", ""))
+			if not ls_id.is_empty():
+				var ls_card := _find_card_anywhere(match_state, ls_id)
+				if not ls_card.is_empty():
+					targets.append(ls_card)
+		"last_stolen":
+			var lst_id := str(event.get("target_instance_id", event.get("stolen_instance_id", "")))
+			if not lst_id.is_empty():
+				var lst_card := _find_card_anywhere(match_state, lst_id)
+				if not lst_card.is_empty():
+					targets.append(lst_card)
+		"aimed_creature":
+			var aim_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+			if not aim_source.is_empty():
+				var aim_target_id := str(aim_source.get("_aimed_at_instance_id", ""))
+				if not aim_target_id.is_empty():
+					var aim_card := _find_card_anywhere(match_state, aim_target_id)
+					if not aim_card.is_empty():
+						targets.append(aim_card)
+		"moved_creatures":
+			var mc_id := str(event.get("source_instance_id", event.get("moved_instance_id", "")))
+			if not mc_id.is_empty():
+				var mc_card := _find_card_anywhere(match_state, mc_id)
+				if not mc_card.is_empty():
+					targets.append(mc_card)
 		"consuming_creature":
 			var consumer_id := str(event.get("source_instance_id", ""))
 			if not consumer_id.is_empty():
@@ -6502,7 +6548,7 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 				for card in slots:
 					if typeof(card) == TYPE_DICTIONARY:
 						targets.append(card)
-		"all_friendly_in_lane":
+		"all_friendly_in_lane", "other_friendly_in_lane":
 			var lane_index := int(trigger.get("lane_index", -1))
 			var controller_id := str(trigger.get("controller_player_id", ""))
 			var self_id := str(trigger.get("source_instance_id", ""))
@@ -6512,15 +6558,19 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 				for card in slots:
 					if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) != self_id:
 						targets.append(card)
-		"all_enemies":
+		"all_enemies", "all_other_enemies":
 			var controller_id := str(trigger.get("controller_player_id", ""))
 			var opponent_id := _get_opposing_player_id(match_state.get("players", []), controller_id)
+			var ae_self_id := str(trigger.get("source_instance_id", "")) if target == "all_other_enemies" else ""
 			for lane in match_state.get("lanes", []):
 				var slots = lane.get("player_slots", {}).get(opponent_id, [])
 				for card in slots:
 					if typeof(card) == TYPE_DICTIONARY:
+						if not ae_self_id.is_empty() and str(card.get("instance_id", "")) == ae_self_id:
+							continue
 						targets.append(card)
-		"all_friendly", "all_other_friendly", "all_friendly_creatures", "all_friendly_by_subtype":
+		"all_friendly", "all_other_friendly", "all_friendly_creatures", "all_friendly_by_subtype", \
+		"other_friendly_creatures", "other_friendly_by_subtype":
 			var controller_id := str(trigger.get("controller_player_id", ""))
 			var self_id := str(trigger.get("source_instance_id", ""))
 			for lane in match_state.get("lanes", []):
@@ -6558,7 +6608,8 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 					for card in player_slots[pid]:
 						if typeof(card) == TYPE_DICTIONARY:
 							targets.append(card)
-		"chosen_target":
+		"chosen_target", "chosen_friendly_creature", "chosen_friendly", "chosen_enemy", \
+		"chosen_friendly_optional", "chosen_targets", "chosen_target_pair":
 			var chosen_id := str(trigger.get("_chosen_target_id", ""))
 			if not chosen_id.is_empty():
 				var chosen_card := _find_card_anywhere(match_state, chosen_id)
@@ -6573,7 +6624,7 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 					var sct_target := _find_card_anywhere(match_state, sct_target_id)
 					if not sct_target.is_empty():
 						targets.append(sct_target)
-		"random_enemy":
+		"random_enemy", "random_enemy_creature":
 			var all_enemies := _resolve_card_targets_by_name(match_state, trigger, event, "all_enemies")
 			if not all_enemies.is_empty():
 				targets.append(all_enemies[randi() % all_enemies.size()])
@@ -6589,6 +6640,41 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 			var all_friendly_lane := _resolve_card_targets_by_name(match_state, trigger, event, "all_friendly_in_lane")
 			if not all_friendly_lane.is_empty():
 				targets.append(all_friendly_lane[randi() % all_friendly_lane.size()])
+		"random_creature":
+			var all_creatures := _resolve_card_targets_by_name(match_state, trigger, event, "all_creatures")
+			if not all_creatures.is_empty():
+				targets.append(all_creatures[randi() % all_creatures.size()])
+		"random_friendly_in_each_lane", "friendly_in_each_lane":
+			var rfiel_controller_id := str(trigger.get("controller_player_id", ""))
+			for lane in match_state.get("lanes", []):
+				var rfiel_slots = lane.get("player_slots", {}).get(rfiel_controller_id, [])
+				var rfiel_candidates: Array = []
+				for card in rfiel_slots:
+					if typeof(card) == TYPE_DICTIONARY:
+						rfiel_candidates.append(card)
+				if not rfiel_candidates.is_empty():
+					targets.append(rfiel_candidates[randi() % rfiel_candidates.size()])
+		"random_enemy_in_each_lane":
+			var reiel_controller_id := str(trigger.get("controller_player_id", ""))
+			var reiel_opponent_id := _get_opposing_player_id(match_state.get("players", []), reiel_controller_id)
+			for lane in match_state.get("lanes", []):
+				var reiel_slots = lane.get("player_slots", {}).get(reiel_opponent_id, [])
+				var reiel_candidates: Array = []
+				for card in reiel_slots:
+					if typeof(card) == TYPE_DICTIONARY:
+						reiel_candidates.append(card)
+				if not reiel_candidates.is_empty():
+					targets.append(reiel_candidates[randi() % reiel_candidates.size()])
+		"random_creature_in_hand":
+			var rcih_controller_id := str(trigger.get("controller_player_id", ""))
+			var rcih_player := _get_player_state(match_state, rcih_controller_id)
+			if not rcih_player.is_empty():
+				var rcih_candidates: Array = []
+				for card in rcih_player.get(ZONE_HAND, []):
+					if typeof(card) == TYPE_DICTIONARY and str(card.get("card_type", "")) == CARD_TYPE_CREATURE:
+						rcih_candidates.append(card)
+				if not rcih_candidates.is_empty():
+					targets.append(rcih_candidates[randi() % rcih_candidates.size()])
 		"all_friendly_in_event_lane", "all_creatures_in_event_lane", "all_enemies_in_event_lane":
 			var event_lane_id := str(event.get("lane_id", ""))
 			if not event_lane_id.is_empty():
@@ -6607,6 +6693,138 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 						for card in player_slots[pid]:
 							if typeof(card) == TYPE_DICTIONARY:
 								targets.append(card)
+		"top_friendly_creature_in_deck":
+			var tfcid_controller_id := str(trigger.get("controller_player_id", ""))
+			var tfcid_player := _get_player_state(match_state, tfcid_controller_id)
+			if not tfcid_player.is_empty():
+				var tfcid_deck: Array = tfcid_player.get(ZONE_DECK, [])
+				for i in range(tfcid_deck.size() - 1, -1, -1):
+					var tfcid_card = tfcid_deck[i]
+					if typeof(tfcid_card) == TYPE_DICTIONARY and str(tfcid_card.get("card_type", "")) == CARD_TYPE_CREATURE:
+						targets.append(tfcid_card)
+						break
+		"top_creatures_in_deck", "creatures_in_deck":
+			var tcid_controller_id := str(trigger.get("controller_player_id", ""))
+			var tcid_player := _get_player_state(match_state, tcid_controller_id)
+			if not tcid_player.is_empty():
+				var tcid_deck: Array = tcid_player.get(ZONE_DECK, [])
+				for i in range(tcid_deck.size() - 1, -1, -1):
+					var tcid_card = tcid_deck[i]
+					if typeof(tcid_card) == TYPE_DICTIONARY and str(tcid_card.get("card_type", "")) == CARD_TYPE_CREATURE:
+						targets.append(tcid_card)
+		"highest_cost_creature_in_opponent_hand":
+			var hccioh_controller_id := str(trigger.get("controller_player_id", ""))
+			var hccioh_opponent_id := _get_opposing_player_id(match_state.get("players", []), hccioh_controller_id)
+			var hccioh_player := _get_player_state(match_state, hccioh_opponent_id)
+			if not hccioh_player.is_empty():
+				var hccioh_best: Dictionary = {}
+				var hccioh_best_cost := -1
+				for card in hccioh_player.get(ZONE_HAND, []):
+					if typeof(card) == TYPE_DICTIONARY and str(card.get("card_type", "")) == CARD_TYPE_CREATURE:
+						var card_cost := int(card.get("cost", 0))
+						if card_cost > hccioh_best_cost:
+							hccioh_best = card
+							hccioh_best_cost = card_cost
+				if not hccioh_best.is_empty():
+					targets.append(hccioh_best)
+		"all_enemies_with_less_power":
+			var aewlp_controller_id := str(trigger.get("controller_player_id", ""))
+			var aewlp_opponent_id := _get_opposing_player_id(match_state.get("players", []), aewlp_controller_id)
+			var aewlp_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+			var aewlp_self_power := EvergreenRules.get_power(aewlp_source) if not aewlp_source.is_empty() else 0
+			for lane in match_state.get("lanes", []):
+				for card in lane.get("player_slots", {}).get(aewlp_opponent_id, []):
+					if typeof(card) == TYPE_DICTIONARY and EvergreenRules.get_power(card) < aewlp_self_power:
+						targets.append(card)
+		"all_enemies_with_same_name":
+			var aewsn_target_id := _event_target_instance_id(event)
+			var aewsn_target := _find_card_anywhere(match_state, aewsn_target_id)
+			var aewsn_def_id := str(aewsn_target.get("definition_id", "")) if not aewsn_target.is_empty() else ""
+			if not aewsn_def_id.is_empty():
+				var aewsn_controller_id := str(trigger.get("controller_player_id", ""))
+				var aewsn_opponent_id := _get_opposing_player_id(match_state.get("players", []), aewsn_controller_id)
+				for lane in match_state.get("lanes", []):
+					for card in lane.get("player_slots", {}).get(aewsn_opponent_id, []):
+						if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == aewsn_def_id:
+							if str(card.get("instance_id", "")) != aewsn_target_id:
+								targets.append(card)
+		"all_enemies_in_chosen_lane":
+			var aeicl_controller_id := str(trigger.get("controller_player_id", ""))
+			var aeicl_opponent_id := _get_opposing_player_id(match_state.get("players", []), aeicl_controller_id)
+			var aeicl_lane_id := str(trigger.get("_chosen_lane_id", event.get("lane_id", "")))
+			for lane in match_state.get("lanes", []):
+				if str(lane.get("lane_id", "")) == aeicl_lane_id:
+					for card in lane.get("player_slots", {}).get(aeicl_opponent_id, []):
+						if typeof(card) == TYPE_DICTIONARY:
+							targets.append(card)
+		"all_friendly_in_target_lane":
+			var afitl_controller_id := str(trigger.get("controller_player_id", ""))
+			var afitl_lane_id := str(event.get("lane_id", ""))
+			if not afitl_lane_id.is_empty():
+				for lane in match_state.get("lanes", []):
+					if str(lane.get("lane_id", "")) == afitl_lane_id:
+						for card in lane.get("player_slots", {}).get(afitl_controller_id, []):
+							if typeof(card) == TYPE_DICTIONARY:
+								targets.append(card)
+		"all_friendly_with_keyword":
+			var afwk_controller_id := str(trigger.get("controller_player_id", ""))
+			for lane in match_state.get("lanes", []):
+				for card in lane.get("player_slots", {}).get(afwk_controller_id, []):
+					if typeof(card) == TYPE_DICTIONARY:
+						targets.append(card)
+		"all_friendly_animals":
+			var afa_controller_id := str(trigger.get("controller_player_id", ""))
+			for lane in match_state.get("lanes", []):
+				for card in lane.get("player_slots", {}).get(afa_controller_id, []):
+					if typeof(card) == TYPE_DICTIONARY:
+						var afa_subtypes = card.get("subtypes", [])
+						if typeof(afa_subtypes) == TYPE_ARRAY and (afa_subtypes.has("Beast") or afa_subtypes.has("Animal")):
+							targets.append(card)
+		"all_friendly_oblivion_gates":
+			var afog_controller_id := str(trigger.get("controller_player_id", ""))
+			var afog_player := _get_player_state(match_state, afog_controller_id)
+			if not afog_player.is_empty():
+				for card in afog_player.get(ZONE_SUPPORT, []):
+					if typeof(card) == TYPE_DICTIONARY:
+						var afog_subtypes = card.get("subtypes", [])
+						if typeof(afog_subtypes) == TYPE_ARRAY and afog_subtypes.has("Oblivion Gate"):
+							targets.append(card)
+		"crowned_creatures":
+			for lane in match_state.get("lanes", []):
+				var player_slots: Dictionary = lane.get("player_slots", {})
+				for pid in player_slots.keys():
+					for card in player_slots[pid]:
+						if typeof(card) == TYPE_DICTIONARY and EvergreenRules.has_raw_status(card, "crowned"):
+							targets.append(card)
+		"damaged_enemy":
+			var de_controller_id := str(trigger.get("controller_player_id", ""))
+			var de_opponent_id := _get_opposing_player_id(match_state.get("players", []), de_controller_id)
+			for lane in match_state.get("lanes", []):
+				for card in lane.get("player_slots", {}).get(de_opponent_id, []):
+					if typeof(card) == TYPE_DICTIONARY and int(card.get("damage_marked", 0)) > 0:
+						targets.append(card)
+		"treasure_card", "treasure_card_copy":
+			var tc_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+			if not tc_source.is_empty():
+				var tc_id := str(tc_source.get("_treasure_card_instance_id", ""))
+				if not tc_id.is_empty():
+					var tc_card := _find_card_anywhere(match_state, tc_id)
+					if not tc_card.is_empty():
+						targets.append(tc_card)
+		"friendly_by_name":
+			var fbn_controller_id := str(trigger.get("controller_player_id", ""))
+			for lane in match_state.get("lanes", []):
+				for card in lane.get("player_slots", {}).get(fbn_controller_id, []):
+					if typeof(card) == TYPE_DICTIONARY:
+						targets.append(card)
+		"all", "all_creatures_in_hand":
+			# all_creatures_in_hand handled by custom ops; "all" is a fallback to all lane creatures
+			for lane in match_state.get("lanes", []):
+				var player_slots: Dictionary = lane.get("player_slots", {})
+				for pid in player_slots.keys():
+					for card in player_slots[pid]:
+						if typeof(card) == TYPE_DICTIONARY:
+							targets.append(card)
 	return targets
 
 
