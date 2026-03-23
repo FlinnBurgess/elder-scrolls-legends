@@ -5,6 +5,7 @@ const DeckPersistenceClass = preload("res://src/deck/deck_persistence.gd")
 const DeckValidator = preload("res://src/deck/deck_validator.gd")
 const DeckRulesRegistryClass = preload("res://src/deck/deck_rules_registry.gd")
 const CardCatalog = preload("res://src/deck/card_catalog.gd")
+const DeckCodeClass = preload("res://src/deck/deck_code.gd")
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const DECK_REGISTRY_PATH := "res://data/legends/registries/attribute_class_registry.json"
 const CardDisplayComponentClass = preload("res://src/ui/components/CardDisplayComponent.gd")
@@ -37,6 +38,7 @@ var _card_by_id := {}
 var _attribute_display_names := {}
 var _class_display_names := {}
 var _class_records: Array = []
+var _card_id_to_deck_code := {}
 
 # Deck state
 var _deck_name := ""
@@ -231,6 +233,7 @@ func _load_data() -> void:
 	var catalog_result := CardCatalog.load_default()
 	_catalog_cards = catalog_result.get("cards", [])
 	_card_by_id = catalog_result.get("card_by_id", {})
+	_card_id_to_deck_code = catalog_result.get("card_id_to_deck_code", {})
 	_keyword_registry = EvergreenRules.get_registry()
 	_load_attribute_registry_labels()
 
@@ -524,6 +527,20 @@ func _build_action_buttons() -> Control:
 	cancel_btn.add_theme_stylebox_override("normal", cancel_style)
 	cancel_btn.pressed.connect(_on_cancel_pressed)
 	row.add_child(cancel_btn)
+
+	var export_btn := Button.new()
+	export_btn.text = "Export Code"
+	export_btn.custom_minimum_size = Vector2(120, 44)
+	export_btn.add_theme_font_size_override("font_size", 15)
+	var export_style := StyleBoxFlat.new()
+	export_style.bg_color = Color(0.25, 0.35, 0.55, 1.0)
+	export_style.border_color = Color(0.4, 0.5, 0.7, 1.0)
+	export_style.set_border_width_all(1)
+	export_style.set_corner_radius_all(6)
+	export_style.set_content_margin_all(10)
+	export_btn.add_theme_stylebox_override("normal", export_style)
+	export_btn.pressed.connect(_on_export_pressed.bind(export_btn))
+	row.add_child(export_btn)
 
 	var done_btn := Button.new()
 	done_btn.text = "Done"
@@ -1128,6 +1145,20 @@ func _show_illegal_cards_confirmation(new_name: String, new_attribute_ids: Array
 		for card_id in illegal_card_ids:
 			_deck_quantities.erase(card_id)
 		_apply_deck_edit(new_name, new_attribute_ids)
+	)
+
+
+func _on_export_pressed(btn: Button) -> void:
+	var result: Dictionary = DeckCodeClass.encode(get_deck_definition(), _card_id_to_deck_code)
+	if result.get("error", "") != "":
+		btn.text = "Error!"
+	else:
+		DisplayServer.clipboard_set(result.get("code", ""))
+		btn.text = "Copied!"
+	btn.disabled = true
+	get_tree().create_timer(2.0).timeout.connect(func() -> void:
+		btn.text = "Export Code"
+		btn.disabled = false
 	)
 
 

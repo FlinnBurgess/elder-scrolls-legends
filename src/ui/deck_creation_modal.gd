@@ -14,6 +14,10 @@ var _attribute_buttons := {}
 var _name_input: LineEdit
 var _confirm_button: Button
 var _is_built := false
+var _name_only_mode := false
+var _title_label: Label
+var _attr_label: Label
+var _attr_row: HBoxContainer
 
 
 func _ready() -> void:
@@ -70,11 +74,11 @@ func _build_ui() -> void:
 	panel.add_child(vbox)
 
 	# Title
-	var title_label := Label.new()
-	title_label.text = "Create New Deck"
-	title_label.add_theme_font_size_override("font_size", 22)
-	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(title_label)
+	_title_label = Label.new()
+	_title_label.text = "Create New Deck"
+	_title_label.add_theme_font_size_override("font_size", 22)
+	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(_title_label)
 
 	# Deck name input
 	var name_label := Label.new()
@@ -89,15 +93,15 @@ func _build_ui() -> void:
 	vbox.add_child(_name_input)
 
 	# Attribute selection
-	var attr_label := Label.new()
-	attr_label.text = "Select Attributes (1-3)"
-	attr_label.add_theme_font_size_override("font_size", 14)
-	vbox.add_child(attr_label)
+	_attr_label = Label.new()
+	_attr_label.text = "Select Attributes (1-3)"
+	_attr_label.add_theme_font_size_override("font_size", 14)
+	vbox.add_child(_attr_label)
 
-	var attr_row := HBoxContainer.new()
-	attr_row.add_theme_constant_override("separation", 8)
-	attr_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_child(attr_row)
+	_attr_row = HBoxContainer.new()
+	_attr_row.add_theme_constant_override("separation", 8)
+	_attr_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_child(_attr_row)
 
 	for attribute_id in ATTRIBUTE_IDS:
 		var button := Button.new()
@@ -106,7 +110,7 @@ func _build_ui() -> void:
 		button.custom_minimum_size = Vector2(90, 36)
 		button.add_theme_font_size_override("font_size", 13)
 		button.toggled.connect(_on_attribute_toggled.bind(attribute_id))
-		attr_row.add_child(button)
+		_attr_row.add_child(button)
 		_attribute_buttons[attribute_id] = button
 
 	# Spacer
@@ -132,6 +136,15 @@ func _build_ui() -> void:
 	_confirm_button.disabled = true
 	_confirm_button.pressed.connect(_on_confirm_pressed)
 	button_row.add_child(_confirm_button)
+
+
+func set_name_only_mode(title_text: String) -> void:
+	_name_only_mode = true
+	_attr_label.visible = false
+	_attr_row.visible = false
+	_title_label.text = title_text
+	_confirm_button.text = "Import"
+	_update_button_states()
 
 
 func set_edit_mode(deck_name: String, attribute_ids: Array) -> void:
@@ -166,9 +179,9 @@ func _update_button_states() -> void:
 		if not button.button_pressed:
 			button.disabled = at_max
 
-	# Enable confirm only when name is non-empty and at least 1 attribute selected
+	# Enable confirm only when name is non-empty (and at least 1 attribute selected, unless name-only mode)
 	var has_name := _name_input.text.strip_edges().length() > 0
-	var has_attributes := _selected_attributes.size() > 0
+	var has_attributes := _name_only_mode or _selected_attributes.size() > 0
 	_confirm_button.disabled = not (has_name and has_attributes)
 
 

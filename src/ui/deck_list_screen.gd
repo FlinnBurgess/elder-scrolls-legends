@@ -3,6 +3,8 @@ extends Control
 
 const DeckPersistenceClass = preload("res://src/deck/deck_persistence.gd")
 const DeckCreationModalClass = preload("res://src/ui/deck_creation_modal.gd")
+const CardCatalog = preload("res://src/deck/card_catalog.gd")
+const DeckCodeClass = preload("res://src/deck/deck_code.gd")
 
 signal edit_deck_requested(deck_name: String)
 signal back_pressed
@@ -10,10 +12,17 @@ signal back_pressed
 var _deck_list_container: VBoxContainer
 var _create_button: Button
 var _is_built := false
+var _card_id_to_deck_code := {}
+var _deck_code_to_card_id := {}
+var _card_by_id := {}
 
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	var catalog_result := CardCatalog.load_default()
+	_card_id_to_deck_code = catalog_result.get("card_id_to_deck_code", {})
+	_deck_code_to_card_id = catalog_result.get("deck_code_to_card_id", {})
+	_card_by_id = catalog_result.get("card_by_id", {})
 	_build_ui()
 	refresh()
 
@@ -65,6 +74,13 @@ func _build_ui() -> void:
 	_create_button.pressed.connect(_on_create_pressed)
 	button_row.add_child(_create_button)
 
+	var import_button := Button.new()
+	import_button.text = "Import Deck"
+	import_button.custom_minimum_size = Vector2(200, 44)
+	import_button.add_theme_font_size_override("font_size", 16)
+	import_button.pressed.connect(_on_import_pressed)
+	button_row.add_child(import_button)
+
 	# Scrollable deck list
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -102,6 +118,14 @@ func _build_deck_row(deck_name: String) -> Control:
 	name_button.add_theme_font_size_override("font_size", 16)
 	name_button.pressed.connect(_on_deck_selected.bind(deck_name))
 	row.add_child(name_button)
+
+	# Export button
+	var export_button := Button.new()
+	export_button.text = "Export"
+	export_button.custom_minimum_size = Vector2(80, 40)
+	export_button.add_theme_font_size_override("font_size", 14)
+	export_button.pressed.connect(_on_export_deck_pressed.bind(deck_name, export_button))
+	row.add_child(export_button)
 
 	# Delete button
 	var delete_button := Button.new()
@@ -212,6 +236,121 @@ func _on_delete_confirmed(deck_name: String, dialog: Control) -> void:
 	dialog.queue_free()
 	DeckPersistenceClass.delete_deck(deck_name)
 	refresh()
+
+
+func _on_export_deck_pressed(deck_name: String, btn: Button) -> void:
+	var definition: Dictionary = DeckPersistenceClass.load_deck(deck_name)
+	var result: Dictionary = DeckCodeClass.encode(definition, _card_id_to_deck_code)
+	if result.get("error", "") != "":
+		btn.text = "Error!"
+	else:
+		DisplayServer.clipboard_set(result.get("code", ""))
+		btn.text = "Copied!"
+	btn.disabled = true
+	get_tree().create_timer(2.0).timeout.connect(func() -> void:
+		btn.text = "Export"
+		btn.disabled = false
+	)
+
+
+func _on_import_pressed() -> void:
+	var clipboard_text := DisplayServer.clipboard_get()
+	if clipboard_text.is_empty():
+		_show_import_error("Clipboard is empty. Copy a deck code first.")
+		return
+
+	var result: Dictionary = DeckCodeClass.decode(clipboard_text.strip_edges(), _deck_code_to_card_id)
+	if result.get("error", "") != "":
+		_show_import_error(result.get("error", "Unknown error"))
+		return
+
+	var cards: Array = result.get("cards", [])
+	var unknown: Array = result.get("unknown_codes", [])
+
+	# Infer attributes from the decoded cards
+	var attribute_set := {}
+	for entry in cards:
+		var card: Dictionary = _card_by_id.get(entry.get("card_id", ""), {})
+		for attr in card.get("attributes", []):
+			attribute_set[attr] = true
+	var attribute_ids: Array = attribute_set.keys()
+	attribute_ids.sort()
+
+	# Show name-only modal for the imported deck
+	var modal := DeckCreationModalClass.new()
+	modal.confirmed.connect(_on_import_confirmed.bind(modal, cards, attribute_ids, unknown))
+	modal.cancelled.connect(_on_modal_cancelled.bind(modal))
+	add_child(modal)
+	modal.set_name_only_mode("Import Deck")
+
+
+func _on_import_confirmed(deck_name: String, _attribute_ids_from_modal: Array, modal: Control, cards: Array, inferred_attribute_ids: Array, unknown_codes: Array) -> void:
+	modal.queue_free()
+	var definition := {
+		"name": deck_name,
+		"attribute_ids": inferred_attribute_ids,
+		"cards": cards,
+	}
+	DeckPersistenceClass.save_deck(deck_name, definition)
+	if not unknown_codes.is_empty():
+		push_warning("Import: %d unknown card codes were skipped: %s" % [unknown_codes.size(), str(unknown_codes)])
+	edit_deck_requested.emit(deck_name)
+
+
+func _show_import_error(message: String) -> void:
+	var overlay := Control.new()
+	overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0, 0, 0, 0.6)
+	backdrop.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	backdrop.mouse_filter = MOUSE_FILTER_STOP
+	overlay.add_child(backdrop)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	overlay.add_child(center)
+
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(400, 150)
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.12, 0.12, 0.15, 1.0)
+	panel_style.border_color = Color(0.6, 0.3, 0.3, 1.0)
+	panel_style.set_border_width_all(2)
+	panel_style.set_corner_radius_all(12)
+	panel_style.set_content_margin_all(24)
+	panel.add_theme_stylebox_override("panel", panel_style)
+	center.add_child(panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 16)
+	panel.add_child(vbox)
+
+	var title_label := Label.new()
+	title_label.text = "Import Failed"
+	title_label.add_theme_font_size_override("font_size", 18)
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_label.add_theme_color_override("font_color", Color(0.9, 0.4, 0.4))
+	vbox.add_child(title_label)
+
+	var msg_label := Label.new()
+	msg_label.text = message
+	msg_label.add_theme_font_size_override("font_size", 14)
+	msg_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	msg_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(msg_label)
+
+	var spacer := Control.new()
+	spacer.size_flags_vertical = SIZE_EXPAND_FILL
+	vbox.add_child(spacer)
+
+	var ok_btn := Button.new()
+	ok_btn.text = "OK"
+	ok_btn.custom_minimum_size = Vector2(100, 36)
+	ok_btn.pressed.connect(overlay.queue_free)
+	vbox.add_child(ok_btn)
+
+	add_child(overlay)
 
 
 func _clear_children(node: Node) -> void:

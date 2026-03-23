@@ -108,6 +108,11 @@
 	  "items": { "type": "string" },
 	  "minItems": 1,
 	  "uniqueItems": true
+	},
+	"deck_code_id": {
+	  "type": ["string", "null"],
+	  "pattern": "^[a-zA-Z]{2}$",
+	  "description": "Two-letter deck code used in deck import/export strings. Null for uncollectible/generated cards."
 	}
   },
   "allOf": [
