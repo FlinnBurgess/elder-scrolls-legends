@@ -21,7 +21,7 @@ static func build_test_match_state() -> Dictionary:
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — 12 magicka, Mistveil Warden treasure hunt test
+	# Player 1 (you) — 12 magicka, Murkwater Guide treasure hunt test
 	var p1_health := 30
 	var p1_max_magicka := 12
 	var p1_current_magicka := 12
@@ -29,21 +29,21 @@ static func build_test_match_state() -> Dictionary:
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — card-draw creatures to trigger treasure hunt draws
+	# Player 1 hand — card-draw creatures to trigger draws from deck
 	var p1_hand_ids: Array = [
 		"neu_spider_worker",                # Cost 2, 0/1, Guard, Summon: Draw a card
 		"neu_spider_worker",                # Cost 2, 0/1, Guard, Summon: Draw a card
 		"int_elusive_schemer",              # Cost 4, 3/1, Summon: Draw a card
 		"int_elusive_schemer",              # Cost 4, 3/1, Summon: Draw a card
-		"wil_legion_shield",                # Cost 2, Guard item +1/+3 — play AFTER drawing to see buff text
 	]
 
-	# Player 1 deck — Guard cards so Mistveil Warden's treasure hunt triggers on each draw
+	# Player 1 deck — 0-cost cards so Murkwater Guide's treasure hunt triggers on first draw
 	# Index 0 is drawn first.
 	var p1_deck_ids: Array = [
-		"wil_legion_shield",                # Guard item (+1/+3) — first draw triggers hunt, gets +1/+2 → +2/+5 (green text)
-		"wil_kvatch_soldier",               # Guard creature (2/3) — won't trigger (hunt spent after first match)
-		"str_fiery_imp",                    # Non-guard creature — verifies no trigger on non-guard draws
+		"str_nord_firebrand",               # 0-cost creature (1/1, Charge) — triggers hunt, copy goes to hand
+		"str_improvised_weapon",            # 0-cost item (Breakthrough, +1/+1) — hunt spent, no copy
+		"int_lesser_ward",                  # 0-cost action (Give Ward) — hunt spent, no copy
+		"str_fiery_imp",                    # 1-cost creature — would not trigger even if hunt weren't spent
 		"str_fiery_imp",                    # Extra filler
 		"str_fiery_imp",                    # Extra filler
 		"str_fiery_imp",                    # Extra filler
@@ -54,9 +54,9 @@ static func build_test_match_state() -> Dictionary:
 
 	var p1_support_ids: Array = []
 
-	# Mistveil Warden pre-placed in field lane — hunts Guard, gives drawn Guard +1/+2
+	# Murkwater Guide pre-placed in field lane — hunts 0-cost, copies treasure to hand
 	var p1_field_creatures: Array = [
-		_make_lane_creature("player_1", "cwc_end_mistveil_warden", 100),  # 2/4, TH: Guard → +1/+2 to drawn card
+		_make_lane_creature("player_1", "cwc_agi_murkwater_guide", 100),  # 4/2, TH: 0-cost → copy to hand
 	]
 	var p1_shadow_creatures: Array = []
 

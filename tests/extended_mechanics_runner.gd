@@ -42,7 +42,8 @@ func _run_all_tests() -> bool:
 		_test_dual_wax_wane() and
 		_test_wax_creature_turn_trigger() and
 		_test_aldora_the_daring_pack() and
-		_test_mistveil_warden_pack()
+		_test_mistveil_warden_pack() and
+		_test_murkwater_guide_pack()
 	)
 
 
@@ -1205,6 +1206,117 @@ func _test_mistveil_warden_item_equip_transfers_buff() -> bool:
 		_assert(EvergreenRules.get_power(target) == 5, "Creature with buffed item should have 3+2=5 power.") and
 		_assert(EvergreenRules.get_health(target) == 8, "Creature with buffed item should have 3+5=8 health.")
 	)
+
+
+func _test_murkwater_guide_pack() -> bool:
+	return (
+		_test_murkwater_guide_copies_zero_cost() and
+		_test_murkwater_guide_copy_has_unique_id() and
+		_test_murkwater_guide_ignores_nonzero_cost() and
+		_test_murkwater_guide_spent_no_second_copy()
+	)
+
+
+func _test_murkwater_guide_copies_zero_cost() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	var guide := ScenarioFixtures.summon_creature(player, match_state, "murkwater_guide", "field", 4, 2, [], -1, {
+		"definition_id": "cwc_agi_murkwater_guide",
+		"triggered_abilities": [
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["zero_cost"], "effects": [{"op": "generate_card_to_hand", "target": "treasure_card_copy"}]},
+		],
+	})
+	# Stack deck with a 0-cost card
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "zero_cost_card", {"zone": "deck", "card_type": "creature", "cost": 0, "definition_id": "str_nord_firebrand", "power": 1, "health": 1, "base_power": 1, "base_health": 1}),
+	]
+	var hand_before: int = player.get("hand", []).size()
+	var draw := MatchTiming.draw_cards(match_state, player_id, 1, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw.get("events", []))
+	var hand: Array = player.get("hand", [])
+	# Should have drawn 1 card + 1 copy = 2 new cards in hand
+	if not _assert(hand.size() == hand_before + 2, "Hand should have 2 new cards (drawn + copy)."):
+		return false
+	# Both cards should share the same definition_id
+	var copy_count := 0
+	for c in hand:
+		if str(c.get("definition_id", "")) == "str_nord_firebrand":
+			copy_count += 1
+	return _assert(copy_count >= 2, "Hand should have at least 2 cards with definition_id 'str_nord_firebrand'.")
+
+
+func _test_murkwater_guide_copy_has_unique_id() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	var guide := ScenarioFixtures.summon_creature(player, match_state, "murkwater_guide_id", "field", 4, 2, [], -1, {
+		"definition_id": "cwc_agi_murkwater_guide",
+		"triggered_abilities": [
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["zero_cost"], "effects": [{"op": "generate_card_to_hand", "target": "treasure_card_copy"}]},
+		],
+	})
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "zero_cost_unique", {"zone": "deck", "card_type": "creature", "cost": 0, "definition_id": "str_nord_firebrand", "power": 1, "health": 1, "base_power": 1, "base_health": 1}),
+	]
+	var draw := MatchTiming.draw_cards(match_state, player_id, 1, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw.get("events", []))
+	# Find all Nord Firebrands in hand — they must have different instance_ids
+	var hand: Array = player.get("hand", [])
+	var ids: Array = []
+	for c in hand:
+		if str(c.get("definition_id", "")) == "str_nord_firebrand":
+			ids.append(str(c.get("instance_id", "")))
+	if not _assert(ids.size() == 2, "Should have 2 Nord Firebrands in hand."):
+		return false
+	return _assert(ids[0] != ids[1], "Original and copy must have different instance_ids (got '%s' and '%s')." % [ids[0], ids[1]])
+
+
+func _test_murkwater_guide_ignores_nonzero_cost() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	var guide := ScenarioFixtures.summon_creature(player, match_state, "murkwater_guide2", "field", 4, 2, [], -1, {
+		"definition_id": "cwc_agi_murkwater_guide",
+		"triggered_abilities": [
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["zero_cost"], "effects": [{"op": "generate_card_to_hand", "target": "treasure_card_copy"}]},
+		],
+	})
+	# Stack deck with a non-zero-cost card
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "costly_card", {"zone": "deck", "card_type": "creature", "cost": 3, "power": 2, "health": 2}),
+	]
+	var hand_before: int = player.get("hand", []).size()
+	var draw := MatchTiming.draw_cards(match_state, player_id, 1, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw.get("events", []))
+	var hand: Array = player.get("hand", [])
+	return _assert(hand.size() == hand_before + 1, "Hand should only have 1 new card (no copy for non-zero cost).")
+
+
+func _test_murkwater_guide_spent_no_second_copy() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	var guide := ScenarioFixtures.summon_creature(player, match_state, "murkwater_guide3", "field", 4, 2, [], -1, {
+		"definition_id": "cwc_agi_murkwater_guide",
+		"triggered_abilities": [
+			{"family": "treasure_hunt", "required_zone": "lane", "hunt_types": ["zero_cost"], "effects": [{"op": "generate_card_to_hand", "target": "treasure_card_copy"}]},
+		],
+	})
+	# Stack deck with two 0-cost cards
+	player["deck"] = [
+		ScenarioFixtures.make_card(player_id, "second_zero", {"zone": "deck", "card_type": "creature", "cost": 0, "definition_id": "str_nord_firebrand", "power": 1, "health": 1}),
+		ScenarioFixtures.make_card(player_id, "first_zero", {"zone": "deck", "card_type": "creature", "cost": 0, "definition_id": "str_nord_firebrand", "power": 1, "health": 1}),
+	]
+	# Draw first 0-cost — triggers hunt, creates copy
+	var draw1 := MatchTiming.draw_cards(match_state, player_id, 1, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw1.get("events", []))
+	var hand_after_first: int = player.get("hand", []).size()
+	# Draw second 0-cost — hunt is spent, no copy
+	var draw2 := MatchTiming.draw_cards(match_state, player_id, 1, {"reason": "test", "source_controller_player_id": player_id})
+	MatchTiming.publish_events(match_state, draw2.get("events", []))
+	var hand: Array = player.get("hand", [])
+	return _assert(hand.size() == hand_after_first + 1, "Second 0-cost draw should NOT create a copy (hunt spent).")
 
 
 func _build_started_match() -> Dictionary:

@@ -3538,6 +3538,8 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var gen_target_cards := _resolve_card_targets(match_state, trigger, event, effect)
 					if not gen_target_cards.is_empty():
 						gen_template = gen_target_cards[0].duplicate(true)
+						# Clear instance_id so build_generated_card assigns a fresh one
+						gen_template.erase("instance_id")
 				if gen_template.is_empty():
 					continue
 				var gen_count := int(effect.get("count", 1))
