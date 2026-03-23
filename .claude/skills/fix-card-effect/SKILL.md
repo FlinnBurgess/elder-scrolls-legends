@@ -217,3 +217,7 @@ Key runners to check after effect changes:
 - `extended_mechanics_runner.gd`
 - `keyword_matrix_runner.gd`
 - `golden_match_runner.gd`
+
+## Step 8: Pattern Scan
+
+After all fixes are committed and tests pass, run the `bug-pattern-scan` skill to generalize the fix into an abstract pattern class and scan for unresolved siblings across the codebase. This surfaces other cards or systems that may have the same class of bug.

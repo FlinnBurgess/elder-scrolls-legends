@@ -41,6 +41,7 @@ Process all in-game error reports that were submitted via the error reporting po
    k. Mark the task as `completed`
 4. **Continue** until all reports are processed
 5. **Summary** — after all reports are processed, present a final overview listing each report that was fixed (with a brief description of the bug and the fix applied), any reports that were skipped or deferred, and any remaining issues
+6. **Pattern scan** — if two or more reports were fixed, run the `bug-pattern-scan` skill to generalize the fixes into abstract pattern classes and scan for unresolved siblings across the codebase
 
 ## Removing Entries
 
