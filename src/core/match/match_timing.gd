@@ -2856,11 +2856,19 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					base_power = int(consumed_info.get("power", 0))
 				if str(effect.get("health_source", "")) == "consumed_creature_health" and not consumed_info.is_empty():
 					base_health = int(consumed_info.get("health", 0))
-				if str(effect.get("power_source", "")) == "self_power" or bool(effect.get("power_from_self_power", false)):
+				var ms_power_source := str(effect.get("power_source", ""))
+				if ms_power_source == "self_power" or bool(effect.get("power_from_self_power", false)):
 					var ms_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 					if not ms_source.is_empty():
 						base_power = EvergreenRules.get_power(ms_source)
-				if str(effect.get("health_source", "")) == "self_power" or bool(effect.get("health_from_self_power", false)):
+				elif ms_power_source == "self_health":
+					var ms_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+					if not ms_source.is_empty():
+						base_power = int(ms_source.get("health", 0)) - int(ms_source.get("damage_marked", 0))
+				elif ms_power_source == "event_power_gained":
+					base_power = int(event.get("power_bonus", event.get("amount", 0)))
+				var ms_health_source := str(effect.get("health_source", ""))
+				if ms_health_source == "self_power" or bool(effect.get("health_from_self_power", false)):
 					var ms_source_h := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 					if not ms_source_h.is_empty():
 						base_health = EvergreenRules.get_power(ms_source_h)
@@ -2970,7 +2978,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var heal_player := _get_player_state(match_state, player_id)
 					if heal_player.is_empty():
 						continue
-					var heal_amount := _resolve_consumed_amount(trigger, effect) * _resolve_count_multiplier(match_state, trigger, event, effect)
+					var heal_amount := _resolve_amount(trigger, effect, match_state, event) * _resolve_count_multiplier(match_state, trigger, event, effect)
 					if bool(effect.get("amount_from_event", false)):
 						heal_amount = int(event.get("amount", 0))
 					if heal_amount <= 0:
@@ -2988,7 +2996,9 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var magicka_player := _get_player_state(match_state, player_id)
 					if magicka_player.is_empty():
 						continue
-					var gain := int(effect.get("amount", 1))
+					var gain := _resolve_amount(trigger, effect, match_state, event)
+					if gain == 0:
+						gain = int(effect.get("amount", 1))
 					magicka_player["max_magicka"] = int(magicka_player.get("max_magicka", 0)) + gain
 					magicka_player["current_magicka"] = int(magicka_player.get("current_magicka", 0)) + gain
 					# Apply max_magicka_cap passive from any creature in play
@@ -3028,7 +3038,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							"new_health": available,
 						})
 			"deal_damage":
-				var damage_amount := _resolve_consumed_amount(trigger, effect) * _resolve_count_multiplier(match_state, trigger, event, effect)
+				var damage_amount := _resolve_amount(trigger, effect, match_state, event) * _resolve_count_multiplier(match_state, trigger, event, effect)
 				var dd_empower_bonus := int(effect.get("empower_bonus", 0))
 				if dd_empower_bonus > 0:
 					damage_amount += dd_empower_bonus * _get_empower_amount(match_state, str(trigger.get("controller_player_id", "")))
@@ -6532,7 +6542,11 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 									pla_trigger["descriptor"] = pla_ab
 									generated_events.append_array(_apply_effects(match_state, pla_trigger, event, {}))
 			_:
-				var custom_result := ExtendedMechanicPacks.apply_custom_effect(match_state, trigger, event, effect)
+				var resolved_effect := effect
+				if effect.has("amount_source") and not str(effect.get("amount_source", "")).is_empty():
+					resolved_effect = effect.duplicate(true)
+					resolved_effect["amount"] = _resolve_amount(trigger, effect, match_state, event)
+				var custom_result := ExtendedMechanicPacks.apply_custom_effect(match_state, trigger, event, resolved_effect)
 				if bool(custom_result.get("handled", false)):
 					generated_events.append_array(custom_result.get("events", []))
 	return generated_events
@@ -7016,13 +7030,35 @@ static func _resolve_copies_in_hand_and_deck(match_state: Dictionary, trigger: D
 
 ## Resolve an effect amount, checking for consumed_creature_* source references.
 static func _resolve_consumed_amount(trigger: Dictionary, effect: Dictionary) -> int:
+	return _resolve_amount(trigger, effect, {}, {})
+
+
+static func _resolve_amount(trigger: Dictionary, effect: Dictionary, match_state: Dictionary, event: Dictionary) -> int:
 	var amount_source := str(effect.get("amount_source", ""))
+	if amount_source.is_empty():
+		return int(effect.get("amount", 0))
 	if amount_source.begins_with("consumed_creature_"):
 		var consumed_info: Dictionary = _get_consumed_card_info(trigger)
 		if amount_source == "consumed_creature_power":
 			return int(consumed_info.get("power", 0))
 		elif amount_source == "consumed_creature_health":
 			return int(consumed_info.get("health", 0))
+	if amount_source == "self_power":
+		var source_card := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+		if not source_card.is_empty():
+			return EvergreenRules.get_power(source_card)
+	if amount_source == "self_health":
+		var source_card := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+		if not source_card.is_empty():
+			return int(source_card.get("health", 0)) - int(source_card.get("damage_marked", 0))
+	if amount_source == "self_power_plus_health":
+		var source_card := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+		if not source_card.is_empty():
+			return EvergreenRules.get_power(source_card) + int(source_card.get("health", 0)) - int(source_card.get("damage_marked", 0))
+	if amount_source == "damage_taken":
+		return int(event.get("damage_amount", event.get("amount", 0)))
+	if amount_source == "heal_amount":
+		return int(event.get("amount", 0))
 	return int(effect.get("amount", 0))
 
 
