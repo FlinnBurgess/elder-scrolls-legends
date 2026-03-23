@@ -6520,7 +6520,7 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 				for card in slots:
 					if typeof(card) == TYPE_DICTIONARY:
 						targets.append(card)
-		"all_friendly":
+		"all_friendly", "all_other_friendly":
 			var controller_id := str(trigger.get("controller_player_id", ""))
 			var self_id := str(trigger.get("source_instance_id", ""))
 			for lane in match_state.get("lanes", []):
