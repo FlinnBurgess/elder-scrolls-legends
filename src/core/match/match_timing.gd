@@ -6520,7 +6520,7 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 				for card in slots:
 					if typeof(card) == TYPE_DICTIONARY:
 						targets.append(card)
-		"all_friendly", "all_other_friendly":
+		"all_friendly", "all_other_friendly", "all_friendly_creatures", "all_friendly_by_subtype":
 			var controller_id := str(trigger.get("controller_player_id", ""))
 			var self_id := str(trigger.get("source_instance_id", ""))
 			for lane in match_state.get("lanes", []):
@@ -6528,6 +6528,27 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 				for card in slots:
 					if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) != self_id:
 						targets.append(card)
+		"all_creatures", "all_other_creatures":
+			var self_id := str(trigger.get("source_instance_id", ""))
+			var exclude_self := target == "all_other_creatures"
+			for lane in match_state.get("lanes", []):
+				var player_slots: Dictionary = lane.get("player_slots", {})
+				for pid in player_slots.keys():
+					for card in player_slots[pid]:
+						if typeof(card) == TYPE_DICTIONARY:
+							if exclude_self and str(card.get("instance_id", "")) == self_id:
+								continue
+							targets.append(card)
+		"all_other_creatures_in_lane":
+			var lane_index := int(trigger.get("lane_index", -1))
+			var self_id := str(trigger.get("source_instance_id", ""))
+			var lanes: Array = match_state.get("lanes", [])
+			if lane_index >= 0 and lane_index < lanes.size():
+				var player_slots: Dictionary = lanes[lane_index].get("player_slots", {})
+				for pid in player_slots.keys():
+					for card in player_slots[pid]:
+						if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) != self_id:
+							targets.append(card)
 		"all_creatures_in_lane":
 			var lane_index := int(trigger.get("lane_index", -1))
 			var lanes: Array = match_state.get("lanes", [])
