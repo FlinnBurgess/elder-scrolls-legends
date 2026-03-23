@@ -4932,12 +4932,25 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				var sfdf_player := _get_player_state(match_state, sfdf_controller_id)
 				if not sfdf_player.is_empty():
 					var sfdf_deck: Array = sfdf_player.get(ZONE_DECK, [])
-					var sfdf_filter_subtype := str(effect.get("filter_subtype", ""))
-					var sfdf_filter_attribute := str(effect.get("filter_attribute", ""))
-					var sfdf_filter_type := str(effect.get("filter_card_type", CARD_TYPE_CREATURE))
+					# Read filter from nested "filter" dict or top-level effect fields
+					var sfdf_filter: Dictionary = effect.get("filter", {})
+					if typeof(sfdf_filter) != TYPE_DICTIONARY:
+						sfdf_filter = {}
+					var sfdf_filter_subtype := str(sfdf_filter.get("subtype", effect.get("filter_subtype", "")))
+					var sfdf_filter_attribute := str(sfdf_filter.get("attribute", effect.get("filter_attribute", "")))
+					var sfdf_filter_type := str(sfdf_filter.get("card_type", effect.get("filter_card_type", CARD_TYPE_CREATURE)))
+					# Cost filtering
+					var sfdf_max_cost := int(sfdf_filter.get("max_cost", effect.get("max_cost", -1)))
+					var sfdf_max_cost_source := str(sfdf_filter.get("max_cost_source", ""))
+					if sfdf_max_cost_source == "self_power":
+						var sfdf_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+						if not sfdf_source.is_empty():
+							sfdf_max_cost = EvergreenRules.get_power(sfdf_source)
 					var sfdf_candidates: Array = []
 					for sfdf_card in sfdf_deck:
 						if str(sfdf_card.get("card_type", "")) != sfdf_filter_type:
+							continue
+						if sfdf_max_cost >= 0 and int(sfdf_card.get("cost", 0)) >= sfdf_max_cost:
 							continue
 						if not sfdf_filter_subtype.is_empty():
 							var sfdf_subtypes = sfdf_card.get("subtypes", [])
@@ -4953,13 +4966,23 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						var sfdf_target: Dictionary = sfdf_candidates[sfdf_idx]
 						sfdf_deck.erase(sfdf_target)
 						sfdf_target.erase("zone")
-						var sfdf_lane_id := _resolve_summon_lane_id(match_state, trigger, event, effect, sfdf_controller_id)
-						if not sfdf_lane_id.is_empty():
-							var sfdf_result := MatchMutations.summon_card_to_lane(match_state, sfdf_controller_id, sfdf_target, sfdf_lane_id, {"source_zone": ZONE_DECK})
-							if bool(sfdf_result.get("is_valid", false)):
-								generated_events.append_array(sfdf_result.get("events", []))
-								generated_events.append(_build_summon_event(sfdf_result["card"], sfdf_controller_id, sfdf_lane_id, int(sfdf_result.get("slot_index", -1)), reason))
-								_check_summon_abilities(match_state, sfdf_result["card"])
+						if sfdf_filter_type == "support":
+							# Supports go to the support zone, not a lane
+							sfdf_target["zone"] = MatchMutations.ZONE_SUPPORT
+							sfdf_target["controller_player_id"] = sfdf_controller_id
+							if not sfdf_target.has("owner_player_id"):
+								sfdf_target["owner_player_id"] = sfdf_controller_id
+							var sfdf_supports: Array = sfdf_player.get(MatchMutations.ZONE_SUPPORT, [])
+							sfdf_supports.append(sfdf_target)
+							generated_events.append({"event_type": EVENT_CARD_PLAYED, "playing_player_id": sfdf_controller_id, "player_id": sfdf_controller_id, "source_instance_id": str(sfdf_target.get("instance_id", "")), "source_zone": "deck", "target_zone": MatchMutations.ZONE_SUPPORT, "card_type": "support", "reason": reason})
+						else:
+							var sfdf_lane_id := _resolve_summon_lane_id(match_state, trigger, event, effect, sfdf_controller_id)
+							if not sfdf_lane_id.is_empty():
+								var sfdf_result := MatchMutations.summon_card_to_lane(match_state, sfdf_controller_id, sfdf_target, sfdf_lane_id, {"source_zone": ZONE_DECK})
+								if bool(sfdf_result.get("is_valid", false)):
+									generated_events.append_array(sfdf_result.get("events", []))
+									generated_events.append(_build_summon_event(sfdf_result["card"], sfdf_controller_id, sfdf_lane_id, int(sfdf_result.get("slot_index", -1)), reason))
+									_check_summon_abilities(match_state, sfdf_result["card"])
 			"summon_random_creature", "summon_random_by_cost":
 				# Delegate to summon_random_from_catalog with appropriate filters
 				var src_filter: Dictionary = {"card_type": "creature"}
