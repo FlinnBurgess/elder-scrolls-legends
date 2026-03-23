@@ -191,6 +191,7 @@ static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionar
 		match_state["phase"] = "complete"
 	if not events.is_empty():
 		MatchTiming.publish_events(match_state, events)
+	MatchTiming.queue_turn_trigger_targets(match_state, player_id)
 	return match_state
 
 
@@ -240,6 +241,11 @@ static func _clear_temporary_stat_bonuses(match_state: Dictionary) -> void:
 					continue
 				EvergreenRules.clear_temporary_stat_bonuses(card, current_turn)
 				EvergreenRules.clear_temporary_keywords(card, current_turn)
+				var temp_statuses: Array = card.get("_temp_statuses", [])
+				for status_id in temp_statuses:
+					EvergreenRules.remove_status(card, str(status_id))
+				if not temp_statuses.is_empty():
+					card["_temp_statuses"] = []
 
 
 static func _expire_shadow_cover_if_needed(card: Dictionary, current_turn_number: int) -> void:

@@ -184,8 +184,8 @@ const FAMILY_SPECS := {
 	FAMILY_ON_PLAYER_HEALTH_ZERO: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "target_player_is_controller", "target_type": "player"},
 	FAMILY_WAX: {"event_type": EVENT_TURN_STARTED, "window": WINDOW_AFTER, "match_role": "controller", "required_wax_wane_phase": "wax"},
 	FAMILY_WANE: {"event_type": EVENT_TURN_STARTED, "window": WINDOW_AFTER, "match_role": "controller", "required_wax_wane_phase": "wane"},
-	FAMILY_ON_FRIENDLY_WAX: {"event_type": EVENT_TURN_STARTED, "window": WINDOW_AFTER, "match_role": "controller", "required_wax_wane_phase": "wax"},
-	FAMILY_ON_FRIENDLY_WANE: {"event_type": EVENT_TURN_STARTED, "window": WINDOW_AFTER, "match_role": "controller", "required_wax_wane_phase": "wane"},
+	FAMILY_ON_FRIENDLY_WAX: {"event_type": EVENT_CARD_PLAYED, "window": WINDOW_AFTER, "match_role": "controller", "required_wax_wane_phase": "wax", "exclude_self": true},
+	FAMILY_ON_FRIENDLY_WANE: {"event_type": EVENT_CARD_PLAYED, "window": WINDOW_AFTER, "match_role": "controller", "required_wax_wane_phase": "wane", "exclude_self": true},
 	FAMILY_EXALT: {"event_type": EVENT_CREATURE_SUMMONED, "window": WINDOW_AFTER, "match_role": "source"},
 	FAMILY_ON_RALLY_EMPTY_HAND: {"event_type": "rally_triggered", "window": WINDOW_AFTER, "match_role": "controller"},
 	FAMILY_ON_GAIN_MAX_MAGICKA: {"event_type": "max_magicka_gained", "window": WINDOW_AFTER, "match_role": "target_player_is_controller"},
@@ -230,6 +230,8 @@ static func ensure_match_state(match_state: Dictionary) -> void:
 		match_state["pending_rune_break_queue"] = []
 	if not match_state.has("pending_summon_effect_targets") or typeof(match_state["pending_summon_effect_targets"]) != TYPE_ARRAY:
 		match_state["pending_summon_effect_targets"] = []
+	if not match_state.has("pending_turn_trigger_targets") or typeof(match_state["pending_turn_trigger_targets"]) != TYPE_ARRAY:
+		match_state["pending_turn_trigger_targets"] = []
 	if not match_state.has("pending_consume_selections") or typeof(match_state["pending_consume_selections"]) != TYPE_ARRAY:
 		match_state["pending_consume_selections"] = []
 	if not match_state.has("pending_deck_selections") or typeof(match_state["pending_deck_selections"]) != TYPE_ARRAY:
@@ -544,6 +546,14 @@ static func get_valid_targets_for_mode(match_state: Dictionary, source_instance_
 					if aic_has_in_each:
 						return false  # Condition met, immune
 			return true
+		)
+		# action_immune status: opponent's actions cannot target this creature
+		targets = targets.filter(func(c):
+			if not c.has("instance_id"):
+				return true
+			if str(c.get("controller_player_id", "")) == controller_id:
+				return true
+			return not EvergreenRules.has_raw_status(c, "action_immune")
 		)
 	# Convert to target info format
 	var result: Array = []
@@ -1151,6 +1161,175 @@ static func decline_pending_summon_effect_target(match_state: Dictionary, player
 			break
 	if idx == -1:
 		return {"is_valid": false, "errors": ["No pending summon effect target for %s." % player_id]}
+	pending.remove_at(idx)
+	return {"is_valid": true, "events": [], "trigger_resolutions": []}
+
+
+## Pending turn trigger target system — for wax/wane triggers with target_mode.
+## These triggers fire at turn start but need the player to pick a target.
+
+static func queue_turn_trigger_targets(match_state: Dictionary, player_id: String) -> void:
+	ensure_match_state(match_state)
+	var ww_families := [FAMILY_WAX, FAMILY_WANE]
+	var player := _get_player_state(match_state, player_id)
+	if player.is_empty():
+		return
+	var wax_wane_state := str(player.get("wax_wane_state", "wax"))
+	var matching_family := FAMILY_WAX if wax_wane_state == "wax" else FAMILY_WANE
+	for lane in match_state.get("lanes", []):
+		var lane_index := int(lane.get("lane_index", 0))
+		var slots: Array = lane.get("player_slots", {}).get(player_id, [])
+		for slot_index in range(slots.size()):
+			var card = slots[slot_index]
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			var abilities = card.get("triggered_abilities", [])
+			if typeof(abilities) != TYPE_ARRAY:
+				continue
+			for trigger_index in range(abilities.size()):
+				var descriptor = abilities[trigger_index]
+				if typeof(descriptor) != TYPE_DICTIONARY:
+					continue
+				var family := str(descriptor.get("family", ""))
+				if family != matching_family:
+					continue
+				if str(descriptor.get("target_mode", "")).is_empty():
+					continue  # No target needed, fires automatically
+				if not bool(descriptor.get("enabled", true)):
+					continue
+				if descriptor.has("required_zone") and str(descriptor.get("required_zone", "")) != ZONE_LANE:
+					continue
+				# Check for dual wax/wane: also queue the opposite family's target triggers
+				var instance_id := str(card.get("instance_id", ""))
+				var valid := get_valid_targets_for_mode(match_state, instance_id, str(descriptor.get("target_mode", "")), descriptor)
+				if valid.is_empty():
+					continue  # No valid targets, fizzle silently
+				var pending_arr: Array = match_state.get("pending_turn_trigger_targets", [])
+				pending_arr.append({
+					"player_id": player_id,
+					"source_instance_id": instance_id,
+					"trigger_index": trigger_index,
+					"target_mode": str(descriptor.get("target_mode", "")),
+					"family": family,
+				})
+	# Also queue opposite-phase target triggers if dual wax/wane is active
+	if bool(player.get("_dual_wax_wane", false)):
+		var dual_family := FAMILY_WANE if wax_wane_state == "wax" else FAMILY_WAX
+		for lane in match_state.get("lanes", []):
+			var lane_index := int(lane.get("lane_index", 0))
+			var slots: Array = lane.get("player_slots", {}).get(player_id, [])
+			for slot_index in range(slots.size()):
+				var card = slots[slot_index]
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				var abilities = card.get("triggered_abilities", [])
+				if typeof(abilities) != TYPE_ARRAY:
+					continue
+				for trigger_index in range(abilities.size()):
+					var descriptor = abilities[trigger_index]
+					if typeof(descriptor) != TYPE_DICTIONARY:
+						continue
+					if str(descriptor.get("family", "")) != dual_family:
+						continue
+					if str(descriptor.get("target_mode", "")).is_empty():
+						continue
+					if not bool(descriptor.get("enabled", true)):
+						continue
+					if descriptor.has("required_zone") and str(descriptor.get("required_zone", "")) != ZONE_LANE:
+						continue
+					var instance_id := str(card.get("instance_id", ""))
+					var valid := get_valid_targets_for_mode(match_state, instance_id, str(descriptor.get("target_mode", "")), descriptor)
+					if valid.is_empty():
+						continue
+					var pending_arr: Array = match_state.get("pending_turn_trigger_targets", [])
+					pending_arr.append({
+						"player_id": player_id,
+						"source_instance_id": instance_id,
+						"trigger_index": trigger_index,
+						"target_mode": str(descriptor.get("target_mode", "")),
+						"family": dual_family,
+					})
+
+
+static func has_pending_turn_trigger_target(match_state: Dictionary, player_id: String) -> bool:
+	for entry in match_state.get("pending_turn_trigger_targets", []):
+		if typeof(entry) == TYPE_DICTIONARY and str(entry.get("player_id", "")) == player_id:
+			return true
+	return false
+
+
+static func get_pending_turn_trigger_target(match_state: Dictionary, player_id: String) -> Dictionary:
+	for entry in match_state.get("pending_turn_trigger_targets", []):
+		if typeof(entry) == TYPE_DICTIONARY and str(entry.get("player_id", "")) == player_id:
+			return entry.duplicate(true)
+	return {}
+
+
+static func resolve_pending_turn_trigger_target(match_state: Dictionary, player_id: String, target_info: Dictionary) -> Dictionary:
+	ensure_match_state(match_state)
+	var pending: Array = match_state.get("pending_turn_trigger_targets", [])
+	var idx := -1
+	var entry := {}
+	for i in range(pending.size()):
+		if typeof(pending[i]) == TYPE_DICTIONARY and str(pending[i].get("player_id", "")) == player_id:
+			idx = i
+			entry = pending[i]
+			break
+	if idx == -1:
+		return {"is_valid": false, "errors": ["No pending turn trigger target for %s." % player_id]}
+	pending.remove_at(idx)
+	var source_id := str(entry.get("source_instance_id", ""))
+	var trigger_index := int(entry.get("trigger_index", 0))
+	var source_card := _find_card_anywhere(match_state, source_id)
+	if source_card.is_empty():
+		return {"is_valid": true, "events": [], "trigger_resolutions": []}
+	var abilities = source_card.get("triggered_abilities", [])
+	if typeof(abilities) != TYPE_ARRAY or trigger_index >= abilities.size():
+		return {"is_valid": true, "events": [], "trigger_resolutions": []}
+	var descriptor: Dictionary = abilities[trigger_index]
+	var controller_id := str(source_card.get("controller_player_id", player_id))
+	var target_instance_id := str(target_info.get("instance_id", ""))
+	var target_player_id := str(target_info.get("player_id", ""))
+	# Build a synthetic trigger with the chosen target
+	var lane_index := _get_card_lane_index(match_state, source_id)
+	var synthetic_trigger := {
+		"trigger_id": "%s_turn_target_%d" % [source_id, trigger_index],
+		"trigger_index": trigger_index,
+		"source_instance_id": source_id,
+		"owner_player_id": str(source_card.get("owner_player_id", controller_id)),
+		"controller_player_id": controller_id,
+		"source_zone": ZONE_LANE,
+		"lane_index": lane_index,
+		"slot_index": -1,
+		"descriptor": descriptor.duplicate(true),
+		"_chosen_target_id": target_instance_id,
+		"_chosen_target_player_id": target_player_id,
+	}
+	var synthetic_event := {
+		"event_type": EVENT_TURN_STARTED,
+		"player_id": controller_id,
+		"source_controller_player_id": controller_id,
+	}
+	var resolution := _build_trigger_resolution(match_state, synthetic_trigger, synthetic_event)
+	var generated := _apply_effects(match_state, synthetic_trigger, synthetic_event, resolution)
+	# Process any generated events
+	if not generated.is_empty():
+		var timing_result := publish_events(match_state, generated)
+		var all_events: Array = timing_result.get("processed_events", [])
+		return {"is_valid": true, "events": all_events, "trigger_resolutions": timing_result.get("trigger_resolutions", [])}
+	return {"is_valid": true, "events": [], "trigger_resolutions": [resolution]}
+
+
+static func decline_pending_turn_trigger_target(match_state: Dictionary, player_id: String) -> Dictionary:
+	ensure_match_state(match_state)
+	var pending: Array = match_state.get("pending_turn_trigger_targets", [])
+	var idx := -1
+	for i in range(pending.size()):
+		if typeof(pending[i]) == TYPE_DICTIONARY and str(pending[i].get("player_id", "")) == player_id:
+			idx = i
+			break
+	if idx == -1:
+		return {"is_valid": false, "errors": ["No pending turn trigger target for %s." % player_id]}
 	pending.remove_at(idx)
 	return {"is_valid": true, "events": [], "trigger_resolutions": []}
 
@@ -2898,6 +3077,11 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						EvergreenRules.grant_cover(card, int(match_state.get("turn_number", 0)) + offset, reason)
 					else:
 						EvergreenRules.add_status(card, status_id)
+						if bool(effect.get("expires_end_of_turn", false)):
+							var temp_statuses: Array = card.get("_temp_statuses", [])
+							if not temp_statuses.has(status_id):
+								temp_statuses.append(status_id)
+							card["_temp_statuses"] = temp_statuses
 					generated_events.append({
 						"event_type": "status_granted",
 						"source_instance_id": str(trigger.get("source_instance_id", "")),
@@ -3398,20 +3582,27 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					for lane in match_state.get("lanes", []):
 						summon_lane_ids.append(str(lane.get("lane_id", "")))
 				else:
-					var single_lane_id := str(effect.get("lane_id", effect.get("target_lane_id", event.get("lane_id", ""))))
-					if single_lane_id == "other_lane":
+					var single_lane_id := str(effect.get("lane_id", effect.get("target_lane_id", effect.get("lane", event.get("lane_id", "")))))
+					if single_lane_id == "same":
+						single_lane_id = str(event.get("lane_id", ""))
+					if single_lane_id == "other_lane" or single_lane_id == "other":
 						var source_lane_id := str(event.get("lane_id", ""))
+						if source_lane_id.is_empty():
+							var tli := int(trigger.get("lane_index", -1))
+							var all_lanes: Array = match_state.get("lanes", [])
+							if tli >= 0 and tli < all_lanes.size():
+								source_lane_id = str(all_lanes[tli].get("lane_id", ""))
 						for lane in match_state.get("lanes", []):
 							var lid := str(lane.get("lane_id", ""))
 							if lid != source_lane_id and not lid.is_empty():
 								single_lane_id = lid
 								break
-					if single_lane_id.is_empty() or single_lane_id == "other_lane":
+					if single_lane_id.is_empty() or single_lane_id == "other_lane" or single_lane_id == "other":
 						var trigger_lane_index := int(trigger.get("lane_index", -1))
 						var lanes: Array = match_state.get("lanes", [])
 						if trigger_lane_index >= 0 and trigger_lane_index < lanes.size():
 							single_lane_id = str(lanes[trigger_lane_index].get("lane_id", ""))
-					if single_lane_id.is_empty() or single_lane_id == "other_lane":
+					if single_lane_id.is_empty() or single_lane_id == "other_lane" or single_lane_id == "other":
 						continue
 					summon_lane_ids.append(single_lane_id)
 				if bool(effect.get("require_wounded_enemy_in_lane", false)):
@@ -6229,17 +6420,13 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				if not cdcb_source.is_empty():
 					cdcb_source["_drawn_card_bonus"] = effect.get("bonus", {})
 			"trigger_wax":
+				var tw_source_id := str(trigger.get("source_instance_id", ""))
 				var tw_controller_id := str(trigger.get("controller_player_id", ""))
-				var tw_player := _get_player_state(match_state, tw_controller_id)
-				if not tw_player.is_empty():
-					tw_player["wax_wane_state"] = "wax"
-					generated_events.append({"event_type": EVENT_TURN_STARTED, "player_id": tw_controller_id, "source_controller_player_id": tw_controller_id, "reason": "trigger_wax"})
+				generated_events.append_array(_fire_wax_wane_on_other_friendly(match_state, tw_controller_id, tw_source_id, FAMILY_WAX))
 			"trigger_wane":
+				var twn_source_id := str(trigger.get("source_instance_id", ""))
 				var twn_controller_id := str(trigger.get("controller_player_id", ""))
-				var twn_player := _get_player_state(match_state, twn_controller_id)
-				if not twn_player.is_empty():
-					twn_player["wax_wane_state"] = "wane"
-					generated_events.append({"event_type": EVENT_TURN_STARTED, "player_id": twn_controller_id, "source_controller_player_id": twn_controller_id, "reason": "trigger_wane"})
+				generated_events.append_array(_fire_wax_wane_on_other_friendly(match_state, twn_controller_id, twn_source_id, FAMILY_WANE))
 			"enable_dual_wax_wane":
 				var edww_controller_id := str(trigger.get("controller_player_id", ""))
 				var edww_player := _get_player_state(match_state, edww_controller_id)
@@ -7641,6 +7828,66 @@ static func _is_immune_to_effect(match_state: Dictionary, target_card: Dictionar
 			if typeof(immunities) == TYPE_ARRAY and immunities.has(effect_type):
 				return true
 	return false
+
+
+static func _fire_wax_wane_on_other_friendly(match_state: Dictionary, controller_id: String, exclude_instance_id: String, family: String) -> Array:
+	# Prevent re-entrant trigger_wax/trigger_wane from causing infinite loops
+	# (e.g. two Rebellion Generals triggering each other)
+	var active_set: Array = match_state.get("_active_forced_wax_wane", [])
+	if active_set.has(exclude_instance_id):
+		return []
+	active_set.append(exclude_instance_id)
+	match_state["_active_forced_wax_wane"] = active_set
+	var generated_events: Array = []
+	var synthetic_event := {
+		"event_type": EVENT_TURN_STARTED,
+		"player_id": controller_id,
+		"source_controller_player_id": controller_id,
+		"reason": "trigger_%s" % family,
+	}
+	for lane in match_state.get("lanes", []):
+		var lane_index := int(lane.get("lane_index", 0))
+		var slots: Array = lane.get("player_slots", {}).get(controller_id, [])
+		for slot_index in range(slots.size()):
+			var card = slots[slot_index]
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			var card_id := str(card.get("instance_id", ""))
+			if card_id == exclude_instance_id or active_set.has(card_id):
+				continue
+			var abilities = card.get("triggered_abilities", [])
+			if typeof(abilities) != TYPE_ARRAY:
+				continue
+			for trigger_index in range(abilities.size()):
+				var descriptor = abilities[trigger_index]
+				if typeof(descriptor) != TYPE_DICTIONARY:
+					continue
+				if str(descriptor.get("family", "")) != family:
+					continue
+				if not bool(descriptor.get("enabled", true)):
+					continue
+				if descriptor.has("required_zone") and str(descriptor.get("required_zone", "")) != ZONE_LANE:
+					continue
+				if not str(descriptor.get("target_mode", "")).is_empty():
+					continue  # Target-mode triggers need pending selection; skip here
+				var instance_id := str(card.get("instance_id", ""))
+				var synthetic_trigger := {
+					"trigger_id": "%s_forced_%s_%d" % [instance_id, family, trigger_index],
+					"trigger_index": trigger_index,
+					"source_instance_id": instance_id,
+					"owner_player_id": str(card.get("owner_player_id", controller_id)),
+					"controller_player_id": str(card.get("controller_player_id", controller_id)),
+					"source_zone": ZONE_LANE,
+					"lane_index": lane_index,
+					"slot_index": slot_index,
+					"descriptor": descriptor.duplicate(true),
+				}
+				var resolution := _build_trigger_resolution(match_state, synthetic_trigger, synthetic_event)
+				generated_events.append_array(_apply_effects(match_state, synthetic_trigger, synthetic_event, resolution))
+	active_set.erase(exclude_instance_id)
+	if active_set.is_empty():
+		match_state.erase("_active_forced_wax_wane")
+	return generated_events
 
 
 static func _find_card_anywhere(match_state: Dictionary, instance_id: String) -> Dictionary:

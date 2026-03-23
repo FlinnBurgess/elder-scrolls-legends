@@ -112,6 +112,17 @@ static func execute_action(match_state: Dictionary, action: Dictionary) -> Dicti
 			result = MatchTiming.resolve_pending_summon_effect_target(match_state, player_id, set_target_info)
 		MatchActionEnumerator.KIND_DECLINE_SUMMON_EFFECT_TARGET:
 			result = MatchTiming.decline_pending_summon_effect_target(match_state, player_id)
+		MatchActionEnumerator.KIND_CHOOSE_TURN_TRIGGER_TARGET:
+			var tt_target_info := {}
+			var tt_tid := str(parameters.get("target_instance_id", ""))
+			var tt_tpid := str(parameters.get("target_player_id", ""))
+			if not tt_tid.is_empty():
+				tt_target_info["instance_id"] = tt_tid
+			if not tt_tpid.is_empty():
+				tt_target_info["player_id"] = tt_tpid
+			result = MatchTiming.resolve_pending_turn_trigger_target(match_state, player_id, tt_target_info)
+		MatchActionEnumerator.KIND_DECLINE_TURN_TRIGGER_TARGET:
+			result = MatchTiming.decline_pending_turn_trigger_target(match_state, player_id)
 		_:
 			return {"is_valid": false, "errors": ["Unsupported action kind: %s" % kind], "match_state": match_state}
 	result["match_state"] = match_state

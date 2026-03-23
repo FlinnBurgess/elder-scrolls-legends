@@ -1147,6 +1147,7 @@ func end_turn_action() -> bool:
 	_selected_instance_id = ""
 	_status_message = "Ended %s's turn." % _player_name(player_id)
 	_refresh_ui()
+	_check_pending_turn_trigger_target()
 	if _arena_mode:
 		match_state_changed.emit(_match_state.duplicate(true))
 	return true
@@ -5612,6 +5613,9 @@ func _action_target_mode_allows(action_card: Dictionary, target_instance_id: Str
 	var target_card := _card_from_instance_id(target_instance_id)
 	if target_card.is_empty():
 		return false
+	# action_immune: opponent's actions cannot target this creature
+	if str(target_card.get("controller_player_id", "")) != controller_id and EvergreenRules.has_raw_status(target_card, "action_immune"):
+		return false
 	var target_controller := str(target_card.get("controller_player_id", ""))
 	var mode_allowed := true
 	match atm:
@@ -6906,7 +6910,7 @@ func _is_local_prophecy_interrupt_open() -> bool:
 
 
 func _local_player_has_pending_interrupt() -> bool:
-	return _is_local_prophecy_interrupt_open() or not _pending_summon_target.is_empty() or _has_local_pending_discard_choice() or _has_local_pending_consume_selection() or _has_local_pending_deck_selection() or not _hand_selection_state.is_empty() or MatchTiming.has_pending_summon_effect_target(_match_state, _local_player_id())
+	return _is_local_prophecy_interrupt_open() or not _pending_summon_target.is_empty() or _has_local_pending_discard_choice() or _has_local_pending_consume_selection() or _has_local_pending_deck_selection() or not _hand_selection_state.is_empty() or MatchTiming.has_pending_summon_effect_target(_match_state, _local_player_id()) or MatchTiming.has_pending_turn_trigger_target(_match_state, _local_player_id())
 
 
 func _is_local_match_ai_enabled() -> bool:
@@ -7765,10 +7769,15 @@ func _resolve_summon_target_card(target_instance_id: String) -> void:
 		_report_invalid_interaction("Not a valid target.", {"instance_ids": [target_instance_id]})
 		return
 	var is_effect_summon := bool(_pending_summon_target.get("is_effect_summon", false))
+	var is_turn_trigger := bool(_pending_summon_target.get("is_turn_trigger", false))
 	_pending_summon_target = {}
 	_dismiss_summon_skip_button()
 	_cancel_targeting_mode_silent()
-	if is_effect_summon:
+	if is_turn_trigger:
+		var result := MatchTiming.resolve_pending_turn_trigger_target(_match_state, _local_player_id(), {"instance_id": target_instance_id})
+		_finalize_engine_result(result, "Targeted %s." % _card_name(_card_from_instance_id(target_instance_id)))
+		_check_pending_turn_trigger_target()
+	elif is_effect_summon:
 		var result := MatchTiming.resolve_pending_summon_effect_target(_match_state, _local_player_id(), {"target_instance_id": target_instance_id})
 		_finalize_engine_result(result, "Targeted %s." % _card_name(_card_from_instance_id(target_instance_id)))
 	else:
@@ -7788,9 +7797,14 @@ func _resolve_summon_target_player(player_id: String) -> void:
 		_report_invalid_interaction("Not a valid target.", {"player_ids": [player_id]})
 		return
 	var is_effect_summon := bool(_pending_summon_target.get("is_effect_summon", false))
+	var is_turn_trigger := bool(_pending_summon_target.get("is_turn_trigger", false))
 	_pending_summon_target = {}
 	_cancel_targeting_mode_silent()
-	if is_effect_summon:
+	if is_turn_trigger:
+		var result := MatchTiming.resolve_pending_turn_trigger_target(_match_state, _local_player_id(), {"player_id": player_id})
+		_finalize_engine_result(result, "Targeted %s." % _player_name(player_id))
+		_check_pending_turn_trigger_target()
+	elif is_effect_summon:
 		var result := MatchTiming.resolve_pending_summon_effect_target(_match_state, _local_player_id(), {"target_player_id": player_id})
 		_finalize_engine_result(result, "Targeted %s." % _player_name(player_id))
 	else:
@@ -7813,6 +7827,15 @@ func _is_pending_summon_mandatory() -> bool:
 
 
 func _cancel_summon_target_mode() -> void:
+	if bool(_pending_summon_target.get("is_turn_trigger", false)):
+		MatchTiming.decline_pending_turn_trigger_target(_match_state, _local_player_id())
+		_pending_summon_target = {}
+		_dismiss_summon_skip_button()
+		_cancel_targeting_mode()
+		_status_message = "Effect declined."
+		_refresh_ui()
+		_check_pending_turn_trigger_target()  # Check for more
+		return
 	if bool(_pending_summon_target.get("is_effect_summon", false)):
 		MatchTiming.decline_pending_summon_effect_target(_match_state, _local_player_id())
 	_pending_summon_target = {}
@@ -7848,6 +7871,38 @@ func _check_pending_summon_effect_target() -> void:
 	_status_message = _summon_target_prompt(card, abilities)
 	if not _is_pending_summon_mandatory():
 		_show_summon_skip_button()
+	_refresh_ui()
+
+
+func _check_pending_turn_trigger_target() -> void:
+	var local_id := _local_player_id()
+	if not MatchTiming.has_pending_turn_trigger_target(_match_state, local_id):
+		return
+	if not _pending_summon_target.is_empty():
+		return
+	var pending := MatchTiming.get_pending_turn_trigger_target(_match_state, local_id)
+	var source_id := str(pending.get("source_instance_id", ""))
+	var card := _card_from_instance_id(source_id)
+	if card.is_empty():
+		MatchTiming.decline_pending_turn_trigger_target(_match_state, local_id)
+		_check_pending_turn_trigger_target()  # Check for more
+		return
+	var target_mode := str(pending.get("target_mode", ""))
+	var valid_targets := MatchTiming.get_valid_targets_for_mode(_match_state, source_id, target_mode, {})
+	if valid_targets.is_empty():
+		MatchTiming.decline_pending_turn_trigger_target(_match_state, local_id)
+		_check_pending_turn_trigger_target()  # Check for more
+		return
+	_pending_summon_target = {
+		"source_instance_id": source_id,
+		"is_turn_trigger": true,
+	}
+	_selected_instance_id = source_id
+	_enter_targeting_mode(source_id)
+	var family := str(pending.get("family", ""))
+	var phase_name := "Wax" if family == "wax" else "Wane"
+	_status_message = "%s — %s: Choose a target." % [str(card.get("name", "Creature")), phase_name]
+	_show_summon_skip_button()
 	_refresh_ui()
 
 

@@ -371,7 +371,9 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			var gm_player := _get_player_state(match_state, str(trigger.get("controller_player_id", "")))
 			if gm_player.is_empty():
 				return {"handled": true, "events": []}
-			var gm_amount := int(effect.get("amount", 0))
+			var gm_base := int(effect.get("amount", 0))
+			var gm_count := _resolve_gain_magicka_count(match_state, trigger, effect)
+			var gm_amount := gm_base * gm_count
 			gm_player["temporary_magicka"] = int(gm_player.get("temporary_magicka", 0)) + gm_amount
 			return {"handled": true, "events": [{
 				"event_type": "magicka_gained",
@@ -1514,6 +1516,30 @@ static func _find_card_anywhere(match_state: Dictionary, instance_id: String) ->
 					if typeof(attached_item) == TYPE_DICTIONARY and str(attached_item.get("instance_id", "")) == instance_id:
 						return attached_item
 	return {}
+
+
+static func _resolve_gain_magicka_count(match_state: Dictionary, trigger: Dictionary, effect: Dictionary) -> int:
+	var count_source := str(effect.get("count_source", ""))
+	if count_source.is_empty():
+		return 1
+	var controller_id := str(trigger.get("controller_player_id", ""))
+	match count_source:
+		"enemy_creatures_same_lane":
+			var lane_index := int(trigger.get("lane_index", -1))
+			var lanes: Array = match_state.get("lanes", [])
+			if lane_index < 0 or lane_index >= lanes.size():
+				return 0
+			var opponent_id := ""
+			for player in match_state.get("players", []):
+				if typeof(player) == TYPE_DICTIONARY and str(player.get("player_id", "")) != controller_id:
+					opponent_id = str(player.get("player_id", ""))
+					break
+			var count := 0
+			for card in lanes[lane_index].get("player_slots", {}).get(opponent_id, []):
+				if typeof(card) == TYPE_DICTIONARY:
+					count += 1
+			return count
+	return 1
 
 
 static func _get_player_state(match_state: Dictionary, player_id: String) -> Dictionary:
