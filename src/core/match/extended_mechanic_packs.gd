@@ -1440,6 +1440,16 @@ static func _collect_factotums(match_state: Dictionary, player_id: String, sourc
 	return cards
 
 
+static func _collect_factotums_except_self(match_state: Dictionary, player_id: String, source_instance_id: String) -> Array:
+	var cards: Array = []
+	for card in _collect_owned_cards(match_state, player_id, [ZONE_HAND, ZONE_DECK]):
+		if str(card.get("instance_id", "")) == source_instance_id:
+			continue
+		if _card_has_string(card, "subtypes", "Factotum") or _card_has_string(card, "subtypes", "factotum"):
+			cards.append(card)
+	return cards
+
+
 static func _collect_owned_cards(match_state: Dictionary, player_id: String, zones: Array) -> Array:
 	var player := _get_player_state(match_state, player_id)
 	if player.is_empty():

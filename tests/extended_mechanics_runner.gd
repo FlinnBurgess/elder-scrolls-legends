@@ -23,6 +23,9 @@ func _run_all_tests() -> bool:
 	return (
 		_test_assemble_pack() and
 		_test_assemble_choose_one_targets() and
+		_test_assemble_choose_two() and
+		_test_assemble_choose_two_grants_triggers() and
+		_test_assemble_granted_trigger_stacking() and
 		_test_beast_form_pack() and
 		_test_veteran_hook() and
 		_test_action_pack_matrix() and
@@ -151,6 +154,175 @@ func _test_assemble_choose_one_targets() -> bool:
 		_assert(EvergreenRules.get_power(deck_factotum) == 3, "Assemble choose_one should buff Factotums in deck.") and
 		_assert(EvergreenRules.get_power(non_factotum) == 1, "Assemble choose_one should NOT buff non-Factotums in hand.") and
 		_assert(EvergreenRules.get_power(lane_factotum) == 1, "Assemble choose_one should NOT buff Factotums already in lane.")
+	)
+
+
+func _test_assemble_choose_two() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Assembled Titan: choose_two with 4 options, player picks 2
+	var titan := ScenarioFixtures.add_hand_card(player, "titan", {
+		"card_type": "creature",
+		"cost": 0,
+		"power": 4,
+		"health": 4,
+		"subtypes": ["Factotum"],
+		"triggered_abilities": [{
+			"family": "summon",
+			"effects": [{"op": "choose_two", "choices": [
+				{"label": "+2/+0", "effects": [{"op": "modify_stats", "target": "assemble_targets", "power": 2, "health": 0}]},
+				{"label": "+0/+2", "effects": [{"op": "modify_stats", "target": "assemble_targets", "power": 0, "health": 2}]},
+				{"label": "Deal 2 damage", "effects": [{"op": "damage", "target_player": "opponent", "amount": 2}, {"op": "grant_triggered_ability", "target": "assemble_targets_except_self", "ability": {"family": "summon", "effects": [{"op": "damage", "target_player": "opponent", "amount": 2}]}}]},
+				{"label": "Gain 2 health", "effects": [{"op": "heal", "target_player": "controller", "amount": 2}, {"op": "grant_triggered_ability", "target": "assemble_targets_except_self", "ability": {"family": "summon", "effects": [{"op": "heal", "target_player": "controller", "amount": 2}]}}]},
+			]}],
+		}],
+	})
+	var hand_factotum := ScenarioFixtures.add_hand_card(player, "hand_facto2", {
+		"card_type": "creature",
+		"cost": 0,
+		"power": 1,
+		"health": 1,
+		"subtypes": ["Factotum"],
+	})
+	LaneRules.summon_from_hand(match_state, pid, str(titan.get("instance_id", "")), "field", {})
+	# First choice should be pending
+	var choice1 := MatchTiming.get_pending_player_choice(match_state, pid)
+	if choice1.is_empty():
+		return _assert(false, "Choose two should produce first pending choice.")
+	if choice1.get("options", []).size() != 4:
+		return _assert(false, "First choice should have 4 options, got %d." % choice1.get("options", []).size())
+	# Choose option 0: +2/+0
+	MatchTiming.resolve_pending_player_choice(match_state, pid, 0)
+	# Second choice should now be pending with 3 remaining options
+	var choice2 := MatchTiming.get_pending_player_choice(match_state, pid)
+	if choice2.is_empty():
+		return _assert(false, "Choose two should produce second pending choice after first resolution.")
+	if choice2.get("options", []).size() != 3:
+		return _assert(false, "Second choice should have 3 options (chosen removed), got %d." % choice2.get("options", []).size())
+	# Choose option 0 of remaining (which is +0/+2, since +2/+0 was removed)
+	MatchTiming.resolve_pending_player_choice(match_state, pid, 0)
+	# Titan should have +2/+0 and +0/+2 = net +2/+2
+	return (
+		_assert(EvergreenRules.get_power(titan) == 6, "Titan should be 4+2=6 power after both choices.") and
+		_assert(EvergreenRules.get_health(titan) == 6, "Titan should be 4+2=6 health after both choices.") and
+		_assert(EvergreenRules.get_power(hand_factotum) == 3, "Hand Factotum should get +2 power from assemble_targets.") and
+		_assert(EvergreenRules.get_health(hand_factotum) == 3, "Hand Factotum should get +2 health from assemble_targets.") and
+		_assert(not MatchTiming.has_pending_player_choice(match_state, pid), "No more pending choices after both resolved.")
+	)
+
+
+func _test_assemble_choose_two_grants_triggers() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	# Titan with damage/heal choices that grant triggered abilities + text
+	var titan := ScenarioFixtures.add_hand_card(player, "titan_trig", {
+		"card_type": "creature",
+		"cost": 0,
+		"power": 4,
+		"health": 4,
+		"subtypes": ["Factotum"],
+		"triggered_abilities": [{
+			"family": "summon",
+			"effects": [{"op": "choose_two", "choices": [
+				{"label": "+2/+0", "effects": [{"op": "modify_stats", "target": "assemble_targets", "power": 2, "health": 0}]},
+				{"label": "+0/+2", "effects": [{"op": "modify_stats", "target": "assemble_targets", "power": 0, "health": 2}]},
+				{"label": "Deal 2 damage", "effects": [{"op": "damage", "target_player": "opponent", "amount": 2}, {"op": "grant_triggered_ability", "target": "assemble_targets_except_self", "assemble_label": "assemble_damage", "text_template": "Summon: Deal {amount} damage to your opponent.", "ability": {"family": "summon", "effects": [{"op": "damage", "target_player": "opponent", "amount": 2}]}}]},
+				{"label": "Gain 2 health", "effects": [{"op": "heal", "target_player": "controller", "amount": 2}, {"op": "grant_triggered_ability", "target": "assemble_targets_except_self", "assemble_label": "assemble_heal", "text_template": "Summon: You gain {amount} health.", "ability": {"family": "summon", "effects": [{"op": "heal", "target_player": "controller", "amount": 2}]}}]},
+			]}],
+		}],
+	})
+	var hand_factotum := ScenarioFixtures.add_hand_card(player, "hand_facto3", {
+		"card_type": "creature",
+		"cost": 0,
+		"power": 1,
+		"health": 1,
+		"subtypes": ["Factotum"],
+	})
+	var opponent_health_before := int(opponent.get("health", 30))
+	LaneRules.summon_from_hand(match_state, pid, str(titan.get("instance_id", "")), "field", {})
+	# Choose "Deal 2 damage" (index 2) first
+	MatchTiming.resolve_pending_player_choice(match_state, pid, 2)
+	# Choose "Gain 2 health" (now index 2 in the remaining 3 options: +2/+0, +0/+2, Gain 2 health)
+	MatchTiming.resolve_pending_player_choice(match_state, pid, 2)
+	# Immediate effects: opponent takes 2 damage, player gains 2 health
+	var opponent_health_after := int(opponent.get("health", 30))
+	var player_health_after := int(player.get("health", 30))
+	# Hand Factotum should have gained summon triggers for both effects
+	var facto_abilities: Array = hand_factotum.get("triggered_abilities", [])
+	var summon_count := 0
+	for ability in facto_abilities:
+		if typeof(ability) == TYPE_DICTIONARY and str(ability.get("family", "")) == "summon":
+			summon_count += 1
+	# Rules text should include both assembled effects
+	var facto_rules := str(hand_factotum.get("rules_text", ""))
+	return (
+		_assert(opponent_health_after == opponent_health_before - 2, "Opponent should take 2 damage immediately.") and
+		_assert(player_health_after == 32, "Player should gain 2 health immediately (30 + 2).") and
+		_assert(summon_count == 2, "Hand Factotum should gain 2 summon triggers from assemble, got %d." % summon_count) and
+		_assert("Deal 2 damage" in facto_rules, "Hand Factotum rules_text should include damage text, got: %s" % facto_rules) and
+		_assert("gain 2 health" in facto_rules, "Hand Factotum rules_text should include heal text, got: %s" % facto_rules)
+	)
+
+
+func _test_assemble_granted_trigger_stacking() -> bool:
+	# When the same assemble effect is granted twice (e.g. via Yagrum's Workshop),
+	# the amount should stack (2→4) and the text should update accordingly.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var hand_factotum := ScenarioFixtures.add_hand_card(player, "stack_facto", {
+		"card_type": "creature",
+		"cost": 0,
+		"power": 1,
+		"health": 1,
+		"subtypes": ["Factotum"],
+		"rules_text": "Assemble: +0/+2 or Guard.",
+	})
+	# Simulate granting the damage trigger twice (as if Yagrum's Workshop doubled it)
+	var grant_effect := {
+		"op": "grant_triggered_ability",
+		"target": "assemble_targets_except_self",
+		"assemble_label": "assemble_damage",
+		"text_template": "Summon: Deal {amount} damage to your opponent.",
+		"ability": {"family": "summon", "effects": [{"op": "damage", "target_player": "opponent", "amount": 2}]},
+	}
+	# Build a fake trigger context pointing at some other source
+	var fake_trigger := {
+		"source_instance_id": "fake_source",
+		"controller_player_id": pid,
+		"descriptor": {"effects": [grant_effect]},
+	}
+	MatchTiming._apply_effects(match_state, fake_trigger, {}, {})
+	# First grant: should have 1 summon trigger with amount 2
+	var abilities: Array = hand_factotum.get("triggered_abilities", [])
+	var first_amount := 0
+	for ab in abilities:
+		if typeof(ab) == TYPE_DICTIONARY and str(ab.get("_assemble_label", "")) == "assemble_damage":
+			for eff in ab.get("effects", []):
+				if typeof(eff) == TYPE_DICTIONARY:
+					first_amount = int(eff.get("amount", 0))
+	var rules_after_first := str(hand_factotum.get("rules_text", ""))
+	# Grant again — should stack to amount 4
+	MatchTiming._apply_effects(match_state, fake_trigger, {}, {})
+	abilities = hand_factotum.get("triggered_abilities", [])
+	var stacked_amount := 0
+	var summon_trigger_count := 0
+	for ab in abilities:
+		if typeof(ab) == TYPE_DICTIONARY and str(ab.get("_assemble_label", "")) == "assemble_damage":
+			summon_trigger_count += 1
+			for eff in ab.get("effects", []):
+				if typeof(eff) == TYPE_DICTIONARY:
+					stacked_amount = int(eff.get("amount", 0))
+	var rules_after_second := str(hand_factotum.get("rules_text", ""))
+	return (
+		_assert(first_amount == 2, "First grant should set amount to 2, got %d." % first_amount) and
+		_assert("Deal 2 damage" in rules_after_first, "After first grant, text should say 'Deal 2 damage', got: %s" % rules_after_first) and
+		_assert(stacked_amount == 4, "Second grant should stack amount to 4, got %d." % stacked_amount) and
+		_assert(summon_trigger_count == 1, "Should have 1 stacked trigger, not 2 separate ones, got %d." % summon_trigger_count) and
+		_assert("Deal 4 damage" in rules_after_second, "After second grant, text should say 'Deal 4 damage', got: %s" % rules_after_second)
 	)
 
 

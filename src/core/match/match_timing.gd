@@ -3159,6 +3159,38 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"target_instance_id": str(card.get("instance_id", "")),
 						"keyword_id": keyword_id,
 					})
+			"grant_triggered_ability":
+				var gta_ability: Dictionary = effect.get("ability", {})
+				var gta_label := str(effect.get("assemble_label", ""))
+				var gta_text_template := str(effect.get("text_template", ""))
+				if not gta_ability.is_empty():
+					for card in _resolve_card_targets(match_state, trigger, event, effect):
+						var abilities: Array = card.get("triggered_abilities", [])
+						var gta_stacked := false
+						if not gta_label.is_empty():
+							for existing in abilities:
+								if typeof(existing) == TYPE_DICTIONARY and str(existing.get("_assemble_label", "")) == gta_label:
+									# Stack: increase the amount in existing effects
+									for ex_eff in existing.get("effects", []):
+										if typeof(ex_eff) == TYPE_DICTIONARY and ex_eff.has("amount"):
+											ex_eff["amount"] = int(ex_eff.get("amount", 0)) + int(gta_ability.get("effects", [{}])[0].get("amount", 0))
+									gta_stacked = true
+									break
+						if not gta_stacked:
+							var new_ability := gta_ability.duplicate(true)
+							if not gta_label.is_empty():
+								new_ability["_assemble_label"] = gta_label
+							abilities.append(new_ability)
+						card["triggered_abilities"] = abilities
+						# Update rules_text with assembled effect description
+						if not gta_text_template.is_empty():
+							_update_assemble_rules_text(card, gta_label, gta_text_template)
+						generated_events.append({
+							"event_type": "triggered_ability_granted",
+							"source_instance_id": str(trigger.get("source_instance_id", "")),
+							"target_instance_id": str(card.get("instance_id", "")),
+							"ability_family": str(gta_ability.get("family", "")),
+						})
 			"grant_random_keyword":
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					EvergreenRules.ensure_card_state(card)
@@ -6692,7 +6724,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 			"choose_two":
 				# Assembled Titan: player picks 2 abilities from a list
 				var ct_controller_id := str(trigger.get("controller_player_id", ""))
-				var ct_ability_options: Array = effect.get("ability_options", [])
+				var ct_ability_options: Array = effect.get("choices", effect.get("ability_options", []))
 				if ct_ability_options.size() >= 2:
 					var ct_display_options: Array = []
 					var ct_effects_per: Array = []
@@ -6916,6 +6948,8 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 				targets.append(self_card)
 		"assemble_targets":
 			targets.append_array(ExtendedMechanicPacks._collect_factotums(match_state, str(trigger.get("controller_player_id", "")), str(trigger.get("source_instance_id", ""))))
+		"assemble_targets_except_self":
+			targets.append_array(ExtendedMechanicPacks._collect_factotums_except_self(match_state, str(trigger.get("controller_player_id", "")), str(trigger.get("source_instance_id", ""))))
 		"host", "wielder":
 			var host_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 			var host_id := str(host_source.get("attached_to_instance_id", "")) if not host_source.is_empty() else ""
@@ -8053,6 +8087,33 @@ static func _fire_wax_wane_on_other_friendly(match_state: Dictionary, controller
 	if active_set.is_empty():
 		match_state.erase("_active_forced_wax_wane")
 	return generated_events
+
+
+static func _update_assemble_rules_text(card: Dictionary, label: String, text_template: String) -> void:
+	if label.is_empty() or text_template.is_empty():
+		return
+	# Calculate current stacked amount from the triggered ability
+	var total_amount := 0
+	for ability in card.get("triggered_abilities", []):
+		if typeof(ability) == TYPE_DICTIONARY and str(ability.get("_assemble_label", "")) == label:
+			for eff in ability.get("effects", []):
+				if typeof(eff) == TYPE_DICTIONARY and eff.has("amount"):
+					total_amount = int(eff.get("amount", 0))
+					break
+			break
+	var new_line := text_template.replace("{amount}", str(total_amount))
+	# Build assemble text tracking dict
+	var assemble_texts: Dictionary = card.get("_assemble_texts", {})
+	assemble_texts[label] = new_line
+	card["_assemble_texts"] = assemble_texts
+	# Rebuild rules_text: original text + assembled lines
+	var base_text := str(card.get("_base_rules_text", card.get("rules_text", "")))
+	if not card.has("_base_rules_text"):
+		card["_base_rules_text"] = base_text
+	var parts: Array = [base_text] if not base_text.is_empty() else []
+	for key in assemble_texts.keys():
+		parts.append(str(assemble_texts[key]))
+	card["rules_text"] = "\n".join(parts)
 
 
 static func _find_card_anywhere(match_state: Dictionary, instance_id: String) -> Dictionary:
