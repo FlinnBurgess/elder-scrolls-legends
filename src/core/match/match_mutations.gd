@@ -508,6 +508,11 @@ static func change_card(card: Dictionary, template: Dictionary, options: Diction
 		"entered_lane": true,
 	})
 	_apply_identity(card, template)
+	# art_path is not an identity field — update from template or derive from new definition_id
+	if template.has("art_path"):
+		card["art_path"] = str(template["art_path"])
+	else:
+		card["art_path"] = "res://assets/images/cards/" + str(card.get("definition_id", "")) + ".png"
 	_restore_card_state(card, preserved, options)
 	card["changed_from"] = previous_definition_id
 	EvergreenRules.sync_derived_state(card)
@@ -523,6 +528,12 @@ static func copy_card(target_card: Dictionary, source_card: Dictionary, options:
 		"entered_lane": true,
 	})
 	_apply_identity(target_card, _extract_identity(source_card))
+	# art_path is not an identity field — copy from source or derive from new definition_id
+	var source_art := str(source_card.get("art_path", ""))
+	if not source_art.is_empty():
+		target_card["art_path"] = source_art
+	else:
+		target_card["art_path"] = "res://assets/images/cards/" + str(target_card.get("definition_id", "")) + ".png"
 	reset_transient_state(target_card)
 	_restore_card_state(target_card, preserved, options)
 	target_card["copied_from"] = str(source_card.get("definition_id", source_card.get("instance_id", "")))
