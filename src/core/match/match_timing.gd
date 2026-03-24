@@ -2738,7 +2738,9 @@ static func _append_card_triggers(registry: Array, card, zone_name: String, cont
 		if current_turn >= 0 and descriptor.has("_expires_on_turn") and int(descriptor.get("_expires_on_turn", -1)) < current_turn:
 			continue
 		if not str(descriptor.get("target_mode", "")).is_empty():
-			continue  # Target-choice triggers resolved manually via resolve_targeted_effect
+			var tm_family := str(descriptor.get("family", ""))
+			if tm_family != FAMILY_ACTIVATE and tm_family != FAMILY_ON_PLAY:
+				continue  # Target-choice triggers resolved manually via resolve_targeted_effect
 		if bool(descriptor.get("consume", false)):
 			var consume_family := str(descriptor.get("family", ""))
 			if consume_family == FAMILY_SUMMON or consume_family == "on_play":
