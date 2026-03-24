@@ -4387,7 +4387,10 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							var fake_resolution := _build_trigger_resolution(match_state, fake_trigger, fake_event)
 							generated_events.append_array(_apply_effects(match_state, fake_trigger, fake_event, fake_resolution))
 			"summon_random_from_discard":
-				var srd_filter_card_type := str(effect.get("required_card_type", "creature"))
+				var srd_filter_raw = effect.get("filter", {})
+				var srd_filter: Dictionary = srd_filter_raw if typeof(srd_filter_raw) == TYPE_DICTIONARY else {}
+				var srd_filter_card_type := str(srd_filter.get("card_type", effect.get("required_card_type", "creature")))
+				var srd_filter_subtype := str(srd_filter.get("subtype", ""))
 				for player_id in _resolve_player_targets(match_state, trigger, event, effect):
 					var srd_player := _get_player_state(match_state, player_id)
 					if srd_player.is_empty():
@@ -4400,6 +4403,10 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							continue
 						if not srd_filter_card_type.is_empty() and str(srd_card.get("card_type", "")) != srd_filter_card_type:
 							continue
+						if not srd_filter_subtype.is_empty():
+							var srd_subtypes = srd_card.get("subtypes", [])
+							if typeof(srd_subtypes) != TYPE_ARRAY or not srd_subtypes.has(srd_filter_subtype):
+								continue
 						srd_candidates.append(srd_i)
 					if srd_candidates.is_empty():
 						continue
@@ -4806,10 +4813,15 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				if not rcih_player.is_empty():
 					var rcih_hand: Array = rcih_player.get(ZONE_HAND, [])
 					var rcih_target := str(effect.get("target", ""))
+					var rcih_filter_raw = effect.get("filter", {})
+					var rcih_filter: Dictionary = rcih_filter_raw if typeof(rcih_filter_raw) == TYPE_DICTIONARY else {}
+					var rcih_filter_card_type := str(rcih_filter.get("card_type", ""))
 					for card in rcih_hand:
 						if typeof(card) != TYPE_DICTIONARY:
 							continue
 						if rcih_target == "all_creatures_in_hand" and str(card.get("card_type", "")) != "creature":
+							continue
+						if not rcih_filter_card_type.is_empty() and str(card.get("card_type", "")) != rcih_filter_card_type:
 							continue
 						var current_cost := int(card.get("cost", 0))
 						card["cost"] = maxi(0, current_cost - rcih_amount)
@@ -5072,6 +5084,20 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							var remaining := int(dfdf_player.get("current_magicka", 0))
 							if int(card.get("cost", -1)) != remaining:
 								dfdf_match = false
+						if dfdf_filter.has("max_cost") and int(card.get("cost", 0)) > int(dfdf_filter["max_cost"]):
+							dfdf_match = false
+						if dfdf_filter.has("subtype_in"):
+							var dfdf_st_filter = dfdf_filter["subtype_in"]
+							if typeof(dfdf_st_filter) == TYPE_ARRAY:
+								var dfdf_card_subtypes = card.get("subtypes", [])
+								var dfdf_st_match := false
+								if typeof(dfdf_card_subtypes) == TYPE_ARRAY:
+									for dfdf_st in dfdf_card_subtypes:
+										if dfdf_st_filter.has(str(dfdf_st)):
+											dfdf_st_match = true
+											break
+								if not dfdf_st_match:
+									dfdf_match = false
 						if dfdf_match:
 							dfdf_candidates.append(di)
 					if not dfdf_candidates.is_empty():

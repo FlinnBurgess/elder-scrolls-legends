@@ -683,12 +683,30 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			var srfd_filter_raw = effect.get("filter", {})
 			var srfd_filter: Dictionary = srfd_filter_raw if typeof(srfd_filter_raw) == TYPE_DICTIONARY else {}
 			var srfd_req_card_type := str(srfd_filter.get("card_type", ""))
+			var srfd_max_cost := int(srfd_filter.get("max_cost", -1))
+			var srfd_cost_equals_source := str(srfd_filter.get("cost_equals_source", ""))
+			if srfd_cost_equals_source == "controller_current_magicka":
+				srfd_max_cost = int(srfd_player.get("current_magicka", srfd_player.get("max_magicka", 12)))
+				# exact cost match for this source
+			var srfd_exact_cost := -1
+			if srfd_cost_equals_source == "controller_current_magicka":
+				srfd_exact_cost = srfd_max_cost
+				srfd_max_cost = -1
+			var srfd_req_subtype := str(srfd_filter.get("subtype", ""))
 			for i in range(srfd_deck.size()):
 				var card = srfd_deck[i]
 				if typeof(card) != TYPE_DICTIONARY:
 					continue
 				if not srfd_req_card_type.is_empty() and str(card.get("card_type", "")) != srfd_req_card_type:
 					continue
+				if srfd_max_cost >= 0 and int(card.get("cost", 0)) > srfd_max_cost:
+					continue
+				if srfd_exact_cost >= 0 and int(card.get("cost", 0)) != srfd_exact_cost:
+					continue
+				if not srfd_req_subtype.is_empty():
+					var srfd_subtypes = card.get("subtypes", [])
+					if typeof(srfd_subtypes) != TYPE_ARRAY or not srfd_subtypes.has(srfd_req_subtype):
+						continue
 				srfd_candidates.append({"index": i, "card": card})
 			if srfd_candidates.is_empty():
 				return {"handled": true, "events": []}
