@@ -331,7 +331,22 @@ static func _get_aura_cost_reduction(match_state: Dictionary, player_id: String,
 		if not condition.is_empty():
 			if not _cost_reduction_condition_met(match_state, player_id, card, condition, aura):
 				continue
+		var aura_filter_subtype := str(aura.get("filter_subtype", ""))
+		if not aura_filter_subtype.is_empty():
+			var card_subtypes = card.get("subtypes", [])
+			if typeof(card_subtypes) != TYPE_ARRAY or not card_subtypes.has(aura_filter_subtype):
+				continue
 		total += int(aura.get("amount", 0))
+	# Match-state-level cost reduction auras (e.g. Oblivion Gate Daedra discount)
+	for ms_aura in match_state.get("card_cost_reduction_auras", []):
+		if str(ms_aura.get("controller_player_id", "")) != player_id:
+			continue
+		var ms_filter_subtype := str(ms_aura.get("filter_subtype", ""))
+		if not ms_filter_subtype.is_empty():
+			var card_subtypes = card.get("subtypes", [])
+			if typeof(card_subtypes) != TYPE_ARRAY or not card_subtypes.has(ms_filter_subtype):
+				continue
+		total += int(ms_aura.get("amount", 0))
 	total -= _get_global_cost_increase(match_state, card_type)
 	return total
 

@@ -4490,17 +4490,19 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						continue
 					co_options.append({"label": str(co_choice.get("label", "")), "description": str(co_choice.get("description", ""))})
 					co_effects_per_option.append(co_choice.get("effects", []))
+				var co_repeat := maxi(1, int(effect.get("repeat", 1)))
 				var co_pending: Array = match_state.get("pending_player_choices", [])
-				co_pending.append({
-					"player_id": str(trigger.get("controller_player_id", "")),
-					"source_instance_id": str(trigger.get("source_instance_id", "")),
-					"prompt": "Choose one:",
-					"mode": "text",
-					"options": co_options,
-					"effects_per_option": co_effects_per_option,
-					"trigger": trigger.duplicate(true),
-					"event": event.duplicate(true),
-				})
+				for co_i in range(co_repeat):
+					co_pending.append({
+						"player_id": str(trigger.get("controller_player_id", "")),
+						"source_instance_id": str(trigger.get("source_instance_id", "")),
+						"prompt": "Choose one:" if co_repeat == 1 else "Choose one (%d of %d):" % [co_i + 1, co_repeat],
+						"mode": "text",
+						"options": co_options.duplicate(true),
+						"effects_per_option": co_effects_per_option.duplicate(true),
+						"trigger": trigger.duplicate(true),
+						"event": event.duplicate(true),
+					})
 				generated_events.append({"event_type": "player_choice_pending", "player_id": str(trigger.get("controller_player_id", "")), "source_instance_id": str(trigger.get("source_instance_id", "")), "reason": reason})
 			"copy_rallied_creature_to_hand":
 				var crch_target_id := str(event.get("target_instance_id", ""))
@@ -6491,8 +6493,14 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					EvergreenRules.apply_stat_bonus(sob_existing, sob_power, sob_health, reason)
 					generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(sob_existing.get("instance_id", "")), "power_bonus": sob_power, "health_bonus": sob_health, "reason": reason})
 			"summon_random_daedra_total_cost", "summon_random_daedra_by_gate_level":
-				# Delegate to summon_random_from_catalog with Daedra filter
+				var srd_controller_id := str(trigger.get("controller_player_id", ""))
 				var srd_filter: Dictionary = {"card_type": "creature", "required_subtype": "Daedra"}
+				if op == "summon_random_daedra_by_gate_level":
+					var srd_gate := ExtendedMechanicPacks._find_player_gate(match_state, srd_controller_id)
+					var srd_gate_level := int(srd_gate.get("gate_level", 0))
+					if srd_gate.is_empty() or srd_gate_level <= 0:
+						continue
+					srd_filter["exact_cost"] = srd_gate_level
 				var srd_delegated := {"op": "summon_random_from_catalog", "filter": srd_filter}
 				var srd_result := ExtendedMechanicPacks.apply_custom_effect(match_state, trigger, event, srd_delegated)
 				if bool(srd_result.get("handled", false)):
@@ -7283,12 +7291,11 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 							targets.append(card)
 		"all_friendly_oblivion_gates":
 			var afog_controller_id := str(trigger.get("controller_player_id", ""))
-			var afog_player := _get_player_state(match_state, afog_controller_id)
-			if not afog_player.is_empty():
-				for card in afog_player.get(ZONE_SUPPORT, []):
+			for lane in match_state.get("lanes", []):
+				for card in lane.get("player_slots", {}).get(afog_controller_id, []):
 					if typeof(card) == TYPE_DICTIONARY:
-						var afog_subtypes = card.get("subtypes", [])
-						if typeof(afog_subtypes) == TYPE_ARRAY and afog_subtypes.has("Oblivion Gate"):
+						var afog_tags = card.get("rules_tags", [])
+						if typeof(afog_tags) == TYPE_ARRAY and afog_tags.has("oblivion_gate"):
 							targets.append(card)
 		"crowned_creatures":
 			for lane in match_state.get("lanes", []):
@@ -7928,7 +7935,22 @@ static func _get_aura_cost_reduction(match_state: Dictionary, player_id: String,
 			continue
 		if not _cost_reduction_condition_met(match_state, player_id, card, aura):
 			continue
+		var aura_filter_subtype := str(aura.get("filter_subtype", ""))
+		if not aura_filter_subtype.is_empty():
+			var card_subtypes = card.get("subtypes", [])
+			if typeof(card_subtypes) != TYPE_ARRAY or not card_subtypes.has(aura_filter_subtype):
+				continue
 		total += int(aura.get("amount", 0))
+	# Match-state-level cost reduction auras (e.g. Oblivion Gate Daedra discount)
+	for ms_aura in match_state.get("card_cost_reduction_auras", []):
+		if str(ms_aura.get("controller_player_id", "")) != player_id:
+			continue
+		var ms_filter_subtype := str(ms_aura.get("filter_subtype", ""))
+		if not ms_filter_subtype.is_empty():
+			var card_subtypes = card.get("subtypes", [])
+			if typeof(card_subtypes) != TYPE_ARRAY or not card_subtypes.has(ms_filter_subtype):
+				continue
+		total += int(ms_aura.get("amount", 0))
 	total -= PersistentCardRules._get_global_cost_increase(match_state, card_type)
 	return total
 

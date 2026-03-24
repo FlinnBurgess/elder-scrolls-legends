@@ -31,6 +31,8 @@ const GATE_KEYWORD_POOL := [
 	EvergreenRules.KEYWORD_DRAIN,
 	EvergreenRules.KEYWORD_GUARD,
 	EvergreenRules.KEYWORD_LETHAL,
+	EvergreenRules.KEYWORD_RALLY,
+	EvergreenRules.KEYWORD_REGENERATE,
 	EvergreenRules.KEYWORD_WARD,
 ]
 
@@ -392,6 +394,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			var srfc_max_cost := int(srfc_filter.get("max_cost", -1))
 			if str(srfc_filter.get("max_cost_source", "")) == "controller_max_magicka" and not srfc_player.is_empty():
 				srfc_max_cost = int(srfc_player.get("max_magicka", 12))
+			var srfc_exact_cost := int(srfc_filter.get("exact_cost", -1))
 			var srfc_req_card_type := str(srfc_filter.get("card_type", ""))
 			var srfc_req_subtype := str(srfc_filter.get("required_subtype", ""))
 			for seed in srfc_seeds:
@@ -402,6 +405,8 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				if not srfc_req_card_type.is_empty() and str(seed.get("card_type", "")) != srfc_req_card_type:
 					continue
 				if srfc_max_cost >= 0 and int(seed.get("cost", 0)) > srfc_max_cost:
+					continue
+				if srfc_exact_cost >= 0 and int(seed.get("cost", 0)) != srfc_exact_cost:
 					continue
 				if not srfc_req_subtype.is_empty():
 					var subtypes = seed.get("subtypes", [])
@@ -1264,7 +1269,7 @@ static func _resolve_invade(match_state: Dictionary, trigger: Dictionary) -> Arr
 		invade_event["gate_level"] = 1
 		events.append(invade_event)
 		return events
-	var next_level := maxi(1, int(gate.get("gate_level", 1)) + 1)
+	var next_level := mini(5, maxi(1, int(gate.get("gate_level", 1)) + 1))
 	var change_result := MatchMutations.change_card(gate, _build_gate_template(next_level), {"reason": "invade"})
 	gate["gate_level"] = next_level
 	gate["cannot_attack"] = true
@@ -1302,8 +1307,8 @@ static func _resolve_gate_buff(match_state: Dictionary, trigger: Dictionary, eve
 		"health_bonus": 1,
 		"reason": "oblivion_gate",
 	})
-	var keyword_count := maxi(0, int(gate.get("gate_level", 1)) - 3)
-	for keyword_id in _choose_gate_keywords(target, keyword_count):
+	var keyword_count := clampi(int(gate.get("gate_level", 1)) - 3, 0, 2)
+	for keyword_id in _choose_gate_keywords(match_state, target, keyword_count):
 		if _grant_keyword(target, keyword_id):
 			events.append({
 				"event_type": "keyword_granted",
@@ -1404,10 +1409,11 @@ static func _apply_double_card_choice(card: Dictionary, choice) -> void:
 
 
 static func _build_gate_template(level: int) -> Dictionary:
-	var gate_level := maxi(1, level)
+	var gate_level := clampi(level, 1, 5)
 	return {
 		"definition_id": "generated_oblivion_gate",
 		"name": "Oblivion Gate",
+		"art_path": "res://assets/images/cards/joo_neu_oblivion_gate.png",
 		"card_type": "creature",
 		"cost": 3,
 		"power": 0,
@@ -1425,7 +1431,7 @@ static func _build_gate_template(level: int) -> Dictionary:
 			"event_type": EVENT_CREATURE_SUMMONED,
 			"match_role": "controller",
 			"required_zone": ZONE_LANE,
-			"required_event_source_subtype": "daedra",
+			"required_event_source_subtype": "Daedra",
 			"excluded_event_source_rule_tag": RULE_TAG_OBLIVION_GATE,
 			"effects": [{"op": "buff_oblivion_gate_summon", "target": "event_source"}],
 		}],
@@ -1457,14 +1463,18 @@ static func _find_player_gate(match_state: Dictionary, player_id: String) -> Dic
 	return {}
 
 
-static func _choose_gate_keywords(card: Dictionary, count: int) -> Array:
-	var picks: Array = []
+static func _choose_gate_keywords(match_state: Dictionary, card: Dictionary, count: int) -> Array:
+	if count <= 0:
+		return []
+	var candidates: Array = []
 	for keyword_id in GATE_KEYWORD_POOL:
-		if picks.size() >= count:
-			break
-		if EvergreenRules.has_keyword(card, keyword_id):
-			continue
-		picks.append(keyword_id)
+		if not EvergreenRules.has_keyword(card, keyword_id):
+			candidates.append(keyword_id)
+	var picks: Array = []
+	for i in range(mini(count, candidates.size())):
+		var idx: int = _timing_rules()._deterministic_index(match_state, str(card.get("instance_id", "")) + "_gate_kw_%d" % i, candidates.size())
+		picks.append(candidates[idx])
+		candidates.remove_at(idx)
 	return picks
 
 

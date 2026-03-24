@@ -1,7 +1,7 @@
 # Claude Learnings
 
 ## Tags
-`assemble` `attributes` `card-catalog` `card-hydration` `card-state` `cost-reduction` `events` `invade` `match-engine` `neutral` `registry` `target-resolution` `triggers`
+`assemble` `attributes` `card-catalog` `card-hydration` `card-state` `case-sensitivity` `cost-reduction` `events` `generated-cards` `invade` `match-engine` `neutral` `randomness` `registry` `target-resolution` `triggers` `ui`
 
 ## Card Hydration & Attributes
 
@@ -45,6 +45,22 @@
   The level 3+ gate cost reduction for Daedra is implemented by appending an aura entry to `match_state["card_cost_reduction_auras"]` with `filter_subtype: "Daedra"`. The aura should only be added once (at the exact transition to level 3), not on every subsequent upgrade.
   _Refs: `src/core/match/extended_mechanic_packs.gd:1277-1282`_
 
+- **`_card_has_string` is case-sensitive — subtypes must match catalog casing** `[invade, case-sensitivity, triggers]`
+  `_card_has_string` uses exact `str(value) == expected` comparison. The catalog stores subtypes capitalized (e.g. `"Daedra"`). Trigger filters like `required_event_source_subtype` must use the same casing. Test fixtures should also use capitalized subtypes to match real card data.
+  _Refs: `src/core/match/extended_mechanic_packs.gd:1601-1607`_
+
+- **Match-state cost reduction auras must be read by `_get_aura_cost_reduction`** `[invade, cost-reduction, match-engine]`
+  `_get_aura_cost_reduction` (in both `persistent_card_rules.gd` and `match_timing.gd`) only checked per-card `cost_reduction_aura` dicts on lane/support cards. Match-state-level auras stored in `match_state["card_cost_reduction_auras"]` (used by invade gate and `apply_cost_reduction_aura` op) were never read. Both implementations must also iterate the match-state array and check `filter_subtype` against card subtypes.
+  _Refs: `src/core/match/persistent_card_rules.gd:309-336`, `src/core/match/match_timing.gd:7908-7933`_
+
+- **Gate level must be capped at 5** `[invade, match-engine]`
+  The wiki defines 5 gate levels. Without a cap, repeated invades increment `gate_level` past 5, causing `keyword_count = gate_level - 3` to grant more than 2 keywords. Cap in `_resolve_invade` (level increment), `_build_gate_template` (template generation), and `_resolve_gate_buff` (keyword count clamped to 0-2).
+  _Refs: `src/core/match/extended_mechanic_packs.gd:1267`, `src/core/match/extended_mechanic_packs.gd:1408`, `src/core/match/extended_mechanic_packs.gd:1308`_
+
+- **Generated cards need `art_path` for correct card art** `[invade, generated-cards, ui]`
+  The UI resolves card art by checking `art_path`/`art_resource_path` keys first, then falling back to `"res://assets/images/cards/" + definition_id + ".png"`. Generated cards with a `definition_id` that differs from the catalog card's ID (e.g. `"generated_oblivion_gate"` vs `"joo_neu_oblivion_gate"`) must include an explicit `art_path` in their template, or they'll show the placeholder.
+  _Refs: `src/ui/components/CardDisplayComponent.gd:715-732`_
+
 ## Match Engine Ops & Targets
 
 - **`choose_two` reads from `choices` key, not `ability_options`** `[match-engine, card-catalog]`
@@ -58,3 +74,19 @@
 - **`_apply_identity` erases fields not present in the template** `[card-state, match-engine]`
   `IDENTITY_FIELDS` includes `attributes`, `subtypes`, etc. When `_apply_identity` is called (for generated/transformed cards), any IDENTITY_FIELD not on the template dict gets erased from the card. This is intentional but can be surprising if a template is incomplete.
   _Refs: `src/core/match/match_mutations.gd:641-647`_
+
+- **`choose_one` op supports `repeat` for multiple sequential choices** `[match-engine, triggers]`
+  Cards like Invasion Party ("Choose three times: X or Y") use `{"op": "choose_one", "choices": [...], "repeat": 3}`. The handler must create `repeat` number of pending player choices in `pending_player_choices`. Each is resolved one at a time via `resolve_pending_player_choice`.
+  _Refs: `src/core/match/match_timing.gd:4481-4504`_
+
+- **`all_friendly_oblivion_gates` target must search lanes by rules_tag** `[target-resolution, invade]`
+  Oblivion Gates are creatures in lanes (specifically the shadow lane), not supports. The target resolution must search lane slots for cards with `rules_tags` containing `"oblivion_gate"`, not the support zone with a subtype check.
+  _Refs: `src/core/match/match_timing.gd:7284-7292`_
+
+- **`summon_random_from_catalog` supports `exact_cost` filter** `[match-engine, card-catalog]`
+  In addition to `max_cost`, the filter dict can include `exact_cost` to match cards with a specific cost. Used by `summon_random_daedra_by_gate_level` to summon a Daedra whose cost equals the gate's current level.
+  _Refs: `src/core/match/extended_mechanic_packs.gd:393-407`_
+
+- **Use `_deterministic_index` for all random selections** `[match-engine, randomness]`
+  The engine uses `_deterministic_index(match_state, context_id, pool_size)` for seeded randomness based on `rng_seed`, `turn_number`, and a unique context string. Fixed-order iteration of pools (like keyword assignment) produces the same result every time. Any "random" selection must go through `_deterministic_index` with a unique per-card context ID.
+  _Refs: `src/core/match/match_timing.gd:7504-7513`, `src/core/match/extended_mechanic_packs.gd:1464-1473`_

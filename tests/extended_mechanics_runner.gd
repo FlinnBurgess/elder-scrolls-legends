@@ -43,6 +43,10 @@ func _run_all_tests() -> bool:
 		_test_empower_banish_per_attribute() and
 		_test_empower_permanent_across_turns() and
 		_test_invade_and_shout_pack() and
+		_test_invade_gate_level_capped_at_five() and
+		_test_choose_one_repeat() and
+		_test_invade_gate_ward_target() and
+		_test_summon_daedra_by_gate_level() and
 		_test_treasure_hunt_and_consume_pack() and
 		_test_treasure_hunt_count_based() and
 		_test_wax_and_wane_pack() and
@@ -931,9 +935,9 @@ func _test_invade_gate_progression() -> bool:
 	})
 	var first_play := MatchTiming.play_action_from_hand(match_state, str(player.get("player_id", "")), str(invade_one.get("instance_id", "")))
 	var gate := _find_lane_card(match_state, "shadow", str(player.get("player_id", "")), "generated_oblivion_gate")
-	var first_daedra := ScenarioFixtures.summon_creature(player, match_state, "first_daedra", "field", 1, 1, [], -1, {"subtypes": ["daedra"]})
+	var first_daedra := ScenarioFixtures.summon_creature(player, match_state, "first_daedra", "field", 1, 1, [], -1, {"subtypes": ["Daedra"]})
 	var second_play := MatchTiming.play_action_from_hand(match_state, str(player.get("player_id", "")), str(invade_two.get("instance_id", "")))
-	var second_daedra := ScenarioFixtures.summon_creature(player, match_state, "second_daedra", "field", 1, 1, [], -1, {"subtypes": ["daedra"]})
+	var second_daedra := ScenarioFixtures.summon_creature(player, match_state, "second_daedra", "field", 1, 1, [], -1, {"subtypes": ["Daedra"]})
 	return (
 		_assert(bool(first_play.get("is_valid", false)) and bool(second_play.get("is_valid", false)), "Invade actions should be playable.") and
 		_assert(not gate.is_empty() and int(gate.get("gate_level", 0)) == 2 and int(gate.get("health", 0)) == 6, "Repeated Invade plays should create and then upgrade the Oblivion Gate (gate=%s)." % [str(gate)]) and
@@ -976,6 +980,11 @@ func _test_invade_gate_rules_text_and_cost_reduction() -> bool:
 	for aura in auras:
 		if str(aura.get("filter_subtype", "")) == "Daedra" and str(aura.get("controller_player_id", "")) == pid:
 			has_daedra_aura = true
+	# Verify effective cost reduction applies to Daedra in hand
+	var daedra_in_hand := ScenarioFixtures.add_hand_card(player, "cost_test_daedra", {"card_type": "creature", "cost": 5, "subtypes": ["Daedra"]})
+	var non_daedra_in_hand := ScenarioFixtures.add_hand_card(player, "cost_test_non_daedra", {"card_type": "creature", "cost": 5, "subtypes": ["Nord"]})
+	var daedra_effective_cost := PersistentCardRules.get_effective_play_cost(match_state, pid, daedra_in_hand)
+	var non_daedra_effective_cost := PersistentCardRules.get_effective_play_cost(match_state, pid, non_daedra_in_hand)
 	# Invade 4 — level 4 (one random keyword)
 	MatchTiming.play_action_from_hand(match_state, pid, str(invade_cards[3].get("instance_id", "")))
 	var l4_text := str(gate.get("rules_text", ""))
@@ -989,9 +998,126 @@ func _test_invade_gate_rules_text_and_cost_reduction() -> bool:
 		_assert(l2_ok, "Level 2 gate rules_text should mention +1/+1 without cost reduction (got: %s)." % [l2_text]) and
 		_assert(l3_ok, "Level 3 gate rules_text should mention cost reduction without keywords (got: %s)." % [l3_text]) and
 		_assert(has_daedra_aura, "Level 3 gate should add a Daedra cost reduction aura to match_state.") and
+		_assert(daedra_effective_cost == 4, "Daedra in hand should cost 1 less with level 3+ gate (got: %d)." % [daedra_effective_cost]) and
+		_assert(non_daedra_effective_cost == 5, "Non-Daedra should not get cost reduction (got: %d)." % [non_daedra_effective_cost]) and
 		_assert(l4_ok, "Level 4 gate rules_text should mention 'a random keyword' (got: %s)." % [l4_text]) and
 		_assert(l5_ok, "Level 5 gate rules_text should mention 'two random keywords' (got: %s)." % [l5_text]) and
 		_assert(int(gate.get("health", 0)) == 12, "Level 5 gate should have health 12 (4 + 4*2) (got: %d)." % [int(gate.get("health", 0))])
+	)
+
+
+func _test_invade_gate_level_capped_at_five() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Create 8 invade actions to go well past level 5
+	var invade_cards: Array = []
+	for i in range(8):
+		invade_cards.append(ScenarioFixtures.add_hand_card(player, "cap_invade_%d" % i, {
+			"card_type": "action",
+			"cost": 0,
+			"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "invade"}]}],
+		}))
+	for card in invade_cards:
+		MatchTiming.play_action_from_hand(match_state, pid, str(card.get("instance_id", "")))
+	var gate := _find_lane_card(match_state, "shadow", pid, "generated_oblivion_gate")
+	var gate_level := int(gate.get("gate_level", 0))
+	# Summon a Daedra to check keyword count
+	var daedra := ScenarioFixtures.summon_creature(player, match_state, "cap_daedra", "field", 1, 1, [], -1, {"subtypes": ["Daedra"]})
+	var granted: Array = daedra.get("granted_keywords", [])
+	return (
+		_assert(gate_level == 5, "Gate level should cap at 5 (got: %d)." % [gate_level]) and
+		_assert(granted.size() <= 2, "Summoned Daedra should get at most 2 keywords from level 5 gate (got: %d)." % [granted.size()])
+	)
+
+
+func _test_choose_one_repeat() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var action := ScenarioFixtures.add_hand_card(player, "repeat_action", {
+		"card_type": "action",
+		"cost": 0,
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [
+			{"op": "choose_one", "choices": [
+				{"label": "Option A", "effects": [{"op": "gain_magicka", "amount": 1}]},
+				{"label": "Option B", "effects": [{"op": "gain_magicka", "amount": 2}]},
+			], "repeat": 3},
+		]}],
+	})
+	MatchTiming.play_action_from_hand(match_state, pid, str(action.get("instance_id", "")))
+	var pending: Array = match_state.get("pending_player_choices", [])
+	var player_pending := 0
+	for choice in pending:
+		if str(choice.get("player_id", "")) == pid:
+			player_pending += 1
+	return _assert(player_pending == 3, "choose_one with repeat:3 should create 3 pending choices (got: %d)." % [player_pending])
+
+
+func _test_invade_gate_ward_target() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Create a gate first via invade
+	var invade_action := ScenarioFixtures.add_hand_card(player, "ward_invade", {
+		"card_type": "action",
+		"cost": 0,
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "invade"}]}],
+	})
+	MatchTiming.play_action_from_hand(match_state, pid, str(invade_action.get("instance_id", "")))
+	var gate := _find_lane_card(match_state, "shadow", pid, "generated_oblivion_gate")
+	# Summon a creature with grant_keyword targeting all_friendly_oblivion_gates
+	var keeper := ScenarioFixtures.summon_creature(player, match_state, "ward_keeper", "field", 3, 4, [], -1, {
+		"subtypes": ["Daedra"],
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_SUMMON, "effects": [
+			{"op": "grant_keyword", "target": "all_friendly_oblivion_gates", "keyword_id": "ward"},
+		]}],
+	})
+	return (
+		_assert(not gate.is_empty(), "Gate should exist after invade.") and
+		_assert(EvergreenRules.has_keyword(gate, "ward"), "Oblivion Gate should have Ward after Sigil Keeper effect (keywords: %s)." % [str(gate.get("granted_keywords", []))])
+	)
+
+
+func _test_summon_daedra_by_gate_level() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Invade twice to get a level 2 gate, then play the summon action
+	for i in range(2):
+		var inv := ScenarioFixtures.add_hand_card(player, "srd_invade_%d" % i, {
+			"card_type": "action",
+			"cost": 0,
+			"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "invade"}]}],
+		})
+		MatchTiming.play_action_from_hand(match_state, pid, str(inv.get("instance_id", "")))
+	var gate := _find_lane_card(match_state, "shadow", pid, "generated_oblivion_gate")
+	var gate_level := int(gate.get("gate_level", 0))
+	# Now play the summon_random_daedra_by_gate_level action (invade + summon)
+	var summon_action := ScenarioFixtures.add_hand_card(player, "srd_action", {
+		"card_type": "action",
+		"cost": 0,
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [
+			{"op": "invade"},
+			{"op": "summon_random_daedra_by_gate_level"},
+		]}],
+	})
+	MatchTiming.play_action_from_hand(match_state, pid, str(summon_action.get("instance_id", "")))
+	# Gate should now be level 3 after the third invade
+	var updated_gate_level := int(gate.get("gate_level", 0))
+	# Find any summoned creature in field lane that isn't the gate or the keeper
+	var summoned_daedra := {}
+	for lane in match_state.get("lanes", []):
+		if str(lane.get("lane_id", "")) == "shadow":
+			continue
+		for card in lane.get("player_slots", {}).get(pid, []):
+			if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) != "srd_action":
+				summoned_daedra = card
+				break
+	return (
+		_assert(updated_gate_level == 3, "Gate should be level 3 after 3 invades (got: %d)." % [updated_gate_level]) and
+		_assert(not summoned_daedra.is_empty(), "summon_random_daedra_by_gate_level should summon a creature to a lane.") and
+		_assert(int(summoned_daedra.get("cost", -1)) == 3, "Summoned Daedra should have cost equal to gate level 3 (got: %d)." % [int(summoned_daedra.get("cost", -1))])
 	)
 
 
