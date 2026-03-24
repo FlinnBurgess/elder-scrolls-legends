@@ -1,0 +1,30 @@
+{
+	"name": "The Companions",
+	"deck_id": "the_companions",
+	"attribute_ids": ["strength", "agility"],
+	"cards": [
+		{"card_id": "hos_str_aela_the_huntress", "quantity": 1},
+		{"card_id": "hom_str_aspect_of_hircine", "quantity": 1},
+		{"card_id": "str_relentless_raider", "quantity": 1},
+		{"card_id": "hos_str_aelas_huntmate", "quantity": 2},
+		{"card_id": "hos_str_circle_initiate", "quantity": 2},
+		{"card_id": "str_child_of_hircine", "quantity": 1},
+		{"card_id": "str_nord_firebrand", "quantity": 3},
+		{"card_id": "str_battlerage_orc", "quantity": 2},
+		{"card_id": "str_rampaging_minotaur", "quantity": 2},
+		{"card_id": "agi_cliff_racer", "quantity": 2},
+		{"card_id": "agi_greenheart_knight", "quantity": 3},
+		{"card_id": "str_fiery_imp", "quantity": 2},
+		{"card_id": "str_morthal_watchman", "quantity": 2},
+		{"card_id": "str_graystone_ravager", "quantity": 3},
+		{"card_id": "agi_helstrom_footpad", "quantity": 2},
+		{"card_id": "str_silvenar_tracker", "quantity": 3},
+		{"card_id": "str_rapid_shot", "quantity": 3},
+		{"card_id": "agi_finish_off", "quantity": 2},
+		{"card_id": "agi_shadow_shift", "quantity": 2},
+		{"card_id": "str_stone_throw", "quantity": 3},
+		{"card_id": "agi_dune_smuggler", "quantity": 2},
+		{"card_id": "str_skaven_pyromancer", "quantity": 3},
+		{"card_id": "agi_thieves_guild_recruit", "quantity": 3}
+	]
+}

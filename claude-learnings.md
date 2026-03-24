@@ -1,7 +1,7 @@
 # Claude Learnings
 
 ## Tags
-`assemble` `attributes` `auras` `card-catalog` `card-hydration` `card-state` `case-sensitivity` `cost-reduction` `death-checks` `end-of-turn` `events` `generated-cards` `invade` `match-engine` `neutral` `passives` `player-state` `randomness` `registry` `stat-helpers` `supports` `target-resolution` `triggers` `ui`
+`assemble` `attributes` `auras` `boss-config` `card-catalog` `card-hydration` `card-state` `case-sensitivity` `cost-reduction` `death-checks` `end-of-turn` `events` `generated-cards` `invade` `match-engine` `match-screen` `neutral` `passives` `player-state` `randomness` `registry` `stat-helpers` `supports` `target-resolution` `triggers` `ui`
 
 ## Card Hydration & Attributes
 
@@ -127,6 +127,16 @@
 - **`deal_damage` op handles creature-or-player duality automatically** `[match-engine, target-resolution]`
   When `target: "chosen_target"` resolves to no card targets (because the player chose a player target), `deal_damage` falls back to player damage using `_chosen_target_player_id` from the trigger dict. This makes it the correct op for "Deal X damage" effects where the player picks any target — use `target_mode: "creature_or_player"` with `op: "deal_damage"` and `target: "chosen_target"`.
   _Refs: `src/core/match/match_timing.gd:3487-3503`_
+
+## Match Screen & Modes
+
+- **`_arena_mode` flag on MatchScreen suppresses normal return behavior** `[match-screen, ui]`
+  Setting `match_screen._arena_mode = true` prevents the match screen from emitting `return_to_main_menu_requested` on its own after match end. Instead, the controller (arena or adventure) handles the signal and routes to the appropriate post-match screen. This flag is reusable for any game mode that needs custom post-match flow.
+  _Refs: `src/ui/match_screen.gd:108`_
+
+- **`boss_health` is the key for AI health override in `start_arena_boss_match`** `[boss-config, match-screen, match-engine]`
+  The `boss_config` dict passed to `start_arena_boss_match` uses `"boss_health"` (not `"starting_health"` or `"enemy_health"`) to override AI player HP. The boss is always `PLAYER_ORDER[0]` which is `"player_2"` (the AI). The health override is applied after `MatchBootstrap.create_standard_match` and before hydration.
+  _Refs: `src/ui/match_screen.gd:314-319`_
 
 ## Stat Helpers & Death Checks
 

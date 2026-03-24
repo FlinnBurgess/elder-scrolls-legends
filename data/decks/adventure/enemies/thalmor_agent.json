@@ -1,0 +1,18 @@
+{
+	"name": "Thalmor Agent",
+	"deck_id": "enemy_thalmor_agent",
+	"attribute_ids": ["willpower"],
+	"cards": [
+		{"card_id": "wil_aldmeri_patriot", "quantity": 3},
+		{"card_id": "wil_sunhold_medic", "quantity": 3},
+		{"card_id": "wil_summerset_shieldmage", "quantity": 3},
+		{"card_id": "hos_wil_thalmor_justiciar", "quantity": 3},
+		{"card_id": "wil_artaeum_savant", "quantity": 2},
+		{"card_id": "wil_auridon_paladin", "quantity": 3},
+		{"card_id": "wil_resolute_ally", "quantity": 3},
+		{"card_id": "hos_int_thalmor_embassy", "quantity": 1},
+		{"card_id": "wil_cloudrest_illusionist", "quantity": 3},
+		{"card_id": "wil_execute", "quantity": 3},
+		{"card_id": "wil_war_cry", "quantity": 3}
+	]
+}

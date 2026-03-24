@@ -1,0 +1,19 @@
+{
+	"name": "Necromancer",
+	"deck_id": "enemy_necromancer",
+	"attribute_ids": ["endurance"],
+	"cards": [
+		{"card_id": "end_deathless_draugr", "quantity": 3},
+		{"card_id": "end_rotting_draugr", "quantity": 3},
+		{"card_id": "end_haunting_spirit", "quantity": 3},
+		{"card_id": "end_restless_templar", "quantity": 3},
+		{"card_id": "end_black_worm_necromancer", "quantity": 3},
+		{"card_id": "hom_end_odirniran_necromancer", "quantity": 1},
+		{"card_id": "end_flesh_atronach", "quantity": 2},
+		{"card_id": "hos_end_soul_tear", "quantity": 3},
+		{"card_id": "end_raise_dead", "quantity": 2},
+		{"card_id": "moe_end_arise", "quantity": 3},
+		{"card_id": "hom_end_rising_of_bones", "quantity": 2},
+		{"card_id": "iom_end_wake_the_dead", "quantity": 2}
+	]
+}

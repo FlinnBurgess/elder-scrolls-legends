@@ -1,0 +1,22 @@
+{
+	"name": "Ancano",
+	"deck_id": "enemy_ancano_boss",
+	"attribute_ids": ["intelligence"],
+	"cards": [
+		{"card_id": "hos_int_ancano", "quantity": 1},
+		{"card_id": "int_crystal_tower_crafter", "quantity": 3},
+		{"card_id": "int_shimmerene_peddler", "quantity": 3},
+		{"card_id": "int_lillandril_hexmage", "quantity": 3},
+		{"card_id": "aw_int_altmer_flameslinger", "quantity": 3},
+		{"card_id": "int_breton_conjurer", "quantity": 3},
+		{"card_id": "int_storm_atronach", "quantity": 3},
+		{"card_id": "db_int_stealer_of_secrets", "quantity": 2},
+		{"card_id": "int_firebolt", "quantity": 3},
+		{"card_id": "int_lightning_bolt", "quantity": 3},
+		{"card_id": "int_ice_storm", "quantity": 2},
+		{"card_id": "int_ice_spike", "quantity": 3},
+		{"card_id": "int_fire_storm", "quantity": 2},
+		{"card_id": "aw_int_channeled_storm", "quantity": 3},
+		{"card_id": "int_brilliant_experiment", "quantity": 3}
+	]
+}

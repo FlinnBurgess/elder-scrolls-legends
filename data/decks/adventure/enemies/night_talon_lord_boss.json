@@ -1,0 +1,22 @@
+{
+	"name": "Night Talon Lord",
+	"deck_id": "enemy_night_talon_lord_boss",
+	"attribute_ids": ["endurance"],
+	"cards": [
+		{"card_id": "end_night_talon_lord", "quantity": 2},
+		{"card_id": "end_blood_magic_lord", "quantity": 2},
+		{"card_id": "end_night_shadow", "quantity": 3},
+		{"card_id": "end_doomcrag_vampire", "quantity": 2},
+		{"card_id": "hom_end_bloodline_outcast", "quantity": 2},
+		{"card_id": "cwc_end_barrow_stalker", "quantity": 3},
+		{"card_id": "hom_end_quarra_clan_bloodkin", "quantity": 3},
+		{"card_id": "joo_end_brotherhood_vampire", "quantity": 3},
+		{"card_id": "hom_end_aundae_clan_sorcerer", "quantity": 3},
+		{"card_id": "db_end_little_girl", "quantity": 2},
+		{"card_id": "dg_end_nightlord_vampire", "quantity": 3},
+		{"card_id": "dg_end_vampire_fledgling", "quantity": 3},
+		{"card_id": "end_drain_life", "quantity": 3},
+		{"card_id": "end_corpse_curse", "quantity": 3},
+		{"card_id": "mc_end_pure_blood_elder", "quantity": 3}
+	]
+}

@@ -1,0 +1,18 @@
+{
+	"name": "Silver Hand",
+	"deck_id": "enemy_silver_hand",
+	"attribute_ids": ["strength"],
+	"cards": [
+		{"card_id": "str_nord_firebrand", "quantity": 3},
+		{"card_id": "str_morthal_watchman", "quantity": 3},
+		{"card_id": "str_relentless_raider", "quantity": 2},
+		{"card_id": "str_graystone_ravager", "quantity": 3},
+		{"card_id": "str_orc_clan_captain", "quantity": 3},
+		{"card_id": "str_battlerage_orc", "quantity": 3},
+		{"card_id": "str_mighty_ally", "quantity": 3},
+		{"card_id": "str_rampaging_minotaur", "quantity": 3},
+		{"card_id": "hos_str_candlehearth_brawler", "quantity": 3},
+		{"card_id": "str_rapid_shot", "quantity": 2},
+		{"card_id": "str_raiding_party", "quantity": 2}
+	]
+}

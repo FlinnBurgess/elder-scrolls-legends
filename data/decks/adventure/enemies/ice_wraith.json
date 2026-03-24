@@ -1,0 +1,18 @@
+{
+	"name": "Ice Wraith",
+	"deck_id": "enemy_ice_wraith",
+	"attribute_ids": ["intelligence"],
+	"cards": [
+		{"card_id": "int_ice_wraith", "quantity": 3},
+		{"card_id": "int_shrieking_harpy", "quantity": 3},
+		{"card_id": "hos_int_icewing_dragon", "quantity": 2},
+		{"card_id": "iom_int_icy_shambles", "quantity": 3},
+		{"card_id": "moe_int_glacial_dragon", "quantity": 2},
+		{"card_id": "int_dres_tormentor", "quantity": 3},
+		{"card_id": "int_frost_atronach", "quantity": 3},
+		{"card_id": "int_ice_spike", "quantity": 3},
+		{"card_id": "int_ice_storm", "quantity": 2},
+		{"card_id": "int_winters_grasp", "quantity": 3},
+		{"card_id": "int_firebolt", "quantity": 3}
+	]
+}

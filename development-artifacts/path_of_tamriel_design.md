@@ -26,8 +26,9 @@ Each adventure is a graph of nodes. Key properties:
 
 - **Branching paths** — the player usually chooses between two routes at forks, each with different risk/reward. All branches always converge before mini-boss and final boss nodes — these cannot be skipped
 - **Hidden nodes** — most nodes are unknown until reached, except guaranteed boss nodes and Power nodes
-- **Health carries over** — the player's Nexus HP persists through the entire adventure
-- **Mini-boss at the midpoint** — defeating the mini-boss grants a full heal, making it a critical checkpoint
+- **Fresh health each battle** — the player starts every battle at full health. ESL's aggressive gameplay makes persistent HP feel punishing rather than strategic (unlike LoR's more defensive pacing)
+- **Revive system** — the player gets a limited number of revives per run. On loss, they can retry the same node at full health. No revives remaining = run over
+- **Mini-boss at the midpoint** — a tougher mid-adventure fight marking a critical checkpoint
 
 #### Node Types
 
@@ -48,7 +49,7 @@ Each adventure is a graph of nodes. Key properties:
 
 | Resource | Purpose |
 |----------|---------|
-| **Health (Nexus HP)** | Carries over between battles; losing it all requires a Revive or ends the run |
+| **Health (Nexus HP)** | Resets to full each battle; losing a battle costs a Revive or ends the run |
 | **Gold** | Earned from winning battles; spent in shops |
 | **Reroll Tokens** | Refresh the offerings at any node once; essential for steering a run's direction |
 | **Revives** | Allow a retry after a loss, restoring HP to 100%; limited per run |
@@ -215,7 +216,7 @@ This makes every battle feel narratively grounded and gives players immediate me
 | Items (card buffs) | Item cards — attach an ESL Item card to a creature in your deck, modifying it for the run |
 | Global Adventure Mutator | Daedric Influence — a Daedric Prince's power reshapes the rules of the entire adventure |
 | Enemy Powers | Enemy Passives — each encounter's headline creature grants a passive rule modifier to the AI |
-| Healer Node | Shrine of Arkay / Temple — restore Nexus HP |
+| Healer Node | Shrine of Arkay / Temple — grant an extra revive or boost max health |
 | Shop Node | Merchants Guild / Thieves Bazaar — spend gold on cards |
 | Event Node | Lore Encounter — text-based choices with thematic consequences |
 | Reinforcement Node | Recruit — add a creature or action to your deck |
@@ -274,13 +275,18 @@ This is structured as a series of milestones, each playable and self-contained. 
   - **Combat** — triggers a standard game against an AI deck
   - **Mini-boss Combat** — same as combat but a harder AI deck
   - **Final Boss** — hardest AI deck; completing it ends the run and shows a Victory screen
-- **Persistent Nexus HP** — track health between battles; if it hits 0, the run ends
-- **Post-run screen** — show final result, deck used, nodes cleared
+- **Fresh health each match** — the player starts every battle at full health (30 HP for an unlevelled deck). ESL's aggressive gameplay makes persistent HP feel punishing rather than strategic
+- **Revive system** — the player gets one revive per run. On loss, they can spend a revive to retry the same node at full health. No revives remaining = run over
+- **Post-run screen** — show final result (victory or defeat) with a button back to the menu
 - No rewards or persistent progression yet — pure gameplay loop first
 
-**AI enemy decks needed:** 2–3 per adventure. Each enemy deck should be built around and named after a thematic headline creature card. Start with one adventure per starting deck.
+**AI enemy decks needed:** 2–3 hand-crafted decks per adventure. Each enemy deck should be built around and named after a thematic headline creature card. Enemy decks may repeat across nodes in early milestones. Enemy HP is configurable per node. AI quality (0.0–1.0) is configurable per node. Start with one adventure per starting deck.
 
-**Deliverable:** You can pick a deck, fight through a series of 6–8 battles with persistent health, and either win the adventure or lose mid-way.
+**Adventure structure:** Each adventure is a fixed linear path of 6 nodes: 2 combat → 1 mini-boss → 2 combat → 1 final boss. Adventures are defined as JSON files with a graph-based node structure (node IDs with `next` arrays) to support future branching.
+
+**Turn order:** Random per match.
+
+**Deliverable:** You can pick a deck, fight through a series of 6 battles, and either win the adventure or lose mid-way (with one revive available).
 
 ---
 
@@ -290,7 +296,7 @@ This is structured as a series of milestones, each playable and self-contained. 
 
 **What to add:**
 - **Branching map** — at 2–3 points in each adventure, the player sees two paths with different node compositions visible. All branches must converge before the mini-boss and final boss — these nodes can never be skipped
-- **Healer Node** — restore a fixed amount of Nexus HP (e.g. heal 10, or restore to 75%)
+- **Healer Node** — grant an extra revive, or boost max health for subsequent battles
 - **Reinforcement Node** — present 3 cards; pick 1 to add to your deck for this run, drawn from a pool appropriate to the deck's attributes
 - **Shop Node** — present 6 cards; pay gold to add them to your deck. Gold earned from winning battles (e.g. 30 gold per win)
 - **Gold** resource tracked during a run, spent at shops

@@ -1,0 +1,25 @@
+{
+	"name": "Alduin",
+	"deck_id": "enemy_alduin_boss",
+	"attribute_ids": ["strength", "willpower"],
+	"cards": [
+		{"card_id": "hos_neu_alduin", "quantity": 1},
+		{"card_id": "neu_odahviing", "quantity": 1},
+		{"card_id": "hos_neu_paarthurnax", "quantity": 1},
+		{"card_id": "hos_str_wildfire_dragon", "quantity": 2},
+		{"card_id": "hos_str_swiftwing_dragon", "quantity": 2},
+		{"card_id": "str_blood_dragon", "quantity": 2},
+		{"card_id": "hos_str_skyborn_dragon", "quantity": 3},
+		{"card_id": "hos_wil_revered_guardian", "quantity": 3},
+		{"card_id": "hos_wil_karthspire_scourge", "quantity": 3},
+		{"card_id": "hos_wil_undying_dragon", "quantity": 2},
+		{"card_id": "end_nahagliiv", "quantity": 1},
+		{"card_id": "hos_int_icewing_dragon", "quantity": 2},
+		{"card_id": "hos_end_ironscale_dragon", "quantity": 2},
+		{"card_id": "hos_str_blades_lookout", "quantity": 3},
+		{"card_id": "hos_wil_cliffside_lookout", "quantity": 3},
+		{"card_id": "hos_neu_midnight_snack", "quantity": 3},
+		{"card_id": "hos_int_dragons_fury", "quantity": 3},
+		{"card_id": "hos_wil_devour", "quantity": 3}
+	]
+}

@@ -1,0 +1,18 @@
+{
+	"name": "Storm Atronach",
+	"deck_id": "enemy_storm_atronach",
+	"attribute_ids": ["intelligence"],
+	"cards": [
+		{"card_id": "int_evermore_steward", "quantity": 3},
+		{"card_id": "hos_int_embassy_guard", "quantity": 3},
+		{"card_id": "int_daggerfall_mage", "quantity": 2},
+		{"card_id": "int_breton_conjurer", "quantity": 3},
+		{"card_id": "int_flame_atronach", "quantity": 3},
+		{"card_id": "int_frost_atronach", "quantity": 3},
+		{"card_id": "int_storm_atronach", "quantity": 3},
+		{"card_id": "hos_int_mistveil_enchanter", "quantity": 3},
+		{"card_id": "int_lesser_ward", "quantity": 3},
+		{"card_id": "int_firebolt", "quantity": 2},
+		{"card_id": "int_lightning_bolt", "quantity": 2}
+	]
+}

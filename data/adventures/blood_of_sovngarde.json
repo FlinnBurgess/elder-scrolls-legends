@@ -1,0 +1,56 @@
+{
+	"id": "blood_of_sovngarde",
+	"name": "Blood of Sovngarde",
+	"allowed_deck_ids": ["the_companions"],
+	"start_node": "node_1",
+	"nodes": {
+		"node_1": {
+			"type": "combat",
+			"headline": "Ice Wraith",
+			"enemy_deck": "enemy_ice_wraith",
+			"quality": 0.4,
+			"enemy_health": 30,
+			"next": ["node_2"]
+		},
+		"node_2": {
+			"type": "combat",
+			"headline": "Silver Hand",
+			"enemy_deck": "enemy_silver_hand",
+			"quality": 0.5,
+			"enemy_health": 30,
+			"next": ["node_3"]
+		},
+		"node_3": {
+			"type": "mini_boss",
+			"headline": "Silver Hand",
+			"enemy_deck": "enemy_silver_hand",
+			"quality": 0.65,
+			"enemy_health": 35,
+			"next": ["node_4"]
+		},
+		"node_4": {
+			"type": "combat",
+			"headline": "Ice Wraith",
+			"enemy_deck": "enemy_ice_wraith",
+			"quality": 0.6,
+			"enemy_health": 30,
+			"next": ["node_5"]
+		},
+		"node_5": {
+			"type": "combat",
+			"headline": "Silver Hand",
+			"enemy_deck": "enemy_silver_hand",
+			"quality": 0.7,
+			"enemy_health": 30,
+			"next": ["node_6"]
+		},
+		"node_6": {
+			"type": "final_boss",
+			"headline": "Night Talon Lord",
+			"enemy_deck": "enemy_night_talon_lord_boss",
+			"quality": 0.9,
+			"enemy_health": 40,
+			"next": []
+		}
+	}
+}

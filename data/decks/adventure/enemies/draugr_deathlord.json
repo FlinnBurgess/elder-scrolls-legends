@@ -1,0 +1,18 @@
+{
+	"name": "Draugr Deathlord",
+	"deck_id": "enemy_draugr_deathlord",
+	"attribute_ids": ["endurance"],
+	"cards": [
+		{"card_id": "end_deadly_draugr", "quantity": 3},
+		{"card_id": "end_deathless_draugr", "quantity": 3},
+		{"card_id": "end_rotting_draugr", "quantity": 3},
+		{"card_id": "hos_end_ancient_lookout", "quantity": 3},
+		{"card_id": "hom_end_ancestral_dead", "quantity": 3},
+		{"card_id": "end_grim_champion", "quantity": 3},
+		{"card_id": "hom_end_skeleton_champion", "quantity": 3},
+		{"card_id": "end_bone_colossus", "quantity": 2},
+		{"card_id": "end_imprisoned_deathlord", "quantity": 2},
+		{"card_id": "end_haunting_spirit", "quantity": 3},
+		{"card_id": "hom_end_rising_of_bones", "quantity": 2}
+	]
+}

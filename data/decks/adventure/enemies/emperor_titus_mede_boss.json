@@ -1,0 +1,21 @@
+{
+	"name": "Emperor Titus Mede II",
+	"deck_id": "enemy_emperor_titus_mede_boss",
+	"attribute_ids": ["willpower"],
+	"cards": [
+		{"card_id": "wil_septim_guardsman", "quantity": 3},
+		{"card_id": "wil_kvatch_soldier", "quantity": 3},
+		{"card_id": "hos_wil_colovian_trooper", "quantity": 3},
+		{"card_id": "wil_fifth_legion_trainer", "quantity": 3},
+		{"card_id": "wil_imperial_legionnaire", "quantity": 3},
+		{"card_id": "wil_hive_defender", "quantity": 3},
+		{"card_id": "hos_wil_snowhawk_detachment", "quantity": 3},
+		{"card_id": "wil_imperial_siege_engine", "quantity": 3},
+		{"card_id": "wil_legion_praefect", "quantity": 3},
+		{"card_id": "wil_scouting_patrol", "quantity": 3},
+		{"card_id": "wil_imperial_reinforcements", "quantity": 3},
+		{"card_id": "wil_war_cry", "quantity": 3},
+		{"card_id": "wil_piercing_javelin", "quantity": 3},
+		{"card_id": "wil_healing_potion", "quantity": 1}
+	]
+}

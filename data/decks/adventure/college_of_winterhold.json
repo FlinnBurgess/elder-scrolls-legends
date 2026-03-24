@@ -1,0 +1,32 @@
+{
+	"name": "College of Winterhold",
+	"deck_id": "college_of_winterhold",
+	"attribute_ids": ["intelligence", "willpower"],
+	"cards": [
+		{"card_id": "hos_int_ancano", "quantity": 1},
+		{"card_id": "hos_int_college_of_winterhold", "quantity": 1},
+		{"card_id": "int_divayth_fyr", "quantity": 1},
+		{"card_id": "aw_end_mannimarco", "quantity": 1},
+		{"card_id": "int_crystal_tower_crafter", "quantity": 3},
+		{"card_id": "wil_aldmeri_patriot", "quantity": 2},
+		{"card_id": "wil_artaeum_savant", "quantity": 2},
+		{"card_id": "int_shimmerene_peddler", "quantity": 2},
+		{"card_id": "int_telvanni_arcanist", "quantity": 3},
+		{"card_id": "int_lightning_bolt", "quantity": 3},
+		{"card_id": "int_shrieking_harpy", "quantity": 2},
+		{"card_id": "wil_piercing_javelin", "quantity": 2},
+		{"card_id": "wil_cloudrest_illusionist", "quantity": 1},
+		{"card_id": "int_wisdom_of_ancients", "quantity": 2},
+		{"card_id": "int_firebolt", "quantity": 3},
+		{"card_id": "int_ice_spike", "quantity": 3},
+		{"card_id": "int_fire_storm", "quantity": 2},
+		{"card_id": "wil_execute", "quantity": 2},
+		{"card_id": "int_abecean_navigator", "quantity": 2},
+		{"card_id": "int_breton_conjurer", "quantity": 2},
+		{"card_id": "int_ice_wraith", "quantity": 2},
+		{"card_id": "wil_hive_defender", "quantity": 2},
+		{"card_id": "int_camlorn_sentinel", "quantity": 2},
+		{"card_id": "wil_kvatch_soldier", "quantity": 2},
+		{"card_id": "hos_int_embassy_guard", "quantity": 2}
+	]
+}

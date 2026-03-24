@@ -6,6 +6,7 @@ const DeckValidator = preload("res://src/deck/deck_validator.gd")
 const MatchScreen = preload("res://src/ui/match_screen.gd")
 const DeckbuilderScreen = preload("res://src/ui/deckbuilder_screen.gd")
 const ArenaControllerScript = preload("res://src/ui/arena/arena_controller.gd")
+const AdventureControllerScript = preload("res://src/ui/adventure/adventure_controller.gd")
 const TestMatchConfig = preload("res://data/test_match_config.gd")
 
 const DECKS_DIR := "res://data/decks/"
@@ -69,6 +70,12 @@ func _show_main_menu() -> void:
 	_match_button.pressed.connect(_on_match_pressed)
 	center.add_child(_match_button)
 
+	var adventure_button := Button.new()
+	adventure_button.text = "Adventure"
+	adventure_button.custom_minimum_size = Vector2(320, 52)
+	adventure_button.pressed.connect(_on_adventure_pressed)
+	center.add_child(adventure_button)
+
 	var arena_button := Button.new()
 	arena_button.text = "Arena"
 	arena_button.custom_minimum_size = Vector2(320, 52)
@@ -85,6 +92,15 @@ func _show_main_menu() -> void:
 func _on_match_pressed() -> void:
 	_main_menu.visible = false
 	_show_deck_select_screen()
+
+
+func _on_adventure_pressed() -> void:
+	_main_menu.visible = false
+	var adventure_controller := AdventureControllerScript.new()
+	adventure_controller.name = "AdventureController"
+	adventure_controller.return_to_menu.connect(_show_main_menu)
+	add_child(adventure_controller)
+	_active_screen = adventure_controller
 
 
 func _on_arena_pressed() -> void:

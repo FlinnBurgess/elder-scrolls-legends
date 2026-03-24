@@ -1,0 +1,18 @@
+{
+	"name": "Shadowscale Assassin",
+	"deck_id": "enemy_shadowscale_assassin",
+	"attribute_ids": ["agility"],
+	"cards": [
+		{"card_id": "end_deadly_draugr", "quantity": 3},
+		{"card_id": "agi_fighters_guild_recruit", "quantity": 3},
+		{"card_id": "hos_agi_shadowscale_partisan", "quantity": 3},
+		{"card_id": "agi_territorial_viper", "quantity": 2},
+		{"card_id": "db_agi_sanctuary_pet", "quantity": 3},
+		{"card_id": "hos_agi_gloomlurker", "quantity": 3},
+		{"card_id": "hos_agi_shadowmaster", "quantity": 2},
+		{"card_id": "agi_skooma_racketeer", "quantity": 2},
+		{"card_id": "agi_finish_off", "quantity": 3},
+		{"card_id": "hos_agi_drain_vitality", "quantity": 3},
+		{"card_id": "agi_arrow_in_the_knee", "quantity": 3}
+	]
+}

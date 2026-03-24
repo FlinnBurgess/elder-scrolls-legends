@@ -1,0 +1,56 @@
+{
+	"id": "the_dragon_crisis",
+	"name": "The Dragon Crisis",
+	"allowed_deck_ids": ["dragons_of_skyrim"],
+	"start_node": "node_1",
+	"nodes": {
+		"node_1": {
+			"type": "combat",
+			"headline": "Frost Dragon",
+			"enemy_deck": "enemy_frost_dragon",
+			"quality": 0.4,
+			"enemy_health": 30,
+			"next": ["node_2"]
+		},
+		"node_2": {
+			"type": "combat",
+			"headline": "Draugr Deathlord",
+			"enemy_deck": "enemy_draugr_deathlord",
+			"quality": 0.5,
+			"enemy_health": 30,
+			"next": ["node_3"]
+		},
+		"node_3": {
+			"type": "mini_boss",
+			"headline": "Blood Dragon",
+			"enemy_deck": "enemy_frost_dragon",
+			"quality": 0.65,
+			"enemy_health": 35,
+			"next": ["node_4"]
+		},
+		"node_4": {
+			"type": "combat",
+			"headline": "Draugr Deathlord",
+			"enemy_deck": "enemy_draugr_deathlord",
+			"quality": 0.6,
+			"enemy_health": 30,
+			"next": ["node_5"]
+		},
+		"node_5": {
+			"type": "combat",
+			"headline": "Frost Dragon",
+			"enemy_deck": "enemy_frost_dragon",
+			"quality": 0.7,
+			"enemy_health": 30,
+			"next": ["node_6"]
+		},
+		"node_6": {
+			"type": "final_boss",
+			"headline": "Alduin",
+			"enemy_deck": "enemy_alduin_boss",
+			"quality": 0.9,
+			"enemy_health": 40,
+			"next": []
+		}
+	}
+}
