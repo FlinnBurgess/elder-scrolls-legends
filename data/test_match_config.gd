@@ -21,7 +21,7 @@ static func build_test_match_state() -> Dictionary:
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — 12 magicka, Assemble (Factotum) mechanic test
+	# Player 1 (you) — 12 magicka, Invade mechanic test
 	var p1_health := 30
 	var p1_max_magicka := 12
 	var p1_current_magicka := 12
@@ -29,34 +29,35 @@ static func build_test_match_state() -> Dictionary:
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — Factotums to play + Yagrum's Workshop for double triggers
+	# Player 1 hand — cheap Invade triggers + payoffs
 	var p1_hand_ids: Array = [
-		"cwc_neu_assembled_sanitizer",      # Cost 3, 1/2 Factotum, Assemble: +2/+0 or Lethal
-		"cwc_neu_assembled_conduit",        # Cost 5, 3/3 Factotum, Assemble: +1/+0 Breakthrough or +0/+1 Regenerate
-		"cwc_neu_assembled_titan",          # Cost 6, 4/4 Factotum, Assemble: Choose two of four options (legendary)
-		"mc_neu_yagrums_workshop",          # Cost 3, Support, Activate: double Summon/Assemble this turn
-		"cwc_neu_assembled_sentry",         # Cost 2, 1/1 Factotum, Assemble: +0/+2 or Guard (second copy)
+		"joo_neu_oblivion_invasion",        # Cost 0, Action: Invade (free, test basic invade)
+		"joo_str_invasion_scout",           # Cost 1, 1/1 Daedra, Summon: Invade
+		"joo_int_invasion_vanguard",        # Cost 2, 1/4 Daedra, Summon: Invade
+		"joo_wil_invasion_marauder",        # Cost 3, 3/3 Daedra, Summon: Invade
+		"joo_int_blast_from_oblivion",      # Cost 3, Prophecy Action: Invade, deal gate-level damage to creature
+		"joo_wil_invasion_party",           # Cost 4, Legendary Action: Choose 3x — Invade or summon 1/1 Scamp
+		"joo_str_daedric_incursion",        # Cost 3, Action: Draw a random Daedra from deck, Invade
 	]
 
-	# Player 1 deck — more Factotums to draw into
+	# Player 1 deck — more invade cards + Daedra for draw effects
 	# Index 0 is drawn first.
 	var p1_deck_ids: Array = [
-		"cwc_neu_assembled_sentry",         # Cost 2, 1/1 Factotum, Assemble: +0/+2 or Guard
-		"cwc_neu_assembled_sanitizer",      # Cost 3, 1/2 Factotum, Assemble: +2/+0 or Lethal
-		"cwc_neu_reflective_automaton",     # Cost 2, 2/3 Factotum, has all creature types
-		"str_fiery_imp",                    # Filler
-		"str_fiery_imp",                    # Filler
+		"joo_str_keeper_of_the_gates",      # Cost 6, 6/6 Nord: When you Invade, Invade again (double invade!)
+		"joo_dual_mankar_camoran",          # Cost 4, 4/4 Legendary: After action → Invade, Gates get +4/+0
+		"joo_int_sigil_keeper",             # Cost 4, 3/4 Daedra: Summon: Invade, give Ward to all Gates
+		"joo_wil_unexpected_arrival",       # Cost 3, Action: Invade, summon Daedra with cost = gate level
+		"joo_str_xivilai_warlord",          # Cost 4, 3/3 Daedra, Charge+Guard (draw target for Daedric Incursion)
 	]
 
 	var p1_discard_ids: Array = []
 
-	var p1_support_ids: Array = []
-
-	# Pre-placed Factotums — these receive Assemble buffs when you play new Factotums
-	var p1_field_creatures: Array = [
-		_make_lane_creature("player_1", "cwc_neu_assembled_sentry", 100),     # 1/1 Factotum — buff target
-		_make_lane_creature("player_1", "cwc_neu_reflective_automaton", 101), # 2/3 Factotum (all types) — buff target
+	# Great Sigil Stone — support with Uses: 3, Activate: Invade
+	var p1_support_ids: Array = [
+		"joo_neu_great_sigil_stone",        # Cost 4, Support, Uses: 3, Activate: Invade
 	]
+
+	var p1_field_creatures: Array = []
 	var p1_shadow_creatures: Array = []
 
 	# Player 2 (AI) — weak, no runes, minimal magicka
@@ -81,13 +82,15 @@ static func build_test_match_state() -> Dictionary:
 		"str_fiery_imp",
 	]
 
-	# Player 2 — weak enemies as punching bags
+	# Player 2 — weak enemies as targets for Blast from Oblivion
 	var p2_field_creatures: Array = [
 		_make_lane_creature("player_2", "str_fiery_imp", 100),             # 1/1
 		_make_lane_creature("player_2", "str_fiery_imp", 101),             # 1/1
+		_make_lane_creature("player_2", "end_fharun_defender", 102),       # 1/4 Guard — survives to test gate-level damage
 	]
 	var p2_shadow_creatures: Array = [
-		_make_lane_creature("player_2", "str_fiery_imp", 102),             # 1/1
+		_make_lane_creature("player_2", "str_fiery_imp", 103),             # 1/1
+		_make_lane_creature("player_2", "str_fiery_imp", 104),             # 1/1
 	]
 
 	## ── END CONFIGURATION ──────────────────────────────────────────────

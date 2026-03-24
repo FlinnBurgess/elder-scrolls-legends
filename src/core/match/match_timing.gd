@@ -2204,6 +2204,13 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 					"parent_event_id": str(event.get("event_id", "")),
 					"produced_by_resolution_id": str(resolution.get("resolution_id", "")),
 				}))
+			# Yagrum's Workshop: double summon/assemble triggers for neutral cards
+			if _should_double_summon_trigger(match_state, trigger, event):
+				for generated_event in _apply_effects(match_state, trigger, event, resolution):
+					queue.append(_normalize_event(match_state, generated_event, {
+						"parent_event_id": str(event.get("event_id", "")),
+						"produced_by_resolution_id": str(resolution.get("resolution_id", "")),
+					}))
 	recalculate_auras(match_state)
 	# After auras recalculate, check for creatures that should die due to lost aura health
 	var aura_death_events: Array = []
@@ -8087,6 +8094,25 @@ static func _fire_wax_wane_on_other_friendly(match_state: Dictionary, controller
 	if active_set.is_empty():
 		match_state.erase("_active_forced_wax_wane")
 	return generated_events
+
+
+static func _should_double_summon_trigger(match_state: Dictionary, trigger: Dictionary, event: Dictionary) -> bool:
+	var family := str(trigger.get("descriptor", {}).get("family", ""))
+	if family != "summon":
+		return false
+	var controller_id := str(trigger.get("controller_player_id", ""))
+	var player := _get_player_state(match_state, controller_id)
+	if not bool(player.get("_double_summon_this_turn", false)):
+		return false
+	# Only double for neutral cards — neutral cards have an empty attributes array
+	# because "neutral" is not a primary attribute and gets filtered by normalize_attribute_ids
+	var source_card := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+	if source_card.is_empty():
+		return false
+	var attributes = source_card.get("attributes", [])
+	if typeof(attributes) != TYPE_ARRAY:
+		return false
+	return attributes.is_empty() or attributes.has("neutral")
 
 
 static func _update_assemble_rules_text(card: Dictionary, label: String, text_template: String) -> void:

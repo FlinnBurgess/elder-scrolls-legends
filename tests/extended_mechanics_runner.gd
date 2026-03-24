@@ -26,6 +26,9 @@ func _run_all_tests() -> bool:
 		_test_assemble_choose_two() and
 		_test_assemble_choose_two_grants_triggers() and
 		_test_assemble_granted_trigger_stacking() and
+		_test_yagrums_workshop_doubles_neutral_summon() and
+		_test_yagrums_workshop_doubles_assemble() and
+		_test_yagrums_workshop_clears_at_end_of_turn() and
 		_test_beast_form_pack() and
 		_test_veteran_hook() and
 		_test_action_pack_matrix() and
@@ -324,6 +327,95 @@ func _test_assemble_granted_trigger_stacking() -> bool:
 		_assert(summon_trigger_count == 1, "Should have 1 stacked trigger, not 2 separate ones, got %d." % summon_trigger_count) and
 		_assert("Deal 4 damage" in rules_after_second, "After second grant, text should say 'Deal 4 damage', got: %s" % rules_after_second)
 	)
+
+
+func _test_yagrums_workshop_doubles_neutral_summon() -> bool:
+	# Full integration: place Workshop support, activate it, then summon a neutral creature
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	# Place Workshop in support zone
+	var workshop := ScenarioFixtures.make_card(pid, "workshop", {
+		"card_type": "support",
+		"definition_id": "test_workshop",
+		"support_uses": 3,
+		"remaining_support_uses": 3,
+		"triggered_abilities": [{"family": "activate", "effects": [{"op": "grant_double_summon_this_turn"}]}],
+	})
+	workshop["zone"] = "support"
+	player["support"].append(workshop)
+	# Activate the workshop
+	var activate_result := PersistentCardRules.activate_support(match_state, pid, str(workshop.get("instance_id", "")))
+	if not bool(activate_result.get("is_valid", false)):
+		return _assert(false, "Workshop activation should succeed, got: %s" % str(activate_result.get("errors", [])))
+	# Verify the flag was set
+	if not bool(player.get("_double_summon_this_turn", false)):
+		return _assert(false, "Player should have _double_summon_this_turn after activating Workshop.")
+	var opponent_health_before := int(opponent.get("health", 30))
+	# Neutral creature that deals 2 damage on summon
+	var neutral_creature := ScenarioFixtures.add_hand_card(player, "neutral_summoner", {
+		"card_type": "creature",
+		"cost": 0,
+		"power": 1,
+		"health": 1,
+		"attributes": [],
+		"triggered_abilities": [{
+			"family": "summon",
+			"effects": [{"op": "damage", "target_player": "opponent", "amount": 2}],
+		}],
+	})
+	LaneRules.summon_from_hand(match_state, pid, str(neutral_creature.get("instance_id", "")), "field", {})
+	var opponent_health_after := int(opponent.get("health", 30))
+	# Should have dealt 2 damage twice = 4 total
+	return _assert(opponent_health_after == opponent_health_before - 4, "Neutral summon should fire twice with Workshop, opponent lost %d (expected 4)." % (opponent_health_before - opponent_health_after))
+
+
+func _test_yagrums_workshop_doubles_assemble() -> bool:
+	# An assemble choose_one should produce two separate choice prompts
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	player["_double_summon_this_turn"] = true
+	var sentry := ScenarioFixtures.add_hand_card(player, "sentry_ws", {
+		"card_type": "creature",
+		"cost": 0,
+		"power": 1,
+		"health": 1,
+		"attributes": [],
+		"subtypes": ["Factotum"],
+		"triggered_abilities": [{
+			"family": "summon",
+			"effects": [{"op": "choose_one", "choices": [
+				{"label": "+2/+0", "effects": [{"op": "modify_stats", "target": "assemble_targets", "power": 2, "health": 0}]},
+				{"label": "Guard", "effects": [{"op": "grant_keyword", "target": "assemble_targets", "keyword_id": "guard"}]},
+			]}],
+		}],
+	})
+	LaneRules.summon_from_hand(match_state, pid, str(sentry.get("instance_id", "")), "field", {})
+	# First choice from first trigger
+	var choice1 := MatchTiming.get_pending_player_choice(match_state, pid)
+	if choice1.is_empty():
+		return _assert(false, "Should have first assemble choice pending.")
+	MatchTiming.resolve_pending_player_choice(match_state, pid, 0)  # +2/+0
+	# Second choice from doubled trigger
+	var choice2 := MatchTiming.get_pending_player_choice(match_state, pid)
+	if choice2.is_empty():
+		return _assert(false, "Should have second assemble choice pending (doubled by Workshop).")
+	MatchTiming.resolve_pending_player_choice(match_state, pid, 0)  # +2/+0 again
+	# Sentry should have +4/+0 total (doubled)
+	return (
+		_assert(EvergreenRules.get_power(sentry) == 5, "Sentry should be 1+2+2=5 power after doubled assemble, got %d." % EvergreenRules.get_power(sentry)) and
+		_assert(not MatchTiming.has_pending_player_choice(match_state, pid), "No more pending choices.")
+	)
+
+
+func _test_yagrums_workshop_clears_at_end_of_turn() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	player["_double_summon_this_turn"] = true
+	ExtendedMechanicPacks.reset_turn_state(player)
+	return _assert(not bool(player.get("_double_summon_this_turn", false)), "Double summon flag should be cleared after turn reset.")
 
 
 func _test_beast_form_pack() -> bool:
@@ -684,7 +776,7 @@ func _test_empower_summon_stat_bonus() -> bool:
 		var ping := ScenarioFixtures.add_hand_card(player, "ping_sfe_%d" % i, {"card_type": "action", "cost": 0, "triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "damage", "target_player": "target_player", "amount": 1}]}]})
 		MatchTiming.play_action_from_hand(match_state, pid, str(ping.get("instance_id", "")), {"target_player_id": oid})
 	# Summon from effect: base 1/1 + empower_stat_bonus 1 * 2 empower = 3/3
-	var summon_action := ScenarioFixtures.add_hand_card(player, "empower_summon", {"card_type": "action", "cost": 0, "triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "summon_from_effect", "lane_id": "field", "card_template": {"definition_id": "test_recruit", "name": "Recruit", "card_type": "creature", "subtypes": [], "attributes": ["neutral"], "cost": 1, "power": 1, "health": 1, "base_power": 1, "base_health": 1}, "empower_stat_bonus": 1}]}]})
+	var summon_action := ScenarioFixtures.add_hand_card(player, "empower_summon", {"card_type": "action", "cost": 0, "triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "summon_from_effect", "lane_id": "field", "card_template": {"definition_id": "test_recruit", "name": "Recruit", "card_type": "creature", "subtypes": [], "attributes": [], "cost": 1, "power": 1, "health": 1, "base_power": 1, "base_health": 1}, "empower_stat_bonus": 1}]}]})
 	MatchTiming.play_action_from_hand(match_state, pid, str(summon_action.get("instance_id", "")))
 	# Find the summoned recruit in the field lane
 	var summoned := _find_lane_card(match_state, "field", pid, "test_recruit")
@@ -821,7 +913,7 @@ func _test_empower_permanent_across_turns() -> bool:
 
 
 func _test_invade_and_shout_pack() -> bool:
-	return _test_invade_gate_progression() and _test_shout_upgrades()
+	return _test_invade_gate_progression() and _test_invade_gate_rules_text_and_cost_reduction() and _test_shout_upgrades()
 
 
 func _test_invade_gate_progression() -> bool:
@@ -847,7 +939,59 @@ func _test_invade_gate_progression() -> bool:
 		_assert(not gate.is_empty() and int(gate.get("gate_level", 0)) == 2 and int(gate.get("health", 0)) == 6, "Repeated Invade plays should create and then upgrade the Oblivion Gate (gate=%s)." % [str(gate)]) and
 		_assert(int(EvergreenRules.get_health(first_daedra)) == 2, "Level 1 Oblivion Gate should grant +0/+1 to summoned Daedra.") and
 		_assert(int(EvergreenRules.get_power(second_daedra)) == 2 and int(EvergreenRules.get_health(second_daedra)) == 2, "Higher-level Oblivion Gates should increase summoned Daedra buffs.") and
-		_assert(bool(gate.get("cannot_attack", false)), "Generated Oblivion Gates should be unable to attack.")
+		_assert(bool(gate.get("cannot_attack", false)), "Generated Oblivion Gates should be unable to attack.") and
+		_assert(str(gate.get("rules_text", "")).find("+1/+1") != -1, "Level 2 gate should have +1/+1 in rules_text (got: %s)." % [str(gate.get("rules_text", ""))]) and
+		_assert(int(gate.get("cost", -1)) == 3, "Generated Oblivion Gate should have cost 3.") and
+		_assert(str(gate.get("rules_text", "")).find("cost 1 less") == -1, "Level 2 gate should NOT mention cost reduction.")
+	)
+
+
+func _test_invade_gate_rules_text_and_cost_reduction() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Create 5 invade actions
+	var invade_cards: Array = []
+	for i in range(5):
+		invade_cards.append(ScenarioFixtures.add_hand_card(player, "invade_%d" % i, {
+			"card_type": "action",
+			"cost": 0,
+			"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "invade"}]}],
+		}))
+	# Invade 1 — creates level 1 gate
+	MatchTiming.play_action_from_hand(match_state, pid, str(invade_cards[0].get("instance_id", "")))
+	var gate := _find_lane_card(match_state, "shadow", pid, "generated_oblivion_gate")
+	var l1_text := str(gate.get("rules_text", ""))
+	var l1_ok := l1_text.find("+0/+1") != -1
+	# Invade 2 — level 2
+	MatchTiming.play_action_from_hand(match_state, pid, str(invade_cards[1].get("instance_id", "")))
+	var l2_text := str(gate.get("rules_text", ""))
+	var l2_ok := l2_text.find("+1/+1") != -1 and l2_text.find("cost 1 less") == -1
+	# Invade 3 — level 3 (cost reduction kicks in)
+	MatchTiming.play_action_from_hand(match_state, pid, str(invade_cards[2].get("instance_id", "")))
+	var l3_text := str(gate.get("rules_text", ""))
+	var l3_ok := l3_text.find("cost 1 less") != -1 and l3_text.find("random keyword") == -1
+	var auras: Array = match_state.get("card_cost_reduction_auras", [])
+	var has_daedra_aura := false
+	for aura in auras:
+		if str(aura.get("filter_subtype", "")) == "Daedra" and str(aura.get("controller_player_id", "")) == pid:
+			has_daedra_aura = true
+	# Invade 4 — level 4 (one random keyword)
+	MatchTiming.play_action_from_hand(match_state, pid, str(invade_cards[3].get("instance_id", "")))
+	var l4_text := str(gate.get("rules_text", ""))
+	var l4_ok := l4_text.find("a random keyword") != -1 and l4_text.find("two random") == -1
+	# Invade 5 — level 5 (two random keywords)
+	MatchTiming.play_action_from_hand(match_state, pid, str(invade_cards[4].get("instance_id", "")))
+	var l5_text := str(gate.get("rules_text", ""))
+	var l5_ok := l5_text.find("two random keywords") != -1
+	return (
+		_assert(l1_ok, "Level 1 gate rules_text should mention +0/+1 (got: %s)." % [l1_text]) and
+		_assert(l2_ok, "Level 2 gate rules_text should mention +1/+1 without cost reduction (got: %s)." % [l2_text]) and
+		_assert(l3_ok, "Level 3 gate rules_text should mention cost reduction without keywords (got: %s)." % [l3_text]) and
+		_assert(has_daedra_aura, "Level 3 gate should add a Daedra cost reduction aura to match_state.") and
+		_assert(l4_ok, "Level 4 gate rules_text should mention 'a random keyword' (got: %s)." % [l4_text]) and
+		_assert(l5_ok, "Level 5 gate rules_text should mention 'two random keywords' (got: %s)." % [l5_text]) and
+		_assert(int(gate.get("health", 0)) == 12, "Level 5 gate should have health 12 (4 + 4*2) (got: %d)." % [int(gate.get("health", 0))])
 	)
 
 

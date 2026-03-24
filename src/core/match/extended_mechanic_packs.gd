@@ -70,6 +70,7 @@ static func reset_turn_state(player: Dictionary) -> void:
 	player["empower_count_this_turn"] = 0
 	player["creature_summons_this_turn"] = 0
 	player["creatures_died_this_turn"] = 0
+	player["_double_summon_this_turn"] = false
 
 
 static func toggle_wax_wane(player: Dictionary) -> void:
@@ -1237,6 +1238,11 @@ static func _resolve_shout_upgrade(match_state: Dictionary, trigger: Dictionary)
 
 static func _resolve_invade(match_state: Dictionary, trigger: Dictionary) -> Array:
 	var controller_player_id := str(trigger.get("controller_player_id", ""))
+	var invade_event := {
+		"event_type": "invade_triggered",
+		"player_id": controller_player_id,
+		"controller_player_id": controller_player_id,
+	}
 	var gate := _find_player_gate(match_state, controller_player_id)
 	if gate.is_empty():
 		var gate_card := MatchMutations.build_generated_card(match_state, controller_player_id, _build_gate_template(1))
@@ -1254,6 +1260,9 @@ static func _resolve_invade(match_state: Dictionary, trigger: Dictionary) -> Arr
 			"slot_index": int(summon_result.get("slot_index", -1)),
 			"reason": "invade",
 		})
+		invade_event["gate_instance_id"] = str(gate_card.get("instance_id", ""))
+		invade_event["gate_level"] = 1
+		events.append(invade_event)
 		return events
 	var next_level := maxi(1, int(gate.get("gate_level", 1)) + 1)
 	var change_result := MatchMutations.change_card(gate, _build_gate_template(next_level), {"reason": "invade"})
@@ -1263,8 +1272,17 @@ static func _resolve_invade(match_state: Dictionary, trigger: Dictionary) -> Arr
 	generated_events.append({
 		"event_type": "oblivion_gate_upgraded",
 		"source_instance_id": str(gate.get("instance_id", "")),
-		"gate_level": int(gate.get("gate_level", next_level)),
+		"gate_level": next_level,
 	})
+	# Apply Daedra cost reduction aura when reaching level 3
+	if next_level == 3:
+		var auras: Array = match_state.get("card_cost_reduction_auras", [])
+		auras.append({"controller_player_id": controller_player_id, "filter_subtype": "Daedra", "amount": 1, "source_instance_id": str(gate.get("instance_id", ""))})
+		match_state["card_cost_reduction_auras"] = auras
+		generated_events.append({"event_type": "cost_reduction_aura_applied", "player_id": controller_player_id, "filter_subtype": "Daedra", "amount": 1})
+	invade_event["gate_instance_id"] = str(gate.get("instance_id", ""))
+	invade_event["gate_level"] = next_level
+	generated_events.append(invade_event)
 	return generated_events
 
 
@@ -1391,11 +1409,17 @@ static func _build_gate_template(level: int) -> Dictionary:
 		"definition_id": "generated_oblivion_gate",
 		"name": "Oblivion Gate",
 		"card_type": "creature",
+		"cost": 3,
 		"power": 0,
 		"health": 4 + (gate_level - 1) * 2,
+		"subtypes": ["Portal"],
+		"attributes": ["neutral"],
 		"gate_level": gate_level,
 		"cannot_attack": true,
+		"grants_immunity": ["silence"],
+		"innate_statuses": ["permanent_shackle"],
 		"rules_tags": [RULE_TAG_OBLIVION_GATE],
+		"rules_text": _gate_rules_text(gate_level),
 		"triggered_abilities": [{
 			"id": "oblivion_gate_buff",
 			"event_type": EVENT_CREATURE_SUMMONED,
@@ -1406,6 +1430,21 @@ static func _build_gate_template(level: int) -> Dictionary:
 			"effects": [{"op": "buff_oblivion_gate_summon", "target": "event_source"}],
 		}],
 	}
+
+
+static func _gate_rules_text(level: int) -> String:
+	var text := "Immune to Silence. Permanently Shackled. When you summon a Daedra, give it "
+	if level <= 1:
+		text += "+0/+1."
+	else:
+		text += "+1/+1."
+	if level >= 3:
+		text += " Daedra you summon cost 1 less."
+	if level == 4:
+		text += " When you summon a Daedra, give it a random keyword."
+	elif level >= 5:
+		text += " When you summon a Daedra, give it two random keywords."
+	return text
 
 
 static func _find_player_gate(match_state: Dictionary, player_id: String) -> Dictionary:

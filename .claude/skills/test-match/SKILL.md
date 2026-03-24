@@ -40,6 +40,7 @@ Consider what the player needs to test the mechanic:
 | Treasure Hunt | Treasure Hunt creature in lane + matching cards in deck | Doesn't matter |
 | Consume | Consumer + creatures in discard pile | Normal board |
 | Assemble (Factotum) | Factotums already in lane as buff targets + more Factotums in hand to play | Weak enemies, low magicka |
+| Invade | Cheap Invade triggers (0-3 cost) + payoffs (Keeper of the Gates, Mankar Camoran) + Great Sigil Stone support. No pre-placed P1 creatures — the Oblivion Gate spawns automatically. Include varied enemies (1/1s + a Guard with health) to test gate-level damage effects | Weak creatures in both lanes, no runes |
 
 Set these parameters:
 - **Player 1 magicka**: High enough to play the test cards (usually 12)
