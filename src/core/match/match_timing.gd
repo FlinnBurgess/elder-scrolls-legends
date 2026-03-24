@@ -451,7 +451,7 @@ static func get_valid_targets_for_mode(match_state: Dictionary, source_instance_
 			targets.append({"player_id": controller_id})
 			targets.append({"player_id": opponent_id})
 		"enemy_creature_less_power_than_self_health":
-			var self_health_eclptsh := int(source_card.get("health", 0))
+			var self_health_eclptsh := EvergreenRules.get_health(source_card)
 			targets = _player_lane_creatures(match_state, opponent_id)
 			targets = targets.filter(func(c): return EvergreenRules.get_power(c) < self_health_eclptsh)
 		"two_creatures", "three_creatures":
@@ -3255,7 +3255,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				elif ms_power_source == "self_health":
 					var ms_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 					if not ms_source.is_empty():
-						base_power = int(ms_source.get("health", 0)) - int(ms_source.get("damage_marked", 0))
+						base_power = EvergreenRules.get_remaining_health(ms_source)
 				elif ms_power_source == "event_power_gained":
 					base_power = int(event.get("power_bonus", event.get("amount", 0)))
 				var ms_health_source := str(effect.get("health_source", ""))
@@ -5263,7 +5263,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				var ddtl_source_id := str(trigger.get("source_instance_id", ""))
 				var ddtl_source := _find_card_anywhere(match_state, ddtl_source_id)
 				if not ddtl_source.is_empty() and str(ddtl_source.get("zone", "")) == ZONE_LANE:
-					var ddtl_power := int(ddtl_source.get("power", 0))
+					var ddtl_power := EvergreenRules.get_power(ddtl_source)
 					if ddtl_power <= 0:
 						continue
 					var ddtl_location := MatchMutations.find_card_location(match_state, ddtl_source_id)
@@ -6346,7 +6346,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					if saas_source.is_empty():
 						continue
 					var saas_power := EvergreenRules.get_power(card)
-					var saas_health := int(card.get("health", 0))
+					var saas_health := EvergreenRules.get_health(card)
 					var saas_sac := MatchMutations.sacrifice_card(match_state, str(card.get("controller_player_id", "")), str(card.get("instance_id", "")), {"reason": reason})
 					generated_events.append_array(saas_sac.get("events", []))
 					generated_events.append({"event_type": EVENT_CREATURE_DESTROYED, "instance_id": str(card.get("instance_id", "")), "controller_player_id": str(card.get("controller_player_id", ""))})
@@ -7616,7 +7616,7 @@ static func _resolve_amount(trigger: Dictionary, effect: Dictionary, match_state
 	if amount_source == "self_health":
 		var source_card := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 		if not source_card.is_empty():
-			return int(source_card.get("health", 0)) - int(source_card.get("damage_marked", 0))
+			return EvergreenRules.get_remaining_health(source_card)
 	if amount_source == "self_power_plus_health":
 		var source_card := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 		if not source_card.is_empty():

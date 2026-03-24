@@ -368,7 +368,7 @@ static func _cost_reduction_condition_met(match_state: Dictionary, player_id: St
 			return typeof(effect_ids) == TYPE_ARRAY and (effect_ids.has("damage") or effect_ids.has("deal_damage"))
 		"filter_min_power":
 			var min_power := int(aura.get("min_power", 5))
-			return int(card.get("power", card.get("base_power", 0))) >= min_power
+			return EvergreenRules.get_power(card) >= min_power
 		"filter_not_in_starting_deck":
 			return bool(card.get("_not_in_starting_deck", false))
 	return true
