@@ -7312,11 +7312,15 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 		"other_friendly_creatures", "other_friendly_by_subtype":
 			var controller_id := str(trigger.get("controller_player_id", ""))
 			var self_id := str(trigger.get("source_instance_id", ""))
+			var exclude_self := target in ["all_other_friendly", "other_friendly_creatures", "other_friendly_by_subtype"]
 			for lane in match_state.get("lanes", []):
 				var slots = lane.get("player_slots", {}).get(controller_id, [])
 				for card in slots:
-					if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) != self_id:
-						targets.append(card)
+					if typeof(card) != TYPE_DICTIONARY:
+						continue
+					if exclude_self and str(card.get("instance_id", "")) == self_id:
+						continue
+					targets.append(card)
 		"all_creatures", "all_other_creatures":
 			var self_id := str(trigger.get("source_instance_id", ""))
 			var exclude_self := target == "all_other_creatures"
