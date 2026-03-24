@@ -1,7 +1,0 @@
-{
-  "created": "2026-03-22",
-  "resolved": "2026-03-24",
-  "description": "All engine features from the original card audit have been implemented. This file previously tracked 125 unimplemented ops, 35 trigger families, 13 target modes, 12 passive abilities, 8 action target modes, 5 cost reduction auras, and 3 other mechanisms. All have handlers in the engine as of 2026-03-24.",
-  "status": "all_implemented",
-  "remaining_work": "See unfixed_card_effects.md for remaining UI wiring issues (multi-target actions, hand-target modes for supports)."
-}
