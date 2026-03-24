@@ -4,174 +4,22 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 ## Remaining
 
-### Needs ongoing aura mechanic
+### Needs multi-target resolution for actions (chosen_target_N system)
 
-- **Thieves' Den** — WIRED (see Previously Fixed).
+- **Mute** — Action with `target_mode: "two_creatures"`. Card data uses `chosen_target_1`/`chosen_target_2` which have no resolution in `_resolve_card_targets`. Needs sequential target collection via `pending_summon_effect_targets`.
+- **Fingers of the Mountain** — Action with `target_mode: "three_creatures"`. Uses `chosen_target_1`/`chosen_target_2`/`chosen_target_3`. Same multi-target system needed.
+- **Whispering Claw Strike** — Action with `target_mode: "enemy_creature_and_friendly_creature"`. Needs dual-target resolution for on_play triggers.
 
-### Needs "on damage taken" / reactive trigger families
+### Needs hand/lane selection wiring for action/support play
 
-(Shornhelm Champion and Auroran Sentry have been wired — see Previously Fixed.)
+- **Strange Brew** — Action with `target_mode: "creature_in_hand"`. Needs hand selection wired into action play flow.
+- **Barter** — Uses `select_card_from_hand` + `trade_for_opponent_deck` then_op. Hand selection infrastructure exists but needs wiring into action flow.
+- **Heroic Rebirth** — Support with `activate` + `target_mode: "creature_in_hand"`. Needs hand-targeting wired into activate support flow.
+- **Strategist's Map** — Support with `activate` + `target_mode: "choose_lane_and_owner"`. Needs lane + player selection for support activations.
 
-### Needs "on creature summoned" trigger family
+### Needs verification
 
-- **Fifth Legion Trainer** is wired but others need the trigger family:
-- **Haafingar Marauder** — WIRED (see Previously Fixed).
-- **Ancient Lookout**, **Blades Lookout**, **Ghost Sea Lookout**, **Cliffside Lookout**, **Woodland Lookout**, **Legate Rikke**, **Innkeeper Delphine**, **Mistveil Enchanter**, **Snowhawk Detachment**, **Berserker of the Pale**, **East Empire Crafter**, **World-Eater's Eyrie** — WIRED (on_friendly_summon family now implemented).
-
-### Needs `set_power_equal_to_health` effect op
-
-- **High Hrothgar** — Uses `set_power_equal_to_health` op which is not implemented in `match_timing._apply_effects()`.
-
-### Needs "on attack" trigger family
-
-- **Reive, Blademaster** — WIRED (see Previously Fixed).
-
-### Needs "at end of turn" condition-checked trigger
-
-(Disciple of Namira has been wired — see Previously Fixed.)
-
-### Needs "at start of turn" trigger (non-active player too)
-
-(Gladiator Arena and Blackrose Herbalist have been wired — see Previously Fixed.)
-
-### Needs pilfer trigger family
-
-- **Tenmar Swiftclaw** — WIRED (see Previously Fixed).
-
-### Needs slay trigger family
-
-- **Child of Hircine** — WIRED (see Previously Fixed).
-- **Blood Magic Lord** — WIRED (see Previously Fixed).
-- **Dawnbreaker** — WIRED (see Previously Fixed).
-- **Lucien Lachance** — WIRED (see Previously Fixed).
-
-### Needs last_gasp trigger family
-
-- **Balmora Spymaster** — WIRED (see Previously Fixed).
-- **Telvanni Arcanist** — WIRED (see Previously Fixed).
-- **Heirloom Greatsword** — WIRED (see Previously Fixed).
-- **Elusive Schemer** — WIRED (see Previously Fixed).
-- **Spider Daedra** — WIRED (see Previously Fixed).
-
-### Needs "put card into hand" mechanic
-
-- **High Rock Summoner** — WIRED (see Previously Fixed).
-- **Stronghold Incubator** — WIRED (see Previously Fixed).
-
-### Needs health comparison condition
-
-- **Black Worm Necromancer** — WIRED (see Previously Fixed).
-- **Soulrest Marshal** — WIRED (see Previously Fixed).
-
-### Needs conditional summon buffs
-
-(Feasting Vulture has been wired — see Previously Fixed.)
-
-### Needs "deal damage to all enemies" target type
-
-- **Fire Storm** — WIRED (see Previously Fixed).
-- **Arrow Storm** — WIRED (see Previously Fixed).
-- **Dawn's Wrath** — WIRED (see Previously Fixed).
-- **Immolating Blast** — WIRED (see Previously Fixed).
-
-### Needs "destroy" action mechanic
-
-- **Stone Throw** — WIRED (see Previously Fixed).
-- **Imprison** — WIRED (see Previously Fixed).
-
-### Needs "move" mechanic
-
-- **Dune Smuggler** — WIRED (see Previously Fixed).
-
-### Needs "draw with special conditions" mechanic
-
-- **Rapid Shot** — WIRED (see Previously Fixed).
-- **Brilliant Experiment** — WIRED (see Previously Fixed).
-- **Nahkriin, Dragon Priest** — WIRED (see Previously Fixed).
-- **Blackmail** — WIRED (see Previously Fixed).
-- **Summerset Orrery** — WIRED (see Previously Fixed).
-- **Orb of Vaermina** — WIRED (see Previously Fixed).
-- **Leafwater Blessing** — WIRED (see Previously Fixed).
-- **Militant Chieftain** — WIRED (see Previously Fixed).
-
-### Needs support "activate" trigger
-
-- **Skirmisher's Elixir** — WIRED (see Previously Fixed).
-- **Volendrung** — WIRED (see Previously Fixed).
-- **Dark Rift** — WIRED (see Previously Fixed).
-- **Goldbrand** — WIRED (see Previously Fixed).
-- **Elixir of Vigor** — WIRED (see Previously Fixed).
-- **Elixir of Conflict** — WIRED (see Previously Fixed).
-
-### Needs "summon random creature by cost" mechanic
-
-- **Desperate Conjuring** — WIRED (see Previously Fixed).
-
-### Needs "summon random from deck" mechanic
-
-- **Gortwog gro-Nagorm** — WIRED (see Previously Fixed).
-
-### Needs "once per turn" trigger tracking
-
-- **Wrothgar Forge** — WIRED (see Previously Fixed).
-
-### Needs "Moment of Clarity" card-selection UI
-
-- **Moment of Clarity** — WIRED (see Previously Fixed; simplified to generate 1 random card since card-choice UI doesn't exist yet).
-
-### Needs multi-target pending selection for on_play triggers
-
-- **Mute** — Action with `target_mode: "two_creatures"`. Needs the pending target selection system extended to `on_play` triggers — currently only supports `summon` triggers. The card silences two creatures but the UI/engine only support single-target resolution for actions.
-- **Fingers of the Mountain** — Action with `target_mode: "three_creatures"`. Same issue — needs multi-target pending selection for on_play.
-- **Whispering Claw Strike** — Action with `target_mode: "enemy_creature_and_friendly_creature"`. Same issue — needs dual-target pending selection for on_play.
-- **Strange Brew** — Action with `target_mode: "creature_in_hand"`. Needs the pending hand selection system wired into the action play flow.
-
-### Needs hand selection mechanic (select_card_from_hand)
-
-- **Barter** — Uses `trade_hand_card_for_opponent_deck` op which is not implemented. Needs a `then_op` for trading (discard selected hand card + draw random from opponent deck). The `select_card_from_hand` infrastructure now exists.
-- **Heroic Rebirth** — Support with `activate` + `target_mode: "creature_in_hand"`. Needs the pending hand selection system to be wired into the activate support flow. The engine and UI don't currently support hand-targeting for activate triggers.
-
-### Needs lane/player selection for activate supports
-
-- **Strategist's Map** — Support with `activate` + `target_mode: "choose_lane_and_owner"`. Needs a lane + player selection UI for activate triggers (summon Target for chosen player in chosen lane). The existing lane selection UI doesn't support this for support activations.
-
-### Needs complex / unique mechanics
-
-- **Thieves Guild Recruit** — WIRED (see Previously Fixed).
-- **Dremora Markynaz** — WIRED (see Previously Fixed).
-- **Burn and Pillage** — WIRED (see Previously Fixed).
-- **Riften Pillager** — WIRED (see Previously Fixed; already uses destroyed_enemy_runes count_source).
-- **Divayth Fyr** — WIRED (see Previously Fixed).
-- **Cruel Firebloom** — WIRED (see Previously Fixed).
-- **Mentor's Ring** — WIRED (see Previously Fixed).
-- **Master of Arms** — WIRED (see Previously Fixed).
-- **Farsight Nereid** — WIRED (see Previously Fixed; reveal_opponent_top_deck op with card flip animation).
-- **Arenthia Swindler** — WIRED (see Previously Fixed).
-- **Camoran Scout Leader** — WIRED (see Previously Fixed).
-- **Necrom Mastermind** — WIRED (see Previously Fixed).
-- **Renowned Legate** — WIRED (see Previously Fixed).
-- **Miraak, Dragonborn** — WIRED (see Previously Fixed).
-- **Wild Beastcaller** — WIRED (see Previously Fixed).
-- **Ungolim the Listener** — WIRED (see Previously Fixed).
-- **Ahnassi** — WIRED (see Previously Fixed).
-- **Ayrenn** — WIRED (see Previously Fixed).
-- **Merric-at-Aswala** — WIRED (see Previously Fixed).
-- **High King Emeric** — WIRED (see Previously Fixed).
-- **Thorn Histmage** — WIRED (see Previously Fixed).
-- **Hidden Trail** — WIRED (see Previously Fixed).
-- **Halls of the Dwemer** — WIRED (see Previously Fixed).
-- **Dres Renegade** — WIRED (see Previously Fixed).
-- **Keeper of Whispers** — WIRED (see Previously Fixed).
-- **Dres Tormentor** — WIRED (see Previously Fixed).
-- **Healing Hands** — WIRED (see Previously Fixed).
-- **Plea to Kynareth** — WIRED (see Previously Fixed).
-- **Green-Touched Spriggan** — WIRED (see Previously Fixed).
-- **War Cry** — WIRED (see Previously Fixed).
-
-### Token / created cards with missing effects
-
-- **Sweet Roll** — WIRED (see Previously Fixed).
-- **Ancient Giant** — WIRED (see Previously Fixed).
+- **High Hrothgar** — `set_power_equal_to_health` op handler exists. Needs end-to-end verification.
 
 ## Previously Fixed
 
