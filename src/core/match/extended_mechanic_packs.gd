@@ -456,9 +456,10 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				return {"handled": true, "events": []}
 			var grth_max_cost := int(grth_filter.get("max_cost", -1))
 			var grth_req_card_type := str(grth_filter.get("card_type", ""))
-			var grth_req_subtype := str(grth_filter.get("required_subtype", ""))
-			var grth_req_rules_tag := str(grth_filter.get("rules_tag", ""))
+			var grth_req_subtype := str(grth_filter.get("required_subtype", grth_filter.get("subtype", "")))
+			var grth_req_rules_tag := str(grth_filter.get("rules_tag", grth_filter.get("tag", "")))
 			var grth_req_keyword := str(grth_filter.get("keyword", ""))
+			var grth_name_contains := str(grth_filter.get("name_contains", ""))
 			for seed in grth_seeds:
 				if typeof(seed) != TYPE_DICTIONARY:
 					continue
@@ -490,6 +491,10 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				if not grth_req_keyword.is_empty():
 					var grth_kws = seed.get("keywords", [])
 					if typeof(grth_kws) != TYPE_ARRAY or not grth_kws.has(grth_req_keyword):
+						continue
+				if not grth_name_contains.is_empty():
+					var grth_card_name := str(seed.get("name", ""))
+					if grth_card_name.findn(grth_name_contains) < 0:
 						continue
 				grth_candidates.append(seed)
 			if grth_candidates.is_empty():

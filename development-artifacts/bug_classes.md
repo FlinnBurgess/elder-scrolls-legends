@@ -56,9 +56,9 @@ Example: Frost Giant (was `modify_stats` on self, should be `heal` on controller
 How to spot: User reports the card text doesn't match what happens in game. Compare the `op` and `target`/`target_player` in `triggered_abilities` against the `rules_text` to see if "you" vs creature name is matched correctly.
 
 ## Effect filter format mismatch — nested filter object vs flat keys
-Card's triggered_abilities use a `"filter": {"card_type": "creature"}` nested object for effect parameters, but the engine (`_apply_effects` in `match_timing.gd`) reads flat keys like `required_card_type` and `required_subtype` directly from the effect dictionary. The nested format silently produces no filter, causing the effect to either apply unfiltered or find no candidates.
-Example: Soul Tear (used `"filter": {"card_type": "creature"}` instead of `"required_card_type": "creature"`)
-How to spot: User reports a draw/filter effect applying to wrong card types or not working. Check if the card's effect uses a `"filter"` sub-object vs the flat `"required_card_type"` / `"required_subtype"` keys that the engine actually reads.
+Card's triggered_abilities use a `"filter": {"card_type": "creature"}` nested object for effect parameters, but the `draw_filtered` engine op originally read only flat keys like `required_card_type` and `required_subtype` directly from the effect dictionary. Fixed by updating `draw_filtered` in `_apply_effects` to fall back to the `filter` dict for `card_type`, `subtype`, `rules_tag`, `max_cost`, `name`, and `cost_equals_source_power`. Also added `post_draw_modify` support for stat buffs on drawn cards. The `filter` dict is also used by the synergy extractor for alt-views, so both formats now work.
+Example: Daedric Incursion, Ulfric Stormcloak, Covenant Oathman, Forerunner of the Pact, Great Sigil Stone, Apex Wolf, Skyshard
+How to spot: User reports a draw/filter effect applying to wrong card types or not working. Both `"filter": {"subtype": "X"}` and flat `"required_subtype": "X"` now work on `draw_filtered`.
 
 ## Unimplemented trigger condition — field on descriptor but not checked in engine
 A trigger descriptor includes a condition field (e.g. `required_played_rules_tag`) that is never checked in `_matches_trigger_role` or `_matches_conditions`, so the trigger fires unconditionally regardless of the filter. The event also lacked the data needed to perform the check (`rules_tags` was not included in `EVENT_CARD_PLAYED` events).

@@ -63,7 +63,8 @@ These are optional fields on the trigger descriptor that gate whether the trigge
 - `modify_stats` — `{op, target, power, health, duration?}` — use `"duration": "end_of_turn"` for "this turn" effects
 - `grant_keyword` — `{op, target, keyword_id, duration?}` — use `"duration": "end_of_turn"` for "this turn" effects
 - `grant_status` — `{op, target, status_id}`
-- `draw_cards` — `{op, target_player, count}`
+- `draw_cards` — `{op, target_player, count}` — supports `post_draw_cost_set` and `post_draw_cost_reduce` for modifying drawn card costs
+- `draw_filtered` — `{op, filter?, required_subtype?, required_card_type?, required_rules_tag?, max_cost?, post_draw_modify?}` — draws a random card from the controller's deck matching filters. Supports both flat keys (`required_subtype`, `required_card_type`, `required_rules_tag`, `max_cost`) and a nested `filter` dict (`filter.subtype`, `filter.card_type`, `filter.rules_tag`, `filter.max_cost`, `filter.name`, `filter.cost_equals_source_power`). `post_draw_modify` takes `{power, health}` to buff the drawn card
 - `deal_damage` — `{op, target, amount}` or `{op, target, amount_source}` — deals damage to card targets; falls back to player damage via `event.target_player_id` or `trigger._chosen_target_player_id` when no card targets found. Use `amount_source` instead of `amount` for dynamic values resolved at runtime (e.g., `"oblivion_gate_level"`, `"self_power"`, `"damage_taken"`); see `_resolve_amount()` for all supported sources
 - `damage` — handled via `ExtendedMechanicPacks.apply_custom_effect()`
 - `heal` — handled via `ExtendedMechanicPacks.apply_custom_effect()`
@@ -167,13 +168,14 @@ Also update `action_is_legal` for `KIND_END_TURN` to block ending turn while the
 
 1. If a new effect op is needed, add it to `_apply_effects()` in `match_timing.gd`, following the pattern of existing ops. Make it generic/reusable rather than card-specific.
 2. If an existing op needs a new optional parameter (e.g., adding `duration` support to `grant_keyword`), extend the op handler in `_apply_effects()` rather than creating a new op. Follow the pattern of similar parameters on other ops (e.g., `modify_stats` already supports `duration`).
-3. If the card just needs `triggered_abilities` wired up, update its `_seed()` call in `card_catalog.gd`.
-4. If new fields are introduced, ensure they flow through:
+3. **Before fixing card data, check scope.** If the same data-format mismatch affects multiple cards (scan Step 4 first), fix the engine handler to accept the existing data format rather than patching each card individually. This is especially relevant for `filter` dict mismatches — prefer updating the handler to fall back to `effect.get("filter", {})` over adding duplicate flat keys to every card.
+4. If the card just needs `triggered_abilities` wired up, update its `_seed()` call in `card_catalog.gd`.
+5. If new fields are introduced, ensure they flow through:
    - `_seed()` in `card_catalog.gd`
    - `_build_card()` in `card_catalog.gd`
    - `_hydrate_card()` in `match_screen.gd`
-5. If an item needs equip fields, parse the `rules_text` to extract `equip_power_bonus`, `equip_health_bonus`, and `equip_keywords`.
-6. If new per-card state is added (e.g., `temporary_keywords`), ensure it is cleared in all cleanup paths:
+6. If an item needs equip fields, parse the `rules_text` to extract `equip_power_bonus`, `equip_health_bonus`, and `equip_keywords`.
+7. If new per-card state is added (e.g., `temporary_keywords`), ensure it is cleared in all cleanup paths:
    - `match_mutations.silence_card()` — silence wipes all granted state
    - `match_mutations.reset_transient_state()` — used when cards change zones
    - `match_turn_loop._clear_temporary_stat_bonuses()` — end-of-turn cleanup (if the state is turn-scoped)

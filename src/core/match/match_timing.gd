@@ -3394,10 +3394,17 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 									drawn_card["_base_cost"] = card_cost
 									drawn_card["cost"] = maxi(0, card_cost - reduce_amount)
 			"draw_filtered":
-				var filter_max_cost := int(effect.get("max_cost", -1))
-				var filter_card_type := str(effect.get("required_card_type", ""))
-				var filter_subtype := str(effect.get("required_subtype", ""))
-				var filter_rules_tag := str(effect.get("required_rules_tag", ""))
+				var filter_dict: Dictionary = effect.get("filter", {}) if typeof(effect.get("filter", null)) == TYPE_DICTIONARY else {}
+				var filter_max_cost := int(effect.get("max_cost", filter_dict.get("max_cost", -1)))
+				var filter_card_type := str(effect.get("required_card_type", filter_dict.get("card_type", "")))
+				var filter_subtype := str(effect.get("required_subtype", filter_dict.get("subtype", "")))
+				var filter_rules_tag := str(effect.get("required_rules_tag", filter_dict.get("rules_tag", "")))
+				var filter_name := str(filter_dict.get("name", ""))
+				var filter_cost_equals_source_power: bool = filter_dict.get("cost_equals_source_power", false)
+				var source_power := 0
+				if filter_cost_equals_source_power:
+					var source_card := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+					source_power = EvergreenRules.get_power(source_card) if not source_card.is_empty() else 0
 				for player_id in _resolve_player_targets(match_state, trigger, event, effect):
 					var draw_player := _get_player_state(match_state, player_id)
 					if draw_player.is_empty():
@@ -3420,6 +3427,10 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							var deck_card_tags = deck_card.get("rules_tags", [])
 							if typeof(deck_card_tags) != TYPE_ARRAY or not deck_card_tags.has(filter_rules_tag):
 								continue
+						if not filter_name.is_empty() and str(deck_card.get("name", "")) != filter_name:
+							continue
+						if filter_cost_equals_source_power and int(deck_card.get("cost", 0)) != source_power:
+							continue
 						candidates.append(deck_index)
 					if candidates.is_empty():
 						continue
@@ -3430,6 +3441,14 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						continue
 					picked_card["zone"] = ZONE_HAND
 					draw_player[ZONE_HAND].append(picked_card)
+					var post_draw_mod: Dictionary = effect.get("post_draw_modify", {}) if typeof(effect.get("post_draw_modify", null)) == TYPE_DICTIONARY else {}
+					if not post_draw_mod.is_empty():
+						var mod_power := int(post_draw_mod.get("power", 0))
+						var mod_health := int(post_draw_mod.get("health", 0))
+						if mod_power != 0:
+							picked_card["power_modifier"] = int(picked_card.get("power_modifier", 0)) + mod_power
+						if mod_health != 0:
+							picked_card["health_modifier"] = int(picked_card.get("health_modifier", 0)) + mod_health
 					generated_events.append({
 						"event_type": "card_drawn",
 						"player_id": player_id,
@@ -3837,8 +3856,10 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					generated_events.append_array(summon_res.get("events", []))
 					generated_events.append(_build_summon_event(summon_res["card"], copy_player_id, other_lane_id, int(summon_res.get("slot_index", -1)), reason))
 			"draw_from_discard_filtered":
-				var discard_filter_card_type := str(effect.get("required_card_type", ""))
-				var discard_filter_subtype := str(effect.get("required_subtype", ""))
+				var dfdf_filter_dict: Dictionary = effect.get("filter", {}) if typeof(effect.get("filter", null)) == TYPE_DICTIONARY else {}
+				var discard_filter_card_type := str(effect.get("required_card_type", dfdf_filter_dict.get("card_type", "")))
+				var discard_filter_card_type_in: Array = dfdf_filter_dict.get("card_type_in", []) if typeof(dfdf_filter_dict.get("card_type_in", null)) == TYPE_ARRAY else []
+				var discard_filter_subtype := str(effect.get("required_subtype", dfdf_filter_dict.get("subtype", "")))
 				var discard_filter_match := str(effect.get("filter_match", ""))
 				var is_player_choice := bool(effect.get("player_choice", false))
 				# Resolve consumed creature name for filter matching
@@ -3862,6 +3883,8 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						if typeof(d_card) != TYPE_DICTIONARY:
 							continue
 						if not discard_filter_card_type.is_empty() and str(d_card.get("card_type", "")) != discard_filter_card_type:
+							continue
+						if not discard_filter_card_type_in.is_empty() and not discard_filter_card_type_in.has(str(d_card.get("card_type", ""))):
 							continue
 						if not discard_filter_subtype.is_empty():
 							var d_subtypes = d_card.get("subtypes", [])
@@ -4309,15 +4332,21 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				var sfd_source_id := str(trigger.get("source_instance_id", ""))
 				var sfd_source := _find_card_anywhere(match_state, sfd_source_id)
 				var sfd_source_power := EvergreenRules.get_power(sfd_source) if not sfd_source.is_empty() else 999
+				var sfd_filter_dict: Dictionary = effect.get("filter", {}) if typeof(effect.get("filter", null)) == TYPE_DICTIONARY else {}
+				var sfd_max_cost := int(sfd_filter_dict.get("max_cost", -1))
 				# Build candidate list from discard
 				var sfd_candidates: Array = []
 				var sfd_candidate_ids: Array = []
 				for di in range(sfd_discard.size()):
 					var d_card: Variant = sfd_discard[di]
 					if typeof(d_card) == TYPE_DICTIONARY and str(d_card.get("card_type", "")) == "creature":
-						if EvergreenRules.get_power(d_card) < sfd_source_power:
-							sfd_candidates.append(di)
-							sfd_candidate_ids.append(str(d_card.get("instance_id", "")))
+						if sfd_max_cost >= 0:
+							if int(d_card.get("cost", 0)) > sfd_max_cost:
+								continue
+						elif EvergreenRules.get_power(d_card) >= sfd_source_power:
+							continue
+						sfd_candidates.append(di)
+						sfd_candidate_ids.append(str(d_card.get("instance_id", "")))
 				if sfd_candidates.is_empty():
 					continue
 				var sfd_chosen_id := str(trigger.get("_chosen_target_id", ""))
@@ -5370,6 +5399,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var sfdf_filter_subtype := str(sfdf_filter.get("subtype", effect.get("filter_subtype", "")))
 					var sfdf_filter_attribute := str(sfdf_filter.get("attribute", effect.get("filter_attribute", "")))
 					var sfdf_filter_type := str(sfdf_filter.get("card_type", effect.get("filter_card_type", CARD_TYPE_CREATURE)))
+					var sfdf_exclude_unique := bool(sfdf_filter.get("exclude_unique", false))
 					# Cost filtering
 					var sfdf_max_cost := int(sfdf_filter.get("max_cost", effect.get("max_cost", -1)))
 					var sfdf_max_cost_source := str(sfdf_filter.get("max_cost_source", ""))
@@ -5380,6 +5410,8 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var sfdf_candidates: Array = []
 					for sfdf_card in sfdf_deck:
 						if str(sfdf_card.get("card_type", "")) != sfdf_filter_type:
+							continue
+						if sfdf_exclude_unique and bool(sfdf_card.get("is_unique", false)):
 							continue
 						if sfdf_max_cost >= 0 and int(sfdf_card.get("cost", 0)) >= sfdf_max_cost:
 							continue
@@ -5913,6 +5945,9 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				var seufd_player := _get_player_state(match_state, seufd_controller_id)
 				if not seufd_player.is_empty():
 					var seufd_deck: Array = seufd_player.get(ZONE_DECK, [])
+					var seufd_filter_dict: Dictionary = effect.get("filter", {}) if typeof(effect.get("filter", null)) == TYPE_DICTIONARY else {}
+					var seufd_max_cost := int(seufd_filter_dict.get("max_cost", -1))
+					var seufd_filter_subtype := str(seufd_filter_dict.get("subtype", ""))
 					var seufd_costs_seen: Dictionary = {}
 					var seufd_to_summon: Array = []
 					# Scan from top of deck
@@ -5921,6 +5956,12 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						if str(seufd_card.get("card_type", "")) != CARD_TYPE_CREATURE:
 							continue
 						var seufd_cost := int(seufd_card.get("cost", 0))
+						if seufd_max_cost >= 0 and seufd_cost > seufd_max_cost:
+							continue
+						if not seufd_filter_subtype.is_empty():
+							var seufd_subtypes = seufd_card.get("subtypes", [])
+							if typeof(seufd_subtypes) != TYPE_ARRAY or not seufd_subtypes.has(seufd_filter_subtype):
+								continue
 						if seufd_costs_seen.has(seufd_cost):
 							continue
 						seufd_costs_seen[seufd_cost] = true
