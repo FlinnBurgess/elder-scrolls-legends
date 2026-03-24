@@ -58,6 +58,8 @@ static func ensure_player_state(player: Dictionary) -> void:
 		player["creature_summons_this_turn"] = 0
 	if not player.has("creatures_died_this_turn"):
 		player["creatures_died_this_turn"] = 0
+	if not player.has("invades_this_turn"):
+		player["invades_this_turn"] = 0
 	if not player.has("wax_wane_state"):
 		player["wax_wane_state"] = WAX
 
@@ -72,6 +74,7 @@ static func reset_turn_state(player: Dictionary) -> void:
 	player["empower_count_this_turn"] = 0
 	player["creature_summons_this_turn"] = 0
 	player["creatures_died_this_turn"] = 0
+	player["invades_this_turn"] = 0
 	player["_double_summon_this_turn"] = false
 
 
@@ -103,6 +106,12 @@ static func observe_event(match_state: Dictionary, event: Dictionary) -> void:
 		if not summon_player.is_empty():
 			ensure_player_state(summon_player)
 			summon_player["creature_summons_this_turn"] = int(summon_player.get("creature_summons_this_turn", 0)) + 1
+		return
+	if event_type == "invade_triggered":
+		var invade_player := _get_player_state(match_state, str(event.get("player_id", "")))
+		if not invade_player.is_empty():
+			ensure_player_state(invade_player)
+			invade_player["invades_this_turn"] = int(invade_player.get("invades_this_turn", 0)) + 1
 		return
 	if event_type == EVENT_DAMAGE_RESOLVED and str(event.get("target_type", "")) == "player":
 		var source_player := _get_player_state(match_state, str(event.get("source_controller_player_id", "")))
@@ -143,6 +152,13 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 		var required_phase := str(descriptor.get("required_wax_wane_phase", ""))
 		if not required_phase.is_empty() and required_phase != str(controller.get("wax_wane_state", WAX)) and not bool(controller.get("_dual_wax_wane", false)):
 			return false
+	if bool(descriptor.get("invaded_this_turn", false)):
+		if int(controller.get("invades_this_turn", 0)) <= 0:
+			return false
+	# Prevent on_invade triggers (e.g. Keeper of the Gates) from re-triggering
+	# on invade events that were themselves produced by an on_invade trigger.
+	if str(descriptor.get("family", "")) == "on_invade" and bool(event.get("from_on_invade", false)):
+		return false
 	if bool(descriptor.get("require_attacker_survived", false)) and bool(event.get("attacker_destroyed", false)):
 		return false
 	var required_top_deck_attr := str(descriptor.get("required_top_deck_attribute", ""))
@@ -1248,11 +1264,16 @@ static func _resolve_shout_upgrade(match_state: Dictionary, trigger: Dictionary)
 
 static func _resolve_invade(match_state: Dictionary, trigger: Dictionary) -> Array:
 	var controller_player_id := str(trigger.get("controller_player_id", ""))
+	# Tag invade events triggered by on_invade (e.g. Keeper of the Gates) so they
+	# don't re-trigger on_invade, preventing infinite recursion.
+	var from_on_invade := str(trigger.get("descriptor", {}).get("family", "")) == "on_invade"
 	var invade_event := {
 		"event_type": "invade_triggered",
 		"player_id": controller_player_id,
 		"controller_player_id": controller_player_id,
 	}
+	if from_on_invade:
+		invade_event["from_on_invade"] = true
 	var gate := _find_player_gate(match_state, controller_player_id)
 	if gate.is_empty():
 		var gate_card := MatchMutations.build_generated_card(match_state, controller_player_id, _build_gate_template(1))

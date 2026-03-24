@@ -1,7 +1,7 @@
 # Claude Learnings
 
 ## Tags
-`assemble` `attributes` `auras` `card-catalog` `card-hydration` `card-state` `case-sensitivity` `cost-reduction` `death-checks` `events` `generated-cards` `invade` `match-engine` `neutral` `passives` `randomness` `registry` `stat-helpers` `target-resolution` `triggers` `ui`
+`assemble` `attributes` `auras` `card-catalog` `card-hydration` `card-state` `case-sensitivity` `cost-reduction` `death-checks` `events` `generated-cards` `invade` `match-engine` `neutral` `passives` `player-state` `randomness` `registry` `stat-helpers` `supports` `target-resolution` `triggers` `ui`
 
 ## Card Hydration & Attributes
 
@@ -70,6 +70,14 @@
   The wiki defines 5 gate levels. Without a cap, repeated invades increment `gate_level` past 5, causing `keyword_count = gate_level - 3` to grant more than 2 keywords. Cap in `_resolve_invade` (level increment), `_build_gate_template` (template generation), and `_resolve_gate_buff` (keyword count clamped to 0-2).
   _Refs: `src/core/match/extended_mechanic_packs.gd:1267`, `src/core/match/extended_mechanic_packs.gd:1408`, `src/core/match/extended_mechanic_packs.gd:1308`_
 
+- **Trigger descriptor conditions require explicit engine handling** `[invade, triggers, player-state]`
+  Catalog trigger descriptors can declare conditions like `invaded_this_turn: true`, but these are inert unless `matches_additional_conditions` (or `_matches_conditions`) explicitly checks for them. The engine has no generic condition dispatch — each new condition key needs a bespoke check added. The `invaded_this_turn` condition requires tracking `invades_this_turn` on the player state (incremented in `observe_event` on `invade_triggered` events, reset in `reset_turn_state`).
+  _Refs: `src/core/match/extended_mechanic_packs.gd:128-131`, `src/core/match/extended_mechanic_packs.gd:60-61`, `src/core/match/extended_mechanic_packs.gd:76`_
+
+- **`on_invade` triggers must be guarded against infinite recursion** `[invade, triggers, match-engine]`
+  Keeper of the Gates' `on_invade` family trigger invokes another invade, which emits another `invade_triggered` event into the timing queue, causing an infinite loop. The fix: `_resolve_invade` tags events with `from_on_invade: true` when the invoking trigger's family is `on_invade`, and `matches_additional_conditions` blocks `on_invade` triggers from matching events with that flag. This allows one "invade again" but prevents the chain from continuing.
+  _Refs: `src/core/match/extended_mechanic_packs.gd:1253-1262`, `src/core/match/extended_mechanic_packs.gd:151-153`_
+
 - **Generated cards need `art_path` for correct card art** `[invade, generated-cards, ui]`
   The UI resolves card art by checking `art_path`/`art_resource_path` keys first, then falling back to `"res://assets/images/cards/" + definition_id + ".png"`. Generated cards with a `definition_id` that differs from the catalog card's ID (e.g. `"generated_oblivion_gate"` vs `"joo_neu_oblivion_gate"`) must include an explicit `art_path` in their template, or they'll show the placeholder.
   _Refs: `src/ui/components/CardDisplayComponent.gd:715-732`_
@@ -104,6 +112,14 @@
   The engine uses `_deterministic_index(match_state, context_id, pool_size)` for seeded randomness based on `rng_seed`, `turn_number`, and a unique context string. Fixed-order iteration of pools (like keyword assignment) produces the same result every time. Any "random" selection must go through `_deterministic_index` with a unique per-card context ID.
   _Refs: `src/core/match/match_timing.gd:7504-7513`, `src/core/match/extended_mechanic_packs.gd:1464-1473`_
 
+- **`all_friendly` vs `all_other_friendly` — self-inclusion depends on the variant** `[target-resolution, match-engine]`
+  In `_resolve_card_targets_by_name`, `all_friendly` includes the source card while `all_other_friendly` excludes it. The same pattern applies to `all_friendly_in_lane` / `other_friendly_in_lane` and `all_creatures` / `all_other_creatures`. Card data must use the correct variant matching its rules text — cards saying "other" need the `other_` prefix. The aura resolution path (line ~2663) already handles this correctly with a separate `target_filter` check.
+  _Refs: `src/core/match/match_timing.gd:7311-7323`, `src/core/match/match_timing.gd:7290-7302`_
+
+- **Triggers with `target_mode` are silently skipped unless their family is handled** `[triggers, registry, match-engine]`
+  Two chokepoints gate triggers with `target_mode`: (1) `_append_card_triggers` excludes them from the registry unless family is activate, on_play, or a non-summon/wax/wane family, (2) `_trigger_matches_event` must inject a target — activate/on_play get it from the event, all other families auto-pick a random valid target via `get_valid_targets_for_mode`. Summon/wax/wane are excluded because they have a dedicated `pending_summon_effect_targets` resolution path. If a new family needs `target_mode`, it works automatically through the auto-resolve path.
+  _Refs: `src/core/match/match_timing.gd:2840-2846`, `src/core/match/match_timing.gd:2886-2912`_
+
 ## Stat Helpers & Death Checks
 
 - **Always use EvergreenRules helpers for gameplay stat calculations** `[stat-helpers, match-engine]`
@@ -117,3 +133,9 @@
 - **UI cost display must handle both increases and decreases** `[ui, cost-reduction, match-engine]`
   The `_effective_cost` display field must be set whenever effective cost differs from base cost (`!=`), not just when reduced (`<`). Cost floors like Bedeviling Scamp's `min_card_cost` passive increase effective cost for cheap cards, and this must be visible in hand.
   _Refs: `src/ui/match_screen.gd:4549-4553`_
+
+## Supports
+
+- **Support Last Gasp doesn't fire via normal event path** `[supports, triggers, events]`
+  When a support runs out of uses, `activate_support` discards it via `MatchMutations.discard_card`, which emits `card_moved` (support → discard). But `FAMILY_LAST_GASP` listens for `EVENT_CREATURE_DESTROYED`, which is never emitted for supports. Last Gasp triggers on supports must be manually resolved in the exhaustion path using the fake trigger pattern (build a trigger dict + fake creature_destroyed event, then call `_build_trigger_resolution` and `_apply_effects`).
+  _Refs: `src/core/match/persistent_card_rules.gd:194-215`, `src/core/match/match_timing.gd:4180-4195`_

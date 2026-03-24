@@ -17,12 +17,12 @@ const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
 static func build_test_match_state() -> Dictionary:
 	## ── CONFIGURATION ──────────────────────────────────────────────────
 	## Edit the values below to set up your test scenario.
-	## Testing: Forces of Destruction — "Invade, then summon random Daedra with total cost 10."
+	## Testing: Agent of Mehrunes Dagon, Keeper of the Gates, Mythic Dawn Acolyte/Zealot — "if you Invaded" end-of-turn payoffs
 
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — 12 magicka to cast Forces of Destruction (cost 10) + extras
+	# Player 1 (you) — 12 magicka to deploy payoffs + trigger invade
 	var p1_health := 30
 	var p1_max_magicka := 12
 	var p1_current_magicka := 12
@@ -30,31 +30,31 @@ static func build_test_match_state() -> Dictionary:
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — Forces of Destruction + cheap Invade triggers + synergy
+	# Player 1 hand — the 4 requested cards + cheap Invade triggers
 	var p1_hand_ids: Array = [
-		"joo_int_forces_of_destruction",    # Cost 10, Invade + summon random Daedra totaling cost 10
-		"joo_neu_oblivion_invasion",        # Cost 0, Invade (free gate setup before big play)
-		"joo_int_invasion_vanguard",        # Cost 2, 1/4, Summon: Invade
+		"joo_str_agent_of_mehrunes_dagon",  # Cost 2, 3/2, end of turn if Invaded: +1/+1
+		"joo_str_keeper_of_the_gates",      # Cost 6, 6/6, When you Invade → Invade again
+		"joo_int_mythic_dawn_acolyte",      # Cost 5, 5/4, end of turn if Invaded: deal 2 dmg to opponent
+		"joo_wil_mythic_dawn_zealot",       # Cost 2, 2/2, end of turn if Invaded: 1/1 Scamp to hand
+		"joo_neu_oblivion_invasion",        # Cost 0, Invade (free trigger to fire end-of-turn payoffs)
 		"joo_str_invasion_scout",           # Cost 1, 1/1 Daedra, Summon: Invade
-		"joo_wil_unexpected_arrival",       # Cost 3, Invade + summon Daedra by gate level
-		"joo_int_sigil_keeper",             # Cost 4, 3/4 Daedra, Summon: Invade + Ward to gates
+		"joo_str_daedric_incursion",        # Cost 3, action, Draw Daedra + Invade
 	]
 
-	# Player 1 deck — more Invade triggers and draw
+	# Player 1 deck — more invade triggers + Daedra for draw effects
 	# Index 0 is drawn first.
 	var p1_deck_ids: Array = [
-		"joo_int_forces_of_destruction",    # Cost 10, second copy to test again
-		"joo_str_keeper_of_the_gates",      # Cost 6, 6/6, "When you Invade, Invade again"
-		"joo_str_daedric_incursion",        # Cost 3, Draw random Daedra + Invade
-		"int_elusive_schemer",              # Cost 4, 3/1, Summon: Draw a card
-		"joo_neu_oblivion_invasion",        # Cost 0, Invade
+		"joo_neu_oblivion_invasion",        # Cost 0, Invade (another free trigger next turn)
+		"joo_int_invasion_vanguard",        # Cost 2, 1/4 Daedra, Summon: Invade
+		"joo_int_sigil_keeper",             # Cost 4, 3/4 Daedra, Summon: Invade + Ward to gates
+		"joo_str_widow_daedra",             # Cost 4, 5/3 Daedra (draw target)
+		"joo_int_dremora_adept",            # Cost 3, 4/3 Daedra (draw target)
 	]
 
 	var p1_discard_ids: Array = []
 
 	var p1_support_ids: Array = []
 
-	# No pre-placed creatures — Forces of Destruction spawns the gate + Daedra
 	var p1_field_creatures: Array = []
 
 	var p1_shadow_creatures: Array = []
@@ -85,7 +85,6 @@ static func build_test_match_state() -> Dictionary:
 	var p2_field_creatures: Array = [
 		_make_lane_creature("player_2", "str_fiery_imp", 200),             # 1/1
 		_make_lane_creature("player_2", "str_fiery_imp", 201),             # 1/1
-		_make_lane_creature("player_2", "end_fharun_defender", 202),       # 1/4 Guard
 	]
 	var p2_shadow_creatures: Array = [
 		_make_lane_creature("player_2", "str_fiery_imp", 203),             # 1/1
