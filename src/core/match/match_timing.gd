@@ -4485,7 +4485,13 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 								steal_source["granted_keywords"] = granted
 							generated_events.append({"event_type": "keyword_stolen", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "keyword_id": kw})
 			"copy_keywords_to_friendly":
-				var kw_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+				var kw_source_target := str(effect.get("source", "self"))
+				var kw_source_id := ""
+				if kw_source_target == "event_target":
+					kw_source_id = str(event.get("target_instance_id", trigger.get("target_instance_id", "")))
+				else:
+					kw_source_id = str(trigger.get("source_instance_id", ""))
+				var kw_source := _find_card_anywhere(match_state, kw_source_id)
 				if kw_source.is_empty():
 					continue
 				var source_keywords: Array = []
