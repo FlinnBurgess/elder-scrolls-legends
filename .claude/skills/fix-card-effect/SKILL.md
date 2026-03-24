@@ -91,7 +91,8 @@ These are optional fields on the trigger descriptor that gate whether the trigge
 **Target Values** for card targets:
 - `"self"` — the card that owns the trigger
 - `"event_source"` — the card that caused the event
-- `"event_target"` — the target of the event
+- `"event_target"` — the target of the event (resolved from the event's `target_instance_id`; used by supports without `target_mode`)
+- `"chosen_target"` — the target chosen via `target_mode` (resolved from `trigger._chosen_target_id`; used by cards with `target_mode` on the trigger, including supports with `target_mode` on activate triggers)
 - `"event_subject"` — the subject of the event
 - `"event_summoned_creature"` — the creature that was just summoned (alias for event_source in summon events, used by `on_friendly_summon` triggers)
 
@@ -136,6 +137,7 @@ If the user reports a missing or broken alt-view, check three things:
 11. **Action card player target not resolved by `deal_damage`** — The `deal_damage` op falls back to player damage when `_resolve_card_targets` returns empty, but only checks `trigger._chosen_target_player_id` (set by `resolve_targeted_effect` for creatures with `target_mode`). Action cards pass the player target via `event.target_player_id` instead, so face damage silently does nothing. Also check `match_action_enumerator._expand_target_parameter_sets()` — if `action_target_mode` is empty, the AI must enumerate player targets alongside card targets.
 12. **Wrong `match_role` on family spec** — The `FAMILY_SPECS` entry for a trigger family uses `"any_player"` or `"controller"` when the card text says "When [this card] gains/does X" — meaning the trigger should only fire for events targeting the trigger's own card. With the wrong role, every copy of the card in play triggers for any matching event. Fix by using `match_role: "target"` (checks `event.target_instance_id == trigger.source_instance_id`). Check existing family spec defaults before adding per-card overrides — if all cards using the family need the same role, fix the spec.
 13. **Event emitted without actual state change** — An effect op (e.g., `grant_keyword`) emits an event even when the operation was a no-op (e.g., keyword already present). Downstream triggers that react to the event fire spuriously. Fix by gating event emission on whether the state actually changed (e.g., check `has_keyword` before granting, only emit if the keyword was new).
+14. **Activate support `target_mode` not recognized by UI/engine/enumerator** — Support's activate trigger uses `target_mode` (e.g., `"any_creature"`, `"friendly_creature"`) with `"target": "chosen_target"` in effects, but three systems only checked for `"event_target"` in effects: (1) UI's `_selected_support_uses_card_targets` — support doesn't enter targeting mode, (2) engine's `_trigger_matches_event` — skips the trigger because `_chosen_target_id` is empty (no injection from event's `target_instance_id`), (3) AI's `_collect_target_requirements` — doesn't expand card targets. The effect fires but has no target, so nothing happens. Compare against working supports (e.g., Skirmisher's Elixir) that use `"event_target"` without `target_mode` — these work because the three systems recognize `"event_target"`. Fix by updating all three layers to also recognize trigger-level `target_mode`.
 
 ### Pending State Pattern (Interactive Effects)
 

@@ -571,10 +571,13 @@ static func get_all_valid_targets(match_state: Dictionary, source_instance_id: S
 	var source_card := _find_card_anywhere(match_state, source_instance_id)
 	if source_card.is_empty():
 		return []
+	var is_secondary := source_card.has("_primary_target_id")
 	var all_targets: Array = []
 	var seen_ids: Dictionary = {}
 	for ability in get_target_mode_abilities(source_card):
-		var mode := str(ability.get("target_mode", ""))
+		var mode := str(ability.get("secondary_target_mode", "")) if is_secondary else str(ability.get("target_mode", ""))
+		if mode.is_empty():
+			continue
 		for target_info in get_valid_targets_for_mode(match_state, source_instance_id, mode, ability):
 			var key := str(target_info.get("instance_id", target_info.get("player_id", "")))
 			if not seen_ids.has(key):
@@ -594,10 +597,14 @@ static func resolve_targeted_effect(match_state: Dictionary, source_instance_id:
 	# Determine which ability matches the chosen target
 	var chosen_instance_id := str(target_info.get("target_instance_id", ""))
 	var chosen_player_id := str(target_info.get("target_player_id", ""))
+	var is_secondary := source_card.has("_primary_target_id")
 	var matching_ability: Dictionary = {}
 	if not chosen_instance_id.is_empty():
 		for ability in abilities:
-			var valid := get_valid_targets_for_mode(match_state, source_instance_id, str(ability.get("target_mode", "")), ability)
+			var mode := str(ability.get("secondary_target_mode", "")) if is_secondary else str(ability.get("target_mode", ""))
+			if mode.is_empty():
+				continue
+			var valid := get_valid_targets_for_mode(match_state, source_instance_id, mode, ability)
 			for v in valid:
 				if str(v.get("instance_id", "")) == chosen_instance_id:
 					matching_ability = ability
@@ -606,7 +613,10 @@ static func resolve_targeted_effect(match_state: Dictionary, source_instance_id:
 				break
 	elif not chosen_player_id.is_empty():
 		for ability in abilities:
-			var valid := get_valid_targets_for_mode(match_state, source_instance_id, str(ability.get("target_mode", "")), ability)
+			var mode := str(ability.get("secondary_target_mode", "")) if is_secondary else str(ability.get("target_mode", ""))
+			if mode.is_empty():
+				continue
+			var valid := get_valid_targets_for_mode(match_state, source_instance_id, mode, ability)
 			for v in valid:
 				if str(v.get("player_id", "")) == chosen_player_id:
 					matching_ability = ability
@@ -615,6 +625,24 @@ static func resolve_targeted_effect(match_state: Dictionary, source_instance_id:
 				break
 	if matching_ability.is_empty():
 		return {"is_valid": false, "errors": ["No matching ability for chosen target."], "events": [], "trigger_resolutions": []}
+	# Secondary target mode: if the ability has a secondary_target_mode and we haven't
+	# selected the secondary yet, save the primary target and create a pending secondary selection.
+	var secondary_tm := str(matching_ability.get("secondary_target_mode", ""))
+	if not secondary_tm.is_empty() and not source_card.has("_primary_target_id"):
+		source_card["_primary_target_id"] = chosen_instance_id
+		var sec_controller := str(source_card.get("controller_player_id", ""))
+		var sec_valid := get_valid_targets_for_mode(match_state, source_instance_id, secondary_tm, matching_ability)
+		if sec_valid.is_empty():
+			source_card.erase("_primary_target_id")
+			return {"is_valid": true, "events": [], "trigger_resolutions": []}  # Fizzle — no secondary targets
+		var pending_arr: Array = match_state.get("pending_summon_effect_targets", [])
+		pending_arr.append({
+			"player_id": sec_controller,
+			"source_instance_id": source_instance_id,
+			"mandatory": false,
+			"secondary_target_mode": secondary_tm,
+		})
+		return {"is_valid": true, "events": [], "trigger_resolutions": []}
 	# Build trigger entry with chosen target injected
 	var source_location := MatchMutations.find_card_location(match_state, source_instance_id)
 	var lane_index := int(source_location.get("lane_index", -1))
@@ -633,6 +661,11 @@ static func resolve_targeted_effect(match_state: Dictionary, source_instance_id:
 		"_chosen_target_id": chosen_instance_id if not chosen_instance_id.is_empty() else "",
 		"_chosen_target_player_id": chosen_player_id if not chosen_player_id.is_empty() else "",
 	}
+	# Inject primary target if this is a secondary target resolution
+	var primary_id = source_card.get("_primary_target_id", "")
+	if typeof(primary_id) == TYPE_STRING and not primary_id.is_empty():
+		trigger["_primary_target_id"] = primary_id
+		source_card.erase("_primary_target_id")
 	# Inject consumed card info if available (from prior consume selection)
 	var consumed_info = source_card.get("_consumed_card_info", {})
 	if typeof(consumed_info) == TYPE_DICTIONARY and not consumed_info.is_empty():
@@ -1157,13 +1190,21 @@ static func decline_pending_summon_effect_target(match_state: Dictionary, player
 	ensure_match_state(match_state)
 	var pending: Array = match_state.get("pending_summon_effect_targets", [])
 	var idx := -1
+	var entry := {}
 	for i in range(pending.size()):
 		if typeof(pending[i]) == TYPE_DICTIONARY and str(pending[i].get("player_id", "")) == player_id:
 			idx = i
+			entry = pending[i]
 			break
 	if idx == -1:
 		return {"is_valid": false, "errors": ["No pending summon effect target for %s." % player_id]}
 	pending.remove_at(idx)
+	# Clean up _primary_target_id if this was a secondary target decline
+	var source_id := str(entry.get("source_instance_id", ""))
+	if not source_id.is_empty():
+		var source_card := _find_card_anywhere(match_state, source_id)
+		if not source_card.is_empty():
+			source_card.erase("_primary_target_id")
 	return {"is_valid": true, "events": [], "trigger_resolutions": []}
 
 
@@ -2737,8 +2778,20 @@ static func _trigger_matches_event(match_state: Dictionary, trigger: Dictionary,
 		return false
 	# Triggers with target_mode require manual resolution via resolve_targeted_effect;
 	# skip them during automatic event processing so they don't fire with no chosen target.
+	# Exception: activate triggers receive their target from the event (UI passes target_instance_id).
 	if not str(descriptor.get("target_mode", "")).is_empty() and str(trigger.get("_chosen_target_id", "")).is_empty() and str(trigger.get("_chosen_target_player_id", "")).is_empty():
-		return false
+		var inject_family := str(descriptor.get("family", ""))
+		if inject_family == FAMILY_ACTIVATE or inject_family == FAMILY_ON_PLAY:
+			var evt_target := str(event.get("target_instance_id", ""))
+			var evt_player := str(event.get("target_player_id", ""))
+			if not evt_target.is_empty():
+				trigger["_chosen_target_id"] = evt_target
+			elif not evt_player.is_empty():
+				trigger["_chosen_target_player_id"] = evt_player
+			else:
+				return false
+		else:
+			return false
 	var event_type := str(event.get("event_type", ""))
 	var family := str(descriptor.get("family", ""))
 	var family_spec: Dictionary = FAMILY_SPECS.get(family, {})
@@ -3516,6 +3569,12 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					generated_events.append({"event_type": "status_granted", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "status_id": "shackled", "reason": reason})
 			"battle_creature":
 				var battle_source_id := str(trigger.get("source_instance_id", ""))
+				# Support attacker override: "primary_target" uses the primary target from a dual-target selection
+				var attacker_override := str(effect.get("attacker", ""))
+				if attacker_override == "primary_target":
+					var pt_id := str(trigger.get("_primary_target_id", ""))
+					if not pt_id.is_empty():
+						battle_source_id = pt_id
 				var battle_source := _find_card_anywhere(match_state, battle_source_id)
 				for defender in _resolve_card_targets(match_state, trigger, event, effect):
 					if battle_source.is_empty():

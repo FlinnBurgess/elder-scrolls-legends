@@ -5611,7 +5611,17 @@ func _is_card_target_valid_for_selected(target_instance_id: String) -> bool:
 			if not _selected_support_uses_card_targets(selected_card):
 				return false
 			var location := MatchMutations.find_card_location(_match_state, target_instance_id)
-			return bool(location.get("is_valid", false)) and str(location.get("zone", "")) == MatchMutations.ZONE_LANE
+			if not (bool(location.get("is_valid", false)) and str(location.get("zone", "")) == MatchMutations.ZONE_LANE):
+				return false
+			# Validate against target_mode if present (e.g. friendly_creature)
+			var support_tm := _get_activate_target_mode(selected_card)
+			if not support_tm.is_empty():
+				var valid_targets := MatchTiming.get_valid_targets_for_mode(_match_state, _selected_instance_id, support_tm)
+				for vt in valid_targets:
+					if str(vt.get("instance_id", "")) == target_instance_id:
+						return true
+				return false
+			return true
 		SELECTION_MODE_ATTACK:
 			return bool(MatchCombat.validate_attack(_match_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"type": "creature", "instance_id": target_instance_id}).get("is_valid", false))
 	return false
@@ -5623,6 +5633,9 @@ func _action_needs_explicit_target(card: Dictionary) -> bool:
 	for trigger in card.get("triggered_abilities", []):
 		if typeof(trigger) != TYPE_DICTIONARY:
 			continue
+		var tm := str(trigger.get("target_mode", ""))
+		if not tm.is_empty() and tm != "creature_in_hand":
+			return true
 		for effect in trigger.get("effects", []):
 			if typeof(effect) != TYPE_DICTIONARY:
 				continue
@@ -5913,6 +5926,9 @@ func _selected_support_uses_card_targets(card: Dictionary) -> bool:
 	for trigger in card.get("triggered_abilities", []):
 		if typeof(trigger) != TYPE_DICTIONARY or str(trigger.get("family", "")) != "activate":
 			continue
+		var tm := str(trigger.get("target_mode", ""))
+		if not tm.is_empty() and tm != "creature_in_hand" and tm != "choose_lane_and_owner":
+			return true
 		for effect in trigger.get("effects", []):
 			if typeof(effect) != TYPE_DICTIONARY:
 				continue
@@ -5922,6 +5938,16 @@ func _selected_support_uses_card_targets(card: Dictionary) -> bool:
 			if target == "event_target" or source_target == "event_target" or consumer_target == "event_target":
 				return true
 	return false
+
+
+func _get_activate_target_mode(card: Dictionary) -> String:
+	for trigger in card.get("triggered_abilities", []):
+		if typeof(trigger) != TYPE_DICTIONARY or str(trigger.get("family", "")) != "activate":
+			continue
+		var tm := str(trigger.get("target_mode", ""))
+		if not tm.is_empty():
+			return tm
+	return ""
 
 
 func _validate_selected_support_play(player_id: String) -> Dictionary:

@@ -119,9 +119,21 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 
 - **Moment of Clarity** — WIRED (see Previously Fixed; simplified to generate 1 random card since card-choice UI doesn't exist yet).
 
+### Needs multi-target pending selection for on_play triggers
+
+- **Mute** — Action with `target_mode: "two_creatures"`. Needs the pending target selection system extended to `on_play` triggers — currently only supports `summon` triggers. The card silences two creatures but the UI/engine only support single-target resolution for actions.
+- **Fingers of the Mountain** — Action with `target_mode: "three_creatures"`. Same issue — needs multi-target pending selection for on_play.
+- **Whispering Claw Strike** — Action with `target_mode: "enemy_creature_and_friendly_creature"`. Same issue — needs dual-target pending selection for on_play.
+- **Strange Brew** — Action with `target_mode: "creature_in_hand"`. Needs the pending hand selection system wired into the action play flow.
+
 ### Needs hand selection mechanic (select_card_from_hand)
 
 - **Barter** — Uses `trade_hand_card_for_opponent_deck` op which is not implemented. Needs a `then_op` for trading (discard selected hand card + draw random from opponent deck). The `select_card_from_hand` infrastructure now exists.
+- **Heroic Rebirth** — Support with `activate` + `target_mode: "creature_in_hand"`. Needs the pending hand selection system to be wired into the activate support flow. The engine and UI don't currently support hand-targeting for activate triggers.
+
+### Needs lane/player selection for activate supports
+
+- **Strategist's Map** — Support with `activate` + `target_mode: "choose_lane_and_owner"`. Needs a lane + player selection UI for activate triggers (summon Target for chosen player in chosen lane). The existing lane selection UI doesn't support this for support activations.
 
 ### Needs complex / unique mechanics
 

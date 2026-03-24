@@ -135,6 +135,11 @@ Card's trigger family uses `match_role: "any_player"` or `"controller"` when the
 Example: Dremora Adept, Manic Jack, Nereid Sister (`on_keyword_gained` family had `match_role: "any_player"` — all copies triggered on any keyword grant)
 How to spot: User reports a self-referencing trigger ("When X gains/does...") firing for other cards or multiple times across copies. Check if the family spec's `match_role` is `"target"` and if the event is only emitted when the underlying state actually changes.
 
+## Activate support with target_mode skipped — no _chosen_target_id injected
+Support cards with `target_mode` on their `activate` trigger use `"target": "chosen_target"` in effects, but three systems only recognized `"event_target"`: (1) UI's `_selected_support_uses_card_targets` didn't enter targeting mode, (2) engine's `_trigger_matches_event` skipped the trigger because `_chosen_target_id` was empty, (3) AI's `_collect_target_requirements` didn't expand card targets. The fix injects the event's `target_instance_id` as `_chosen_target_id` for activate triggers, and updates both UI and enumerator to recognize `target_mode`.
+Example: Elixir of Potency, Skyforge, Orsinium Forge, Reconstruction Engine, Altar of Despair
+How to spot: User reports clicking a support does nothing (charge spent but no effect). Check if the support's activate trigger has `target_mode` — if so, the card uses the `chosen_target` path, which requires all three layers to handle the target injection.
+
 ## Unhandled amount_source value in _resolve_amount
 Card's effect uses `amount_source` with a value that `_resolve_amount()` in `match_timing.gd` doesn't handle. The function falls through to the default `int(effect.get("amount", 0))`, which returns 0 since no static `amount` field is set. The effect fires but deals/heals/modifies by 0.
 Example: Blast from Oblivion (`amount_source: "oblivion_gate_level"` was not handled — always dealt 0 damage)

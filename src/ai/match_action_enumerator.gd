@@ -602,7 +602,15 @@ static func _enumerate_support_activations(match_state: Dictionary, player_id: S
 	for card in _player_zone_cards(match_state, player_id, MatchMutations.ZONE_SUPPORT):
 		if not bool(PersistentCardRules.validate_activate_support(match_state, player_id, str(card.get("instance_id", ""))).get("is_valid", false)):
 			continue
-		var requirements := _collect_target_requirements(_activation_triggers(card))
+		var act_triggers := _activation_triggers(card)
+		var requirements := _collect_target_requirements(act_triggers)
+		# Pass target_mode as action_target_mode so _expand_target_parameter_sets can filter
+		for at in act_triggers:
+			var at_tm := str(at.get("target_mode", ""))
+			if not at_tm.is_empty():
+				requirements["action_target_mode"] = at_tm
+				requirements["controller_player_id"] = player_id
+				break
 		for parameters in _expand_target_parameter_sets(match_state, requirements):
 			var descriptor := _build_descriptor(KIND_ACTIVATE_SUPPORT, match_state, player_id, card, parameters, {
 				"timing_window": TIMING_ACTION,
@@ -777,6 +785,12 @@ static func _collect_target_requirements(triggers: Array) -> Dictionary:
 		"needs_lane_id": false,
 	}
 	for trigger in triggers:
+		# Activate triggers with target_mode need card targets passed via the event
+		var tm := str(trigger.get("target_mode", ""))
+		if not tm.is_empty() and tm != "creature_in_hand":
+			requirements["needs_card_target"] = true
+			if tm == "choose_lane_and_owner":
+				requirements["needs_lane_id"] = true
 		for raw_effect in trigger.get("effects", []):
 			if typeof(raw_effect) != TYPE_DICTIONARY:
 				continue

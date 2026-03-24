@@ -24,24 +24,32 @@ static func _resolve_card_relationships(card: Dictionary, relationships: Array, 
 		if typeof(ability) != TYPE_DICTIONARY:
 			continue
 		var effects: Array = ability.get("effects", [])
-		for effect in effects:
-			if typeof(effect) != TYPE_DICTIONARY:
-				continue
-			var op := str(effect.get("op", ""))
-			if not RELATED_CARD_OPS.has(op):
-				continue
+		_scan_effects_for_card_templates(effects, relationships, seen_card_ids)
+
+
+static func _scan_effects_for_card_templates(effects: Array, relationships: Array, seen_card_ids: Dictionary) -> void:
+	for effect in effects:
+		if typeof(effect) != TYPE_DICTIONARY:
+			continue
+		var op := str(effect.get("op", ""))
+		if RELATED_CARD_OPS.has(op):
 			var template_raw = effect.get("card_template", null)
-			if template_raw == null or typeof(template_raw) != TYPE_DICTIONARY:
-				continue
-			var template: Dictionary = template_raw as Dictionary
-			var def_id := str(template.get("definition_id", ""))
-			if def_id.is_empty() or seen_card_ids.has(def_id):
-				continue
-			seen_card_ids[def_id] = true
-			var card_data: Dictionary = template.duplicate(true)
-			if not card_data.has("art_path") and not def_id.is_empty():
-				card_data["art_path"] = "res://assets/images/cards/" + def_id + ".png"
-			relationships.append({"type": "card", "card_data": card_data})
+			if template_raw != null and typeof(template_raw) == TYPE_DICTIONARY:
+				var template: Dictionary = template_raw as Dictionary
+				var def_id := str(template.get("definition_id", ""))
+				if not def_id.is_empty() and not seen_card_ids.has(def_id):
+					seen_card_ids[def_id] = true
+					var card_data: Dictionary = template.duplicate(true)
+					if not card_data.has("art_path") and not def_id.is_empty():
+						card_data["art_path"] = "res://assets/images/cards/" + def_id + ".png"
+					relationships.append({"type": "card", "card_data": card_data})
+		# Descend into choose_one / choose_two choices
+		if op == "choose_one" or op == "choose_two":
+			var choices: Array = effect.get("choices", [])
+			for choice in choices:
+				if typeof(choice) == TYPE_DICTIONARY:
+					var choice_effects: Array = choice.get("effects", [])
+					_scan_effects_for_card_templates(choice_effects, relationships, seen_card_ids)
 
 
 static func _resolve_contextual_text(card: Dictionary, relationships: Array, context: Dictionary) -> void:

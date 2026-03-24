@@ -51,7 +51,7 @@ static func _extract_trigger_condition_subtypes(card: Dictionary, seen: Dictiona
 	for ability in abilities:
 		if typeof(ability) != TYPE_DICTIONARY:
 			continue
-		for key in ["required_subtype_on_board", "required_event_source_subtype", "required_summon_subtype"]:
+		for key in ["required_subtype_on_board", "required_event_source_subtype", "required_summon_subtype", "required_slay_subtype", "required_equipper_subtype"]:
 			var st := str(ability.get(key, ""))
 			if not st.is_empty():
 				seen[st.to_lower()] = true
