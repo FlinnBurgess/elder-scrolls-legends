@@ -2504,6 +2504,22 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 		_append_event_log(match_state, event)
 		GameLogger.log_event(match_state, event)
 		ExtendedMechanicPacks.observe_event(match_state, event)
+		# Resummon: when a marked creature dies, queue a resummon event
+		if str(event.get("event_type", "")) == EVENT_CREATURE_DESTROYED:
+			var rs_instance_id := str(event.get("instance_id", ""))
+			var rs_card := _find_card_anywhere(match_state, rs_instance_id)
+			if not rs_card.is_empty() and bool(rs_card.get("_resummon_on_death", false)):
+				var rs_controller := str(rs_card.get("_resummon_controller", rs_card.get("controller_player_id", "")))
+				var rs_lane_id := str(event.get("lane_id", ""))
+				queue.append(_normalize_event(match_state, {"event_type": "resummon_pending", "definition_id": str(rs_card.get("definition_id", "")), "name": str(rs_card.get("name", "")), "controller_player_id": rs_controller, "lane_id": rs_lane_id, "cost": int(rs_card.get("cost", 0)), "rules_text": str(rs_card.get("rules_text", ""))}, {}))
+		# Process pending resummons
+		if str(event.get("event_type", "")) == "resummon_pending":
+			var rs_template := {"definition_id": str(event.get("definition_id", "")), "name": str(event.get("name", "")), "card_type": "creature", "power": 1, "health": 1, "base_power": 1, "base_health": 1, "cost": int(event.get("cost", 0)), "rules_text": str(event.get("rules_text", ""))}
+			var rs_gen := MatchMutations.build_generated_card(match_state, str(event.get("controller_player_id", "")), rs_template)
+			if not rs_gen.is_empty():
+				var rs_summon := MatchMutations.summon_card_to_lane(match_state, str(event.get("controller_player_id", "")), rs_gen, str(event.get("lane_id", "")))
+				if bool(rs_summon.get("is_valid", false)):
+					queue.append(_normalize_event(match_state, {"event_type": EVENT_CREATURE_SUMMONED, "player_id": str(event.get("controller_player_id", "")), "source_instance_id": str(rs_gen.get("instance_id", "")), "source_controller_player_id": str(event.get("controller_player_id", "")), "lane_id": str(event.get("lane_id", "")), "reason": "resummon"}, {}))
 		_append_replay_entry(match_state, {
 			"entry_type": "event_processed",
 			"event_id": str(event.get("event_id", "")),
@@ -3210,6 +3226,14 @@ static func _has_pilfer_is_slay_active(match_state: Dictionary, controller_id: S
 	return false
 
 
+static func _has_double_max_magicka_gain(match_state: Dictionary, player_id: String) -> bool:
+	for lane in match_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(player_id, []):
+			if typeof(card) == TYPE_DICTIONARY and bool(card.get("_double_max_magicka_gain", false)):
+				return true
+	return false
+
+
 static func _matches_required_zone(trigger: Dictionary, descriptor: Dictionary) -> bool:
 	if descriptor.has("required_zone"):
 		var required := str(descriptor.get("required_zone", ""))
@@ -3720,6 +3744,9 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var gain := _resolve_amount(trigger, effect, match_state, event)
 					if gain == 0:
 						gain = int(effect.get("amount", 1))
+					# Check for _double_max_magicka_gain from any friendly creature in play
+					if _has_double_max_magicka_gain(match_state, player_id):
+						gain *= 2
 					magicka_player["max_magicka"] = int(magicka_player.get("max_magicka", 0)) + gain
 					magicka_player["current_magicka"] = int(magicka_player.get("current_magicka", 0)) + gain
 					# Apply max_magicka_cap passive from any creature in play
@@ -3789,6 +3816,12 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						continue
 					if is_action_damage and _is_immune_to_effect(match_state, card, "action_damage"):
 						continue
+					# Damage redirect: if creature is protected, redirect damage to protector
+					var redirect_id := str(card.get("_protected_by", ""))
+					if not redirect_id.is_empty():
+						var protector_loc := MatchMutations.find_card_location(match_state, redirect_id)
+						if bool(protector_loc.get("is_valid", false)) and str(protector_loc.get("zone", "")) == "lane":
+							card = protector_loc["card"]
 					var damage_result := EvergreenRules.apply_damage_to_creature(card, damage_amount)
 					if bool(damage_result.get("ward_removed", false)):
 						generated_events.append({
@@ -6379,7 +6412,8 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 			"grant_temporary_immunity":
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					card["_immune_until_turn"] = int(match_state.get("turn_number", 0)) + 1
-					generated_events.append({"event_type": "temporary_immunity_granted", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", ""))})
+					card["_immunity_type"] = str(effect.get("immunity", ""))
+					generated_events.append({"event_type": "temporary_immunity_granted", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "immunity_type": str(effect.get("immunity", ""))})
 			"steal_item_from_opponent_discard":
 				var sifod_controller_id := str(trigger.get("controller_player_id", ""))
 				var sifod_opponent_id := _get_opposing_player_id(match_state.get("players", []), sifod_controller_id)
@@ -7207,16 +7241,30 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					"prompt": "Choose a cost to lock.",
 				})
 			"aim_at":
+				var aim_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					card["_aimed_by"] = str(trigger.get("source_instance_id", ""))
 					var aim_amount := int(effect.get("amount", 0))
 					card["_aim_damage"] = aim_amount
+					if not aim_source.is_empty():
+						aim_source["_aimed_at_instance_id"] = str(card.get("instance_id", ""))
 					generated_events.append({"event_type": "creature_aimed_at", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "amount": aim_amount})
 			"conditional_drawn_card_bonus":
-				# Gates of Madness: when you draw a card, check condition and apply bonus
-				var cdcb_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
-				if not cdcb_source.is_empty():
-					cdcb_source["_drawn_card_bonus"] = effect.get("bonus", {})
+				# Gates of Madness: when you draw a card, apply bonus based on card type
+				var cdcb_drawn_id := str(event.get("drawn_instance_id", event.get("instance_id", "")))
+				var cdcb_drawn := _find_card_anywhere(match_state, cdcb_drawn_id)
+				if not cdcb_drawn.is_empty():
+					var cdcb_type := str(cdcb_drawn.get("card_type", ""))
+					if (cdcb_type == "creature" or cdcb_type == "item") and effect.has("creature_item"):
+						var cdcb_ci: Dictionary = effect["creature_item"]
+						EvergreenRules.apply_stat_bonus(cdcb_drawn, int(cdcb_ci.get("power", 0)), int(cdcb_ci.get("health", 0)), reason)
+						generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": cdcb_drawn_id, "power_bonus": int(cdcb_ci.get("power", 0)), "health_bonus": int(cdcb_ci.get("health", 0)), "reason": reason})
+					elif (cdcb_type == "action" or cdcb_type == "support") and effect.has("action_support"):
+						var cdcb_as: Dictionary = effect["action_support"]
+						var cdcb_reduction := int(cdcb_as.get("cost_reduction", 0))
+						if cdcb_reduction > 0:
+							cdcb_drawn["cost"] = maxi(0, int(cdcb_drawn.get("cost", 0)) - cdcb_reduction)
+							generated_events.append({"event_type": "cost_reduced", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": cdcb_drawn_id, "reduction": cdcb_reduction, "reason": reason})
 			"trigger_wax":
 				var tw_source_id := str(trigger.get("source_instance_id", ""))
 				var tw_controller_id := str(trigger.get("controller_player_id", ""))

@@ -182,6 +182,9 @@ static func refresh_for_controller_turn(card: Dictionary, current_turn_number: i
 		remove_status(card, STATUS_SHACKLED)
 		card.erase("shackle_expires_on_turn")
 		result["shackle_cleared"] = true
+	if card.has("_immune_until_turn") and int(card.get("_immune_until_turn", -1)) < current_turn_number:
+		card.erase("_immune_until_turn")
+		card.erase("_immunity_type")
 	if has_keyword(card, KEYWORD_REGENERATE):
 		result["regenerate_healed"] = restore_health(card)
 	_sync_wounded_status(card)
@@ -424,9 +427,25 @@ static func get_attached_items(card: Dictionary) -> Array:
 
 
 static func is_creature_destroyed(card: Dictionary, destroyed_by_lethal: bool) -> bool:
-	if destroyed_by_lethal:
+	if destroyed_by_lethal and not _has_temporary_immunity(card, "lethal"):
 		return true
 	return get_remaining_health(card) <= 0
+
+
+static func _has_temporary_immunity(card: Dictionary, immunity_type: String) -> bool:
+	if not card.has("_immune_until_turn"):
+		return false
+	var card_immunity := str(card.get("_immunity_type", ""))
+	return card_immunity == immunity_type or card_immunity == "all"
+
+
+static func has_temporary_immunity_with_turn(card: Dictionary, immunity_type: String, current_turn: int) -> bool:
+	if not card.has("_immune_until_turn"):
+		return false
+	if int(card.get("_immune_until_turn", -1)) < current_turn:
+		return false
+	var card_immunity := str(card.get("_immunity_type", ""))
+	return card_immunity == immunity_type or card_immunity == "all"
 
 
 static func get_remaining_health(card: Dictionary) -> int:
