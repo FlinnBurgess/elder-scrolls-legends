@@ -479,14 +479,30 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			var srfc_lanes: Array = match_state.get("lanes", [])
 			if srfc_lane_index >= 0 and srfc_lane_index < srfc_lanes.size():
 				srfc_lane_id = str(srfc_lanes[srfc_lane_index].get("lane_id", ""))
+			# Fall back to event lane_id (e.g. action played to a specific lane)
+			if srfc_lane_id.is_empty():
+				srfc_lane_id = str(event.get("lane_id", ""))
 			if srfc_lane_id.is_empty() and not srfc_lanes.is_empty():
 				srfc_lane_id = str(srfc_lanes[0].get("lane_id", ""))
 			if srfc_lane_id.is_empty():
 				return {"handled": true, "events": []}
 			var srfc_gen := MatchMutations.build_generated_card(match_state, srfc_controller_id, srfc_template)
+			# Try the target lane first; if full, overflow to the other lane
 			var srfc_result := MatchMutations.summon_card_to_lane(match_state, srfc_controller_id, srfc_gen, srfc_lane_id, {"source_zone": MatchMutations.ZONE_GENERATED})
 			if not bool(srfc_result.get("is_valid", false)):
-				return {"handled": true, "events": []}
+				# Overflow: try the other lane
+				var srfc_other_lane_id := ""
+				for srfc_lane in srfc_lanes:
+					var srfc_lid := str(srfc_lane.get("lane_id", ""))
+					if srfc_lid != srfc_lane_id and not srfc_lid.is_empty():
+						srfc_other_lane_id = srfc_lid
+						break
+				if not srfc_other_lane_id.is_empty():
+					srfc_result = MatchMutations.summon_card_to_lane(match_state, srfc_controller_id, srfc_gen, srfc_other_lane_id, {"source_zone": MatchMutations.ZONE_GENERATED})
+					if bool(srfc_result.get("is_valid", false)):
+						srfc_lane_id = srfc_other_lane_id
+				if not bool(srfc_result.get("is_valid", false)):
+					return {"handled": true, "events": []}
 			var srfc_events: Array = srfc_result.get("events", []).duplicate()
 			srfc_events.append(_timing_rules()._build_summon_event(srfc_result["card"], srfc_controller_id, srfc_lane_id, int(srfc_result.get("slot_index", -1)), "summon_from_catalog"))
 			return {"handled": true, "events": srfc_events}

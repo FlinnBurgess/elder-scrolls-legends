@@ -25,6 +25,17 @@ static func _resolve_card_relationships(card: Dictionary, relationships: Array, 
 			continue
 		var effects: Array = ability.get("effects", [])
 		_scan_effects_for_card_templates(effects, relationships, seen_card_ids)
+	# Shout alt-views: show higher levels as text relationships
+	var shout_levels = card.get("shout_levels", [])
+	if typeof(shout_levels) == TYPE_ARRAY and not shout_levels.is_empty():
+		var current_level := maxi(1, int(card.get("shout_level", 1)))
+		for i in range(current_level, shout_levels.size()):
+			var level_template = shout_levels[i]
+			if typeof(level_template) != TYPE_DICTIONARY:
+				continue
+			var level_text := str(level_template.get("rules_text", ""))
+			if not level_text.is_empty():
+				relationships.append({"type": "text", "text": level_text})
 
 
 static func _scan_effects_for_card_templates(effects: Array, relationships: Array, seen_card_ids: Dictionary) -> void:

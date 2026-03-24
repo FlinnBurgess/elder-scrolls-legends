@@ -1222,53 +1222,60 @@ static func decline_pending_summon_effect_target(match_state: Dictionary, player
 	return {"is_valid": true, "events": combined_events, "trigger_resolutions": combined_resolutions}
 
 
-## Multi-target resolution: collects targets one at a time for multi-target abilities.
-## When all targets are collected, fires the ability's effects with all targets available.
+## Multi-target resolution: fires each effect immediately as its target is selected.
+## E.g. Fingers of the Mountain deals 1 dmg on first pick, 2 dmg on second, 3 dmg on third.
 static func _resolve_multi_target_selection(match_state: Dictionary, source_card: Dictionary, target_info: Dictionary) -> Dictionary:
-	var collected: Array = source_card.get("_multi_target_ids", [])
+	var current_index: int = int(source_card.get("_multi_target_index", 0))
 	var needed: int = int(source_card.get("_multi_target_count", 0))
 	var descriptor: Dictionary = source_card.get("_multi_target_descriptor", {})
 	var chosen_id := str(target_info.get("target_instance_id", ""))
 	if chosen_id.is_empty():
 		return {"is_valid": false, "errors": ["No target selected."], "events": [], "trigger_resolutions": []}
-	collected.append(chosen_id)
-	source_card["_multi_target_ids"] = collected
-	if collected.size() < needed:
+	# Fire the effect for this target immediately
+	var instance_id := str(source_card.get("instance_id", ""))
+	var controller_id := str(source_card.get("controller_player_id", ""))
+	var effects: Array = descriptor.get("effects", [])
+	var events: Array = []
+	var resolutions: Array = []
+	if current_index < effects.size():
+		var single_effect: Dictionary = effects[current_index].duplicate(true) if typeof(effects[current_index]) == TYPE_DICTIONARY else {}
+		var trigger := {
+			"trigger_id": "%s_multi_target_%d" % [instance_id, current_index],
+			"trigger_index": 0,
+			"source_instance_id": instance_id,
+			"owner_player_id": str(source_card.get("owner_player_id", controller_id)),
+			"controller_player_id": controller_id,
+			"source_zone": ZONE_DISCARD,
+			"descriptor": {"family": str(descriptor.get("family", "on_play")), "effects": [single_effect]},
+			"_chosen_target_id": chosen_id,
+		}
+		var event := {
+			"event_type": EVENT_CARD_PLAYED,
+			"source_instance_id": instance_id,
+			"player_id": controller_id,
+			"target_instance_id": chosen_id,
+		}
+		var resolution := _build_trigger_resolution(match_state, trigger, event)
+		events = _apply_effects(match_state, trigger, event, resolution)
+		resolutions.append(resolution)
+	current_index += 1
+	source_card["_multi_target_index"] = current_index
+	if current_index < needed:
 		# Queue another pending selection for the next target
-		var controller_id := str(source_card.get("controller_player_id", ""))
 		var pending_arr: Array = match_state.get("pending_summon_effect_targets", [])
 		pending_arr.append({
 			"player_id": controller_id,
-			"source_instance_id": str(source_card.get("instance_id", "")),
+			"source_instance_id": instance_id,
 			"mandatory": true,
 			"multi_target": true,
 		})
-		return {"is_valid": true, "events": [], "trigger_resolutions": []}
-	# All targets collected — fire the effects
-	var instance_id := str(source_card.get("instance_id", ""))
-	var controller_id := str(source_card.get("controller_player_id", ""))
-	var trigger := {
-		"trigger_id": "%s_multi_target" % instance_id,
-		"trigger_index": 0,
-		"source_instance_id": instance_id,
-		"owner_player_id": str(source_card.get("owner_player_id", controller_id)),
-		"controller_player_id": controller_id,
-		"source_zone": ZONE_DISCARD,
-		"descriptor": descriptor,
-		"_chosen_target_ids": collected.duplicate(),
-	}
-	var event := {
-		"event_type": EVENT_CARD_PLAYED,
-		"source_instance_id": instance_id,
-		"player_id": controller_id,
-	}
-	var resolution := _build_trigger_resolution(match_state, trigger, event)
-	var events: Array = _apply_effects(match_state, trigger, event, resolution)
-	# Clean up multi-target state
-	source_card.erase("_multi_target_ids")
-	source_card.erase("_multi_target_count")
-	source_card.erase("_multi_target_descriptor")
-	return {"is_valid": true, "events": events, "trigger_resolutions": [resolution]}
+	else:
+		# All done — clean up multi-target state
+		source_card.erase("_multi_target_ids")
+		source_card.erase("_multi_target_count")
+		source_card.erase("_multi_target_index")
+		source_card.erase("_multi_target_descriptor")
+	return {"is_valid": true, "events": events, "trigger_resolutions": resolutions}
 
 
 ## Pending forced play system — for effects that generate a card to hand and require immediate play.
