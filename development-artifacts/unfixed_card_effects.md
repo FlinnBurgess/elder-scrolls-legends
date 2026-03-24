@@ -17,9 +17,9 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Heroic Rebirth** — Support with `activate` + `target_mode: "creature_in_hand"`. Needs hand-targeting wired into activate support flow.
 - **Strategist's Map** — Support with `activate` + `target_mode: "choose_lane_and_owner"`. Needs lane + player selection for support activations.
 
-### Needs verification
+### Verified working
 
-- **High Hrothgar** — `set_power_equal_to_health` op handler exists. Needs end-to-end verification.
+- **High Hrothgar** — WIRED. `set_power_equal_to_health` op, `event_summoned_creature` target, `on_friendly_summon` family all functional.
 
 ## Previously Fixed
 

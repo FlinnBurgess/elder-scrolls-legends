@@ -593,6 +593,9 @@ static func resolve_targeted_effect(match_state: Dictionary, source_instance_id:
 	var source_card := _find_card_anywhere(match_state, source_instance_id)
 	if source_card.is_empty():
 		return {"is_valid": false, "errors": ["Source card not found."], "events": [], "trigger_resolutions": []}
+	# Multi-target collection: if the card is collecting targets for a multi-target ability
+	if source_card.has("_multi_target_count"):
+		return _resolve_multi_target_selection(match_state, source_card, target_info)
 	var abilities := get_target_mode_abilities(source_card)
 	if abilities.is_empty():
 		return {"is_valid": false, "errors": ["No target_mode abilities on card."], "events": [], "trigger_resolutions": []}
@@ -1219,6 +1222,55 @@ static func decline_pending_summon_effect_target(match_state: Dictionary, player
 	return {"is_valid": true, "events": combined_events, "trigger_resolutions": combined_resolutions}
 
 
+## Multi-target resolution: collects targets one at a time for multi-target abilities.
+## When all targets are collected, fires the ability's effects with all targets available.
+static func _resolve_multi_target_selection(match_state: Dictionary, source_card: Dictionary, target_info: Dictionary) -> Dictionary:
+	var collected: Array = source_card.get("_multi_target_ids", [])
+	var needed: int = int(source_card.get("_multi_target_count", 0))
+	var descriptor: Dictionary = source_card.get("_multi_target_descriptor", {})
+	var chosen_id := str(target_info.get("target_instance_id", ""))
+	if chosen_id.is_empty():
+		return {"is_valid": false, "errors": ["No target selected."], "events": [], "trigger_resolutions": []}
+	collected.append(chosen_id)
+	source_card["_multi_target_ids"] = collected
+	if collected.size() < needed:
+		# Queue another pending selection for the next target
+		var controller_id := str(source_card.get("controller_player_id", ""))
+		var pending_arr: Array = match_state.get("pending_summon_effect_targets", [])
+		pending_arr.append({
+			"player_id": controller_id,
+			"source_instance_id": str(source_card.get("instance_id", "")),
+			"mandatory": true,
+			"multi_target": true,
+		})
+		return {"is_valid": true, "events": [], "trigger_resolutions": []}
+	# All targets collected — fire the effects
+	var instance_id := str(source_card.get("instance_id", ""))
+	var controller_id := str(source_card.get("controller_player_id", ""))
+	var trigger := {
+		"trigger_id": "%s_multi_target" % instance_id,
+		"trigger_index": 0,
+		"source_instance_id": instance_id,
+		"owner_player_id": str(source_card.get("owner_player_id", controller_id)),
+		"controller_player_id": controller_id,
+		"source_zone": ZONE_DISCARD,
+		"descriptor": descriptor,
+		"_chosen_target_ids": collected.duplicate(),
+	}
+	var event := {
+		"event_type": EVENT_CARD_PLAYED,
+		"source_instance_id": instance_id,
+		"player_id": controller_id,
+	}
+	var resolution := _build_trigger_resolution(match_state, trigger, event)
+	var events: Array = _apply_effects(match_state, trigger, event, resolution)
+	# Clean up multi-target state
+	source_card.erase("_multi_target_ids")
+	source_card.erase("_multi_target_count")
+	source_card.erase("_multi_target_descriptor")
+	return {"is_valid": true, "events": events, "trigger_resolutions": [resolution]}
+
+
 ## Pending forced play system — for effects that generate a card to hand and require immediate play.
 ## The UI auto-selects the card and the player drops it on a lane using the normal play flow.
 
@@ -1518,6 +1570,42 @@ static func _check_summon_effect_target_mode(match_state: Dictionary, summoned_c
 		"source_instance_id": instance_id,
 		"mandatory": is_mandatory,
 	})
+
+
+## Check if a played action card has multi-target on_play triggers (two_creatures, three_creatures)
+## and queue pending target selections for each target needed.
+static func _check_action_multi_target_abilities(match_state: Dictionary, card: Dictionary) -> void:
+	var instance_id := str(card.get("instance_id", ""))
+	var controller_id := str(card.get("controller_player_id", ""))
+	var raw_triggers = card.get("triggered_abilities", [])
+	if typeof(raw_triggers) != TYPE_ARRAY:
+		return
+	for ab in raw_triggers:
+		if typeof(ab) != TYPE_DICTIONARY:
+			continue
+		if str(ab.get("family", "")) != FAMILY_ON_PLAY:
+			continue
+		var tm := str(ab.get("target_mode", ""))
+		var target_count := 0
+		if tm == "two_creatures":
+			target_count = 2
+		elif tm == "three_creatures":
+			target_count = 3
+		if target_count == 0:
+			continue
+		# Initialize multi-target collection on the card
+		card["_multi_target_ids"] = []
+		card["_multi_target_count"] = target_count
+		card["_multi_target_descriptor"] = ab.duplicate(true)
+		# Queue the first pending target selection
+		var pending_arr: Array = match_state.get("pending_summon_effect_targets", [])
+		pending_arr.append({
+			"player_id": controller_id,
+			"source_instance_id": instance_id,
+			"mandatory": true,
+			"multi_target": true,
+		})
+		break  # Only process the first multi-target ability
 
 
 ## Check if a played/summoned card has consume: true abilities and create pending selections.
@@ -2252,6 +2340,7 @@ static func play_action_from_hand(match_state: Dictionary, player_id: String, in
 	player[ZONE_HAND].remove_at(hand_index)
 	played_card["zone"] = ZONE_DISCARD
 	player[ZONE_DISCARD].append(played_card)
+	_check_action_multi_target_abilities(match_state, played_card)
 	var timing_result := publish_events(match_state, [{
 		"event_type": EVENT_CARD_PLAYED,
 		"playing_player_id": player_id,
@@ -2959,10 +3048,14 @@ static func _append_card_triggers(registry: Array, card, zone_name: String, cont
 			continue
 		if not str(descriptor.get("target_mode", "")).is_empty():
 			var tm_family := str(descriptor.get("family", ""))
+			var tm_mode := str(descriptor.get("target_mode", ""))
 			# summon/wax/wane/end_of_turn triggers with target_mode are resolved via pending systems;
+			# on_play with multi-target modes (two_creatures, three_creatures) also use pending;
 			# activate/on_play inject targets from the event; all other families auto-resolve
 			# a random valid target in _trigger_matches_event().
 			if tm_family == FAMILY_SUMMON or tm_family == FAMILY_WAX or tm_family == FAMILY_WANE or tm_family == FAMILY_END_OF_TURN:
+				continue
+			if tm_family == FAMILY_ON_PLAY and (tm_mode == "two_creatures" or tm_mode == "three_creatures"):
 				continue
 		if bool(descriptor.get("consume", false)):
 			var consume_family := str(descriptor.get("family", ""))
@@ -7603,6 +7696,14 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 				var chosen_card := _find_card_anywhere(match_state, chosen_id)
 				if not chosen_card.is_empty():
 					targets.append(chosen_card)
+		"chosen_target_1", "chosen_target_2", "chosen_target_3":
+			var ct_ids: Array = trigger.get("_chosen_target_ids", [])
+			var ct_suffix := int(target.substr(target.length() - 1))
+			var ct_idx := ct_suffix - 1
+			if ct_idx >= 0 and ct_idx < ct_ids.size():
+				var ct_card := _find_card_anywhere(match_state, str(ct_ids[ct_idx]))
+				if not ct_card.is_empty():
+					targets.append(ct_card)
 		"secretly_chosen_target":
 			var sct_source_id := str(trigger.get("source_instance_id", ""))
 			var sct_source := _find_card_anywhere(match_state, sct_source_id)

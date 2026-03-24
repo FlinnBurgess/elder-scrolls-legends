@@ -5648,7 +5648,7 @@ func _action_needs_explicit_target(card: Dictionary) -> bool:
 		if typeof(trigger) != TYPE_DICTIONARY:
 			continue
 		var tm := str(trigger.get("target_mode", ""))
-		if not tm.is_empty() and tm != "creature_in_hand":
+		if not tm.is_empty() and tm != "creature_in_hand" and tm != "two_creatures" and tm != "three_creatures":
 			return true
 		for effect in trigger.get("effects", []):
 			if typeof(effect) != TYPE_DICTIONARY:
