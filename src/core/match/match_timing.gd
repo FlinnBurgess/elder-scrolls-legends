@@ -2517,6 +2517,33 @@ static func _evaluate_aura_condition(match_state: Dictionary, source_card: Dicti
 		"count_friendly_with_keyword":
 			# Always true — the count is used as a multiplier via per_count
 			return true
+		"count_hand_cards_by_cost":
+			# Always true — the count is used as a multiplier via per_count
+			var cost_value := 0
+			if typeof(condition) == TYPE_DICTIONARY:
+				cost_value = int(condition.get("cost_value", 0))
+			var player := _find_player_by_id(match_state, player_id)
+			for card in player.get("hand", []):
+				if typeof(card) == TYPE_DICTIONARY and int(card.get("cost", -1)) == cost_value:
+					return true
+			return false
+		"creature_in_each_lane":
+			for lane in match_state.get("lanes", []):
+				var slots: Array = lane.get("player_slots", {}).get(player_id, [])
+				var has_other := false
+				var source_instance_id := str(source_card.get("instance_id", ""))
+				for card in slots:
+					if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) != source_instance_id:
+						has_other = true
+						break
+				if not has_other:
+					return false
+			return true
+		"min_max_magicka_18":
+			var player := _find_player_by_id(match_state, player_id)
+			return int(player.get("max_magicka", 0)) >= 18
+		"has_ward":
+			return EvergreenRules.has_keyword(source_card, "ward")
 	return false
 
 
@@ -2542,6 +2569,16 @@ static func _get_aura_condition_count(match_state: Dictionary, source_card: Dict
 					continue
 				if EvergreenRules.has_keyword(card, keyword_id):
 					count += 1
+		return count
+	if condition_type == "count_hand_cards_by_cost":
+		var cost_value := 0
+		if typeof(condition) == TYPE_DICTIONARY:
+			cost_value = int(condition.get("cost_value", 0))
+		var player := _find_player_by_id(match_state, source_card.get("controller_player_id", player_id) as String)
+		var count := 0
+		for card in player.get("hand", []):
+			if typeof(card) == TYPE_DICTIONARY and int(card.get("cost", -1)) == cost_value:
+				count += 1
 		return count
 	return 1
 
