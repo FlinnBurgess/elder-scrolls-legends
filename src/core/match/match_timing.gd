@@ -7291,12 +7291,16 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 			var lane_index := int(trigger.get("lane_index", -1))
 			var controller_id := str(trigger.get("controller_player_id", ""))
 			var self_id := str(trigger.get("source_instance_id", ""))
+			var exclude_self := target == "other_friendly_in_lane"
 			var lanes: Array = match_state.get("lanes", [])
 			if lane_index >= 0 and lane_index < lanes.size():
 				var slots = lanes[lane_index].get("player_slots", {}).get(controller_id, [])
 				for card in slots:
-					if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) != self_id:
-						targets.append(card)
+					if typeof(card) != TYPE_DICTIONARY:
+						continue
+					if exclude_self and str(card.get("instance_id", "")) == self_id:
+						continue
+					targets.append(card)
 		"all_enemies", "all_other_enemies":
 			var controller_id := str(trigger.get("controller_player_id", ""))
 			var opponent_id := _get_opposing_player_id(match_state.get("players", []), controller_id)
