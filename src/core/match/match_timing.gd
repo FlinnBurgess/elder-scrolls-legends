@@ -2880,7 +2880,8 @@ static func _trigger_matches_event(match_state: Dictionary, trigger: Dictionary,
 		return false
 	# Triggers with target_mode require manual resolution via resolve_targeted_effect;
 	# skip them during automatic event processing so they don't fire with no chosen target.
-	# Exception: activate triggers receive their target from the event (UI passes target_instance_id).
+	# Exception: activate/on_play triggers receive their target from the event (UI passes target_instance_id).
+	# Exception: start_of_turn/end_of_turn triggers auto-pick a random valid target.
 	if not str(descriptor.get("target_mode", "")).is_empty() and str(trigger.get("_chosen_target_id", "")).is_empty() and str(trigger.get("_chosen_target_player_id", "")).is_empty():
 		var inject_family := str(descriptor.get("family", ""))
 		if inject_family == FAMILY_ACTIVATE or inject_family == FAMILY_ON_PLAY:
@@ -2890,6 +2891,21 @@ static func _trigger_matches_event(match_state: Dictionary, trigger: Dictionary,
 				trigger["_chosen_target_id"] = evt_target
 			elif not evt_player.is_empty():
 				trigger["_chosen_target_player_id"] = evt_player
+			else:
+				return false
+		elif inject_family == FAMILY_START_OF_TURN or inject_family == FAMILY_END_OF_TURN:
+			var source_id := str(trigger.get("source_instance_id", ""))
+			var tm := str(descriptor.get("target_mode", ""))
+			var valid_targets := get_valid_targets_for_mode(match_state, source_id, tm, trigger)
+			if valid_targets.is_empty():
+				return false
+			var chosen: Dictionary = valid_targets[randi() % valid_targets.size()]
+			var chosen_id := str(chosen.get("instance_id", ""))
+			var chosen_pid := str(chosen.get("player_id", ""))
+			if not chosen_id.is_empty():
+				trigger["_chosen_target_id"] = chosen_id
+			elif not chosen_pid.is_empty():
+				trigger["_chosen_target_player_id"] = chosen_pid
 			else:
 				return false
 		else:
