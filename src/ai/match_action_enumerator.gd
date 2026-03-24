@@ -1119,6 +1119,7 @@ static func _card_summary(card: Dictionary) -> Dictionary:
 		"subtypes": _clone_array(card.get("subtypes", [])),
 		"rarity": str(card.get("rarity", "")),
 		"attributes": _clone_array(card.get("attributes", [])),
+		"art_path": str(card.get("art_path", "")),
 	}
 
 

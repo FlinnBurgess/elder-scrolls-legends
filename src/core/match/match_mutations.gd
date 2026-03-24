@@ -539,6 +539,11 @@ static func transform_card(match_state: Dictionary, instance_id: String, templat
 	var detached := _move_attached_items_to_owner_discard(match_state, card, {"reason": str(options.get("reason", "transform"))})
 	var preserved := _preserve_card_state(card, {"attack_state": true, "entered_lane": true})
 	_apply_identity(card, template)
+	# art_path is not an identity field — update it from the template or derive from new definition_id
+	if template.has("art_path"):
+		card["art_path"] = str(template["art_path"])
+	else:
+		card["art_path"] = "res://assets/images/cards/" + str(card.get("definition_id", "")) + ".png"
 	reset_transient_state(card)
 	_restore_card_state(card, preserved, options)
 	card["transformed_from"] = previous_definition_id
