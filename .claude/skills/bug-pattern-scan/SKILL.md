@@ -69,9 +69,9 @@ Findings: <count>
 | 2 | ...     | Likely     | ...           |
 ```
 
-After presenting the report, create one task per finding using TaskCreate. Each task should include:
-- **Subject**: A concise description of the specific issue
-- **Description**: The pattern class it belongs to, the specific finding, confidence level, and suggested fix approach
+After presenting the report, create tasks using TaskCreate. Group closely related findings into a single task when they share the same root cause and fix location (e.g., 4 missing aura conditions → 1 task, 6 raw field accesses in the same file → 1 task). Create separate tasks when findings require distinct fix approaches or touch different subsystems. Each task should include:
+- **Subject**: A concise description of the issue(s)
+- **Description**: The pattern class it belongs to, the specific finding(s), confidence level, and suggested fix approach
 
 ### Phase 5 — Offer to fix
 
@@ -87,6 +87,7 @@ If the user:
 ## Important Notes
 
 - **Don't scan for things already fixed this session.** The whole point is to find *unresolved* siblings. If a fix in this session already addressed a class comprehensively (e.g., "I already handled all `*_source` values"), note it as covered and don't re-scan it.
+- **Check existing tracking artifacts.** Before creating tasks for findings that look like unimplemented features (rather than bugs in existing code), check `development-artifacts/unimplemented_engine_features.json` and similar tracking files. If a finding is already tracked there, note it as "already tracked" rather than creating a duplicate task.
 - **False positives are worse than false negatives.** A scan that surfaces 50 "likely" issues wastes more time than one that surfaces 10 confirmed ones. Bias toward precision when assigning confidence.
 - **The pattern should be the insight.** The most valuable output isn't the individual findings — it's the pattern class itself. A well-described pattern helps the developer think about their codebase differently.
 - **Subagents should be thorough.** Instruct each subagent with `subagent_type: Explore` or `general-purpose` depending on the scan approach. For structural cross-reference scans, `general-purpose` is better since it may need to read many files and reason across them.
