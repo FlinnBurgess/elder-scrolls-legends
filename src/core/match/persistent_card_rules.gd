@@ -193,6 +193,31 @@ static func activate_support(match_state: Dictionary, player_id: String, instanc
 		}]
 		var discard_result := MatchMutations.discard_card(match_state, instance_id, {"reason": "support_uses_exhausted"})
 		exhaustion_events.append_array(discard_result.get("events", []))
+		# Fire Last Gasp triggers on the support (they listen for creature_destroyed
+		# which is never emitted for supports, so resolve them manually).
+		var raw_triggers = card.get("triggered_abilities", [])
+		if typeof(raw_triggers) == TYPE_ARRAY:
+			for raw_trigger in raw_triggers:
+				if typeof(raw_trigger) != TYPE_DICTIONARY:
+					continue
+				if str(raw_trigger.get("family", "")) != MatchTiming.FAMILY_LAST_GASP:
+					continue
+				var fake_trigger := {
+					"trigger_id": instance_id + "_support_last_gasp",
+					"source_instance_id": instance_id,
+					"controller_player_id": player_id,
+					"owner_player_id": str(card.get("owner_player_id", player_id)),
+					"source_zone": "support",
+					"descriptor": raw_trigger.duplicate(true),
+				}
+				var fake_event := {
+					"event_type": MatchTiming.EVENT_CREATURE_DESTROYED,
+					"instance_id": instance_id,
+					"source_instance_id": instance_id,
+					"controller_player_id": player_id,
+				}
+				var lg_resolution := MatchTiming._build_trigger_resolution(match_state, fake_trigger, fake_event)
+				exhaustion_events.append_array(MatchTiming._apply_effects(match_state, fake_trigger, fake_event, lg_resolution))
 		var exhaustion_timing := MatchTiming.publish_events(match_state, exhaustion_events)
 		processed_events.append_array(exhaustion_timing.get("processed_events", []))
 		trigger_resolutions.append_array(exhaustion_timing.get("trigger_resolutions", []))
