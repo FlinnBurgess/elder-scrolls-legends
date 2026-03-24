@@ -788,9 +788,10 @@ static func _collect_target_requirements(triggers: Array) -> Dictionary:
 		# Activate triggers with target_mode need card targets passed via the event
 		var tm := str(trigger.get("target_mode", ""))
 		if not tm.is_empty() and tm != "creature_in_hand":
-			requirements["needs_card_target"] = true
 			if tm == "choose_lane_and_owner":
 				requirements["needs_lane_id"] = true
+			else:
+				requirements["needs_card_target"] = true
 		for raw_effect in trigger.get("effects", []):
 			if typeof(raw_effect) != TYPE_DICTIONARY:
 				continue

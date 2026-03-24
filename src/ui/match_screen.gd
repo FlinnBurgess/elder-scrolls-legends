@@ -1059,6 +1059,10 @@ func play_or_activate_selected() -> Dictionary:
 			_:
 				return _invalid_ui_result("Selected card cannot be played from the UI yet.")
 	elif bool(location.get("is_valid", false)) and str(location.get("zone", "")) == MatchMutations.ZONE_SUPPORT:
+		# Check for choose_lane_and_owner activate mode — show choice overlay
+		if _support_has_choose_lane_and_owner(card):
+			_show_lane_and_owner_choice(_selected_instance_id)
+			return {"is_valid": true}
 		result = PersistentCardRules.activate_support(_match_state, _active_player_id(), _selected_instance_id)
 	else:
 		return _invalid_ui_result("Selected card has no direct action. Choose a lane or target instead.")
@@ -5649,6 +5653,8 @@ func _action_needs_explicit_target(card: Dictionary) -> bool:
 			continue
 		var tm := str(trigger.get("target_mode", ""))
 		if not tm.is_empty() and tm != "creature_in_hand" and tm != "two_creatures" and tm != "three_creatures":
+			if not str(trigger.get("secondary_target_mode", "")).is_empty():
+				continue  # Dual-target actions go through pending system
 			return true
 		for effect in trigger.get("effects", []):
 			if typeof(effect) != TYPE_DICTIONARY:
@@ -7955,6 +7961,78 @@ func _check_pending_summon_effect_target() -> void:
 	if not _is_pending_summon_mandatory():
 		_show_summon_skip_button()
 	_refresh_ui()
+
+
+func _support_has_choose_lane_and_owner(card: Dictionary) -> bool:
+	for trigger in card.get("triggered_abilities", []):
+		if typeof(trigger) != TYPE_DICTIONARY:
+			continue
+		if str(trigger.get("family", "")) == "activate" and str(trigger.get("target_mode", "")) == "choose_lane_and_owner":
+			return true
+	return false
+
+
+func _show_lane_and_owner_choice(support_instance_id: String) -> void:
+	var lanes: Array = _match_state.get("lanes", [])
+	var options: Array = []
+	for lane in lanes:
+		var lane_id := str(lane.get("lane_id", ""))
+		var lane_name := str(lane.get("display_name", lane_id)).capitalize()
+		var _opp_id := PLAYER_ORDER[0] if _local_player_id() == PLAYER_ORDER[1] else PLAYER_ORDER[1]
+		for pid_label in [{"pid": _local_player_id(), "label": "Your side"}, {"pid": _opp_id, "label": "Opponent's side"}]:
+			var slots: Array = lane.get("player_slots", {}).get(str(pid_label["pid"]), [])
+			if slots.size() < 4:  # Lane not full
+				options.append({"label": "%s — %s" % [lane_name, str(pid_label["label"])], "lane_id": lane_id, "player_id": str(pid_label["pid"])})
+	if options.is_empty():
+		_report_invalid_interaction("No available lanes.")
+		return
+	# Build a simple choice overlay
+	var overlay := Control.new()
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.z_index = 480
+	var bg := ColorRect.new()
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.color = Color(0.04, 0.05, 0.07, 0.88)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.add_child(bg)
+	var margin := MarginContainer.new()
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 60)
+	margin.add_theme_constant_override("margin_right", 60)
+	margin.add_theme_constant_override("margin_top", 40)
+	margin.add_theme_constant_override("margin_bottom", 40)
+	overlay.add_child(margin)
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", 20)
+	margin.add_child(vbox)
+	var title := Label.new()
+	title.text = "Choose where to summon Target:"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", Color(0.95, 0.9, 0.72, 1.0))
+	vbox.add_child(title)
+	var hbox := HBoxContainer.new()
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	hbox.add_theme_constant_override("separation", 20)
+	vbox.add_child(hbox)
+	for opt in options:
+		var btn := Button.new()
+		btn.text = str(opt["label"])
+		btn.custom_minimum_size = Vector2(200, 50)
+		_apply_button_style(btn, Color(0.15, 0.16, 0.2, 0.95), Color(0.4, 0.38, 0.5, 0.8), Color.WHITE)
+		var captured_lane := str(opt["lane_id"])
+		var captured_pid := str(opt["player_id"])
+		var captured_sid := support_instance_id
+		var captured_overlay := overlay
+		btn.pressed.connect(func():
+			captured_overlay.queue_free()
+			var result := PersistentCardRules.activate_support(_match_state, _active_player_id(), captured_sid, {"lane_id": captured_lane, "target_player_id": captured_pid})
+			_finalize_engine_result(result, "Activated support.")
+		)
+		hbox.add_child(btn)
+	add_child(overlay)
 
 
 func _check_pending_forced_play() -> void:

@@ -1586,26 +1586,37 @@ static func _check_action_multi_target_abilities(match_state: Dictionary, card: 
 		if str(ab.get("family", "")) != FAMILY_ON_PLAY:
 			continue
 		var tm := str(ab.get("target_mode", ""))
+		var has_secondary := not str(ab.get("secondary_target_mode", "")).is_empty()
 		var target_count := 0
 		if tm == "two_creatures":
 			target_count = 2
 		elif tm == "three_creatures":
 			target_count = 3
-		if target_count == 0:
-			continue
-		# Initialize multi-target collection on the card
-		card["_multi_target_ids"] = []
-		card["_multi_target_count"] = target_count
-		card["_multi_target_descriptor"] = ab.duplicate(true)
-		# Queue the first pending target selection
-		var pending_arr: Array = match_state.get("pending_summon_effect_targets", [])
-		pending_arr.append({
-			"player_id": controller_id,
-			"source_instance_id": instance_id,
-			"mandatory": true,
-			"multi_target": true,
-		})
-		break  # Only process the first multi-target ability
+		if target_count > 0:
+			# Multi-target: collect N targets sequentially
+			card["_multi_target_ids"] = []
+			card["_multi_target_count"] = target_count
+			card["_multi_target_descriptor"] = ab.duplicate(true)
+			var pending_arr: Array = match_state.get("pending_summon_effect_targets", [])
+			pending_arr.append({
+				"player_id": controller_id,
+				"source_instance_id": instance_id,
+				"mandatory": true,
+				"multi_target": true,
+			})
+			break
+		elif has_secondary and not tm.is_empty():
+			# Dual-target (e.g. enemy + friendly): use existing secondary_target_mode system
+			var valid := get_all_valid_targets(match_state, instance_id)
+			if valid.is_empty():
+				continue
+			var pending_arr: Array = match_state.get("pending_summon_effect_targets", [])
+			pending_arr.append({
+				"player_id": controller_id,
+				"source_instance_id": instance_id,
+				"mandatory": true,
+			})
+			break
 
 
 ## Check if a played/summoned card has consume: true abilities and create pending selections.
@@ -3056,6 +3067,8 @@ static func _append_card_triggers(registry: Array, card, zone_name: String, cont
 			if tm_family == FAMILY_SUMMON or tm_family == FAMILY_WAX or tm_family == FAMILY_WANE or tm_family == FAMILY_END_OF_TURN:
 				continue
 			if tm_family == FAMILY_ON_PLAY and (tm_mode == "two_creatures" or tm_mode == "three_creatures"):
+				continue
+			if tm_family == FAMILY_ON_PLAY and not str(descriptor.get("secondary_target_mode", "")).is_empty():
 				continue
 		if bool(descriptor.get("consume", false)):
 			var consume_family := str(descriptor.get("family", ""))
@@ -7696,6 +7709,18 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 				var chosen_card := _find_card_anywhere(match_state, chosen_id)
 				if not chosen_card.is_empty():
 					targets.append(chosen_card)
+		"primary_target":
+			var primary_id := str(trigger.get("_primary_target_id", ""))
+			if not primary_id.is_empty():
+				var primary_card := _find_card_anywhere(match_state, primary_id)
+				if not primary_card.is_empty():
+					targets.append(primary_card)
+		"secondary_target":
+			var sec_id := str(trigger.get("_chosen_target_id", ""))
+			if not sec_id.is_empty():
+				var sec_card := _find_card_anywhere(match_state, sec_id)
+				if not sec_card.is_empty():
+					targets.append(sec_card)
 		"chosen_target_1", "chosen_target_2", "chosen_target_3":
 			var ct_ids: Array = trigger.get("_chosen_target_ids", [])
 			var ct_suffix := int(target.substr(target.length() - 1))

@@ -10,16 +10,14 @@ Cards whose effects have been identified as not yet wired up with `triggered_abi
 - **Fingers of the Mountain** — Action with `target_mode: "three_creatures"`. Uses `chosen_target_1`/`chosen_target_2`/`chosen_target_3`. Same multi-target system needed.
 - **Whispering Claw Strike** — Action with `target_mode: "enemy_creature_and_friendly_creature"`. Needs dual-target resolution for on_play triggers.
 
-### Needs hand/lane selection wiring for action/support play
-
-- **Strange Brew** — Action with `target_mode: "creature_in_hand"`. Needs hand selection wired into action play flow.
-- **Barter** — Uses `select_card_from_hand` + `trade_for_opponent_deck` then_op. Hand selection infrastructure exists but needs wiring into action flow.
-- **Heroic Rebirth** — Support with `activate` + `target_mode: "creature_in_hand"`. Needs hand-targeting wired into activate support flow.
-- **Strategist's Map** — Support with `activate` + `target_mode: "choose_lane_and_owner"`. Needs lane + player selection for support activations.
-
 ### Verified working
 
 - **High Hrothgar** — WIRED. `set_power_equal_to_health` op, `event_summoned_creature` target, `on_friendly_summon` family all functional.
+- **Strange Brew** — WIRED. `creature_in_hand` target mode already handled by existing hand selection system.
+- **Barter** — WIRED. `trade_hand_card_for_opponent_deck` queues pending hand selection, `trade_for_opponent_deck` then_op executes trade.
+- **Heroic Rebirth** — WIRED. `creature_in_hand` target mode on activate trigger works via existing hand selection system.
+- **Strategist's Map** — WIRED. `choose_lane_and_owner` wired via choice overlay (UI) and lane+owner parameter expansion (AI).
+- **Whispering Claw Strike** — WIRED. Restructured to use `target_mode: "enemy_creature"` + `secondary_target_mode: "friendly_creature"` with pending dual-target system.
 
 ## Previously Fixed
 
