@@ -7101,10 +7101,18 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						generated_events.append({"event_type": EVENT_CARD_DRAWN, "player_id": cdcth_controller_id, "source_instance_id": str(cdcth_copy.get("instance_id", ""))})
 			"summon_random_from_collection":
 				# Delegate to summon_random_from_catalog with collection filter
-				var srfcoll_filter: Dictionary = {"card_type": "creature"}
-				var srfcoll_subtype := str(effect.get("filter_subtype", ""))
+				var srfcoll_raw_filter = effect.get("filter", {})
+				var srfcoll_src_filter: Dictionary = srfcoll_raw_filter if typeof(srfcoll_raw_filter) == TYPE_DICTIONARY else {}
+				var srfcoll_filter: Dictionary = {"card_type": str(srfcoll_src_filter.get("card_type", "creature"))}
+				var srfcoll_subtype := str(srfcoll_src_filter.get("subtype", effect.get("filter_subtype", "")))
 				if not srfcoll_subtype.is_empty():
 					srfcoll_filter["required_subtype"] = srfcoll_subtype
+				if srfcoll_src_filter.has("min_cost"):
+					srfcoll_filter["min_cost"] = int(srfcoll_src_filter.get("min_cost", 0))
+				if srfcoll_src_filter.has("max_cost"):
+					srfcoll_filter["max_cost"] = int(srfcoll_src_filter.get("max_cost", 0))
+				if srfcoll_src_filter.has("exact_cost"):
+					srfcoll_filter["exact_cost"] = int(srfcoll_src_filter.get("exact_cost", 0))
 				var srfcoll_delegated := {"op": "summon_random_from_catalog", "filter": srfcoll_filter}
 				var srfcoll_result := ExtendedMechanicPacks.apply_custom_effect(match_state, trigger, event, srfcoll_delegated)
 				if bool(srfcoll_result.get("handled", false)):

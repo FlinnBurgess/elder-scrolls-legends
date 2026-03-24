@@ -387,7 +387,8 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 		"assemble":
 			return {"handled": true, "events": _resolve_assemble(match_state, trigger, effect)}
 		"upgrade_shout":
-			return {"handled": true, "events": _resolve_shout_upgrade(match_state, trigger)}
+			var _shout_upgrade_all := str(effect.get("scope", "")) == "all"
+			return {"handled": true, "events": _resolve_shout_upgrade(match_state, trigger, _shout_upgrade_all)}
 		"invade":
 			return {"handled": true, "events": _resolve_invade(match_state, trigger)}
 		"buff_oblivion_gate_summon":
@@ -435,6 +436,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			var srfc_max_cost := int(srfc_filter.get("max_cost", -1))
 			if str(srfc_filter.get("max_cost_source", "")) == "controller_max_magicka" and not srfc_player.is_empty():
 				srfc_max_cost = int(srfc_player.get("max_magicka", 12))
+			var srfc_min_cost := int(srfc_filter.get("min_cost", -1))
 			var srfc_exact_cost := int(srfc_filter.get("exact_cost", -1))
 			var srfc_req_card_type := str(srfc_filter.get("card_type", ""))
 			var srfc_req_subtype := str(srfc_filter.get("required_subtype", ""))
@@ -446,6 +448,8 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				if not srfc_req_card_type.is_empty() and str(seed.get("card_type", "")) != srfc_req_card_type:
 					continue
 				if srfc_max_cost >= 0 and int(seed.get("cost", 0)) > srfc_max_cost:
+					continue
+				if srfc_min_cost >= 0 and int(seed.get("cost", 0)) < srfc_min_cost:
 					continue
 				if srfc_exact_cost >= 0 and int(seed.get("cost", 0)) != srfc_exact_cost:
 					continue
@@ -1261,29 +1265,55 @@ static func _resolve_assemble(match_state: Dictionary, trigger: Dictionary, effe
 	return events
 
 
-static func _resolve_shout_upgrade(match_state: Dictionary, trigger: Dictionary) -> Array:
+static func _resolve_shout_upgrade(match_state: Dictionary, trigger: Dictionary, upgrade_all: bool = false) -> Array:
 	var source_card := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 	if source_card.is_empty():
 		return []
-	var levels = source_card.get("shout_levels", [])
-	if typeof(levels) != TYPE_ARRAY or levels.is_empty():
-		return []
-	var current_level := maxi(1, int(source_card.get("shout_level", 1)))
-	var next_level := mini(levels.size(), current_level + 1)
-	var next_template = levels[next_level - 1]
-	if typeof(next_template) != TYPE_DICTIONARY:
-		return []
-	var shout_chain_id := str(source_card.get("shout_chain_id", source_card.get("definition_id", "")))
-	var enriched_template: Dictionary = next_template.duplicate(true)
-	enriched_template["shout_levels"] = levels.duplicate(true)
-	if not enriched_template.has("shout_chain_id"):
-		enriched_template["shout_chain_id"] = shout_chain_id
+	var controller_id := str(trigger.get("controller_player_id", ""))
 	var events: Array = []
-	for card in _collect_owned_cards(match_state, str(trigger.get("controller_player_id", "")), [ZONE_HAND, ZONE_DECK, ZONE_DISCARD]):
-		if str(card.get("shout_chain_id", card.get("definition_id", ""))) != shout_chain_id:
-			continue
-		var change_result := MatchMutations.change_card(card, enriched_template, {"reason": "shout_upgrade"})
-		events.append_array(change_result.get("events", []))
+	var source_instance_id := str(trigger.get("source_instance_id", ""))
+	if upgrade_all:
+		# Upgrade ALL shouts owned by the player (e.g. Call Dragon), excluding the source card itself
+		for card in _collect_owned_cards(match_state, controller_id, [ZONE_HAND, ZONE_DECK, ZONE_DISCARD]):
+			if str(card.get("instance_id", "")) == source_instance_id:
+				continue
+			var card_levels = card.get("shout_levels", [])
+			if typeof(card_levels) != TYPE_ARRAY or card_levels.is_empty():
+				continue
+			var card_current_level := maxi(1, int(card.get("shout_level", 1)))
+			if card_current_level >= card_levels.size():
+				continue
+			var card_next_level := card_current_level + 1
+			var card_next_template = card_levels[card_next_level - 1]
+			if typeof(card_next_template) != TYPE_DICTIONARY:
+				continue
+			var card_chain_id := str(card.get("shout_chain_id", card.get("definition_id", "")))
+			var enriched_template: Dictionary = card_next_template.duplicate(true)
+			enriched_template["shout_levels"] = card_levels.duplicate(true)
+			if not enriched_template.has("shout_chain_id"):
+				enriched_template["shout_chain_id"] = card_chain_id
+			var change_result := MatchMutations.change_card(card, enriched_template, {"reason": "shout_upgrade"})
+			events.append_array(change_result.get("events", []))
+	else:
+		# Upgrade only copies of the same shout chain
+		var levels = source_card.get("shout_levels", [])
+		if typeof(levels) != TYPE_ARRAY or levels.is_empty():
+			return []
+		var current_level := maxi(1, int(source_card.get("shout_level", 1)))
+		var next_level := mini(levels.size(), current_level + 1)
+		var next_template = levels[next_level - 1]
+		if typeof(next_template) != TYPE_DICTIONARY:
+			return []
+		var shout_chain_id := str(source_card.get("shout_chain_id", source_card.get("definition_id", "")))
+		var enriched_template: Dictionary = next_template.duplicate(true)
+		enriched_template["shout_levels"] = levels.duplicate(true)
+		if not enriched_template.has("shout_chain_id"):
+			enriched_template["shout_chain_id"] = shout_chain_id
+		for card in _collect_owned_cards(match_state, controller_id, [ZONE_HAND, ZONE_DECK, ZONE_DISCARD]):
+			if str(card.get("shout_chain_id", card.get("definition_id", ""))) != shout_chain_id:
+				continue
+			var change_result := MatchMutations.change_card(card, enriched_template, {"reason": "shout_upgrade"})
+			events.append_array(change_result.get("events", []))
 	return events
 
 
