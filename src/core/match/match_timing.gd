@@ -631,15 +631,43 @@ static func resolve_targeted_effect(match_state: Dictionary, source_instance_id:
 	if matching_ability.is_empty():
 		return {"is_valid": false, "errors": ["No matching ability for chosen target."], "events": [], "trigger_resolutions": []}
 	# Secondary target mode: if the ability has a secondary_target_mode and we haven't
-	# selected the secondary yet, save the primary target and create a pending secondary selection.
+	# selected the secondary yet, save the primary target, fire the primary effect
+	# immediately, and create a pending secondary selection.
 	var secondary_tm := str(matching_ability.get("secondary_target_mode", ""))
 	if not secondary_tm.is_empty() and not source_card.has("_primary_target_id"):
 		source_card["_primary_target_id"] = chosen_instance_id
 		var sec_controller := str(source_card.get("controller_player_id", ""))
+		# Fire the primary effect immediately
+		var primary_events: Array = []
+		var primary_resolutions: Array = []
+		var effects: Array = matching_ability.get("effects", [])
+		if not effects.is_empty():
+			var primary_effect: Dictionary = effects[0].duplicate(true) if typeof(effects[0]) == TYPE_DICTIONARY else {}
+			var src_loc := MatchMutations.find_card_location(match_state, source_instance_id)
+			var primary_trigger := {
+				"trigger_id": "%s_primary_target" % source_instance_id,
+				"trigger_index": 0,
+				"source_instance_id": source_instance_id,
+				"owner_player_id": str(source_card.get("owner_player_id", sec_controller)),
+				"controller_player_id": sec_controller,
+				"source_zone": str(src_loc.get("zone", ZONE_DISCARD)),
+				"descriptor": {"family": str(matching_ability.get("family", "on_play")), "effects": [primary_effect]},
+				"_primary_target_id": chosen_instance_id,
+				"_chosen_target_id": chosen_instance_id,
+			}
+			var primary_event := {
+				"event_type": EVENT_CARD_PLAYED,
+				"source_instance_id": source_instance_id,
+				"player_id": sec_controller,
+				"target_instance_id": chosen_instance_id,
+			}
+			var resolution := _build_trigger_resolution(match_state, primary_trigger, primary_event)
+			primary_events = _apply_effects(match_state, primary_trigger, primary_event, resolution)
+			primary_resolutions.append(resolution)
 		var sec_valid := get_valid_targets_for_mode(match_state, source_instance_id, secondary_tm, matching_ability)
 		if sec_valid.is_empty():
 			source_card.erase("_primary_target_id")
-			return {"is_valid": true, "events": [], "trigger_resolutions": []}  # Fizzle — no secondary targets
+			return {"is_valid": true, "events": primary_events, "trigger_resolutions": primary_resolutions}
 		var pending_arr: Array = match_state.get("pending_summon_effect_targets", [])
 		pending_arr.append({
 			"player_id": sec_controller,
@@ -647,7 +675,7 @@ static func resolve_targeted_effect(match_state: Dictionary, source_instance_id:
 			"mandatory": false,
 			"secondary_target_mode": secondary_tm,
 		})
-		return {"is_valid": true, "events": [], "trigger_resolutions": []}
+		return {"is_valid": true, "events": primary_events, "trigger_resolutions": primary_resolutions}
 	# Build trigger entry with chosen target injected
 	var source_location := MatchMutations.find_card_location(match_state, source_instance_id)
 	var lane_index := int(source_location.get("lane_index", -1))
@@ -666,11 +694,20 @@ static func resolve_targeted_effect(match_state: Dictionary, source_instance_id:
 		"_chosen_target_id": chosen_instance_id if not chosen_instance_id.is_empty() else "",
 		"_chosen_target_player_id": chosen_player_id if not chosen_player_id.is_empty() else "",
 	}
-	# Inject primary target if this is a secondary target resolution
+	# Inject primary target if this is a secondary target resolution —
+	# only fire the secondary effect (primary was already fired on first pick)
 	var primary_id = source_card.get("_primary_target_id", "")
 	if typeof(primary_id) == TYPE_STRING and not primary_id.is_empty():
 		trigger["_primary_target_id"] = primary_id
 		source_card.erase("_primary_target_id")
+		var all_effects: Array = matching_ability.get("effects", [])
+		if all_effects.size() > 1:
+			var secondary_effects: Array = []
+			for ei in range(1, all_effects.size()):
+				secondary_effects.append(all_effects[ei])
+			var trimmed_descriptor: Dictionary = matching_ability.duplicate(true)
+			trimmed_descriptor["effects"] = secondary_effects
+			trigger["descriptor"] = trimmed_descriptor
 	# Inject consumed card info if available (from prior consume selection)
 	var consumed_info = source_card.get("_consumed_card_info", {})
 	if typeof(consumed_info) == TYPE_DICTIONARY and not consumed_info.is_empty():
