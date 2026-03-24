@@ -1292,7 +1292,11 @@ static func _resolve_shout_upgrade(match_state: Dictionary, trigger: Dictionary,
 			enriched_template["shout_levels"] = card_levels.duplicate(true)
 			if not enriched_template.has("shout_chain_id"):
 				enriched_template["shout_chain_id"] = card_chain_id
+			var prev_cost := int(card.get("cost", 0))
 			var change_result := MatchMutations.change_card(card, enriched_template, {"reason": "shout_upgrade"})
+			card["cost"] = prev_cost
+			if enriched_template.has("art_path"):
+				card["art_path"] = str(enriched_template.get("art_path", ""))
 			events.append_array(change_result.get("events", []))
 	else:
 		# Upgrade only copies of the same shout chain
@@ -1312,7 +1316,11 @@ static func _resolve_shout_upgrade(match_state: Dictionary, trigger: Dictionary,
 		for card in _collect_owned_cards(match_state, controller_id, [ZONE_HAND, ZONE_DECK, ZONE_DISCARD]):
 			if str(card.get("shout_chain_id", card.get("definition_id", ""))) != shout_chain_id:
 				continue
+			var prev_cost := int(card.get("cost", 0))
 			var change_result := MatchMutations.change_card(card, enriched_template, {"reason": "shout_upgrade"})
+			card["cost"] = prev_cost
+			if enriched_template.has("art_path"):
+				card["art_path"] = str(enriched_template.get("art_path", ""))
 			events.append_array(change_result.get("events", []))
 	return events
 
