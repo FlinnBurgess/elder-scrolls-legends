@@ -1,7 +1,7 @@
 # Claude Learnings
 
 ## Tags
-`assemble` `attributes` `card-catalog` `card-hydration` `card-state` `case-sensitivity` `cost-reduction` `events` `generated-cards` `invade` `match-engine` `neutral` `randomness` `registry` `target-resolution` `triggers` `ui`
+`assemble` `attributes` `auras` `card-catalog` `card-hydration` `card-state` `case-sensitivity` `cost-reduction` `death-checks` `events` `generated-cards` `invade` `match-engine` `neutral` `passives` `randomness` `registry` `stat-helpers` `target-resolution` `triggers` `ui`
 
 ## Card Hydration & Attributes
 
@@ -30,6 +30,19 @@
 - **Factotum subtype check is case-sensitive** `[assemble, card-catalog, card-hydration]`
   The catalog stores `"Factotum"` (capitalized) in subtypes. `_card_has_string` does exact string matching. `_collect_factotums` must check both `"Factotum"` and `"factotum"` to handle both hydrated cards (capitalized) and test fixtures (lowercase).
   _Refs: `src/core/match/extended_mechanic_packs.gd:1438`_
+
+## Auras & Passives
+
+- **Unknown aura conditions silently return false** `[auras, card-catalog, match-engine]`
+  `_evaluate_aura_condition` uses a match statement and returns `false` at the end for any unrecognized condition string. This means a typo or new condition value in card data will silently disable the aura with no error. Always cross-reference condition strings in card data against the match cases in `_evaluate_aura_condition`.
+  _Refs: `src/core/match/match_timing.gd:2469-2547`_
+
+- **Count-based auras use `per_count: true` with a count condition** `[auras, match-engine]`
+  Auras like Swims-at-Night's "+1/+1 for each 0-cost card in hand" use `power`/`health` fields (the per-unit bonus) with `per_count: true`. The condition is passed as a dict with `type` for the evaluator. `_evaluate_aura_condition` returns true/false, then `_get_aura_condition_count` returns the multiplier count. Both functions must handle the same condition type.
+  _Refs: `src/core/match/match_timing.gd:2387-2391`, `src/core/match/match_timing.gd:2550-2585`_
+
+- **Unhandled passive ability types are silently ignored** `[passives, card-catalog, match-engine]`
+  Passive abilities declared in card data (`passive_abilities` array) are only effective if engine code explicitly checks for them. There's no centralized dispatcher — each passive type has bespoke handling scattered across match_timing.gd, persistent_card_rules.gd, match_combat.gd, and evergreen_rules.gd. A new passive type with no handler does nothing.
 
 ## Invade Mechanic
 
@@ -90,3 +103,17 @@
 - **Use `_deterministic_index` for all random selections** `[match-engine, randomness]`
   The engine uses `_deterministic_index(match_state, context_id, pool_size)` for seeded randomness based on `rng_seed`, `turn_number`, and a unique context string. Fixed-order iteration of pools (like keyword assignment) produces the same result every time. Any "random" selection must go through `_deterministic_index` with a unique per-card context ID.
   _Refs: `src/core/match/match_timing.gd:7504-7513`, `src/core/match/extended_mechanic_packs.gd:1464-1473`_
+
+## Stat Helpers & Death Checks
+
+- **Always use EvergreenRules helpers for gameplay stat calculations** `[stat-helpers, match-engine]`
+  `get_power()`, `get_health()`, and `get_remaining_health()` include all bonuses (power_bonus, health_bonus, aura bonuses, equip bonuses) and damage. Raw `card.get("power")` / `card.get("health")` only return the base value. Use raw access only for initialization, serialization, or template construction — never for damage amounts, heal calculations, stat comparisons, or filter checks.
+  _Refs: `src/core/match/evergreen_rules.gd:432-457`_
+
+- **Death checks must use `get_remaining_health()`, not raw health** `[death-checks, stat-helpers, match-engine]`
+  Damage is tracked in `damage_marked`, not subtracted from `health`. Checking `int(card.get("health", 0)) <= 0` for creature death is always wrong — it checks base health which is rarely 0. Use `EvergreenRules.get_remaining_health(card) <= 0` which computes `get_health() - damage_marked`.
+  _Refs: `src/core/match/evergreen_rules.gd:432-433`_
+
+- **UI cost display must handle both increases and decreases** `[ui, cost-reduction, match-engine]`
+  The `_effective_cost` display field must be set whenever effective cost differs from base cost (`!=`), not just when reduced (`<`). Cost floors like Bedeviling Scamp's `min_card_cost` passive increase effective cost for cheap cards, and this must be visible in hand.
+  _Refs: `src/ui/match_screen.gd:4549-4553`_

@@ -30,6 +30,7 @@ Process all in-game error reports that were submitted via the error reporting po
    e. If the report is unclear or requires a design decision, **ask the user for guidance** before proceeding
    f. Implement the fix
    g. Run relevant test runners based on the fix area. Test runners live in `tests/` and are run with: `/Applications/Godot.app/Contents/MacOS/Godot --headless --path /Users/flinnburgess/Development/Godot/ElderScrollsLegends --script res://tests/<runner_name>.gd`
+      **Important:** Godot test runners require `dangerouslyDisableSandbox: true` because Godot writes to `~/Library/Application Support/Godot/` for logging, and the sandbox blocks this — causing a segfault in `RotatedFileLogger::rotate_file()` that looks like an engine crash.
       - For match/UI fixes: `match_ui_runner.gd`, `all_rules_runner.gd`
       - For arena fixes: `arena_draft_engine_runner.gd`
       - For deck fixes: `deck_persistence_runner.gd`, `deck_validation_runner.gd`
@@ -58,6 +59,7 @@ If new reports appear during the run (detected when re-reading the file), create
 
 - The snapshot provides rich context — use it to understand the exact game state when the bug was observed
 - **Baseline test failures**: Before the first fix, run the relevant test runners once to identify any pre-existing failures. Do not spend time debugging failures that exist before your changes.
+- **Run scan-learnings after implementing each fix** (before committing): invoke the `scan-learnings` skill with a description of the bug area. Learnings may flag issues in your fix (e.g., using non-deterministic randomness where `_deterministic_index` is required) that are easy to catch before they ship.
 - **Web research**: If a report suggests the correct behavior is uncertain (e.g., "should it have?", "worth researching online"), use WebSearch/WebFetch to check the UESP wiki or community sources for the canonical game behavior before implementing.
 - Do not skip reports — process all of them
 - Always verify fixes with tests before committing
