@@ -4549,7 +4549,7 @@ func _build_card_display_component(card: Dictionary, surface: String, instance_i
 	if surface == "hand" and str(card.get("controller_player_id", "")) == _active_player_id():
 		var effective_cost := PersistentCardRules.get_effective_play_cost(_match_state, _active_player_id(), card)
 		var base_cost := int(card.get("_base_cost", card.get("cost", 0)))
-		if effective_cost < base_cost:
+		if effective_cost != base_cost:
 			display_card["_effective_cost"] = effective_cost
 		_apply_empower_text_updates(display_card, _active_player_id())
 	component.apply_card(display_card, _card_presentation_mode(card, surface))
