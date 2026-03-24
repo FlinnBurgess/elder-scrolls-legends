@@ -2901,7 +2901,8 @@ static func _trigger_matches_event(match_state: Dictionary, trigger: Dictionary,
 			var valid_targets := get_valid_targets_for_mode(match_state, source_id, tm, trigger)
 			if valid_targets.is_empty():
 				return false
-			var chosen: Dictionary = valid_targets[randi() % valid_targets.size()]
+			var ctx_id := source_id + "_auto_target_" + inject_family
+			var chosen: Dictionary = valid_targets[_deterministic_index(match_state, ctx_id, valid_targets.size())]
 			var chosen_id := str(chosen.get("instance_id", ""))
 			var chosen_pid := str(chosen.get("player_id", ""))
 			if not chosen_id.is_empty():
