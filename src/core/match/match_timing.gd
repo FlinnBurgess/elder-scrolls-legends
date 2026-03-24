@@ -7531,7 +7531,7 @@ static func _resolve_amount(trigger: Dictionary, effect: Dictionary, match_state
 	if amount_source == "self_power_plus_health":
 		var source_card := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 		if not source_card.is_empty():
-			return EvergreenRules.get_power(source_card) + int(source_card.get("health", 0)) - int(source_card.get("damage_marked", 0))
+			return EvergreenRules.get_power(source_card) + EvergreenRules.get_remaining_health(source_card)
 	if amount_source == "damage_taken":
 		return int(event.get("damage_amount", event.get("amount", 0)))
 	if amount_source == "heal_amount":
