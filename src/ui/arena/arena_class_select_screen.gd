@@ -32,7 +32,7 @@ func _load_class_options() -> void:
 		_class_options = saved
 		return
 
-	# Generate new options
+	# Generate new options: 1 guaranteed dual, 1 guaranteed triple, 1 random from remaining
 	var file := FileAccess.open(REGISTRY_PATH, FileAccess.READ)
 	if file == null:
 		push_error("ArenaClassSelectScreen: cannot open %s" % REGISTRY_PATH)
@@ -42,9 +42,21 @@ func _load_class_options() -> void:
 		push_error("ArenaClassSelectScreen: invalid JSON in %s" % REGISTRY_PATH)
 		return
 	var registry: Dictionary = json.data
-	var all_classes: Array = registry.get("dual_classes", [])
-	all_classes.shuffle()
-	_class_options = all_classes.slice(0, 3)
+	var dual_classes: Array = registry.get("dual_classes", []).duplicate()
+	var triple_classes: Array = registry.get("triple_classes", []).duplicate()
+	dual_classes.shuffle()
+	triple_classes.shuffle()
+
+	var guaranteed_dual: Dictionary = dual_classes.pop_front()
+	var guaranteed_triple: Dictionary = triple_classes.pop_front()
+
+	# Third option is random from remaining dual + triple classes
+	var remaining: Array = dual_classes + triple_classes
+	remaining.shuffle()
+	var third_option: Dictionary = remaining.pop_front()
+
+	_class_options = [guaranteed_dual, guaranteed_triple, third_option]
+	_class_options.shuffle()
 	ArenaRunManagerScript.save_class_options(_class_options)
 
 

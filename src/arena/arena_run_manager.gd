@@ -41,6 +41,24 @@ const DUAL_CLASSES: Array = [
 	["strength", "endurance"],     # Warrior
 ]
 
+# All 10 triple-attribute classes
+const TRIPLE_CLASSES: Array = [
+	["strength", "willpower", "endurance"],       # House Redoran
+	["intelligence", "agility", "endurance"],     # House Telvanni
+	["strength", "willpower", "agility"],         # House Hlaalu
+	["intelligence", "willpower", "endurance"],   # Tribunal Temple
+	["strength", "intelligence", "agility"],      # House Dagoth
+	["strength", "agility", "endurance"],         # Ebonheart Pact
+	["strength", "intelligence", "endurance"],    # Daggerfall Covenant
+	["intelligence", "willpower", "agility"],     # Aldmeri Dominion
+	["strength", "intelligence", "willpower"],    # The Guildsworn
+	["willpower", "agility", "endurance"],        # The Empire of Cyrodiil
+]
+
+
+static func get_all_classes() -> Array:
+	return DUAL_CLASSES + TRIPLE_CLASSES
+
 
 func start_run(p_class_attributes: Array) -> void:
 	class_attributes = p_class_attributes.duplicate()
@@ -264,22 +282,22 @@ static func _ensure_directory() -> void:
 func _pick_opponent_attributes() -> Array:
 	# Build list of available classes, excluding player's class and previously used ones
 	var available: Array = []
-	for dual_class in DUAL_CLASSES:
-		if _arrays_equal(dual_class, class_attributes):
+	for attr_class in get_all_classes():
+		if _arrays_equal(attr_class, class_attributes):
 			continue
 		var already_used := false
 		for used in _used_opponent_attributes:
-			if _arrays_equal(dual_class, used):
+			if _arrays_equal(attr_class, used):
 				already_used = true
 				break
 		if not already_used:
-			available.append(dual_class)
+			available.append(attr_class)
 
 	# If all classes have been used, allow repeats (excluding player's class)
 	if available.is_empty():
-		for dual_class in DUAL_CLASSES:
-			if not _arrays_equal(dual_class, class_attributes):
-				available.append(dual_class)
+		for attr_class in get_all_classes():
+			if not _arrays_equal(attr_class, class_attributes):
+				available.append(attr_class)
 
 	return available[randi() % available.size()]
 
