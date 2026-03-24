@@ -1,7 +1,7 @@
 # Claude Learnings
 
 ## Tags
-`assemble` `attributes` `auras` `boss-config` `card-catalog` `card-hydration` `card-state` `case-sensitivity` `cost-reduction` `death-checks` `end-of-turn` `events` `generated-cards` `invade` `lane-resolution` `match-engine` `match-screen` `neutral` `passives` `player-state` `randomness` `registry` `stat-helpers` `supports` `target-resolution` `triggers` `ui`
+`ai` `assemble` `attributes` `auras` `boss-config` `card-catalog` `card-hydration` `card-state` `case-sensitivity` `cost-reduction` `death-checks` `delegation` `end-of-turn` `events` `generated-cards` `identity` `invade` `lane-resolution` `match-engine` `match-screen` `multi-target` `neutral` `passives` `player-state` `randomness` `registry` `shouts` `stat-helpers` `supports` `target-resolution` `triggers` `ui`
 
 ## Card Hydration & Attributes
 
@@ -82,6 +82,30 @@
   The UI resolves card art by checking `art_path`/`art_resource_path` keys first, then falling back to `"res://assets/images/cards/" + definition_id + ".png"`. Generated cards with a `definition_id` that differs from the catalog card's ID (e.g. `"generated_oblivion_gate"` vs `"joo_neu_oblivion_gate"`) must include an explicit `art_path` in their template, or they'll show the placeholder.
   _Refs: `src/ui/components/CardDisplayComponent.gd:715-732`_
 
+## Delegation & Filter Forwarding
+
+- **Delegation ops often drop nested `filter` dict parameters** `[delegation, match-engine, card-catalog]`
+  A recurring pattern: an op like `summon_random_from_collection` delegates to `summon_random_from_catalog` but only forwards top-level keys (e.g., `filter_subtype`) while ignoring the nested `filter` dict that card data actually provides (with `subtype`, `min_cost`, `max_cost`). Always check that delegation layers forward ALL keys from the source filter dict, not just a hardcoded subset.
+  _Refs: `src/core/match/match_timing.gd:7102-7117`, `src/core/match/extended_mechanic_packs.gd:428-470`_
+
+- **Effect handlers must read `effect.get("source")` for the keyword/damage source** `[delegation, target-resolution, match-engine]`
+  Multiple handlers hardcode `trigger.get("source_instance_id")` as the source card, which is always the card that owns the triggered ability (e.g., the action card). When the effect dict specifies `"source": "event_target"` or `"damage_source": "wielder"`, the handler must resolve the actual source from the effect dict. The trigger source and the effect source are often different cards (action vs. destroyed creature, item vs. wielding creature).
+  _Refs: `src/core/match/match_timing.gd:3612`, `src/core/match/match_timing.gd:4487`_
+
+## Identity & Card Mutations
+
+- **`change_card` overwrites cost — preserve it when the identity change shouldn't affect cost** `[identity, cost-reduction, match-engine]`
+  `change_card` → `_apply_identity` overwrites ALL `IDENTITY_FIELDS` including `cost`. If a card's cost was overridden (e.g., set to 0 by Paarthurnax), the override is lost after `change_card`. For shout upgrades and similar identity changes that shouldn't affect cost, save and restore cost around the `change_card` call.
+  _Refs: `src/core/match/match_mutations.gd:499-512`, `src/core/match/extended_mechanic_packs.gd:1295-1300`_
+
+- **`art_path` is NOT in `IDENTITY_FIELDS` — must be copied manually after identity changes** `[identity, generated-cards, ui]`
+  `_apply_identity` only copies fields in `IDENTITY_FIELDS`. `art_path` is not one of them, so it's neither copied from the template nor preserved on the card. When a shout upgrades and gets a new `definition_id` (e.g., `fire_breath_2`), the UI fallback looks for a non-existent art file. The template's `art_path` must be explicitly copied to the card after `change_card`.
+  _Refs: `src/core/match/match_mutations.gd:19-25`, `src/core/match/match_mutations.gd:641-647`_
+
+- **`build_generated_card` should set `art_path` from `definition_id` as fallback** `[generated-cards, ui, match-engine]`
+  Generated cards built from catalog seed templates lack `art_path` because seeds don't include it. Without an explicit `art_path`, the UI falls back to `definition_id`-based path resolution, which works only if `definition_id` is set. Adding `art_path = "res://assets/images/cards/" + definition_id + ".png"` in `build_generated_card` when absent prevents placeholder art.
+  _Refs: `src/core/match/match_mutations.gd:449-450`_
+
 ## Match Engine Ops & Targets
 
 - **`choose_two` reads from `choices` key, not `ability_options`** `[match-engine, card-catalog]`
@@ -136,6 +160,24 @@
   The `count_source` field on `summon_from_effect` effects multiplies the summon count via `_resolve_count_multiplier`. Without this, the op summons exactly one creature per lane per player. Cards like Grave Grasp ("summon a 1/1 Skeleton for each enemy in the lane") need `count_source: "enemies_in_target_lane"` to summon the correct number.
   _Refs: `src/core/match/match_timing.gd:4116-4129`_
 
+## Multi-Target & Dual-Target Actions
+
+- **Multi-target actions use sequential `pending_summon_effect_targets` collection with `_multi_target_ids`** `[multi-target, match-engine, target-resolution]`
+  Actions needing 2-3 targets (Mute, Fingers of the Mountain) use `target_mode: "two_creatures"/"three_creatures"` on their on_play trigger. These are skipped from the trigger registry. `_check_action_multi_target_abilities` queues pending entries, `_resolve_multi_target_selection` collects targets one at a time into `card._multi_target_ids`, and fires effects when all are collected. Effects use `chosen_target_1`/`chosen_target_2`/`chosen_target_3` which resolve from `trigger._chosen_target_ids[N-1]`.
+  _Refs: `src/core/match/match_timing.gd:1577-1620`, `src/core/match/match_timing.gd:1226-1272`_
+
+- **Dual-target actions use `secondary_target_mode` with `primary_target`/`secondary_target` resolution** `[multi-target, target-resolution, match-engine]`
+  Actions that need two different target types (e.g., Whispering Claw Strike: enemy + friendly) use `target_mode` for the first pick and `secondary_target_mode` for the second. `resolve_targeted_effect` stores the first pick as `_primary_target_id` on the card and queues a secondary pending entry. Effects reference `primary_target` (resolves from `trigger._primary_target_id`) and `secondary_target` (resolves from `trigger._chosen_target_id`). On_play triggers with `secondary_target_mode` must also be skipped from the registry.
+  _Refs: `src/core/match/match_timing.gd:632-647`, `src/core/match/match_timing.gd:7699-7710`_
+
+- **`_action_needs_explicit_target` controls whether the UI requires an upfront target before playing an action** `[multi-target, ui, match-screen]`
+  Actions with `target_mode` on their triggers normally require explicit target selection before play. Multi-target modes (`two_creatures`, `three_creatures`) and dual-target modes (`secondary_target_mode` present) must be excluded from this check, since they collect targets via the pending system after the action is played without a target.
+  _Refs: `src/ui/match_screen.gd:5644-5663`_
+
+- **AI enumerator builds action combos from `requirements` flags — `choose_lane_and_owner` needs lane+player but NOT card target** `[ai, target-resolution, match-engine]`
+  `_expand_target_parameter_sets` multiplies parameter sets by `needs_player_target`, `needs_card_target`, and `needs_lane_id`. The `choose_lane_and_owner` target mode should set `needs_lane_id` but NOT `needs_card_target`, since the action targets a lane+owner pair, not a creature on board. Setting both incorrectly causes the AI to enumerate every creature × lane × player combination.
+  _Refs: `src/ai/match_action_enumerator.gd:790-870`_
+
 ## Match Screen & Modes
 
 - **`_arena_mode` flag on MatchScreen suppresses normal return behavior** `[match-screen, ui]`
@@ -169,6 +211,20 @@
 - **UI cost display must handle both increases and decreases** `[ui, cost-reduction, match-engine]`
   The `_effective_cost` display field must be set whenever effective cost differs from base cost (`!=`), not just when reduced (`<`). Cost floors like Bedeviling Scamp's `min_card_cost` passive increase effective cost for cheap cards, and this must be visible in hand.
   _Refs: `src/ui/match_screen.gd:4549-4553`_
+
+## Shout Mechanic
+
+- **Shout upgrades use `change_card` with level templates — cost and art_path need manual preservation** `[shouts, identity, cost-reduction]`
+  `_resolve_shout_upgrade` and `_resolve_shout_upgrade_for_card` both call `MatchMutations.change_card` with the next level's template. This overwrites `cost` (losing Paarthurnax's cost=0 override) and doesn't copy `art_path` (not in IDENTITY_FIELDS). Both functions must save/restore cost and copy `art_path` from the enriched template after `change_card`.
+  _Refs: `src/core/match/extended_mechanic_packs.gd:1268-1330`, `src/core/match/extended_mechanic_packs.gd:1925-1950`_
+
+- **Only Call Dragon upgrades ALL shouts — other shouts upgrade same-chain only** `[shouts, card-catalog, match-engine]`
+  The `upgrade_shout` op accepts a `scope` field. When `scope: "all"`, it upgrades every shout the player owns (excluding the source card to prevent self-double-upgrade). Without `scope: "all"`, it only upgrades copies of the same `shout_chain_id`. Call Dragon is currently the only card that uses `scope: "all"`.
+  _Refs: `src/core/match/extended_mechanic_packs.gd:389-391`, `src/deck/card_catalog.gd:1627`_
+
+- **`summon_random_from_catalog` now supports `min_cost` filter** `[match-engine, card-catalog]`
+  In addition to `max_cost` and `exact_cost`, the filter dict supports `min_cost` for minimum cost filtering. Used by Call Dragon's shout levels to summon Dragons within specific cost ranges (e.g., 6-8, 8-10, exactly 12).
+  _Refs: `src/core/match/extended_mechanic_packs.gd:437-452`_
 
 ## Supports
 

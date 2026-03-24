@@ -17,45 +17,59 @@ const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
 static func build_test_match_state() -> Dictionary:
 	## ── CONFIGURATION ──────────────────────────────────────────────────
 	## Edit the values below to set up your test scenario.
-	## Testing: Agent of Mehrunes Dagon, Keeper of the Gates, Mythic Dawn Acolyte/Zealot — "if you Invaded" end-of-turn payoffs
+	## Testing: Recently fixed cards — Alduin cost reduction, Call Dragon,
+	## Devour keyword transfer, Paarthurnax shouts, Mute, Fingers of the
+	## Mountain, Whispering Claw Strike, Strategist's Map
 
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — 12 magicka to deploy payoffs + trigger invade
+	# Player 1 (you) — 20 magicka to test Alduin + Paarthurnax
 	var p1_health := 30
-	var p1_max_magicka := 12
-	var p1_current_magicka := 12
+	var p1_max_magicka := 20
+	var p1_current_magicka := 20
 	var p1_rune_thresholds := [25, 20, 15, 10, 5]
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — the 4 requested cards + cheap Invade triggers
+	# Player 1 hand — all the fixed cards
 	var p1_hand_ids: Array = [
-		"joo_str_agent_of_mehrunes_dagon",  # Cost 2, 3/2, end of turn if Invaded: +1/+1
-		"joo_str_keeper_of_the_gates",      # Cost 6, 6/6, When you Invade → Invade again
-		"joo_int_mythic_dawn_acolyte",      # Cost 5, 5/4, end of turn if Invaded: deal 2 dmg (player chooses target)
-		"joo_wil_mythic_dawn_zealot",       # Cost 2, 2/2, end of turn if Invaded: 1/1 Scamp to hand
-		"joo_neu_oblivion_invasion",        # Cost 0, Invade (free trigger to fire end-of-turn payoffs)
-		"joo_str_invasion_scout",           # Cost 1, 1/1 Daedra, Summon: Invade
-		"joo_str_daedric_incursion",        # Cost 3, action, Draw Daedra + Invade
+		"hos_neu_alduin",                   # Cost 20, 12/12 Dragon. Costs 2 less per Dragon in discard. TEST: should show reduced cost
+		"hos_neu_paarthurnax",              # Cost 12, 9/9 Dragon. Summon: 3 random free Shouts. TEST: shouts stay at 0 cost after upgrade
+		"tc_neu_call_dragon",               # Cost 8, Shout. Summon 6-8 cost Dragon + upgrade ALL shouts. TEST: summons a Dragon, not random creature
+		"hos_wil_devour",                   # Cost 4, Destroy creature ≤4 power, give its keywords to your Dragon. TEST: Guard transfers
+		"joo_end_mute",                     # Cost 1, Silence two creatures. TEST: multi-target selection works
+		"joo_int_fingers_of_the_mountain",  # Cost 6, Deal 1+2+3 damage to three creatures. TEST: three-target selection
+		"moe_agi_whispering_claw_strike",   # Cost 6, Enemy -2/-2 and friendly +2/+2. TEST: dual-target selection
 	]
 
-	# Player 1 deck — more invade triggers + Daedra for draw effects
+	# Player 1 deck — Fire Breath to test shout upgrade, more shouts for Call Dragon
 	# Index 0 is drawn first.
 	var p1_deck_ids: Array = [
-		"joo_neu_oblivion_invasion",        # Cost 0, Invade (another free trigger next turn)
-		"joo_int_invasion_vanguard",        # Cost 2, 1/4 Daedra, Summon: Invade
-		"joo_int_sigil_keeper",             # Cost 4, 3/4 Daedra, Summon: Invade + Ward to gates
-		"joo_str_widow_daedra",             # Cost 4, 5/3 Daedra (draw target)
-		"joo_int_dremora_adept",            # Cost 3, 4/3 Daedra (draw target)
+		"hos_int_fire_breath",              # Shout. TEST: Call Dragon should upgrade this
+		"hos_int_fire_breath",              # Second copy to test Paarthurnax interaction
+		"int_elusive_schemer",              # 3/1, draw a card — filler
+		"int_elusive_schemer",
+		"int_elusive_schemer",
 	]
 
-	var p1_discard_ids: Array = []
+	# Discard pile — 4 Dragons so Alduin costs 20 - 8 = 12 magicka
+	var p1_discard_ids: Array = [
+		"str_blood_dragon",                 # Dragon — reduces Alduin cost by 2
+		"hos_str_swiftwing_dragon",         # Dragon — reduces Alduin cost by 2
+		"hos_int_mystic_dragon",            # Dragon — reduces Alduin cost by 2
+		"hos_str_skyborn_dragon",           # Dragon — reduces Alduin cost by 2
+	]
 
-	var p1_support_ids: Array = []
+	# Strategist's Map in support zone — already deployed
+	var p1_support_ids: Array = [
+		"aw_wil_strategists_map",           # Uses: 3. Activate: summon 0/1 Guard Target for you or opponent. TEST: lane+owner choice
+	]
 
-	var p1_field_creatures: Array = []
+	# Friendly creature in field lane for Whispering Claw Strike buff target + Devour keyword test
+	var p1_field_creatures: Array = [
+		_make_lane_creature("player_1", "hos_int_mystic_dragon", 100),  # 4/4 Dragon — Devour keyword target
+	]
 
 	var p1_shadow_creatures: Array = []
 
@@ -81,14 +95,17 @@ static func build_test_match_state() -> Dictionary:
 		"str_fiery_imp",
 	]
 
-	# Player 2 — weak enemies in both lanes as punching bags
+	var p2_discard_ids: Array = []
+
+	# Enemy board — Guard creature for Devour + multiple punching bags for multi-target
 	var p2_field_creatures: Array = [
-		_make_lane_creature("player_2", "str_fiery_imp", 200),             # 1/1
-		_make_lane_creature("player_2", "str_fiery_imp", 201),             # 1/1
+		_make_lane_creature("player_2", "end_fharun_defender", 200),     # 1/4 Guard — Devour target (give Guard to your Dragon)
+		_make_lane_creature("player_2", "str_fiery_imp", 201),           # 1/1 — punching bag
+		_make_lane_creature("player_2", "str_fiery_imp", 202),           # 1/1 — punching bag
 	]
 	var p2_shadow_creatures: Array = [
-		_make_lane_creature("player_2", "str_fiery_imp", 203),             # 1/1
-		_make_lane_creature("player_2", "str_fiery_imp", 204),             # 1/1
+		_make_lane_creature("player_2", "str_fiery_imp", 203),           # 1/1 — punching bag
+		_make_lane_creature("player_2", "str_fiery_imp", 204),           # 1/1 — punching bag
 	]
 
 	## ── END CONFIGURATION ──────────────────────────────────────────────
