@@ -13,6 +13,10 @@ Investigate and fix a card whose in-game effect is not working as described.
 3. If the user has not described the problem, ask what is happening vs what they expected.
 4. If anything else is unclear about the expected behaviour, ask for clarification before proceeding.
 
+## Step 1b: Pre-fix Learnings Scan
+
+Run the `scan-learnings` skill with a description of the bug area based on what you gathered in Step 1 (e.g., "triggered abilities with target_mode", "item equip bonuses", "aura conditions"). This surfaces known pitfalls and engine conventions before you start writing code — for example, that all random selections must use `_deterministic_index`, or that `target_mode` triggers are silently filtered for certain families.
+
 ## Step 2: Diagnose the Issue
 
 Understand the two effect systems:
@@ -185,6 +189,10 @@ Also update `action_is_legal` for `KIND_END_TURN` to block ending turn while the
    - `match_mutations.silence_card()` — silence wipes all granted state
    - `match_mutations.reset_transient_state()` — used when cards change zones
    - `match_turn_loop._clear_temporary_stat_bonuses()` — end-of-turn cleanup (if the state is turn-scoped)
+
+## Step 3b: Post-fix Learnings Scan
+
+Run `scan-learnings` again with a more specific description now that you understand the problem deeply (e.g., "random target selection in match_timing", "trigger registry filtering"). Your understanding of the problem has evolved since Step 1b — this second pass catches issues your fix may have introduced that weren't obvious before the implementation.
 
 ## Step 4: Scan for Other Cards
 

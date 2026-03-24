@@ -25,21 +25,23 @@ Process all in-game error reports that were submitted via the error reporting po
 3. **Process each report sequentially:**
    a. Mark the task as `in_progress`
    b. Analyse the report: read the `comment`, `element_context`, and `snapshot` to understand the bug
-   c. Explore the codebase to locate the relevant code
-   d. **Check if already fixed**: If a recent commit appears to address the issue, verify the fix covers the reported scenario. If so, mark the task as completed, remove the report entry, and move on — no new commit needed.
-   e. If the report is unclear or requires a design decision, **ask the user for guidance** before proceeding
-   f. Implement the fix
-   g. Run relevant test runners based on the fix area. Test runners live in `tests/` and are run with: `/Applications/Godot.app/Contents/MacOS/Godot --headless --path /Users/flinnburgess/Development/Godot/ElderScrollsLegends --script res://tests/<runner_name>.gd`
+   c. Explore the codebase to locate the relevant code and read the card definition in `card_catalog.gd`
+   d. **Pre-fix learnings scan**: Run the `scan-learnings` skill with a description of the bug area (e.g., "triggered abilities with target_mode", "item equip bonuses"). This surfaces known pitfalls before you start writing code.
+   e. **Check if already fixed**: If a recent commit appears to address the issue, verify the fix covers the reported scenario. If so, mark the task as completed, remove the report entry, and move on — no new commit needed.
+   f. If the report is unclear or requires a design decision, **ask the user for guidance** before proceeding
+   g. Implement the fix
+   h. **Post-fix learnings scan**: Run `scan-learnings` again with a more specific description now that you understand the problem deeply (e.g., "random target selection in match_timing"). This catches issues your fix may have introduced that weren't obvious before (e.g., using `randi()` where `_deterministic_index` is required).
+   i. Run relevant test runners based on the fix area. Test runners live in `tests/` and are run with: `/Applications/Godot.app/Contents/MacOS/Godot --headless --path /Users/flinnburgess/Development/Godot/ElderScrollsLegends --script res://tests/<runner_name>.gd`
       **Important:** Godot test runners require `dangerouslyDisableSandbox: true` because Godot writes to `~/Library/Application Support/Godot/` for logging, and the sandbox blocks this — causing a segfault in `RotatedFileLogger::rotate_file()` that looks like an engine crash.
       - For match/UI fixes: `match_ui_runner.gd`, `all_rules_runner.gd`
       - For arena fixes: `arena_draft_engine_runner.gd`
       - For deck fixes: `deck_persistence_runner.gd`, `deck_validation_runner.gd`
       - For combat/card fixes: `combat_runner.gd`, `keyword_matrix_runner.gd`
       - For triggered abilities/shout/extended mechanics: `extended_mechanics_runner.gd`, `timing_runner.gd`
-   h. If tests fail due to issues introduced by the fix, fix them before proceeding
-   i. Commit the fix with a descriptive message
-   j. Remove the processed report entry from the JSONL file (rewrite the file without that line)
-   k. Mark the task as `completed`
+   j. If tests fail due to issues introduced by the fix, fix them before proceeding
+   k. Commit the fix with a descriptive message
+   l. Remove the processed report entry from the JSONL file (rewrite the file without that line)
+   m. Mark the task as `completed`
 4. **Continue** until all reports are processed
 5. **Summary** — after all reports are processed, present a final overview listing each report that was fixed (with a brief description of the bug and the fix applied), any reports that were skipped or deferred, and any remaining issues
 6. **Pattern scan** — run the `bug-pattern-scan` skill to generalize the fixes into abstract pattern classes and scan for unresolved siblings across the codebase
@@ -59,7 +61,6 @@ If new reports appear during the run (detected when re-reading the file), create
 
 - The snapshot provides rich context — use it to understand the exact game state when the bug was observed
 - **Baseline test failures**: Before the first fix, run the relevant test runners once to identify any pre-existing failures. Do not spend time debugging failures that exist before your changes.
-- **Run scan-learnings after implementing each fix** (before committing): invoke the `scan-learnings` skill with a description of the bug area. Learnings may flag issues in your fix (e.g., using non-deterministic randomness where `_deterministic_index` is required) that are easy to catch before they ship.
 - **Web research**: If a report suggests the correct behavior is uncertain (e.g., "should it have?", "worth researching online"), use WebSearch/WebFetch to check the UESP wiki or community sources for the canonical game behavior before implementing.
 - Do not skip reports — process all of them
 - Always verify fixes with tests before committing
