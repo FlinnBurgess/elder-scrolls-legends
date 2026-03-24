@@ -2225,6 +2225,15 @@ static func play_action_from_hand(match_state: Dictionary, player_id: String, in
 								if str(st) == "Skeleton" or str(st) == "Vampire" or str(st) == "Spirit" or str(st) == "Mummy":
 									action_cost_reduction += sr_amount
 									break
+		elif sr_source == "per_dragon_in_discard":
+			for c in player.get("discard", []):
+				if typeof(c) == TYPE_DICTIONARY and str(c.get("card_type", "")) == "creature":
+					var subtypes = c.get("subtypes", [])
+					if typeof(subtypes) == TYPE_ARRAY:
+						for st in subtypes:
+							if str(st) == "Dragon":
+								action_cost_reduction += sr_amount
+								break
 		elif sr_source == "unique_creatures_in_discard":
 			var seen_defs: Dictionary = {}
 			for c in player.get("discard", []):
