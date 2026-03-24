@@ -1787,8 +1787,9 @@ static func apply_player_damage(match_state: Dictionary, player_id: String, amou
 	player["health"] = new_health
 	result["applied_damage"] = amount
 	if new_health <= 0:
-		result["player_lost"] = true
-		return result
+		if not _has_cannot_lose(match_state, player_id):
+			result["player_lost"] = true
+			return result
 
 	var crossed_thresholds: Array = []
 	for raw_threshold in player.get("rune_thresholds", []):
@@ -2443,6 +2444,57 @@ static func recalculate_auras(match_state: Dictionary) -> void:
 								if not gktk_existing.has(gktk_grant_kw):
 									gktk_existing.append(gktk_grant_kw)
 									gktk_target["aura_keywords"] = gktk_existing
+
+	# Step 3d: Apply grant_keyword_to_type passives (e.g., items get Mobilize)
+	for lane in lanes:
+		var player_slots_by_id: Dictionary = lane.get("player_slots", {})
+		for player_id in player_slots_by_id.keys():
+			for card in player_slots_by_id[player_id]:
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				var passives = card.get("passive_abilities", [])
+				if typeof(passives) != TYPE_ARRAY:
+					continue
+				for p in passives:
+					if typeof(p) != TYPE_DICTIONARY or str(p.get("type", "")) != "grant_keyword_to_type":
+						continue
+					var gktt_kw := str(p.get("keyword", ""))
+					var gktt_card_type := str(p.get("card_type", ""))
+					if gktt_kw.is_empty() or gktt_card_type.is_empty():
+						continue
+					var gktt_controller := str(card.get("controller_player_id", ""))
+					var gktt_player := _find_player_by_id(match_state, gktt_controller)
+					for gktt_target in gktt_player.get("hand", []):
+						if typeof(gktt_target) == TYPE_DICTIONARY and str(gktt_target.get("card_type", "")) == gktt_card_type:
+							var gktt_existing: Array = gktt_target.get("aura_keywords", [])
+							if not gktt_existing.has(gktt_kw):
+								gktt_existing.append(gktt_kw)
+								gktt_target["aura_keywords"] = gktt_existing
+
+	# Step 3e: Apply shackled_unless_exalted_ally passives
+	for lane in lanes:
+		var player_slots_by_id: Dictionary = lane.get("player_slots", {})
+		for player_id in player_slots_by_id.keys():
+			for card in player_slots_by_id[player_id]:
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				if not EvergreenRules._has_passive(card, "shackled_unless_exalted_ally"):
+					continue
+				var suea_controller := str(card.get("controller_player_id", ""))
+				var has_exalted := false
+				for check_lane in lanes:
+					for check_card in check_lane.get("player_slots", {}).get(suea_controller, []):
+						if typeof(check_card) == TYPE_DICTIONARY and EvergreenRules.has_status(check_card, EvergreenRules.STATUS_EXALTED):
+							has_exalted = true
+							break
+					if has_exalted:
+						break
+				if not has_exalted:
+					EvergreenRules.add_status(card, EvergreenRules.STATUS_SHACKLED)
+					card["shackle_expires_on_turn"] = -1  # permanent until condition met
+				elif EvergreenRules.has_raw_status(card, EvergreenRules.STATUS_SHACKLED) and int(card.get("shackle_expires_on_turn", 0)) == -1:
+					EvergreenRules.remove_status(card, EvergreenRules.STATUS_SHACKLED)
+					card.erase("shackle_expires_on_turn")
 
 	# Step 4: Recalculate player magicka auras from lane creatures
 	for player in match_state.get("players", []):
@@ -8276,6 +8328,27 @@ static func _cost_reduction_condition_met(match_state: Dictionary, player_id: St
 		"filter_not_in_starting_deck":
 			return bool(card.get("_not_in_starting_deck", false))
 	return true
+
+
+static func _has_cannot_lose(match_state: Dictionary, player_id: String) -> bool:
+	for lane in match_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(player_id, []):
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			if not EvergreenRules._has_passive(card, "cannot_lose"):
+				continue
+			for p in card.get("passive_abilities", []):
+				if typeof(p) != TYPE_DICTIONARY or str(p.get("type", "")) != "cannot_lose":
+					continue
+				var condition := str(p.get("condition", ""))
+				if condition == "has_exalted_creature":
+					for check_lane in match_state.get("lanes", []):
+						for check_card in check_lane.get("player_slots", {}).get(player_id, []):
+							if typeof(check_card) == TYPE_DICTIONARY and EvergreenRules.has_status(check_card, EvergreenRules.STATUS_EXALTED):
+								return true
+				elif condition.is_empty():
+					return true
+	return false
 
 
 static func _get_heal_multiplier(match_state: Dictionary, player_id: String) -> int:
