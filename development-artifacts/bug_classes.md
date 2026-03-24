@@ -130,6 +130,11 @@ Card uses a reactive trigger family (e.g., `on_friendly_death`) that fires on ev
 Example: Stormcloak Camp (was `on_friendly_death` — fired per death; should be `end_of_turn` with `creature_died_this_turn: true`)
 How to spot: User reports a card triggering multiple times per turn when the text says "at the end of your turn, if..." or similar conditional phrasing. Check if the trigger family should be `end_of_turn` with a condition instead of a reactive family.
 
+## Wrong match_role on self-referencing trigger family
+Card's trigger family uses `match_role: "any_player"` or `"controller"` when the card text says "When [this card] gains/does X" — meaning the trigger should only fire when the event targets the trigger's own card. With `"any_player"`, every copy of the card in play triggers whenever ANY creature has the event happen. Fix by using `match_role: "target"` so the trigger only fires when the event's target matches the trigger's source card. Additionally, the event emission should be gated on actual state change (e.g., only emit `keyword_granted` if the keyword was not already present).
+Example: Dremora Adept, Manic Jack, Nereid Sister (`on_keyword_gained` family had `match_role: "any_player"` — all copies triggered on any keyword grant)
+How to spot: User reports a self-referencing trigger ("When X gains/does...") firing for other cards or multiple times across copies. Check if the family spec's `match_role` is `"target"` and if the event is only emitted when the underlying state actually changes.
+
 ## Unhandled amount_source value in _resolve_amount
 Card's effect uses `amount_source` with a value that `_resolve_amount()` in `match_timing.gd` doesn't handle. The function falls through to the default `int(effect.get("amount", 0))`, which returns 0 since no static `amount` field is set. The effect fires but deals/heals/modifies by 0.
 Example: Blast from Oblivion (`amount_source: "oblivion_gate_level"` was not handled — always dealt 0 damage)

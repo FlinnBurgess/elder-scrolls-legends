@@ -165,7 +165,7 @@ const FAMILY_SPECS := {
 	FAMILY_ON_OPPONENT_TURN: {"event_type": EVENT_TURN_STARTED, "window": WINDOW_AFTER, "match_role": "opponent_player"},
 	FAMILY_AFTER_CARD_PLAYED: {"event_type": EVENT_CARD_PLAYED, "window": WINDOW_AFTER, "match_role": "any_player"},
 	FAMILY_ON_OPPONENT_DAMAGED: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "target_player_is_opponent", "target_type": "player"},
-	FAMILY_ON_KEYWORD_GAINED: {"event_type": "keyword_granted", "window": WINDOW_AFTER, "match_role": "any_player"},
+	FAMILY_ON_KEYWORD_GAINED: {"event_type": "keyword_granted", "window": WINDOW_AFTER, "match_role": "target"},
 	FAMILY_ON_FRIENDLY_POWER_GAIN: {"event_type": "stats_modified", "window": WINDOW_AFTER, "match_role": "controller", "require_positive_power_bonus": true},
 	FAMILY_ON_CONSUMED: {"event_type": EVENT_CREATURE_CONSUMED, "window": WINDOW_AFTER, "match_role": "target"},
 	FAMILY_ON_ENEMY_PROPHECY_DRAWN: {"event_type": EVENT_CARD_DRAWN, "window": WINDOW_AFTER, "match_role": "opponent_player"},
@@ -3150,6 +3150,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					EvergreenRules.ensure_card_state(card)
 					var keyword_id := str(effect.get("keyword_id", ""))
+					var kw_already_had := EvergreenRules.has_keyword(card, keyword_id)
 					var granted_keywords: Array = card.get("granted_keywords", [])
 					if not granted_keywords.has(keyword_id):
 						granted_keywords.append(keyword_id)
@@ -3160,12 +3161,13 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						EvergreenRules.remove_status(card, EvergreenRules.STATUS_COVER)
 						card.erase("cover_expires_on_turn")
 						card.erase("cover_granted_by")
-					generated_events.append({
-						"event_type": "keyword_granted",
-						"source_instance_id": str(trigger.get("source_instance_id", "")),
-						"target_instance_id": str(card.get("instance_id", "")),
-						"keyword_id": keyword_id,
-					})
+					if not kw_already_had:
+						generated_events.append({
+							"event_type": "keyword_granted",
+							"source_instance_id": str(trigger.get("source_instance_id", "")),
+							"target_instance_id": str(card.get("instance_id", "")),
+							"keyword_id": keyword_id,
+						})
 			"grant_triggered_ability":
 				var gta_ability: Dictionary = effect.get("ability", {})
 				var gta_label := str(effect.get("assemble_label", ""))

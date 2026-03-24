@@ -17,12 +17,12 @@ const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
 static func build_test_match_state() -> Dictionary:
 	## ── CONFIGURATION ──────────────────────────────────────────────────
 	## Edit the values below to set up your test scenario.
-	## Testing: Two Oblivion Gates in shadow lane — verify correct gate gets upgraded
+	## Testing: Dremora Adept — "When Dremora Adept gains a Keyword, Invade."
 
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — 12 magicka, Invade with two gates
+	# Player 1 (you) — 12 magicka, keyword-granting cards to trigger Invade
 	var p1_health := 30
 	var p1_max_magicka := 12
 	var p1_current_magicka := 12
@@ -30,53 +30,37 @@ static func build_test_match_state() -> Dictionary:
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — cheap Invade triggers to upgrade gates
+	# Player 1 hand — keyword granters to trigger Dremora Adept's Invade
 	var p1_hand_ids: Array = [
-		"joo_neu_oblivion_invasion",        # Cost 0, Action: Invade (free trigger)
-		"joo_neu_oblivion_invasion",        # Cost 0, Action: Invade (second free trigger)
-		"joo_str_invasion_scout",           # Cost 1, 1/1 Daedra, Summon: Invade
-		"joo_int_invasion_vanguard",        # Cost 2, 1/4 Daedra, Summon: Invade
-		"joo_wil_invasion_marauder",        # Cost 3, 3/3 Daedra, Summon: Invade
-		"joo_int_blast_from_oblivion",      # Cost 3, Prophecy Action: Invade, deal gate-level damage
-		"joo_str_daedric_incursion",        # Cost 3, Action: Draw Daedra + Invade
+		"int_lesser_ward",                  # Cost 0, Give a creature a Ward (free Invade trigger)
+		"int_lesser_ward",                  # Cost 0, second free Ward grant
+		"int_wardcrafter",                  # Cost 2, 2/1, Summon: Give a creature a Ward
+		"int_wisdom_of_ancients",           # Cost 2, Give each friendly creature a random Keyword
+		"joo_int_elixir_of_potency",        # Cost 2, Support Uses:3, Activate: random Keyword
+		"joo_int_dremora_adept",            # Cost 3, 4/3 Daedra — second copy to summon
+		"agi_skooma_racketeer",             # Cost 3, 2/2, Summon: Give a creature Lethal
 	]
 
-	# Player 1 deck — more invade triggers + payoffs
+	# Player 1 deck — more keyword sources + draw
 	# Index 0 is drawn first.
 	var p1_deck_ids: Array = [
-		"joo_str_keeper_of_the_gates",      # Cost 6, 6/6: When you Invade, Invade again (double upgrade)
-		"joo_int_sigil_keeper",             # Cost 4, 3/4 Daedra: Summon: Invade, give Ward to all Gates
-		"joo_wil_unexpected_arrival",       # Cost 3, Action: Invade, summon Daedra by gate level
-		"joo_str_xivilai_warlord",          # Cost 4, 3/3 Daedra, Charge+Guard (draw target)
-		"joo_neu_oblivion_invasion",        # Cost 0, extra Invade trigger
+		"neu_mundus_stone",                 # Cost 4, Ongoing: summoned creatures get random Keyword
+		"int_elixir_of_deflection",         # Cost 5, Support Uses:3, Activate: Give Ward
+		"int_royal_sage",                   # Cost 4, 4/4, Summon: if more health, random Keywords to all
+		"int_elusive_schemer",              # Cost 4, 3/1, Summon: Draw a card
+		"int_lesser_ward",                  # Cost 0, another Ward grant
 	]
 
 	var p1_discard_ids: Array = []
 
-	var p1_support_ids: Array = [
-		"joo_neu_great_sigil_stone",        # Support, Uses: 3, Activate: Invade
+	var p1_support_ids: Array = []
+
+	# Pre-place Dremora Adept in field lane, ready to receive keywords
+	var p1_field_creatures: Array = [
+		_make_lane_creature("player_1", "joo_int_dremora_adept", 100),     # 4/3 Daedra, keyword->Invade
 	]
 
-	var p1_field_creatures: Array = []
-
-	# Two Oblivion Gates pre-placed in shadow lane, both level 1
-	# Both should trigger buff_oblivion_gate_summon when a Daedra is summoned
-	# Level 1 buff = +0/+1 each, so a summoned Daedra should get +0/+2 total
-	var gate_a := _make_lane_creature("player_1", "joo_neu_oblivion_gate", 100, {"can_attack": false})
-	gate_a["rules_tags"] = ["oblivion_gate"]
-	gate_a["gate_level"] = 1
-	gate_a["cannot_attack"] = true
-	gate_a["status_markers"] = ["permanent_shackle"]
-	gate_a["grants_immunity"] = ["silence"]
-	gate_a["triggered_abilities"] = [{"id": "oblivion_gate_buff", "event_type": "creature_summoned", "match_role": "controller", "required_zone": "lane", "required_event_source_subtype": "Daedra", "excluded_event_source_rule_tag": "oblivion_gate", "effects": [{"op": "buff_oblivion_gate_summon", "target": "event_source"}]}]
-	var gate_b := _make_lane_creature("player_1", "joo_neu_oblivion_gate", 101, {"can_attack": false})
-	gate_b["rules_tags"] = ["oblivion_gate"]
-	gate_b["gate_level"] = 1
-	gate_b["cannot_attack"] = true
-	gate_b["status_markers"] = ["permanent_shackle"]
-	gate_b["grants_immunity"] = ["silence"]
-	gate_b["triggered_abilities"] = [{"id": "oblivion_gate_buff", "event_type": "creature_summoned", "match_role": "controller", "required_zone": "lane", "required_event_source_subtype": "Daedra", "excluded_event_source_rule_tag": "oblivion_gate", "effects": [{"op": "buff_oblivion_gate_summon", "target": "event_source"}]}]
-	var p1_shadow_creatures: Array = [gate_a, gate_b]
+	var p1_shadow_creatures: Array = []
 
 	# Player 2 (AI) — weak, no runes, minimal magicka
 	var p2_health := 30
@@ -100,7 +84,7 @@ static func build_test_match_state() -> Dictionary:
 		"str_fiery_imp",
 	]
 
-	# Player 2 — weak enemies in both lanes
+	# Player 2 — weak enemies in both lanes as targets
 	var p2_field_creatures: Array = [
 		_make_lane_creature("player_2", "str_fiery_imp", 200),             # 1/1
 		_make_lane_creature("player_2", "str_fiery_imp", 201),             # 1/1

@@ -45,6 +45,7 @@ Cards with active effects (Summon, Last Gasp, Slay, start/end of turn, on play, 
 - `on_attack` — when the creature deals combat damage
 - `after_action_played` — when the controller plays an action
 - `on_friendly_summon` — when the controller summons another creature (excludes self)
+- `on_keyword_gained` — when the trigger's own card gains a new keyword (match_role: "target")
 
 **Trigger Conditions** (checked in `extended_mechanic_packs.matches_additional_conditions()`):
 These are optional fields on the trigger descriptor that gate whether the trigger fires:
@@ -133,6 +134,8 @@ If the user reports a missing or broken alt-view, check three things:
 9. **Inline `card_template` missing abilities** — Cards using `summon_from_effect` or `summon_copies_to_lane` with an inline `card_template` that references a token `definition_id`. `build_generated_card` only duplicates the inline template — it does **not** look up the catalog. If the template omits `triggered_abilities`, `rules_text`, or `effect_ids` that the corresponding non-collectible `_seed` has, the spawned token will have no abilities. Note: some cards intentionally omit abilities on copies to prevent infinite recursion (e.g., Golden Saint summons a copy of itself — the copy correctly lacks the summon trigger).
 10. **Unhandled `amount_source` value** — The effect uses `amount_source` to resolve a dynamic amount at runtime (e.g., gate level, creature power), but `_resolve_amount()` in `match_timing.gd` doesn't handle that particular value. It falls through to `int(effect.get("amount", 0))` which returns 0. The effect fires but applies zero damage/heal/stats.
 11. **Action card player target not resolved by `deal_damage`** — The `deal_damage` op falls back to player damage when `_resolve_card_targets` returns empty, but only checks `trigger._chosen_target_player_id` (set by `resolve_targeted_effect` for creatures with `target_mode`). Action cards pass the player target via `event.target_player_id` instead, so face damage silently does nothing. Also check `match_action_enumerator._expand_target_parameter_sets()` — if `action_target_mode` is empty, the AI must enumerate player targets alongside card targets.
+12. **Wrong `match_role` on family spec** — The `FAMILY_SPECS` entry for a trigger family uses `"any_player"` or `"controller"` when the card text says "When [this card] gains/does X" — meaning the trigger should only fire for events targeting the trigger's own card. With the wrong role, every copy of the card in play triggers for any matching event. Fix by using `match_role: "target"` (checks `event.target_instance_id == trigger.source_instance_id`). Check existing family spec defaults before adding per-card overrides — if all cards using the family need the same role, fix the spec.
+13. **Event emitted without actual state change** — An effect op (e.g., `grant_keyword`) emits an event even when the operation was a no-op (e.g., keyword already present). Downstream triggers that react to the event fire spuriously. Fix by gating event emission on whether the state actually changed (e.g., check `has_keyword` before granting, only emit if the keyword was new).
 
 ### Pending State Pattern (Interactive Effects)
 
