@@ -1,15 +1,22 @@
 class_name AdventureNodeMapScreen
 extends Control
 
-signal node_fight_pressed(node_id: String)
+signal node_selected(node_id: String)
 signal abandon_pressed
+
+const AdventureCatalogScript = preload("res://src/adventure/adventure_catalog.gd")
 
 var _adventure: Dictionary = {}
 var _completed_node_ids: Array = []
 var _current_node_id: String = ""
 var _revives_remaining: int = 0
+var _gold: int = 0
+var _max_health_bonus: int = 0
+var _reachable_node_ids: Array = []
 var _node_buttons: Dictionary = {}  # node_id -> Button
 var _revives_label: Label
+var _gold_label: Label
+var _health_label: Label
 var _adventure_name_label: Label
 
 
@@ -17,16 +24,41 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 
 
-func set_map_data(adventure: Dictionary, current_node_id: String, completed_node_ids: Array, revives_remaining: int) -> void:
+func set_map_data(adventure: Dictionary, current_node_id: String, completed_node_ids: Array, revives_remaining: int, gold: int = 0, max_health_bonus: int = 0) -> void:
 	_adventure = adventure
 	_current_node_id = current_node_id
 	_completed_node_ids = completed_node_ids
 	_revives_remaining = revives_remaining
+	_gold = gold
+	_max_health_bonus = max_health_bonus
+	_reachable_node_ids = _compute_reachable_nodes()
 	_build_ui()
 
 
+func _compute_reachable_nodes() -> Array:
+	# If current_node_id is set, that's the only reachable node
+	if not _current_node_id.is_empty():
+		return [_current_node_id]
+
+	# If current_node_id is empty, we're at a branch point — find nodes
+	# that are in the `next` array of the last completed node
+	var nodes: Dictionary = _adventure.get("nodes", {})
+	for i in range(_completed_node_ids.size() - 1, -1, -1):
+		var last_completed: String = str(_completed_node_ids[i])
+		var node: Dictionary = nodes.get(last_completed, {})
+		var next_nodes: Array = node.get("next", [])
+		if next_nodes.size() > 1:
+			var reachable: Array = []
+			for nid in next_nodes:
+				var nid_str: String = str(nid)
+				if nid_str not in _completed_node_ids:
+					reachable.append(nid_str)
+			if not reachable.is_empty():
+				return reachable
+	return []
+
+
 func _build_ui() -> void:
-	# Clear existing children
 	for child in get_children():
 		child.queue_free()
 	_node_buttons.clear()
@@ -40,44 +72,36 @@ func _build_ui() -> void:
 	var header := _build_header()
 	main_vbox.add_child(header)
 
-	# Node list in a scroll container
+	# Node graph in a scroll container
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = SIZE_EXPAND_FILL
 	main_vbox.add_child(scroll)
 
-	var node_list := VBoxContainer.new()
-	node_list.size_flags_horizontal = SIZE_EXPAND_FILL
-	node_list.add_theme_constant_override("separation", 8)
-	scroll.add_child(node_list)
-
-	# Center the node list
 	var center_margin := MarginContainer.new()
 	center_margin.size_flags_horizontal = SIZE_EXPAND_FILL
-	center_margin.add_theme_constant_override("margin_left", 200)
-	center_margin.add_theme_constant_override("margin_right", 200)
+	center_margin.add_theme_constant_override("margin_left", 100)
+	center_margin.add_theme_constant_override("margin_right", 100)
 	center_margin.add_theme_constant_override("margin_top", 24)
 	center_margin.add_theme_constant_override("margin_bottom", 24)
 	scroll.add_child(center_margin)
 
-	var nodes_vbox := VBoxContainer.new()
-	nodes_vbox.add_theme_constant_override("separation", 8)
-	center_margin.add_child(nodes_vbox)
+	var graph_vbox := VBoxContainer.new()
+	graph_vbox.add_theme_constant_override("separation", 4)
+	graph_vbox.size_flags_horizontal = SIZE_EXPAND_FILL
+	center_margin.add_child(graph_vbox)
 
-	# Build ordered node list
-	var ordered := _get_ordered_nodes()
-	for i in range(ordered.size()):
-		var node_data: Dictionary = ordered[i]
-		var node_id: String = node_data["id"]
-		var is_completed := node_id in _completed_node_ids
-		var is_current := node_id == _current_node_id
+	# Build graph layers
+	var layers := AdventureCatalogScript.get_graph_layers(_adventure)
+	for i in range(layers.size()):
+		var layer: Array = layers[i]
+		var layer_container := _build_layer(layer)
+		graph_vbox.add_child(layer_container)
 
-		var node_row := _build_node_row(node_data, is_completed, is_current, i + 1)
-		nodes_vbox.add_child(node_row)
-
-		# Add connector line between nodes (except after last)
-		if i < ordered.size() - 1:
-			var connector := _build_connector(is_completed)
-			nodes_vbox.add_child(connector)
+		# Connector between layers
+		if i < layers.size() - 1:
+			var next_layer: Array = layers[i + 1]
+			var connector := _build_layer_connector(layer, next_layer)
+			graph_vbox.add_child(connector)
 
 	# Footer with abandon button
 	var footer := _build_footer()
@@ -101,6 +125,21 @@ func _build_header() -> Control:
 	_adventure_name_label.size_flags_horizontal = SIZE_EXPAND_FILL
 	hbox.add_child(_adventure_name_label)
 
+	_health_label = Label.new()
+	var total_health := 30 + _max_health_bonus
+	_health_label.text = "HP: %d" % total_health
+	_health_label.add_theme_font_size_override("font_size", 18)
+	_health_label.add_theme_color_override("font_color", Color(0.4, 0.8, 0.4, 1.0))
+	if _max_health_bonus > 0:
+		_health_label.text = "HP: %d (+%d)" % [total_health, _max_health_bonus]
+	hbox.add_child(_health_label)
+
+	_gold_label = Label.new()
+	_gold_label.text = "Gold: %d" % _gold
+	_gold_label.add_theme_font_size_override("font_size", 18)
+	_gold_label.add_theme_color_override("font_color", Color(0.9, 0.75, 0.3, 1.0))
+	hbox.add_child(_gold_label)
+
 	_revives_label = Label.new()
 	_revives_label.text = "Revives: %d" % _revives_remaining
 	_revives_label.add_theme_font_size_override("font_size", 18)
@@ -110,46 +149,52 @@ func _build_header() -> Control:
 	return header
 
 
-func _build_node_row(node_data: Dictionary, is_completed: bool, is_current: bool, index: int) -> Control:
-	var node_id: String = node_data["id"]
+func _build_layer(layer: Array) -> Control:
+	if layer.size() == 1:
+		# Single node — centered
+		var center := HBoxContainer.new()
+		center.alignment = BoxContainer.ALIGNMENT_CENTER
+		center.size_flags_horizontal = SIZE_EXPAND_FILL
+		var btn := _build_node_button(layer[0])
+		center.add_child(btn)
+		return center
+	else:
+		# Multiple nodes — spread horizontally
+		var hbox := HBoxContainer.new()
+		hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		hbox.add_theme_constant_override("separation", 60)
+		hbox.size_flags_horizontal = SIZE_EXPAND_FILL
+		for node_data in layer:
+			var btn := _build_node_button(node_data)
+			hbox.add_child(btn)
+		return hbox
+
+
+func _build_node_button(node_data: Dictionary) -> Button:
+	var node_id: String = str(node_data.get("id", ""))
 	var node_type: String = str(node_data.get("type", "combat"))
 	var headline: String = str(node_data.get("headline", "Unknown"))
+	var is_completed := node_id in _completed_node_ids
+	var is_reachable := node_id in _reachable_node_ids
 
-	var type_label := ""
-	match node_type:
-		"combat":
-			type_label = "Battle"
-		"mini_boss":
-			type_label = "Mini-Boss"
-		"final_boss":
-			type_label = "Final Boss"
+	var type_icon := _get_type_icon(node_type)
+	var type_label := _get_type_label(node_type)
 
 	var btn := Button.new()
-	btn.custom_minimum_size = Vector2(400, 56)
+	btn.custom_minimum_size = Vector2(280, 56)
 
 	if is_completed:
-		btn.text = "[%d] %s — %s  (Complete)" % [index, type_label, headline]
+		btn.text = "%s %s — %s  (Done)" % [type_icon, type_label, headline]
 		btn.disabled = true
 		btn.add_theme_color_override("font_disabled_color", Color(0.5, 0.7, 0.5, 0.7))
-	elif is_current:
-		btn.text = "[%d] %s — %s" % [index, type_label, headline]
-		btn.pressed.connect(func() -> void: node_fight_pressed.emit(node_id))
-		# Highlight current node
-		var style := StyleBoxFlat.new()
-		if node_type == "final_boss":
-			style.bg_color = Color(0.5, 0.15, 0.15, 1.0)
-			style.border_color = Color(0.9, 0.3, 0.3, 1.0)
-		elif node_type == "mini_boss":
-			style.bg_color = Color(0.4, 0.3, 0.15, 1.0)
-			style.border_color = Color(0.9, 0.7, 0.3, 1.0)
-		else:
-			style.bg_color = Color(0.2, 0.35, 0.55, 1.0)
-			style.border_color = Color(0.4, 0.6, 0.9, 1.0)
-		style.set_border_width_all(2)
-		style.set_corner_radius_all(6)
+	elif is_reachable:
+		btn.text = "%s %s — %s" % [type_icon, type_label, headline]
+		btn.pressed.connect(func() -> void: node_selected.emit(node_id))
+		var style := _get_node_style(node_type)
 		btn.add_theme_stylebox_override("normal", style)
 	else:
-		btn.text = "[%d] %s — %s" % [index, type_label, headline]
+		# Greyed out — visible but not interactable
+		btn.text = "%s %s — %s" % [type_icon, type_label, headline]
 		btn.disabled = true
 		btn.add_theme_color_override("font_disabled_color", Color(0.4, 0.4, 0.4, 0.5))
 
@@ -157,12 +202,75 @@ func _build_node_row(node_data: Dictionary, is_completed: bool, is_current: bool
 	return btn
 
 
-func _build_connector(is_after_completed: bool) -> Control:
+func _get_type_icon(node_type: String) -> String:
+	match node_type:
+		"combat": return "[Battle]"
+		"mini_boss": return "[Boss]"
+		"final_boss": return "[BOSS]"
+		"healer": return "[Heal]"
+		"reinforcement": return "[Card]"
+		"shop": return "[Shop]"
+	return "[?]"
+
+
+func _get_type_label(node_type: String) -> String:
+	match node_type:
+		"combat": return "Battle"
+		"mini_boss": return "Mini-Boss"
+		"final_boss": return "Final Boss"
+		"healer": return "Healer"
+		"reinforcement": return "Recruit"
+		"shop": return "Shop"
+	return "Unknown"
+
+
+func _get_node_style(node_type: String) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	match node_type:
+		"final_boss":
+			style.bg_color = Color(0.5, 0.15, 0.15, 1.0)
+			style.border_color = Color(0.9, 0.3, 0.3, 1.0)
+		"mini_boss":
+			style.bg_color = Color(0.4, 0.3, 0.15, 1.0)
+			style.border_color = Color(0.9, 0.7, 0.3, 1.0)
+		"healer":
+			style.bg_color = Color(0.15, 0.4, 0.2, 1.0)
+			style.border_color = Color(0.3, 0.8, 0.4, 1.0)
+		"reinforcement":
+			style.bg_color = Color(0.2, 0.25, 0.45, 1.0)
+			style.border_color = Color(0.4, 0.5, 0.9, 1.0)
+		"shop":
+			style.bg_color = Color(0.4, 0.35, 0.15, 1.0)
+			style.border_color = Color(0.9, 0.75, 0.3, 1.0)
+		_:
+			style.bg_color = Color(0.2, 0.35, 0.55, 1.0)
+			style.border_color = Color(0.4, 0.6, 0.9, 1.0)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(6)
+	return style
+
+
+func _build_layer_connector(layer: Array, next_layer: Array) -> Control:
+	# Simple text connector between layers
+	var is_branch := layer.size() > 1 or next_layer.size() > 1
 	var connector := Label.new()
-	connector.text = "  |"
+	if is_branch:
+		if layer.size() > 1:
+			connector.text = "\\  /"
+		else:
+			connector.text = "/  \\"
+	else:
+		connector.text = "|"
 	connector.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	connector.add_theme_font_size_override("font_size", 14)
-	if is_after_completed:
+
+	# Color based on whether we've passed this point
+	var all_completed := true
+	for node_data in layer:
+		if str(node_data.get("id", "")) not in _completed_node_ids:
+			all_completed = false
+			break
+	if all_completed:
 		connector.add_theme_color_override("font_color", Color(0.5, 0.7, 0.5, 0.5))
 	else:
 		connector.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4, 0.3))
@@ -187,23 +295,3 @@ func _build_footer() -> Control:
 	hbox.add_child(abandon_btn)
 
 	return footer
-
-
-func _get_ordered_nodes() -> Array:
-	var ordered: Array = []
-	var start_id: String = str(_adventure.get("start_node", ""))
-	var nodes: Dictionary = _adventure.get("nodes", {})
-	var current_id := start_id
-	while not current_id.is_empty():
-		var node: Dictionary = nodes.get(current_id, {})
-		if node.is_empty():
-			break
-		var entry := node.duplicate()
-		entry["id"] = current_id
-		ordered.append(entry)
-		var next_nodes: Array = node.get("next", [])
-		if next_nodes.size() == 1:
-			current_id = str(next_nodes[0])
-		else:
-			break
-	return ordered

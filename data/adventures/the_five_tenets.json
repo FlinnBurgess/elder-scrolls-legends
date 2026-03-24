@@ -2,49 +2,53 @@
 	"id": "the_five_tenets",
 	"name": "The Five Tenets",
 	"allowed_deck_ids": ["dark_brotherhood"],
-	"start_node": "node_1",
+	"start_node": "node_a",
 	"nodes": {
-		"node_1": {
+		"node_a": {
 			"type": "combat",
 			"headline": "Shadowscale Assassin",
 			"enemy_deck": "enemy_shadowscale_assassin",
 			"quality": 0.4,
 			"enemy_health": 30,
-			"next": ["node_2"]
+			"next": ["node_b", "node_c"]
 		},
-		"node_2": {
-			"type": "combat",
-			"headline": "Necromancer",
-			"enemy_deck": "enemy_necromancer",
-			"quality": 0.5,
-			"enemy_health": 30,
-			"next": ["node_3"]
+		"node_b": {
+			"type": "shop",
+			"headline": "Fence Contact",
+			"next": ["node_mini"]
 		},
-		"node_3": {
+		"node_c": {
+			"type": "healer",
+			"headline": "Shrine of Sithis",
+			"next": ["node_mini"]
+		},
+		"node_mini": {
 			"type": "mini_boss",
 			"headline": "Shadowscale Assassin",
 			"enemy_deck": "enemy_shadowscale_assassin",
 			"quality": 0.65,
 			"enemy_health": 35,
-			"next": ["node_4"]
+			"next": ["node_d"]
 		},
-		"node_4": {
+		"node_d": {
 			"type": "combat",
 			"headline": "Necromancer",
 			"enemy_deck": "enemy_necromancer",
 			"quality": 0.6,
 			"enemy_health": 30,
-			"next": ["node_5"]
+			"next": ["node_e", "node_f"]
 		},
-		"node_5": {
-			"type": "combat",
-			"headline": "Shadowscale Assassin",
-			"enemy_deck": "enemy_shadowscale_assassin",
-			"quality": 0.7,
-			"enemy_health": 30,
-			"next": ["node_6"]
+		"node_e": {
+			"type": "reinforcement",
+			"headline": "Dark Recruit",
+			"next": ["node_boss"]
 		},
-		"node_6": {
+		"node_f": {
+			"type": "shop",
+			"headline": "Black Market",
+			"next": ["node_boss"]
+		},
+		"node_boss": {
 			"type": "final_boss",
 			"headline": "Emperor Titus Mede II",
 			"enemy_deck": "enemy_emperor_titus_mede_boss",

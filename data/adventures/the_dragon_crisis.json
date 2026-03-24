@@ -2,49 +2,53 @@
 	"id": "the_dragon_crisis",
 	"name": "The Dragon Crisis",
 	"allowed_deck_ids": ["dragons_of_skyrim"],
-	"start_node": "node_1",
+	"start_node": "node_a",
 	"nodes": {
-		"node_1": {
+		"node_a": {
 			"type": "combat",
 			"headline": "Frost Dragon",
 			"enemy_deck": "enemy_frost_dragon",
 			"quality": 0.4,
 			"enemy_health": 30,
-			"next": ["node_2"]
+			"next": ["node_b", "node_c"]
 		},
-		"node_2": {
-			"type": "combat",
-			"headline": "Draugr Deathlord",
-			"enemy_deck": "enemy_draugr_deathlord",
-			"quality": 0.5,
-			"enemy_health": 30,
-			"next": ["node_3"]
+		"node_b": {
+			"type": "reinforcement",
+			"headline": "Recruit Allies",
+			"next": ["node_mini"]
 		},
-		"node_3": {
+		"node_c": {
+			"type": "shop",
+			"headline": "Riverwood Trader",
+			"next": ["node_mini"]
+		},
+		"node_mini": {
 			"type": "mini_boss",
 			"headline": "Blood Dragon",
 			"enemy_deck": "enemy_frost_dragon",
 			"quality": 0.65,
 			"enemy_health": 35,
-			"next": ["node_4"]
+			"next": ["node_d"]
 		},
-		"node_4": {
+		"node_d": {
 			"type": "combat",
 			"headline": "Draugr Deathlord",
 			"enemy_deck": "enemy_draugr_deathlord",
 			"quality": 0.6,
 			"enemy_health": 30,
-			"next": ["node_5"]
+			"next": ["node_e", "node_f"]
 		},
-		"node_5": {
-			"type": "combat",
-			"headline": "Frost Dragon",
-			"enemy_deck": "enemy_frost_dragon",
-			"quality": 0.7,
-			"enemy_health": 30,
-			"next": ["node_6"]
+		"node_e": {
+			"type": "healer",
+			"headline": "Shrine of Arkay",
+			"next": ["node_boss"]
 		},
-		"node_6": {
+		"node_f": {
+			"type": "reinforcement",
+			"headline": "Dragon Hoard",
+			"next": ["node_boss"]
+		},
+		"node_boss": {
 			"type": "final_boss",
 			"headline": "Alduin",
 			"enemy_deck": "enemy_alduin_boss",

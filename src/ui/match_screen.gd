@@ -309,14 +309,18 @@ func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_confi
 		_status_message = "Failed to create match."
 		_refresh_ui()
 		return false
-	# Apply boss health override
+	# Apply health overrides
 	var boss_id := PLAYER_ORDER[0]
+	var local_id := PLAYER_ORDER[1]
 	var boss_health := int(boss_config.get("boss_health", 0))
-	if boss_health > 0:
+	var player_health := int(boss_config.get("player_health", 0))
+	if boss_health > 0 or player_health > 0:
 		for player in match_state.get("players", []):
-			if str(player.get("player_id", "")) == boss_id:
+			var pid: String = str(player.get("player_id", ""))
+			if pid == boss_id and boss_health > 0:
 				player["health"] = boss_health
-				break
+			elif pid == local_id and player_health > 0:
+				player["health"] = player_health
 	_hydrate_match_cards(match_state, card_by_id)
 	# Inject relic support card into boss's support zone
 	var relic: Variant = boss_config.get("relic", null)

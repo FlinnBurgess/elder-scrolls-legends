@@ -2,49 +2,53 @@
 	"id": "blood_of_sovngarde",
 	"name": "Blood of Sovngarde",
 	"allowed_deck_ids": ["the_companions"],
-	"start_node": "node_1",
+	"start_node": "node_a",
 	"nodes": {
-		"node_1": {
+		"node_a": {
 			"type": "combat",
 			"headline": "Ice Wraith",
 			"enemy_deck": "enemy_ice_wraith",
 			"quality": 0.4,
 			"enemy_health": 30,
-			"next": ["node_2"]
+			"next": ["node_b", "node_c"]
 		},
-		"node_2": {
-			"type": "combat",
-			"headline": "Silver Hand",
-			"enemy_deck": "enemy_silver_hand",
-			"quality": 0.5,
-			"enemy_health": 30,
-			"next": ["node_3"]
+		"node_b": {
+			"type": "reinforcement",
+			"headline": "Companions Recruit",
+			"next": ["node_mini"]
 		},
-		"node_3": {
+		"node_c": {
+			"type": "healer",
+			"headline": "Shrine of Hircine",
+			"next": ["node_mini"]
+		},
+		"node_mini": {
 			"type": "mini_boss",
 			"headline": "Silver Hand",
 			"enemy_deck": "enemy_silver_hand",
 			"quality": 0.65,
 			"enemy_health": 35,
-			"next": ["node_4"]
+			"next": ["node_d"]
 		},
-		"node_4": {
-			"type": "combat",
-			"headline": "Ice Wraith",
-			"enemy_deck": "enemy_ice_wraith",
-			"quality": 0.6,
-			"enemy_health": 30,
-			"next": ["node_5"]
-		},
-		"node_5": {
+		"node_d": {
 			"type": "combat",
 			"headline": "Silver Hand",
 			"enemy_deck": "enemy_silver_hand",
-			"quality": 0.7,
+			"quality": 0.6,
 			"enemy_health": 30,
-			"next": ["node_6"]
+			"next": ["node_e", "node_f"]
 		},
-		"node_6": {
+		"node_e": {
+			"type": "shop",
+			"headline": "Whiterun Market",
+			"next": ["node_boss"]
+		},
+		"node_f": {
+			"type": "reinforcement",
+			"headline": "Shield-Brothers",
+			"next": ["node_boss"]
+		},
+		"node_boss": {
 			"type": "final_boss",
 			"headline": "Night Talon Lord",
 			"enemy_deck": "enemy_night_talon_lord_boss",

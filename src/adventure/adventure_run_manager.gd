@@ -18,11 +18,18 @@ var completed_node_ids: Array = []
 var revives_remaining: int = 1
 var run_won: bool = false
 var match_config: Variant = null  # For match resume
+var gold: int = 0
+var max_health_bonus: int = 0
+var added_cards: Array = []  # Array of card_id strings added during run
+var node_offerings: Dictionary = {}  # node_id -> {cards: Array, purchased_ids: Array}
 
 const RUN_DIR := "user://adventure/"
 const RUN_PATH := "user://adventure/run.json"
 const MATCH_STATE_PATH := "user://adventure/match_state.json"
 const STARTING_REVIVES := 1
+const GOLD_PER_COMBAT := 30
+const GOLD_PER_MINI_BOSS := 60
+const HEALER_HEALTH_BONUS := 5
 
 
 func start_run(p_adventure_id: String, p_deck_id: String, p_deck_cards: Array, start_node_id: String) -> void:
@@ -34,6 +41,10 @@ func start_run(p_adventure_id: String, p_deck_id: String, p_deck_cards: Array, s
 	revives_remaining = STARTING_REVIVES
 	run_won = false
 	match_config = null
+	gold = 0
+	max_health_bonus = 0
+	added_cards = []
+	node_offerings = {}
 	state = State.VIEWING_MAP
 	save_run()
 
@@ -48,6 +59,14 @@ func record_win(adventure: Dictionary) -> void:
 	completed_node_ids.append(current_node_id)
 
 	var node: Dictionary = adventure.get("nodes", {}).get(current_node_id, {})
+	var node_type: String = str(node.get("type", ""))
+
+	# Award gold based on node type
+	if node_type == "mini_boss":
+		gold += GOLD_PER_MINI_BOSS
+	elif node_type in ["combat", "final_boss"]:
+		gold += GOLD_PER_COMBAT
+
 	var next_nodes: Array = node.get("next", [])
 
 	if next_nodes.is_empty():
@@ -55,9 +74,13 @@ func record_win(adventure: Dictionary) -> void:
 		run_won = true
 		state = State.RUN_COMPLETE
 		clear_run()
-	else:
-		# Advance to next node (linear for M1)
+	elif next_nodes.size() == 1:
 		current_node_id = str(next_nodes[0])
+		state = State.VIEWING_MAP
+		save_run()
+	else:
+		# Branching — stay on map, player picks next node
+		current_node_id = ""
 		state = State.VIEWING_MAP
 		save_run()
 
@@ -72,6 +95,69 @@ func record_loss() -> void:
 		run_won = false
 		state = State.RUN_COMPLETE
 		clear_run()
+
+
+func complete_non_combat_node(adventure: Dictionary) -> void:
+	completed_node_ids.append(current_node_id)
+	var node: Dictionary = adventure.get("nodes", {}).get(current_node_id, {})
+	var next_nodes: Array = node.get("next", [])
+
+	if next_nodes.size() == 1:
+		current_node_id = str(next_nodes[0])
+	else:
+		# Branching — player picks next node from map
+		current_node_id = ""
+	state = State.VIEWING_MAP
+	save_run()
+
+
+func choose_next_node(node_id: String) -> void:
+	current_node_id = node_id
+	save_run()
+
+
+func add_card(card_id: String) -> void:
+	added_cards.append(card_id)
+	save_run()
+
+
+func spend_gold(amount: int) -> bool:
+	if amount > gold:
+		return false
+	gold -= amount
+	save_run()
+	return true
+
+
+func apply_healer_bonus() -> void:
+	max_health_bonus += HEALER_HEALTH_BONUS
+	save_run()
+
+
+func get_node_offering(node_id: String) -> Dictionary:
+	return node_offerings.get(node_id, {})
+
+
+func save_node_offering(node_id: String, cards: Array) -> void:
+	node_offerings[node_id] = {"cards": cards, "purchased_ids": []}
+	save_run()
+
+
+func mark_card_purchased(node_id: String, card_id: String) -> void:
+	var offering: Dictionary = node_offerings.get(node_id, {})
+	if offering.is_empty():
+		return
+	var purchased: Array = offering.get("purchased_ids", [])
+	purchased.append(card_id)
+	offering["purchased_ids"] = purchased
+	save_run()
+
+
+func get_full_deck_cards() -> Array:
+	var full := deck_cards.duplicate(true)
+	for card_id in added_cards:
+		full.append({"card_id": card_id, "quantity": 1})
+	return full
 
 
 func abandon_run() -> void:
@@ -96,6 +182,10 @@ func save_run() -> void:
 		"revives_remaining": revives_remaining,
 		"run_won": run_won,
 		"match_config": match_config,
+		"gold": gold,
+		"max_health_bonus": max_health_bonus,
+		"added_cards": added_cards,
+		"node_offerings": node_offerings,
 	}
 	file.store_string(JSON.stringify(data, "\t"))
 
@@ -127,6 +217,12 @@ static func load_run() -> AdventureRunManager:
 	manager.revives_remaining = int(data.get("revives_remaining", STARTING_REVIVES))
 	manager.run_won = bool(data.get("run_won", false))
 	manager.match_config = data.get("match_config")
+	manager.gold = int(data.get("gold", 0))
+	manager.max_health_bonus = int(data.get("max_health_bonus", 0))
+	manager.added_cards = Array(data.get("added_cards", []))
+	var offerings_raw = data.get("node_offerings", {})
+	if offerings_raw is Dictionary:
+		manager.node_offerings = offerings_raw
 	return manager
 
 

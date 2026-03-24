@@ -50,6 +50,7 @@ static func get_start_node(adventure: Dictionary) -> Dictionary:
 
 
 static func get_ordered_node_list(adventure: Dictionary) -> Array:
+	# Returns a flat list for linear adventures. For branching, follows the first path.
 	var ordered: Array = []
 	var start_id: String = adventure.get("start_node", "")
 	if start_id.is_empty():
@@ -64,12 +65,48 @@ static func get_ordered_node_list(adventure: Dictionary) -> Array:
 		entry["id"] = current_id
 		ordered.append(entry)
 		var next_nodes: Array = node.get("next", [])
-		if next_nodes.size() == 1:
+		if next_nodes.size() >= 1:
 			current_id = str(next_nodes[0])
 		else:
-			# For branching (future), stop linear traversal
 			break
 	return ordered
+
+
+static func get_graph_layers(adventure: Dictionary) -> Array:
+	# Returns an array of layers, where each layer is an array of node entries.
+	# Each layer represents one row in the visual graph.
+	# Layer structure: [{"id": "node_1", "type": "combat", ...}, ...]
+	var layers: Array = []
+	var start_id: String = adventure.get("start_node", "")
+	if start_id.is_empty():
+		return layers
+	var nodes: Dictionary = adventure.get("nodes", {})
+	var current_ids: Array = [start_id]
+	var visited: Dictionary = {}
+
+	while not current_ids.is_empty():
+		var layer: Array = []
+		var next_ids: Array = []
+		for node_id in current_ids:
+			var nid: String = str(node_id)
+			if visited.has(nid):
+				continue
+			visited[nid] = true
+			var node: Dictionary = nodes.get(nid, {})
+			if node.is_empty():
+				continue
+			var entry := node.duplicate()
+			entry["id"] = nid
+			layer.append(entry)
+			for next_id in node.get("next", []):
+				var next_str: String = str(next_id)
+				if not visited.has(next_str):
+					next_ids.append(next_str)
+		if not layer.is_empty():
+			layers.append(layer)
+		current_ids = next_ids
+
+	return layers
 
 
 static func validate_adventure(adventure: Dictionary) -> Dictionary:
@@ -93,7 +130,8 @@ static func validate_adventure(adventure: Dictionary) -> Dictionary:
 	if not start_id.is_empty() and not nodes.has(start_id):
 		errors.append("start_node '%s' does not exist in nodes" % start_id)
 
-	var valid_types := ["combat", "mini_boss", "final_boss"]
+	var valid_types := ["combat", "mini_boss", "final_boss", "healer", "reinforcement", "shop"]
+	var combat_types := ["combat", "mini_boss", "final_boss"]
 	for node_id in nodes:
 		var node: Dictionary = nodes[node_id]
 		var node_type: String = str(node.get("type", ""))
@@ -102,7 +140,7 @@ static func validate_adventure(adventure: Dictionary) -> Dictionary:
 		elif node_type not in valid_types:
 			errors.append("Node '%s' has unknown type '%s'" % [node_id, node_type])
 
-		if node_type in ["combat", "mini_boss", "final_boss"]:
+		if node_type in combat_types:
 			if not node.has("enemy_deck") or str(node["enemy_deck"]).is_empty():
 				errors.append("Combat node '%s' has no enemy_deck" % node_id)
 

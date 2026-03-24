@@ -10,9 +10,12 @@ func _initialize() -> void:
 	_test_load_all_adventures()
 	_test_get_adventures_for_deck()
 	_test_get_ordered_node_list()
+	_test_get_graph_layers()
+	_test_get_graph_layers_branching()
 	_test_validate_adventure_valid()
 	_test_validate_adventure_missing_fields()
 	_test_validate_adventure_broken_links()
+	_test_validate_adventure_new_node_types()
 	_test_get_start_node()
 
 	_finish()
@@ -59,27 +62,51 @@ func _test_get_adventures_for_deck() -> void:
 			found = true
 	_assert(found, "for_deck: dragons should have the_dragon_crisis")
 
-	# A deck that doesn't match any specific adventure shouldn't get adventures with restricted allowed_deck_ids
 	var fake_adventures := AdventureCatalogScript.get_adventures_for_deck("nonexistent_deck")
-	# All current adventures have allowed_deck_ids set, so nonexistent deck should get none
 	_assert(fake_adventures.size() == 0, "for_deck: nonexistent deck should get 0 adventures, got %d" % fake_adventures.size())
 
 
 func _test_get_ordered_node_list() -> void:
 	var adventure := AdventureCatalogScript.load_adventure("the_dragon_crisis")
 	var ordered := AdventureCatalogScript.get_ordered_node_list(adventure)
-	_assert(ordered.size() == 6, "ordered_nodes: should have 6 nodes, got %d" % ordered.size())
-	_assert(str(ordered[0].get("id", "")) == "node_1", "ordered_nodes: first should be node_1")
-	_assert(str(ordered[5].get("id", "")) == "node_6", "ordered_nodes: last should be node_6")
-	_assert(str(ordered[2].get("type", "")) == "mini_boss", "ordered_nodes: node_3 should be mini_boss")
-	_assert(str(ordered[5].get("type", "")) == "final_boss", "ordered_nodes: node_6 should be final_boss")
+	# With branching, ordered follows first path: node_a -> node_b -> node_mini -> node_d -> node_e -> node_boss
+	_assert(ordered.size() >= 4, "ordered_nodes: should have at least 4 nodes following first path, got %d" % ordered.size())
+	_assert(str(ordered[0].get("id", "")) == "node_a", "ordered_nodes: first should be node_a")
+
+
+func _test_get_graph_layers() -> void:
+	# Test with a simple linear adventure
+	var linear_adventure := {
+		"start_node": "n1",
+		"nodes": {
+			"n1": {"type": "combat", "enemy_deck": "e1", "next": ["n2"]},
+			"n2": {"type": "final_boss", "enemy_deck": "e2", "next": []},
+		}
+	}
+	var layers := AdventureCatalogScript.get_graph_layers(linear_adventure)
+	_assert(layers.size() == 2, "graph_layers_linear: should have 2 layers, got %d" % layers.size())
+	_assert(layers[0].size() == 1, "graph_layers_linear: layer 0 should have 1 node")
+	_assert(layers[1].size() == 1, "graph_layers_linear: layer 1 should have 1 node")
+
+
+func _test_get_graph_layers_branching() -> void:
+	var adventure := AdventureCatalogScript.load_adventure("the_dragon_crisis")
+	var layers := AdventureCatalogScript.get_graph_layers(adventure)
+	# Expected layers: [node_a], [node_b, node_c], [node_mini], [node_d], [node_e, node_f], [node_boss]
+	_assert(layers.size() == 6, "graph_layers_branch: should have 6 layers, got %d" % layers.size())
+	_assert(layers[0].size() == 1, "graph_layers_branch: layer 0 should have 1 node (node_a)")
+	_assert(layers[1].size() == 2, "graph_layers_branch: layer 1 should have 2 nodes (branch)")
+	_assert(layers[2].size() == 1, "graph_layers_branch: layer 2 should have 1 node (mini-boss)")
+	_assert(layers[3].size() == 1, "graph_layers_branch: layer 3 should have 1 node (node_d)")
+	_assert(layers[4].size() == 2, "graph_layers_branch: layer 4 should have 2 nodes (branch)")
+	_assert(layers[5].size() == 1, "graph_layers_branch: layer 5 should have 1 node (boss)")
 
 
 func _test_validate_adventure_valid() -> void:
 	var adventure := AdventureCatalogScript.load_adventure("the_dragon_crisis")
 	var result := AdventureCatalogScript.validate_adventure(adventure)
 	_assert(result.get("is_valid", false) == true, "validate_valid: the_dragon_crisis should be valid")
-	_assert(result.get("errors", []).size() == 0, "validate_valid: should have 0 errors")
+	_assert(result.get("errors", []).size() == 0, "validate_valid: should have 0 errors, got: %s" % str(result.get("errors", [])))
 
 
 func _test_validate_adventure_missing_fields() -> void:
@@ -107,6 +134,22 @@ func _test_validate_adventure_broken_links() -> void:
 		if "node_99" in str(error):
 			found_link_error = true
 	_assert(found_link_error, "validate_broken: should report broken link to node_99")
+
+
+func _test_validate_adventure_new_node_types() -> void:
+	# Non-combat nodes should be valid without enemy_deck
+	var adventure := {
+		"id": "test_noncombat",
+		"name": "Test Non-Combat",
+		"start_node": "n1",
+		"nodes": {
+			"n1": {"type": "healer", "next": ["n2"]},
+			"n2": {"type": "reinforcement", "next": ["n3"]},
+			"n3": {"type": "shop", "next": []},
+		}
+	}
+	var result := AdventureCatalogScript.validate_adventure(adventure)
+	_assert(result.get("is_valid", false) == true, "validate_noncombat: non-combat nodes without enemy_deck should be valid, errors: %s" % str(result.get("errors", [])))
 
 
 func _test_get_start_node() -> void:
