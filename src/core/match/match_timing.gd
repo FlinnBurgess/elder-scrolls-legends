@@ -3243,12 +3243,16 @@ static func _matches_trigger_role(match_state: Dictionary, trigger: Dictionary, 
 		"subject":
 			return _event_subject_instance_id(event) == source_instance_id
 		"killer":
+			if bool(event.get("is_retaliation_kill", false)):
+				return false
 			return str(event.get("destroyed_by_instance_id", "")) == source_instance_id
 		"either":
 			return str(event.get("source_instance_id", "")) == source_instance_id or _event_target_instance_id(event) == source_instance_id or _event_subject_instance_id(event) == source_instance_id
 		"any_player":
 			return true
 		"friendly_killer":
+			if bool(event.get("is_retaliation_kill", false)):
+				return false
 			var killer_id := str(event.get("destroyed_by_instance_id", ""))
 			if killer_id.is_empty() or killer_id == source_instance_id:
 				return false
@@ -4020,7 +4024,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							var atk_controller := str(battle_source.get("controller_player_id", ""))
 							var atk_moved := MatchMutations.discard_card(match_state, battle_source_id)
 							if bool(atk_moved.get("is_valid", false)):
-								generated_events.append({"event_type": "creature_destroyed", "instance_id": battle_source_id, "source_instance_id": battle_source_id, "owner_player_id": str(battle_source.get("owner_player_id", "")), "controller_player_id": atk_controller, "destroyed_by_instance_id": str(defender.get("instance_id", "")), "lane_id": str(atk_loc.get("lane_id", "")), "source_zone": ZONE_LANE})
+								generated_events.append({"event_type": "creature_destroyed", "instance_id": battle_source_id, "source_instance_id": battle_source_id, "owner_player_id": str(battle_source.get("owner_player_id", "")), "controller_player_id": atk_controller, "destroyed_by_instance_id": str(defender.get("instance_id", "")), "lane_id": str(atk_loc.get("lane_id", "")), "source_zone": ZONE_LANE, "is_retaliation_kill": true})
 			"destroy_creature":
 				var destroy_source_id := str(trigger.get("source_instance_id", ""))
 				var dc_max_power := int(effect.get("max_power", -1))
@@ -6216,11 +6220,29 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 								generated_events.append({"event_type": "keyword_granted", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(gkftd_source.get("instance_id", "")), "keyword_id": str(kw)})
 					gkftd_source["granted_keywords"] = gkftd_granted
 			"repeat_slay_reward":
-				# This is handled as a support passive — mark the support as active
-				# The actual repeat logic needs to hook into slay resolution
-				var rsr_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
-				if not rsr_source.is_empty():
-					rsr_source["_repeat_slay_active"] = true
+				# Re-fire the killing creature's slay trigger effects
+				var rsr_killer_id := str(event.get("destroyed_by_instance_id", ""))
+				var rsr_killer := _find_card_anywhere(match_state, rsr_killer_id)
+				if not rsr_killer.is_empty():
+					var rsr_raw_triggers = rsr_killer.get("triggered_abilities", [])
+					if typeof(rsr_raw_triggers) == TYPE_ARRAY:
+						for rsr_idx in range(rsr_raw_triggers.size()):
+							var rsr_desc = rsr_raw_triggers[rsr_idx]
+							if typeof(rsr_desc) != TYPE_DICTIONARY:
+								continue
+							if str(rsr_desc.get("family", "")) != FAMILY_SLAY:
+								continue
+							var rsr_synth_trigger := {
+								"trigger_id": "%s_repeat_slay_%d" % [rsr_killer_id, rsr_idx],
+								"trigger_index": rsr_idx,
+								"source_instance_id": rsr_killer_id,
+								"owner_player_id": str(rsr_killer.get("owner_player_id", "")),
+								"controller_player_id": str(rsr_killer.get("controller_player_id", "")),
+								"source_zone": "lane",
+								"descriptor": rsr_desc.duplicate(true),
+							}
+							var rsr_resolution := _build_trigger_resolution(match_state, rsr_synth_trigger, event)
+							generated_events.append_array(_apply_effects(match_state, rsr_synth_trigger, event, rsr_resolution))
 			"trigger_all_friendly_summons":
 				var tafs_controller_id := str(trigger.get("controller_player_id", ""))
 				var tafs_creatures := _player_lane_creatures(match_state, tafs_controller_id)

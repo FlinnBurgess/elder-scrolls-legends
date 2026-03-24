@@ -237,7 +237,7 @@ static func _resolve_creature_attack(match_state: Dictionary, validation: Dictio
 	if attacker_destroyed:
 		var attacker_lookup := _find_creature_on_board(match_state.get("lanes", []), str(attacker.get("instance_id", "")))
 		if attacker_lookup["is_valid"]:
-			_destroy_creature(match_state, attacker_lookup, str(defender.get("instance_id", "")), events)
+			_destroy_creature(match_state, attacker_lookup, str(defender.get("instance_id", "")), events, true)
 
 	var result := {
 		"is_valid": true,
@@ -509,7 +509,7 @@ static func _get_health(card: Dictionary) -> int:
 	return EvergreenRules.get_health(card)
 
 
-static func _destroy_creature(match_state: Dictionary, lookup: Dictionary, destroyed_by_instance_id: String, events: Array) -> void:
+static func _destroy_creature(match_state: Dictionary, lookup: Dictionary, destroyed_by_instance_id: String, events: Array, is_retaliation_kill := false) -> void:
 	var card := MatchMutations.find_card_location(match_state, str(lookup.get("card", {}).get("instance_id", "")))
 	if not bool(card.get("is_valid", false)):
 		return
@@ -518,7 +518,7 @@ static func _destroy_creature(match_state: Dictionary, lookup: Dictionary, destr
 	if not bool(moved.get("is_valid", false)):
 		return
 	var destroyed_card: Dictionary = moved["card"]
-	events.append({
+	var destroy_event := {
 		"event_type": "creature_destroyed",
 		"instance_id": str(destroyed_card.get("instance_id", "")),
 		"source_instance_id": str(destroyed_card.get("instance_id", "")),
@@ -527,7 +527,10 @@ static func _destroy_creature(match_state: Dictionary, lookup: Dictionary, destr
 		"destroyed_by_instance_id": destroyed_by_instance_id,
 		"lane_id": str(lookup.get("lane_id", "")),
 		"source_zone": ZONE_LANE,
-	})
+	}
+	if is_retaliation_kill:
+		destroy_event["is_retaliation_kill"] = true
+	events.append(destroy_event)
 
 
 static func _record_events(match_state: Dictionary, events: Array) -> void:
