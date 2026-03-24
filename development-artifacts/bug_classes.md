@@ -149,3 +149,8 @@ How to spot: User reports a "summon X with total cost Y" or "fill a lane with...
 Card's effect uses `amount_source` with a value that `_resolve_amount()` in `match_timing.gd` doesn't handle. The function falls through to the default `int(effect.get("amount", 0))`, which returns 0 since no static `amount` field is set. The effect fires but deals/heals/modifies by 0.
 Example: Blast from Oblivion (`amount_source: "oblivion_gate_level"` was not handled — always dealt 0 damage)
 How to spot: User reports a damage/heal/stat effect "does nothing" or always applies 0. Check if the card's effect has `amount_source` and whether that value is handled in `_resolve_amount` in `match_timing.gd`.
+
+## Unresolved "chosen" lane literal in summon ops
+Effect uses `"lane": "chosen"` to indicate the player picks the lane, but the op handler (`summon_from_effect`, `fill_lane_with`, `summon_copies_to_lane`) treated `"chosen"` as a literal lane ID instead of resolving it to the actual lane from the event's `lane_id`. The lane resolution chain (`effect.lane_id` → `effect.target_lane_id` → `effect.lane` → `event.lane_id`) stops at `effect.lane` = `"chosen"` and never falls through to the event. The summon silently fails because no lane with ID `"chosen"` exists.
+Example: Call of Valor, Wolf Cage, A Land Divided, Crassius' Favor, Rising of Bones, Strategist's Map, Corsair Ship, The Night Mother, Reconstruction Engine
+How to spot: User reports a "Summon a creature in a lane" or "Fill a lane" effect doing nothing. Check if the card's effect uses `"lane": "chosen"` — this value must be resolved to `event.lane_id` or `trigger._chosen_lane_id` at runtime.

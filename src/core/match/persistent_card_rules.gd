@@ -296,8 +296,15 @@ static func get_effective_play_cost(match_state: Dictionary, player_id: String, 
 	reduction += _get_aura_cost_reduction(match_state, player_id, card)
 	var self_reduction = card.get("self_cost_reduction", {})
 	if typeof(self_reduction) == TYPE_DICTIONARY and not self_reduction.is_empty():
-		var per_source := str(self_reduction.get("per", self_reduction.get("type", "")))
-		var per_amount := int(self_reduction.get("amount", 1))
+		var per_source := str(self_reduction.get("per", self_reduction.get("type", self_reduction.get("source", ""))))
+		var per_amount := int(self_reduction.get("amount", self_reduction.get("amount_per", 1)))
+		# Handle single-key format: {"per_friendly_wounded": 3} → source="per_friendly_wounded", amount=3
+		if per_source.is_empty():
+			for key in self_reduction.keys():
+				if key != "amount" and key != "amount_per" and key != "per" and key != "type" and key != "source":
+					per_source = key
+					per_amount = int(self_reduction.get(key, 1))
+					break
 		if per_source == "creature_summons_this_turn":
 			reduction += int(player.get("creature_summons_this_turn", 0)) * per_amount
 		elif per_source == "creatures_died_this_turn":
@@ -307,6 +314,64 @@ static func get_effective_play_cost(match_state: Dictionary, player_id: String, 
 			reduction += empower_total * per_amount
 		elif per_source == "per_action_played_this_turn":
 			reduction += int(player.get("noncreature_plays_this_turn", 0)) * per_amount
+		elif per_source == "per_friendly_wounded":
+			for lane in match_state.get("lanes", []):
+				for c in lane.get("player_slots", {}).get(player_id, []):
+					if typeof(c) == TYPE_DICTIONARY and int(c.get("damage_marked", 0)) > 0:
+						reduction += per_amount
+		elif per_source == "per_friendly_creature_min_health_5":
+			for lane in match_state.get("lanes", []):
+				for c in lane.get("player_slots", {}).get(player_id, []):
+					if typeof(c) == TYPE_DICTIONARY and EvergreenRules.get_remaining_health(c) >= 5:
+						reduction += per_amount
+		elif per_source == "per_pilfer_or_drain_this_turn":
+			reduction += int(player.get("pilfer_or_drain_count_this_turn", 0)) * per_amount
+		elif per_source == "per_creature_in_discard":
+			for c in player.get("discard", []):
+				if typeof(c) == TYPE_DICTIONARY and str(c.get("card_type", "")) == "creature":
+					reduction += per_amount
+		elif per_source == "per_attribute_in_play":
+			var seen_attrs: Dictionary = {}
+			for lane in match_state.get("lanes", []):
+				for c in lane.get("player_slots", {}).get(player_id, []):
+					if typeof(c) != TYPE_DICTIONARY:
+						continue
+					for attr in c.get("attributes", []):
+						if not seen_attrs.has(str(attr)):
+							seen_attrs[str(attr)] = true
+			reduction += seen_attrs.size() * per_amount
+		elif per_source == "if_neutral_in_play":
+			var has_neutral := false
+			for lane in match_state.get("lanes", []):
+				for c in lane.get("player_slots", {}).get(player_id, []):
+					if typeof(c) == TYPE_DICTIONARY:
+						for attr in c.get("attributes", []):
+							if str(attr) == "neutral":
+								has_neutral = true
+			if has_neutral:
+				reduction += per_amount
+		elif per_source == "per_opponent_undead":
+			var opp_id := ""
+			for p in match_state.get("players", []):
+				if str(p.get("player_id", "")) != player_id:
+					opp_id = str(p.get("player_id", ""))
+			for lane in match_state.get("lanes", []):
+				for c in lane.get("player_slots", {}).get(opp_id, []):
+					if typeof(c) == TYPE_DICTIONARY:
+						var subtypes = c.get("subtypes", [])
+						if typeof(subtypes) == TYPE_ARRAY:
+							for st in subtypes:
+								if str(st) == "Skeleton" or str(st) == "Vampire" or str(st) == "Spirit" or str(st) == "Mummy":
+									reduction += per_amount
+									break
+		elif per_source == "unique_creatures_in_discard":
+			var seen_defs: Dictionary = {}
+			for c in player.get("discard", []):
+				if typeof(c) == TYPE_DICTIONARY and str(c.get("card_type", "")) == "creature":
+					var def_id := str(c.get("definition_id", ""))
+					if not seen_defs.has(def_id):
+						seen_defs[def_id] = true
+			reduction += seen_defs.size() * per_amount
 	var effective := maxi(0, base_cost - reduction)
 	# min_card_cost passive: all cards cost at least N
 	var min_cost := _get_min_card_cost(match_state)

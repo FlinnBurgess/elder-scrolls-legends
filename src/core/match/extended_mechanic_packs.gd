@@ -75,6 +75,7 @@ static func reset_turn_state(player: Dictionary) -> void:
 	player["creature_summons_this_turn"] = 0
 	player["creatures_died_this_turn"] = 0
 	player["invades_this_turn"] = 0
+	player["pilfer_or_drain_count_this_turn"] = 0
 	player["_double_summon_this_turn"] = false
 
 
@@ -120,6 +121,9 @@ static func observe_event(match_state: Dictionary, event: Dictionary) -> void:
 			return
 		ensure_player_state(source_player)
 		source_player["empower_count_this_turn"] = int(source_player.get("empower_count_this_turn", 0)) + 1
+		# Track pilfer/drain for cost reduction (The Ultimate Heist)
+		# Counts all friendly-to-enemy player damage (same scope as FAMILY_ON_FRIENDLY_PILFER_OR_DRAIN)
+		source_player["pilfer_or_drain_count_this_turn"] = int(source_player.get("pilfer_or_drain_count_this_turn", 0)) + 1
 
 
 static func apply_pre_play_options(card: Dictionary, options: Dictionary) -> void:
@@ -298,6 +302,17 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 				break
 		if took_damage:
 			return false
+	# Marked target alive condition (e.g. Miscarcand Lich)
+	if bool(descriptor.get("if_marked_target_alive", false)):
+		var mark_source_id := str(trigger.get("source_instance_id", ""))
+		var marked_alive := false
+		for lane in match_state.get("lanes", []):
+			for pid in lane.get("player_slots", {}).keys():
+				for card in lane.get("player_slots", {}).get(pid, []):
+					if typeof(card) == TYPE_DICTIONARY and str(card.get("_marked_by", "")) == mark_source_id:
+						marked_alive = true
+		if not marked_alive:
+			return false
 	# Max magicka threshold conditions
 	var req_magicka_gte := int(descriptor.get("required_max_magicka_gte", 0))
 	if req_magicka_gte > 0 and int(controller.get("max_magicka", 0)) < req_magicka_gte:
@@ -380,7 +395,17 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 		"track_treasure_hunt":
 			return {"handled": true, "events": _resolve_treasure_hunt(match_state, trigger, event, effect)}
 		"damage":
-			return {"handled": true, "events": _resolve_player_damage(match_state, trigger, event, effect, int(effect.get("amount", 0)))}
+			var dmg_amount_raw = effect.get("amount", 0)
+			if str(dmg_amount_raw) == "destroy_front_rune":
+				var dmg_controller_id := str(trigger.get("controller_player_id", ""))
+				var dmg_opponent := _get_opponent(match_state, dmg_controller_id)
+				var dmg_opponent_id := str(dmg_opponent.get("player_id", ""))
+				var dmg_events: Array = []
+				if not dmg_opponent_id.is_empty():
+					var dmg_rune_result: Dictionary = _timing_rules().destroy_front_rune(match_state, dmg_opponent_id, {"source_instance_id": str(trigger.get("source_instance_id", ""))})
+					dmg_events.append_array(dmg_rune_result.get("events", []))
+				return {"handled": true, "events": dmg_events}
+			return {"handled": true, "events": _resolve_player_damage(match_state, trigger, event, effect, int(dmg_amount_raw))}
 		"empower_damage":
 			var controller := _get_player_state(match_state, str(trigger.get("controller_player_id", "")))
 			ensure_player_state(controller)

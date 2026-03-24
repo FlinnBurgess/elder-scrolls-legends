@@ -10,8 +10,9 @@ Investigate and fix a card whose in-game effect is not working as described.
 
 1. Find the card in `src/deck/card_catalog.gd` by searching for the card name.
 2. Read the card's `rules_text` to understand what it should do.
-3. If the user has not described the problem, ask what is happening vs what they expected.
-4. If anything else is unclear about the expected behaviour, ask for clarification before proceeding.
+3. If the user references recent gameplay or a game log, read `game_log.txt` in the project root. Look for the card's play event and whether the trigger fired, what op was invoked, and whether subsequent state changes (e.g., `[SUMMON]`, `[DAMAGE]`) actually occurred. A trigger that fires but produces no downstream log entry points to a silent failure in the op handler.
+4. If the user has not described the problem, ask what is happening vs what they expected.
+5. If anything else is unclear about the expected behaviour, ask for clarification before proceeding.
 
 ## Step 1b: Pre-fix Learnings Scan
 
@@ -143,6 +144,7 @@ If the user reports a missing or broken alt-view, check three things:
 13. **Event emitted without actual state change** — An effect op (e.g., `grant_keyword`) emits an event even when the operation was a no-op (e.g., keyword already present). Downstream triggers that react to the event fire spuriously. Fix by gating event emission on whether the state actually changed (e.g., check `has_keyword` before granting, only emit if the keyword was new).
 14. **Activate/on_play trigger with `target_mode` blocked at four layers** — Support's activate (or action's on_play) trigger uses `target_mode` with `"target": "chosen_target"` in effects, but four systems block it: (1) `_append_card_triggers` unconditionally skips all triggers with `target_mode` from the registry — the trigger never even enters event processing, (2) UI's `_selected_support_uses_card_targets` / `_action_needs_explicit_target` — doesn't enter targeting mode, (3) engine's `_trigger_matches_event` — skips triggers with `target_mode` when `_chosen_target_id` is empty, (4) AI's `_collect_target_requirements` — doesn't expand card targets. Fix: exempt `activate` and `on_play` families from the registry skip in `_append_card_triggers`, inject `_chosen_target_id` from the event in `_trigger_matches_event`, and update UI/enumerator.
 15. **Multi-summon op delegates to single-summon helper** — An op that should summon multiple creatures (e.g., "summon random Daedra with total cost 10") delegates to a single-summon helper like `summon_random_from_catalog` without looping. The effect fires once and stops. Fix by rewriting the op handler as a loop that tracks a budget, filters candidates within remaining budget, checks lane capacity across all lanes, and summons until budget is exhausted or all lanes are full. When only one slot remains, pick the highest-cost candidate within budget to maximize value.
+16. **Unresolved sentinel parameter value** — An effect parameter uses a sentinel string (e.g., `"lane": "chosen"`, `"lane": "random"`, `"lane": "both"`) that should be resolved at runtime, but the op handler's resolution chain doesn't have a branch for that value. The literal string passes through silently — it doesn't match any real entity (lane, card, player) but produces no error. The effect appears to fire (trigger log shows it) but has no visible result. Fix by adding a resolution branch for the sentinel value alongside existing ones (e.g., `"same"`, `"other"`). Check all ops that resolve the same parameter type for consistency.
 
 ### Pending State Pattern (Interactive Effects)
 

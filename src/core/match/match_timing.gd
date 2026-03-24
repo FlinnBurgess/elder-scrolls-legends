@@ -2161,8 +2161,15 @@ static func play_action_from_hand(match_state: Dictionary, player_id: String, in
 	action_cost_reduction += _get_aura_cost_reduction(match_state, player_id, played_card)
 	var self_reduction = played_card.get("self_cost_reduction", {})
 	if typeof(self_reduction) == TYPE_DICTIONARY and not self_reduction.is_empty():
-		var sr_source := str(self_reduction.get("per", self_reduction.get("type", "")))
-		var sr_amount := int(self_reduction.get("amount", 1))
+		var sr_source := str(self_reduction.get("per", self_reduction.get("type", self_reduction.get("source", ""))))
+		var sr_amount := int(self_reduction.get("amount", self_reduction.get("amount_per", 1)))
+		# Handle single-key format: {"per_friendly_wounded": 3} → source="per_friendly_wounded", amount=3
+		if sr_source.is_empty():
+			for key in self_reduction.keys():
+				if key != "amount" and key != "amount_per" and key != "per" and key != "type" and key != "source":
+					sr_source = key
+					sr_amount = int(self_reduction.get(key, 1))
+					break
 		if sr_source == "empower":
 			action_cost_reduction += _get_empower_amount(match_state, player_id) * sr_amount
 		elif sr_source == "creature_summons_this_turn":
@@ -2171,6 +2178,61 @@ static func play_action_from_hand(match_state: Dictionary, player_id: String, in
 			action_cost_reduction += int(player.get("creatures_died_this_turn", 0)) * sr_amount
 		elif sr_source == "per_action_played_this_turn":
 			action_cost_reduction += int(player.get("noncreature_plays_this_turn", 0)) * sr_amount
+		elif sr_source == "per_friendly_wounded":
+			for lane in match_state.get("lanes", []):
+				for c in lane.get("player_slots", {}).get(player_id, []):
+					if typeof(c) == TYPE_DICTIONARY and int(c.get("damage_marked", 0)) > 0:
+						action_cost_reduction += sr_amount
+		elif sr_source == "per_friendly_creature_min_health_5":
+			for lane in match_state.get("lanes", []):
+				for c in lane.get("player_slots", {}).get(player_id, []):
+					if typeof(c) == TYPE_DICTIONARY and EvergreenRules.get_remaining_health(c) >= 5:
+						action_cost_reduction += sr_amount
+		elif sr_source == "per_pilfer_or_drain_this_turn":
+			action_cost_reduction += int(player.get("pilfer_or_drain_count_this_turn", 0)) * sr_amount
+		elif sr_source == "per_creature_in_discard":
+			for c in player.get("discard", []):
+				if typeof(c) == TYPE_DICTIONARY and str(c.get("card_type", "")) == "creature":
+					action_cost_reduction += sr_amount
+		elif sr_source == "per_attribute_in_play":
+			var seen_attrs: Dictionary = {}
+			for lane in match_state.get("lanes", []):
+				for c in lane.get("player_slots", {}).get(player_id, []):
+					if typeof(c) != TYPE_DICTIONARY:
+						continue
+					for attr in c.get("attributes", []):
+						if not seen_attrs.has(str(attr)):
+							seen_attrs[str(attr)] = true
+			action_cost_reduction += seen_attrs.size() * sr_amount
+		elif sr_source == "if_neutral_in_play":
+			var has_neutral := false
+			for lane in match_state.get("lanes", []):
+				for c in lane.get("player_slots", {}).get(player_id, []):
+					if typeof(c) == TYPE_DICTIONARY:
+						for attr in c.get("attributes", []):
+							if str(attr) == "neutral":
+								has_neutral = true
+			if has_neutral:
+				action_cost_reduction += sr_amount
+		elif sr_source == "per_opponent_undead":
+			var opp_id := _get_opposing_player_id(match_state.get("players", []), player_id)
+			for lane in match_state.get("lanes", []):
+				for c in lane.get("player_slots", {}).get(opp_id, []):
+					if typeof(c) == TYPE_DICTIONARY:
+						var subtypes = c.get("subtypes", [])
+						if typeof(subtypes) == TYPE_ARRAY:
+							for st in subtypes:
+								if str(st) == "Skeleton" or str(st) == "Vampire" or str(st) == "Spirit" or str(st) == "Mummy":
+									action_cost_reduction += sr_amount
+									break
+		elif sr_source == "unique_creatures_in_discard":
+			var seen_defs: Dictionary = {}
+			for c in player.get("discard", []):
+				if typeof(c) == TYPE_DICTIONARY and str(c.get("card_type", "")) == "creature":
+					var def_id := str(c.get("definition_id", ""))
+					if not seen_defs.has(def_id):
+						seen_defs[def_id] = true
+			action_cost_reduction += seen_defs.size() * sr_amount
 	var play_cost := 0 if played_for_free else maxi(0, base_action_cost - action_cost_reduction)
 	if play_cost > _get_available_magicka(player):
 		return _invalid_result("Player does not have enough magicka to play %s." % instance_id)
@@ -3899,6 +3961,13 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					generated_events.append_array(consume_result.get("events", []))
 			"move_between_lanes":
 				var raw_lane_id := str(effect.get("lane_id", effect.get("target_lane_id", event.get("lane_id", ""))))
+				if raw_lane_id == "self_lane":
+					var _sl_idx := int(trigger.get("lane_index", -1))
+					var _sl_lanes: Array = match_state.get("lanes", [])
+					if _sl_idx >= 0 and _sl_idx < _sl_lanes.size():
+						raw_lane_id = str(_sl_lanes[_sl_idx].get("lane_id", ""))
+					else:
+						raw_lane_id = ""
 				if raw_lane_id != "other_lane" and raw_lane_id.is_empty():
 					continue
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
@@ -3936,6 +4005,36 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						summon_lane_ids.append(str(lane.get("lane_id", "")))
 				else:
 					var single_lane_id := str(effect.get("lane_id", effect.get("target_lane_id", effect.get("lane", event.get("lane_id", "")))))
+					if single_lane_id == "chosen":
+						single_lane_id = str(trigger.get("_chosen_lane_id", event.get("lane_id", "")))
+					if single_lane_id == "same_as_target" or single_lane_id == "same_as_marked_target":
+						var _sat_target_id := ""
+						if single_lane_id == "same_as_marked_target":
+							var _sat_source_id := str(trigger.get("source_instance_id", ""))
+							for _sat_lane in match_state.get("lanes", []):
+								for _sat_pid in _sat_lane.get("player_slots", {}).keys():
+									for _sat_card in _sat_lane.get("player_slots", {}).get(_sat_pid, []):
+										if typeof(_sat_card) == TYPE_DICTIONARY and str(_sat_card.get("_marked_by", "")) == _sat_source_id:
+											_sat_target_id = str(_sat_card.get("instance_id", ""))
+						else:
+							_sat_target_id = str(event.get("target_instance_id", trigger.get("_chosen_target_id", "")))
+						single_lane_id = ""
+						if not _sat_target_id.is_empty():
+							var _sat_loc := MatchMutations.find_card_location(match_state, _sat_target_id)
+							single_lane_id = str(_sat_loc.get("lane_id", ""))
+					if single_lane_id == "random":
+						var _rl_controller_id := str(trigger.get("controller_player_id", ""))
+						var _rl_candidates: Array = []
+						for _rl_lane in match_state.get("lanes", []):
+							var _rl_lid := str(_rl_lane.get("lane_id", ""))
+							var _rl_open := _get_lane_open_slots(match_state, _rl_lid, _rl_controller_id)
+							if int(_rl_open.get("open_slots", 0)) > 0:
+								_rl_candidates.append(_rl_lid)
+						if not _rl_candidates.is_empty():
+							var _rl_idx := _deterministic_index(match_state, "random_lane_%s" % str(trigger.get("source_instance_id", "")), _rl_candidates.size())
+							single_lane_id = _rl_candidates[_rl_idx]
+						else:
+							single_lane_id = ""
 					if single_lane_id == "same":
 						single_lane_id = str(event.get("lane_id", ""))
 					if single_lane_id == "other_lane" or single_lane_id == "other":
@@ -3974,6 +4073,20 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						if has_wounded:
 							filtered_lane_ids.append(check_lid)
 					summon_lane_ids = filtered_lane_ids
+				var sfe_lane_val := str(effect.get("lane_id", effect.get("target_lane_id", effect.get("lane", ""))))
+				if sfe_lane_val == "support":
+					var sfe_support_template: Dictionary = effect.get("card_template", {})
+					if not sfe_support_template.is_empty():
+						for player_id in summon_players:
+							var sfe_support_card := MatchMutations.build_generated_card(match_state, player_id, sfe_support_template)
+							sfe_support_card["zone"] = ZONE_SUPPORT
+							if int(sfe_support_template.get("support_uses", 0)) > 0:
+								sfe_support_card["support_uses_remaining"] = int(sfe_support_template.get("support_uses", 0))
+							var sfe_support_player := _get_player_state(match_state, player_id)
+							if not sfe_support_player.is_empty():
+								sfe_support_player.get(ZONE_SUPPORT, []).append(sfe_support_card)
+								generated_events.append({"event_type": EVENT_CARD_PLAYED, "playing_player_id": player_id, "player_id": player_id, "source_instance_id": str(sfe_support_card.get("instance_id", "")), "source_controller_player_id": player_id, "source_zone": MatchMutations.ZONE_GENERATED, "target_zone": ZONE_SUPPORT, "card_type": "support", "reason": reason})
+					continue
 				var summon_template: Dictionary = effect.get("card_template", {})
 				if summon_template.is_empty():
 					for source_card in _resolve_card_targets_by_name(match_state, trigger, event, str(effect.get("source_target", "event_source"))):
@@ -4000,41 +4113,63 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						sfe_template["health"] = int(sfe_template.get("health", 0)) + sfe_stat_bonus
 						sfe_template["base_power"] = int(sfe_template.get("base_power", 0)) + sfe_stat_bonus
 						sfe_template["base_health"] = int(sfe_template.get("base_health", 0)) + sfe_stat_bonus
+					var sfe_count := _resolve_count_multiplier(match_state, trigger, event, effect)
 					for player_id in summon_players:
 						for s_lane_id in summon_lane_ids:
-							var generated_card := MatchMutations.build_generated_card(match_state, player_id, sfe_template)
-							var summon_result := MatchMutations.summon_card_to_lane(match_state, player_id, generated_card, s_lane_id, {
-								"slot_index": int(effect.get("slot_index", -1)),
-								"source_zone": MatchMutations.ZONE_GENERATED,
-							})
-							if not bool(summon_result.get("is_valid", false)):
-								continue
-							generated_events.append_array(summon_result.get("events", []))
-							generated_events.append(_build_summon_event(summon_result["card"], player_id, s_lane_id, int(summon_result.get("slot_index", -1)), reason))
-							if bool(summon_result.get("granted_cover", false)):
-								generated_events.append({"event_type": "status_granted", "source_instance_id": str(summon_result["card"].get("instance_id", "")), "target_instance_id": str(summon_result["card"].get("instance_id", "")), "status_id": "cover"})
-							_check_summon_abilities(match_state, summon_result["card"])
+							for _sfe_i in range(sfe_count):
+								var generated_card := MatchMutations.build_generated_card(match_state, player_id, sfe_template)
+								var summon_result := MatchMutations.summon_card_to_lane(match_state, player_id, generated_card, s_lane_id, {
+									"slot_index": int(effect.get("slot_index", -1)),
+									"source_zone": MatchMutations.ZONE_GENERATED,
+								})
+								if not bool(summon_result.get("is_valid", false)):
+									break
+								generated_events.append_array(summon_result.get("events", []))
+								generated_events.append(_build_summon_event(summon_result["card"], player_id, s_lane_id, int(summon_result.get("slot_index", -1)), reason))
+								if bool(summon_result.get("granted_cover", false)):
+									generated_events.append({"event_type": "status_granted", "source_instance_id": str(summon_result["card"].get("instance_id", "")), "target_instance_id": str(summon_result["card"].get("instance_id", "")), "status_id": "cover"})
+								_check_summon_abilities(match_state, summon_result["card"])
 			"fill_lane_with":
 				var fill_controller_id := str(trigger.get("controller_player_id", ""))
-				var fill_lane_id := str(effect.get("lane_id", effect.get("target_lane_id", event.get("lane_id", ""))))
+				var fill_lane_id := str(effect.get("lane_id", effect.get("target_lane_id", effect.get("lane", event.get("lane_id", "")))))
+				if fill_lane_id == "chosen":
+					fill_lane_id = str(trigger.get("_chosen_lane_id", event.get("lane_id", "")))
 				var fill_template: Dictionary = effect.get("card_template", {})
-				if fill_lane_id.is_empty() or fill_controller_id.is_empty() or fill_template.is_empty():
+				if fill_controller_id.is_empty() or fill_template.is_empty():
 					continue
-				var fill_open := _get_lane_open_slots(match_state, fill_lane_id, fill_controller_id)
-				var fill_count := int(fill_open.get("open_slots", 0))
-				for _i in range(fill_count):
-					var fill_card := MatchMutations.build_generated_card(match_state, fill_controller_id, fill_template)
-					var fill_result := MatchMutations.summon_card_to_lane(match_state, fill_controller_id, fill_card, fill_lane_id, {
-						"source_zone": MatchMutations.ZONE_GENERATED,
-					})
-					if not bool(fill_result.get("is_valid", false)):
-						break
-					generated_events.append_array(fill_result.get("events", []))
-					generated_events.append(_build_summon_event(fill_result["card"], fill_controller_id, fill_lane_id, int(fill_result.get("slot_index", -1)), reason))
-					if bool(fill_result.get("granted_cover", false)):
-						generated_events.append({"event_type": "status_granted", "source_instance_id": str(fill_result["card"].get("instance_id", "")), "target_instance_id": str(fill_result["card"].get("instance_id", "")), "status_id": "cover"})
+				var fill_lane_ids: Array = []
+				if fill_lane_id == "both":
+					for _fl_lane in match_state.get("lanes", []):
+						fill_lane_ids.append(str(_fl_lane.get("lane_id", "")))
+				elif not fill_lane_id.is_empty():
+					fill_lane_ids.append(fill_lane_id)
+				else:
+					continue
+				var fill_player_ids: Array = []
+				if str(effect.get("owner", "")) == "both":
+					for _fp_player in match_state.get("players", []):
+						fill_player_ids.append(str(_fp_player.get("player_id", "")))
+				else:
+					fill_player_ids.append(fill_controller_id)
+				for fill_pid in fill_player_ids:
+					for fill_lid in fill_lane_ids:
+						var fill_open := _get_lane_open_slots(match_state, fill_lid, fill_pid)
+						var fill_count := int(fill_open.get("open_slots", 0))
+						for _i in range(fill_count):
+							var fill_card := MatchMutations.build_generated_card(match_state, fill_pid, fill_template)
+							var fill_result := MatchMutations.summon_card_to_lane(match_state, fill_pid, fill_card, fill_lid, {
+								"source_zone": MatchMutations.ZONE_GENERATED,
+							})
+							if not bool(fill_result.get("is_valid", false)):
+								break
+							generated_events.append_array(fill_result.get("events", []))
+							generated_events.append(_build_summon_event(fill_result["card"], fill_pid, fill_lid, int(fill_result.get("slot_index", -1)), reason))
+							if bool(fill_result.get("granted_cover", false)):
+								generated_events.append({"event_type": "status_granted", "source_instance_id": str(fill_result["card"].get("instance_id", "")), "target_instance_id": str(fill_result["card"].get("instance_id", "")), "status_id": "cover"})
 			"summon_copies_to_lane":
-				var copies_lane_id := str(effect.get("lane_id", effect.get("target_lane_id", event.get("lane_id", ""))))
+				var copies_lane_id := str(effect.get("lane_id", effect.get("target_lane_id", effect.get("lane", event.get("lane_id", "")))))
+				if copies_lane_id == "chosen":
+					copies_lane_id = str(trigger.get("_chosen_lane_id", event.get("lane_id", "")))
 				var copies_players := _resolve_player_targets(match_state, trigger, event, effect)
 				var copies_template: Dictionary = effect.get("card_template", {})
 				if copies_lane_id.is_empty() or copies_players.is_empty() or copies_template.is_empty():
@@ -7803,6 +7938,20 @@ static func _resolve_count_multiplier(match_state: Dictionary, trigger: Dictiona
 				for card in slots:
 					if typeof(card) == TYPE_DICTIONARY:
 						count += 1
+		"enemies_in_target_lane":
+			var eitl_opponent_id := _get_opposing_player_id(match_state.get("players", []), controller_player_id)
+			var eitl_target_id := str(_event.get("target_instance_id", trigger.get("_chosen_target_id", "")))
+			var eitl_lane_id := ""
+			if not eitl_target_id.is_empty():
+				var eitl_loc := MatchMutations.find_card_location(match_state, eitl_target_id)
+				eitl_lane_id = str(eitl_loc.get("lane_id", ""))
+			if not eitl_lane_id.is_empty():
+				for lane in match_state.get("lanes", []):
+					if str(lane.get("lane_id", "")) == eitl_lane_id:
+						var slots = lane.get("player_slots", {}).get(eitl_opponent_id, [])
+						for card in slots:
+							if typeof(card) == TYPE_DICTIONARY:
+								count += 1
 		"friendly_deaths_in_lane_this_turn":
 			var trigger_lane_index := int(trigger.get("lane_index", -1))
 			if trigger_lane_index < 0:

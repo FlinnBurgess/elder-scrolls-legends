@@ -1,7 +1,7 @@
 # Claude Learnings
 
 ## Tags
-`assemble` `attributes` `auras` `boss-config` `card-catalog` `card-hydration` `card-state` `case-sensitivity` `cost-reduction` `death-checks` `end-of-turn` `events` `generated-cards` `invade` `match-engine` `match-screen` `neutral` `passives` `player-state` `randomness` `registry` `stat-helpers` `supports` `target-resolution` `triggers` `ui`
+`assemble` `attributes` `auras` `boss-config` `card-catalog` `card-hydration` `card-state` `case-sensitivity` `cost-reduction` `death-checks` `end-of-turn` `events` `generated-cards` `invade` `lane-resolution` `match-engine` `match-screen` `neutral` `passives` `player-state` `randomness` `registry` `stat-helpers` `supports` `target-resolution` `triggers` `ui`
 
 ## Card Hydration & Attributes
 
@@ -128,6 +128,14 @@
   When `target: "chosen_target"` resolves to no card targets (because the player chose a player target), `deal_damage` falls back to player damage using `_chosen_target_player_id` from the trigger dict. This makes it the correct op for "Deal X damage" effects where the player picks any target — use `target_mode: "creature_or_player"` with `op: "deal_damage"` and `target: "chosen_target"`.
   _Refs: `src/core/match/match_timing.gd:3487-3503`_
 
+- **`summon_from_effect` lane resolution supports sentinel values that must be resolved at runtime** `[lane-resolution, match-engine, card-catalog]`
+  The lane parameter in summon ops (`summon_from_effect`, `fill_lane_with`, `summon_copies_to_lane`) uses sentinel strings that the handler must resolve: `"chosen"` → `event.lane_id` (player selected), `"same"` → event lane, `"other"`/`"other_lane"` → opposite lane, `"same_as_target"` → target creature's lane, `"same_as_marked_target"` → marked creature's lane, `"random"` → random lane with open slots via `_deterministic_index`, `"support"` → place in support zone instead of a lane, `"both"` → all lanes. The fallback chain is `effect.lane_id` → `effect.target_lane_id` → `effect.lane` → `event.lane_id`. Unrecognized sentinels pass through as literal lane IDs and silently fail.
+  _Refs: `src/core/match/match_timing.gd:3938-3962`_
+
+- **`summon_from_effect` supports `count_source` for multi-summon** `[match-engine, lane-resolution]`
+  The `count_source` field on `summon_from_effect` effects multiplies the summon count via `_resolve_count_multiplier`. Without this, the op summons exactly one creature per lane per player. Cards like Grave Grasp ("summon a 1/1 Skeleton for each enemy in the lane") need `count_source: "enemies_in_target_lane"` to summon the correct number.
+  _Refs: `src/core/match/match_timing.gd:4116-4129`_
+
 ## Match Screen & Modes
 
 - **`_arena_mode` flag on MatchScreen suppresses normal return behavior** `[match-screen, ui]`
@@ -137,6 +145,16 @@
 - **`boss_health` is the key for AI health override in `start_arena_boss_match`** `[boss-config, match-screen, match-engine]`
   The `boss_config` dict passed to `start_arena_boss_match` uses `"boss_health"` (not `"starting_health"` or `"enemy_health"`) to override AI player HP. The boss is always `PLAYER_ORDER[0]` which is `"player_2"` (the AI). The health override is applied after `MatchBootstrap.create_standard_match` and before hydration.
   _Refs: `src/ui/match_screen.gd:314-319`_
+
+## Self Cost Reduction
+
+- **`self_cost_reduction` has two data formats — both must be handled** `[cost-reduction, card-catalog, match-engine]`
+  Card data uses two formats for `self_cost_reduction`: (1) canonical `{"per": "source_name", "amount": N}` / `{"type": "source_name", "amount": N}`, and (2) single-key `{"per_friendly_wounded": 3}` where the key is the source and the value is the per-unit reduction. Both `persistent_card_rules.gd:get_effective_play_cost` and `match_timing.gd:play_action_from_hand` must handle both formats. The single-key format is detected by iterating keys and finding one that isn't `amount`/`per`/`type`/`source`.
+  _Refs: `src/core/match/persistent_card_rules.gd:297-310`, `src/core/match/match_timing.gd:2162-2173`_
+
+- **New `self_cost_reduction` sources need handlers in TWO places** `[cost-reduction, match-engine]`
+  `persistent_card_rules.gd:get_effective_play_cost` handles cost for creatures/items/supports, while `match_timing.gd:play_action_from_hand` handles cost for actions. Both have independent `self_cost_reduction` parsing — adding a new source to one without the other means the reduction only works for half the card types.
+  _Refs: `src/core/match/persistent_card_rules.gd:297-310`, `src/core/match/match_timing.gd:2162-2173`_
 
 ## Stat Helpers & Death Checks
 

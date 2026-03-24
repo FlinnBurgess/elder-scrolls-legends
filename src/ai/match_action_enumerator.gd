@@ -805,8 +805,10 @@ static func _collect_target_requirements(triggers: Array) -> Dictionary:
 			if target.ends_with("_event_lane") or target.ends_with("_in_event_lane"):
 				requirements["needs_lane_id"] = true
 			var op := str(effect.get("op", ""))
-			if (op == "move_between_lanes" or op == "summon_from_effect") and str(effect.get("lane_id", "")).is_empty() and str(effect.get("target_lane_id", "")).is_empty():
-				requirements["needs_lane_id"] = true
+			if (op == "move_between_lanes" or op == "summon_from_effect" or op == "fill_lane_with" or op == "summon_copies_to_lane") and str(effect.get("lane_id", "")).is_empty() and str(effect.get("target_lane_id", "")).is_empty():
+				var lane_val := str(effect.get("lane", ""))
+				if lane_val.is_empty() or lane_val == "chosen":
+					requirements["needs_lane_id"] = true
 	return requirements
 
 
