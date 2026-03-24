@@ -140,6 +140,11 @@ Support cards with `target_mode` on their `activate` trigger use `"target": "cho
 Example: Elixir of Potency, Skyforge, Orsinium Forge, Reconstruction Engine, Altar of Despair
 How to spot: User reports clicking a support does nothing (charge spent but no effect). Check if the support's activate trigger has `target_mode` — if so, the card uses the `chosen_target` path, which requires all four layers to handle correctly.
 
+## Multi-summon op delegated to single-summon helper
+Card's effect requires summoning multiple creatures in a loop (e.g., "summon random Daedra with total cost 10") but the op handler delegates to `summon_random_from_catalog` which only summons one creature. The handler needs its own loop that tracks a budget, checks lane capacity, and picks creatures until the budget is exhausted or lanes are full.
+Example: Forces of Destruction (`summon_random_daedra_total_cost` summoned only one Daedra instead of filling up to cost 10)
+How to spot: User reports a "summon X with total cost Y" or "fill a lane with..." effect only producing one creature. Check if the op handler delegates to a single-summon helper without looping.
+
 ## Unhandled amount_source value in _resolve_amount
 Card's effect uses `amount_source` with a value that `_resolve_amount()` in `match_timing.gd` doesn't handle. The function falls through to the default `int(effect.get("amount", 0))`, which returns 0 since no static `amount` field is set. The effect fires but deals/heals/modifies by 0.
 Example: Blast from Oblivion (`amount_source: "oblivion_gate_level"` was not handled — always dealt 0 damage)

@@ -17,12 +17,12 @@ const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
 static func build_test_match_state() -> Dictionary:
 	## ── CONFIGURATION ──────────────────────────────────────────────────
 	## Edit the values below to set up your test scenario.
-	## Testing: Dremora Adept — "When Dremora Adept gains a Keyword, Invade."
+	## Testing: Forces of Destruction — "Invade, then summon random Daedra with total cost 10."
 
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — 12 magicka, keyword-granting cards to trigger Invade
+	# Player 1 (you) — 12 magicka to cast Forces of Destruction (cost 10) + extras
 	var p1_health := 30
 	var p1_max_magicka := 12
 	var p1_current_magicka := 12
@@ -30,35 +30,32 @@ static func build_test_match_state() -> Dictionary:
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — keyword granters to trigger Dremora Adept's Invade
+	# Player 1 hand — Forces of Destruction + cheap Invade triggers + synergy
 	var p1_hand_ids: Array = [
-		"int_lesser_ward",                  # Cost 0, Give a creature a Ward (free Invade trigger)
-		"int_lesser_ward",                  # Cost 0, second free Ward grant
-		"int_wardcrafter",                  # Cost 2, 2/1, Summon: Give a creature a Ward
-		"int_wisdom_of_ancients",           # Cost 2, Give each friendly creature a random Keyword
-		"joo_int_elixir_of_potency",        # Cost 2, Support Uses:3, Activate: random Keyword
-		"joo_int_dremora_adept",            # Cost 3, 4/3 Daedra — second copy to summon
-		"agi_skooma_racketeer",             # Cost 3, 2/2, Summon: Give a creature Lethal
+		"joo_int_forces_of_destruction",    # Cost 10, Invade + summon random Daedra totaling cost 10
+		"joo_neu_oblivion_invasion",        # Cost 0, Invade (free gate setup before big play)
+		"joo_int_invasion_vanguard",        # Cost 2, 1/4, Summon: Invade
+		"joo_str_invasion_scout",           # Cost 1, 1/1 Daedra, Summon: Invade
+		"joo_wil_unexpected_arrival",       # Cost 3, Invade + summon Daedra by gate level
+		"joo_int_sigil_keeper",             # Cost 4, 3/4 Daedra, Summon: Invade + Ward to gates
 	]
 
-	# Player 1 deck — more keyword sources + draw
+	# Player 1 deck — more Invade triggers and draw
 	# Index 0 is drawn first.
 	var p1_deck_ids: Array = [
-		"neu_mundus_stone",                 # Cost 4, Ongoing: summoned creatures get random Keyword
-		"int_elixir_of_deflection",         # Cost 5, Support Uses:3, Activate: Give Ward
-		"int_royal_sage",                   # Cost 4, 4/4, Summon: if more health, random Keywords to all
+		"joo_int_forces_of_destruction",    # Cost 10, second copy to test again
+		"joo_str_keeper_of_the_gates",      # Cost 6, 6/6, "When you Invade, Invade again"
+		"joo_str_daedric_incursion",        # Cost 3, Draw random Daedra + Invade
 		"int_elusive_schemer",              # Cost 4, 3/1, Summon: Draw a card
-		"int_lesser_ward",                  # Cost 0, another Ward grant
+		"joo_neu_oblivion_invasion",        # Cost 0, Invade
 	]
 
 	var p1_discard_ids: Array = []
 
 	var p1_support_ids: Array = []
 
-	# Pre-place Dremora Adept in field lane, ready to receive keywords
-	var p1_field_creatures: Array = [
-		_make_lane_creature("player_1", "joo_int_dremora_adept", 100),     # 4/3 Daedra, keyword->Invade
-	]
+	# No pre-placed creatures — Forces of Destruction spawns the gate + Daedra
+	var p1_field_creatures: Array = []
 
 	var p1_shadow_creatures: Array = []
 
@@ -84,7 +81,7 @@ static func build_test_match_state() -> Dictionary:
 		"str_fiery_imp",
 	]
 
-	# Player 2 — weak enemies in both lanes as targets
+	# Player 2 — weak enemies in both lanes as punching bags
 	var p2_field_creatures: Array = [
 		_make_lane_creature("player_2", "str_fiery_imp", 200),             # 1/1
 		_make_lane_creature("player_2", "str_fiery_imp", 201),             # 1/1

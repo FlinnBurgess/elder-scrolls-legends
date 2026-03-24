@@ -238,6 +238,8 @@ static func ensure_match_state(match_state: Dictionary) -> void:
 		match_state["pending_deck_selections"] = []
 	if not match_state.has("pending_forced_plays") or typeof(match_state["pending_forced_plays"]) != TYPE_ARRAY:
 		match_state["pending_forced_plays"] = []
+	if not match_state.has("pending_budget_summons") or typeof(match_state["pending_budget_summons"]) != TYPE_ARRAY:
+		match_state["pending_budget_summons"] = []
 	if not match_state.has("out_of_cards_sequence"):
 		match_state["out_of_cards_sequence"] = 0
 
@@ -1183,7 +1185,12 @@ static func resolve_pending_summon_effect_target(match_state: Dictionary, player
 		return {"is_valid": false, "errors": ["No pending summon effect target for %s." % player_id]}
 	pending.remove_at(idx)
 	var source_id := str(entry.get("source_instance_id", ""))
-	return resolve_targeted_effect(match_state, source_id, target_info)
+	var resolve_result := resolve_targeted_effect(match_state, source_id, target_info)
+	# Resume any paused budget summon loops
+	var budget_resume := _resume_budget_summons_if_needed(match_state)
+	var combined_events: Array = resolve_result.get("events", []) + budget_resume.get("events", [])
+	var combined_resolutions: Array = resolve_result.get("trigger_resolutions", []) + budget_resume.get("trigger_resolutions", [])
+	return {"is_valid": resolve_result.get("is_valid", false), "events": combined_events, "trigger_resolutions": combined_resolutions}
 
 
 static func decline_pending_summon_effect_target(match_state: Dictionary, player_id: String) -> Dictionary:
@@ -1205,7 +1212,11 @@ static func decline_pending_summon_effect_target(match_state: Dictionary, player
 		var source_card := _find_card_anywhere(match_state, source_id)
 		if not source_card.is_empty():
 			source_card.erase("_primary_target_id")
-	return {"is_valid": true, "events": [], "trigger_resolutions": []}
+	# Resume any paused budget summon loops
+	var budget_resume := _resume_budget_summons_if_needed(match_state)
+	var combined_events: Array = budget_resume.get("events", [])
+	var combined_resolutions: Array = budget_resume.get("trigger_resolutions", [])
+	return {"is_valid": true, "events": combined_events, "trigger_resolutions": combined_resolutions}
 
 
 ## Pending forced play system — for effects that generate a card to hand and require immediate play.
@@ -6601,19 +6612,23 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var sob_health := int(effect.get("buff_health", 1))
 					EvergreenRules.apply_stat_bonus(sob_existing, sob_power, sob_health, reason)
 					generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(sob_existing.get("instance_id", "")), "power_bonus": sob_power, "health_bonus": sob_health, "reason": reason})
-			"summon_random_daedra_total_cost", "summon_random_daedra_by_gate_level":
+			"summon_random_daedra_by_gate_level":
+				var srdg_controller_id := str(trigger.get("controller_player_id", ""))
+				var srdg_gate := ExtendedMechanicPacks._find_player_gate(match_state, srdg_controller_id)
+				var srdg_gate_level := int(srdg_gate.get("gate_level", 0))
+				if srdg_gate.is_empty() or srdg_gate_level <= 0:
+					continue
+				var srdg_filter: Dictionary = {"card_type": "creature", "required_subtype": "Daedra", "exact_cost": srdg_gate_level}
+				var srdg_delegated := {"op": "summon_random_from_catalog", "filter": srdg_filter}
+				var srdg_result := ExtendedMechanicPacks.apply_custom_effect(match_state, trigger, event, srdg_delegated)
+				if bool(srdg_result.get("handled", false)):
+					generated_events.append_array(srdg_result.get("events", []))
+			"summon_random_daedra_total_cost":
 				var srd_controller_id := str(trigger.get("controller_player_id", ""))
-				var srd_filter: Dictionary = {"card_type": "creature", "required_subtype": "Daedra"}
-				if op == "summon_random_daedra_by_gate_level":
-					var srd_gate := ExtendedMechanicPacks._find_player_gate(match_state, srd_controller_id)
-					var srd_gate_level := int(srd_gate.get("gate_level", 0))
-					if srd_gate.is_empty() or srd_gate_level <= 0:
-						continue
-					srd_filter["exact_cost"] = srd_gate_level
-				var srd_delegated := {"op": "summon_random_from_catalog", "filter": srd_filter}
-				var srd_result := ExtendedMechanicPacks.apply_custom_effect(match_state, trigger, event, srd_delegated)
-				if bool(srd_result.get("handled", false)):
-					generated_events.append_array(srd_result.get("events", []))
+				var srd_budget := int(effect.get("total_cost", 10))
+				var srd_summon_count := int(effect.get("_summon_count", 0))
+				var srd_events := _run_budget_summon_loop(match_state, trigger, srd_controller_id, srd_budget, srd_summon_count)
+				generated_events.append_array(srd_events)
 			"grant_aura_by_chosen_subtype":
 				# This requires a player choice of subtype — use pending_player_choices
 				var gabcs_controller_id := str(trigger.get("controller_player_id", ""))
@@ -7618,6 +7633,13 @@ static func _resolve_count_multiplier(match_state: Dictionary, trigger: Dictiona
 							continue
 						if EvergreenRules.has_keyword(card, required_kw):
 							count += 1
+		"all_enemy_creatures":
+			var aec_opponent_id := _get_opposing_player_id(match_state.get("players", []), controller_player_id)
+			for lane in match_state.get("lanes", []):
+				var slots = lane.get("player_slots", {}).get(aec_opponent_id, [])
+				for card in slots:
+					if typeof(card) == TYPE_DICTIONARY:
+						count += 1
 		"friendly_deaths_in_lane_this_turn":
 			var trigger_lane_index := int(trigger.get("lane_index", -1))
 			if trigger_lane_index < 0:
@@ -7812,6 +7834,106 @@ static func _build_summon_event(card: Dictionary, player_id: String, lane_id: St
 		"slot_index": slot_index,
 		"reason": reason,
 	}
+
+
+## Budget summon loop: summon random Daedra from the catalog until the budget is exhausted
+## or all lanes are full. If a summoned creature has a targeting summon ability, the loop
+## pauses by saving remaining budget to pending_budget_summons; it resumes after targeting resolves.
+static func _run_budget_summon_loop(match_state: Dictionary, trigger: Dictionary, controller_id: String, budget: int, summon_count: int) -> Array:
+	ensure_match_state(match_state)
+	var all_events: Array = []
+	# Build Daedra creature candidate list from catalog
+	var all_daedra: Array = []
+	for seed in CardCatalog._card_seeds():
+		if typeof(seed) != TYPE_DICTIONARY:
+			continue
+		if not bool(seed.get("collectible", true)):
+			continue
+		if str(seed.get("card_type", "")) != "creature":
+			continue
+		var subtypes = seed.get("subtypes", [])
+		if typeof(subtypes) != TYPE_ARRAY or not subtypes.has("Daedra"):
+			continue
+		all_daedra.append(seed)
+	var source_id := str(trigger.get("source_instance_id", ""))
+	while budget > 0:
+		# Collect lanes with open slots
+		var open_lanes: Array = []
+		for lane in match_state.get("lanes", []):
+			var lid := str(lane.get("lane_id", ""))
+			var open_info := _get_lane_open_slots(match_state, lid, controller_id)
+			if int(open_info.get("open_slots", 0)) > 0:
+				open_lanes.append(lid)
+		if open_lanes.is_empty():
+			break
+		# Filter candidates within budget
+		var candidates: Array = []
+		for d in all_daedra:
+			if int(d.get("cost", 0)) <= budget:
+				candidates.append(d)
+		if candidates.is_empty():
+			break
+		# If only 1 slot left across all lanes, pick highest cost within budget; otherwise random
+		var pick: Dictionary
+		if open_lanes.size() == 1 and int(_get_lane_open_slots(match_state, open_lanes[0], controller_id).get("open_slots", 0)) == 1:
+			var highest_cost := -1
+			var top: Array = []
+			for c in candidates:
+				var c_cost := int(c.get("cost", 0))
+				if c_cost > highest_cost:
+					highest_cost = c_cost
+					top = [c]
+				elif c_cost == highest_cost:
+					top.append(c)
+			pick = top[_deterministic_index(match_state, source_id + "_srd_" + str(summon_count), top.size())]
+		else:
+			pick = candidates[_deterministic_index(match_state, source_id + "_srd_" + str(summon_count), candidates.size())]
+		# Build and summon
+		var template: Dictionary = pick.duplicate(true)
+		template["definition_id"] = str(template.get("card_id", ""))
+		var gen := MatchMutations.build_generated_card(match_state, controller_id, template)
+		var summon_lane: String = str(open_lanes[_deterministic_index(match_state, source_id + "_srd_lane_" + str(summon_count), open_lanes.size())])
+		var result := MatchMutations.summon_card_to_lane(match_state, controller_id, gen, summon_lane, {"source_zone": MatchMutations.ZONE_GENERATED})
+		if not bool(result.get("is_valid", false)):
+			break
+		all_events.append_array(result.get("events", []))
+		all_events.append(_build_summon_event(result["card"], controller_id, summon_lane, int(result.get("slot_index", -1)), "summon_random_daedra_total_cost"))
+		budget -= int(pick.get("cost", 0))
+		summon_count += 1
+		# Check for targeting summon abilities on the newly summoned creature
+		var pending_before: int = match_state.get("pending_summon_effect_targets", []).size()
+		_check_summon_abilities(match_state, result["card"])
+		var pending_after: int = match_state.get("pending_summon_effect_targets", []).size()
+		if pending_after > pending_before and budget > 0:
+			# A targeting phase is needed — save remaining budget and pause the loop
+			var pending_budget: Array = match_state.get("pending_budget_summons", [])
+			pending_budget.append({
+				"controller_id": controller_id,
+				"budget": budget,
+				"summon_count": summon_count,
+				"source_instance_id": source_id,
+			})
+			break
+	return all_events
+
+
+## Resume any paused budget summon loops after a pending summon target is resolved/declined.
+static func _resume_budget_summons_if_needed(match_state: Dictionary) -> Dictionary:
+	ensure_match_state(match_state)
+	var pending: Array = match_state.get("pending_budget_summons", [])
+	if pending.is_empty():
+		return {"events": [], "trigger_resolutions": []}
+	var entry: Dictionary = pending.pop_front()
+	var controller_id := str(entry.get("controller_id", ""))
+	var budget := int(entry.get("budget", 0))
+	var summon_count := int(entry.get("summon_count", 0))
+	var source_id := str(entry.get("source_instance_id", ""))
+	var synthetic_trigger := {"source_instance_id": source_id, "controller_player_id": controller_id}
+	var events := _run_budget_summon_loop(match_state, synthetic_trigger, controller_id, budget, summon_count)
+	if events.is_empty():
+		return {"events": [], "trigger_resolutions": []}
+	var timing_result := publish_events(match_state, events)
+	return {"events": timing_result.get("processed_events", []), "trigger_resolutions": timing_result.get("trigger_resolutions", [])}
 
 
 static func _get_lane_open_slots(match_state: Dictionary, lane_id: String, player_id: String) -> Dictionary:
