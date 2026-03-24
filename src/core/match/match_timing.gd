@@ -2998,7 +2998,7 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 		var survive_card := _find_card_anywhere(match_state, survive_check_id)
 		if survive_card.is_empty() or str(survive_card.get("zone", "")) != ZONE_LANE:
 			return false
-		if int(survive_card.get("health", 0)) <= 0:
+		if EvergreenRules.get_remaining_health(survive_card) <= 0:
 			return false
 	var required_damage_kind := str(descriptor.get("damage_kind", family_spec.get("damage_kind", "")))
 	if not required_damage_kind.is_empty() and str(event.get("damage_kind", "")) != required_damage_kind:
@@ -5289,7 +5289,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 									"damage_kind": "ability",
 									"ward_removed": bool(ddtl_dmg_result.get("ward_removed", false)),
 								})
-								if int(ddtl_card.get("health", 0)) <= 0:
+								if EvergreenRules.get_remaining_health(ddtl_card) <= 0:
 									var ddtl_destroy := MatchMutations.discard_card(match_state, str(ddtl_card.get("instance_id", "")), {"reason": "deal_damage_to_lane"})
 									generated_events.append({
 										"event_type": EVENT_CREATURE_DESTROYED,
@@ -5641,7 +5641,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"damage_kind": "ability",
 						"ward_removed": bool(ddah_result.get("ward_removed", false)),
 					})
-					if int(card.get("health", 0)) <= 0:
+					if EvergreenRules.get_remaining_health(card) <= 0:
 						var ddah_destroy := MatchMutations.discard_card(match_state, str(card.get("instance_id", "")), {"reason": reason})
 						generated_events.append({
 							"event_type": EVENT_CREATURE_DESTROYED,
@@ -7072,7 +7072,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 								"amount": pbc_creature_power,
 								"damage_kind": "combat",
 							})
-					if int(card.get("health", 0)) <= 0:
+					if EvergreenRules.get_remaining_health(card) <= 0:
 						var pbc_destroy := MatchMutations.discard_card(match_state, str(card.get("instance_id", "")), {"reason": reason})
 						generated_events.append({"event_type": EVENT_CREATURE_DESTROYED, "instance_id": str(card.get("instance_id", "")), "controller_player_id": str(card.get("controller_player_id", ""))})
 						generated_events.append_array(pbc_destroy.get("events", []))
