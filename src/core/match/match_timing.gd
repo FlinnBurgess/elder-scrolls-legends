@@ -2839,8 +2839,11 @@ static func _append_card_triggers(registry: Array, card, zone_name: String, cont
 			continue
 		if not str(descriptor.get("target_mode", "")).is_empty():
 			var tm_family := str(descriptor.get("family", ""))
-			if tm_family != FAMILY_ACTIVATE and tm_family != FAMILY_ON_PLAY:
-				continue  # Target-choice triggers resolved manually via resolve_targeted_effect
+			# summon/wax/wane triggers with target_mode are resolved via pending_summon_effect_targets;
+			# activate/on_play inject targets from the event; all other families auto-resolve
+			# a random valid target in _trigger_matches_event().
+			if tm_family == FAMILY_SUMMON or tm_family == FAMILY_WAX or tm_family == FAMILY_WANE:
+				continue
 		if bool(descriptor.get("consume", false)):
 			var consume_family := str(descriptor.get("family", ""))
 			if consume_family == FAMILY_SUMMON or consume_family == "on_play":
@@ -2878,10 +2881,9 @@ static func _trigger_matches_event(match_state: Dictionary, trigger: Dictionary,
 		return false
 	if not _matches_required_zone(trigger, descriptor):
 		return false
-	# Triggers with target_mode require manual resolution via resolve_targeted_effect;
-	# skip them during automatic event processing so they don't fire with no chosen target.
-	# Exception: activate/on_play triggers receive their target from the event (UI passes target_instance_id).
-	# Exception: start_of_turn/end_of_turn triggers auto-pick a random valid target.
+	# Triggers with target_mode need a target before they can fire.
+	# activate/on_play: target injected from the event (UI passes target_instance_id).
+	# All other families: auto-pick a random valid target so the ability fires.
 	if not str(descriptor.get("target_mode", "")).is_empty() and str(trigger.get("_chosen_target_id", "")).is_empty() and str(trigger.get("_chosen_target_player_id", "")).is_empty():
 		var inject_family := str(descriptor.get("family", ""))
 		if inject_family == FAMILY_ACTIVATE or inject_family == FAMILY_ON_PLAY:
@@ -2893,7 +2895,7 @@ static func _trigger_matches_event(match_state: Dictionary, trigger: Dictionary,
 				trigger["_chosen_target_player_id"] = evt_player
 			else:
 				return false
-		elif inject_family == FAMILY_START_OF_TURN or inject_family == FAMILY_END_OF_TURN:
+		else:
 			var source_id := str(trigger.get("source_instance_id", ""))
 			var tm := str(descriptor.get("target_mode", ""))
 			var valid_targets := get_valid_targets_for_mode(match_state, source_id, tm, trigger)
@@ -2908,8 +2910,6 @@ static func _trigger_matches_event(match_state: Dictionary, trigger: Dictionary,
 				trigger["_chosen_target_player_id"] = chosen_pid
 			else:
 				return false
-		else:
-			return false
 	var event_type := str(event.get("event_type", ""))
 	var family := str(descriptor.get("family", ""))
 	var family_spec: Dictionary = FAMILY_SPECS.get(family, {})
