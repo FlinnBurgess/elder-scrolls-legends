@@ -40,7 +40,7 @@ Consider what the player needs to test the mechanic:
 | Treasure Hunt | Treasure Hunt creature in lane + matching cards in deck | Doesn't matter |
 | Consume | Consumer + creatures in discard pile | Normal board |
 | Assemble (Factotum) | Factotums already in lane as buff targets + more Factotums in hand to play | Weak enemies, low magicka |
-| Invade | Cheap Invade triggers (0-3 cost) + payoffs (Keeper of the Gates, Mankar Camoran) + Great Sigil Stone support. No pre-placed P1 creatures — the Oblivion Gate spawns automatically. Include varied enemies (1/1s + a Guard with health) to test gate-level damage effects | Weak creatures in both lanes, no runes |
+| Invade | Cheap Invade triggers (0-3 cost) + payoffs (Keeper of the Gates, Mankar Camoran) + Great Sigil Stone support. For basic invade testing, don't pre-place gates — they spawn automatically. For **multi-gate or specific-level testing**, pre-place gates manually (see "Pre-placing Oblivion Gates" below). Include varied enemies (1/1s + a Guard with health) to test gate-level damage effects | Weak creatures in both lanes, no runes |
 
 Set these parameters:
 - **Player 1 magicka**: High enough to play the test cards (usually 12)
@@ -69,6 +69,22 @@ p2_hand_ids, p2_deck_ids, p2_discard_ids, p2_field_creatures, p2_shadow_creature
 **Lane creatures** use `_make_lane_creature(player_id, definition_id, index, overrides)`:
 - `index`: unique number (start at 100 to avoid collisions with hand/deck)
 - `overrides`: optional dict with `can_attack`, `turns_in_play`, `damage_marked`, `power_bonus`, `health_bonus`, `keywords`, `status_markers`
+
+### Pre-placing Oblivion Gates
+
+Oblivion Gates are "generated" cards — their runtime state (`rules_tags`, `gate_level`, `triggered_abilities`) is NOT in the catalog seed `joo_neu_oblivion_gate`. It only exists in `ExtendedMechanicPacks._build_gate_template()`. When pre-placing gates, you must set these properties manually after `_make_lane_creature`:
+
+```gdscript
+var gate := _make_lane_creature("player_1", "joo_neu_oblivion_gate", 100, {"can_attack": false})
+gate["rules_tags"] = ["oblivion_gate"]
+gate["gate_level"] = 1  # 1-5
+gate["cannot_attack"] = true
+gate["status_markers"] = ["permanent_shackle"]
+gate["grants_immunity"] = ["silence"]
+gate["triggered_abilities"] = [{"id": "oblivion_gate_buff", "event_type": "creature_summoned", "match_role": "controller", "required_zone": "lane", "required_event_source_subtype": "Daedra", "excluded_event_source_rule_tag": "oblivion_gate", "effects": [{"op": "buff_oblivion_gate_summon", "target": "event_source"}]}]
+```
+
+Gate health scales: base 4 + 2 per level above 1 (use `health_bonus` in overrides). `_find_player_gate` returns the **first** gate in the shadow lane slot array — slot order determines which gate gets upgraded.
 
 ### Step 4 — Annotate with Comments
 

@@ -3588,8 +3588,13 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					if gen_player.is_empty():
 						continue
 					var hand: Array = gen_player.get(ZONE_HAND, [])
+					var gen_scale_counter := str(effect.get("scale_to_counter", ""))
 					for _i in range(gen_count):
 						var generated_card := MatchMutations.build_generated_card(match_state, player_id, gen_template)
+						if not gen_scale_counter.is_empty():
+							var gen_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+							var gen_counter_val := int(gen_source.get("_counter_" + gen_scale_counter, 0))
+							generated_card["_counter_" + gen_scale_counter] = gen_counter_val
 						if _overflow_card_to_discard(gen_player, generated_card, player_id, ZONE_GENERATED, generated_events):
 							continue
 						generated_card["zone"] = ZONE_HAND
@@ -5426,7 +5431,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				if bool(src_result.get("handled", false)):
 					generated_events.append_array(src_result.get("events", []))
 			"deal_damage_and_heal":
-				var ddah_amount := int(effect.get("amount", 0))
+				var ddah_amount := _resolve_amount(trigger, effect, match_state, event)
 				var ddah_source_id := str(trigger.get("source_instance_id", ""))
 				var ddah_controller_id := str(trigger.get("controller_player_id", ""))
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
@@ -6645,7 +6650,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 			"add_counter":
 				var ac_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 				if not ac_source.is_empty():
-					var ac_counter_name := str(effect.get("counter_name", "counter"))
+					var ac_counter_name := str(effect.get("counter", effect.get("counter_name", "counter")))
 					var ac_current := int(ac_source.get("_counter_" + ac_counter_name, 0))
 					ac_source["_counter_" + ac_counter_name] = ac_current + int(effect.get("amount", 1))
 					var ac_threshold := int(effect.get("threshold", 0))
@@ -7412,6 +7417,34 @@ static func _resolve_amount(trigger: Dictionary, effect: Dictionary, match_state
 		return int(event.get("damage_amount", event.get("amount", 0)))
 	if amount_source == "heal_amount":
 		return int(event.get("amount", 0))
+	if amount_source == "oblivion_gate_level":
+		var controller_id := str(trigger.get("controller_player_id", ""))
+		var gate := ExtendedMechanicPacks._find_player_gate(match_state, controller_id)
+		return int(gate.get("gate_level", 0))
+	if amount_source == "destroyed_creature_power":
+		var destroyed_id := str(event.get("target_instance_id", ""))
+		var destroyed_card := _find_card_anywhere(match_state, destroyed_id)
+		if not destroyed_card.is_empty():
+			return EvergreenRules.get_power(destroyed_card)
+		return 0
+	if amount_source == "slain_creature_cost":
+		var slain_id := str(event.get("instance_id", event.get("source_instance_id", "")))
+		var slain_card := _find_card_anywhere(match_state, slain_id)
+		if not slain_card.is_empty():
+			return int(slain_card.get("cost", 0))
+		return 0
+	if amount_source == "creatures_died_this_turn":
+		var controller_id := str(trigger.get("controller_player_id", ""))
+		var player := _get_player_state(match_state, controller_id)
+		return int(player.get("creatures_died_this_turn", 0))
+	if amount_source == "event_damage_amount":
+		return int(event.get("damage_amount", event.get("amount", 0)))
+	if amount_source.ends_with("_counter"):
+		var counter_name := amount_source.substr(0, amount_source.length() - 8)
+		var source_card := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+		if not source_card.is_empty():
+			return int(source_card.get("_counter_" + counter_name, 0))
+		return 0
 	return int(effect.get("amount", 0))
 
 

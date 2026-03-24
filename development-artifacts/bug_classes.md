@@ -129,3 +129,8 @@ How to spot: User reports no alt-view for a card that clearly has an alternate f
 Card uses a reactive trigger family (e.g., `on_friendly_death`) that fires on every matching event, when the correct behavior is an end-of-turn check that fires once if the condition was met during the turn. The card deals damage/effects multiple times per turn instead of once.
 Example: Stormcloak Camp (was `on_friendly_death` — fired per death; should be `end_of_turn` with `creature_died_this_turn: true`)
 How to spot: User reports a card triggering multiple times per turn when the text says "at the end of your turn, if..." or similar conditional phrasing. Check if the trigger family should be `end_of_turn` with a condition instead of a reactive family.
+
+## Unhandled amount_source value in _resolve_amount
+Card's effect uses `amount_source` with a value that `_resolve_amount()` in `match_timing.gd` doesn't handle. The function falls through to the default `int(effect.get("amount", 0))`, which returns 0 since no static `amount` field is set. The effect fires but deals/heals/modifies by 0.
+Example: Blast from Oblivion (`amount_source: "oblivion_gate_level"` was not handled — always dealt 0 damage)
+How to spot: User reports a damage/heal/stat effect "does nothing" or always applies 0. Check if the card's effect has `amount_source` and whether that value is handled in `_resolve_amount` in `match_timing.gd`.
