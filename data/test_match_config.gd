@@ -34,7 +34,7 @@ static func build_test_match_state() -> Dictionary:
 	var p1_hand_ids: Array = [
 		"joo_str_agent_of_mehrunes_dagon",  # Cost 2, 3/2, end of turn if Invaded: +1/+1
 		"joo_str_keeper_of_the_gates",      # Cost 6, 6/6, When you Invade → Invade again
-		"joo_int_mythic_dawn_acolyte",      # Cost 5, 5/4, end of turn if Invaded: deal 2 dmg to opponent
+		"joo_int_mythic_dawn_acolyte",      # Cost 5, 5/4, end of turn if Invaded: deal 2 dmg (player chooses target)
 		"joo_wil_mythic_dawn_zealot",       # Cost 2, 2/2, end of turn if Invaded: 1/1 Scamp to hand
 		"joo_neu_oblivion_invasion",        # Cost 0, Invade (free trigger to fire end-of-turn payoffs)
 		"joo_str_invasion_scout",           # Cost 1, 1/1 Daedra, Summon: Invade

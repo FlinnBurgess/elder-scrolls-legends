@@ -1,7 +1,7 @@
 # Claude Learnings
 
 ## Tags
-`assemble` `attributes` `auras` `card-catalog` `card-hydration` `card-state` `case-sensitivity` `cost-reduction` `death-checks` `events` `generated-cards` `invade` `match-engine` `neutral` `passives` `player-state` `randomness` `registry` `stat-helpers` `supports` `target-resolution` `triggers` `ui`
+`assemble` `attributes` `auras` `card-catalog` `card-hydration` `card-state` `case-sensitivity` `cost-reduction` `death-checks` `end-of-turn` `events` `generated-cards` `invade` `match-engine` `neutral` `passives` `player-state` `randomness` `registry` `stat-helpers` `supports` `target-resolution` `triggers` `ui`
 
 ## Card Hydration & Attributes
 
@@ -119,6 +119,14 @@
 - **Triggers with `target_mode` are silently skipped unless their family is handled** `[triggers, registry, match-engine]`
   Two chokepoints gate triggers with `target_mode`: (1) `_append_card_triggers` excludes them from the registry unless family is activate, on_play, or a non-summon/wax/wane family, (2) `_trigger_matches_event` must inject a target — activate/on_play get it from the event, all other families auto-pick a random valid target via `get_valid_targets_for_mode`. Summon/wax/wane are excluded because they have a dedicated `pending_summon_effect_targets` resolution path. If a new family needs `target_mode`, it works automatically through the auto-resolve path.
   _Refs: `src/core/match/match_timing.gd:2840-2846`, `src/core/match/match_timing.gd:2886-2912`_
+
+- **`end_of_turn` triggers with `target_mode` need the pending turn trigger target system** `[end-of-turn, triggers, target-resolution, match-engine]`
+  The auto-resolve path for `target_mode` picks a random valid target, which is wrong for player-facing "deal X damage" effects that should prompt an aiming phase. `end_of_turn` must be added to the registry skip list (alongside summon/wax/wane) in `_append_card_triggers`, and targeted end_of_turn triggers must be queued via `queue_turn_trigger_targets` → `_queue_end_of_turn_trigger_targets` before the turn actually ends. The UI defers `MatchTurnLoop.end_turn` until all pending targets are resolved; the AI uses `_end_of_turn_targets_queued` flag to prevent re-queuing.
+  _Refs: `src/core/match/match_timing.gd:2894`, `src/core/match/match_timing.gd:1343-1391`, `src/ui/match_screen.gd:1150-1178`, `src/ai/match_action_executor.gd:23-37`_
+
+- **`deal_damage` op handles creature-or-player duality automatically** `[match-engine, target-resolution]`
+  When `target: "chosen_target"` resolves to no card targets (because the player chose a player target), `deal_damage` falls back to player damage using `_chosen_target_player_id` from the trigger dict. This makes it the correct op for "Deal X damage" effects where the player picks any target — use `target_mode: "creature_or_player"` with `op: "deal_damage"` and `target: "chosen_target"`.
+  _Refs: `src/core/match/match_timing.gd:3487-3503`_
 
 ## Stat Helpers & Death Checks
 

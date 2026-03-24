@@ -1254,8 +1254,8 @@ static func consume_pending_forced_play(match_state: Dictionary, player_id: Stri
 	return entry
 
 
-## Pending turn trigger target system — for wax/wane triggers with target_mode.
-## These triggers fire at turn start but need the player to pick a target.
+## Pending turn trigger target system — for wax/wane and end_of_turn triggers with target_mode.
+## These triggers need the player to pick a target before the effect fires.
 
 static func queue_turn_trigger_targets(match_state: Dictionary, player_id: String) -> void:
 	ensure_match_state(match_state)
@@ -1338,6 +1338,55 @@ static func queue_turn_trigger_targets(match_state: Dictionary, player_id: Strin
 						"target_mode": str(descriptor.get("target_mode", "")),
 						"family": dual_family,
 					})
+	# Also queue end_of_turn triggers with target_mode
+	_queue_end_of_turn_trigger_targets(match_state, player_id)
+
+
+static func _queue_end_of_turn_trigger_targets(match_state: Dictionary, player_id: String) -> void:
+	for lane in match_state.get("lanes", []):
+		var slots: Array = lane.get("player_slots", {}).get(player_id, [])
+		for slot_index in range(slots.size()):
+			var card = slots[slot_index]
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			var abilities = card.get("triggered_abilities", [])
+			if typeof(abilities) != TYPE_ARRAY:
+				continue
+			for trigger_index in range(abilities.size()):
+				var descriptor = abilities[trigger_index]
+				if typeof(descriptor) != TYPE_DICTIONARY:
+					continue
+				var family := str(descriptor.get("family", ""))
+				if family != FAMILY_END_OF_TURN:
+					continue
+				if str(descriptor.get("target_mode", "")).is_empty():
+					continue
+				if not bool(descriptor.get("enabled", true)):
+					continue
+				if descriptor.has("required_zone") and str(descriptor.get("required_zone", "")) != ZONE_LANE:
+					continue
+				# Check match_role: default for end_of_turn is "controller"
+				var match_role := str(descriptor.get("match_role", "controller"))
+				if match_role == "opponent_player":
+					continue  # opponent_player triggers are queued separately on their turn
+				# Check additional conditions (e.g. invaded_this_turn)
+				var instance_id := str(card.get("instance_id", ""))
+				var controller_id := str(card.get("controller_player_id", player_id))
+				var synthetic_trigger := {"controller_player_id": controller_id, "source_instance_id": instance_id}
+				var synthetic_event := {"player_id": player_id, "source_controller_player_id": player_id}
+				if not ExtendedMechanicPacks.matches_additional_conditions(match_state, synthetic_trigger, descriptor, synthetic_event):
+					continue
+				var valid := get_valid_targets_for_mode(match_state, instance_id, str(descriptor.get("target_mode", "")), descriptor)
+				if valid.is_empty():
+					continue
+				var pending_arr: Array = match_state.get("pending_turn_trigger_targets", [])
+				pending_arr.append({
+					"player_id": controller_id,
+					"source_instance_id": instance_id,
+					"trigger_index": trigger_index,
+					"target_mode": str(descriptor.get("target_mode", "")),
+					"family": family,
+				})
 
 
 static func has_pending_turn_trigger_target(match_state: Dictionary, player_id: String) -> bool:
@@ -2839,10 +2888,10 @@ static func _append_card_triggers(registry: Array, card, zone_name: String, cont
 			continue
 		if not str(descriptor.get("target_mode", "")).is_empty():
 			var tm_family := str(descriptor.get("family", ""))
-			# summon/wax/wane triggers with target_mode are resolved via pending_summon_effect_targets;
+			# summon/wax/wane/end_of_turn triggers with target_mode are resolved via pending systems;
 			# activate/on_play inject targets from the event; all other families auto-resolve
 			# a random valid target in _trigger_matches_event().
-			if tm_family == FAMILY_SUMMON or tm_family == FAMILY_WAX or tm_family == FAMILY_WANE:
+			if tm_family == FAMILY_SUMMON or tm_family == FAMILY_WAX or tm_family == FAMILY_WANE or tm_family == FAMILY_END_OF_TURN:
 				continue
 		if bool(descriptor.get("consume", false)):
 			var consume_family := str(descriptor.get("family", ""))

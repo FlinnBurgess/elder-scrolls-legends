@@ -21,11 +21,20 @@ static func execute_action(match_state: Dictionary, action: Dictionary) -> Dicti
 		MatchActionEnumerator.KIND_RING_USE:
 			MatchTurnLoop.activate_ring_of_magicka(match_state, player_id)
 		MatchActionEnumerator.KIND_END_TURN:
-			var active_before := str(match_state.get("active_player_id", ""))
-			MatchTurnLoop.end_turn(match_state, player_id)
-			result["is_valid"] = active_before != str(match_state.get("active_player_id", ""))
-			if not bool(result.get("is_valid", false)):
-				result["errors"] = ["End turn did not advance priority to the opposing player."]
+			# Queue any targeted end_of_turn triggers before ending the turn
+			if not bool(match_state.get("_end_of_turn_targets_queued", false)):
+				MatchTiming.queue_turn_trigger_targets(match_state, player_id)
+				match_state["_end_of_turn_targets_queued"] = true
+			if MatchTiming.has_pending_turn_trigger_target(match_state, player_id):
+				# Don't end turn yet — let the AI resolve pending targets first
+				result["is_valid"] = true
+			else:
+				match_state.erase("_end_of_turn_targets_queued")
+				var active_before := str(match_state.get("active_player_id", ""))
+				MatchTurnLoop.end_turn(match_state, player_id)
+				result["is_valid"] = active_before != str(match_state.get("active_player_id", ""))
+				if not bool(result.get("is_valid", false)):
+					result["errors"] = ["End turn did not advance priority to the opposing player."]
 		MatchActionEnumerator.KIND_SUMMON_CREATURE:
 			if str(action.get("response_kind", "")) == MatchTiming.RULE_TAG_PROPHECY:
 				result = MatchTiming.play_pending_prophecy(match_state, player_id, source_instance_id, parameters)
