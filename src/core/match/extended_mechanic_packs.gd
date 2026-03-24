@@ -1940,7 +1940,11 @@ static func _resolve_shout_upgrade_for_card(match_state: Dictionary, player_id: 
 	for card in _collect_owned_cards(match_state, player_id, [ZONE_HAND, ZONE_DECK, ZONE_DISCARD]):
 		if str(card.get("shout_chain_id", card.get("definition_id", ""))) != shout_chain_id:
 			continue
+		var prev_cost := int(card.get("cost", 0))
 		var change_result := MatchMutations.change_card(card, enriched_template, {"reason": "shout_upgrade"})
+		card["cost"] = prev_cost
+		if enriched_template.has("art_path"):
+			card["art_path"] = str(enriched_template.get("art_path", ""))
 		events.append_array(change_result.get("events", []))
 	return events
 

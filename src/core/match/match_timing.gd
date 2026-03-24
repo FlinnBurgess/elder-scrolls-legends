@@ -3609,7 +3609,15 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				var dd_empower_bonus := int(effect.get("empower_bonus", 0))
 				if dd_empower_bonus > 0:
 					damage_amount += dd_empower_bonus * _get_empower_amount(match_state, str(trigger.get("controller_player_id", "")))
-				var damage_source_id := str(trigger.get("source_instance_id", ""))
+				var dd_source_key := str(effect.get("damage_source", effect.get("source", "")))
+				var damage_source_id := ""
+				if dd_source_key == "host" or dd_source_key == "wielder":
+					var dd_source_card := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+					damage_source_id = str(dd_source_card.get("attached_to_instance_id", trigger.get("source_instance_id", "")))
+				elif dd_source_key == "event_target":
+					damage_source_id = str(event.get("target_instance_id", trigger.get("source_instance_id", "")))
+				else:
+					damage_source_id = str(trigger.get("source_instance_id", ""))
 				var deal_damage_targets := _resolve_card_targets(match_state, trigger, event, effect)
 				if deal_damage_targets.is_empty():
 					# Fall back to player damage if a chosen player target exists

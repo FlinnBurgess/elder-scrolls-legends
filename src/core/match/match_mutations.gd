@@ -446,6 +446,8 @@ static func build_generated_card(match_state: Dictionary, controller_player_id: 
 				if seed.has("first_turn_hand_cost") and not card.has("first_turn_hand_cost"):
 					card["first_turn_hand_cost"] = int(seed["first_turn_hand_cost"])
 				break
+	if not card.has("art_path") and not def_id.is_empty():
+		card["art_path"] = "res://assets/images/cards/" + def_id + ".png"
 	if not card.has("instance_id") or str(card.get("instance_id", "")).is_empty():
 		card["instance_id"] = "%s_generated_%03d" % [controller_player_id, int(match_state.get("generated_card_sequence", 0))]
 	if not card.has("owner_player_id"):
