@@ -1636,6 +1636,54 @@ static func _check_summon_effect_target_mode(match_state: Dictionary, summoned_c
 	})
 
 
+## Check if a creature that just killed something has slay triggers with target_mode.
+## If so, queue a pending_summon_effect_targets entry so the player can pick the target.
+static func _check_slay_target_mode(match_state: Dictionary, event: Dictionary) -> void:
+	if str(event.get("event_type", "")) != EVENT_CREATURE_DESTROYED:
+		return
+	var killer_id := str(event.get("destroyed_by_instance_id", ""))
+	if killer_id.is_empty():
+		return
+	var killer := _find_card_anywhere(match_state, killer_id)
+	if killer.is_empty():
+		return
+	# Only fire if the killer is still alive (in a lane)
+	var killer_zone := str(killer.get("zone", ""))
+	# Allow slay even if killer just moved to discard in same combat (same as _matches_required_zone)
+	if killer_zone != ZONE_LANE and killer_zone != ZONE_DISCARD:
+		return
+	if killer_zone == ZONE_DISCARD:
+		# Killer died in same combat — slay doesn't trigger
+		return
+	if EvergreenRules.has_raw_status(killer, EvergreenRules.STATUS_SILENCED):
+		return
+	var abilities = killer.get("triggered_abilities", [])
+	if typeof(abilities) != TYPE_ARRAY:
+		return
+	var controller_id := str(killer.get("controller_player_id", ""))
+	for descriptor in abilities:
+		if typeof(descriptor) != TYPE_DICTIONARY:
+			continue
+		if str(descriptor.get("family", "")) != FAMILY_SLAY:
+			continue
+		if str(descriptor.get("target_mode", "")).is_empty():
+			continue
+		if not bool(descriptor.get("enabled", true)):
+			continue
+		# Check valid targets exist
+		var tm := str(descriptor.get("target_mode", ""))
+		var valid_targets := get_valid_targets_for_mode(match_state, killer_id, tm)
+		if valid_targets.is_empty():
+			continue
+		var pending_arr: Array = match_state.get("pending_summon_effect_targets", [])
+		pending_arr.append({
+			"player_id": controller_id,
+			"source_instance_id": killer_id,
+			"mandatory": false,
+		})
+		break  # Only queue once per slay event
+
+
 ## Check if a played action card has multi-target on_play triggers (two_creatures, three_creatures)
 ## and queue pending target selections for each target needed.
 static func _check_action_multi_target_abilities(match_state: Dictionary, card: Dictionary) -> void:
@@ -2569,6 +2617,9 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 						"parent_event_id": str(event.get("event_id", "")),
 						"produced_by_resolution_id": str(resolution.get("resolution_id", "")),
 					}))
+		# Queue player-targeted slay triggers (e.g. Mulaamnir) after the event's
+		# non-targeted slay triggers have already resolved.
+		_check_slay_target_mode(match_state, event)
 	recalculate_auras(match_state)
 	# After auras recalculate, check for creatures that should die due to lost aura health
 	var aura_death_events: Array = []
@@ -2616,6 +2667,7 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 						"parent_event_id": str(event.get("event_id", "")),
 						"produced_by_resolution_id": str(resolution.get("resolution_id", "")),
 					}))
+			_check_slay_target_mode(match_state, event)
 		recalculate_auras(match_state)
 	var result := {
 		"processed_events": processed_events,
@@ -3147,11 +3199,11 @@ static func _append_card_triggers(registry: Array, card, zone_name: String, cont
 		if not str(descriptor.get("target_mode", "")).is_empty():
 			var tm_family := str(descriptor.get("family", ""))
 			var tm_mode := str(descriptor.get("target_mode", ""))
-			# summon/wax/wane/end_of_turn triggers with target_mode are resolved via pending systems;
+			# summon/wax/wane/end_of_turn/slay triggers with target_mode are resolved via pending systems;
 			# on_play with multi-target modes (two_creatures, three_creatures) also use pending;
 			# activate/on_play inject targets from the event; all other families auto-resolve
 			# a random valid target in _trigger_matches_event().
-			if tm_family == FAMILY_SUMMON or tm_family == FAMILY_WAX or tm_family == FAMILY_WANE or tm_family == FAMILY_END_OF_TURN:
+			if tm_family == FAMILY_SUMMON or tm_family == FAMILY_WAX or tm_family == FAMILY_WANE or tm_family == FAMILY_END_OF_TURN or tm_family == FAMILY_SLAY:
 				continue
 			if tm_family == FAMILY_ON_PLAY and (tm_mode == "two_creatures" or tm_mode == "three_creatures"):
 				continue
