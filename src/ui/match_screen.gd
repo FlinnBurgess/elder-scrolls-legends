@@ -159,6 +159,7 @@ var _overdraw_queue: Array = []
 var _match_end_button: Button
 var _arena_mode := false
 var _adventure_boons: Array = []
+var _adventure_augments: Dictionary = {}  # card_id -> Array of augment dicts
 var _pause_overlay: PanelContainer
 var _attack_arrow_state := {}
 var _support_arrow_state := {}
@@ -253,6 +254,8 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int 
 	if not _adventure_boons.is_empty():
 		BoonRules.apply_boons_to_match_state(match_state, PLAYER_ORDER[1], _adventure_boons)
 	_hydrate_match_cards(match_state, card_by_id)
+	if not _adventure_augments.is_empty():
+		_apply_adventure_augments(match_state, PLAYER_ORDER[1])
 	# Apply AI mulligan immediately (invisible to player)
 	var ai_id := PLAYER_ORDER[0]
 	var ai_discard_ids := HeuristicMatchPolicy.choose_mulligan(match_state, ai_id)
@@ -329,6 +332,8 @@ func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_confi
 			elif pid == local_id and player_health > 0:
 				player["health"] = player_health
 	_hydrate_match_cards(match_state, card_by_id)
+	if not _adventure_augments.is_empty():
+		_apply_adventure_augments(match_state, PLAYER_ORDER[1])
 	# Inject relic support card into boss's support zone
 	var relic: Variant = boss_config.get("relic", null)
 	if relic != null:
@@ -388,6 +393,23 @@ static func _build_ai_play_profile(ai_options: Dictionary, card_by_id: Dictionar
 	var archetype := DeckArchetypeDetector.detect(ai_deck_ids, card_by_id)
 	var aggro_score := float(archetype.get("aggro_score", 0.0))
 	return AIPlayProfile.build_options(aggro_score, quality)
+
+
+func _apply_adventure_augments(match_state: Dictionary, player_id: String) -> void:
+	if _adventure_augments.is_empty():
+		return
+	var AugmentRulesScript := preload("res://src/adventure/augment_rules.gd")
+	for player in match_state.get("players", []):
+		if str(player.get("player_id", "")) != player_id:
+			continue
+		for zone_key in ["deck", "hand"]:
+			var zone: Array = player.get(zone_key, [])
+			for card in zone:
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				var def_id := str(card.get("definition_id", ""))
+				if _adventure_augments.has(def_id):
+					AugmentRulesScript.apply_augments_to_card(card, _adventure_augments[def_id])
 
 
 static func _hydrate_match_cards(match_state: Dictionary, card_by_id: Dictionary) -> void:

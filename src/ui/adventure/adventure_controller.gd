@@ -16,6 +16,11 @@ const BoonNodeOverlayScript = preload("res://src/ui/adventure/boon_node_overlay.
 const HealerNodeOverlayScript = preload("res://src/ui/adventure/healer_node_overlay.gd")
 const ReinforcementNodeOverlayScript = preload("res://src/ui/adventure/reinforcement_node_overlay.gd")
 const ShopNodeOverlayScript = preload("res://src/ui/adventure/shop_node_overlay.gd")
+const AugmentCatalogScript = preload("res://src/adventure/augment_catalog.gd")
+const AugmentRulesScript = preload("res://src/adventure/augment_rules.gd")
+const CreatureAugmentNodeOverlayScript = preload("res://src/ui/adventure/creature_augment_node_overlay.gd")
+const ActionAugmentNodeOverlayScript = preload("res://src/ui/adventure/action_augment_node_overlay.gd")
+const EventNodeOverlayScript = preload("res://src/ui/adventure/event_node_overlay.gd")
 const MatchScreenScript = preload("res://src/ui/match_screen.gd")
 
 var _run_manager = null
@@ -111,6 +116,7 @@ func _show_node_map() -> void:
 		_run_manager.revives_remaining,
 		_run_manager.gold,
 		_run_manager.max_health_bonus,
+		_run_manager.reroll_tokens,
 	)
 
 
@@ -138,6 +144,12 @@ func _on_node_selected(node_id: String) -> void:
 			_show_shop_overlay(node_id)
 		"boon":
 			_show_boon_overlay(node_id)
+		"creature_augment":
+			_show_creature_augment_overlay(node_id)
+		"action_augment":
+			_show_action_augment_overlay(node_id)
+		"event":
+			_show_event_overlay(node_id, node)
 
 
 # --- Combat ---
@@ -174,10 +186,11 @@ func _start_combat(node_id: String, node: Dictionary) -> void:
 	}
 	_run_manager.save_run()
 
-	_launch_match(player_deck_ids, enemy_deck_ids, quality, enemy_health, match_seed, first_player_index, _run_manager.active_boons.duplicate())
+	var augment_map := AugmentRulesScript.build_augment_map(_run_manager.augments)
+	_launch_match(player_deck_ids, enemy_deck_ids, quality, enemy_health, match_seed, first_player_index, _run_manager.active_boons.duplicate(), augment_map)
 
 
-func _launch_match(player_deck_ids: Array, enemy_deck_ids: Array, quality: float, enemy_health: int, match_seed: int, first_player_index: int, active_boons: Array = []) -> void:
+func _launch_match(player_deck_ids: Array, enemy_deck_ids: Array, quality: float, enemy_health: int, match_seed: int, first_player_index: int, active_boons: Array = [], augment_map: Dictionary = {}) -> void:
 	_clear_screen()
 	var match_screen := MatchScreenScript.new()
 	match_screen.name = "AdventureMatch"
@@ -197,6 +210,7 @@ func _launch_match(player_deck_ids: Array, enemy_deck_ids: Array, quality: float
 		boss_config["player_health"] = player_total_health
 
 	match_screen._adventure_boons = active_boons
+	match_screen._adventure_augments = augment_map
 
 	if not boss_config.is_empty():
 		match_screen.start_arena_boss_match(player_deck_ids, enemy_deck_ids, boss_config, match_seed, first_player_index, ai_options)
@@ -247,8 +261,15 @@ func _on_match_ended(match_screen: Control) -> void:
 	_run_manager.match_config = null
 	var won: bool = match_screen.did_local_player_win()
 	if won:
+		# Apply event combat rewards if applicable.
+		if not _pending_event_rewards.is_empty():
+			_apply_event_reward_effects(_pending_event_rewards)
+			_pending_event_rewards = []
+			_pending_event_node_id = ""
 		_run_manager.record_win(_current_adventure)
 	else:
+		_pending_event_rewards = []
+		_pending_event_node_id = ""
 		_run_manager.record_loss()
 	_advance_after_match()
 
@@ -295,9 +316,12 @@ func _show_reinforcement_overlay(node_id: String) -> void:
 		_dismiss_overlay()
 		_show_node_map()
 	)
+	overlay.reroll_requested.connect(func() -> void:
+		_reroll_node(node_id, _show_reinforcement_overlay)
+	)
 	add_child(overlay)
 	_current_overlay = overlay
-	overlay.set_cards(cards)
+	overlay.set_cards(cards, _run_manager.reroll_tokens)
 
 
 # --- Shop Node ---
@@ -320,9 +344,12 @@ func _show_shop_overlay(node_id: String) -> void:
 		_dismiss_overlay()
 		_show_node_map()
 	)
+	overlay.reroll_requested.connect(func() -> void:
+		_reroll_node(node_id, _show_shop_overlay)
+	)
 	add_child(overlay)
 	_current_overlay = overlay
-	overlay.set_shop_data(cards, _run_manager.gold, purchased_ids)
+	overlay.set_shop_data(cards, _run_manager.gold, purchased_ids, _run_manager.reroll_tokens)
 
 
 # --- Boon Node ---
@@ -340,9 +367,12 @@ func _show_boon_overlay(node_id: String) -> void:
 		_dismiss_overlay()
 		_show_node_map()
 	)
+	overlay.reroll_requested.connect(func() -> void:
+		_reroll_node(node_id, _show_boon_overlay)
+	)
 	add_child(overlay)
 	_current_overlay = overlay
-	overlay.set_boons(boons)
+	overlay.set_boons(boons, _run_manager.reroll_tokens)
 
 
 # --- Result ---
@@ -367,11 +397,246 @@ func _on_abandon_pressed() -> void:
 	return_to_menu.emit()
 
 
+# --- Creature Augment Node ---
+
+func _show_creature_augment_overlay(node_id: String) -> void:
+	_dismiss_overlay()
+	var creatures := _get_deck_creatures(3)
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var augments := AugmentCatalogScript.get_creature_augments(3, rng)
+
+	var overlay := CreatureAugmentNodeOverlayScript.new()
+	overlay.augment_selected.connect(func(card_id: String, augment_id: String) -> void:
+		_run_manager.add_augment(card_id, augment_id)
+		_run_manager.complete_non_combat_node(_current_adventure)
+		_dismiss_overlay()
+		_show_node_map()
+	)
+	overlay.reroll_requested.connect(func() -> void:
+		_reroll_node(node_id, _show_creature_augment_overlay)
+	)
+	add_child(overlay)
+	_current_overlay = overlay
+	overlay.set_data(creatures, augments, _run_manager.reroll_tokens)
+
+
+# --- Action Augment Node ---
+
+func _show_action_augment_overlay(node_id: String) -> void:
+	_dismiss_overlay()
+	var pairs := _get_action_augment_pairs(3)
+
+	var overlay := ActionAugmentNodeOverlayScript.new()
+	overlay.augment_selected.connect(func(card_id: String, augment_id: String) -> void:
+		_run_manager.add_augment(card_id, augment_id)
+		_run_manager.complete_non_combat_node(_current_adventure)
+		_dismiss_overlay()
+		_show_node_map()
+	)
+	overlay.reroll_requested.connect(func() -> void:
+		_reroll_node(node_id, _show_action_augment_overlay)
+	)
+	add_child(overlay)
+	_current_overlay = overlay
+	overlay.set_data(pairs, _run_manager.reroll_tokens)
+
+
+# --- Event Node ---
+
+func _show_event_overlay(node_id: String, node: Dictionary) -> void:
+	_dismiss_overlay()
+	var event_data: Dictionary = node.get("event", {})
+	event_data["headline"] = str(node.get("headline", "Event"))
+
+	var overlay := EventNodeOverlayScript.new()
+	overlay.choice_selected.connect(func(choice_index: int) -> void:
+		_execute_event_choice(node_id, node, choice_index)
+	)
+	overlay.reroll_requested.connect(func() -> void:
+		if _run_manager.use_reroll_token():
+			_dismiss_overlay()
+			_show_event_overlay(node_id, node)
+	)
+	add_child(overlay)
+	_current_overlay = overlay
+	overlay.set_data(event_data, _run_manager.reroll_tokens)
+
+
+func _execute_event_choice(node_id: String, node: Dictionary, choice_index: int) -> void:
+	var event_data: Dictionary = node.get("event", {})
+	var choices: Array = event_data.get("choices", [])
+	if choice_index < 0 or choice_index >= choices.size():
+		_run_manager.complete_non_combat_node(_current_adventure)
+		_dismiss_overlay()
+		_show_node_map()
+		return
+	var choice: Dictionary = choices[choice_index]
+	var effects: Array = choice.get("effects", [])
+
+	var combat_effect: Dictionary = {}
+	for effect in effects:
+		if typeof(effect) != TYPE_DICTIONARY:
+			continue
+		var effect_type := str(effect.get("type", ""))
+		match effect_type:
+			"modify_health":
+				_run_manager.max_health_bonus += int(effect.get("amount", 0))
+			"modify_gold":
+				_run_manager.gold = maxi(0, _run_manager.gold + int(effect.get("amount", 0)))
+			"add_card":
+				_run_manager.add_card(str(effect.get("card_id", "")))
+			"add_random_card":
+				var attribute_ids := _get_deck_attribute_ids()
+				var cards := AdventureCardPoolScript.get_random_cards(attribute_ids, 1)
+				if not cards.is_empty():
+					_run_manager.add_card(str(cards[0].get("card_id", "")))
+			"add_boon":
+				_run_manager.add_boon(str(effect.get("boon_id", "")))
+			"add_revive":
+				_run_manager.revives_remaining += 1
+			"start_combat":
+				combat_effect = effect
+
+	_run_manager.save_run()
+
+	if not combat_effect.is_empty():
+		# Launch combat for this event choice. Store reward effects for post-match.
+		_run_manager.match_config = _run_manager.match_config if _run_manager.match_config != null else {}
+		var event_combat_node := {
+			"type": "combat",
+			"enemy_deck": str(combat_effect.get("enemy_deck", "")),
+			"quality": float(combat_effect.get("quality", 0.5)),
+			"enemy_health": int(combat_effect.get("enemy_health", 30)),
+		}
+		_dismiss_overlay()
+		_start_event_combat(node_id, event_combat_node, combat_effect.get("reward_effects", []))
+	else:
+		_run_manager.complete_non_combat_node(_current_adventure)
+		_dismiss_overlay()
+		_show_node_map()
+
+
+var _pending_event_rewards: Array = []
+var _pending_event_node_id: String = ""
+
+func _start_event_combat(node_id: String, combat_node: Dictionary, reward_effects: Array) -> void:
+	_pending_event_rewards = reward_effects
+	_pending_event_node_id = node_id
+	_start_combat(node_id, combat_node)
+
+
+# --- Reroll ---
+
+func _reroll_node(node_id: String, show_method: Callable) -> void:
+	if not _run_manager.use_reroll_token():
+		return
+	_run_manager.clear_node_offering(node_id)
+	show_method.call(node_id)
+
+
 # --- Helpers ---
 
 func _get_deck_attribute_ids() -> Array:
 	var deck_data := AdventureDeckLoaderScript.load_player_deck(_run_manager.deck_id)
 	return deck_data.get("attribute_ids", [])
+
+
+func _get_deck_creatures(count: int) -> Array:
+	var full_deck: Dictionary = _run_manager.get_full_deck_cards()
+	var catalog := AdventureCardPoolScript._load_catalog()
+	var all_cards: Array = catalog.get("cards", [])
+	var card_lookup: Dictionary = {}
+	for card in all_cards:
+		card_lookup[str(card.get("card_id", ""))] = card
+
+	# Deduplicate by card_id and filter to creatures.
+	var seen: Dictionary = {}
+	var creatures: Array = []
+	for entry in full_deck:
+		var card_id := str(entry.get("card_id", ""))
+		if seen.has(card_id):
+			continue
+		seen[card_id] = true
+		var card: Dictionary = card_lookup.get(card_id, {})
+		if str(card.get("card_type", "")) == "creature":
+			creatures.append(card)
+	# Shuffle and take N.
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var shuffled := creatures.duplicate()
+	for i in range(shuffled.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var temp = shuffled[i]
+		shuffled[i] = shuffled[j]
+		shuffled[j] = temp
+	return shuffled.slice(0, mini(count, shuffled.size()))
+
+
+func _get_action_augment_pairs(count: int) -> Array:
+	var full_deck: Dictionary = _run_manager.get_full_deck_cards()
+	var catalog := AdventureCardPoolScript._load_catalog()
+	var all_cards: Array = catalog.get("cards", [])
+	var card_lookup: Dictionary = {}
+	for card in all_cards:
+		card_lookup[str(card.get("card_id", ""))] = card
+
+	# Find action cards with valid augments.
+	var seen: Dictionary = {}
+	var candidates: Array = []  # Array of {card: dict, augments: Array}
+	for entry in full_deck:
+		var card_id := str(entry.get("card_id", ""))
+		if seen.has(card_id):
+			continue
+		seen[card_id] = true
+		var card: Dictionary = card_lookup.get(card_id, {})
+		if str(card.get("card_type", "")) != "action":
+			continue
+		var valid_augs := AugmentCatalogScript.get_valid_action_augments(card)
+		if not valid_augs.is_empty():
+			candidates.append({"card": card, "augments": valid_augs})
+
+	# Shuffle and take N, assigning a random augment to each.
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var shuffled := candidates.duplicate()
+	for i in range(shuffled.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var temp = shuffled[i]
+		shuffled[i] = shuffled[j]
+		shuffled[j] = temp
+
+	var pairs: Array = []
+	for i in range(mini(count, shuffled.size())):
+		var entry: Dictionary = shuffled[i]
+		var augs: Array = entry["augments"]
+		var chosen_aug: Dictionary = augs[rng.randi_range(0, augs.size() - 1)]
+		pairs.append({"card": entry["card"], "augment": chosen_aug})
+	return pairs
+
+
+func _apply_event_reward_effects(effects: Array) -> void:
+	for effect in effects:
+		if typeof(effect) != TYPE_DICTIONARY:
+			continue
+		var effect_type := str(effect.get("type", ""))
+		match effect_type:
+			"modify_health":
+				_run_manager.max_health_bonus += int(effect.get("amount", 0))
+			"modify_gold":
+				_run_manager.gold = maxi(0, _run_manager.gold + int(effect.get("amount", 0)))
+			"add_card":
+				_run_manager.add_card(str(effect.get("card_id", "")))
+			"add_random_card":
+				var attribute_ids := _get_deck_attribute_ids()
+				var cards := AdventureCardPoolScript.get_random_cards(attribute_ids, 1)
+				if not cards.is_empty():
+					_run_manager.add_card(str(cards[0].get("card_id", "")))
+			"add_boon":
+				_run_manager.add_boon(str(effect.get("boon_id", "")))
+			"add_revive":
+				_run_manager.revives_remaining += 1
+	_run_manager.save_run()
 
 
 func _get_or_generate_offerings(node_id: String, count: int) -> Array:

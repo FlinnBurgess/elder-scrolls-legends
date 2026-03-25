@@ -12,11 +12,13 @@ var _current_node_id: String = ""
 var _revives_remaining: int = 0
 var _gold: int = 0
 var _max_health_bonus: int = 0
+var _reroll_tokens: int = 0
 var _reachable_node_ids: Array = []
 var _node_buttons: Dictionary = {}  # node_id -> Button
 var _revives_label: Label
 var _gold_label: Label
 var _health_label: Label
+var _reroll_label: Label
 var _adventure_name_label: Label
 
 
@@ -24,13 +26,14 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 
 
-func set_map_data(adventure: Dictionary, current_node_id: String, completed_node_ids: Array, revives_remaining: int, gold: int = 0, max_health_bonus: int = 0) -> void:
+func set_map_data(adventure: Dictionary, current_node_id: String, completed_node_ids: Array, revives_remaining: int, gold: int = 0, max_health_bonus: int = 0, reroll_tokens: int = 0) -> void:
 	_adventure = adventure
 	_current_node_id = current_node_id
 	_completed_node_ids = completed_node_ids
 	_revives_remaining = revives_remaining
 	_gold = gold
 	_max_health_bonus = max_health_bonus
+	_reroll_tokens = reroll_tokens
 	_reachable_node_ids = _compute_reachable_nodes()
 	_build_ui()
 
@@ -146,6 +149,12 @@ func _build_header() -> Control:
 	_revives_label.add_theme_color_override("font_color", Color(0.4, 0.8, 0.4, 1.0) if _revives_remaining > 0 else Color(0.84, 0.39, 0.31, 1.0))
 	hbox.add_child(_revives_label)
 
+	_reroll_label = Label.new()
+	_reroll_label.text = "Rerolls: %d" % _reroll_tokens
+	_reroll_label.add_theme_font_size_override("font_size", 18)
+	_reroll_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.9, 1.0) if _reroll_tokens > 0 else Color(0.5, 0.5, 0.5, 0.7))
+	hbox.add_child(_reroll_label)
+
 	return header
 
 
@@ -211,6 +220,9 @@ func _get_type_icon(node_type: String) -> String:
 		"reinforcement": return "[Card]"
 		"shop": return "[Shop]"
 		"boon": return "[Boon]"
+		"creature_augment": return "[Aug]"
+		"action_augment": return "[Aug]"
+		"event": return "[!]"
 	return "[?]"
 
 
@@ -223,6 +235,9 @@ func _get_type_label(node_type: String) -> String:
 		"reinforcement": return "Recruit"
 		"shop": return "Shop"
 		"boon": return "Boon"
+		"creature_augment": return "Augment"
+		"action_augment": return "Augment"
+		"event": return "Event"
 	return "Unknown"
 
 
@@ -247,6 +262,12 @@ func _get_node_style(node_type: String) -> StyleBoxFlat:
 		"boon":
 			style.bg_color = Color(0.25, 0.15, 0.4, 1.0)
 			style.border_color = Color(0.7, 0.55, 0.9, 1.0)
+		"creature_augment", "action_augment":
+			style.bg_color = Color(0.1, 0.25, 0.25, 1.0)
+			style.border_color = Color(0.3, 0.75, 0.7, 1.0)
+		"event":
+			style.bg_color = Color(0.35, 0.25, 0.1, 1.0)
+			style.border_color = Color(0.85, 0.65, 0.2, 1.0)
 		_:
 			style.bg_color = Color(0.2, 0.35, 0.55, 1.0)
 			style.border_color = Color(0.4, 0.6, 0.9, 1.0)

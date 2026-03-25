@@ -96,6 +96,7 @@ var _ward_overlay: ColorRect
 var _shackle_overlay: TextureRect
 var _lethal_particles: GPUParticles2D
 var _keyword_icons_container: HBoxContainer
+var _augment_badge_container: VBoxContainer
 var _quantity_badge: Label
 var _charges_badge: Label
 var _pips_container: HBoxContainer
@@ -418,6 +419,13 @@ func _build_internal_nodes() -> void:
 	_keyword_icons_container.visible = false
 	_content_root.add_child(_keyword_icons_container)
 
+	_augment_badge_container = VBoxContainer.new()
+	_augment_badge_container.name = "AugmentBadges"
+	_augment_badge_container.add_theme_constant_override("separation", 2)
+	_augment_badge_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_augment_badge_container.visible = false
+	_content_root.add_child(_augment_badge_container)
+
 	_quantity_badge = Label.new()
 	_quantity_badge.name = "QuantityBadge"
 	_quantity_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -482,6 +490,7 @@ func _refresh_content() -> void:
 		_attack_label.text = ""
 		_health_label.text = ""
 	_refresh_keyword_icons()
+	_refresh_augment_badges()
 
 
 func _refresh_styles() -> void:
@@ -627,6 +636,7 @@ func _layout_full(inner_rect: Rect2) -> void:
 
 	_layout_ward_overlay()
 	_keyword_icons_container.visible = false
+	_layout_augment_badges()
 
 	# Rules panel – bottom portion of card below art, with gap for stat badges
 	var rules_y := _art_frame.position.y + _art_frame.size.y + 4.0 * scale
@@ -664,6 +674,7 @@ func _layout_creature_board_minimal(inner_rect: Rect2) -> void:
 	_layout_ward_overlay()
 	_layout_shackle_overlay()
 	_layout_keyword_icons()
+	_layout_augment_badges()
 	_name_banner.position = Vector2.ZERO
 	_name_banner.size = Vector2.ZERO
 	_subtype_banner.position = Vector2.ZERO
@@ -839,6 +850,43 @@ func _layout_keyword_icons() -> void:
 	_keyword_icons_container.size = Vector2(total_width, KEYWORD_ICON_SIZE)
 
 
+func _refresh_augment_badges() -> void:
+	if _augment_badge_container == null:
+		return
+	for child in _augment_badge_container.get_children():
+		_augment_badge_container.remove_child(child)
+		child.free()
+	if _presentation_mode != PRESENTATION_FULL:
+		_augment_badge_container.visible = false
+		return
+	var augments = _card_data.get("_augments", [])
+	if typeof(augments) != TYPE_ARRAY or augments.is_empty():
+		_augment_badge_container.visible = false
+		return
+	_augment_badge_container.visible = true
+	for aug in augments:
+		if typeof(aug) != TYPE_DICTIONARY:
+			continue
+		var badge := Label.new()
+		badge.text = str(aug.get("name", ""))
+		badge.add_theme_font_size_override("font_size", 10)
+		badge.add_theme_color_override("font_color", Color(0.26, 0.8, 0.4, 1.0))
+		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_augment_badge_container.add_child(badge)
+
+
+func _layout_augment_badges() -> void:
+	if _augment_badge_container == null or not _augment_badge_container.visible:
+		return
+	# Position on the right side of the art frame.
+	var badge_x := _art_frame.position.x + _art_frame.size.x - 4.0
+	var badge_y := _art_frame.position.y + 4.0
+	var badge_width := _art_frame.size.x * 0.45
+	_augment_badge_container.position = Vector2(badge_x - badge_width, badge_y)
+	_augment_badge_container.size = Vector2(badge_width, _art_frame.size.y * 0.5)
+
+
 func _layout_ward_overlay() -> void:
 	if _ward_overlay == null:
 		return
@@ -999,9 +1047,14 @@ func _rules_bbcode(card: Dictionary) -> String:
 	var plain := _rules_preview(card)
 	plain = _apply_wax_wane_colors(plain)
 	plain = _apply_item_buff_colors(card, plain)
+	# Append augment descriptions in green.
+	var augment_text := _augment_bbcode(card)
+	if not augment_text.is_empty():
+		if not plain.is_empty():
+			plain += "\n"
+		plain += augment_text
 	var newline_pos := plain.find("\n")
 	if newline_pos < 0:
-		# No newline means either no keywords or keywords-only
 		var has_keywords := _has_extracted_keywords(card)
 		if has_keywords:
 			return "[center][b]" + plain + "[/b][/center]"
@@ -1009,6 +1062,20 @@ func _rules_bbcode(card: Dictionary) -> String:
 	var keyword_line := plain.substr(0, newline_pos)
 	var rest := plain.substr(newline_pos + 1)
 	return "[center][b]" + keyword_line + "[/b]\n" + rest + "[/center]"
+
+
+func _augment_bbcode(card: Dictionary) -> String:
+	var augments = card.get("_augments", [])
+	if typeof(augments) != TYPE_ARRAY or augments.is_empty():
+		return ""
+	var parts: Array = []
+	for aug in augments:
+		if typeof(aug) != TYPE_DICTIONARY:
+			continue
+		var desc := str(aug.get("description", ""))
+		if not desc.is_empty():
+			parts.append("[color=#44cc66]%s[/color]" % desc)
+	return "\n".join(parts)
 
 
 func _apply_wax_wane_colors(text: String) -> String:

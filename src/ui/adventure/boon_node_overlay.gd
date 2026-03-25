@@ -2,8 +2,10 @@ class_name BoonNodeOverlay
 extends Control
 
 signal boon_selected(boon_id: String)
+signal reroll_requested
 
 var _boons: Array = []
+var _reroll_tokens: int = 0
 
 
 func _ready() -> void:
@@ -11,8 +13,9 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
 
-func set_boons(boons: Array) -> void:
+func set_boons(boons: Array, reroll_tokens: int = 0) -> void:
 	_boons = boons
+	_reroll_tokens = reroll_tokens
 	_build_ui()
 
 
@@ -66,6 +69,18 @@ func _build_ui() -> void:
 
 	for boon in _boons:
 		boons_hbox.add_child(_build_boon_option(boon))
+
+	# Reroll button
+	var btn_center := HBoxContainer.new()
+	btn_center.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_child(btn_center)
+
+	var reroll_btn := Button.new()
+	reroll_btn.text = "Reroll (%d)" % _reroll_tokens
+	reroll_btn.custom_minimum_size = Vector2(140, 44)
+	reroll_btn.disabled = _reroll_tokens <= 0
+	reroll_btn.pressed.connect(func() -> void: reroll_requested.emit())
+	btn_center.add_child(reroll_btn)
 
 
 func _build_boon_option(boon: Dictionary) -> Control:

@@ -121,9 +121,8 @@ func set_rune_thresholds(thresholds) -> void:
 
 func get_rune_states() -> Array:
 	var states: Array = []
-	var active_count := _active_rune_thresholds.size()
-	for i in range(DEFAULT_RUNE_THRESHOLDS.size()):
-		states.append(i < active_count)
+	for threshold in DEFAULT_RUNE_THRESHOLDS:
+		states.append(_has_active_rune_near(threshold))
 	return states
 
 
@@ -291,20 +290,17 @@ func _refresh_ward_overlay() -> void:
 
 
 func _refresh_runes() -> void:
-	var active_count := _active_rune_thresholds.size()
-	for i in range(_rune_entries.size()):
-		var rune_entry: Dictionary = _rune_entries[i]
+	for rune_entry in _rune_entries:
 		var threshold := int(rune_entry["threshold"])
 		var rune_panel := rune_entry["panel"] as PanelContainer
 		var rune_inner := rune_entry["inner"] as PanelContainer
 		var crack := rune_entry["crack"] as Label
-		var active := i < active_count
+		var active := _has_active_rune_near(threshold)
 		_apply_panel_style(rune_panel, Color(0.39, 0.14, 0.13, 0.98) if active else Color(0.08, 0.08, 0.1, 0.96), Color(0.96, 0.74, 0.48, 0.98) if active else Color(0.26, 0.28, 0.32, 0.88), 1, _circular_panel_radius(rune_panel, 10))
 		_apply_panel_style(rune_inner, Color(0.7, 0.22, 0.2, 0.98) if active else Color(0.16, 0.16, 0.19, 0.96), Color(1.0, 0.86, 0.62, 0.98) if active else Color(0.32, 0.33, 0.38, 0.88), 1, _circular_panel_radius(rune_inner, 8))
 		crack.visible = not active
 		crack.add_theme_color_override("font_color", Color(0.42, 0.44, 0.5, 0.98))
-		var display_threshold: int = int(_active_rune_thresholds[i]) if active else threshold
-		rune_panel.tooltip_text = "Rune %d intact" % display_threshold if active else "Rune %d broken" % threshold
+		rune_panel.tooltip_text = "Rune %d intact" % threshold if active else "Rune %d broken" % threshold
 
 
 func _layout_internal_nodes() -> void:
@@ -484,6 +480,31 @@ func _build_style_box(fill: Color, border: Color, border_width := 1, corner_radi
 	style.anti_aliasing = true
 	style.anti_aliasing_size = 1.0
 	return style
+
+
+func _has_active_rune_near(threshold: int) -> bool:
+	# Exact match (standard runes)
+	for active_threshold in _active_rune_thresholds:
+		if int(active_threshold) == threshold:
+			return true
+	# Nearest match for non-standard thresholds (e.g. fortified spirit boon)
+	if _active_rune_thresholds.size() > DEFAULT_RUNE_THRESHOLDS.size():
+		# Extra runes exist — check if any non-standard threshold is closest to this slot
+		for active_threshold in _active_rune_thresholds:
+			var at := int(active_threshold)
+			if at in DEFAULT_RUNE_THRESHOLDS:
+				continue
+			# Find which default threshold this non-standard one is nearest to
+			var best_default := -1
+			var best_dist := 999
+			for dt in DEFAULT_RUNE_THRESHOLDS:
+				var dist := absi(at - dt)
+				if dist < best_dist:
+					best_dist = dist
+					best_default = dt
+			if best_default == threshold:
+				return true
+	return false
 
 
 func _normalize_rune_thresholds(source) -> PackedInt32Array:

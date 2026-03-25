@@ -3,6 +3,7 @@ extends Control
 
 signal card_selected(card_id: String)
 signal skipped
+signal reroll_requested
 
 const CardDisplayComponentScript = preload("res://src/ui/components/CardDisplayComponent.gd")
 
@@ -11,6 +12,7 @@ const PREVIEW_SIZE := Vector2(429, 749)  # 50% larger than CARD_SIZE
 const HOVER_DELAY := 0.5
 
 var _cards: Array = []
+var _reroll_tokens: int = 0
 var _hover_preview: Control = null
 var _hover_timer: Timer = null
 var _hover_card_data: Dictionary = {}
@@ -20,8 +22,9 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 
 
-func set_cards(cards: Array) -> void:
+func set_cards(cards: Array, reroll_tokens: int = 0) -> void:
 	_cards = cards
+	_reroll_tokens = reroll_tokens
 	_build_ui()
 
 
@@ -70,16 +73,24 @@ func _build_ui() -> void:
 		var card_container := _build_card_option(card)
 		cards_hbox.add_child(card_container)
 
-	# Skip button
+	# Bottom buttons
+	var btn_center := HBoxContainer.new()
+	btn_center.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_center.add_theme_constant_override("separation", 16)
+	vbox.add_child(btn_center)
+
+	var reroll_btn := Button.new()
+	reroll_btn.text = "Reroll (%d)" % _reroll_tokens
+	reroll_btn.custom_minimum_size = Vector2(140, 44)
+	reroll_btn.disabled = _reroll_tokens <= 0
+	reroll_btn.pressed.connect(func() -> void: reroll_requested.emit())
+	btn_center.add_child(reroll_btn)
+
 	var skip_btn := Button.new()
 	skip_btn.text = "Skip"
 	skip_btn.custom_minimum_size = Vector2(140, 44)
 	skip_btn.pressed.connect(func() -> void: skipped.emit())
-
-	var btn_center := HBoxContainer.new()
-	btn_center.alignment = BoxContainer.ALIGNMENT_CENTER
 	btn_center.add_child(skip_btn)
-	vbox.add_child(btn_center)
 
 	# Hover timer (shared)
 	_hover_timer = Timer.new()

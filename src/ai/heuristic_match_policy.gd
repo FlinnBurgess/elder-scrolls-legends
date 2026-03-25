@@ -263,6 +263,11 @@ static func _tactical_bonus(before_state: Dictionary, after_state: Dictionary, a
 		MatchActionEnumerator.KIND_ATTACK:
 			if str(action.get("target", {}).get("kind", "")) == "player":
 				bonus += float(int(before_opponent.get("health", 0)) - int(after_opponent.get("health", 0))) * face_damage_w
+				# Compensate for creatures summoned by rune-break side effects
+				# (boons like Runic Ward, prophecy creatures). Breaking runes is
+				# inevitable for winning — without this offset the AI refuses to
+				# attack face when rune breaks spawn creatures.
+				bonus += _rune_break_summon_offset(before_state, after_state, opponent_id, player_id, options)
 			else:
 				bonus += _attack_trade_bonus(before_state, after_state, action)
 		MatchActionEnumerator.KIND_SUMMON_CREATURE:
@@ -298,6 +303,49 @@ static func _attack_trade_bonus(before_state: Dictionary, after_state: Dictionar
 	if attacker_after.is_empty() and not attacker_before.is_empty():
 		bonus -= 3.0
 	return bonus
+
+
+## Offset state-evaluation penalties caused by opponent creatures that appeared
+## as a side effect of a face attack (rune-break boon summons, prophecy plays).
+##
+## These creatures are an inevitable cost of dealing face damage — the AI must
+## break runes to win. Without this offset the board-value and threat penalties
+## from rune-break summons dominate, causing the AI to avoid face attacks.
+## The offset is 85% of the total penalty so the AI still slightly prefers
+## lines that avoid unnecessary rune breaks when better options exist.
+static func _rune_break_summon_offset(before_state: Dictionary, after_state: Dictionary, opponent_id: String, player_id: String, options: Dictionary) -> float:
+	# Identify creatures that appeared on the opponent's board during the action.
+	var before_ids := {}
+	for lane in before_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(opponent_id, []):
+			if typeof(card) == TYPE_DICTIONARY:
+				before_ids[str(card.get("instance_id", ""))] = true
+	var new_creature_value := 0.0
+	var new_creature_count := 0
+	var new_guard_count := 0
+	for lane in after_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(opponent_id, []):
+			if typeof(card) == TYPE_DICTIONARY and not before_ids.has(str(card.get("instance_id", ""))):
+				new_creature_count += 1
+				new_creature_value += MatchStateEvaluator._creature_value(after_state, card)
+				if MatchStateEvaluator._array_has_string(card.get("keywords", []), "guard"):
+					new_guard_count += 1
+	if new_creature_count == 0:
+		return 0.0
+	const OFFSET_FRACTION := 0.85
+	# Offset the board-value penalty (opponent creatures weighted 1.25x in evaluator).
+	var offset := new_creature_value * 1.25 * OFFSET_FRACTION
+	# Offset the creature-count and guard-count tactical penalties.
+	offset += float(new_creature_count) * float(options.get("creature_killed_bonus", 2.3)) * OFFSET_FRACTION
+	offset += float(new_guard_count) * float(options.get("guard_removed_bonus", 1.7)) * OFFSET_FRACTION
+	# Offset the face-threat reduction from new guards blocking AI attackers.
+	var ai_threat_before := MatchStateEvaluator._incoming_face_threat(before_state, opponent_id)
+	var ai_threat_after := MatchStateEvaluator._incoming_face_threat(after_state, opponent_id)
+	var threat_decrease := maxi(0, ai_threat_before - ai_threat_after)
+	if threat_decrease > 0:
+		var threat_w := float(options.get("incoming_threat_weight", 3.5))
+		offset += float(threat_decrease) * threat_w * 0.55 * OFFSET_FRACTION
+	return offset
 
 
 ## Apply random noise to candidate scores to simulate lower-quality play.

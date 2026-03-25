@@ -33,6 +33,11 @@
 			"enemy_deck": "enemy_frost_dragon",
 			"quality": 0.65,
 			"enemy_health": 35,
+			"next": ["node_aug_creature"]
+		},
+		"node_aug_creature": {
+			"type": "creature_augment",
+			"headline": "Dragon Forge",
 			"next": ["node_boon"]
 		},
 		"node_boon": {
@@ -49,13 +54,29 @@
 			"next": ["node_e", "node_f"]
 		},
 		"node_e": {
-			"type": "healer",
-			"headline": "Shrine of Arkay",
+			"type": "event",
+			"headline": "A Wounded Mercenary",
+			"event": {
+				"description": "A wounded mercenary stumbles toward you on the road. He offers to fight alongside you if you can heal his injuries.",
+				"choices": [
+					{
+						"label": "Heal them (-5 Max HP, gain a recruit)",
+						"effects": [
+							{"type": "modify_health", "amount": -5},
+							{"type": "add_random_card"}
+						]
+					},
+					{
+						"label": "Leave them and press on",
+						"effects": []
+					}
+				]
+			},
 			"next": ["node_boss"]
 		},
 		"node_f": {
-			"type": "reinforcement",
-			"headline": "Dragon Hoard",
+			"type": "action_augment",
+			"headline": "Arcane Inscription",
 			"next": ["node_boss"]
 		},
 		"node_boss": {

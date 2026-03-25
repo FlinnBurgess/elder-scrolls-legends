@@ -130,7 +130,7 @@ static func validate_adventure(adventure: Dictionary) -> Dictionary:
 	if not start_id.is_empty() and not nodes.has(start_id):
 		errors.append("start_node '%s' does not exist in nodes" % start_id)
 
-	var valid_types := ["combat", "mini_boss", "final_boss", "healer", "reinforcement", "shop", "boon"]
+	var valid_types := ["combat", "mini_boss", "final_boss", "healer", "reinforcement", "shop", "boon", "creature_augment", "action_augment", "event"]
 	var combat_types := ["combat", "mini_boss", "final_boss"]
 	for node_id in nodes:
 		var node: Dictionary = nodes[node_id]
@@ -143,6 +143,13 @@ static func validate_adventure(adventure: Dictionary) -> Dictionary:
 		if node_type in combat_types:
 			if not node.has("enemy_deck") or str(node["enemy_deck"]).is_empty():
 				errors.append("Combat node '%s' has no enemy_deck" % node_id)
+
+		if node_type == "event":
+			var event_data = node.get("event", null)
+			if event_data == null or typeof(event_data) != TYPE_DICTIONARY:
+				errors.append("Event node '%s' has no 'event' field" % node_id)
+			elif not event_data.has("choices") or typeof(event_data.get("choices")) != TYPE_ARRAY or event_data.get("choices", []).is_empty():
+				errors.append("Event node '%s' has no choices" % node_id)
 
 		var next_nodes: Array = node.get("next", [])
 		for next_id in next_nodes:

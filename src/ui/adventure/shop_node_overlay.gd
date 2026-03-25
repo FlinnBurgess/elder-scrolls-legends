@@ -3,6 +3,7 @@ extends Control
 
 signal card_purchased(card_id: String, cost: int)
 signal closed
+signal reroll_requested
 
 const CardDisplayComponentScript = preload("res://src/ui/components/CardDisplayComponent.gd")
 const AdventureCardPoolScript = preload("res://src/adventure/adventure_card_pool.gd")
@@ -14,6 +15,7 @@ const HOVER_DELAY := 0.5
 var _cards: Array = []
 var _gold: int = 0
 var _purchased_ids: Array = []
+var _reroll_tokens: int = 0
 var _gold_label: Label
 var _buy_buttons: Array = []  # Array of {button: Button, cost: int, card_id: String}
 var _hover_preview: Control = null
@@ -25,10 +27,11 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 
 
-func set_shop_data(cards: Array, gold: int, purchased_ids: Array = []) -> void:
+func set_shop_data(cards: Array, gold: int, purchased_ids: Array = [], reroll_tokens: int = 0) -> void:
 	_cards = cards
 	_gold = gold
 	_purchased_ids = purchased_ids
+	_reroll_tokens = reroll_tokens
 	_build_ui()
 
 
@@ -115,16 +118,24 @@ func _build_ui() -> void:
 		else:
 			bottom_row.add_child(card_option)
 
-	# Done button
+	# Bottom buttons
+	var btn_center := HBoxContainer.new()
+	btn_center.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_center.add_theme_constant_override("separation", 16)
+	vbox.add_child(btn_center)
+
+	var reroll_btn := Button.new()
+	reroll_btn.text = "Reroll (%d)" % _reroll_tokens
+	reroll_btn.custom_minimum_size = Vector2(140, 44)
+	reroll_btn.disabled = _reroll_tokens <= 0
+	reroll_btn.pressed.connect(func() -> void: reroll_requested.emit())
+	btn_center.add_child(reroll_btn)
+
 	var done_btn := Button.new()
 	done_btn.text = "Done"
 	done_btn.custom_minimum_size = Vector2(140, 44)
 	done_btn.pressed.connect(func() -> void: closed.emit())
-
-	var btn_center := HBoxContainer.new()
-	btn_center.alignment = BoxContainer.ALIGNMENT_CENTER
 	btn_center.add_child(done_btn)
-	vbox.add_child(btn_center)
 
 	# Hover timer (shared)
 	_hover_timer = Timer.new()

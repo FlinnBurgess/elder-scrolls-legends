@@ -1,0 +1,103 @@
+[
+	{
+		"id": "stats_2_2",
+		"name": "Fortify",
+		"description": "+2/+2",
+		"type": "creature",
+		"effects": {"power": 2, "health": 2}
+	},
+	{
+		"id": "stats_1_1_guard",
+		"name": "Shield Training",
+		"description": "+1/+1 and Guard",
+		"type": "creature",
+		"effects": {"power": 1, "health": 1, "keyword": "guard"}
+	},
+	{
+		"id": "stats_0_3_ward",
+		"name": "Arcane Barrier",
+		"description": "+0/+3 and Ward",
+		"type": "creature",
+		"effects": {"health": 3, "keyword": "ward"}
+	},
+	{
+		"id": "cost_reduction_1",
+		"name": "Efficiency",
+		"description": "Costs 1 less",
+		"type": "creature",
+		"effects": {"cost": -1}
+	},
+	{
+		"id": "on_attack_damage_1",
+		"name": "Venom Blade",
+		"description": "Deal 1 damage to a random enemy when this attacks",
+		"type": "creature",
+		"effects": {
+			"triggered_ability": {
+				"family": "on_attack",
+				"required_zone": "lane",
+				"effects": [{"op": "deal_damage", "target": "random_enemy", "amount": 1}]
+			}
+		}
+	},
+	{
+		"id": "stats_1_1_drain",
+		"name": "Vampiric Touch",
+		"description": "+1/+1 and Drain",
+		"type": "creature",
+		"effects": {"power": 1, "health": 1, "keyword": "drain"}
+	},
+	{
+		"id": "stats_2_0_charge",
+		"name": "Battle Rush",
+		"description": "+2/+0 and Charge",
+		"type": "creature",
+		"effects": {"power": 2, "keyword": "charge"}
+	},
+	{
+		"id": "action_cost_reduction",
+		"name": "Streamlined",
+		"description": "Costs 1 less",
+		"type": "action",
+		"target_ops": ["*"],
+		"effects": {"cost": -1}
+	},
+	{
+		"id": "action_draw_card",
+		"name": "Insight",
+		"description": "Draw a card after playing",
+		"type": "action",
+		"target_ops": ["*"],
+		"effects": {
+			"extra_effect": {"op": "draw_cards", "count": 1, "target_player": "controller"}
+		}
+	},
+	{
+		"id": "action_extra_damage_2",
+		"name": "Amplify",
+		"description": "Deal 2 additional damage",
+		"type": "action",
+		"target_ops": ["deal_damage", "damage"],
+		"effects": {"boost_damage": 2}
+	},
+	{
+		"id": "action_summon_buff",
+		"name": "Empowered Summon",
+		"description": "Summoned creature gets +1/+1",
+		"type": "action",
+		"target_ops": ["summon_from_effect", "summon_random_from_catalog", "summon_random_from_discard", "fill_lane_with"],
+		"effects": {
+			"summon_buff": {"power": 1, "health": 1}
+		}
+	},
+	{
+		"id": "action_gain_magicka",
+		"name": "Channeling",
+		"description": "Gain 2 magicka after playing",
+		"type": "action",
+		"target_ops": ["*"],
+		"effects": {
+			"extra_effect": {"op": "gain_max_magicka", "amount": 2, "temporary": true}
+		}
+	}
+]

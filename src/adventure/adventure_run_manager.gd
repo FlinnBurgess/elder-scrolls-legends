@@ -23,11 +23,14 @@ var max_health_bonus: int = 0
 var added_cards: Array = []  # Array of card_id strings added during run
 var node_offerings: Dictionary = {}  # node_id -> {cards: Array, purchased_ids: Array}
 var active_boons: Array = []  # Array of boon_id strings; duplicates allowed for stackable boons
+var reroll_tokens: int = 1
+var augments: Array = []  # Array of {card_id: String, augment_id: String}
 
 const RUN_DIR := "user://adventure/"
 const RUN_PATH := "user://adventure/run.json"
 const MATCH_STATE_PATH := "user://adventure/match_state.json"
 const STARTING_REVIVES := 1
+const STARTING_REROLL_TOKENS := 1
 const GOLD_PER_COMBAT := 30
 const GOLD_PER_MINI_BOSS := 60
 const HEALER_HEALTH_BONUS := 5
@@ -47,6 +50,8 @@ func start_run(p_adventure_id: String, p_deck_id: String, p_deck_cards: Array, s
 	added_cards = []
 	node_offerings = {}
 	active_boons = []
+	reroll_tokens = STARTING_REROLL_TOKENS
+	augments = []
 	state = State.VIEWING_MAP
 	save_run()
 
@@ -158,6 +163,24 @@ func save_node_offering(node_id: String, cards: Array) -> void:
 	save_run()
 
 
+func use_reroll_token() -> bool:
+	if reroll_tokens <= 0:
+		return false
+	reroll_tokens -= 1
+	save_run()
+	return true
+
+
+func add_augment(card_id: String, augment_id: String) -> void:
+	augments.append({"card_id": card_id, "augment_id": augment_id})
+	save_run()
+
+
+func clear_node_offering(node_id: String) -> void:
+	node_offerings.erase(node_id)
+	save_run()
+
+
 func mark_card_purchased(node_id: String, card_id: String) -> void:
 	var offering: Dictionary = node_offerings.get(node_id, {})
 	if offering.is_empty():
@@ -202,6 +225,8 @@ func save_run() -> void:
 		"added_cards": added_cards,
 		"node_offerings": node_offerings,
 		"active_boons": active_boons,
+		"reroll_tokens": reroll_tokens,
+		"augments": augments,
 	}
 	file.store_string(JSON.stringify(data, "\t"))
 
@@ -237,6 +262,8 @@ static func load_run() -> AdventureRunManager:
 	manager.max_health_bonus = int(data.get("max_health_bonus", 0))
 	manager.added_cards = Array(data.get("added_cards", []))
 	manager.active_boons = Array(data.get("active_boons", []))
+	manager.reroll_tokens = int(data.get("reroll_tokens", STARTING_REROLL_TOKENS))
+	manager.augments = Array(data.get("augments", []))
 	var offerings_raw = data.get("node_offerings", {})
 	if offerings_raw is Dictionary:
 		manager.node_offerings = offerings_raw

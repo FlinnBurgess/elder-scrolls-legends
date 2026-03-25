@@ -92,16 +92,17 @@ func _test_get_graph_layers() -> void:
 func _test_get_graph_layers_branching() -> void:
 	var adventure := AdventureCatalogScript.load_adventure("the_dragon_crisis")
 	var layers := AdventureCatalogScript.get_graph_layers(adventure)
-	# Expected layers: [node_boon_start], [node_a], [node_b, node_c], [node_mini], [node_boon], [node_d], [node_e, node_f], [node_boss]
-	_assert(layers.size() == 8, "graph_layers_branch: should have 8 layers, got %d" % layers.size())
+	# Expected layers: [node_boon_start], [node_a], [node_b, node_c], [node_mini], [node_aug_creature], [node_boon], [node_d], [node_e, node_f], [node_boss]
+	_assert(layers.size() == 9, "graph_layers_branch: should have 9 layers, got %d" % layers.size())
 	_assert(layers[0].size() == 1, "graph_layers_branch: layer 0 should have 1 node (node_boon_start)")
 	_assert(layers[1].size() == 1, "graph_layers_branch: layer 1 should have 1 node (node_a)")
 	_assert(layers[2].size() == 2, "graph_layers_branch: layer 2 should have 2 nodes (branch)")
 	_assert(layers[3].size() == 1, "graph_layers_branch: layer 3 should have 1 node (mini-boss)")
-	_assert(layers[4].size() == 1, "graph_layers_branch: layer 4 should have 1 node (node_boon)")
-	_assert(layers[5].size() == 1, "graph_layers_branch: layer 5 should have 1 node (node_d)")
-	_assert(layers[6].size() == 2, "graph_layers_branch: layer 6 should have 2 nodes (branch)")
-	_assert(layers[7].size() == 1, "graph_layers_branch: layer 7 should have 1 node (boss)")
+	_assert(layers[4].size() == 1, "graph_layers_branch: layer 4 should have 1 node (creature_augment)")
+	_assert(layers[5].size() == 1, "graph_layers_branch: layer 5 should have 1 node (node_boon)")
+	_assert(layers[6].size() == 1, "graph_layers_branch: layer 6 should have 1 node (node_d)")
+	_assert(layers[7].size() == 2, "graph_layers_branch: layer 7 should have 2 nodes (branch)")
+	_assert(layers[8].size() == 1, "graph_layers_branch: layer 8 should have 1 node (boss)")
 
 
 func _test_validate_adventure_valid() -> void:
@@ -139,7 +140,7 @@ func _test_validate_adventure_broken_links() -> void:
 
 
 func _test_validate_adventure_new_node_types() -> void:
-	# Non-combat nodes should be valid without enemy_deck
+	# Non-combat nodes should be valid without enemy_deck (including M4 node types)
 	var adventure := {
 		"id": "test_noncombat",
 		"name": "Test Non-Combat",
@@ -147,7 +148,10 @@ func _test_validate_adventure_new_node_types() -> void:
 		"nodes": {
 			"n1": {"type": "healer", "next": ["n2"]},
 			"n2": {"type": "reinforcement", "next": ["n3"]},
-			"n3": {"type": "shop", "next": []},
+			"n3": {"type": "shop", "next": ["n4"]},
+			"n4": {"type": "creature_augment", "next": ["n5"]},
+			"n5": {"type": "action_augment", "next": ["n6"]},
+			"n6": {"type": "event", "event": {"description": "Test event.", "choices": [{"label": "A", "effects": []}, {"label": "B", "effects": []}]}, "next": []},
 		}
 	}
 	var result := AdventureCatalogScript.validate_adventure(adventure)

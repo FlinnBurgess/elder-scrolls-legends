@@ -1404,23 +1404,13 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			if rw_charges <= 0:
 				return {"handled": true, "events": []}
 			rw_player["_runic_ward_charges"] = rw_charges - 1
-			var rw_template := {
-				"definition_id": "_runic_ward_guard",
-				"name": "Guardian",
-				"card_type": "creature",
-				"cost": 2,
-				"power": 2,
-				"health": 4,
-				"base_power": 2,
-				"base_health": 4,
-				"keywords": ["guard"],
-				"subtypes": [],
-				"attributes": [],
-				"rules_tags": [],
-				"triggered_abilities": [],
-				"collectible": false,
-				"generated_by_rules": true,
-			}
+			var rw_template := {}
+			for rw_seed in CardCatalog._card_seeds():
+				if typeof(rw_seed) == TYPE_DICTIONARY and str(rw_seed.get("card_id", "")) == "int_camlorn_sentinel":
+					rw_template = rw_seed.duplicate(true)
+					rw_template["definition_id"] = str(rw_seed.get("card_id", ""))
+					break
+			rw_template["generated_by_rules"] = true
 			var rw_gen := MatchMutations.build_generated_card(match_state, rw_controller_id, rw_template)
 			var rw_result := MatchMutations.summon_card_to_lane(match_state, rw_controller_id, rw_gen, "field", {"source_zone": MatchMutations.ZONE_GENERATED})
 			if not bool(rw_result.get("is_valid", false)):
