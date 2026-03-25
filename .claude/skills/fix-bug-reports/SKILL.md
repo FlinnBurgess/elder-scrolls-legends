@@ -33,7 +33,7 @@ Process all in-game error reports that were submitted via the error reporting po
    f. If the report is unclear or requires a design decision, **ask the user for guidance** before proceeding
    g. Implement the fix
    h. **Post-fix learnings scan**: Run `scan-learnings` again with a more specific description now that you understand the problem deeply (e.g., "random target selection in match_timing"). This catches issues your fix may have introduced that weren't obvious before (e.g., using `randi()` where `_deterministic_index` is required).
-   i. Run relevant test runners based on the fix area. Test runners live in `tests/` and are run with: `/Applications/Godot.app/Contents/MacOS/Godot --headless --path /Users/flinnburgess/Development/Godot/ElderScrollsLegends --script res://tests/<runner_name>.gd`
+   i. Run relevant test runners based on the fix area. Test runners live in `tests/` and are run with: `/Applications/Godot.app/Contents/MacOS/Godot --headless --log-file /tmp/godot.log --path /Users/flinnburgess/Development/Godot/ElderScrollsLegends --script res://tests/<runner_name>.gd`
       **Important:** Godot test runners require `dangerouslyDisableSandbox: true` because Godot writes to `~/Library/Application Support/Godot/` for logging, and the sandbox blocks this — causing a segfault in `RotatedFileLogger::rotate_file()` that looks like an engine crash.
       - For match/UI fixes: `match_ui_runner.gd`, `all_rules_runner.gd`
       - For arena fixes: `arena_draft_engine_runner.gd`
@@ -52,7 +52,7 @@ Process all in-game error reports that were submitted via the error reporting po
 
 After each fix is committed, immediately remove the corresponding line from the JSONL file:
 - **Re-read the entire file first** — the user may have added new reports while you were working
-- Identify the line to remove by **exact full-line match** against the original report JSON you processed — never use keyword substring matching, as it can accidentally delete unrelated reports that share words
+- Identify the line to remove by matching against the report's **`comment` field value** — comments are unique per report and short enough to match reliably. Avoid broad keyword matching (e.g., just "dragon") that could hit unrelated reports, but the full comment string is a safe identifier.
 - **Never use index-based removal** (e.g., "remove line 3") — blank lines, concurrent additions, and off-by-one errors make index-based approaches fragile. Always match the exact JSON string of the report.
 - Write the remaining lines back
 
@@ -66,6 +66,7 @@ If new reports appear during the run (detected when re-reading the file), create
 - **Baseline test failures**: Before the first fix, run the relevant test runners once to identify any pre-existing failures. Do not spend time debugging failures that exist before your changes.
 - **Web research**: If a report suggests the correct behavior is uncertain (e.g., "should it have?", "worth researching online"), use WebSearch/WebFetch to check the UESP wiki or community sources for the canonical game behavior before implementing.
 - **Unreproducible reports**: If thorough code investigation (tracing the full code path, checking all validation layers, verifying data hydration) fails to reveal a bug, ask the user whether to remove the report or keep it for monitoring. Don't spend more than ~15 minutes on a single report with no clear code defect — present your findings and let the user decide.
+- **Ambiguous root cause reports**: Sometimes a report's symptom has multiple plausible causes (e.g., "can't target" could be a targeting bug OR insufficient magicka) and the snapshot doesn't conclusively identify one. In these cases, enhancing the error report snapshot with additional diagnostic fields is a valid resolution — fix the observability gap so the next occurrence will be diagnosable. Present your analysis to the user and let them decide whether to dismiss the report or keep investigating.
 - Do not skip reports unless the user explicitly asks you to defer one (e.g., "skip that one", "no obvious cause"). If skipped, leave the report entry in the JSONL file and note it in the summary.
 - Always verify fixes with tests before committing
 - Each fix gets its own commit — do not batch fixes. Exceptions for combining into a single commit: (1) two reports share the exact same root cause (e.g., both are "unimplemented op X"), (2) two fixes are deeply interleaved in the same files such that separating them without interactive staging would be error-prone (e.g., both add helper functions and call sites in the same module), or (3) multiple reports share the same bug class (e.g., three slay-related bugs touching the same subsystem). In cases (2) and (3), explain all fixes clearly in the commit message. When batching commits, also batch the corresponding JSONL removals.
