@@ -3348,6 +3348,205 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 		var rmh_player := _get_player_state(match_state, rmh_controller)
 		if int(rmh_player.get("health", 0)) < required_min_health:
 			return false
+	# 1. required_controller_turn — trigger only fires on the controller's own turn
+	if bool(descriptor.get("required_controller_turn", false)):
+		var rct_controller := str(trigger.get("controller_player_id", ""))
+		if str(match_state.get("active_player_id", "")) != rct_controller:
+			return false
+	# 2. required_creature_in_each_lane — controller has at least one creature in every lane
+	if bool(descriptor.get("required_creature_in_each_lane", false)):
+		var rciel_controller := str(trigger.get("controller_player_id", ""))
+		var rciel_lanes: Array = match_state.get("lanes", [])
+		for rciel_lane in rciel_lanes:
+			var rciel_slots: Array = rciel_lane.get("player_slots", {}).get(rciel_controller, [])
+			var rciel_count := 0
+			for rciel_card in rciel_slots:
+				if typeof(rciel_card) == TYPE_DICTIONARY:
+					rciel_count += 1
+			if rciel_count < 1:
+				return false
+	# 3. required_friendly_attribute_count — count friendly creatures with a specific attribute
+	var rfac_spec: Dictionary = descriptor.get("required_friendly_attribute_count", {})
+	if not rfac_spec.is_empty():
+		var rfac_attr := str(rfac_spec.get("attribute", ""))
+		var rfac_min := int(rfac_spec.get("min_count", 0))
+		var rfac_controller := str(trigger.get("controller_player_id", ""))
+		var rfac_creatures := _player_lane_creatures(match_state, rfac_controller)
+		var rfac_count := 0
+		for rfac_card in rfac_creatures:
+			var rfac_attrs = rfac_card.get("attributes", [])
+			if typeof(rfac_attrs) == TYPE_ARRAY and rfac_attrs.has(rfac_attr):
+				rfac_count += 1
+		if rfac_count < rfac_min:
+			return false
+	# 4. required_drawn_card_type — the drawn card must be a specific type
+	var rdct_type := str(descriptor.get("required_drawn_card_type", ""))
+	if not rdct_type.is_empty():
+		var rdct_actual := str(event.get("drawn_card_type", ""))
+		if rdct_actual.is_empty():
+			var rdct_card := _find_card_anywhere(match_state, str(event.get("source_instance_id", "")))
+			rdct_actual = str(rdct_card.get("card_type", ""))
+		if rdct_actual != rdct_type:
+			return false
+	# 5. required_item_in_play — controller has at least one creature with an attached item
+	if bool(descriptor.get("required_item_in_play", false)):
+		var riip_controller := str(trigger.get("controller_player_id", ""))
+		var riip_creatures := _player_lane_creatures(match_state, riip_controller)
+		var riip_found := false
+		for riip_card in riip_creatures:
+			var riip_items = riip_card.get("attached_items", [])
+			if typeof(riip_items) == TYPE_ARRAY and not riip_items.is_empty():
+				riip_found = true
+				break
+		if not riip_found:
+			return false
+	# 6. required_min_max_magicka — controller's max_magicka >= value
+	var rmmm_val := int(descriptor.get("required_min_max_magicka", 0))
+	if rmmm_val > 0:
+		var rmmm_controller := str(trigger.get("controller_player_id", ""))
+		var rmmm_player := _get_player_state(match_state, rmmm_controller)
+		if int(rmmm_player.get("max_magicka", 0)) < rmmm_val:
+			return false
+	# 7. required_lane_full — the trigger source's lane is full for the controller
+	if bool(descriptor.get("required_lane_full", false)):
+		var rlf_controller := str(trigger.get("controller_player_id", ""))
+		var rlf_lane_index := int(trigger.get("lane_index", -1))
+		var rlf_lanes: Array = match_state.get("lanes", [])
+		if rlf_lane_index < 0 or rlf_lane_index >= rlf_lanes.size():
+			return false
+		var rlf_lane: Dictionary = rlf_lanes[rlf_lane_index]
+		var rlf_slots: Array = rlf_lane.get("player_slots", {}).get(rlf_controller, [])
+		var rlf_capacity := int(rlf_lane.get("slot_capacity", 4))
+		if rlf_slots.size() < rlf_capacity:
+			return false
+	# 8. required_no_enemies_in_lane — no enemy creatures in the trigger source's lane
+	if bool(descriptor.get("required_no_enemies_in_lane", false)):
+		var rneil_controller := str(trigger.get("controller_player_id", ""))
+		var rneil_opponent := _get_opposing_player_id(match_state.get("players", []), rneil_controller)
+		var rneil_lane_index := int(trigger.get("lane_index", -1))
+		var rneil_lanes: Array = match_state.get("lanes", [])
+		if rneil_lane_index < 0 or rneil_lane_index >= rneil_lanes.size():
+			return false
+		var rneil_slots: Array = rneil_lanes[rneil_lane_index].get("player_slots", {}).get(rneil_opponent, [])
+		var rneil_count := 0
+		for rneil_card in rneil_slots:
+			if typeof(rneil_card) == TYPE_DICTIONARY:
+				rneil_count += 1
+		if rneil_count > 0:
+			return false
+	# 9. required_opponent_full_lane — opponent has at least one full lane
+	if bool(descriptor.get("required_opponent_full_lane", false)):
+		var rofl_controller := str(trigger.get("controller_player_id", ""))
+		var rofl_opponent := _get_opposing_player_id(match_state.get("players", []), rofl_controller)
+		var rofl_lanes: Array = match_state.get("lanes", [])
+		var rofl_found := false
+		for rofl_lane in rofl_lanes:
+			var rofl_slots: Array = rofl_lane.get("player_slots", {}).get(rofl_opponent, [])
+			var rofl_capacity := int(rofl_lane.get("slot_capacity", 4))
+			if rofl_slots.size() >= rofl_capacity:
+				rofl_found = true
+				break
+		if not rofl_found:
+			return false
+	# 10. required_action_played_this_turn — controller played a non-creature card this turn
+	if bool(descriptor.get("required_action_played_this_turn", false)):
+		var rapt_controller := str(trigger.get("controller_player_id", ""))
+		var rapt_player := _get_player_state(match_state, rapt_controller)
+		if int(rapt_player.get("noncreature_plays_this_turn", 0)) <= 0:
+			return false
+	# 11. required_cards_played_this_turn — controller played >= N cards this turn
+	var rcptt_val := int(descriptor.get("required_cards_played_this_turn", 0))
+	if rcptt_val > 0:
+		var rcptt_controller := str(trigger.get("controller_player_id", ""))
+		var rcptt_player := _get_player_state(match_state, rcptt_controller)
+		if int(rcptt_player.get("cards_played_this_turn", 0)) < rcptt_val:
+			return false
+	# 12. required_played_max_cost — the played card's cost <= value
+	var rpmc_val := int(descriptor.get("required_played_max_cost", -1))
+	if rpmc_val >= 0:
+		if int(event.get("played_cost", 999)) > rpmc_val:
+			return false
+	# 13. required_damage_amount — event damage amount >= value
+	var rda_val := int(descriptor.get("required_damage_amount", 0))
+	if rda_val > 0:
+		if int(event.get("amount", 0)) < rda_val:
+			return false
+	# 14. required_deaths_this_turn_gte — controller's creatures died this turn >= value
+	var rdtt_val := int(descriptor.get("required_deaths_this_turn_gte", 0))
+	if rdtt_val > 0:
+		var rdtt_controller := str(trigger.get("controller_player_id", ""))
+		var rdtt_player := _get_player_state(match_state, rdtt_controller)
+		if int(rdtt_player.get("creatures_died_this_turn", 0)) < rdtt_val:
+			return false
+	# 15. required_gained_health_this_turn — controller gained health this turn
+	if bool(descriptor.get("required_gained_health_this_turn", false)):
+		var rghtt_controller := str(trigger.get("controller_player_id", ""))
+		var rghtt_player := _get_player_state(match_state, rghtt_controller)
+		if int(rghtt_player.get("health_gained_this_turn", 0)) <= 0:
+			return false
+	# 16. required_card_types_in_discard_or_play — each listed type present in discard or lanes
+	var rctidop_spec: Dictionary = descriptor.get("required_card_types_in_discard_or_play", {})
+	if not rctidop_spec.is_empty():
+		var rctidop_types: Array = rctidop_spec.get("types", [])
+		var rctidop_controller := str(trigger.get("controller_player_id", ""))
+		var rctidop_player := _get_player_state(match_state, rctidop_controller)
+		var rctidop_found_types: Dictionary = {}
+		for rctidop_card in rctidop_player.get(ZONE_DISCARD, []):
+			if typeof(rctidop_card) == TYPE_DICTIONARY:
+				rctidop_found_types[str(rctidop_card.get("card_type", ""))] = true
+		for rctidop_card in _player_lane_creatures(match_state, rctidop_controller):
+			rctidop_found_types[str(rctidop_card.get("card_type", ""))] = true
+		for rctidop_type in rctidop_types:
+			if not rctidop_found_types.has(str(rctidop_type)):
+				return false
+	# 17. required_card_types_played_this_turn — each listed type was played this turn
+	var rctptt_spec: Dictionary = descriptor.get("required_card_types_played_this_turn", {})
+	if not rctptt_spec.is_empty():
+		var rctptt_types: Array = rctptt_spec.get("types", [])
+		var rctptt_controller := str(trigger.get("controller_player_id", ""))
+		var rctptt_player := _get_player_state(match_state, rctptt_controller)
+		var rctptt_played: Array = rctptt_player.get("card_types_played_this_turn", [])
+		for rctptt_type in rctptt_types:
+			if not rctptt_played.has(str(rctptt_type)):
+				return false
+	# 18. required_exalted_creature_in_play — controller has a creature with exalted: true
+	if bool(descriptor.get("required_exalted_creature_in_play", false)):
+		var recip_controller := str(trigger.get("controller_player_id", ""))
+		var recip_creatures := _player_lane_creatures(match_state, recip_controller)
+		var recip_found := false
+		for recip_card in recip_creatures:
+			if bool(recip_card.get("exalted", false)):
+				recip_found = true
+				break
+		if not recip_found:
+			return false
+	# 19. required_no_crowned_creature — no friendly creature has crowned: true
+	if bool(descriptor.get("required_no_crowned_creature", false)):
+		var rncc_controller := str(trigger.get("controller_player_id", ""))
+		var rncc_creatures := _player_lane_creatures(match_state, rncc_controller)
+		for rncc_card in rncc_creatures:
+			if bool(rncc_card.get("crowned", false)):
+				return false
+	# 20. required_summon_unique — the summoned creature has is_unique: true
+	if bool(descriptor.get("required_summon_unique", false)):
+		var rsu_card := _find_card_anywhere(match_state, str(event.get("source_instance_id", "")))
+		if rsu_card.is_empty() or not bool(rsu_card.get("is_unique", false)):
+			return false
+	# 21. required_host_min_power — for items: host creature's power >= value
+	var rhmp_val := int(descriptor.get("required_host_min_power", 0))
+	if rhmp_val > 0:
+		var rhmp_host := _find_card_anywhere(match_state, str(event.get("target_instance_id", "")))
+		if rhmp_host.is_empty() or EvergreenRules.get_power(rhmp_host) < rhmp_val:
+			return false
+	# 22. required_equipper_subtype — for items: the equipping creature has the required subtype
+	var res_subtype := str(descriptor.get("required_equipper_subtype", ""))
+	if not res_subtype.is_empty():
+		var res_host := _find_card_anywhere(match_state, str(event.get("target_instance_id", "")))
+		if res_host.is_empty():
+			return false
+		var res_subtypes = res_host.get("subtypes", [])
+		if typeof(res_subtypes) != TYPE_ARRAY or not res_subtypes.has(res_subtype):
+			return false
 	var required_damage_kind := str(descriptor.get("damage_kind", family_spec.get("damage_kind", "")))
 	if not required_damage_kind.is_empty() and str(event.get("damage_kind", "")) != required_damage_kind:
 		return false
