@@ -11,6 +11,8 @@ const AdventureDeckSelectScreenScript = preload("res://src/ui/adventure/adventur
 const AdventureSelectScreenScript = preload("res://src/ui/adventure/adventure_select_screen.gd")
 const AdventureNodeMapScreenScript = preload("res://src/ui/adventure/adventure_node_map_screen.gd")
 const AdventureResultScreenScript = preload("res://src/ui/adventure/adventure_result_screen.gd")
+const BoonCatalogScript = preload("res://src/adventure/boon_catalog.gd")
+const BoonNodeOverlayScript = preload("res://src/ui/adventure/boon_node_overlay.gd")
 const HealerNodeOverlayScript = preload("res://src/ui/adventure/healer_node_overlay.gd")
 const ReinforcementNodeOverlayScript = preload("res://src/ui/adventure/reinforcement_node_overlay.gd")
 const ShopNodeOverlayScript = preload("res://src/ui/adventure/shop_node_overlay.gd")
@@ -134,6 +136,8 @@ func _on_node_selected(node_id: String) -> void:
 			_show_reinforcement_overlay(node_id)
 		"shop":
 			_show_shop_overlay(node_id)
+		"boon":
+			_show_boon_overlay(node_id)
 
 
 # --- Combat ---
@@ -170,10 +174,10 @@ func _start_combat(node_id: String, node: Dictionary) -> void:
 	}
 	_run_manager.save_run()
 
-	_launch_match(player_deck_ids, enemy_deck_ids, quality, enemy_health, match_seed, first_player_index)
+	_launch_match(player_deck_ids, enemy_deck_ids, quality, enemy_health, match_seed, first_player_index, _run_manager.active_boons.duplicate())
 
 
-func _launch_match(player_deck_ids: Array, enemy_deck_ids: Array, quality: float, enemy_health: int, match_seed: int, first_player_index: int) -> void:
+func _launch_match(player_deck_ids: Array, enemy_deck_ids: Array, quality: float, enemy_health: int, match_seed: int, first_player_index: int, active_boons: Array = []) -> void:
 	_clear_screen()
 	var match_screen := MatchScreenScript.new()
 	match_screen.name = "AdventureMatch"
@@ -191,6 +195,8 @@ func _launch_match(player_deck_ids: Array, enemy_deck_ids: Array, quality: float
 	var player_total_health: int = 30 + _run_manager.max_health_bonus
 	if player_total_health != 30:
 		boss_config["player_health"] = player_total_health
+
+	match_screen._adventure_boons = active_boons
 
 	if not boss_config.is_empty():
 		match_screen.start_arena_boss_match(player_deck_ids, enemy_deck_ids, boss_config, match_seed, first_player_index, ai_options)
@@ -211,6 +217,7 @@ func _resume_match() -> void:
 		var match_screen := MatchScreenScript.new()
 		match_screen.name = "AdventureMatch"
 		match_screen._arena_mode = true
+		match_screen._adventure_boons = _run_manager.active_boons.duplicate()
 		match_screen.return_to_main_menu_requested.connect(_on_match_ended.bind(match_screen))
 		match_screen.forfeit_requested.connect(_on_match_forfeited)
 		match_screen.match_state_changed.connect(_on_match_state_changed)
@@ -316,6 +323,26 @@ func _show_shop_overlay(node_id: String) -> void:
 	add_child(overlay)
 	_current_overlay = overlay
 	overlay.set_shop_data(cards, _run_manager.gold, purchased_ids)
+
+
+# --- Boon Node ---
+
+func _show_boon_overlay(node_id: String) -> void:
+	_dismiss_overlay()
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var boons := BoonCatalogScript.get_random_boon_offerings(_run_manager.active_boons, 3, rng)
+
+	var overlay := BoonNodeOverlayScript.new()
+	overlay.boon_selected.connect(func(boon_id: String) -> void:
+		_run_manager.add_boon(boon_id)
+		_run_manager.complete_non_combat_node(_current_adventure)
+		_dismiss_overlay()
+		_show_node_map()
+	)
+	add_child(overlay)
+	_current_overlay = overlay
+	overlay.set_boons(boons)
 
 
 # --- Result ---

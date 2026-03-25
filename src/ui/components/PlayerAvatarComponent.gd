@@ -121,15 +121,27 @@ func set_rune_thresholds(thresholds) -> void:
 
 func get_rune_states() -> Array:
 	var states: Array = []
-	for threshold in DEFAULT_RUNE_THRESHOLDS:
-		states.append(_active_rune_thresholds.has(threshold))
+	var active_count := _active_rune_thresholds.size()
+	for i in range(DEFAULT_RUNE_THRESHOLDS.size()):
+		states.append(i < active_count)
 	return states
 
 
 func get_rune_anchor(threshold: int) -> Control:
+	# Direct match (standard thresholds)
 	for rune_entry in _rune_entries:
 		if int(rune_entry.get("threshold", -1)) == threshold:
 			return rune_entry.get("panel") as Control
+	# Nearest match for non-standard thresholds (e.g. fortified spirit)
+	var best_index := -1
+	var best_distance := 999
+	for i in range(_rune_entries.size()):
+		var dist := absi(threshold - int(_rune_entries[i].get("threshold", -1)))
+		if dist < best_distance:
+			best_distance = dist
+			best_index = i
+	if best_index >= 0:
+		return _rune_entries[best_index].get("panel") as Control
 	return null
 
 
@@ -279,17 +291,20 @@ func _refresh_ward_overlay() -> void:
 
 
 func _refresh_runes() -> void:
-	for rune_entry in _rune_entries:
+	var active_count := _active_rune_thresholds.size()
+	for i in range(_rune_entries.size()):
+		var rune_entry: Dictionary = _rune_entries[i]
 		var threshold := int(rune_entry["threshold"])
 		var rune_panel := rune_entry["panel"] as PanelContainer
 		var rune_inner := rune_entry["inner"] as PanelContainer
 		var crack := rune_entry["crack"] as Label
-		var active := _active_rune_thresholds.has(threshold)
+		var active := i < active_count
 		_apply_panel_style(rune_panel, Color(0.39, 0.14, 0.13, 0.98) if active else Color(0.08, 0.08, 0.1, 0.96), Color(0.96, 0.74, 0.48, 0.98) if active else Color(0.26, 0.28, 0.32, 0.88), 1, _circular_panel_radius(rune_panel, 10))
 		_apply_panel_style(rune_inner, Color(0.7, 0.22, 0.2, 0.98) if active else Color(0.16, 0.16, 0.19, 0.96), Color(1.0, 0.86, 0.62, 0.98) if active else Color(0.32, 0.33, 0.38, 0.88), 1, _circular_panel_radius(rune_inner, 8))
 		crack.visible = not active
 		crack.add_theme_color_override("font_color", Color(0.42, 0.44, 0.5, 0.98))
-		rune_panel.tooltip_text = "Rune %d intact" % threshold if active else "Rune %d broken" % threshold
+		var display_threshold: int = int(_active_rune_thresholds[i]) if active else threshold
+		rune_panel.tooltip_text = "Rune %d intact" % display_threshold if active else "Rune %d broken" % threshold
 
 
 func _layout_internal_nodes() -> void:
@@ -480,7 +495,6 @@ func _normalize_rune_thresholds(source) -> PackedInt32Array:
 		for threshold in source:
 			provided.append(int(threshold))
 	var normalized := PackedInt32Array()
-	for threshold in DEFAULT_RUNE_THRESHOLDS:
-		if provided.has(threshold):
-			normalized.append(threshold)
+	for threshold in provided:
+		normalized.append(threshold)
 	return normalized

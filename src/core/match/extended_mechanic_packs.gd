@@ -1262,6 +1262,166 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				var lg_hand: Array = lg_player.get("hand", [])
 				lg_hand.append(lg_drawn)
 				return {"handled": true, "events": [{"event_type": "lockpick_fail_draw", "player_id": lg_controller_id, "instance_id": str(lg_drawn.get("instance_id", "")), "cost_reduced_by": 2}]}
+		# --- Boon Ops ---
+		"boon_marked_for_death":
+			var bmd_stacks := int(effect.get("stacks", 1))
+			var bmd_effect := {"target_player": "opponent", "amount": bmd_stacks}
+			return {"handled": true, "events": _resolve_player_damage(match_state, trigger, event, bmd_effect, bmd_stacks)}
+		"boon_soul_tear":
+			var bst_controller_id := str(trigger.get("controller_player_id", ""))
+			var bst_player := _get_player_state(match_state, bst_controller_id)
+			if bst_player.is_empty():
+				return {"handled": true, "events": []}
+			var bst_destroyed_id := str(event.get("source_instance_id", event.get("instance_id", "")))
+			var bst_destroyed := _find_card_anywhere(match_state, bst_destroyed_id)
+			var bst_cost := int(bst_destroyed.get("cost", 1)) if not bst_destroyed.is_empty() else 1
+			var bst_candidates: Array = []
+			for bst_seed in CardCatalog._card_seeds():
+				if typeof(bst_seed) != TYPE_DICTIONARY:
+					continue
+				if not bool(bst_seed.get("collectible", true)):
+					continue
+				if str(bst_seed.get("card_type", "")) != "creature":
+					continue
+				if int(bst_seed.get("cost", 0)) != bst_cost:
+					continue
+				bst_candidates.append(bst_seed)
+			if bst_candidates.is_empty():
+				return {"handled": true, "events": []}
+			var bst_pick: Dictionary = bst_candidates[_timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_bst_" + bst_destroyed_id, bst_candidates.size())]
+			var bst_template := bst_pick.duplicate(true)
+			bst_template["definition_id"] = str(bst_template.get("card_id", ""))
+			var bst_gen := MatchMutations.build_generated_card(match_state, bst_controller_id, bst_template)
+			bst_gen["zone"] = MatchMutations.ZONE_HAND
+			bst_player.get(MatchMutations.ZONE_HAND, []).append(bst_gen)
+			return {"handled": true, "events": [{"event_type": "card_drawn", "player_id": bst_controller_id, "source_instance_id": str(trigger.get("source_instance_id", "")), "drawn_instance_id": str(bst_gen.get("instance_id", "")), "source_zone": MatchMutations.ZONE_GENERATED, "target_zone": MatchMutations.ZONE_HAND, "reason": "soul_tear"}]}
+		"boon_first_lesson":
+			var bfl_stacks := int(effect.get("stacks", 1))
+			var bfl_controller_id := str(trigger.get("controller_player_id", ""))
+			var bfl_player := _get_player_state(match_state, bfl_controller_id)
+			if not bfl_player.is_empty():
+				bfl_player["_first_lesson_discount"] = bfl_stacks
+			return {"handled": true, "events": []}
+		"boon_battleground":
+			var bb_controller_id := str(trigger.get("controller_player_id", ""))
+			var bb_lane_id := str(event.get("lane_id", ""))
+			if bb_lane_id != "field":
+				return {"handled": true, "events": []}
+			var bb_creature_id := str(event.get("source_instance_id", ""))
+			if bb_creature_id.is_empty():
+				return {"handled": true, "events": []}
+			var bb_events: Array = []
+			for bb_lane in match_state.get("lanes", []):
+				if str(bb_lane.get("lane_id", "")) != "field":
+					continue
+				for bb_card in bb_lane.get("player_slots", {}).get(bb_controller_id, []):
+					if typeof(bb_card) == TYPE_DICTIONARY and str(bb_card.get("instance_id", "")) == bb_creature_id:
+						EvergreenRules.grant_cover(bb_card, int(match_state.get("turn_number", 0)) + 1, "battleground")
+						bb_events.append({"event_type": "status_granted", "source_instance_id": bb_creature_id, "target_instance_id": bb_creature_id, "status_id": "cover"})
+						break
+				break
+			return {"handled": true, "events": bb_events}
+		"boon_shattered_fate":
+			var bsf_stacks := int(effect.get("stacks", 1))
+			var bsf_controller_id := str(trigger.get("controller_player_id", ""))
+			var bsf_creature_id := str(event.get("source_instance_id", ""))
+			if bsf_creature_id.is_empty():
+				return {"handled": true, "events": []}
+			if not bool(event.get("played_for_free", false)) and str(event.get("reason", "")) != "prophecy":
+				return {"handled": true, "events": []}
+			var bsf_events: Array = []
+			for bsf_lane in match_state.get("lanes", []):
+				for bsf_card in bsf_lane.get("player_slots", {}).get(bsf_controller_id, []):
+					if typeof(bsf_card) == TYPE_DICTIONARY and str(bsf_card.get("instance_id", "")) == bsf_creature_id:
+						EvergreenRules.apply_stat_bonus(bsf_card, bsf_stacks, bsf_stacks, "shattered_fate")
+						bsf_events.append({"event_type": "creature_stats_changed", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": bsf_creature_id, "bonus_power": bsf_stacks, "bonus_health": bsf_stacks})
+						break
+			return {"handled": true, "events": bsf_events}
+		"boon_harbingers_call":
+			var hc_stacks := int(effect.get("stacks", 1))
+			var hc_controller_id := str(trigger.get("controller_player_id", ""))
+			var hc_has_friendly := false
+			for hc_lane in match_state.get("lanes", []):
+				var hc_slots = hc_lane.get("player_slots", {}).get(hc_controller_id, [])
+				if typeof(hc_slots) == TYPE_ARRAY and not hc_slots.is_empty():
+					hc_has_friendly = true
+					break
+			if hc_has_friendly:
+				return {"handled": true, "events": []}
+			var hc_candidates: Array = []
+			for hc_seed in CardCatalog._card_seeds():
+				if typeof(hc_seed) != TYPE_DICTIONARY:
+					continue
+				if not bool(hc_seed.get("collectible", true)):
+					continue
+				if str(hc_seed.get("card_type", "")) != "creature":
+					continue
+				if int(hc_seed.get("cost", 0)) != hc_stacks:
+					continue
+				hc_candidates.append(hc_seed)
+			if hc_candidates.is_empty():
+				return {"handled": true, "events": []}
+			var hc_pick: Dictionary = hc_candidates[_timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_hc", hc_candidates.size())]
+			var hc_template := hc_pick.duplicate(true)
+			hc_template["definition_id"] = str(hc_template.get("card_id", ""))
+			var hc_gen := MatchMutations.build_generated_card(match_state, hc_controller_id, hc_template)
+			var hc_result := MatchMutations.summon_card_to_lane(match_state, hc_controller_id, hc_gen, "field", {"source_zone": MatchMutations.ZONE_GENERATED})
+			if not bool(hc_result.get("is_valid", false)):
+				hc_result = MatchMutations.summon_card_to_lane(match_state, hc_controller_id, hc_gen, "shadow", {"source_zone": MatchMutations.ZONE_GENERATED})
+			if not bool(hc_result.get("is_valid", false)):
+				return {"handled": true, "events": []}
+			var hc_events: Array = hc_result.get("events", []).duplicate()
+			hc_events.append(_timing_rules()._build_summon_event(hc_result["card"], hc_controller_id, "field", int(hc_result.get("slot_index", -1)), "harbingers_call"))
+			return {"handled": true, "events": hc_events}
+		"boon_holy_ground":
+			var hg_stacks := int(effect.get("stacks", 1))
+			var hg_controller_id := str(trigger.get("controller_player_id", ""))
+			var hg_events: Array = []
+			for hg_lane in match_state.get("lanes", []):
+				if str(hg_lane.get("lane_id", "")) != "field":
+					continue
+				for hg_card in hg_lane.get("player_slots", {}).get(hg_controller_id, []):
+					if typeof(hg_card) != TYPE_DICTIONARY:
+						continue
+					EvergreenRules.apply_stat_bonus(hg_card, 0, hg_stacks, "holy_ground")
+					hg_events.append({"event_type": "creature_stats_changed", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(hg_card.get("instance_id", "")), "bonus_power": 0, "bonus_health": hg_stacks})
+				break
+			return {"handled": true, "events": hg_events}
+		"boon_runic_ward":
+			var rw_controller_id := str(trigger.get("controller_player_id", ""))
+			var rw_player := _get_player_state(match_state, rw_controller_id)
+			if rw_player.is_empty():
+				return {"handled": true, "events": []}
+			var rw_charges := int(rw_player.get("_runic_ward_charges", 0))
+			if rw_charges <= 0:
+				return {"handled": true, "events": []}
+			rw_player["_runic_ward_charges"] = rw_charges - 1
+			var rw_template := {
+				"definition_id": "_runic_ward_guard",
+				"name": "Guardian",
+				"card_type": "creature",
+				"cost": 2,
+				"power": 2,
+				"health": 4,
+				"base_power": 2,
+				"base_health": 4,
+				"keywords": ["guard"],
+				"subtypes": [],
+				"attributes": [],
+				"rules_tags": [],
+				"triggered_abilities": [],
+				"collectible": false,
+				"generated_by_rules": true,
+			}
+			var rw_gen := MatchMutations.build_generated_card(match_state, rw_controller_id, rw_template)
+			var rw_result := MatchMutations.summon_card_to_lane(match_state, rw_controller_id, rw_gen, "field", {"source_zone": MatchMutations.ZONE_GENERATED})
+			if not bool(rw_result.get("is_valid", false)):
+				rw_result = MatchMutations.summon_card_to_lane(match_state, rw_controller_id, rw_gen, "shadow", {"source_zone": MatchMutations.ZONE_GENERATED})
+			if not bool(rw_result.get("is_valid", false)):
+				return {"handled": true, "events": []}
+			var rw_events: Array = rw_result.get("events", []).duplicate()
+			rw_events.append(_timing_rules()._build_summon_event(rw_result["card"], rw_controller_id, "field", int(rw_result.get("slot_index", -1)), "runic_ward"))
+			return {"handled": true, "events": rw_events}
 	return {"handled": false, "events": []}
 
 

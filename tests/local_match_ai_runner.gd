@@ -35,6 +35,10 @@ func _run_all_tests(screen: MatchScreen) -> bool:
 func _test_ai_turn_waits_for_banner_before_first_action(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should load for AI orchestration verification."):
 		return false
+	# Clear player_1 rune thresholds so AI attacks don't break runes and open a
+	# prophecy window that this test isn't designed to resolve.
+	var _p1 := _player_state(screen.get_match_state(), "player_1")
+	_p1["rune_thresholds"] = []
 	if not _assert(screen.end_turn_action(), "Ending the local player's turn should succeed."):
 		return false
 	var locked_state := screen.get_interaction_state()

@@ -71,7 +71,7 @@ func _test_get_ordered_node_list() -> void:
 	var ordered := AdventureCatalogScript.get_ordered_node_list(adventure)
 	# With branching, ordered follows first path: node_a -> node_b -> node_mini -> node_d -> node_e -> node_boss
 	_assert(ordered.size() >= 4, "ordered_nodes: should have at least 4 nodes following first path, got %d" % ordered.size())
-	_assert(str(ordered[0].get("id", "")) == "node_a", "ordered_nodes: first should be node_a")
+	_assert(str(ordered[0].get("id", "")) == "node_boon_start", "ordered_nodes: first should be node_boon_start")
 
 
 func _test_get_graph_layers() -> void:
@@ -92,14 +92,16 @@ func _test_get_graph_layers() -> void:
 func _test_get_graph_layers_branching() -> void:
 	var adventure := AdventureCatalogScript.load_adventure("the_dragon_crisis")
 	var layers := AdventureCatalogScript.get_graph_layers(adventure)
-	# Expected layers: [node_a], [node_b, node_c], [node_mini], [node_d], [node_e, node_f], [node_boss]
-	_assert(layers.size() == 6, "graph_layers_branch: should have 6 layers, got %d" % layers.size())
-	_assert(layers[0].size() == 1, "graph_layers_branch: layer 0 should have 1 node (node_a)")
-	_assert(layers[1].size() == 2, "graph_layers_branch: layer 1 should have 2 nodes (branch)")
-	_assert(layers[2].size() == 1, "graph_layers_branch: layer 2 should have 1 node (mini-boss)")
-	_assert(layers[3].size() == 1, "graph_layers_branch: layer 3 should have 1 node (node_d)")
-	_assert(layers[4].size() == 2, "graph_layers_branch: layer 4 should have 2 nodes (branch)")
-	_assert(layers[5].size() == 1, "graph_layers_branch: layer 5 should have 1 node (boss)")
+	# Expected layers: [node_boon_start], [node_a], [node_b, node_c], [node_mini], [node_boon], [node_d], [node_e, node_f], [node_boss]
+	_assert(layers.size() == 8, "graph_layers_branch: should have 8 layers, got %d" % layers.size())
+	_assert(layers[0].size() == 1, "graph_layers_branch: layer 0 should have 1 node (node_boon_start)")
+	_assert(layers[1].size() == 1, "graph_layers_branch: layer 1 should have 1 node (node_a)")
+	_assert(layers[2].size() == 2, "graph_layers_branch: layer 2 should have 2 nodes (branch)")
+	_assert(layers[3].size() == 1, "graph_layers_branch: layer 3 should have 1 node (mini-boss)")
+	_assert(layers[4].size() == 1, "graph_layers_branch: layer 4 should have 1 node (node_boon)")
+	_assert(layers[5].size() == 1, "graph_layers_branch: layer 5 should have 1 node (node_d)")
+	_assert(layers[6].size() == 2, "graph_layers_branch: layer 6 should have 2 nodes (branch)")
+	_assert(layers[7].size() == 1, "graph_layers_branch: layer 7 should have 1 node (boss)")
 
 
 func _test_validate_adventure_valid() -> void:
@@ -156,7 +158,7 @@ func _test_get_start_node() -> void:
 	var adventure := AdventureCatalogScript.load_adventure("the_dragon_crisis")
 	var start_node := AdventureCatalogScript.get_start_node(adventure)
 	_assert(not start_node.is_empty(), "start_node: should return a node")
-	_assert(str(start_node.get("type", "")) == "combat", "start_node: first node should be combat")
+	_assert(str(start_node.get("type", "")) == "boon", "start_node: first node should be boon")
 
 
 func _assert(condition: bool, message: String) -> void:

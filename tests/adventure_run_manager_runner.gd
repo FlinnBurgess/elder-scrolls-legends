@@ -93,6 +93,10 @@ func _test_full_winning_run_branching() -> void:
 	manager.start_match()
 	manager.record_win(adventure)
 	_assert(manager.gold == 90, "full_win_branch: should have 90 gold after mini-boss (30+60)")
+	_assert(manager.current_node_id == "node_boon", "full_win_branch: should advance to node_boon")
+
+	# Complete boon node (non-combat)
+	manager.complete_non_combat_node(adventure)
 	_assert(manager.current_node_id == "node_d", "full_win_branch: should advance to node_d")
 
 	# Win node_d (combat) — branches

@@ -210,6 +210,7 @@ func _get_type_icon(node_type: String) -> String:
 		"healer": return "[Heal]"
 		"reinforcement": return "[Card]"
 		"shop": return "[Shop]"
+		"boon": return "[Boon]"
 	return "[?]"
 
 
@@ -221,6 +222,7 @@ func _get_type_label(node_type: String) -> String:
 		"healer": return "Healer"
 		"reinforcement": return "Recruit"
 		"shop": return "Shop"
+		"boon": return "Boon"
 	return "Unknown"
 
 
@@ -242,6 +244,9 @@ func _get_node_style(node_type: String) -> StyleBoxFlat:
 		"shop":
 			style.bg_color = Color(0.4, 0.35, 0.15, 1.0)
 			style.border_color = Color(0.9, 0.75, 0.3, 1.0)
+		"boon":
+			style.bg_color = Color(0.25, 0.15, 0.4, 1.0)
+			style.border_color = Color(0.7, 0.55, 0.9, 1.0)
 		_:
 			style.bg_color = Color(0.2, 0.35, 0.55, 1.0)
 			style.border_color = Color(0.4, 0.6, 0.9, 1.0)

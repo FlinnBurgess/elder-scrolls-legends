@@ -1,7 +1,7 @@
 # Claude Learnings
 
 ## Tags
-`ai` `assemble` `attributes` `auras` `boss-config` `card-catalog` `card-hydration` `card-state` `case-sensitivity` `cost-reduction` `death-checks` `delegation` `end-of-turn` `events` `generated-cards` `identity` `invade` `lane-resolution` `match-engine` `match-screen` `multi-target` `neutral` `passives` `player-state` `randomness` `registry` `shouts` `stat-helpers` `supports` `target-resolution` `triggers` `ui`
+`ai` `anchors` `assemble` `attributes` `auras` `boons` `boss-config` `card-catalog` `card-hydration` `card-state` `case-sensitivity` `cost-reduction` `death-checks` `delegation` `end-of-turn` `events` `generated-cards` `identity` `invade` `lane-resolution` `match-engine` `match-screen` `multi-target` `neutral` `passives` `player-state` `prophecy` `randomness` `registry` `runes` `shouts` `stat-helpers` `supports` `target-resolution` `testing` `triggers` `ui`
 
 ## Card Hydration & Attributes
 
@@ -43,6 +43,20 @@
 
 - **Unhandled passive ability types are silently ignored** `[passives, card-catalog, match-engine]`
   Passive abilities declared in card data (`passive_abilities` array) are only effective if engine code explicitly checks for them. There's no centralized dispatcher — each passive type has bespoke handling scattered across match_timing.gd, persistent_card_rules.gd, match_combat.gd, and evergreen_rules.gd. A new passive type with no handler does nothing.
+
+## Boons & Adventure Mode
+
+- **Rune-break boon choice must explicitly open prophecy window** `[boons, prophecy, match-engine]`
+  The `draw_one_shuffle_rest` handler in `resolve_pending_top_deck_multi_choice` moves the chosen card to hand and emits an `EVENT_CARD_DRAWN` event with `allow_prophecy_interrupt: true`, but this flag is just event metadata — nothing consumes it. The handler must explicitly call `_can_open_prophecy_window()` and `_open_prophecy_window()` after drawing, the same pattern used in `draw_cards()`.
+  _Refs: `src/core/match/match_timing.gd:1085-1087`_
+
+- **Adventure boons must be restored on match resume** `[boons, match-screen, ui]`
+  `_launch_match()` sets `match_screen._adventure_boons` before starting, but `_resume_match()` creates a new MatchScreen without setting this field. Boons are correctly persisted in `run.json` via `save_run()`/`load_run()`, but the resume path must also pass `_run_manager.active_boons.duplicate()` to the recreated match screen.
+  _Refs: `src/ui/adventure/adventure_controller.gd:219`_
+
+- **`set_anchors_preset(PRESET_CENTER)` does NOT center a Control** `[anchors, ui]`
+  `PRESET_CENTER` sets all four anchors to 0.5 with zero offsets, placing the Control's top-left corner at the parent's center. The Control then grows rightward/downward from that point. For true centering, set anchors to 0.5 AND set `grow_horizontal = GROW_DIRECTION_BOTH` and `grow_vertical = GROW_DIRECTION_BOTH` so the Control expands symmetrically from the center point. Manual repositioning via `resized` callbacks is fragile and may not fire.
+  _Refs: `src/ui/match/active_boons_overlay.gd`, `src/ui/adventure/boon_node_overlay.gd`_
 
 ## Invade Mechanic
 
@@ -231,3 +245,23 @@
 - **Support Last Gasp doesn't fire via normal event path** `[supports, triggers, events]`
   When a support runs out of uses, `activate_support` discards it via `MatchMutations.discard_card`, which emits `card_moved` (support → discard). But `FAMILY_LAST_GASP` listens for `EVENT_CREATURE_DESTROYED`, which is never emitted for supports. Last Gasp triggers on supports must be manually resolved in the exhaustion path using the fake trigger pattern (build a trigger dict + fake creature_destroyed event, then call `_build_trigger_resolution` and `_apply_effects`).
   _Refs: `src/core/match/persistent_card_rules.gd:194-215`, `src/core/match/match_timing.gd:4180-4195`_
+
+## AI Turn Processing
+
+- **Rune breaks during AI turn can stall the AI indefinitely via pending prophecy** `[ai, runes, match-screen, testing]`
+  When the AI attacks and breaks a player rune, a prophecy window opens for the local player. `_local_player_has_pending_interrupt()` returns true, which causes `_process_local_match_ai_turn` to pause the AI queue. If nothing resolves the prophecy (e.g., in a headless test), the AI turn never ends and `active_player_id` never returns to the human. Test scenarios that don't specifically test prophecy should clear `rune_thresholds` for the local player to prevent unintended prophecy windows.
+  _Refs: `src/ui/match_screen.gd:747-749`, `src/ui/match_screen.gd:7012-7013`_
+
+- **`_spell_reveal_state` blocks AI turn processing until tween callback clears it** `[ai, match-screen, ui]`
+  `_process_local_match_ai_turn` returns early whenever `_spell_reveal_state` is non-empty. This dict is set by animation functions (`_animate_enemy_creature_play`, `_animate_enemy_spell_reveal`, etc.) and cleared by `_dismiss_spell_reveal()` in a tween callback ~700ms later. If the tween callback never fires (e.g., node invalidation), the AI turn stalls permanently. Debugging AI stalls should check whether `_spell_reveal_state` is being cleared.
+  _Refs: `src/ui/match_screen.gd:732-733`, `src/ui/match_screen.gd:3963-3992`, `src/ui/match_screen.gd:3538-3545`_
+
+- **`_apply_lane_card_float_effect` overrides `clip_contents = false` on ready creatures** `[ui, match-screen, testing]`
+  `_build_card_button` sets `clip_contents = surface == "lane"` for lane cards, but `_apply_lane_card_float_effect` later sets `clip_contents = false` on creatures with "ready" readiness state to allow the floating shadow effect to extend outside the button. Valid target glow effects similarly override clip_contents. Tests checking `clip_contents` must use non-ready creatures to get reliable results.
+  _Refs: `src/ui/match_screen.gd:4042`, `src/ui/match_screen.gd:6595`_
+
+## Debug Scenarios
+
+- **`_set_player_health` in match_debug_scenarios adjusts rune thresholds to match health** `[runes, player-state, testing]`
+  `_set_player_health` doesn't just set health — it also rebuilds `rune_thresholds` to only include thresholds at or below the new health value. A player at 12 health gets `rune_thresholds = [10, 5]`, not the full `[25, 20, 15, 10, 5]`. This means AI attacks on a player with reduced health may break runes at thresholds you don't expect.
+  _Refs: `src/ui/match_debug_scenarios.gd:401-407`_

@@ -6,6 +6,7 @@ const ExtendedMechanicPacks = preload("res://src/core/match/extended_mechanic_pa
 const GameLogger = preload("res://src/core/match/game_logger.gd")
 const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
+const BoonRules = preload("res://src/adventure/boon_rules.gd")
 
 const ZONE_HAND := "hand"
 const ZONE_DECK := "deck"
@@ -1077,6 +1078,25 @@ static func resolve_pending_top_deck_multi_choice(match_state: Dictionary, playe
 			draw_card["zone"] = ZONE_HAND
 			player.get(ZONE_HAND, []).append(draw_card)
 			events.append({"event_type": EVENT_CARD_DRAWN, "player_id": player_id, "source_instance_id": str(draw_card.get("instance_id", ""))})
+	elif mode == "draw_one_shuffle_rest":
+		# Prophet's Sight: chosen card goes to hand, others shuffle back into deck
+		chosen_card["zone"] = ZONE_HAND
+		player.get(ZONE_HAND, []).append(chosen_card)
+		events.append({"event_type": EVENT_CARD_DRAWN, "player_id": player_id, "source_instance_id": str(chosen_card.get("instance_id", "")), "reason": "prophets_sight", "allow_prophecy_interrupt": true})
+		if _can_open_prophecy_window(match_state, player_id, chosen_card):
+			events.append(_open_prophecy_window(match_state, player_id, chosen_card, {"source_instance_id": "boon_prophets_sight"}))
+		var dors_deck: Array = player.get(ZONE_DECK, [])
+		for i in range(cards.size()):
+			if i == chosen_index:
+				continue
+			var back_card: Dictionary = cards[i]
+			back_card["zone"] = ZONE_DECK
+			var insert_ctx := "dors_shuffle_" + str(i) + "_" + str(chosen_card.get("instance_id", ""))
+			var insert_pos := _deterministic_index(match_state, insert_ctx, dors_deck.size() + 1)
+			dors_deck.insert(insert_pos, back_card)
+		# Resume any remaining rune breaks in the queue
+		var dors_resume := _resume_pending_rune_breaks(match_state)
+		events.append_array(dors_resume.get("events", []))
 	var timing_result := publish_events(match_state, events)
 	return {"is_valid": true, "errors": [], "events": timing_result.get("processed_events", []), "chosen_card": chosen_card}
 
@@ -2385,6 +2405,11 @@ static func play_action_from_hand(match_state: Dictionary, player_id: String, in
 					if not seen_defs.has(def_id):
 						seen_defs[def_id] = true
 			action_cost_reduction += seen_defs.size() * sr_amount
+	# First Lesson boon: first action each turn costs N less (discount cleared after first use)
+	var first_lesson_discount := int(player.get("_first_lesson_discount", 0))
+	if first_lesson_discount > 0:
+		action_cost_reduction += first_lesson_discount
+		player["_first_lesson_discount"] = 0
 	var play_cost := 0 if played_for_free else maxi(0, base_action_cost - action_cost_reduction)
 	if play_cost > _get_available_magicka(player):
 		return _invalid_result("Player does not have enough magicka to play %s." % instance_id)
@@ -2992,6 +3017,8 @@ static func rebuild_trigger_registry(match_state: Dictionary) -> Array:
 	_inject_granted_triggers(match_state, registry, lanes)
 	# copy_expertise_abilities: Master of Incunabula copies all friendly expertise triggers
 	_inject_copied_expertise_triggers(registry, lanes)
+	# Inject virtual triggers for active adventure boons
+	BoonRules.inject_boon_triggers(match_state, registry)
 	match_state["trigger_registry"] = registry.duplicate(true)
 	return registry
 
@@ -8640,6 +8667,27 @@ static func _resume_pending_rune_breaks(match_state: Dictionary) -> Dictionary:
 			"draw_card": true,
 			"timing_window": str(entry.get("timing_window", WINDOW_INTERRUPT)),
 		})
+		# Prophet's Sight boon: intercept rune break draw with a 3-card choice
+		var ps_boon_pid := str(match_state.get("_boon_player_id", ""))
+		if ps_boon_pid == player_id:
+			var ps_active_boons = match_state.get("_adventure_boons", [])
+			if typeof(ps_active_boons) == TYPE_ARRAY and "prophets_sight" in ps_active_boons:
+				var ps_deck: Array = player.get(ZONE_DECK, [])
+				var ps_count := mini(3, ps_deck.size())
+				if ps_count > 0:
+					var ps_cards: Array = []
+					for _ps_i in range(ps_count):
+						ps_cards.append(ps_deck.pop_back())
+					match_state["pending_top_deck_choices"].append({
+						"player_id": player_id,
+						"source_instance_id": "boon_prophets_sight",
+						"cards": ps_cards,
+						"mode": "draw_one_shuffle_rest",
+						"prompt": "Prophet's Sight: Choose a card to draw.",
+						"context": "prophets_sight",
+					})
+					result["pending_prophecy_opened"] = true
+					break
 		var draw_result := draw_cards(match_state, player_id, 1, {
 			"reason": EVENT_RUNE_BROKEN,
 			"source_instance_id": str(entry.get("source_instance_id", "")),

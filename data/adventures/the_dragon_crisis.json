@@ -2,8 +2,13 @@
 	"id": "the_dragon_crisis",
 	"name": "The Dragon Crisis",
 	"allowed_deck_ids": ["dragons_of_skyrim"],
-	"start_node": "node_a",
+	"start_node": "node_boon_start",
 	"nodes": {
+		"node_boon_start": {
+			"type": "boon",
+			"headline": "Blessing of Akatosh",
+			"next": ["node_a"]
+		},
 		"node_a": {
 			"type": "combat",
 			"headline": "Frost Dragon",
@@ -28,6 +33,11 @@
 			"enemy_deck": "enemy_frost_dragon",
 			"quality": 0.65,
 			"enemy_health": 35,
+			"next": ["node_boon"]
+		},
+		"node_boon": {
+			"type": "boon",
+			"headline": "Shrine of Akatosh",
 			"next": ["node_d"]
 		},
 		"node_d": {

@@ -1,0 +1,62 @@
+[
+	{
+		"id": "marked_for_death",
+		"name": "Marked for Death",
+		"description": "Whenever an enemy creature is destroyed, deal 1 damage to the enemy Nexus.",
+		"stackable": true
+	},
+	{
+		"id": "soul_tear",
+		"name": "Soul Tear",
+		"description": "When one of your creatures is destroyed, add a random creature of the same magicka cost to your hand.",
+		"stackable": false
+	},
+	{
+		"id": "first_lesson",
+		"name": "First Lesson",
+		"description": "The first action you play each turn costs 1 less magicka.",
+		"stackable": true
+	},
+	{
+		"id": "battleground",
+		"name": "Battleground",
+		"description": "Creatures you play into the Field Lane have Cover until they attack.",
+		"stackable": false
+	},
+	{
+		"id": "shattered_fate",
+		"name": "Shattered Fate",
+		"description": "Cards played during Prophecy gain +1/+1.",
+		"stackable": true
+	},
+	{
+		"id": "harbingers_call",
+		"name": "Harbinger's Call",
+		"description": "At the start of each of your turns, if you have no creatures in play, summon a random 1-cost creature.",
+		"stackable": true
+	},
+	{
+		"id": "holy_ground",
+		"name": "Holy Ground",
+		"description": "At the start of each of your turns, your creatures in the Field Lane gain +0/+1.",
+		"stackable": true
+	},
+	{
+		"id": "prophets_sight",
+		"name": "Prophet's Sight",
+		"description": "When a rune breaks, look at the top 3 cards of your deck and choose one to draw. The others are shuffled back. If you choose a Prophecy card, it triggers.",
+		"stackable": false
+	},
+	{
+		"id": "runic_ward",
+		"name": "Runic Ward",
+		"description": "The first time a rune breaks, summon a 2/4 Guard.",
+		"stackable": true
+	},
+	{
+		"id": "fortified_spirit",
+		"name": "Fortified Spirit",
+		"description": "Your runes break 1 damage sooner, causing more card draws and Prophecy triggers.",
+		"stackable": false
+	}
+]

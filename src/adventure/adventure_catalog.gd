@@ -130,7 +130,7 @@ static func validate_adventure(adventure: Dictionary) -> Dictionary:
 	if not start_id.is_empty() and not nodes.has(start_id):
 		errors.append("start_node '%s' does not exist in nodes" % start_id)
 
-	var valid_types := ["combat", "mini_boss", "final_boss", "healer", "reinforcement", "shop"]
+	var valid_types := ["combat", "mini_boss", "final_boss", "healer", "reinforcement", "shop", "boon"]
 	var combat_types := ["combat", "mini_boss", "final_boss"]
 	for node_id in nodes:
 		var node: Dictionary = nodes[node_id]

@@ -28,6 +28,8 @@ const PLAYER_AVATAR_SCENE := preload("res://scenes/ui/components/PlayerAvatarCom
 const PLAYER_MAGICKA_SCENE := preload("res://scenes/ui/components/PlayerMagickaComponent.tscn")
 const ErrorReportWriterClass = preload("res://src/core/error_report_writer.gd")
 const ErrorReportPopoverClass = preload("res://src/ui/components/error_report_popover.gd")
+const BoonRules = preload("res://src/adventure/boon_rules.gd")
+const ActiveBoonsOverlay = preload("res://src/ui/match/active_boons_overlay.gd")
 
 const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
 const PLAYER_ORDER := ["player_2", "player_1"]
@@ -156,6 +158,7 @@ var _hovered_hand_instance_id := ""
 var _overdraw_queue: Array = []
 var _match_end_button: Button
 var _arena_mode := false
+var _adventure_boons: Array = []
 var _pause_overlay: PanelContainer
 var _attack_arrow_state := {}
 var _support_arrow_state := {}
@@ -247,6 +250,8 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int 
 		_status_message = "Failed to create match."
 		_refresh_ui()
 		return false
+	if not _adventure_boons.is_empty():
+		BoonRules.apply_boons_to_match_state(match_state, PLAYER_ORDER[1], _adventure_boons)
 	_hydrate_match_cards(match_state, card_by_id)
 	# Apply AI mulligan immediately (invisible to player)
 	var ai_id := PLAYER_ORDER[0]
@@ -309,6 +314,8 @@ func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_confi
 		_status_message = "Failed to create match."
 		_refresh_ui()
 		return false
+	if not _adventure_boons.is_empty():
+		BoonRules.apply_boons_to_match_state(match_state, PLAYER_ORDER[1], _adventure_boons)
 	# Apply health overrides
 	var boss_id := PLAYER_ORDER[0]
 	var local_id := PLAYER_ORDER[1]
@@ -3472,6 +3479,8 @@ func _on_multi_card_choice_selected(chosen_index: int) -> void:
 		var chosen_name := str(result.get("chosen_card", {}).get("name", ""))
 		if mode == "give_one_draw_rest":
 			_status_message = "Gave %s to opponent, drew the rest." % chosen_name
+		elif mode == "draw_one_shuffle_rest":
+			_status_message = "Drew %s, shuffled the others back." % chosen_name
 		else:
 			_status_message = "Kept %s, discarded the rest." % chosen_name
 	else:
@@ -4030,7 +4039,7 @@ func _build_card_button(card: Dictionary, public_view: bool, surface := "default
 	var locked := _should_dim_card_for_turn(card, surface, interaction_state)
 	button.name = "%s_%s_card" % [surface, instance_id]
 	button.custom_minimum_size = _surface_button_minimum_size(surface)
-	button.clip_contents = false
+	button.clip_contents = surface == "lane"
 	button.text = ""
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.focus_mode = Control.FOCUS_NONE
@@ -5389,8 +5398,15 @@ func _on_lane_pressed(lane_id: String) -> void:
 
 
 func _on_avatar_gui_input(event: InputEvent, player_id: String) -> void:
-	if event is InputEventMouseButton and (event as InputEventMouseButton).pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+	if not (event is InputEventMouseButton) or not (event as InputEventMouseButton).pressed:
+		return
+	var btn_idx := (event as InputEventMouseButton).button_index
+	if btn_idx == MOUSE_BUTTON_LEFT:
 		_on_player_pressed(player_id)
+	elif btn_idx == MOUSE_BUTTON_RIGHT and player_id == _local_player_id() and not _adventure_boons.is_empty():
+		var overlay := ActiveBoonsOverlay.new()
+		add_child(overlay)
+		overlay.set_boons(_adventure_boons)
 
 
 func _on_player_pressed(player_id: String) -> void:

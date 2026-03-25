@@ -22,6 +22,7 @@ var gold: int = 0
 var max_health_bonus: int = 0
 var added_cards: Array = []  # Array of card_id strings added during run
 var node_offerings: Dictionary = {}  # node_id -> {cards: Array, purchased_ids: Array}
+var active_boons: Array = []  # Array of boon_id strings; duplicates allowed for stackable boons
 
 const RUN_DIR := "user://adventure/"
 const RUN_PATH := "user://adventure/run.json"
@@ -45,6 +46,7 @@ func start_run(p_adventure_id: String, p_deck_id: String, p_deck_cards: Array, s
 	max_health_bonus = 0
 	added_cards = []
 	node_offerings = {}
+	active_boons = []
 	state = State.VIEWING_MAP
 	save_run()
 
@@ -114,6 +116,19 @@ func complete_non_combat_node(adventure: Dictionary) -> void:
 func choose_next_node(node_id: String) -> void:
 	current_node_id = node_id
 	save_run()
+
+
+func add_boon(boon_id: String) -> void:
+	active_boons.append(boon_id)
+	save_run()
+
+
+func get_boon_stacks(boon_id: String) -> int:
+	var count := 0
+	for b in active_boons:
+		if str(b) == boon_id:
+			count += 1
+	return count
 
 
 func add_card(card_id: String) -> void:
@@ -186,6 +201,7 @@ func save_run() -> void:
 		"max_health_bonus": max_health_bonus,
 		"added_cards": added_cards,
 		"node_offerings": node_offerings,
+		"active_boons": active_boons,
 	}
 	file.store_string(JSON.stringify(data, "\t"))
 
@@ -220,6 +236,7 @@ static func load_run() -> AdventureRunManager:
 	manager.gold = int(data.get("gold", 0))
 	manager.max_health_bonus = int(data.get("max_health_bonus", 0))
 	manager.added_cards = Array(data.get("added_cards", []))
+	manager.active_boons = Array(data.get("active_boons", []))
 	var offerings_raw = data.get("node_offerings", {})
 	if offerings_raw is Dictionary:
 		manager.node_offerings = offerings_raw

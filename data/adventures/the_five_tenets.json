@@ -28,6 +28,11 @@
 			"enemy_deck": "enemy_shadowscale_assassin",
 			"quality": 0.65,
 			"enemy_health": 35,
+			"next": ["node_boon"]
+		},
+		"node_boon": {
+			"type": "boon",
+			"headline": "Daedric Altar",
 			"next": ["node_d"]
 		},
 		"node_d": {
