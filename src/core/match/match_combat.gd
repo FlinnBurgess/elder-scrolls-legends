@@ -89,8 +89,17 @@ static func resolve_attack(match_state: Dictionary, player_id: String, attacker_
 
 	var creature_result := _resolve_creature_attack(match_state, validation, attacker, events)
 	var creature_timing_result := MatchTiming.publish_events(match_state, events)
-	creature_result["events"] = creature_timing_result.get("processed_events", [])
-	creature_result["trigger_resolutions"] = creature_timing_result.get("trigger_resolutions", [])
+	# Merge phase1 (inline-published defender death) and phase2 (attacker death + remaining) results
+	var all_events: Array = []
+	var all_triggers: Array = []
+	if creature_result.has("_phase1_timing"):
+		all_events.append_array(creature_result["_phase1_timing"].get("processed_events", []))
+		all_triggers.append_array(creature_result["_phase1_timing"].get("trigger_resolutions", []))
+		creature_result.erase("_phase1_timing")
+	all_events.append_array(creature_timing_result.get("processed_events", []))
+	all_triggers.append_array(creature_timing_result.get("trigger_resolutions", []))
+	creature_result["events"] = all_events
+	creature_result["trigger_resolutions"] = all_triggers
 	_record_events(match_state, creature_result["events"])
 	return creature_result
 
@@ -245,15 +254,30 @@ static func _resolve_creature_attack(match_state: Dictionary, validation: Dictio
 			_set_winner_if_needed(match_state, str(validation.get("defending_player_id", "")), str(attacker.get("controller_player_id", "")), events)
 
 	var total_drain := _resolve_drain(match_state, attacker, applied_to_defender, events)
-	if defender_destroyed:
+	# When both creatures die simultaneously, publish the defender's death events inline
+	# before discarding the attacker/protector. This ensures slay effects on the defender's
+	# killer resolve while the attacker/protector is still in the lane — preventing slay
+	# draw effects from pulling the just-died attacker/protector out of the discard pile.
+	var phase1_timing: Dictionary = {}
+	if defender_destroyed and attacker_destroyed:
+		var phase1_events: Array = events.duplicate()
+		events.clear()
 		var def_destroy_lookup: Dictionary = validation["defender_lookup"] if defender_damage_target == defender else _find_creature_on_board(match_state.get("lanes", []), str(defender_damage_target.get("instance_id", "")))
 		if bool(def_destroy_lookup.get("is_valid", false)):
-			_destroy_creature(match_state, def_destroy_lookup, str(attacker.get("instance_id", "")), events)
-	if attacker_destroyed:
-		var atk_destroy_target := attacker_damage_target
-		var attacker_lookup := _find_creature_on_board(match_state.get("lanes", []), str(atk_destroy_target.get("instance_id", "")))
-		if attacker_lookup["is_valid"]:
-			_destroy_creature(match_state, attacker_lookup, str(defender.get("instance_id", "")), events, true)
+			_destroy_creature(match_state, def_destroy_lookup, str(attacker.get("instance_id", "")), phase1_events)
+		phase1_timing = MatchTiming.publish_events(match_state, phase1_events)
+		var atk_destroy_lookup: Dictionary = _find_creature_on_board(match_state.get("lanes", []), str(attacker_damage_target.get("instance_id", "")))
+		if atk_destroy_lookup["is_valid"]:
+			_destroy_creature(match_state, atk_destroy_lookup, str(defender.get("instance_id", "")), events, true)
+	else:
+		if defender_destroyed:
+			var def_destroy_lookup: Dictionary = validation["defender_lookup"] if defender_damage_target == defender else _find_creature_on_board(match_state.get("lanes", []), str(defender_damage_target.get("instance_id", "")))
+			if bool(def_destroy_lookup.get("is_valid", false)):
+				_destroy_creature(match_state, def_destroy_lookup, str(attacker.get("instance_id", "")), events)
+		if attacker_destroyed:
+			var atk_destroy_lookup: Dictionary = _find_creature_on_board(match_state.get("lanes", []), str(attacker_damage_target.get("instance_id", "")))
+			if atk_destroy_lookup["is_valid"]:
+				_destroy_creature(match_state, atk_destroy_lookup, str(defender.get("instance_id", "")), events, true)
 
 	var result := {
 		"is_valid": true,
@@ -267,6 +291,8 @@ static func _resolve_creature_attack(match_state: Dictionary, validation: Dictio
 		"breakthrough_damage": breakthrough_damage,
 		"drain_heal": total_drain,
 	}
+	if not phase1_timing.is_empty():
+		result["_phase1_timing"] = phase1_timing
 	events.append({
 		"event_type": "attack_resolved",
 		"attacker_instance_id": attacker.get("instance_id", ""),
