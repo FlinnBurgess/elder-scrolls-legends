@@ -96,6 +96,18 @@
   The UI resolves card art by checking `art_path`/`art_resource_path` keys first, then falling back to `"res://assets/images/cards/" + definition_id + ".png"`. Generated cards with a `definition_id` that differs from the catalog card's ID (e.g. `"generated_oblivion_gate"` vs `"joo_neu_oblivion_gate"`) must include an explicit `art_path` in their template, or they'll show the placeholder.
   _Refs: `src/ui/components/CardDisplayComponent.gd:715-732`_
 
+- **Effect-summon paths must call `_check_summon_abilities` on the summoned creature** `[triggers, match-engine, registry]`
+  When creatures are summoned by effects (not played from hand), `_check_summon_abilities` must be called to queue targeting summon abilities as `pending_summon_effect_targets`. Without this, abilities like "Summon: Battle an enemy creature" silently don't fire. The `summon_from_effect` op and `_run_budget_summon_loop` already do this; other summon paths (`summon_copy`, `summon_random_from_catalog`, `sacrifice_and_resummon`, `fill_lane_with`, etc.) needed it added.
+  _Refs: `src/core/match/match_timing.gd:1593-1636`, `src/core/match/extended_mechanic_packs.gd:507`_
+
+- **Effect handler key names must match card catalog key names — mismatches silently use defaults** `[match-engine, card-catalog, delegation]`
+  Effect handlers read parameters via `effect.get("key", default)`. If the card catalog uses a different key name (e.g., `"power"` vs `"attack_power"`, `"left_lane"` vs `"lane_bonuses"`, `"subtype"` vs `"filter_subtype"`), the handler silently uses its default value. This is a systemic pattern — always cross-reference effect keys in catalog data against the handler's `effect.get()` calls when adding new ops or cards.
+  _Refs: `src/core/match/match_timing.gd`, `src/deck/card_catalog.gd`_
+
+- **`get_health()` returns max health, `get_remaining_health()` returns current health after damage** `[stat-helpers, match-engine, target-resolution]`
+  Target modes that compare against "self health" (e.g., `enemy_creature_less_power_than_self_health`) must use `get_remaining_health()` to account for damage taken. Using `get_health()` (which ignores `damage_marked`) makes the comparison too generous — the pool of valid targets doesn't shrink as the creature takes damage. This caused Mulaamnir's slay chain to kill all enemies instead of narrowing.
+  _Refs: `src/core/match/match_timing.gd:454-457`, `src/core/match/evergreen_rules.gd:432-457`_
+
 ## Delegation & Filter Forwarding
 
 - **Delegation ops often drop nested `filter` dict parameters** `[delegation, match-engine, card-catalog]`
@@ -191,6 +203,10 @@
 - **AI enumerator builds action combos from `requirements` flags — `choose_lane_and_owner` needs lane+player but NOT card target** `[ai, target-resolution, match-engine]`
   `_expand_target_parameter_sets` multiplies parameter sets by `needs_player_target`, `needs_card_target`, and `needs_lane_id`. The `choose_lane_and_owner` target mode should set `needs_lane_id` but NOT `needs_card_target`, since the action targets a lane+owner pair, not a creature on board. Setting both incorrectly causes the AI to enumerate every creature × lane × player combination.
   _Refs: `src/ai/match_action_enumerator.gd:790-870`_
+
+- **AI enumerator `_expand_target_parameter_sets` silently passes all targets for unhandled target modes** `[ai, target-resolution, match-engine]`
+  The if/elif chain in `_expand_target_parameter_sets` handles specific `action_target_mode` values (e.g., `enemy_creature`, `wounded_enemy_creature`). Any mode not explicitly listed falls through with zero filtering, causing the AI to consider ALL lane creatures as valid targets. When adding a new `action_target_mode` to a card, a corresponding filter case must also be added to the AI enumerator.
+  _Refs: `src/ai/match_action_enumerator.gd:826-870`_
 
 ## Match Screen & Modes
 
