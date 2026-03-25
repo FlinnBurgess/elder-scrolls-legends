@@ -254,13 +254,14 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int 
 	if not _adventure_boons.is_empty():
 		BoonRules.apply_boons_to_match_state(match_state, PLAYER_ORDER[1], _adventure_boons)
 	_hydrate_match_cards(match_state, card_by_id)
-	if not _adventure_augments.is_empty():
-		_apply_adventure_augments(match_state, PLAYER_ORDER[1])
 	# Apply AI mulligan immediately (invisible to player)
 	var ai_id := PLAYER_ORDER[0]
 	var ai_discard_ids := HeuristicMatchPolicy.choose_mulligan(match_state, ai_id)
 	MatchBootstrap.apply_mulligan(match_state, ai_id, ai_discard_ids)
 	_hydrate_match_cards(match_state, card_by_id)
+	# Apply augments after the final hydration so they aren't overwritten
+	if not _adventure_augments.is_empty():
+		_apply_adventure_augments(match_state, PLAYER_ORDER[1])
 	GameLogger.start_match(match_state)
 	# Store state but don't start the turn yet - wait for player mulligan
 	_match_state = match_state
@@ -332,8 +333,6 @@ func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_confi
 			elif pid == local_id and player_health > 0:
 				player["health"] = player_health
 	_hydrate_match_cards(match_state, card_by_id)
-	if not _adventure_augments.is_empty():
-		_apply_adventure_augments(match_state, PLAYER_ORDER[1])
 	# Inject relic support card into boss's support zone
 	var relic: Variant = boss_config.get("relic", null)
 	if relic != null:
@@ -362,6 +361,9 @@ func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_confi
 	var ai_discard_ids := HeuristicMatchPolicy.choose_mulligan(match_state, boss_id)
 	MatchBootstrap.apply_mulligan(match_state, boss_id, ai_discard_ids)
 	_hydrate_match_cards(match_state, card_by_id)
+	# Apply augments after the final hydration so they aren't overwritten
+	if not _adventure_augments.is_empty():
+		_apply_adventure_augments(match_state, PLAYER_ORDER[1])
 	GameLogger.start_match(match_state)
 	_match_state = match_state
 	_ai_options = _build_ai_play_profile(ai_options, card_by_id)

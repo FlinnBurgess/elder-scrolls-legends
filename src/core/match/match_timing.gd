@@ -7158,7 +7158,10 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 								var tdab_health := int(tdab_bonus.get("health", 0))
 								EvergreenRules.apply_stat_bonus(tdab_source, tdab_power, tdab_health, reason)
 								generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(tdab_source.get("instance_id", "")), "power_bonus": tdab_power, "health_bonus": tdab_health, "reason": reason})
-								for kw in tdab_bonus.get("keywords", []):
+								var tdab_kw_list: Array = tdab_bonus.get("keywords", [])
+								if tdab_kw_list.is_empty() and tdab_bonus.has("keyword"):
+									tdab_kw_list = [str(tdab_bonus["keyword"])]
+								for kw in tdab_kw_list:
 									EvergreenRules.ensure_card_state(tdab_source)
 									var tdab_granted: Array = tdab_source.get("granted_keywords", [])
 									if not tdab_granted.has(str(kw)):
