@@ -68,48 +68,35 @@ func _build_ui() -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 
-	# Two columns side by side
-	var columns := HBoxContainer.new()
-	columns.add_theme_constant_override("separation", 40)
-	columns.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_child(columns)
-
-	# Left: creatures
-	var creature_col := VBoxContainer.new()
-	creature_col.add_theme_constant_override("separation", 12)
-	columns.add_child(creature_col)
-
+	# Creatures row
 	var creature_label := Label.new()
 	creature_label.text = "Choose a Creature"
 	creature_label.add_theme_font_size_override("font_size", 18)
 	creature_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	creature_col.add_child(creature_label)
+	vbox.add_child(creature_label)
 
 	var creature_row := HBoxContainer.new()
 	creature_row.add_theme_constant_override("separation", 12)
 	creature_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	creature_col.add_child(creature_row)
+	vbox.add_child(creature_row)
 
 	for card in _creatures:
 		creature_row.add_child(_build_creature_option(card))
 
-	# Right: augments
-	var augment_col := VBoxContainer.new()
-	augment_col.add_theme_constant_override("separation", 12)
-	columns.add_child(augment_col)
-
+	# Augments row
 	var augment_label := Label.new()
 	augment_label.text = "Choose an Augment"
 	augment_label.add_theme_font_size_override("font_size", 18)
 	augment_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	augment_col.add_child(augment_label)
+	vbox.add_child(augment_label)
 
-	var augment_list := VBoxContainer.new()
-	augment_list.add_theme_constant_override("separation", 8)
-	augment_col.add_child(augment_list)
+	var augment_row := HBoxContainer.new()
+	augment_row.add_theme_constant_override("separation", 12)
+	augment_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_child(augment_row)
 
 	for augment in _augments:
-		augment_list.add_child(_build_augment_option(augment))
+		augment_row.add_child(_build_augment_option(augment))
 
 	# Bottom buttons
 	var btn_row := HBoxContainer.new()
@@ -160,8 +147,11 @@ func _build_augment_option(augment: Dictionary) -> Control:
 	var aug_name := str(augment.get("name", augment_id))
 	var aug_desc := str(augment.get("description", ""))
 
+	var container := VBoxContainer.new()
+	container.add_theme_constant_override("separation", 6)
+
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(240, 0)
+	panel.custom_minimum_size = Vector2(180, 100)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.1, 0.12, 0.18, 0.95)
 	style.border_color = Color(0.3, 0.6, 0.6, 0.6)
@@ -170,35 +160,34 @@ func _build_augment_option(augment: Dictionary) -> Control:
 	style.set_content_margin_all(12)
 	panel.add_theme_stylebox_override("panel", style)
 
-	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", 12)
-	panel.add_child(hbox)
-
 	var text_vbox := VBoxContainer.new()
-	text_vbox.size_flags_horizontal = SIZE_EXPAND_FILL
 	text_vbox.add_theme_constant_override("separation", 4)
-	hbox.add_child(text_vbox)
+	panel.add_child(text_vbox)
 
 	var name_label := Label.new()
 	name_label.text = aug_name
 	name_label.add_theme_font_size_override("font_size", 15)
 	name_label.modulate = Color(0.3, 0.9, 0.8, 1.0)
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	text_vbox.add_child(name_label)
 
 	var desc_label := Label.new()
 	desc_label.text = aug_desc
 	desc_label.add_theme_font_size_override("font_size", 13)
+	desc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	text_vbox.add_child(desc_label)
 
+	container.add_child(panel)
+
 	var btn := Button.new()
 	btn.text = "Select"
-	btn.custom_minimum_size = Vector2(80, 36)
+	btn.custom_minimum_size = Vector2(140, 36)
 	btn.pressed.connect(func() -> void: _select_augment(augment_id))
-	hbox.add_child(btn)
+	container.add_child(btn)
 
 	_augment_buttons.append({"button": btn, "augment_id": augment_id})
-	return panel
+	return container
 
 
 func _select_creature(card_id: String) -> void:

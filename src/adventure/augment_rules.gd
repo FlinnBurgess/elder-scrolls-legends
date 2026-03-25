@@ -42,11 +42,16 @@ static func apply_augments_to_card(card: Dictionary, augment_list: Array) -> voi
 
 
 static func _apply_effects(card: Dictionary, effects: Dictionary) -> void:
-	# Stat modifications
+	# Stat modifications — update both base stats and runtime stats (power/health)
+	# so the augment is reflected in the match engine after hydration.
 	if effects.has("power"):
-		card["base_power"] = int(card.get("base_power", 0)) + int(effects["power"])
+		var power_delta := int(effects["power"])
+		card["base_power"] = int(card.get("base_power", 0)) + power_delta
+		card["power"] = int(card.get("power", 0)) + power_delta
 	if effects.has("health"):
-		card["base_health"] = int(card.get("base_health", 0)) + int(effects["health"])
+		var health_delta := int(effects["health"])
+		card["base_health"] = int(card.get("base_health", 0)) + health_delta
+		card["health"] = int(card.get("health", 0)) + health_delta
 	if effects.has("cost"):
 		card["cost"] = maxi(0, int(card.get("cost", 0)) + int(effects["cost"]))
 
