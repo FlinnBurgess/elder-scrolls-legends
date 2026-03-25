@@ -4446,9 +4446,13 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var discard_pile: Array = discard_player.get(ZONE_DISCARD, [])
 					var discard_candidates: Array = []
 					var candidate_instance_ids: Array = []
+					var dfdf_source_id := str(trigger.get("source_instance_id", ""))
 					for d_index in range(discard_pile.size()):
 						var d_card = discard_pile[d_index]
 						if typeof(d_card) != TYPE_DICTIONARY:
+							continue
+						# Exclude the trigger source from candidates (e.g., creature that died while slaying)
+						if str(d_card.get("instance_id", "")) == dfdf_source_id:
 							continue
 						if not discard_filter_card_type.is_empty() and str(d_card.get("card_type", "")) != discard_filter_card_type:
 							continue

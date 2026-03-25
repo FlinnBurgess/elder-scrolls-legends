@@ -443,6 +443,8 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 		card["cost_increase_aura"] = definition["cost_increase_aura"].duplicate(true)
 	if definition.has("grants_immunity"):
 		card["grants_immunity"] = definition["grants_immunity"].duplicate(true)
+	if definition.has("grants_trigger"):
+		card["grants_trigger"] = definition["grants_trigger"].duplicate(true)
 	if definition.has("magicka_aura"):
 		card["magicka_aura"] = int(definition["magicka_aura"])
 	if definition.has("self_immunity"):

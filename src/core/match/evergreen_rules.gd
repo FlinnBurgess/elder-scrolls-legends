@@ -182,7 +182,7 @@ static func refresh_for_controller_turn(card: Dictionary, current_turn_number: i
 		remove_status(card, STATUS_SHACKLED)
 		card.erase("shackle_expires_on_turn")
 		result["shackle_cleared"] = true
-	if card.has("_immune_until_turn") and int(card.get("_immune_until_turn", -1)) < current_turn_number:
+	if card.has("_immune_until_turn") and int(card.get("_immune_until_turn", -1)) <= current_turn_number:
 		card.erase("_immune_until_turn")
 		card.erase("_immunity_type")
 	if has_keyword(card, KEYWORD_REGENERATE):
