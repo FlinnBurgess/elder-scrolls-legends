@@ -3613,7 +3613,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						base_health = EvergreenRules.get_power(ms_source_h)
 				var total_power := base_power * stat_multiplier
 				var total_health := base_health * stat_multiplier
-				var is_temp := str(effect.get("duration", "")) == "end_of_turn"
+				var is_temp := str(effect.get("duration", "")) == "end_of_turn" or bool(effect.get("temporary", false))
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					EvergreenRules.apply_stat_bonus(card, total_power, total_health, reason)
 					if is_temp:
@@ -3649,7 +3649,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"status_id": status_id,
 					})
 			"grant_keyword":
-				var kw_is_temp := str(effect.get("duration", "")) == "end_of_turn"
+				var kw_is_temp := str(effect.get("duration", "")) == "end_of_turn" or bool(effect.get("temporary", false))
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					EvergreenRules.ensure_card_state(card)
 					var keyword_id := str(effect.get("keyword_id", ""))
@@ -4014,9 +4014,12 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						})
 						match_state["pending_eot_returns"] = pending
 			"unsummon":
+				var unsummon_cost_reduction := int(effect.get("cost_reduction", 0))
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					var unsummon_result := MatchMutations.unsummon_card(match_state, str(card.get("instance_id", "")))
 					generated_events.append_array(unsummon_result.get("events", []))
+					if unsummon_cost_reduction > 0 and bool(unsummon_result.get("is_valid", false)):
+						card["cost"] = maxi(0, int(card.get("cost", 0)) - unsummon_cost_reduction)
 			"sacrifice":
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					var sacrifice_result := MatchMutations.sacrifice_card(match_state, str(card.get("controller_player_id", "")), str(card.get("instance_id", "")))
@@ -4198,6 +4201,19 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"slot_index": int(effect.get("slot_index", -1)),
 					})
 					generated_events.append_array(steal_result.get("events", []))
+					if bool(steal_result.get("is_valid", false)):
+						var steal_kw := str(effect.get("grant_keyword", ""))
+						if not steal_kw.is_empty():
+							EvergreenRules.ensure_card_state(card)
+							var steal_granted: Array = card.get("granted_keywords", [])
+							if not steal_granted.has(steal_kw):
+								steal_granted.append(steal_kw)
+								card["granted_keywords"] = steal_granted
+								generated_events.append({"event_type": "keyword_granted", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "keyword_id": steal_kw})
+						if bool(effect.get("temporary", false)):
+							card["_stolen_temporarily"] = true
+							card["_stolen_return_to"] = str(card.get("owner_player_id", ""))
+							card["_stolen_on_turn"] = int(match_state.get("turn_number", 0))
 			"consume":
 				var consumers := _resolve_card_targets_by_name(match_state, trigger, event, str(effect.get("consumer_target", "self")))
 				if consumers.is_empty():
@@ -4839,7 +4855,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"reason": reason,
 					})
 			"set_power":
-				var sp_value := int(effect.get("value", 1))
+				var sp_value := int(effect.get("value", effect.get("amount", 1)))
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					var power_diff := sp_value - EvergreenRules.get_power(card)
 					EvergreenRules.apply_stat_bonus(card, power_diff, 0, reason)
@@ -6167,9 +6183,6 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						generated_events.append({"event_type": "status_stolen", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "status_id": ss_status})
 			"destroy_and_transfer_keywords":
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
-					var datk_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
-					if datk_source.is_empty():
-						continue
 					var datk_keywords: Array = []
 					for kw in card.get("keywords", []):
 						datk_keywords.append(str(kw))
@@ -6179,13 +6192,25 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var datk_destroy := MatchMutations.discard_card(match_state, str(card.get("instance_id", "")), {"reason": reason})
 					generated_events.append({"event_type": EVENT_CREATURE_DESTROYED, "instance_id": str(card.get("instance_id", "")), "controller_player_id": str(card.get("controller_player_id", "")), "killer_instance_id": str(trigger.get("source_instance_id", ""))})
 					generated_events.append_array(datk_destroy.get("events", []))
-					EvergreenRules.ensure_card_state(datk_source)
-					var datk_granted: Array = datk_source.get("granted_keywords", [])
-					for kw in datk_keywords:
-						if not datk_granted.has(kw):
-							datk_granted.append(kw)
-							generated_events.append({"event_type": "keyword_granted", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(datk_source.get("instance_id", "")), "keyword_id": kw})
-					datk_source["granted_keywords"] = datk_granted
+					# Determine the keyword transfer target
+					var datk_transfer_mode := str(effect.get("transfer_to_mode", ""))
+					var datk_recipient: Dictionary = {}
+					if datk_transfer_mode == "friendly_creature":
+						var datk_controller_id := str(trigger.get("controller_player_id", ""))
+						var datk_friendlies := _player_lane_creatures(match_state, datk_controller_id)
+						if not datk_friendlies.is_empty():
+							# Auto-pick first friendly creature (targeting would require pending system)
+							datk_recipient = datk_friendlies[0]
+					if datk_recipient.is_empty():
+						datk_recipient = _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+					if not datk_recipient.is_empty():
+						EvergreenRules.ensure_card_state(datk_recipient)
+						var datk_granted: Array = datk_recipient.get("granted_keywords", [])
+						for kw in datk_keywords:
+							if not datk_granted.has(kw):
+								datk_granted.append(kw)
+								generated_events.append({"event_type": "keyword_granted", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(datk_recipient.get("instance_id", "")), "keyword_id": kw})
+						datk_recipient["granted_keywords"] = datk_granted
 			"set_all_friendly_power_to_max":
 				var safptm_controller_id := str(trigger.get("controller_player_id", ""))
 				var safptm_max_power := 0
@@ -6281,11 +6306,14 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var ditds_deck: Array = ditds_player.get(ZONE_DECK, [])
 					if not ditds_deck.is_empty():
 						var ditds_top: Dictionary = ditds_deck.back()
-						var ditds_filter_subtype := str(effect.get("filter_subtype", ""))
+						var ditds_filter_subtype := str(effect.get("subtype", effect.get("filter_subtype", "")))
 						var ditds_subtypes = ditds_top.get("subtypes", [])
 						if typeof(ditds_subtypes) == TYPE_ARRAY and ditds_subtypes.has(ditds_filter_subtype):
 							var ditds_draw := draw_cards(match_state, ditds_controller_id, 1, {"reason": reason, "source_instance_id": str(trigger.get("source_instance_id", ""))})
 							generated_events.append_array(ditds_draw.get("events", []))
+						elif bool(effect.get("else_bottom", false)) and ditds_deck.size() > 1:
+							var ditds_moved: Dictionary = ditds_deck.pop_back()
+							ditds_deck.push_front(ditds_moved)
 			"gain_keywords_from_top_deck":
 				var gkftd_controller_id := str(trigger.get("controller_player_id", ""))
 				var gkftd_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
@@ -6831,6 +6859,10 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						var ccfdtd_source: Dictionary = ccfdtd_creatures[ccfdtd_idx]
 						var ccfdtd_copy := MatchMutations.build_generated_card(match_state, ccfdtd_controller_id, ccfdtd_source)
 						ccfdtd_copy["zone"] = ZONE_DISCARD
+						var ccfdtd_mod_power := int(effect.get("modify_power", 0))
+						var ccfdtd_mod_health := int(effect.get("modify_health", 0))
+						if ccfdtd_mod_power != 0 or ccfdtd_mod_health != 0:
+							EvergreenRules.apply_stat_bonus(ccfdtd_copy, ccfdtd_mod_power, ccfdtd_mod_health, reason)
 						ccfdtd_discard.push_front(ccfdtd_copy)
 						generated_events.append({"event_type": "card_milled", "source_instance_id": str(trigger.get("source_instance_id", "")), "player_id": ccfdtd_controller_id, "milled_instance_id": str(ccfdtd_copy.get("instance_id", ""))})
 			"randomize_attribute":

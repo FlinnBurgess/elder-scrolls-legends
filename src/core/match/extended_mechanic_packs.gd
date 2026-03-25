@@ -561,15 +561,19 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				grth_candidates.append(seed)
 			if grth_candidates.is_empty():
 				return {"handled": true, "events": []}
-			var grth_seq := str(match_state.get("generated_card_sequence", 0))
-			var grth_pick: Dictionary = grth_candidates[_timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_grth_" + grth_seq, grth_candidates.size())]
-			var grth_template: Dictionary = grth_pick.duplicate(true)
-			grth_template["definition_id"] = str(grth_template.get("card_id", ""))
-			var grth_gen := MatchMutations.build_generated_card(match_state, grth_controller_id, grth_template)
-			grth_gen["zone"] = MatchMutations.ZONE_HAND
+			var grth_count := int(effect.get("count", 1))
+			var grth_all_events: Array = []
 			var grth_hand: Array = grth_player.get(MatchMutations.ZONE_HAND, [])
-			grth_hand.append(grth_gen)
-			return {"handled": true, "events": [{"event_type": "card_drawn", "player_id": grth_controller_id, "source_instance_id": str(trigger.get("source_instance_id", "")), "drawn_instance_id": str(grth_gen.get("instance_id", "")), "source_zone": MatchMutations.ZONE_GENERATED, "target_zone": MatchMutations.ZONE_HAND, "reason": "generate_random_to_hand"}]}
+			for grth_i in range(grth_count):
+				var grth_seq := str(match_state.get("generated_card_sequence", 0))
+				var grth_pick: Dictionary = grth_candidates[_timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_grth_" + grth_seq + "_" + str(grth_i), grth_candidates.size())]
+				var grth_template: Dictionary = grth_pick.duplicate(true)
+				grth_template["definition_id"] = str(grth_template.get("card_id", ""))
+				var grth_gen := MatchMutations.build_generated_card(match_state, grth_controller_id, grth_template)
+				grth_gen["zone"] = MatchMutations.ZONE_HAND
+				grth_hand.append(grth_gen)
+				grth_all_events.append({"event_type": "card_drawn", "player_id": grth_controller_id, "source_instance_id": str(trigger.get("source_instance_id", "")), "drawn_instance_id": str(grth_gen.get("instance_id", "")), "source_zone": MatchMutations.ZONE_GENERATED, "target_zone": MatchMutations.ZONE_HAND, "reason": "generate_random_to_hand"})
+			return {"handled": true, "events": grth_all_events}
 		"equip_random_item_from_catalog":
 			var erfc_seeds: Array = CardCatalog._card_seeds()
 			var erfc_items: Array = []
