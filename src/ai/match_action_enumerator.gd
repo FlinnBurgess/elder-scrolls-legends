@@ -854,6 +854,23 @@ static func _expand_target_parameter_sets(match_state: Dictionary, requirements:
 					elif atm == "creature_4_power_or_less":
 						if EvergreenRules.get_power(card) > 4:
 							continue
+					elif atm == "creature_4_power_or_more":
+						if EvergreenRules.get_power(card) < 4:
+							continue
+					elif atm == "creature_1_power_or_less":
+						if EvergreenRules.get_power(card) > 1:
+							continue
+					elif atm == "creature_with_0_power":
+						if EvergreenRules.get_power(card) != 0:
+							continue
+					elif atm == "wounded_creature":
+						if not EvergreenRules.has_status(card, EvergreenRules.STATUS_WOUNDED):
+							continue
+					elif atm == "enemy_creature_3_power_or_less":
+						if card_controller == atm_controller:
+							continue
+						if EvergreenRules.get_power(card) > 3:
+							continue
 				var next_parameters: Dictionary = parameters.duplicate(true)
 				next_parameters["target_instance_id"] = str(card.get("instance_id", ""))
 				expanded_card_sets.append(next_parameters)
