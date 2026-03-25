@@ -543,7 +543,7 @@ func _get_deck_attribute_ids() -> Array:
 
 
 func _get_deck_creatures(count: int) -> Array:
-	var full_deck: Dictionary = _run_manager.get_full_deck_cards()
+	var full_deck: Array = _run_manager.get_full_deck_cards()
 	var catalog := AdventureCardPoolScript._load_catalog()
 	var all_cards: Array = catalog.get("cards", [])
 	var card_lookup: Dictionary = {}

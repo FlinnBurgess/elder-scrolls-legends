@@ -6,7 +6,11 @@ const AdventureCatalogScript := preload("res://src/adventure/adventure_catalog.g
 var _failures: Array[String] = []
 
 
+const _TEST_DIR := "res://tests/tmp_adventure/"
+
+
 func _initialize() -> void:
+	AdventureRunManagerScript.set_storage_dir_override(_TEST_DIR)
 	_cleanup_test_files()
 
 	_test_start_run()
@@ -31,6 +35,8 @@ func _initialize() -> void:
 	_test_node_offerings_persist()
 
 	_cleanup_test_files()
+	_remove_test_dir()
+	AdventureRunManagerScript.set_storage_dir_override("")
 	_finish()
 
 
@@ -404,12 +410,18 @@ func _make_linear_adventure(node_type: String) -> Dictionary:
 
 
 func _cleanup_test_files() -> void:
-	var dir := DirAccess.open("user://adventure/")
+	var dir := DirAccess.open(_TEST_DIR)
 	if dir != null:
-		if FileAccess.file_exists("user://adventure/run.json"):
+		if FileAccess.file_exists(_TEST_DIR + "run.json"):
 			dir.remove("run.json")
-		if FileAccess.file_exists("user://adventure/match_state.json"):
+		if FileAccess.file_exists(_TEST_DIR + "match_state.json"):
 			dir.remove("match_state.json")
+
+
+func _remove_test_dir() -> void:
+	var dir := DirAccess.open("res://tests/")
+	if dir != null:
+		dir.remove("tmp_adventure")
 
 
 func _assert(condition: bool, message: String) -> void:

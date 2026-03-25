@@ -381,6 +381,11 @@ static func get_effective_play_cost(match_state: Dictionary, player_id: String, 
 					if not seen_defs.has(def_id):
 						seen_defs[def_id] = true
 			reduction += seen_defs.size() * per_amount
+	# First Lesson boon: first action each turn costs N less (read-only for display)
+	if str(card.get("card_type", "")) == "action":
+		var first_lesson_discount := int(player.get("_first_lesson_discount", 0))
+		if first_lesson_discount > 0:
+			reduction += first_lesson_discount
 	var effective := maxi(0, base_cost - reduction)
 	# min_card_cost passive: all cards cost at least N
 	var min_cost := _get_min_card_cost(match_state)

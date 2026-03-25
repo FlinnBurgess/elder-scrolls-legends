@@ -26,9 +26,8 @@ var active_boons: Array = []  # Array of boon_id strings; duplicates allowed for
 var reroll_tokens: int = 1
 var augments: Array = []  # Array of {card_id: String, augment_id: String}
 
-const RUN_DIR := "user://adventure/"
-const RUN_PATH := "user://adventure/run.json"
-const MATCH_STATE_PATH := "user://adventure/match_state.json"
+const _DEFAULT_RUN_DIR := "user://adventure/"
+static var _run_dir_override: String = ""
 const STARTING_REVIVES := 1
 const STARTING_REROLL_TOKENS := 1
 const GOLD_PER_COMBAT := 30
@@ -206,9 +205,9 @@ func abandon_run() -> void:
 
 func save_run() -> void:
 	_ensure_directory()
-	var file := FileAccess.open(RUN_PATH, FileAccess.WRITE)
+	var file := FileAccess.open(_get_run_path(), FileAccess.WRITE)
 	if file == null:
-		push_error("AdventureRunManager: failed to open '%s' for writing: %s" % [RUN_PATH, FileAccess.get_open_error()])
+		push_error("AdventureRunManager: failed to open '%s' for writing: %s" % [_get_run_path(), FileAccess.get_open_error()])
 		return
 	var data := {
 		"state": state,
@@ -232,17 +231,17 @@ func save_run() -> void:
 
 
 static func load_run() -> AdventureRunManager:
-	if not FileAccess.file_exists(RUN_PATH):
+	if not FileAccess.file_exists(_get_run_path()):
 		return null
-	var file := FileAccess.open(RUN_PATH, FileAccess.READ)
+	var file := FileAccess.open(_get_run_path(), FileAccess.READ)
 	if file == null:
-		push_error("AdventureRunManager: failed to open '%s' for reading: %s" % [RUN_PATH, FileAccess.get_open_error()])
+		push_error("AdventureRunManager: failed to open '%s' for reading: %s" % [_get_run_path(), FileAccess.get_open_error()])
 		return null
 	var text := file.get_as_text()
 	var json := JSON.new()
 	var err := json.parse(text)
 	if err != OK:
-		push_error("AdventureRunManager: failed to parse '%s': %s" % [RUN_PATH, json.get_error_message()])
+		push_error("AdventureRunManager: failed to parse '%s': %s" % [_get_run_path(), json.get_error_message()])
 		return null
 	if not json.data is Dictionary:
 		return null
@@ -271,14 +270,14 @@ static func load_run() -> AdventureRunManager:
 
 
 static func has_active_run() -> bool:
-	return FileAccess.file_exists(RUN_PATH)
+	return FileAccess.file_exists(_get_run_path())
 
 
 func clear_run() -> void:
 	clear_match_state()
-	if not FileAccess.file_exists(RUN_PATH):
+	if not FileAccess.file_exists(_get_run_path()):
 		return
-	var dir := DirAccess.open(RUN_DIR)
+	var dir := DirAccess.open(_get_run_dir())
 	if dir == null:
 		return
 	dir.remove("run.json")
@@ -286,24 +285,24 @@ func clear_run() -> void:
 
 func save_match_state(match_state: Dictionary) -> void:
 	_ensure_directory()
-	var file := FileAccess.open(MATCH_STATE_PATH, FileAccess.WRITE)
+	var file := FileAccess.open(_get_match_state_path(), FileAccess.WRITE)
 	if file == null:
-		push_error("AdventureRunManager: failed to open '%s' for writing: %s" % [MATCH_STATE_PATH, FileAccess.get_open_error()])
+		push_error("AdventureRunManager: failed to open '%s' for writing: %s" % [_get_match_state_path(), FileAccess.get_open_error()])
 		return
 	file.store_string(JSON.stringify(match_state, "\t"))
 
 
 static func load_match_state() -> Dictionary:
-	if not FileAccess.file_exists(MATCH_STATE_PATH):
+	if not FileAccess.file_exists(_get_match_state_path()):
 		return {}
-	var file := FileAccess.open(MATCH_STATE_PATH, FileAccess.READ)
+	var file := FileAccess.open(_get_match_state_path(), FileAccess.READ)
 	if file == null:
 		return {}
 	var text := file.get_as_text()
 	var json := JSON.new()
 	var err := json.parse(text)
 	if err != OK:
-		push_error("AdventureRunManager: failed to parse '%s': %s" % [MATCH_STATE_PATH, json.get_error_message()])
+		push_error("AdventureRunManager: failed to parse '%s': %s" % [_get_match_state_path(), json.get_error_message()])
 		return {}
 	if not json.data is Dictionary:
 		return {}
@@ -311,18 +310,35 @@ static func load_match_state() -> Dictionary:
 
 
 func clear_match_state() -> void:
-	if not FileAccess.file_exists(MATCH_STATE_PATH):
+	if not FileAccess.file_exists(_get_match_state_path()):
 		return
-	var dir := DirAccess.open(RUN_DIR)
+	var dir := DirAccess.open(_get_run_dir())
 	if dir == null:
 		return
 	dir.remove("match_state.json")
 
 
 static func has_saved_match_state() -> bool:
-	return FileAccess.file_exists(MATCH_STATE_PATH)
+	return FileAccess.file_exists(_get_match_state_path())
+
+
+static func set_storage_dir_override(dir_path: String) -> void:
+	_run_dir_override = dir_path
+
+
+static func _get_run_dir() -> String:
+	return _run_dir_override if not _run_dir_override.is_empty() else _DEFAULT_RUN_DIR
+
+
+static func _get_run_path() -> String:
+	return _get_run_dir() + "run.json"
+
+
+static func _get_match_state_path() -> String:
+	return _get_run_dir() + "match_state.json"
 
 
 static func _ensure_directory() -> void:
-	if not DirAccess.dir_exists_absolute(RUN_DIR):
-		DirAccess.make_dir_recursive_absolute(RUN_DIR)
+	var dir := _get_run_dir()
+	if not DirAccess.dir_exists_absolute(dir):
+		DirAccess.make_dir_recursive_absolute(dir)
