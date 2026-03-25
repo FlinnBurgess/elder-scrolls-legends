@@ -1,16 +1,16 @@
 ---
 name: fix-bug-reports
-description: Process all error reports from res://reports/error_reports.jsonl — analyze each bug, fix it, run tests, commit, and remove the entry. Ask for guidance on unclear reports.
+description: Process all error reports from res://reports/bug-reports/ — analyze each bug, fix it, run tests, commit, and delete the report file. Ask for guidance on unclear reports.
 ---
 
 # Fix Bug Reports
 
 Process all in-game error reports that were submitted via the error reporting popover.
 
-## Report File
+## Report Directory
 
-- **Path:** `res://reports/error_reports.jsonl` (Godot virtual path — use the actual filesystem path `reports/error_reports.jsonl` relative to the project root when reading with tools)
-- **Format:** JSONL — one JSON object per line
+- **Path:** `res://reports/bug-reports/` (Godot virtual path — use the actual filesystem path `reports/bug-reports/` relative to the project root when reading with tools)
+- **Format:** Each report is a separate `.json` file with a random 8-character filename (e.g., `a3f9k2m1.json`)
 - Each report contains:
   - `screen` — which screen the report was filed from (match, arena_draft, deck_editor)
   - `element_type` — the type of UI element reported on (card, lane, avatar, magicka, etc.)
@@ -20,16 +20,17 @@ Process all in-game error reports that were submitted via the error reporting po
 
 ## Workflow
 
-1. **Read the report file** — load `res://reports/error_reports.jsonl` and parse each line as JSON. The file may exceed token limits — run `wc -l` first to know the total line count, then read in chunks if needed. Filter out empty lines (the file often has blank first/last lines).
-2. **Create tasks** — use TaskCreate to create one task per report, with the comment as the subject. Ensure you've read ALL lines before creating tasks — missing reports due to truncated reads leads to discovering them mid-run.
+1. **List report files** — glob for `reports/bug-reports/*.json` to find all pending reports. If none exist, report that there are no bug reports to process and stop.
+2. **Read all reports** — read each JSON file and parse the contents.
+3. **Create tasks** — use TaskCreate to create one task per report, with the comment as the subject.
    - **Group related reports**: Before diving in, scan all reports for shared themes (e.g., multiple slay-related bugs). Grouping lets you explore the relevant code once and fix related issues more efficiently. You can still create individual tasks, but investigate related reports together.
    - **Parallelize investigation**: When reports cluster around the same subsystem (e.g., 6 dragon card bugs), launch parallel Explore agents to investigate each bug's code path simultaneously. Apply fixes sequentially after investigation completes — the parallelism is for research, not editing.
-3. **Process each report sequentially:**
+4. **Process each report sequentially:**
    a. Mark the task as `in_progress`
    b. Analyse the report: read the `comment`, `element_context`, and `snapshot` to understand the bug
    c. Explore the codebase to locate the relevant code and read the card definition in `card_catalog.gd`
    d. **Pre-fix learnings scan**: Run the `scan-learnings` skill with a description of the bug area (e.g., "triggered abilities with target_mode", "item equip bonuses"). This surfaces known pitfalls before you start writing code.
-   e. **Check if already fixed**: If a recent commit appears to address the issue, verify the fix covers the reported scenario. If so, mark the task as completed, remove the report entry, and move on — no new commit needed.
+   e. **Check if already fixed**: If a recent commit appears to address the issue, verify the fix covers the reported scenario. If so, mark the task as completed, delete the report file, and move on — no new commit needed.
    f. If the report is unclear or requires a design decision, **ask the user for guidance** before proceeding
    g. Implement the fix
    h. **Post-fix learnings scan**: Run `scan-learnings` again with a more specific description now that you understand the problem deeply (e.g., "random target selection in match_timing"). This catches issues your fix may have introduced that weren't obvious before (e.g., using `randi()` where `_deterministic_index` is required).
@@ -42,23 +43,17 @@ Process all in-game error reports that were submitted via the error reporting po
       - For triggered abilities/shout/extended mechanics: `extended_mechanics_runner.gd`, `timing_runner.gd`
    j. If tests fail due to issues introduced by the fix, fix them before proceeding
    k. Commit the fix with a descriptive message
-   l. Remove the processed report entry from the JSONL file (rewrite the file without that line)
+   l. **Delete the report file** — remove the `.json` file from `reports/bug-reports/` using a bash `rm` command
    m. Mark the task as `completed`
-4. **Continue** until all reports are processed
-5. **Summary** — after all reports are processed, present a final overview listing each report that was fixed (with a brief description of the bug and the fix applied), any reports that were skipped or deferred, and any remaining issues
-6. **Pattern scan** — run the `bug-pattern-scan` skill to generalize the fixes into abstract pattern classes and scan for unresolved siblings across the codebase
+5. **Continue** until all reports are processed
+6. **Summary** — after all reports are processed, present a final overview listing each report that was fixed (with a brief description of the bug and the fix applied), any reports that were skipped or deferred, and any remaining issues
+7. **Pattern scan** — run the `bug-pattern-scan` skill to generalize the fixes into abstract pattern classes and scan for unresolved siblings across the codebase
 
-## Removing Entries
+## Deleting Reports
 
-After each fix is committed, immediately remove the corresponding line from the JSONL file:
-- **Re-read the entire file first** — the user may have added new reports while you were working
-- Identify the line to remove by matching against the report's **`comment` field value** — comments are unique per report and short enough to match reliably. Avoid broad keyword matching (e.g., just "dragon") that could hit unrelated reports, but the full comment string is a safe identifier.
-- **Never use index-based removal** (e.g., "remove line 3") — blank lines, concurrent additions, and off-by-one errors make index-based approaches fragile. Always match the exact JSON string of the report.
-- Write the remaining lines back
+After each fix is committed, delete the report file immediately with `rm reports/bug-reports/<filename>.json`. This is simple and atomic — no need to rewrite a shared file.
 
-This ensures that if the skill is interrupted mid-run, completed reports are already removed, and new reports added concurrently are preserved.
-
-If new reports appear during the run (detected when re-reading the file), create tasks for them and process them after the original batch.
+If new reports appear during the run (new files detected when re-listing the directory), create tasks for them and process them after the original batch.
 
 ## Important Notes
 
@@ -67,9 +62,9 @@ If new reports appear during the run (detected when re-reading the file), create
 - **Web research**: If a report suggests the correct behavior is uncertain (e.g., "should it have?", "worth researching online"), use WebSearch/WebFetch to check the UESP wiki or community sources for the canonical game behavior before implementing.
 - **Unreproducible reports**: If thorough code investigation (tracing the full code path, checking all validation layers, verifying data hydration) fails to reveal a bug, ask the user whether to remove the report or keep it for monitoring. Don't spend more than ~15 minutes on a single report with no clear code defect — present your findings and let the user decide.
 - **Ambiguous root cause reports**: Sometimes a report's symptom has multiple plausible causes (e.g., "can't target" could be a targeting bug OR insufficient magicka) and the snapshot doesn't conclusively identify one. In these cases, enhancing the error report snapshot with additional diagnostic fields is a valid resolution — fix the observability gap so the next occurrence will be diagnosable. Present your analysis to the user and let them decide whether to dismiss the report or keep investigating.
-- Do not skip reports unless the user explicitly asks you to defer one (e.g., "skip that one", "no obvious cause"). If skipped, leave the report entry in the JSONL file and note it in the summary.
+- Do not skip reports unless the user explicitly asks you to defer one (e.g., "skip that one", "no obvious cause"). If skipped, leave the report file in place and note it in the summary.
 - Always verify fixes with tests before committing
-- Each fix gets its own commit — do not batch fixes. Exceptions for combining into a single commit: (1) two reports share the exact same root cause (e.g., both are "unimplemented op X"), (2) two fixes are deeply interleaved in the same files such that separating them without interactive staging would be error-prone (e.g., both add helper functions and call sites in the same module), or (3) multiple reports share the same bug class (e.g., three slay-related bugs touching the same subsystem). In cases (2) and (3), explain all fixes clearly in the commit message. When batching commits, also batch the corresponding JSONL removals.
+- Each fix gets its own commit — do not batch fixes. Exceptions for combining into a single commit: (1) two reports share the exact same root cause (e.g., both are "unimplemented op X"), (2) two fixes are deeply interleaved in the same files such that separating them without interactive staging would be error-prone (e.g., both add helper functions and call sites in the same module), or (3) multiple reports share the same bug class (e.g., three slay-related bugs touching the same subsystem). In cases (2) and (3), explain all fixes clearly in the commit message. When batching commits, also batch the corresponding file deletions.
 - If a report describes something that isn't actually a bug (e.g., intended behavior), ask the user to confirm before removing it. However, if the report is clearly just a question about whether a feature works (e.g., "is rally implemented?") and the feature IS implemented correctly, you can dismiss it without asking — just note it in the summary.
 - **Test/junk reports**: If reports are clearly test data (e.g., comments like "test report", "delete me", "ignore this"), present them to the user and offer to batch-clear them rather than creating individual tasks. Skip the full workflow for these.
 - **Regression reports**: If a report describes a bug you already fixed in this session ("still doesn't work", "this happened again"), the previous fix didn't fully work. Before attempting a new fix, trace the code path end-to-end to find why the fix was bypassed — common causes include: early returns in match blocks making later checks unreachable, the fix being in a validation path that doesn't cover all play paths (e.g., drag-drop vs click), or the fix checking the right condition but in the wrong function.

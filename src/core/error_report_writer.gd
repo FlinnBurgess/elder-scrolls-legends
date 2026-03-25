@@ -1,24 +1,33 @@
 class_name ErrorReportWriter
 extends RefCounted
 
-const REPORT_PATH := "res://reports/error_reports.jsonl"
+const REPORT_DIR := "res://reports/bug-reports"
 
 
 static func write_report(report: Dictionary) -> void:
 	var dir := DirAccess.open("res://")
 	if dir != null and not dir.dir_exists("reports"):
 		dir.make_dir("reports")
-	var file := FileAccess.open(REPORT_PATH, FileAccess.READ_WRITE)
+	dir = DirAccess.open("res://reports")
+	if dir != null and not dir.dir_exists("bug-reports"):
+		dir.make_dir("bug-reports")
+	var filename := _generate_id() + ".json"
+	var path := REPORT_DIR.path_join(filename)
+	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
-		# File doesn't exist yet — create it
-		file = FileAccess.open(REPORT_PATH, FileAccess.WRITE)
-	if file == null:
-		push_error("ErrorReportWriter: Failed to open report file at %s" % REPORT_PATH)
+		push_error("ErrorReportWriter: Failed to open report file at %s" % path)
 		return
-	file.seek_end()
-	file.store_line(JSON.stringify(report))
+	file.store_string(JSON.stringify(report, "\t"))
 	file.flush()
 	file.close()
+
+
+static func _generate_id() -> String:
+	var chars := "abcdefghijklmnopqrstuvwxyz0123456789"
+	var id := ""
+	for i in range(8):
+		id += chars[randi() % chars.length()]
+	return id
 
 
 static func build_match_snapshot(match_state: Dictionary, match_history_entries: Array) -> Dictionary:
