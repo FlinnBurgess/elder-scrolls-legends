@@ -1217,6 +1217,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				if bool(sca_summon.get("is_valid", false)):
 					sca_events.append_array(sca_summon.get("events", []))
 					sca_events.append(_timing_rules()._build_summon_event(sca_summon["card"], sca_controller, sca_lane_id, int(sca_summon.get("slot_index", -1)), "summon_conditional_atronach"))
+					_timing_rules()._check_summon_abilities(match_state, sca_summon["card"])
 			else:
 				var sca_unmet_raw = effect.get("on_unmet", {})
 				var sca_unmet: Dictionary = sca_unmet_raw if typeof(sca_unmet_raw) == TYPE_DICTIONARY else {}
@@ -1378,6 +1379,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				return {"handled": true, "events": []}
 			var hc_events: Array = hc_result.get("events", []).duplicate()
 			hc_events.append(_timing_rules()._build_summon_event(hc_result["card"], hc_controller_id, "field", int(hc_result.get("slot_index", -1)), "harbingers_call"))
+			_timing_rules()._check_summon_abilities(match_state, hc_result["card"])
 			return {"handled": true, "events": hc_events}
 		"boon_holy_ground":
 			var hg_stacks := int(effect.get("stacks", 1))

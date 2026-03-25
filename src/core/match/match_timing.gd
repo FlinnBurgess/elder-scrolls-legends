@@ -4432,6 +4432,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							generated_events.append(_build_summon_event(fill_result["card"], fill_pid, fill_lid, int(fill_result.get("slot_index", -1)), reason))
 							if bool(fill_result.get("granted_cover", false)):
 								generated_events.append({"event_type": "status_granted", "source_instance_id": str(fill_result["card"].get("instance_id", "")), "target_instance_id": str(fill_result["card"].get("instance_id", "")), "status_id": "cover"})
+							_check_summon_abilities(match_state, fill_result["card"])
 			"summon_copies_to_lane":
 				var copies_lane_id := str(effect.get("lane_id", effect.get("target_lane_id", effect.get("lane", event.get("lane_id", "")))))
 				if copies_lane_id == "chosen":
@@ -4456,6 +4457,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							break
 						generated_events.append_array(summon_res.get("events", []))
 						generated_events.append(_build_summon_event(summon_res["card"], player_id, copies_lane_id, int(summon_res.get("slot_index", -1)), reason))
+						_check_summon_abilities(match_state, summon_res["card"])
 			"summon_copy_to_other_lane":
 				var copy_sources := _resolve_card_targets_by_name(match_state, trigger, event, str(effect.get("source_target", "event_source")))
 				if copy_sources.is_empty():
@@ -4485,6 +4487,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				if bool(summon_res.get("is_valid", false)):
 					generated_events.append_array(summon_res.get("events", []))
 					generated_events.append(_build_summon_event(summon_res["card"], copy_player_id, other_lane_id, int(summon_res.get("slot_index", -1)), reason))
+					_check_summon_abilities(match_state, summon_res["card"])
 			"draw_from_discard_filtered":
 				var dfdf_filter_dict: Dictionary = effect.get("filter", {}) if typeof(effect.get("filter", null)) == TYPE_DICTIONARY else {}
 				var discard_filter_card_type := str(effect.get("required_card_type", dfdf_filter_dict.get("card_type", "")))
@@ -4881,6 +4884,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					if bool(sc_summon.get("is_valid", false)):
 						generated_events.append_array(sc_summon.get("events", []))
 						generated_events.append(_build_summon_event(sc_summon["card"], sc_controller, sc_lane_id, int(sc_summon.get("slot_index", -1)), "summon_copy"))
+						_check_summon_abilities(match_state, sc_summon["card"])
 			"summon_copy_of_self":
 				var scos_source_id := str(trigger.get("source_instance_id", ""))
 				var scos_source := _find_card_anywhere(match_state, scos_source_id)
@@ -4897,6 +4901,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					if bool(scos_summon.get("is_valid", false)):
 						generated_events.append_array(scos_summon.get("events", []))
 						generated_events.append(_build_summon_event(scos_summon["card"], scos_controller, scos_lane_id, int(scos_summon.get("slot_index", -1)), "summon_copy_of_self"))
+						_check_summon_abilities(match_state, scos_summon["card"])
 			"deal_damage_from_creature":
 				var ddfc_amount := int(effect.get("amount", 1))
 				var ddfc_source_target := str(effect.get("source", "event_target"))
@@ -5055,6 +5060,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							if bool(sar_summon.get("is_valid", false)):
 								generated_events.append_array(sar_summon.get("events", []))
 								generated_events.append(_build_summon_event(sar_summon["card"], sar_controller, sar_lane_id, int(sar_summon.get("slot_index", -1)), "sacrifice_and_resummon"))
+								_check_summon_abilities(match_state, sar_summon["card"])
 			"equip_item", "equip_generated_item":
 				var ei_template_raw = effect.get("card_template", {})
 				var ei_template: Dictionary = ei_template_raw if typeof(ei_template_raw) == TYPE_DICTIONARY else {}
@@ -7638,6 +7644,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						if bool(scfd_result.get("is_valid", false)):
 							generated_events.append_array(scfd_result.get("events", []))
 							generated_events.append(_build_summon_event(scfd_result["card"], scfd_controller_id, scfd_lane_id, int(scfd_result.get("slot_index", -1)), reason))
+							_check_summon_abilities(match_state, scfd_result["card"])
 			"player_battle_creature":
 				# Dragon Aspect: player gains attack power and fights a creature
 				var pbc_controller_id := str(trigger.get("controller_player_id", ""))
