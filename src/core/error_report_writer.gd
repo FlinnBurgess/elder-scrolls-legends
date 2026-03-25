@@ -82,6 +82,29 @@ static func build_match_snapshot(match_state: Dictionary, match_history_entries:
 		}
 	snapshot["ring_of_magicka"] = ring
 
+	# Global cost reduction auras (e.g. invade gate Daedra discount)
+	var cost_auras: Array = match_state.get("card_cost_reduction_auras", [])
+	if not cost_auras.is_empty():
+		snapshot["card_cost_reduction_auras"] = cost_auras.duplicate(true)
+
+	# Pending state: helps diagnose "can't do X" bugs
+	var pending := {}
+	if match_state.has("pending_prophecy"):
+		var pp = match_state.get("pending_prophecy", {})
+		if typeof(pp) == TYPE_DICTIONARY and not pp.is_empty():
+			pending["prophecy"] = true
+	var pending_choices: Array = match_state.get("pending_player_choices", [])
+	if not pending_choices.is_empty():
+		pending["player_choices"] = pending_choices.size()
+	var pending_summon: Array = match_state.get("pending_summon_effect_targets", [])
+	if not pending_summon.is_empty():
+		pending["summon_effect_targets"] = pending_summon.size()
+	var pending_turn_triggers: Array = match_state.get("pending_turn_trigger_targets", [])
+	if not pending_turn_triggers.is_empty():
+		pending["turn_trigger_targets"] = pending_turn_triggers.size()
+	if not pending.is_empty():
+		snapshot["pending"] = pending
+
 	return snapshot
 
 
@@ -142,7 +165,7 @@ static func _build_player_snapshot(player: Dictionary) -> Dictionary:
 		if typeof(card) == TYPE_DICTIONARY:
 			discard_cards.append(_build_card_snapshot(card))
 
-	return {
+	var snapshot := {
 		"health": int(player.get("health", 0)),
 		"magicka": {
 			"current": int(player.get("current_magicka", 0)),
@@ -151,7 +174,32 @@ static func _build_player_snapshot(player: Dictionary) -> Dictionary:
 		"runes": _get_active_runes(player),
 		"hand": hand_cards,
 		"discard": discard_cards,
+		"deck_size": player.get("deck", []).size(),
 	}
+	# Turn-scoped counters useful for debugging cost reductions and trigger conditions
+	var turn_state := {}
+	var _ts_keys := [
+		"cards_played_this_turn", "creature_summons_this_turn",
+		"noncreature_plays_this_turn", "creatures_died_this_turn",
+		"pilfer_or_drain_count_this_turn", "invades_this_turn",
+	]
+	for key in _ts_keys:
+		var val = player.get(key, 0)
+		if int(val) != 0:
+			turn_state[key] = int(val)
+	if not turn_state.is_empty():
+		snapshot["turn_state"] = turn_state
+	# Active cost modifiers
+	var cost_mods := {}
+	var next_reduction := int(player.get("next_card_cost_reduction", 0))
+	if next_reduction != 0:
+		cost_mods["next_card_cost_reduction"] = next_reduction
+	var first_lesson := int(player.get("_first_lesson_discount", 0))
+	if first_lesson != 0:
+		cost_mods["first_lesson_discount"] = first_lesson
+	if not cost_mods.is_empty():
+		snapshot["cost_modifiers"] = cost_mods
+	return snapshot
 
 
 static func _get_active_runes(player: Dictionary) -> Array:
@@ -172,20 +220,66 @@ static func _build_card_snapshot(card: Dictionary) -> Dictionary:
 		"card_type": str(card.get("card_type", "")),
 		"cost": int(card.get("cost", 0)),
 	}
+	# Identity: definition_id helps identify upgraded/transformed cards
+	var def_id := str(card.get("definition_id", ""))
+	if not def_id.is_empty():
+		snapshot["definition_id"] = def_id
 	if card.has("power"):
 		snapshot["power"] = int(card.get("power", 0))
 	if card.has("health"):
 		snapshot["health"] = int(card.get("health", 0))
-	if card.has("damage"):
-		snapshot["damage"] = int(card.get("damage", 0))
+	# Damage tracking: damage_marked is the actual damage counter
+	var damage_marked := int(card.get("damage_marked", 0))
+	if damage_marked > 0:
+		snapshot["damage_marked"] = damage_marked
+	# Stat modifiers: helps diagnose buff/debuff issues
+	var power_bonus := int(card.get("power_bonus", 0))
+	var health_bonus := int(card.get("health_bonus", 0))
+	if power_bonus != 0:
+		snapshot["power_bonus"] = power_bonus
+	if health_bonus != 0:
+		snapshot["health_bonus"] = health_bonus
+	# Keywords: both innate and granted
 	var keywords: Array = card.get("keywords", [])
 	if not keywords.is_empty():
 		snapshot["keywords"] = keywords.duplicate()
+	var granted_keywords: Array = card.get("granted_keywords", [])
+	if not granted_keywords.is_empty():
+		snapshot["granted_keywords"] = granted_keywords.duplicate()
 	var statuses: Array = card.get("statuses", [])
 	if not statuses.is_empty():
 		snapshot["statuses"] = statuses.duplicate()
 	if card.has("rules_text"):
 		snapshot["rules_text"] = str(card.get("rules_text", ""))
+	# Action targeting mode: critical for diagnosing targeting bugs
+	var atm := str(card.get("action_target_mode", ""))
+	if not atm.is_empty():
+		snapshot["action_target_mode"] = atm
+	# Shout info
+	var shout_level := int(card.get("shout_level", 0))
+	if shout_level > 0:
+		snapshot["shout_level"] = shout_level
+	# Subtypes (tribal effects)
+	var subtypes: Array = card.get("subtypes", [])
+	if not subtypes.is_empty():
+		snapshot["subtypes"] = subtypes.duplicate()
+	# Attached items
+	var attached_items: Array = card.get("attached_items", [])
+	if not attached_items.is_empty():
+		var item_summaries: Array = []
+		for item in attached_items:
+			if typeof(item) == TYPE_DICTIONARY:
+				item_summaries.append({"name": str(item.get("name", "")), "definition_id": str(item.get("definition_id", ""))})
+		if not item_summaries.is_empty():
+			snapshot["attached_items"] = item_summaries
+	# Augments (adventure mode)
+	var augments: Array = card.get("_augments", [])
+	if not augments.is_empty():
+		snapshot["augments"] = augments.duplicate()
+	# Cost reduction (self)
+	var self_cost_reduction = card.get("self_cost_reduction", {})
+	if typeof(self_cost_reduction) == TYPE_DICTIONARY and not self_cost_reduction.is_empty():
+		snapshot["self_cost_reduction"] = self_cost_reduction.duplicate()
 	return snapshot
 
 

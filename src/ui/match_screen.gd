@@ -9562,12 +9562,18 @@ func _open_error_report_popover() -> void:
 
 
 func _on_error_report_submitted(comment: String, element_type: String, element_context: String) -> void:
+	var snapshot := ErrorReportWriterClass.build_match_snapshot(_match_state, _match_history_entries)
+	# Attach adventure mode context if present
+	if not _adventure_boons.is_empty():
+		snapshot["adventure_boons"] = _adventure_boons.duplicate()
+	if not _adventure_augments.is_empty():
+		snapshot["adventure_augments"] = _adventure_augments.duplicate(true)
 	var report := {
 		"screen": "match",
 		"element_type": element_type,
 		"element_context": element_context,
 		"comment": comment,
-		"snapshot": ErrorReportWriterClass.build_match_snapshot(_match_state, _match_history_entries),
+		"snapshot": snapshot,
 	}
 	ErrorReportWriterClass.write_report(report)
 	_error_report_popover = null
