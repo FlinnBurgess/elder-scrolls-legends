@@ -6261,25 +6261,54 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				var rsr_killer_id := str(event.get("destroyed_by_instance_id", ""))
 				var rsr_killer := _find_card_anywhere(match_state, rsr_killer_id)
 				if not rsr_killer.is_empty():
+					var rsr_controller := str(rsr_killer.get("controller_player_id", ""))
+					# Collect slay descriptors: own triggered_abilities + granted triggers from friendly cards
+					var rsr_slay_descs: Array = []
 					var rsr_raw_triggers = rsr_killer.get("triggered_abilities", [])
 					if typeof(rsr_raw_triggers) == TYPE_ARRAY:
-						for rsr_idx in range(rsr_raw_triggers.size()):
-							var rsr_desc = rsr_raw_triggers[rsr_idx]
-							if typeof(rsr_desc) != TYPE_DICTIONARY:
+						for rsr_desc in rsr_raw_triggers:
+							if typeof(rsr_desc) == TYPE_DICTIONARY and str(rsr_desc.get("family", "")) == FAMILY_SLAY:
+								rsr_slay_descs.append(rsr_desc)
+					# Also check grants_trigger from friendly lane creatures and supports
+					for rsr_lane in match_state.get("lanes", []):
+						for rsr_card in rsr_lane.get("player_slots", {}).get(rsr_controller, []):
+							if typeof(rsr_card) != TYPE_DICTIONARY:
 								continue
-							if str(rsr_desc.get("family", "")) != FAMILY_SLAY:
+							var rsr_grants = rsr_card.get("grants_trigger", [])
+							if typeof(rsr_grants) != TYPE_ARRAY:
 								continue
-							var rsr_synth_trigger := {
-								"trigger_id": "%s_repeat_slay_%d" % [rsr_killer_id, rsr_idx],
-								"trigger_index": rsr_idx,
-								"source_instance_id": rsr_killer_id,
-								"owner_player_id": str(rsr_killer.get("owner_player_id", "")),
-								"controller_player_id": str(rsr_killer.get("controller_player_id", "")),
-								"source_zone": "lane",
-								"descriptor": rsr_desc.duplicate(true),
-							}
-							var rsr_resolution := _build_trigger_resolution(match_state, rsr_synth_trigger, event)
-							generated_events.append_array(_apply_effects(match_state, rsr_synth_trigger, event, rsr_resolution))
+							for rsr_grant in rsr_grants:
+								if typeof(rsr_grant) != TYPE_DICTIONARY or str(rsr_grant.get("family", "")) != FAMILY_SLAY:
+									continue
+								var rsr_req_kw := str(rsr_grant.get("required_keyword", ""))
+								if not rsr_req_kw.is_empty() and not EvergreenRules.has_keyword(rsr_killer, rsr_req_kw):
+									continue
+								rsr_slay_descs.append(rsr_grant)
+					for rsr_support in _get_player_state(match_state, rsr_controller).get(ZONE_SUPPORT, []):
+						if typeof(rsr_support) != TYPE_DICTIONARY:
+							continue
+						var rsr_grants = rsr_support.get("grants_trigger", [])
+						if typeof(rsr_grants) != TYPE_ARRAY:
+							continue
+						for rsr_grant in rsr_grants:
+							if typeof(rsr_grant) != TYPE_DICTIONARY or str(rsr_grant.get("family", "")) != FAMILY_SLAY:
+								continue
+							var rsr_req_kw := str(rsr_grant.get("required_keyword", ""))
+							if not rsr_req_kw.is_empty() and not EvergreenRules.has_keyword(rsr_killer, rsr_req_kw):
+								continue
+							rsr_slay_descs.append(rsr_grant)
+					for rsr_idx in range(rsr_slay_descs.size()):
+						var rsr_synth_trigger := {
+							"trigger_id": "%s_repeat_slay_%d" % [rsr_killer_id, rsr_idx],
+							"trigger_index": rsr_idx,
+							"source_instance_id": rsr_killer_id,
+							"owner_player_id": str(rsr_killer.get("owner_player_id", "")),
+							"controller_player_id": rsr_controller,
+							"source_zone": "lane",
+							"descriptor": rsr_slay_descs[rsr_idx].duplicate(true),
+						}
+						var rsr_resolution := _build_trigger_resolution(match_state, rsr_synth_trigger, event)
+						generated_events.append_array(_apply_effects(match_state, rsr_synth_trigger, event, rsr_resolution))
 			"trigger_all_friendly_summons":
 				var tafs_controller_id := str(trigger.get("controller_player_id", ""))
 				var tafs_creatures := _player_lane_creatures(match_state, tafs_controller_id)
