@@ -452,7 +452,7 @@ static func get_valid_targets_for_mode(match_state: Dictionary, source_instance_
 			targets.append({"player_id": controller_id})
 			targets.append({"player_id": opponent_id})
 		"enemy_creature_less_power_than_self_health":
-			var self_health_eclptsh := EvergreenRules.get_health(source_card)
+			var self_health_eclptsh := EvergreenRules.get_remaining_health(source_card)
 			targets = _player_lane_creatures(match_state, opponent_id)
 			targets = targets.filter(func(c): return EvergreenRules.get_power(c) < self_health_eclptsh)
 		"two_creatures", "three_creatures":
@@ -3341,6 +3341,12 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 		if survive_card.is_empty() or str(survive_card.get("zone", "")) != ZONE_LANE:
 			return false
 		if EvergreenRules.get_remaining_health(survive_card) <= 0:
+			return false
+	var required_min_health := int(descriptor.get("required_controller_min_health", 0))
+	if required_min_health > 0:
+		var rmh_controller := str(trigger.get("controller_player_id", ""))
+		var rmh_player := _get_player_state(match_state, rmh_controller)
+		if int(rmh_player.get("health", 0)) < required_min_health:
 			return false
 	var required_damage_kind := str(descriptor.get("damage_kind", family_spec.get("damage_kind", "")))
 	if not required_damage_kind.is_empty() and str(event.get("damage_kind", "")) != required_damage_kind:
@@ -6469,6 +6475,11 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						if str(lane.get("lane_id", "")) == clb_lane_id:
 							clb_lane_type = str(lane.get("lane_type", "field"))
 							break
+					# Support left_lane/right_lane keys from card data: map lane_type to left/right
+					if clb_bonuses.is_empty():
+						var clb_is_left := (clb_lane_type == "field")
+						clb_bonuses = {"left": effect.get("left_lane", {}), "right": effect.get("right_lane", {})}
+						clb_lane_type = "left" if clb_is_left else "right"
 					var clb_bonus: Dictionary = clb_bonuses.get(clb_lane_type, {})
 					if not clb_bonus.is_empty():
 						var clb_power := int(clb_bonus.get("power", 0))
@@ -7598,7 +7609,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 			"player_battle_creature":
 				# Dragon Aspect: player gains attack power and fights a creature
 				var pbc_controller_id := str(trigger.get("controller_player_id", ""))
-				var pbc_attack_power := int(effect.get("attack_power", 3))
+				var pbc_attack_power := int(effect.get("power", effect.get("attack_power", 3)))
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					var pbc_damage := pbc_attack_power
 					var pbc_result := EvergreenRules.apply_damage_to_creature(card, pbc_damage)

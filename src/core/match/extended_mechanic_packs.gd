@@ -505,6 +505,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 					return {"handled": true, "events": []}
 			var srfc_events: Array = srfc_result.get("events", []).duplicate()
 			srfc_events.append(_timing_rules()._build_summon_event(srfc_result["card"], srfc_controller_id, srfc_lane_id, int(srfc_result.get("slot_index", -1)), "summon_from_catalog"))
+			_timing_rules()._check_summon_abilities(match_state, srfc_result["card"])
 			return {"handled": true, "events": srfc_events}
 		"generate_random_to_hand":
 			var grth_filter_raw = effect.get("filter", {})
@@ -782,6 +783,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				return {"handled": true, "events": []}
 			var srbtc_events: Array = srbtc_result.get("events", []).duplicate()
 			srbtc_events.append(_timing_rules()._build_summon_event(srbtc_result["card"], srbtc_controller_id, srbtc_lane_id, int(srbtc_result.get("slot_index", -1)), "summon_from_catalog"))
+			_timing_rules()._check_summon_abilities(match_state, srbtc_result["card"])
 			return {"handled": true, "events": srbtc_events}
 		"look_at_top_deck_may_discard":
 			var ltdmd_controller_id := str(trigger.get("controller_player_id", ""))
