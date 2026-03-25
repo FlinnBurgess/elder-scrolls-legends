@@ -194,26 +194,39 @@ static func _resolve_creature_attack(match_state: Dictionary, validation: Dictio
 	var defender_remaining_before := EvergreenRules.get_remaining_health(defender)
 	var damage_to_defender := maxi(0, EvergreenRules.get_power(attacker))
 	var damage_to_attacker := maxi(0, EvergreenRules.get_power(defender))
-	var defender_damage := EvergreenRules.apply_damage_to_creature(defender, damage_to_defender)
-	var attacker_damage := EvergreenRules.apply_damage_to_creature(attacker, damage_to_attacker)
+	# Damage redirect: if a creature is protected by another (e.g., Jauffre), redirect damage
+	var defender_damage_target: Dictionary = defender
+	var defender_redirect_id := str(defender.get("_protected_by", ""))
+	if not defender_redirect_id.is_empty():
+		var defender_protector := _find_creature_on_board(match_state.get("lanes", []), defender_redirect_id)
+		if bool(defender_protector.get("is_valid", false)):
+			defender_damage_target = defender_protector["card"]
+	var attacker_damage_target: Dictionary = attacker
+	var attacker_redirect_id := str(attacker.get("_protected_by", ""))
+	if not attacker_redirect_id.is_empty():
+		var attacker_protector := _find_creature_on_board(match_state.get("lanes", []), attacker_redirect_id)
+		if bool(attacker_protector.get("is_valid", false)):
+			attacker_damage_target = attacker_protector["card"]
+	var defender_damage := EvergreenRules.apply_damage_to_creature(defender_damage_target, damage_to_defender)
+	var attacker_damage := EvergreenRules.apply_damage_to_creature(attacker_damage_target, damage_to_attacker)
 	var applied_to_defender := int(defender_damage.get("applied", 0))
 	var applied_to_attacker := int(attacker_damage.get("applied", 0))
 
 	if bool(defender_damage.get("ward_removed", false)):
-		events.append(_build_ward_event(attacker, defender))
+		events.append(_build_ward_event(attacker, defender_damage_target))
 	if bool(attacker_damage.get("ward_removed", false)):
-		events.append(_build_ward_event(defender, attacker))
+		events.append(_build_ward_event(defender, attacker_damage_target))
 
 	if applied_to_defender > 0:
-		events.append(_build_damage_event(attacker, TARGET_TYPE_CREATURE, defender, applied_to_defender, "combat"))
+		events.append(_build_damage_event(attacker, TARGET_TYPE_CREATURE, defender_damage_target, applied_to_defender, "combat"))
 
 	if applied_to_attacker > 0:
-		var retaliation_event := _build_damage_event(defender, TARGET_TYPE_CREATURE, attacker, applied_to_attacker, "combat")
+		var retaliation_event := _build_damage_event(defender, TARGET_TYPE_CREATURE, attacker_damage_target, applied_to_attacker, "combat")
 		retaliation_event["is_retaliation"] = true
 		events.append(retaliation_event)
 
-	var defender_destroyed := EvergreenRules.is_creature_destroyed(defender, applied_to_defender > 0 and EvergreenRules.has_keyword(attacker, EvergreenRules.KEYWORD_LETHAL))
-	var attacker_destroyed := EvergreenRules.is_creature_destroyed(attacker, applied_to_attacker > 0 and EvergreenRules.has_keyword(defender, EvergreenRules.KEYWORD_LETHAL))
+	var defender_destroyed := EvergreenRules.is_creature_destroyed(defender_damage_target, applied_to_defender > 0 and EvergreenRules.has_keyword(attacker, EvergreenRules.KEYWORD_LETHAL))
+	var attacker_destroyed := EvergreenRules.is_creature_destroyed(attacker_damage_target, applied_to_attacker > 0 and EvergreenRules.has_keyword(defender, EvergreenRules.KEYWORD_LETHAL))
 	var breakthrough_damage := 0
 	if defender_destroyed and EvergreenRules.has_keyword(attacker, EvergreenRules.KEYWORD_BREAKTHROUGH):
 		breakthrough_damage = maxi(0, damage_to_defender - defender_remaining_before)
@@ -233,9 +246,12 @@ static func _resolve_creature_attack(match_state: Dictionary, validation: Dictio
 
 	var total_drain := _resolve_drain(match_state, attacker, applied_to_defender, events)
 	if defender_destroyed:
-		_destroy_creature(match_state, validation["defender_lookup"], str(attacker.get("instance_id", "")), events)
+		var def_destroy_lookup: Dictionary = validation["defender_lookup"] if defender_damage_target == defender else _find_creature_on_board(match_state.get("lanes", []), str(defender_damage_target.get("instance_id", "")))
+		if bool(def_destroy_lookup.get("is_valid", false)):
+			_destroy_creature(match_state, def_destroy_lookup, str(attacker.get("instance_id", "")), events)
 	if attacker_destroyed:
-		var attacker_lookup := _find_creature_on_board(match_state.get("lanes", []), str(attacker.get("instance_id", "")))
+		var atk_destroy_target := attacker_damage_target
+		var attacker_lookup := _find_creature_on_board(match_state.get("lanes", []), str(atk_destroy_target.get("instance_id", "")))
 		if attacker_lookup["is_valid"]:
 			_destroy_creature(match_state, attacker_lookup, str(defender.get("instance_id", "")), events, true)
 

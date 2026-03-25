@@ -4017,8 +4017,21 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var defender_power := maxi(0, EvergreenRules.get_power(defender))
 					var defender_remaining_before := EvergreenRules.get_remaining_health(defender)
 					var attacker_remaining_before := EvergreenRules.get_remaining_health(battle_source)
-					var defender_damage_result := EvergreenRules.apply_damage_to_creature(defender, attacker_power)
-					var attacker_damage_result := EvergreenRules.apply_damage_to_creature(battle_source, defender_power)
+					# Damage redirect for protected creatures
+					var bc_def_target: Dictionary = defender
+					var bc_def_redirect_id := str(defender.get("_protected_by", ""))
+					if not bc_def_redirect_id.is_empty():
+						var bc_protector := _find_card_anywhere(match_state, bc_def_redirect_id)
+						if not bc_protector.is_empty() and str(bc_protector.get("zone", "")) != ZONE_DISCARD:
+							bc_def_target = bc_protector
+					var bc_atk_target: Dictionary = battle_source
+					var bc_atk_redirect_id := str(battle_source.get("_protected_by", ""))
+					if not bc_atk_redirect_id.is_empty():
+						var bc_atk_protector := _find_card_anywhere(match_state, bc_atk_redirect_id)
+						if not bc_atk_protector.is_empty() and str(bc_atk_protector.get("zone", "")) != ZONE_DISCARD:
+							bc_atk_target = bc_atk_protector
+					var defender_damage_result := EvergreenRules.apply_damage_to_creature(bc_def_target, attacker_power)
+					var attacker_damage_result := EvergreenRules.apply_damage_to_creature(bc_atk_target, defender_power)
 					if bool(defender_damage_result.get("ward_removed", false)):
 						generated_events.append({"event_type": "ward_removed", "source_instance_id": battle_source_id, "target_instance_id": str(defender.get("instance_id", ""))})
 					if bool(attacker_damage_result.get("ward_removed", false)):
