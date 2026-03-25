@@ -17,67 +17,59 @@ const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
 static func build_test_match_state() -> Dictionary:
 	## ── CONFIGURATION ──────────────────────────────────────────────────
 	## Edit the values below to set up your test scenario.
-	## Testing: Recently fixed cards — Alduin cost reduction, Call Dragon,
-	## Devour keyword transfer, Paarthurnax shouts, Mute, Fingers of the
-	## Mountain, Whispering Claw Strike, Strategist's Map
+	## Testing: Fixed slay mechanics + newly implemented stub features
 
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — 20 magicka to test Alduin + Paarthurnax
+	# Player 1 (you) — 15 magicka to afford most cards
 	var p1_health := 30
-	var p1_max_magicka := 20
-	var p1_current_magicka := 20
+	var p1_max_magicka := 15
+	var p1_current_magicka := 15
 	var p1_rune_thresholds := [25, 20, 15, 10, 5]
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — all the fixed cards
+	# Player 1 hand — cards to test all fixed/implemented features
 	var p1_hand_ids: Array = [
-		"hos_neu_alduin",                   # Cost 20, 12/12 Dragon. Costs 2 less per Dragon in discard. TEST: should show reduced cost
-		"hos_neu_paarthurnax",              # Cost 12, 9/9 Dragon. Summon: 3 random free Shouts. TEST: shouts stay at 0 cost after upgrade
-		"tc_neu_call_dragon",               # Cost 8, Shout. Summon 6-8 cost Dragon + upgrade ALL shouts. TEST: summons a Dragon, not random creature
-		"hos_wil_devour",                   # Cost 4, Destroy creature ≤4 power, give its keywords to your Dragon. TEST: Guard transfers
-		"joo_end_mute",                     # Cost 1, Silence two creatures. TEST: multi-target selection works
-		"joo_int_fingers_of_the_mountain",  # Cost 6, Deal 1+2+3 damage to three creatures. TEST: three-target selection
-		"moe_agi_whispering_claw_strike",   # Cost 6, Enemy -2/-2 and friendly +2/+2. TEST: dual-target selection
+		"db_agi_astrid",                    # Cost 3, 2/3, Lethal. Aura: friendly Lethal creatures slay -> Completed Contract. TEST: aura grants slay
+		"db_agi_brotherhood_slayer",        # Cost 3, 3/3, Prophecy. Slay: Completed Contract. TEST: slay reward + Brotherhood Sanctuary doubles it
+		"end_archein_venomtongue",          # Cost 4, 1/4, Lethal. Slay: +1 max magicka. TEST: should get doubled by Sanctuary
+		"dg_wil_penitus_oculatus_envoy",   # Cost 2, 2/2. Summon: give friendly creature immune to Lethal. TEST: immunity blocks lethal kill
+		"joo_wil_jauffre",                 # Cost 5, 3/9. Summon: redirect damage from chosen creature to self. TEST: damage redirect
+		"moe_end_zumog_phoom",             # Cost 6, 4/6. Summon: choose creature, when it dies resummon as 1/1. TEST: resummon on death
+		"mc_end_pure_blood_elder",         # Cost 7, 8/8. When you gain max magicka, double it. TEST: slay +1 magicka -> +2
 	]
 
-	# Player 1 deck — Fire Breath to test shout upgrade, more shouts for Call Dragon
+	# Player 1 deck — Aela's Huntmate for beast form art, Gates of Madness for drawn card bonus
 	# Index 0 is drawn first.
 	var p1_deck_ids: Array = [
-		"hos_int_fire_breath",              # Shout. TEST: Call Dragon should upgrade this
-		"hos_int_fire_breath",              # Second copy to test Paarthurnax interaction
-		"int_elusive_schemer",              # 3/1, draw a card — filler
-		"int_elusive_schemer",
+		"hos_str_aelas_huntmate",           # Cost 4, 3/3. Beast Form: +1/+1 draw a card. TEST: art changes on transform
+		"iom_neu_gates_of_madness",         # Cost 3 support. Transform deck + buff drawn cards. TEST: drawn card bonus
+		"end_young_mammoth",                # 4/4 — draw target for Gates bonus test
+		"end_young_mammoth",
 		"int_elusive_schemer",
 	]
 
-	# Discard pile — 4 Dragons so Alduin costs 20 - 8 = 12 magicka
-	var p1_discard_ids: Array = [
-		"str_blood_dragon",                 # Dragon — reduces Alduin cost by 2
-		"hos_str_swiftwing_dragon",         # Dragon — reduces Alduin cost by 2
-		"hos_int_mystic_dragon",            # Dragon — reduces Alduin cost by 2
-		"hos_str_skyborn_dragon",           # Dragon — reduces Alduin cost by 2
-	]
+	var p1_discard_ids: Array = []
 
-	# Strategist's Map in support zone — already deployed
+	# Brotherhood Sanctuary already in play — doubles slay rewards
 	var p1_support_ids: Array = [
-		"aw_wil_strategists_map",           # Uses: 3. Activate: summon 0/1 Guard Target for you or opponent. TEST: lane+owner choice
+		"db_agi_brotherhood_sanctuary",     # Ongoing. Friendly slay rewards trigger extra time. TEST: slay doubling
 	]
 
-	# Friendly creature in field lane for Whispering Claw Strike buff target + Devour keyword test
+	# Slay creature already in lane ready to attack into enemy
 	var p1_field_creatures: Array = [
-		_make_lane_creature("player_1", "hos_int_mystic_dragon", 100),  # 4/4 Dragon — Devour keyword target
+		_make_lane_creature("player_1", "db_end_falkreath_defiler", 100, {"can_attack": true}),  # 3/3 Slay: draw creature from discard. TEST: slay + Sanctuary double
 	]
 
 	var p1_shadow_creatures: Array = []
 
-	# Player 2 (AI) — weak, no runes, minimal magicka
+	# Player 2 (AI) — weak, no runes, low magicka
 	var p2_health := 30
 	var p2_max_magicka := 1
 	var p2_current_magicka := 1
-	var p2_rune_thresholds := []
+	var p2_rune_thresholds := [25, 20, 15, 10, 5]
 	var p2_has_ring := false
 	var p2_ring_charges := 0
 
@@ -97,11 +89,11 @@ static func build_test_match_state() -> Dictionary:
 
 	var p2_discard_ids: Array = []
 
-	# Enemy board — Guard creature for Devour + multiple punching bags for multi-target
+	# Enemy board — Lethal creature for immunity test, plus punching bags for slay
 	var p2_field_creatures: Array = [
-		_make_lane_creature("player_2", "end_fharun_defender", 200),     # 1/4 Guard — Devour target (give Guard to your Dragon)
-		_make_lane_creature("player_2", "str_fiery_imp", 201),           # 1/1 — punching bag
-		_make_lane_creature("player_2", "str_fiery_imp", 202),           # 1/1 — punching bag
+		_make_lane_creature("player_2", "end_deadly_draugr", 200),       # 1/1 Lethal — TEST: Penitus immunity should block this
+		_make_lane_creature("player_2", "str_fiery_imp", 201),           # 1/1 — slay punching bag
+		_make_lane_creature("player_2", "str_fiery_imp", 202),           # 1/1 — slay punching bag
 	]
 	var p2_shadow_creatures: Array = [
 		_make_lane_creature("player_2", "str_fiery_imp", 203),           # 1/1 — punching bag
