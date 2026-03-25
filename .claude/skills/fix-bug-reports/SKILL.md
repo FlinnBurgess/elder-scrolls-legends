@@ -23,6 +23,7 @@ Process all in-game error reports that were submitted via the error reporting po
 1. **Read the report file** — load `res://reports/error_reports.jsonl` and parse each line as JSON. The file may exceed token limits — run `wc -l` first to know the total line count, then read in chunks if needed. Filter out empty lines (the file often has blank first/last lines).
 2. **Create tasks** — use TaskCreate to create one task per report, with the comment as the subject. Ensure you've read ALL lines before creating tasks — missing reports due to truncated reads leads to discovering them mid-run.
    - **Group related reports**: Before diving in, scan all reports for shared themes (e.g., multiple slay-related bugs). Grouping lets you explore the relevant code once and fix related issues more efficiently. You can still create individual tasks, but investigate related reports together.
+   - **Parallelize investigation**: When reports cluster around the same subsystem (e.g., 6 dragon card bugs), launch parallel Explore agents to investigate each bug's code path simultaneously. Apply fixes sequentially after investigation completes — the parallelism is for research, not editing.
 3. **Process each report sequentially:**
    a. Mark the task as `in_progress`
    b. Analyse the report: read the `comment`, `element_context`, and `snapshot` to understand the bug
@@ -52,6 +53,7 @@ Process all in-game error reports that were submitted via the error reporting po
 After each fix is committed, immediately remove the corresponding line from the JSONL file:
 - **Re-read the entire file first** — the user may have added new reports while you were working
 - Identify the line to remove by **exact full-line match** against the original report JSON you processed — never use keyword substring matching, as it can accidentally delete unrelated reports that share words
+- **Never use index-based removal** (e.g., "remove line 3") — blank lines, concurrent additions, and off-by-one errors make index-based approaches fragile. Always match the exact JSON string of the report.
 - Write the remaining lines back
 
 This ensures that if the skill is interrupted mid-run, completed reports are already removed, and new reports added concurrently are preserved.
@@ -63,6 +65,7 @@ If new reports appear during the run (detected when re-reading the file), create
 - The snapshot provides rich context — use it to understand the exact game state when the bug was observed
 - **Baseline test failures**: Before the first fix, run the relevant test runners once to identify any pre-existing failures. Do not spend time debugging failures that exist before your changes.
 - **Web research**: If a report suggests the correct behavior is uncertain (e.g., "should it have?", "worth researching online"), use WebSearch/WebFetch to check the UESP wiki or community sources for the canonical game behavior before implementing.
+- **Unreproducible reports**: If thorough code investigation (tracing the full code path, checking all validation layers, verifying data hydration) fails to reveal a bug, ask the user whether to remove the report or keep it for monitoring. Don't spend more than ~15 minutes on a single report with no clear code defect — present your findings and let the user decide.
 - Do not skip reports unless the user explicitly asks you to defer one (e.g., "skip that one", "no obvious cause"). If skipped, leave the report entry in the JSONL file and note it in the summary.
 - Always verify fixes with tests before committing
 - Each fix gets its own commit — do not batch fixes. Exceptions for combining into a single commit: (1) two reports share the exact same root cause (e.g., both are "unimplemented op X"), (2) two fixes are deeply interleaved in the same files such that separating them without interactive staging would be error-prone (e.g., both add helper functions and call sites in the same module), or (3) multiple reports share the same bug class (e.g., three slay-related bugs touching the same subsystem). In cases (2) and (3), explain all fixes clearly in the commit message. When batching commits, also batch the corresponding JSONL removals.
