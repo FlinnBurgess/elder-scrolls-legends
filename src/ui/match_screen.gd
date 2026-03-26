@@ -49,6 +49,8 @@ const LANE_CARD_FLOAT_SHADOW_OFFSET := Vector2(10, 14)
 const LANE_CARD_FLOAT_ANIM_DURATION := 0.22
 const LANE_CARD_BOB_AMPLITUDE := 4.0
 const LANE_CARD_BOB_DURATION := 1.6
+const HAND_CARD_BOB_AMPLITUDE := 3.0
+const HAND_CARD_BOB_DURATION := 1.4
 const SELECTION_MODE_NONE := "none"
 const SELECTION_MODE_SUMMON := "summon"
 const SELECTION_MODE_ITEM := "item"
@@ -4337,6 +4339,29 @@ func _apply_local_hand_hover_state(button: Button, hovered: bool) -> void:
 	var tween := create_tween()
 	tween.tween_property(button, "position", target_position, 0.15).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
 	button.set_meta(tween_key, tween)
+	# Bob animation for affordable cards at rest
+	var bob_key := "hand_bob_tween"
+	var existing_bob: Tween = button.get_meta(bob_key, null) if button.has_meta(bob_key) else null
+	if existing_bob != null and existing_bob.is_valid():
+		existing_bob.kill()
+	if affordable and not raised:
+		var bob_button := button
+		var bob_pos := target_position
+		var bob_k := bob_key
+		tween.finished.connect(func(): _start_hand_card_bob(bob_button, bob_pos, bob_k))
+
+
+func _start_hand_card_bob(button: Button, base_pos: Vector2, bob_key: String) -> void:
+	if not is_instance_valid(button):
+		return
+	var bob_top := base_pos.y - HAND_CARD_BOB_AMPLITUDE
+	var bob_bottom := base_pos.y
+	var half := HAND_CARD_BOB_DURATION * 0.5
+	var bob_tween := create_tween()
+	bob_tween.set_loops()
+	bob_tween.tween_property(button, "position:y", bob_top, half).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
+	bob_tween.tween_property(button, "position:y", bob_bottom, half).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
+	button.set_meta(bob_key, bob_tween)
 
 
 func _on_lane_card_mouse_entered(button: Button, instance_id: String) -> void:
