@@ -7972,6 +7972,7 @@ func _resolve_summon_target_player(player_id: String) -> void:
 	var is_effect_summon := bool(_pending_summon_target.get("is_effect_summon", false))
 	var is_turn_trigger := bool(_pending_summon_target.get("is_turn_trigger", false))
 	_pending_summon_target = {}
+	_dismiss_summon_skip_button()
 	_cancel_targeting_mode_silent()
 	if is_turn_trigger:
 		var result := MatchTiming.resolve_pending_turn_trigger_target(_match_state, _local_player_id(), {"player_id": player_id})

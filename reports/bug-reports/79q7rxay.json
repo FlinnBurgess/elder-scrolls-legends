@@ -1,0 +1,255 @@
+{
+	"comment": "This card had the battle rush augment, it did have charge but its attack was still 1 for some reason",
+	"element_context": "Sharpshooter Scout (in Field Lane, player side)",
+	"element_type": "card",
+	"screen": "match",
+	"snapshot": {
+		"adventure_augments": {
+			"hos_neu_alduin": [
+				{
+					"description": "+2/+2",
+					"effects": {
+						"health": 2.0,
+						"power": 2.0
+					},
+					"id": "stats_2_2",
+					"name": "Fortify",
+					"type": "creature"
+				}
+			],
+			"neu_odahviing": [
+				{
+					"description": "+1/+1 and Guard",
+					"effects": {
+						"health": 1.0,
+						"keyword": "guard",
+						"power": 1.0
+					},
+					"id": "stats_1_1_guard",
+					"name": "Shield Training",
+					"type": "creature"
+				}
+			],
+			"str_sharpshooter_scout": [
+				{
+					"description": "+2/+0 and Charge",
+					"effects": {
+						"keyword": "charge",
+						"power": 2.0
+					},
+					"id": "stats_2_0_charge",
+					"name": "Battle Rush",
+					"type": "creature"
+				}
+			]
+		},
+		"adventure_boons": [
+			"sp_dragons_1",
+			"sp_dragons_2",
+			"prophets_sight",
+			"battleground"
+		],
+		"board": {
+			"field": {
+				"opponent_cards": [],
+				"player_cards": [
+					{
+						"augments": [
+							{
+								"description": "+2/+0 and Charge",
+								"id": "stats_2_0_charge",
+								"name": "Battle Rush"
+							}
+						],
+						"card_type": "creature",
+						"cost": 1,
+						"definition_id": "str_sharpshooter_scout",
+						"health": 1,
+						"keywords": [
+							"charge"
+						],
+						"name": "Sharpshooter Scout",
+						"power": 1,
+						"rules_text": "Prophecy\nSummon: Deal 1 damage.",
+						"subtypes": [
+							"Wood Elf"
+						]
+					}
+				]
+			},
+			"shadow": {
+				"opponent_cards": [],
+				"player_cards": []
+			}
+		},
+		"match_history": [
+			{
+				"action_type": "play_card",
+				"player_id": "player_1",
+				"source_card": "Sharpshooter Scout"
+			},
+			{
+				"action_type": "attack",
+				"player_id": "player_1",
+				"source_card": "Sharpshooter Scout",
+				"targets": [
+					""
+				]
+			}
+		],
+		"players": {
+			"local": {
+				"deck_size": 50,
+				"discard": [],
+				"hand": [
+					{
+						"card_type": "creature",
+						"cost": 2,
+						"definition_id": "wil_kvatch_soldier",
+						"health": 3,
+						"keywords": [
+							"guard"
+						],
+						"name": "Kvatch Soldier",
+						"power": 2,
+						"rules_text": "Guard",
+						"subtypes": [
+							"Imperial"
+						]
+					},
+					{
+						"card_type": "creature",
+						"cost": 8,
+						"definition_id": "hos_str_swiftwing_dragon",
+						"health": 5,
+						"keywords": [
+							"charge"
+						],
+						"name": "Swiftwing Dragon",
+						"power": 5,
+						"rules_text": "Charge",
+						"subtypes": [
+							"Dragon"
+						]
+					},
+					{
+						"card_type": "creature",
+						"cost": 3,
+						"definition_id": "hos_wil_cliffside_lookout",
+						"health": 5,
+						"name": "Cliffside Lookout",
+						"power": 2,
+						"rules_text": "When you summon a Dragon, Cliffside Lookout gains +1/+1.",
+						"subtypes": [
+							"Nord"
+						]
+					},
+					{
+						"card_type": "action",
+						"cost": 3,
+						"definition_id": "hos_wil_call_of_valor",
+						"health": 0,
+						"name": "Call of Valor",
+						"power": 0,
+						"rules_text": "Shout\nSummon a 3/3 Sovngarde Hero.",
+						"shout_level": 1
+					}
+				],
+				"health": 36,
+				"magicka": {
+					"current": 0,
+					"max": 1
+				},
+				"runes": [
+					25,
+					20,
+					15,
+					10,
+					5
+				],
+				"turn_state": {
+					"cards_played_this_turn": 1,
+					"creature_summons_this_turn": 1,
+					"pilfer_or_drain_count_this_turn": 2
+				}
+			},
+			"opponent": {
+				"deck_size": 37,
+				"discard": [],
+				"hand": [
+					{
+						"card_type": "creature",
+						"cost": 3,
+						"definition_id": "hos_str_blades_lookout",
+						"health": 3,
+						"name": "Blades Lookout",
+						"power": 3,
+						"rules_text": "When you summon a Dragon, draw a card.",
+						"subtypes": [
+							"Nord"
+						]
+					},
+					{
+						"card_type": "creature",
+						"cost": 4,
+						"definition_id": "hos_wil_revered_guardian",
+						"health": 4,
+						"keywords": [
+							"guard"
+						],
+						"name": "Revered Guardian",
+						"power": 4,
+						"rules_text": "Guard",
+						"subtypes": [
+							"Dragon"
+						]
+					},
+					{
+						"card_type": "creature",
+						"cost": 5,
+						"definition_id": "hos_wil_karthspire_scourge",
+						"health": 4,
+						"name": "Karthspire Scourge",
+						"power": 4,
+						"rules_text": "Summon: All enemy creatures in this lane get -1/-0.",
+						"subtypes": [
+							"Dragon"
+						]
+					}
+				],
+				"health": 38,
+				"magicka": {
+					"current": 0,
+					"max": 0
+				},
+				"runes": [
+					25,
+					20,
+					15,
+					10,
+					5
+				]
+			}
+		},
+		"ring_of_magicka": {
+			"local": {
+				"has_ring": false,
+				"ring_charges": 0,
+				"ring_used_this_turn": false
+			},
+			"opponent": {
+				"has_ring": false,
+				"ring_charges": 0,
+				"ring_used_this_turn": false
+			}
+		},
+		"supports": {
+			"local": [],
+			"opponent": []
+		},
+		"turn": {
+			"active_player": "player_1",
+			"number": 1
+		}
+	}
+}

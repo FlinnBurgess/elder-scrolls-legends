@@ -1,0 +1,402 @@
+{
+	"comment": "Why does this card have 6/6 stats?",
+	"element_context": "Risen Horror (in Field Lane, opponent side)",
+	"element_type": "card",
+	"screen": "match",
+	"snapshot": {
+		"adventure_augments": {
+			"hos_neu_alduin": [
+				{
+					"description": "+2/+2",
+					"effects": {
+						"health": 2.0,
+						"power": 2.0
+					},
+					"id": "stats_2_2",
+					"name": "Fortify",
+					"type": "creature"
+				}
+			],
+			"neu_odahviing": [
+				{
+					"description": "+1/+1 and Guard",
+					"effects": {
+						"health": 1.0,
+						"keyword": "guard",
+						"power": 1.0
+					},
+					"id": "stats_1_1_guard",
+					"name": "Shield Training",
+					"type": "creature"
+				}
+			],
+			"str_sharpshooter_scout": [
+				{
+					"description": "+2/+0 and Charge",
+					"effects": {
+						"keyword": "charge",
+						"power": 2.0
+					},
+					"id": "stats_2_0_charge",
+					"name": "Battle Rush",
+					"type": "creature"
+				}
+			]
+		},
+		"adventure_boons": [
+			"sp_dragons_1",
+			"sp_dragons_2",
+			"prophets_sight",
+			"battleground"
+		],
+		"board": {
+			"field": {
+				"opponent_cards": [
+					{
+						"card_type": "creature",
+						"cost": 3,
+						"definition_id": "hom_end_risen_horror",
+						"health": 3,
+						"health_bonus": 3,
+						"keywords": [
+							"guard"
+						],
+						"name": "Risen Horror",
+						"power": 3,
+						"power_bonus": 3,
+						"rules_text": "Guard",
+						"subtypes": [
+							"Skeleton"
+						]
+					}
+				],
+				"player_cards": [
+					{
+						"card_type": "creature",
+						"cost": 3,
+						"damage_marked": 2,
+						"definition_id": "hos_str_blades_lookout",
+						"health": 3,
+						"name": "Blades Lookout",
+						"power": 3,
+						"rules_text": "When you summon a Dragon, draw a card.",
+						"subtypes": [
+							"Nord"
+						]
+					},
+					{
+						"card_type": "creature",
+						"cost": 4,
+						"damage_marked": 3,
+						"definition_id": "hos_wil_revered_guardian",
+						"health": 4,
+						"keywords": [
+							"guard"
+						],
+						"name": "Revered Guardian",
+						"power": 4,
+						"rules_text": "Guard",
+						"subtypes": [
+							"Dragon"
+						]
+					}
+				]
+			},
+			"shadow": {
+				"opponent_cards": [
+					{
+						"card_type": "creature",
+						"cost": 1,
+						"definition_id": "end_rotting_draugr",
+						"health": 1,
+						"name": "Rotting Draugr",
+						"power": 1,
+						"rules_text": "",
+						"subtypes": [
+							"Skeleton"
+						]
+					}
+				],
+				"player_cards": [
+					{
+						"card_type": "creature",
+						"cost": 2,
+						"damage_marked": 1,
+						"definition_id": "wil_kvatch_soldier",
+						"health": 3,
+						"keywords": [
+							"guard"
+						],
+						"name": "Kvatch Soldier",
+						"power": 2,
+						"rules_text": "Guard",
+						"subtypes": [
+							"Imperial"
+						]
+					}
+				]
+			}
+		},
+		"match_history": [
+			{
+				"action_type": "attack",
+				"player_id": "player_1",
+				"source_card": "Blades Lookout",
+				"targets": [
+					"Ancient Lookout"
+				]
+			},
+			{
+				"action_type": "play_card",
+				"player_id": "player_1",
+				"source_card": "Revered Guardian"
+			},
+			{
+				"action_type": "play_card",
+				"player_id": "player_2",
+				"source_card": "Rising of Bones"
+			},
+			{
+				"action_type": "play_card",
+				"player_id": "player_2",
+				"source_card": "Rotting Draugr"
+			},
+			{
+				"action_type": "attack",
+				"player_id": "player_2",
+				"source_card": "Haunting Spirit",
+				"targets": [
+					"Revered Guardian"
+				]
+			}
+		],
+		"players": {
+			"local": {
+				"deck_size": 44,
+				"discard": [],
+				"hand": [
+					{
+						"action_target_mode": "any_creature",
+						"card_type": "action",
+						"cost": 5,
+						"definition_id": "wil_piercing_javelin",
+						"health": 0,
+						"name": "Piercing Javelin",
+						"power": 0,
+						"rules_text": "Prophecy\nDestroy a creature."
+					},
+					{
+						"card_type": "creature",
+						"cost": 6,
+						"definition_id": "hos_str_skyborn_dragon",
+						"health": 3,
+						"name": "Skyborn Dragon",
+						"power": 7,
+						"rules_text": "Summon: Battle an enemy creature.",
+						"subtypes": [
+							"Dragon"
+						]
+					},
+					{
+						"card_type": "creature",
+						"cost": 7,
+						"definition_id": "hos_str_wildfire_dragon",
+						"health": 6,
+						"keywords": [
+							"breakthrough"
+						],
+						"name": "Wildfire Dragon",
+						"power": 6,
+						"rules_text": "Breakthrough\nSummon: Deal 1 damage to all other creatures.\nSlay: +1/+1.",
+						"subtypes": [
+							"Dragon"
+						]
+					},
+					{
+						"card_type": "creature",
+						"cost": 9,
+						"definition_id": "int_nahkriin_dragon_priest",
+						"health": 5,
+						"name": "Nahkriin, Dragon Priest",
+						"power": 5,
+						"rules_text": "Summon: Draw a card and reduce its cost to 0.",
+						"subtypes": [
+							"Skeleton"
+						]
+					},
+					{
+						"card_type": "creature",
+						"cost": 4,
+						"definition_id": "hos_neu_greybeard_mentor",
+						"health": 2,
+						"name": "Greybeard Mentor",
+						"power": 2,
+						"rules_text": "Summon: Draw a random Shout from your deck.",
+						"subtypes": [
+							"Nord"
+						]
+					},
+					{
+						"card_type": "creature",
+						"cost": 12,
+						"definition_id": "moe_wil_kaalgrontiid",
+						"health": 9,
+						"keywords": [
+							"guard"
+						],
+						"name": "Kaalgrontiid",
+						"power": 8,
+						"rules_text": "Guard\nSummon: Summon the Halls of Colossus.",
+						"subtypes": [
+							"Dragon"
+						]
+					},
+					{
+						"card_type": "creature",
+						"cost": 6,
+						"definition_id": "hos_wil_undying_dragon",
+						"health": 5,
+						"keywords": [
+							"drain"
+						],
+						"name": "Undying Dragon",
+						"power": 5,
+						"rules_text": "Drain\nAt the end of your turn, if you have 30 or more health, Undying Dragon gains +5/+5.",
+						"subtypes": [
+							"Dragon"
+						]
+					}
+				],
+				"health": 39,
+				"magicka": {
+					"current": 5,
+					"max": 5
+				},
+				"runes": [
+					25,
+					20,
+					15,
+					10,
+					5
+				]
+			},
+			"opponent": {
+				"deck_size": 23,
+				"discard": [
+					{
+						"card_type": "creature",
+						"cost": 1,
+						"definition_id": "end_rotting_draugr",
+						"health": 1,
+						"name": "Rotting Draugr",
+						"power": 1,
+						"rules_text": "",
+						"subtypes": [
+							"Skeleton"
+						]
+					},
+					{
+						"card_type": "creature",
+						"cost": 2,
+						"definition_id": "hos_end_ancient_lookout",
+						"health": 3,
+						"name": "Ancient Lookout",
+						"power": 2,
+						"rules_text": "When you summon a Dragon, summon a 1/1 Draugr Sentry with Guard.",
+						"subtypes": [
+							"Skeleton"
+						]
+					},
+					{
+						"card_type": "action",
+						"cost": 4,
+						"definition_id": "hom_end_rising_of_bones",
+						"health": 0,
+						"keywords": [
+							"betray"
+						],
+						"name": "Rising of Bones",
+						"power": 0,
+						"rules_text": "Betray\nSummon a 3/3 Risen Horror with Guard."
+					},
+					{
+						"card_type": "creature",
+						"cost": 3,
+						"definition_id": "end_haunting_spirit",
+						"health": 3,
+						"name": "Haunting Spirit",
+						"power": 3,
+						"rules_text": "Last Gasp: Give a random friendly creature +3/+3.",
+						"subtypes": [
+							"Spirit"
+						]
+					}
+				],
+				"hand": [
+					{
+						"card_type": "creature",
+						"cost": 7,
+						"definition_id": "end_bone_colossus",
+						"health": 5,
+						"name": "Bone Colossus",
+						"power": 5,
+						"rules_text": "Summon: Fill this lane with 1/1 Skeletons.\nOther friendly Skeletons have +1/+1.",
+						"subtypes": [
+							"Skeleton"
+						]
+					},
+					{
+						"card_type": "creature",
+						"cost": 3,
+						"definition_id": "hom_end_ancestral_dead",
+						"health": 4,
+						"name": "Ancestral Dead",
+						"power": 2,
+						"rules_text": "Slay: Summon a Risen Dead.",
+						"subtypes": [
+							"Skeleton"
+						]
+					}
+				],
+				"health": 30,
+				"magicka": {
+					"current": 0,
+					"max": 4
+				},
+				"runes": [
+					25,
+					20,
+					15,
+					10,
+					5
+				],
+				"turn_state": {
+					"cards_played_this_turn": 2,
+					"creature_summons_this_turn": 2,
+					"creatures_died_this_turn": 1,
+					"noncreature_plays_this_turn": 1
+				}
+			}
+		},
+		"ring_of_magicka": {
+			"local": {
+				"has_ring": false,
+				"ring_charges": 0,
+				"ring_used_this_turn": false
+			},
+			"opponent": {
+				"has_ring": false,
+				"ring_charges": 0,
+				"ring_used_this_turn": false
+			}
+		},
+		"supports": {
+			"local": [],
+			"opponent": []
+		},
+		"turn": {
+			"active_player": "player_1",
+			"number": 9
+		}
+	}
+}
