@@ -28,7 +28,7 @@ var _level_label: Label
 var _xp_bar: ProgressBar
 var _xp_text_label: Label
 var _star_container: HBoxContainer
-var _relic_container: VBoxContainer
+var _relic_container: HBoxContainer
 var _card_list_container: VBoxContainer
 var _card_preview_container: CenterContainer
 var _card_preview: Control = null  # CardDisplayComponent
@@ -86,10 +86,35 @@ func _build_ui() -> void:
 	add_child(main_hbox)
 
 	# --- Left panel: Deck info, stars, relics, buttons ---
+	# Use an outer HBox with spacers to center content at ~60% width
+	var left_outer := HBoxContainer.new()
+	left_outer.size_flags_horizontal = SIZE_EXPAND_FILL
+	left_outer.size_flags_vertical = SIZE_EXPAND_FILL
+	main_hbox.add_child(left_outer)
+
+	var left_spacer_l := Control.new()
+	left_spacer_l.size_flags_horizontal = SIZE_EXPAND_FILL
+	left_spacer_l.size_flags_stretch_ratio = 0.2
+	left_outer.add_child(left_spacer_l)
+
+	var left_margin := MarginContainer.new()
+	left_margin.size_flags_horizontal = SIZE_EXPAND_FILL
+	left_margin.size_flags_vertical = SIZE_EXPAND_FILL
+	left_margin.size_flags_stretch_ratio = 0.6
+	left_margin.add_theme_constant_override("margin_top", 32)
+	left_margin.add_theme_constant_override("margin_bottom", 32)
+	left_outer.add_child(left_margin)
+
+	var left_spacer_r := Control.new()
+	left_spacer_r.size_flags_horizontal = SIZE_EXPAND_FILL
+	left_spacer_r.size_flags_stretch_ratio = 0.2
+	left_outer.add_child(left_spacer_r)
+
 	var left_panel := VBoxContainer.new()
 	left_panel.size_flags_horizontal = SIZE_EXPAND_FILL
+	left_panel.alignment = BoxContainer.ALIGNMENT_CENTER
 	left_panel.add_theme_constant_override("separation", 12)
-	main_hbox.add_child(left_panel)
+	left_margin.add_child(left_panel)
 
 	_title_label = Label.new()
 	_title_label.text = "Deck Name"
@@ -120,20 +145,24 @@ func _build_ui() -> void:
 	var star_header := Label.new()
 	star_header.text = "Star Powers"
 	star_header.add_theme_font_size_override("font_size", 18)
+	star_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	left_panel.add_child(star_header)
 
 	_star_container = HBoxContainer.new()
 	_star_container.add_theme_constant_override("separation", 8)
+	_star_container.alignment = BoxContainer.ALIGNMENT_CENTER
 	left_panel.add_child(_star_container)
 
 	# Relics section
 	var relic_header := Label.new()
 	relic_header.text = "Relics"
 	relic_header.add_theme_font_size_override("font_size", 18)
+	relic_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	left_panel.add_child(relic_header)
 
-	_relic_container = VBoxContainer.new()
-	_relic_container.add_theme_constant_override("separation", 6)
+	_relic_container = HBoxContainer.new()
+	_relic_container.add_theme_constant_override("separation", 12)
+	_relic_container.alignment = BoxContainer.ALIGNMENT_CENTER
 	left_panel.add_child(_relic_container)
 
 	# Spacer
@@ -257,44 +286,65 @@ func _refresh_stars() -> void:
 func _refresh_relics() -> void:
 	_clear_children(_relic_container)
 	for i in range(3):
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 8)
-		row.custom_minimum_size = Vector2(0, 36)
+		var slot_panel := PanelContainer.new()
+		slot_panel.custom_minimum_size = Vector2(120, 80)
+		var style := StyleBoxFlat.new()
+		style.set_corner_radius_all(6)
+		style.set_content_margin_all(8)
+		style.set_border_width_all(1)
 
-		var slot_label := Label.new()
-		slot_label.add_theme_font_size_override("font_size", 14)
+		var vbox := VBoxContainer.new()
+		vbox.add_theme_constant_override("separation", 4)
+		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 
 		if i >= _relic_slot_count:
 			# Locked slot
-			slot_label.text = "Slot %d — Locked" % (i + 1)
+			style.bg_color = Color(0.12, 0.12, 0.14, 1.0)
+			style.border_color = Color(0.25, 0.25, 0.3, 1.0)
+			var slot_label := Label.new()
+			slot_label.text = "Locked"
+			slot_label.add_theme_font_size_override("font_size", 13)
 			slot_label.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4, 1.0))
-			row.add_child(slot_label)
+			slot_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			vbox.add_child(slot_label)
 		elif i < _equipped_relics.size():
 			# Equipped relic
+			style.bg_color = Color(0.15, 0.2, 0.3, 1.0)
+			style.border_color = Color(0.5, 0.65, 0.9, 1.0)
 			var relic_id: String = str(_equipped_relics[i])
 			var relic := RelicCatalogScript.get_relic(relic_id)
-			slot_label.text = str(relic.get("name", relic_id))
-			slot_label.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0, 1.0))
-			slot_label.size_flags_horizontal = SIZE_EXPAND_FILL
-			row.add_child(slot_label)
+
+			var name_label := Label.new()
+			name_label.text = str(relic.get("name", relic_id))
+			name_label.add_theme_font_size_override("font_size", 13)
+			name_label.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0, 1.0))
+			name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			vbox.add_child(name_label)
 
 			var desc := Label.new()
 			desc.text = str(relic.get("description", ""))
-			desc.add_theme_font_size_override("font_size", 11)
+			desc.add_theme_font_size_override("font_size", 10)
 			desc.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 1.0))
-			desc.size_flags_horizontal = SIZE_EXPAND_FILL
-			row.add_child(desc)
+			desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			vbox.add_child(desc)
 
 			var unequip_btn := Button.new()
 			unequip_btn.text = "Remove"
 			unequip_btn.custom_minimum_size = Vector2(70, 0)
 			unequip_btn.pressed.connect(func() -> void: relic_unequipped.emit(relic_id))
-			row.add_child(unequip_btn)
+			vbox.add_child(unequip_btn)
 		else:
-			# Empty unlocked slot — show equip options
-			slot_label.text = "Empty Slot"
+			# Empty unlocked slot
+			style.bg_color = Color(0.15, 0.15, 0.18, 1.0)
+			style.border_color = Color(0.3, 0.3, 0.35, 1.0)
+			var slot_label := Label.new()
+			slot_label.text = "Empty"
+			slot_label.add_theme_font_size_override("font_size", 13)
 			slot_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 1.0))
-			row.add_child(slot_label)
+			slot_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			vbox.add_child(slot_label)
 
 			# Show equippable relics not already equipped
 			for relic_id in _unlocked_relics:
@@ -302,13 +352,15 @@ func _refresh_relics() -> void:
 					continue
 				var relic := RelicCatalogScript.get_relic(str(relic_id))
 				var equip_btn := Button.new()
-				equip_btn.text = "Equip %s" % str(relic.get("name", relic_id))
-				equip_btn.custom_minimum_size = Vector2(120, 0)
+				equip_btn.text = str(relic.get("name", relic_id))
+				equip_btn.custom_minimum_size = Vector2(80, 0)
 				var rid := str(relic_id)
 				equip_btn.pressed.connect(func() -> void: relic_equipped.emit(rid))
-				row.add_child(equip_btn)
+				vbox.add_child(equip_btn)
 
-		_relic_container.add_child(row)
+		slot_panel.add_theme_stylebox_override("panel", style)
+		slot_panel.add_child(vbox)
+		_relic_container.add_child(slot_panel)
 
 
 # --- Card List ---
