@@ -4,7 +4,7 @@
 		{
 			"id": "sp_dragons_1",
 			"name": "Dragon's Herald",
-			"description": "At the start of each adventure, add a random Dragon creature to your hand.",
+			"description": "At the start of each match, add a random Dragon creature to your hand.",
 			"stackable": false
 		},
 		{

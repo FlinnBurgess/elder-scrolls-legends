@@ -19,6 +19,30 @@ static func apply_boons_to_match_state(match_state: Dictionary, player_id: Strin
 			player["rune_thresholds"] = new_thresholds
 			player["_initial_rune_thresholds"] = new_thresholds.duplicate()
 
+	# Dragon's Herald (sp_dragons_1): add a random Dragon creature to hand at match start
+	if "sp_dragons_1" in active_boons:
+		var dh_player := _get_player(match_state, player_id)
+		if not dh_player.is_empty():
+			var dh_hand: Array = dh_player.get("hand", [])
+			var dh_candidates: Array = []
+			for seed in CardCatalog._card_seeds():
+				if typeof(seed) != TYPE_DICTIONARY:
+					continue
+				if not bool(seed.get("collectible", true)):
+					continue
+				if str(seed.get("card_type", "")) != "creature":
+					continue
+				var subtypes = seed.get("subtypes", [])
+				if typeof(subtypes) == TYPE_ARRAY and subtypes.has("Dragon"):
+					dh_candidates.append(seed)
+			if not dh_candidates.is_empty():
+				var dh_index := MatchTiming._deterministic_index(match_state, "sp_dragons_1_herald", dh_candidates.size())
+				var dh_template: Dictionary = dh_candidates[dh_index].duplicate(true)
+				dh_template["definition_id"] = str(dh_template.get("card_id", ""))
+				var dh_card := MatchMutations.build_generated_card(match_state, player_id, dh_template)
+				dh_card["zone"] = "hand"
+				dh_hand.append(dh_card)
+
 	# Runic Ward: store charges so each rune break can consume one
 	var rw_stacks := _count_stacks(active_boons, "runic_ward")
 	if rw_stacks > 0:
