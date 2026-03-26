@@ -1,0 +1,55 @@
+{
+	"deck_id": "dark_brotherhood",
+	"star_powers": [
+		{
+			"id": "sp_db_1",
+			"name": "Night Mother's Blessing",
+			"description": "At the start of each adventure, add a random Lethal creature to your hand.",
+			"stackable": false
+		},
+		{
+			"id": "sp_db_2",
+			"name": "Sithis' Embrace",
+			"description": "Whenever one of your creatures is destroyed, deal 1 damage to the enemy Nexus.",
+			"stackable": false
+		},
+		{
+			"id": "sp_db_3",
+			"name": "Black Sacrament",
+			"description": "The first creature you destroy each turn restores 2 health to your Nexus.",
+			"stackable": false
+		}
+	],
+	"reward_track": [
+		{"level": 1, "type": "starting_gold", "value": 10},
+		{"level": 2, "type": "max_health", "value": 2},
+		{"level": 3, "type": "starting_gold", "value": 10},
+		{"level": 4, "type": "card_swap", "remove": "agi_voracious_spriggan", "add": "agi_house_kinsman"},
+		{"level": 5, "type": "starting_gold", "value": 15},
+		{"level": 6, "type": "max_health", "value": 3},
+		{"level": 7, "type": "reroll_tokens", "value": 1},
+		{"level": 8, "type": "card_swap", "remove": "end_tree_minder", "add": "end_haunting_spirit"},
+		{"level": 9, "type": "starting_gold", "value": 10},
+		{"level": 10, "type": "revives", "value": 1},
+		{"level": 11, "type": "starting_gold", "value": 15},
+		{"level": 12, "type": "max_health", "value": 3},
+		{"level": 13, "type": "permanent_augment", "card_id": "db_agi_astrid", "augment_id": "stats_2_2"},
+		{"level": 14, "type": "card_swap", "remove": "agi_giant_bat", "add": "agi_deshaan_avenger"},
+		{"level": 15, "type": "starting_gold", "value": 20},
+		{"level": 16, "type": "max_health", "value": 3},
+		{"level": 17, "type": "reroll_tokens", "value": 1},
+		{"level": 18, "type": "starting_gold", "value": 15},
+		{"level": 19, "type": "permanent_augment", "card_id": "end_lucien_lachance", "augment_id": "stats_1_1_drain"},
+		{"level": 20, "type": "revives", "value": 1},
+		{"level": 21, "type": "starting_gold", "value": 20},
+		{"level": 22, "type": "max_health", "value": 5},
+		{"level": 23, "type": "card_swap", "remove": "end_deadly_draugr", "add": "end_archein_venomtongue"},
+		{"level": 24, "type": "permanent_augment", "card_id": "db_end_cicero_the_betrayer", "augment_id": "stats_1_1_guard"},
+		{"level": 25, "type": "starting_gold", "value": 25},
+		{"level": 26, "type": "max_health", "value": 5},
+		{"level": 27, "type": "reroll_tokens", "value": 1},
+		{"level": 28, "type": "starting_gold", "value": 20},
+		{"level": 29, "type": "permanent_augment", "card_id": "end_doomcrag_vampire", "augment_id": "stats_0_3_ward"},
+		{"level": 30, "type": "starting_gold", "value": 30}
+	]
+}

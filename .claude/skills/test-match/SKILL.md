@@ -1,6 +1,8 @@
 ---
 name: test-match
 description: Configure a test match scenario for manual gameplay testing. Use when user wants to test a card, mechanic, keyword, or interaction in-game — e.g. "test veteran", "set up a match with treasure hunt cards", "I want to try Consume". Edits data/test_match_config.gd so the user can press ? on the Match button to launch.
+model: sonnet
+effort: medium
 ---
 
 # Test Match Setup

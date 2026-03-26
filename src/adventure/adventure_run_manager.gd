@@ -25,6 +25,7 @@ var node_offerings: Dictionary = {}  # node_id -> {cards: Array, purchased_ids: 
 var active_boons: Array = []  # Array of boon_id strings; duplicates allowed for stackable boons
 var reroll_tokens: int = 1
 var augments: Array = []  # Array of {card_id: String, augment_id: String}
+var xp_earned: int = 0  # XP accumulated during this run from combat nodes
 
 const _DEFAULT_RUN_DIR := "user://adventure/"
 static var _run_dir_override: String = ""
@@ -51,6 +52,7 @@ func start_run(p_adventure_id: String, p_deck_id: String, p_deck_cards: Array, s
 	active_boons = []
 	reroll_tokens = STARTING_REROLL_TOKENS
 	augments = []
+	xp_earned = 0
 	state = State.VIEWING_MAP
 	save_run()
 
@@ -72,6 +74,15 @@ func record_win(adventure: Dictionary) -> void:
 		gold += GOLD_PER_MINI_BOSS
 	elif node_type in ["combat", "final_boss"]:
 		gold += GOLD_PER_COMBAT
+
+	# Award XP based on adventure-configured values
+	match node_type:
+		"combat":
+			xp_earned += int(adventure.get("combat_xp", 0))
+		"mini_boss":
+			xp_earned += int(adventure.get("mini_boss_xp", 0))
+		"final_boss":
+			xp_earned += int(adventure.get("boss_xp", 0))
 
 	var next_nodes: Array = node.get("next", [])
 
@@ -226,6 +237,7 @@ func save_run() -> void:
 		"active_boons": active_boons,
 		"reroll_tokens": reroll_tokens,
 		"augments": augments,
+		"xp_earned": xp_earned,
 	}
 	file.store_string(JSON.stringify(data, "\t"))
 
@@ -263,6 +275,7 @@ static func load_run() -> AdventureRunManager:
 	manager.active_boons = Array(data.get("active_boons", []))
 	manager.reroll_tokens = int(data.get("reroll_tokens", STARTING_REROLL_TOKENS))
 	manager.augments = Array(data.get("augments", []))
+	manager.xp_earned = int(data.get("xp_earned", 0))
 	var offerings_raw = data.get("node_offerings", {})
 	if offerings_raw is Dictionary:
 		manager.node_offerings = offerings_raw

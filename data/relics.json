@@ -1,0 +1,23 @@
+[
+	{
+		"id": "skeleton_key",
+		"name": "Skeleton Key",
+		"description": "Start each run with 50 bonus gold.",
+		"effect_type": "starting_gold",
+		"effect_value": 50
+	},
+	{
+		"id": "amulet_of_kings",
+		"name": "Amulet of Kings",
+		"description": "Your Nexus has 5 bonus HP at the start of each run.",
+		"effect_type": "max_health_bonus",
+		"effect_value": 5
+	},
+	{
+		"id": "thiefs_cache",
+		"name": "Thief's Cache",
+		"description": "Shops always offer one extra card.",
+		"effect_type": "shop_extra_card",
+		"effect_value": 1
+	}
+]

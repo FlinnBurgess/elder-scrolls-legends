@@ -1,3 +1,10 @@
+---
+name: import-cards
+description: Import card data into the Elder Scrolls Legends card catalog.
+model: sonnet
+effort: medium
+---
+
 # Import Card Data
 
 Import card data into the Elder Scrolls Legends card catalog.

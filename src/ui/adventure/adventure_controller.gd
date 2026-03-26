@@ -22,16 +22,22 @@ const CreatureAugmentNodeOverlayScript = preload("res://src/ui/adventure/creatur
 const ActionAugmentNodeOverlayScript = preload("res://src/ui/adventure/action_augment_node_overlay.gd")
 const EventNodeOverlayScript = preload("res://src/ui/adventure/event_node_overlay.gd")
 const MatchScreenScript = preload("res://src/ui/match_screen.gd")
+const AdventureProgressionManagerScript = preload("res://src/adventure/adventure_progression_manager.gd")
+const RelicCatalogScript = preload("res://src/adventure/relic_catalog.gd")
+const AdventureDeckScreenScript = preload("res://src/ui/adventure/adventure_deck_screen.gd")
 
 var _run_manager = null
+var _progression = null  # AdventureProgressionManager
 var _current_adventure: Dictionary = {}
 var _current_screen: Control = null
 var _current_overlay: Control = null
 var _selected_deck: Dictionary = {}
+var _run_result_data: Dictionary = {}  # Stores XP/level-up info for result screen
 
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	_progression = AdventureProgressionManagerScript.load_progression()
 	if AdventureRunManagerScript.has_active_run():
 		_run_manager = AdventureRunManagerScript.load_run()
 		_current_adventure = AdventureCatalogScript.load_adventure(_run_manager.adventure_id)
@@ -41,9 +47,9 @@ func _ready() -> void:
 			AdventureRunManagerScript.State.IN_MATCH:
 				_resume_match()
 			_:
-				_show_deck_select()
+				_show_deck_screen()
 	else:
-		_show_deck_select()
+		_show_deck_screen()
 
 
 func _clear_screen() -> void:
@@ -61,18 +67,58 @@ func _dismiss_overlay() -> void:
 
 # --- Screen Navigation ---
 
-func _show_deck_select() -> void:
+func _show_deck_screen() -> void:
 	_clear_screen()
-	var screen := AdventureDeckSelectScreenScript.new()
-	screen.deck_selected.connect(_on_deck_selected)
+	# Auto-select last deck only if no deck is currently selected
+	if _selected_deck.is_empty():
+		var decks := AdventureDeckLoaderScript.list_player_decks()
+		if decks.is_empty():
+			return_to_menu.emit()
+			return
+		var selected_deck_id: String = str(_progression.last_selected_deck_id)
+		if not selected_deck_id.is_empty():
+			for d in decks:
+				if str(d.get("deck_id", "")) == selected_deck_id:
+					_selected_deck = d
+					break
+		if _selected_deck.is_empty():
+			_selected_deck = decks[0]
+	var screen := AdventureDeckScreenScript.new()
+	screen.begin_adventure_pressed.connect(_on_begin_adventure)
+	screen.switch_deck_pressed.connect(_on_switch_deck)
 	screen.back_pressed.connect(func() -> void: return_to_menu.emit())
+	screen.relic_equipped.connect(_on_relic_equipped)
+	screen.relic_unequipped.connect(_on_relic_unequipped)
 	add_child(screen)
 	_current_screen = screen
+	_update_deck_screen(screen)
 
 
-func _on_deck_selected(deck_data: Dictionary) -> void:
-	_selected_deck = deck_data
-	var deck_id: String = str(deck_data.get("deck_id", ""))
+func _update_deck_screen(screen = null) -> void:
+	if screen == null:
+		screen = _current_screen
+	if screen == null or not screen.has_method("set_deck_data"):
+		return
+	var deck_id := str(_selected_deck.get("deck_id", ""))
+	var base_cards: Array = _selected_deck.get("cards", [])
+	var effective_cards: Array = _progression.get_effective_deck_cards(deck_id, base_cards)
+	screen.set_deck_data(
+		_selected_deck,
+		_progression.get_deck_level(deck_id),
+		_progression.get_xp_for_next_level(deck_id),
+		_progression.get_active_star_powers(deck_id),
+		_progression.get_unlocked_relic_slot_count(deck_id),
+		_progression.get_equipped_relics(deck_id),
+		_progression.unlocked_relics,
+		effective_cards,
+		_progression.get_permanent_augments(deck_id),
+	)
+
+
+func _on_begin_adventure() -> void:
+	var deck_id: String = str(_selected_deck.get("deck_id", ""))
+	_progression.last_selected_deck_id = deck_id
+	_progression.save()
 	var adventures := AdventureCatalogScript.get_adventures_for_deck(deck_id)
 	if adventures.size() == 1:
 		_on_adventure_selected(adventures[0])
@@ -80,11 +126,37 @@ func _on_deck_selected(deck_data: Dictionary) -> void:
 		_show_adventure_select(adventures)
 
 
+func _on_switch_deck() -> void:
+	_clear_screen()
+	var screen := AdventureDeckSelectScreenScript.new()
+	screen.deck_selected.connect(func(deck_data: Dictionary) -> void:
+		_selected_deck = deck_data
+		_progression.last_selected_deck_id = str(deck_data.get("deck_id", ""))
+		_progression.save()
+		_show_deck_screen()
+	)
+	screen.back_pressed.connect(_show_deck_screen)
+	add_child(screen)
+	_current_screen = screen
+
+
+func _on_relic_equipped(relic_id: String) -> void:
+	var deck_id := str(_selected_deck.get("deck_id", ""))
+	_progression.equip_relic(deck_id, relic_id)
+	_update_deck_screen()
+
+
+func _on_relic_unequipped(relic_id: String) -> void:
+	var deck_id := str(_selected_deck.get("deck_id", ""))
+	_progression.unequip_relic(deck_id, relic_id)
+	_update_deck_screen()
+
+
 func _show_adventure_select(adventures: Array) -> void:
 	_clear_screen()
 	var screen := AdventureSelectScreenScript.new()
 	screen.adventure_selected.connect(_on_adventure_selected)
-	screen.back_pressed.connect(_show_deck_select)
+	screen.back_pressed.connect(_show_deck_screen)
 	add_child(screen)
 	_current_screen = screen
 	screen.set_adventures(adventures)
@@ -94,11 +166,48 @@ func _on_adventure_selected(adventure: Dictionary) -> void:
 	_current_adventure = adventure
 	var adventure_id: String = str(adventure.get("id", ""))
 	var deck_id: String = str(_selected_deck.get("deck_id", ""))
-	var deck_cards: Array = _selected_deck.get("cards", [])
+	var base_cards: Array = _selected_deck.get("cards", [])
 	var start_node_id: String = str(adventure.get("start_node", ""))
 
+	# Apply progression: card swaps to get effective starting deck
+	var deck_cards: Array = _progression.get_effective_deck_cards(deck_id, base_cards)
+
 	_run_manager = AdventureRunManagerScript.new()
+
+	# Apply relic effects before starting the run
+	var starting_gold: int = _progression.get_starting_gold(deck_id)
+	var max_health_bonus: int = _progression.get_max_health_bonus(deck_id)
+	var bonus_rerolls: int = _progression.get_bonus_reroll_tokens(deck_id)
+	var bonus_revives: int = _progression.get_bonus_revives(deck_id)
+	for relic_id in _progression.get_equipped_relics(deck_id):
+		var relic := RelicCatalogScript.get_relic(relic_id)
+		var effect_type := str(relic.get("effect_type", ""))
+		var effect_value := int(relic.get("effect_value", 0))
+		match effect_type:
+			"starting_gold":
+				starting_gold += effect_value
+			"max_health_bonus":
+				max_health_bonus += effect_value
+
 	_run_manager.start_run(adventure_id, deck_id, deck_cards, start_node_id)
+
+	# Apply cumulative bonuses from progression + relics
+	_run_manager.gold = starting_gold
+	_run_manager.max_health_bonus = max_health_bonus
+	_run_manager.reroll_tokens += bonus_rerolls
+	_run_manager.revives_remaining += bonus_revives
+
+	# Merge permanent augments from progression into run augments
+	for aug in _progression.get_permanent_augments(deck_id):
+		_run_manager.augments.append(aug)
+
+	# Add star powers as active boons
+	for sp in _progression.get_active_star_powers(deck_id):
+		var sp_id := str(sp.get("id", ""))
+		if not sp_id.is_empty():
+			_run_manager.active_boons.append(sp_id)
+
+	_run_manager.save_run()
 	_show_node_map()
 
 
@@ -328,7 +437,8 @@ func _show_reinforcement_overlay(node_id: String) -> void:
 
 func _show_shop_overlay(node_id: String) -> void:
 	_dismiss_overlay()
-	var cards := _get_or_generate_offerings(node_id, 6)
+	var shop_count := 6 + _get_shop_extra_cards()
+	var cards := _get_or_generate_offerings(node_id, shop_count)
 	var offering: Dictionary = _run_manager.get_node_offering(node_id)
 	var purchased_ids: Array = offering.get("purchased_ids", [])
 
@@ -379,22 +489,49 @@ func _show_boon_overlay(node_id: String) -> void:
 
 func _show_result() -> void:
 	_clear_screen()
+	# Award XP and process completion
+	var deck_id: String = str(_run_manager.deck_id)
+	var xp: int = int(_run_manager.xp_earned)
+	var level_result: Dictionary = _progression.award_xp(deck_id, xp)
+
+	var completion_rewards: Dictionary = {}
+	if _run_manager.run_won:
+		completion_rewards = _progression.record_adventure_completion(
+			_run_manager.adventure_id, _current_adventure
+		)
+
+	_run_result_data = {
+		"xp_earned": xp,
+		"level_result": level_result,
+		"completion_rewards": completion_rewards,
+	}
+
 	var screen := AdventureResultScreenScript.new()
 	screen.return_pressed.connect(_on_result_return)
 	add_child(screen)
 	_current_screen = screen
-	screen.set_result(_run_manager.run_won, str(_current_adventure.get("name", "Adventure")))
+	screen.set_result(
+		_run_manager.run_won,
+		str(_current_adventure.get("name", "Adventure")),
+		_run_result_data,
+	)
 
 
 func _on_result_return() -> void:
 	_run_manager = null
-	return_to_menu.emit()
+	_run_result_data = {}
+	_show_deck_screen()
 
 
 func _on_abandon_pressed() -> void:
+	# Still award XP for nodes completed before abandoning
+	var deck_id: String = str(_run_manager.deck_id)
+	var xp: int = int(_run_manager.xp_earned)
+	if xp > 0:
+		_progression.award_xp(deck_id, xp)
 	_run_manager.abandon_run()
 	_run_manager = null
-	return_to_menu.emit()
+	_show_deck_screen()
 
 
 # --- Creature Augment Node ---
@@ -637,6 +774,18 @@ func _apply_event_reward_effects(effects: Array) -> void:
 			"add_revive":
 				_run_manager.revives_remaining += 1
 	_run_manager.save_run()
+
+
+func _get_shop_extra_cards() -> int:
+	if _progression == null or _run_manager == null:
+		return 0
+	var deck_id: String = str(_run_manager.deck_id)
+	var extra := 0
+	for relic_id in _progression.get_equipped_relics(deck_id):
+		var relic := RelicCatalogScript.get_relic(relic_id)
+		if str(relic.get("effect_type", "")) == "shop_extra_card":
+			extra += int(relic.get("effect_value", 0))
+	return extra
 
 
 func _get_or_generate_offerings(node_id: String, count: int) -> Array:

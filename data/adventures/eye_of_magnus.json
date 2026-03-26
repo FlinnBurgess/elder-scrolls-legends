@@ -2,6 +2,14 @@
 	"id": "eye_of_magnus",
 	"name": "Eye of Magnus",
 	"allowed_deck_ids": ["college_of_winterhold"],
+	"combat_xp": 15,
+	"mini_boss_xp": 30,
+	"boss_xp": 50,
+	"first_completion_reward": {"type": "relic", "relic_id": "thiefs_cache"},
+	"completion_reward_pool": [
+		{"type": "relic", "relic_id": "amulet_of_kings", "weight": 1},
+		{"type": "gold_bonus", "amount": 100, "weight": 3}
+	],
 	"start_node": "node_a",
 	"nodes": {
 		"node_a": {

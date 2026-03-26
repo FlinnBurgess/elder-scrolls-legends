@@ -1,0 +1,55 @@
+{
+	"deck_id": "dragons_of_skyrim",
+	"star_powers": [
+		{
+			"id": "sp_dragons_1",
+			"name": "Dragon's Herald",
+			"description": "At the start of each adventure, add a random Dragon creature to your hand.",
+			"stackable": false
+		},
+		{
+			"id": "sp_dragons_2",
+			"name": "Ancient Scales",
+			"description": "Your highest-cost creature in your starting deck begins each run with +1/+1.",
+			"stackable": false
+		},
+		{
+			"id": "sp_dragons_3",
+			"name": "Dovahkiin's Might",
+			"description": "The first Boon you discover each run is always offered alongside two additional choices.",
+			"stackable": false
+		}
+	],
+	"reward_track": [
+		{"level": 1, "type": "starting_gold", "value": 10},
+		{"level": 2, "type": "max_health", "value": 2},
+		{"level": 3, "type": "starting_gold", "value": 10},
+		{"level": 4, "type": "card_swap", "remove": "str_morkul_gatekeeper", "add": "hos_str_skyborn_dragon"},
+		{"level": 5, "type": "starting_gold", "value": 15},
+		{"level": 6, "type": "max_health", "value": 3},
+		{"level": 7, "type": "reroll_tokens", "value": 1},
+		{"level": 8, "type": "card_swap", "remove": "str_sharpshooter_scout", "add": "hos_str_blades_lookout"},
+		{"level": 9, "type": "starting_gold", "value": 10},
+		{"level": 10, "type": "revives", "value": 1},
+		{"level": 11, "type": "starting_gold", "value": 15},
+		{"level": 12, "type": "max_health", "value": 3},
+		{"level": 13, "type": "permanent_augment", "card_id": "hos_neu_alduin", "augment_id": "stats_2_2"},
+		{"level": 14, "type": "card_swap", "remove": "wil_kvatch_soldier", "add": "hos_wil_revered_guardian"},
+		{"level": 15, "type": "starting_gold", "value": 20},
+		{"level": 16, "type": "max_health", "value": 3},
+		{"level": 17, "type": "reroll_tokens", "value": 1},
+		{"level": 18, "type": "starting_gold", "value": 15},
+		{"level": 19, "type": "permanent_augment", "card_id": "neu_odahviing", "augment_id": "stats_1_1_guard"},
+		{"level": 20, "type": "revives", "value": 1},
+		{"level": 21, "type": "starting_gold", "value": 20},
+		{"level": 22, "type": "max_health", "value": 5},
+		{"level": 23, "type": "card_swap", "remove": "str_rapid_shot", "add": "hos_str_unrelenting_force"},
+		{"level": 24, "type": "permanent_augment", "card_id": "hos_neu_paarthurnax", "augment_id": "stats_0_3_ward"},
+		{"level": 25, "type": "starting_gold", "value": 25},
+		{"level": 26, "type": "max_health", "value": 5},
+		{"level": 27, "type": "reroll_tokens", "value": 1},
+		{"level": 28, "type": "starting_gold", "value": 20},
+		{"level": 29, "type": "permanent_augment", "card_id": "wil_miraak_dragonborn", "augment_id": "stats_2_0_charge"},
+		{"level": 30, "type": "starting_gold", "value": 30}
+	]
+}

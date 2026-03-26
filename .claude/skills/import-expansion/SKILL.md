@@ -1,6 +1,8 @@
 ---
 name: import-expansion
 description: Import an entire Elder Scrolls Legends card expansion from a UESP wiki page. Use when user wants to add an expansion, card set, or batch of cards by providing a wiki URL.
+model: opus
+effort: high
 ---
 
 # Import Expansion

@@ -1,6 +1,8 @@
 ---
 name: download-missing-art
 description: Download missing card art for all cards in the catalog. Finds cards without art, creates a tracking document, then fetches art for each one using the fetch-card-art skill.
+model: haiku
+effort: low
 ---
 
 # Download Missing Card Art

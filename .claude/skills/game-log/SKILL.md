@@ -1,3 +1,10 @@
+---
+name: game-log
+description: Check the latest game log for evidence of a specific issue described by the user.
+model: sonnet
+effort: medium
+---
+
 # Game Log
 
 Check the latest game log for evidence of a specific issue described by the user.

@@ -1,6 +1,8 @@
 ---
 name: fetch-card-art
 description: Fetch a card's artwork from the UESP wiki and save it to the codebase. Use when user wants to download, fetch, or add card art/image for a specific card. Takes a card name as argument.
+model: haiku
+effort: low
 ---
 
 # Fetch Card Art

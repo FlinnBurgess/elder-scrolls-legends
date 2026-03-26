@@ -349,21 +349,68 @@ This is structured as a series of milestones, each playable and self-contained. 
 
 **Goal:** Playing runs makes you permanently stronger — the core retention hook.
 
-**What to add:**
-- **Deck Level** — tracks XP earned from completed runs; each level unlocks:
-  - Better starting cards (weaker base deck cards swapped for stronger ones)
-  - Additional starting gold
-  - A starting reroll token
-- **Star Powers** (1–3 stars per starting deck) — permanent passive bonuses active at the start of every run with that deck:
+#### XP & Deck Leveling
+
+- Max deck level: **30**; each deck tracks XP independently
+- XP earned from **combat nodes only** (combat, mini-boss, final boss) — non-combat nodes award no XP
+- XP is awarded **per node**, including on losing runs (the player keeps XP from nodes cleared before death)
+- Each adventure configures its own **combat_xp**, **mini_boss_xp**, and **boss_xp** values — later/harder adventures award more XP
+- XP thresholds per level are stored as a **configurable array**, escalating across the 30 levels (exact curve to be tuned based on adventure XP scaling)
+- Every level grants a reward; levels 5/10/15/20/25/30 are milestone levels with better rewards
+
+#### Reward Track
+
+- Each deck has its own **30-entry reward track** defined in JSON
+- The track is fully configurable per deck — milestone levels are simply entries that happen to fall on multiples of 5
+- Reward types:
+  - **Starting gold** — bonus gold at run start
+  - **Max health bonus** — increased starting HP
+  - **Starting reroll tokens** — additional reroll tokens at run start
+  - **Starting revives** — additional revive tokens at run start
+  - **Card swap** — a pre-defined swap: remove a weaker base card, add a stronger replacement. Swap tables are authored per deck
+  - **Permanent augment** — a permanent augment applied to a specific card in the deck (uses the same augment system from M4)
+- **Star Powers** unlock as bonus rewards (in addition to the normal track entry) at levels **5, 15, and 25**
+- **Relic slots** unlock at levels **10, 20, and 30** (all 3 slots start locked)
+
+#### Star Powers
+
+- 3 tiers per deck, **pre-defined** (no player choice)
+- Mechanically identical to Boons — passive effects that hook into the battle system — but always active at the start of every run with that deck
+- Examples:
   - Star 1: A thematic passive (e.g. for Dragons: *"At the start of each adventure, add one Dragon creature to your hand"*)
   - Star 2: A more impactful bonus (e.g. *"Your highest-cost creature in your starting deck begins each run with +1/+1"*)
   - Star 3: A strong run-modifier (e.g. *"The first Boon you discover is always drawn from the Rare tier or above"*)
-  - Stars unlocked by completing adventures at increasing difficulty ratings
-- **Relics** — permanent items equippable to a starting deck before a run begins (up to 2 slots initially), earned by completing adventures or hitting deck level milestones. Examples:
+
+#### Relics
+
+- **Account-wide** unlocks, **per-deck** equipping
+- 3 relic slots per deck, all start locked (unlocked at deck levels 10, 20, 30)
+- Relics are earned via **adventure completion rewards**:
+  - Each adventure has a **fixed first-time completion reward** (flexible type — could be a relic, gold, cards, etc.)
+  - Each completion (including the first) has a **random bonus reward roll** with a configurable drop rate (default 10%) drawing from a configurable reward pool
+- Starting relics (3 to prove the system):
   - *Skeleton Key*: Start each run with 50 bonus gold
   - *Amulet of Kings*: Your Nexus has 5 bonus HP at the start of each run
   - *Thief's Cache*: Shops always offer one extra card
-- A **Deck Selection screen** showing level, equipped relics, and star powers before beginning a run
+
+#### Deck Selection & UI Flow
+
+- Adventure mode **auto-loads the last selected deck** and shows the adventure list immediately
+- A **"Switch Deck" button** opens a deck browser showing all unlocked decks
+- The deck screen displays:
+  - Deck level and XP progress bar
+  - Unlocked star powers (1–3 stars)
+  - Relic slots (locked/unlocked/equipped) with equip/unequip interaction
+  - Full card list using existing card display components
+- Hovering over a card in the list shows full details **including effects from permanent augments** (using the same augment visual treatment from M4)
+- Swapped-in cards have **no special visual distinction**
+
+#### Persistence
+
+- A new **AdventureProgressionManager** (or similar) handles all cross-run state, separate from the per-run AdventureRunManager
+- Per-deck state: level, XP, unlocked stars, equipped relics, applied card swaps, permanent augments
+- Account-wide state: unlocked relics, adventure completion history (for first-clear reward tracking), last selected deck
+- Saved to a JSON file in the user data directory
 
 **Deliverable:** The game now has a sense of permanence. A well-levelled deck feels meaningfully different from a fresh one.
 
@@ -399,6 +446,26 @@ This is structured as a series of milestones, each playable and self-contained. 
 - **Narrative flavour text** — every node, encounter, and event has 1–3 lines of descriptive text or dialogue grounding the run in TES lore
 - **Run history screen** — shows past run results, decks used, bosses defeated, Boons collected
 - **Difficulty scaling** — an optional "Legendary" modifier for completed adventures that increases enemy Nexus HP and adds an extra enemy passive, with improved rewards
+
+---
+
+### Milestone 8 — Legend Level & Deck Unlocking
+
+**Goal:** Account-wide meta-progression gives players long-term goals beyond individual decks.
+
+**What to add:**
+- **Legend Level** — a global account progression track separate from individual deck levels. Higher Legend Levels grant:
+  - More starting gold per run (all decks)
+  - Extra reroll tokens
+  - Bonus starting revives
+  - Vision (seeing more hidden nodes ahead on the map)
+- Legend Level XP earned from all run activity across all decks
+- **Deck Unlocking** — not all decks are available from the start. Decks are unlocked through:
+  - **Legend Level milestones** — reaching certain account levels unlocks new decks
+  - **Boss defeats** — beating specific adventures or bosses with any deck unlocks a related deck
+  - **Meta-currency** (optional) — a currency earned from runs that can be spent to unlock decks of the player's choice
+- A small number of **starter decks** are unlocked by default (e.g. 2–3); the rest must be earned
+- The deck browser UI (from M5) should show locked decks with their unlock conditions visible
 
 ---
 

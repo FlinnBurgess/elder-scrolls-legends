@@ -2,6 +2,14 @@
 	"id": "blood_of_sovngarde",
 	"name": "Blood of Sovngarde",
 	"allowed_deck_ids": ["the_companions"],
+	"combat_xp": 15,
+	"mini_boss_xp": 30,
+	"boss_xp": 50,
+	"first_completion_reward": {"type": "relic", "relic_id": "amulet_of_kings"},
+	"completion_reward_pool": [
+		{"type": "relic", "relic_id": "skeleton_key", "weight": 1},
+		{"type": "gold_bonus", "amount": 100, "weight": 3}
+	],
 	"start_node": "node_a",
 	"nodes": {
 		"node_a": {

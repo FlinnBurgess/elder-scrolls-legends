@@ -2,6 +2,14 @@
 	"id": "the_dragon_crisis",
 	"name": "The Dragon Crisis",
 	"allowed_deck_ids": ["dragons_of_skyrim"],
+	"combat_xp": 15,
+	"mini_boss_xp": 30,
+	"boss_xp": 50,
+	"first_completion_reward": {"type": "relic", "relic_id": "skeleton_key"},
+	"completion_reward_pool": [
+		{"type": "relic", "relic_id": "amulet_of_kings", "weight": 1},
+		{"type": "gold_bonus", "amount": 100, "weight": 3}
+	],
 	"start_node": "node_boon_start",
 	"nodes": {
 		"node_boon_start": {

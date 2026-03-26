@@ -1,6 +1,8 @@
 ---
 name: bug-pattern-scan
 description: After fixing bugs in a session, generalize the fixes into abstract pattern classes and scan the codebase for unresolved siblings. Use when you've made several fixes and want to find other instances of the same class of bug. Triggers on phrases like "scan for similar bugs", "find related issues", "pattern scan", "extrapolate fixes", "any other bugs like these".
+model: opus
+effort: high
 ---
 
 # Bug Pattern Scan

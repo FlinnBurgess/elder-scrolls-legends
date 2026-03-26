@@ -1,0 +1,55 @@
+{
+	"deck_id": "college_of_winterhold",
+	"star_powers": [
+		{
+			"id": "sp_college_1",
+			"name": "Arcane Studies",
+			"description": "At the start of each adventure, add a random action from your deck's attributes to your hand.",
+			"stackable": false
+		},
+		{
+			"id": "sp_college_2",
+			"name": "Magicka Surge",
+			"description": "The first action you play each turn costs 1 less.",
+			"stackable": false
+		},
+		{
+			"id": "sp_college_3",
+			"name": "Eye of Magnus",
+			"description": "Whenever you play an action, deal 1 damage to a random enemy creature.",
+			"stackable": false
+		}
+	],
+	"reward_track": [
+		{"level": 1, "type": "starting_gold", "value": 10},
+		{"level": 2, "type": "max_health", "value": 2},
+		{"level": 3, "type": "starting_gold", "value": 10},
+		{"level": 4, "type": "card_swap", "remove": "wil_kvatch_soldier", "add": "wil_hive_defender"},
+		{"level": 5, "type": "starting_gold", "value": 15},
+		{"level": 6, "type": "max_health", "value": 3},
+		{"level": 7, "type": "reroll_tokens", "value": 1},
+		{"level": 8, "type": "card_swap", "remove": "int_camlorn_sentinel", "add": "int_breton_conjurer"},
+		{"level": 9, "type": "starting_gold", "value": 10},
+		{"level": 10, "type": "revives", "value": 1},
+		{"level": 11, "type": "starting_gold", "value": 15},
+		{"level": 12, "type": "max_health", "value": 3},
+		{"level": 13, "type": "permanent_augment", "card_id": "hos_int_ancano", "augment_id": "stats_2_2"},
+		{"level": 14, "type": "card_swap", "remove": "int_ice_wraith", "add": "int_telvanni_arcanist"},
+		{"level": 15, "type": "starting_gold", "value": 20},
+		{"level": 16, "type": "max_health", "value": 3},
+		{"level": 17, "type": "reroll_tokens", "value": 1},
+		{"level": 18, "type": "starting_gold", "value": 15},
+		{"level": 19, "type": "permanent_augment", "card_id": "int_divayth_fyr", "augment_id": "stats_0_3_ward"},
+		{"level": 20, "type": "revives", "value": 1},
+		{"level": 21, "type": "starting_gold", "value": 20},
+		{"level": 22, "type": "max_health", "value": 5},
+		{"level": 23, "type": "card_swap", "remove": "int_firebolt", "add": "int_lightning_bolt"},
+		{"level": 24, "type": "permanent_augment", "card_id": "int_crystal_tower_crafter", "augment_id": "cost_reduction_1"},
+		{"level": 25, "type": "starting_gold", "value": 25},
+		{"level": 26, "type": "max_health", "value": 5},
+		{"level": 27, "type": "reroll_tokens", "value": 1},
+		{"level": 28, "type": "starting_gold", "value": 20},
+		{"level": 29, "type": "permanent_augment", "card_id": "aw_end_mannimarco", "augment_id": "stats_1_1_drain"},
+		{"level": 30, "type": "starting_gold", "value": 30}
+	]
+}

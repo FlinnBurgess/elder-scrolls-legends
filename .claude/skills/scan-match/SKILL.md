@@ -1,3 +1,10 @@
+---
+name: scan-match
+description: Analyze the most recent game log to identify card effect issues, gameplay bugs, and missing implementations.
+model: sonnet
+effort: medium
+---
+
 # Scan Match
 
 Analyze the most recent game log to identify card effect issues, gameplay bugs, and missing implementations.

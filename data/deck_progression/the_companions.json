@@ -1,0 +1,55 @@
+{
+	"deck_id": "the_companions",
+	"star_powers": [
+		{
+			"id": "sp_companions_1",
+			"name": "Whelp's Fury",
+			"description": "At the start of each adventure, your cheapest creature gains +1/+0 and Charge.",
+			"stackable": false
+		},
+		{
+			"id": "sp_companions_2",
+			"name": "Beast Blood",
+			"description": "Whenever one of your creatures attacks and destroys an enemy, it gains +1/+0.",
+			"stackable": false
+		},
+		{
+			"id": "sp_companions_3",
+			"name": "Ysgramor's Legacy",
+			"description": "At the start of each run, add Aspect of Hircine to your hand.",
+			"stackable": false
+		}
+	],
+	"reward_track": [
+		{"level": 1, "type": "starting_gold", "value": 10},
+		{"level": 2, "type": "max_health", "value": 2},
+		{"level": 3, "type": "starting_gold", "value": 10},
+		{"level": 4, "type": "card_swap", "remove": "agi_helstrom_footpad", "add": "agi_cliff_racer"},
+		{"level": 5, "type": "starting_gold", "value": 15},
+		{"level": 6, "type": "max_health", "value": 3},
+		{"level": 7, "type": "reroll_tokens", "value": 1},
+		{"level": 8, "type": "card_swap", "remove": "str_fiery_imp", "add": "str_battlerage_orc"},
+		{"level": 9, "type": "starting_gold", "value": 10},
+		{"level": 10, "type": "revives", "value": 1},
+		{"level": 11, "type": "starting_gold", "value": 15},
+		{"level": 12, "type": "max_health", "value": 3},
+		{"level": 13, "type": "permanent_augment", "card_id": "hos_str_aela_the_huntress", "augment_id": "stats_2_2"},
+		{"level": 14, "type": "card_swap", "remove": "agi_thieves_guild_recruit", "add": "agi_dune_smuggler"},
+		{"level": 15, "type": "starting_gold", "value": 20},
+		{"level": 16, "type": "max_health", "value": 3},
+		{"level": 17, "type": "reroll_tokens", "value": 1},
+		{"level": 18, "type": "starting_gold", "value": 15},
+		{"level": 19, "type": "permanent_augment", "card_id": "hom_str_aspect_of_hircine", "augment_id": "stats_1_1_drain"},
+		{"level": 20, "type": "revives", "value": 1},
+		{"level": 21, "type": "starting_gold", "value": 20},
+		{"level": 22, "type": "max_health", "value": 5},
+		{"level": 23, "type": "card_swap", "remove": "str_morthal_watchman", "add": "str_child_of_hircine"},
+		{"level": 24, "type": "permanent_augment", "card_id": "str_skaven_pyromancer", "augment_id": "on_attack_damage_1"},
+		{"level": 25, "type": "starting_gold", "value": 25},
+		{"level": 26, "type": "max_health", "value": 5},
+		{"level": 27, "type": "reroll_tokens", "value": 1},
+		{"level": 28, "type": "starting_gold", "value": 20},
+		{"level": 29, "type": "permanent_augment", "card_id": "str_relentless_raider", "augment_id": "stats_2_0_charge"},
+		{"level": 30, "type": "starting_gold", "value": 30}
+	]
+}

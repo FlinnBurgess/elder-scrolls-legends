@@ -1,6 +1,8 @@
 ---
 name: audit-cards
 description: Audit cards for data accuracy and engine correctness. Supports single-card audit (compare against UESP wiki, verify engine ops/targets/families, report PASS or NEEDS_FIX) or full-catalog batch audit with progress tracking.
+model: opus
+effort: high
 ---
 
 # Audit All Cards

@@ -1,6 +1,8 @@
 ---
 name: fix-bug-reports
 description: Process all error reports from res://reports/bug-reports/ — analyze each bug, fix it, run tests, commit, and delete the report file. Ask for guidance on unclear reports.
+model: opus
+effort: high
 ---
 
 # Fix Bug Reports
