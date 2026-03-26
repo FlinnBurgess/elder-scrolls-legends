@@ -565,6 +565,8 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			var grth_all_events: Array = []
 			var grth_hand: Array = grth_player.get(MatchMutations.ZONE_HAND, [])
 			for grth_i in range(grth_count):
+				if grth_hand.size() >= MatchTiming.MAX_HAND_SIZE:
+					break
 				var grth_seq := str(match_state.get("generated_card_sequence", 0))
 				var grth_pick: Dictionary = grth_candidates[_timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_grth_" + grth_seq + "_" + str(grth_i), grth_candidates.size())]
 				var grth_template: Dictionary = grth_pick.duplicate(true)
@@ -1298,9 +1300,12 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			var bst_pick: Dictionary = bst_candidates[_timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_bst_" + bst_destroyed_id, bst_candidates.size())]
 			var bst_template := bst_pick.duplicate(true)
 			bst_template["definition_id"] = str(bst_template.get("card_id", ""))
+			var bst_hand: Array = bst_player.get(MatchMutations.ZONE_HAND, [])
+			if bst_hand.size() >= MatchTiming.MAX_HAND_SIZE:
+				return {"handled": true, "events": []}
 			var bst_gen := MatchMutations.build_generated_card(match_state, bst_controller_id, bst_template)
 			bst_gen["zone"] = MatchMutations.ZONE_HAND
-			bst_player.get(MatchMutations.ZONE_HAND, []).append(bst_gen)
+			bst_hand.append(bst_gen)
 			return {"handled": true, "events": [{"event_type": "card_drawn", "player_id": bst_controller_id, "source_instance_id": str(trigger.get("source_instance_id", "")), "drawn_instance_id": str(bst_gen.get("instance_id", "")), "source_zone": MatchMutations.ZONE_GENERATED, "target_zone": MatchMutations.ZONE_HAND, "reason": "soul_tear"}]}
 		"boon_first_lesson":
 			var bfl_stacks := int(effect.get("stacks", 1))
