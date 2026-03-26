@@ -1047,12 +1047,13 @@ func _rules_bbcode(card: Dictionary) -> String:
 	var plain := _rules_preview(card)
 	plain = _apply_wax_wane_colors(plain)
 	plain = _apply_item_buff_colors(card, plain)
-	# Append augment descriptions in green.
-	var augment_text := _augment_bbcode(card)
-	if not augment_text.is_empty():
-		if not plain.is_empty():
-			plain += "\n"
-		plain += augment_text
+	# Append augment descriptions in green (only on main card view, not alt-views).
+	if _relationship_index == 0:
+		var augment_text := _augment_bbcode(card)
+		if not augment_text.is_empty():
+			if not plain.is_empty():
+				plain += "\n"
+			plain += augment_text
 	var newline_pos := plain.find("\n")
 	if newline_pos < 0:
 		var has_keywords := _has_extracted_keywords(card)
@@ -1182,6 +1183,8 @@ func _stat_color(card: Dictionary, stat: String) -> Color:
 
 
 func _printed_power(card: Dictionary) -> int:
+	if card.has("_printed_power"):
+		return int(card.get("_printed_power", 0))
 	if card.has("power"):
 		return int(card.get("power", 0))
 	if card.has("current_power"):
@@ -1190,6 +1193,8 @@ func _printed_power(card: Dictionary) -> int:
 
 
 func _printed_health(card: Dictionary) -> int:
+	if card.has("_printed_health"):
+		return int(card.get("_printed_health", 0))
 	if card.has("health"):
 		return int(card.get("health", 0))
 	if card.has("current_health"):
@@ -1246,7 +1251,7 @@ func _fit_rules_font_size_deferred() -> void:
 	if available_height <= 0.0:
 		return
 	var max_size := _scaled_int(15, scale)
-	var min_size := _scaled_int(10, scale)
+	var min_size := _scaled_int(8, scale)
 	var font_size := max_size
 	while font_size > min_size:
 		_rules_label.add_theme_font_size_override("normal_font_size", font_size)

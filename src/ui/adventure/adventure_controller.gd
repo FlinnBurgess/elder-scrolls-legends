@@ -25,6 +25,7 @@ const MatchScreenScript = preload("res://src/ui/match_screen.gd")
 const AdventureProgressionManagerScript = preload("res://src/adventure/adventure_progression_manager.gd")
 const RelicCatalogScript = preload("res://src/adventure/relic_catalog.gd")
 const AdventureDeckScreenScript = preload("res://src/ui/adventure/adventure_deck_screen.gd")
+const AdventureProgressionPathOverlayScript = preload("res://src/ui/adventure/adventure_progression_path_overlay.gd")
 
 var _run_manager = null
 var _progression = null  # AdventureProgressionManager
@@ -89,6 +90,7 @@ func _show_deck_screen() -> void:
 	screen.back_pressed.connect(func() -> void: return_to_menu.emit())
 	screen.relic_equipped.connect(_on_relic_equipped)
 	screen.relic_unequipped.connect(_on_relic_unequipped)
+	screen.view_progression_pressed.connect(_on_view_progression)
 	add_child(screen)
 	_current_screen = screen
 	_update_deck_screen(screen)
@@ -150,6 +152,38 @@ func _on_relic_unequipped(relic_id: String) -> void:
 	var deck_id := str(_selected_deck.get("deck_id", ""))
 	_progression.unequip_relic(deck_id, relic_id)
 	_update_deck_screen()
+
+
+func _on_view_progression() -> void:
+	_dismiss_overlay()
+	var deck_id := str(_selected_deck.get("deck_id", ""))
+	var deck_name := str(_selected_deck.get("name", "Unknown Deck"))
+	var xp_info: Dictionary = _progression.get_xp_for_next_level(deck_id)
+	var xp_progress := 0.0
+	if not xp_info.get("is_max", false):
+		var needed := float(xp_info.get("xp_needed", 1))
+		if needed > 0.0:
+			xp_progress = float(xp_info.get("xp_into_level", 0)) / needed
+
+	var progression_data: Dictionary = _progression._get_deck_progression(deck_id)
+	var reward_track: Array = progression_data.get("reward_track", [])
+	var star_powers: Array = progression_data.get("star_powers", [])
+	var star_power_levels: Array = _progression._get_star_power_levels()
+	var relic_slot_levels: Array = _progression._get_relic_slot_levels()
+
+	var overlay := AdventureProgressionPathOverlayScript.new()
+	overlay.closed.connect(_dismiss_overlay)
+	add_child(overlay)
+	_current_overlay = overlay
+	overlay.set_progression_data(
+		deck_name,
+		_progression.get_deck_level(deck_id),
+		xp_progress,
+		reward_track,
+		star_powers,
+		star_power_levels,
+		relic_slot_levels,
+	)
 
 
 func _show_adventure_select(adventures: Array) -> void:

@@ -46,12 +46,16 @@ static func _apply_effects(card: Dictionary, effects: Dictionary) -> void:
 	# so the augment is reflected in the match engine after hydration.
 	if effects.has("power"):
 		var power_delta := int(effects["power"])
+		if not card.has("_printed_power"):
+			card["_printed_power"] = int(card.get("base_power", 0))
 		card["base_power"] = int(card.get("base_power", 0)) + power_delta
-		card["power"] = int(card.get("power", 0)) + power_delta
+		card["power"] = int(card.get("power", card.get("_printed_power", 0))) + power_delta
 	if effects.has("health"):
 		var health_delta := int(effects["health"])
+		if not card.has("_printed_health"):
+			card["_printed_health"] = int(card.get("base_health", 0))
 		card["base_health"] = int(card.get("base_health", 0)) + health_delta
-		card["health"] = int(card.get("health", 0)) + health_delta
+		card["health"] = int(card.get("health", card.get("_printed_health", 0))) + health_delta
 	if effects.has("cost"):
 		card["cost"] = maxi(0, int(card.get("cost", 0)) + int(effects["cost"]))
 

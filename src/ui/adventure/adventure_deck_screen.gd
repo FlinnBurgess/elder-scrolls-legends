@@ -6,6 +6,7 @@ signal switch_deck_pressed
 signal back_pressed
 signal relic_equipped(relic_id: String)
 signal relic_unequipped(relic_id: String)
+signal view_progression_pressed
 
 const RelicCatalogScript = preload("res://src/adventure/relic_catalog.gd")
 const AdventureCardPoolScript = preload("res://src/adventure/adventure_card_pool.gd")
@@ -118,50 +119,70 @@ func _build_ui() -> void:
 
 	_title_label = Label.new()
 	_title_label.text = "Deck Name"
-	_title_label.add_theme_font_size_override("font_size", 28)
+	_title_label.add_theme_font_size_override("font_size", 48)
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	left_panel.add_child(_title_label)
 
 	# Level + XP bar
 	_level_label = Label.new()
 	_level_label.text = "Level 0"
-	_level_label.add_theme_font_size_override("font_size", 20)
+	_level_label.add_theme_font_size_override("font_size", 34)
 	_level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	left_panel.add_child(_level_label)
 
 	_xp_bar = ProgressBar.new()
-	_xp_bar.custom_minimum_size = Vector2(0, 20)
+	_xp_bar.custom_minimum_size = Vector2(0, 36)
 	_xp_bar.show_percentage = false
 	left_panel.add_child(_xp_bar)
 
 	_xp_text_label = Label.new()
 	_xp_text_label.text = ""
-	_xp_text_label.add_theme_font_size_override("font_size", 13)
+	_xp_text_label.add_theme_font_size_override("font_size", 24)
 	_xp_text_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6, 1.0))
 	_xp_text_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	left_panel.add_child(_xp_text_label)
 
+	var progression_btn_row := HBoxContainer.new()
+	progression_btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	left_panel.add_child(progression_btn_row)
+	var progression_btn := Button.new()
+	progression_btn.text = "View Progression"
+	progression_btn.add_theme_font_size_override("font_size", 22)
+	progression_btn.custom_minimum_size = Vector2(0, 44)
+	progression_btn.pressed.connect(func() -> void: view_progression_pressed.emit())
+	progression_btn_row.add_child(progression_btn)
+
+	# Section spacer before star powers
+	var sp_spacer := Control.new()
+	sp_spacer.custom_minimum_size = Vector2(0, 28)
+	left_panel.add_child(sp_spacer)
+
 	# Star powers section
 	var star_header := Label.new()
 	star_header.text = "Star Powers"
-	star_header.add_theme_font_size_override("font_size", 18)
+	star_header.add_theme_font_size_override("font_size", 32)
 	star_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	left_panel.add_child(star_header)
 
 	_star_container = HBoxContainer.new()
-	_star_container.add_theme_constant_override("separation", 8)
+	_star_container.add_theme_constant_override("separation", 16)
 	_star_container.alignment = BoxContainer.ALIGNMENT_CENTER
 	left_panel.add_child(_star_container)
+
+	# Section spacer before relics
+	var relic_spacer := Control.new()
+	relic_spacer.custom_minimum_size = Vector2(0, 28)
+	left_panel.add_child(relic_spacer)
 
 	# Relics section
 	var relic_header := Label.new()
 	relic_header.text = "Relics"
-	relic_header.add_theme_font_size_override("font_size", 18)
+	relic_header.add_theme_font_size_override("font_size", 32)
 	relic_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	left_panel.add_child(relic_header)
 
 	_relic_container = HBoxContainer.new()
-	_relic_container.add_theme_constant_override("separation", 12)
+	_relic_container.add_theme_constant_override("separation", 20)
 	_relic_container.alignment = BoxContainer.ALIGNMENT_CENTER
 	left_panel.add_child(_relic_container)
 
@@ -170,24 +191,41 @@ func _build_ui() -> void:
 	spacer.size_flags_vertical = SIZE_EXPAND_FILL
 	left_panel.add_child(spacer)
 
-	# Buttons
+	# Buttons — centered, not full width
+	var btn_container := VBoxContainer.new()
+	btn_container.add_theme_constant_override("separation", 12)
+	btn_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	left_panel.add_child(btn_container)
+
+	var begin_row := HBoxContainer.new()
+	begin_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_container.add_child(begin_row)
 	var begin_btn := Button.new()
 	begin_btn.text = "Begin Adventure"
-	begin_btn.custom_minimum_size = Vector2(0, 48)
+	begin_btn.add_theme_font_size_override("font_size", 26)
+	begin_btn.custom_minimum_size = Vector2(280, 60)
 	begin_btn.pressed.connect(func() -> void: begin_adventure_pressed.emit())
-	left_panel.add_child(begin_btn)
+	begin_row.add_child(begin_btn)
 
+	var switch_row := HBoxContainer.new()
+	switch_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_container.add_child(switch_row)
 	var switch_btn := Button.new()
 	switch_btn.text = "Switch Deck"
-	switch_btn.custom_minimum_size = Vector2(0, 40)
+	switch_btn.add_theme_font_size_override("font_size", 24)
+	switch_btn.custom_minimum_size = Vector2(240, 52)
 	switch_btn.pressed.connect(func() -> void: switch_deck_pressed.emit())
-	left_panel.add_child(switch_btn)
+	switch_row.add_child(switch_btn)
 
+	var back_row := HBoxContainer.new()
+	back_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_container.add_child(back_row)
 	var back_btn := Button.new()
 	back_btn.text = "Back"
-	back_btn.custom_minimum_size = Vector2(0, 36)
+	back_btn.add_theme_font_size_override("font_size", 24)
+	back_btn.custom_minimum_size = Vector2(200, 48)
 	back_btn.pressed.connect(func() -> void: back_pressed.emit())
-	left_panel.add_child(back_btn)
+	back_row.add_child(back_btn)
 
 	# --- Right panel: Card list ---
 	var right_panel := VBoxContainer.new()
@@ -198,7 +236,7 @@ func _build_ui() -> void:
 
 	var card_header := Label.new()
 	card_header.text = "Deck Cards"
-	card_header.add_theme_font_size_override("font_size", 18)
+	card_header.add_theme_font_size_override("font_size", 28)
 	right_panel.add_child(card_header)
 
 	var card_scroll := ScrollContainer.new()
@@ -243,25 +281,25 @@ func _refresh_stars() -> void:
 	_clear_children(_star_container)
 	for i in range(3):
 		var star_panel := PanelContainer.new()
-		star_panel.custom_minimum_size = Vector2(100, 60)
+		star_panel.custom_minimum_size = Vector2(200, 100)
 		var style := StyleBoxFlat.new()
-		style.set_corner_radius_all(6)
-		style.set_content_margin_all(8)
+		style.set_corner_radius_all(10)
+		style.set_content_margin_all(16)
 		if i < _star_powers.size():
 			style.bg_color = Color(0.3, 0.25, 0.1, 1.0)
 			style.border_color = Color(0.85, 0.7, 0.3, 1.0)
 		else:
 			style.bg_color = Color(0.15, 0.15, 0.18, 1.0)
 			style.border_color = Color(0.3, 0.3, 0.35, 1.0)
-		style.set_border_width_all(1)
+		style.set_border_width_all(2)
 		star_panel.add_theme_stylebox_override("panel", style)
 
 		var vbox := VBoxContainer.new()
-		vbox.add_theme_constant_override("separation", 2)
+		vbox.add_theme_constant_override("separation", 6)
 		star_panel.add_child(vbox)
 
 		var star_label := Label.new()
-		star_label.add_theme_font_size_override("font_size", 12)
+		star_label.add_theme_font_size_override("font_size", 22)
 		if i < _star_powers.size():
 			star_label.text = str(_star_powers[i].get("name", "Star %d" % (i + 1)))
 			star_label.add_theme_color_override("font_color", Color(0.92, 0.78, 0.38, 1.0))
@@ -273,7 +311,7 @@ func _refresh_stars() -> void:
 		if i < _star_powers.size():
 			var desc_label := Label.new()
 			desc_label.text = str(_star_powers[i].get("description", ""))
-			desc_label.add_theme_font_size_override("font_size", 10)
+			desc_label.add_theme_font_size_override("font_size", 18)
 			desc_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 1.0))
 			desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			vbox.add_child(desc_label)
@@ -287,14 +325,14 @@ func _refresh_relics() -> void:
 	_clear_children(_relic_container)
 	for i in range(3):
 		var slot_panel := PanelContainer.new()
-		slot_panel.custom_minimum_size = Vector2(120, 80)
+		slot_panel.custom_minimum_size = Vector2(210, 120)
 		var style := StyleBoxFlat.new()
-		style.set_corner_radius_all(6)
-		style.set_content_margin_all(8)
-		style.set_border_width_all(1)
+		style.set_corner_radius_all(10)
+		style.set_content_margin_all(16)
+		style.set_border_width_all(2)
 
 		var vbox := VBoxContainer.new()
-		vbox.add_theme_constant_override("separation", 4)
+		vbox.add_theme_constant_override("separation", 8)
 		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 
 		if i >= _relic_slot_count:
@@ -303,7 +341,7 @@ func _refresh_relics() -> void:
 			style.border_color = Color(0.25, 0.25, 0.3, 1.0)
 			var slot_label := Label.new()
 			slot_label.text = "Locked"
-			slot_label.add_theme_font_size_override("font_size", 13)
+			slot_label.add_theme_font_size_override("font_size", 24)
 			slot_label.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4, 1.0))
 			slot_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			vbox.add_child(slot_label)
@@ -316,7 +354,7 @@ func _refresh_relics() -> void:
 
 			var name_label := Label.new()
 			name_label.text = str(relic.get("name", relic_id))
-			name_label.add_theme_font_size_override("font_size", 13)
+			name_label.add_theme_font_size_override("font_size", 24)
 			name_label.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0, 1.0))
 			name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -324,7 +362,7 @@ func _refresh_relics() -> void:
 
 			var desc := Label.new()
 			desc.text = str(relic.get("description", ""))
-			desc.add_theme_font_size_override("font_size", 10)
+			desc.add_theme_font_size_override("font_size", 18)
 			desc.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 1.0))
 			desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -332,7 +370,8 @@ func _refresh_relics() -> void:
 
 			var unequip_btn := Button.new()
 			unequip_btn.text = "Remove"
-			unequip_btn.custom_minimum_size = Vector2(70, 0)
+			unequip_btn.add_theme_font_size_override("font_size", 18)
+			unequip_btn.custom_minimum_size = Vector2(110, 0)
 			unequip_btn.pressed.connect(func() -> void: relic_unequipped.emit(relic_id))
 			vbox.add_child(unequip_btn)
 		else:
@@ -341,7 +380,7 @@ func _refresh_relics() -> void:
 			style.border_color = Color(0.3, 0.3, 0.35, 1.0)
 			var slot_label := Label.new()
 			slot_label.text = "Empty"
-			slot_label.add_theme_font_size_override("font_size", 13)
+			slot_label.add_theme_font_size_override("font_size", 24)
 			slot_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 1.0))
 			slot_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			vbox.add_child(slot_label)
@@ -353,7 +392,8 @@ func _refresh_relics() -> void:
 				var relic := RelicCatalogScript.get_relic(str(relic_id))
 				var equip_btn := Button.new()
 				equip_btn.text = str(relic.get("name", relic_id))
-				equip_btn.custom_minimum_size = Vector2(80, 0)
+				equip_btn.add_theme_font_size_override("font_size", 18)
+				equip_btn.custom_minimum_size = Vector2(120, 0)
 				var rid := str(relic_id)
 				equip_btn.pressed.connect(func() -> void: relic_equipped.emit(rid))
 				vbox.add_child(equip_btn)
@@ -406,8 +446,8 @@ func _refresh_card_list() -> void:
 func _build_card_row(entry: Dictionary) -> Control:
 	var row := HBoxContainer.new()
 	row.size_flags_horizontal = SIZE_EXPAND_FILL
-	row.custom_minimum_size = Vector2(0, 40)
-	row.add_theme_constant_override("separation", 10)
+	row.custom_minimum_size = Vector2(0, 48)
+	row.add_theme_constant_override("separation", 12)
 	row.mouse_filter = Control.MOUSE_FILTER_STOP
 	var card_id_for_hover: String = str(entry.get("card_id", ""))
 	row.mouse_entered.connect(_on_card_row_hover.bind(card_id_for_hover))
@@ -424,10 +464,10 @@ func _build_card_row(entry: Dictionary) -> Control:
 	badge_style.content_margin_bottom = 2
 	badge_style.bg_color = _get_cost_badge_color(entry.get("attributes", []))
 	cost_badge.add_theme_stylebox_override("panel", badge_style)
-	cost_badge.custom_minimum_size = Vector2(34, 30)
+	cost_badge.custom_minimum_size = Vector2(42, 36)
 	var cost_label := Label.new()
 	cost_label.text = str(entry["cost"])
-	cost_label.add_theme_font_size_override("font_size", 17)
+	cost_label.add_theme_font_size_override("font_size", 22)
 	cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cost_badge.add_child(cost_label)
 	row.add_child(cost_badge)
@@ -436,7 +476,7 @@ func _build_card_row(entry: Dictionary) -> Control:
 	var name_label := Label.new()
 	name_label.text = str(entry["name"])
 	name_label.size_flags_horizontal = SIZE_EXPAND_FILL
-	name_label.add_theme_font_size_override("font_size", 18)
+	name_label.add_theme_font_size_override("font_size", 24)
 	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	row.add_child(name_label)
 
@@ -444,18 +484,28 @@ func _build_card_row(entry: Dictionary) -> Control:
 	if entry.get("has_augment", false):
 		var aug_label := Label.new()
 		aug_label.text = "[A]"
-		aug_label.add_theme_font_size_override("font_size", 16)
+		aug_label.add_theme_font_size_override("font_size", 22)
 		aug_label.add_theme_color_override("font_color", Color(0.4, 0.8, 0.4, 1.0))
 		row.add_child(aug_label)
 
 	# Quantity
 	var qty_label := Label.new()
 	qty_label.text = "x%d" % entry["quantity"]
-	qty_label.add_theme_font_size_override("font_size", 17)
+	qty_label.add_theme_font_size_override("font_size", 22)
 	qty_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6, 1.0))
 	row.add_child(qty_label)
 
 	return row
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not event is InputEventKey or not event.pressed:
+		return
+	if (event.keycode == KEY_UP or event.keycode == KEY_DOWN) and _card_preview != null and is_instance_valid(_card_preview):
+		if _card_preview.has_method("cycle_relationship"):
+			var direction := 1 if event.keycode == KEY_DOWN else -1
+			_card_preview.cycle_relationship(direction)
+			get_viewport().set_input_as_handled()
 
 
 # --- Card Hover Preview ---
@@ -482,6 +532,7 @@ func _show_card_preview(card: Dictionary) -> void:
 	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_card_preview_container.add_child(preview)
 	preview.apply_card(card, CardDisplayComponentClass.PRESENTATION_FULL)
+	preview.set_relationship_context(_build_relationship_context())
 	preview.set_interactive(false)
 	var card_height := 760.0
 	var card_width := card_height / (384.0 / 220.0)
@@ -522,6 +573,19 @@ func _load_card_catalog() -> void:
 	var all_cards: Array = catalog.get("cards", [])
 	for card in all_cards:
 		_card_lookup[str(card.get("card_id", ""))] = card
+
+
+func _build_relationship_context() -> Dictionary:
+	var deck_cards: Array = []
+	for card_entry in _effective_cards:
+		var card_id := str(card_entry.get("card_id", ""))
+		var card: Dictionary = _card_lookup.get(card_id, {})
+		if card.is_empty():
+			continue
+		var qty := int(card_entry.get("quantity", 1))
+		for i in range(qty):
+			deck_cards.append(card)
+	return {"zone": "deck_editor", "deck_cards": deck_cards}
 
 
 func _clear_children(container: Control) -> void:
