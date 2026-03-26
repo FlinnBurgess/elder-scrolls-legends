@@ -322,7 +322,7 @@ func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_confi
 		return false
 	if not _adventure_boons.is_empty():
 		BoonRules.apply_boons_to_match_state(match_state, PLAYER_ORDER[1], _adventure_boons)
-	# Apply health overrides
+	# Apply health overrides after boons, then strip rune thresholds >= starting health
 	var boss_id := PLAYER_ORDER[0]
 	var local_id := PLAYER_ORDER[1]
 	var boss_health := int(boss_config.get("boss_health", 0))
@@ -332,8 +332,10 @@ func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_confi
 			var pid: String = str(player.get("player_id", ""))
 			if pid == boss_id and boss_health > 0:
 				player["health"] = boss_health
+				player["rune_thresholds"] = _strip_rune_thresholds_above(player.get("rune_thresholds", []), boss_health)
 			elif pid == local_id and player_health > 0:
 				player["health"] = player_health
+				player["rune_thresholds"] = _strip_rune_thresholds_above(player.get("rune_thresholds", []), player_health)
 	_hydrate_match_cards(match_state, card_by_id)
 	# Inject relic support card into boss's support zone
 	var relic: Variant = boss_config.get("relic", null)
@@ -414,6 +416,14 @@ func _apply_adventure_augments(match_state: Dictionary, player_id: String) -> vo
 				var def_id := str(card.get("definition_id", ""))
 				if _adventure_augments.has(def_id):
 					AugmentRulesScript.apply_augments_to_card(card, _adventure_augments[def_id])
+
+
+static func _strip_rune_thresholds_above(thresholds: Array, health: int) -> Array:
+	var kept: Array = []
+	for t in thresholds:
+		if int(t) < health:
+			kept.append(t)
+	return kept
 
 
 static func _hydrate_match_cards(match_state: Dictionary, card_by_id: Dictionary) -> void:
