@@ -71,7 +71,7 @@
 						"label": "Heal them (-5 Max HP, gain a recruit)",
 						"effects": [
 							{"type": "modify_health", "amount": -5},
-							{"type": "add_random_card"}
+							{"type": "offer_card_choice"}
 						]
 					},
 					{

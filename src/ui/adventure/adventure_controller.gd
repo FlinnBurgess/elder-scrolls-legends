@@ -369,10 +369,11 @@ func _on_match_ended(match_screen: Control) -> void:
 	_run_manager.clear_match_state()
 	_run_manager.match_config = null
 	var won: bool = match_screen.did_local_player_win()
+	var show_card_reward := false
 	if won:
 		# Apply event combat rewards if applicable.
 		if not _pending_event_rewards.is_empty():
-			_apply_event_reward_effects(_pending_event_rewards)
+			show_card_reward = _apply_event_reward_effects(_pending_event_rewards)
 			_pending_event_rewards = []
 			_pending_event_node_id = ""
 		_run_manager.record_win(_current_adventure)
@@ -380,7 +381,10 @@ func _on_match_ended(match_screen: Control) -> void:
 		_pending_event_rewards = []
 		_pending_event_node_id = ""
 		_run_manager.record_loss()
-	_advance_after_match()
+	if show_card_reward:
+		_show_event_card_reward("", true)
+	else:
+		_advance_after_match()
 
 
 func _advance_after_match() -> void:
@@ -612,6 +616,7 @@ func _execute_event_choice(node_id: String, node: Dictionary, choice_index: int)
 	var effects: Array = choice.get("effects", [])
 
 	var combat_effect: Dictionary = {}
+	var has_random_card := false
 	for effect in effects:
 		if typeof(effect) != TYPE_DICTIONARY:
 			continue
@@ -623,11 +628,8 @@ func _execute_event_choice(node_id: String, node: Dictionary, choice_index: int)
 				_run_manager.gold = maxi(0, _run_manager.gold + int(effect.get("amount", 0)))
 			"add_card":
 				_run_manager.add_card(str(effect.get("card_id", "")))
-			"add_random_card":
-				var attribute_ids := _get_deck_attribute_ids()
-				var cards := AdventureCardPoolScript.get_random_cards(attribute_ids, 1)
-				if not cards.is_empty():
-					_run_manager.add_card(str(cards[0].get("card_id", "")))
+			"offer_card_choice":
+				has_random_card = true
 			"add_boon":
 				_run_manager.add_boon(str(effect.get("boon_id", "")))
 			"add_revive":
@@ -648,10 +650,48 @@ func _execute_event_choice(node_id: String, node: Dictionary, choice_index: int)
 		}
 		_dismiss_overlay()
 		_start_event_combat(node_id, event_combat_node, combat_effect.get("reward_effects", []))
+	elif has_random_card:
+		_dismiss_overlay()
+		_show_event_card_reward(node_id)
 	else:
 		_run_manager.complete_non_combat_node(_current_adventure)
 		_dismiss_overlay()
 		_show_node_map()
+
+
+func _show_event_card_reward(node_id: String, post_combat: bool = false) -> void:
+	var attribute_ids := _get_deck_attribute_ids()
+	var cards := AdventureCardPoolScript.get_random_cards(attribute_ids, 3)
+
+	var _finish := func() -> void:
+		if post_combat:
+			_advance_after_match()
+		else:
+			_run_manager.complete_non_combat_node(_current_adventure)
+			_show_node_map()
+
+	if cards.is_empty():
+		_finish.call()
+		return
+
+	var overlay := ReinforcementNodeOverlayScript.new()
+	overlay.card_selected.connect(func(card_id: String) -> void:
+		_run_manager.add_card(card_id)
+		_dismiss_overlay()
+		_finish.call()
+	)
+	overlay.skipped.connect(func() -> void:
+		_dismiss_overlay()
+		_finish.call()
+	)
+	overlay.reroll_requested.connect(func() -> void:
+		if _run_manager.use_reroll_token():
+			_dismiss_overlay()
+			_show_event_card_reward(node_id, post_combat)
+	)
+	add_child(overlay)
+	_current_overlay = overlay
+	overlay.set_cards(cards, _run_manager.reroll_tokens)
 
 
 var _pending_event_rewards: Array = []
@@ -752,7 +792,8 @@ func _get_action_augment_pairs(count: int) -> Array:
 	return pairs
 
 
-func _apply_event_reward_effects(effects: Array) -> void:
+func _apply_event_reward_effects(effects: Array) -> bool:
+	var has_random_card := false
 	for effect in effects:
 		if typeof(effect) != TYPE_DICTIONARY:
 			continue
@@ -764,16 +805,14 @@ func _apply_event_reward_effects(effects: Array) -> void:
 				_run_manager.gold = maxi(0, _run_manager.gold + int(effect.get("amount", 0)))
 			"add_card":
 				_run_manager.add_card(str(effect.get("card_id", "")))
-			"add_random_card":
-				var attribute_ids := _get_deck_attribute_ids()
-				var cards := AdventureCardPoolScript.get_random_cards(attribute_ids, 1)
-				if not cards.is_empty():
-					_run_manager.add_card(str(cards[0].get("card_id", "")))
+			"offer_card_choice":
+				has_random_card = true
 			"add_boon":
 				_run_manager.add_boon(str(effect.get("boon_id", "")))
 			"add_revive":
 				_run_manager.revives_remaining += 1
 	_run_manager.save_run()
+	return has_random_card
 
 
 func _get_shop_extra_cards() -> int:
