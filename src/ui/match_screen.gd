@@ -5289,10 +5289,6 @@ func _on_lane_row_gui_input(event: InputEvent, lane_id: String, player_id: Strin
 	var button_event := event as InputEventMouseButton
 	if not button_event.pressed:
 		return
-	if button_event.button_index == MOUSE_BUTTON_MIDDLE:
-		end_turn_action()
-		accept_event()
-		return
 	if button_event.button_index != MOUSE_BUTTON_LEFT:
 		return
 	var card := _selected_card()
@@ -5339,10 +5335,6 @@ func _on_lane_panel_gui_input(event: InputEvent, lane_id: String) -> void:
 		return
 	var button_event := event as InputEventMouseButton
 	if not button_event.pressed:
-		return
-	if button_event.button_index == MOUSE_BUTTON_MIDDLE:
-		end_turn_action()
-		accept_event()
 		return
 	if button_event.button_index != MOUSE_BUTTON_LEFT:
 		return
@@ -5427,6 +5419,12 @@ func _on_avatar_gui_input(event: InputEvent, player_id: String) -> void:
 	var btn_idx := (event as InputEventMouseButton).button_index
 	if btn_idx == MOUSE_BUTTON_LEFT:
 		_on_player_pressed(player_id)
+	elif btn_idx == MOUSE_BUTTON_MIDDLE:
+		for p in _match_state.get("players", []):
+			if str(p.get("player_id", "")) == player_id:
+				p["health"] = int(p.get("health", 0)) + 30
+				break
+		_refresh_ui()
 	elif btn_idx == MOUSE_BUTTON_RIGHT and player_id == _local_player_id() and not _adventure_boons.is_empty():
 		var overlay := ActiveBoonsOverlay.new()
 		add_child(overlay)
@@ -7227,7 +7225,8 @@ func _health_panel_border(player: Dictionary, is_opponent: bool) -> Color:
 func _refresh_rune_row(rune_row: HBoxContainer, player: Dictionary, player_id: String, is_opponent: bool) -> void:
 	_clear_children(rune_row)
 	var remaining_runes: Array = player.get("rune_thresholds", [])
-	for threshold in DISPLAY_RUNE_THRESHOLDS:
+	var display_thresholds: Array = player.get("_initial_rune_thresholds", DISPLAY_RUNE_THRESHOLDS)
+	for threshold in display_thresholds:
 		rune_row.add_child(_build_rune_token(player_id, int(threshold), remaining_runes.has(threshold), is_opponent))
 
 

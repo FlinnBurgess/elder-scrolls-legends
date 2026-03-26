@@ -6,14 +6,18 @@ static func apply_boons_to_match_state(match_state: Dictionary, player_id: Strin
 	match_state["_adventure_boons"] = active_boons.duplicate()
 	match_state["_boon_player_id"] = player_id
 
-	# Fortified Spirit: reduce each rune threshold by 1 (non-stackable)
+	# Fortified Spirit: runes break 1 damage sooner — gap between thresholds shrinks by 1 (non-stackable)
 	if "fortified_spirit" in active_boons:
 		var player := _get_player(match_state, player_id)
 		if not player.is_empty():
-			var thresholds: Array = player.get("rune_thresholds", []).duplicate()
-			for i in range(thresholds.size()):
-				thresholds[i] = maxi(1, int(thresholds[i]) - 1)
-			player["rune_thresholds"] = thresholds
+			var health := int(player.get("health", 30))
+			var rune_count := int(player.get("rune_thresholds", []).size())
+			var gap := maxi(1, (health / (rune_count + 1)) - 1)
+			var new_thresholds: Array = []
+			for i in range(rune_count):
+				new_thresholds.append(health - gap * (i + 1))
+			player["rune_thresholds"] = new_thresholds
+			player["_initial_rune_thresholds"] = new_thresholds.duplicate()
 
 	# Runic Ward: store charges so each rune break can consume one
 	var rw_stacks := _count_stacks(active_boons, "runic_ward")

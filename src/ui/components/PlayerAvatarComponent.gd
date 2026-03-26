@@ -39,6 +39,7 @@ var _health_badge: PanelContainer
 var _health_value_label: Label
 var _health_caption_label: Label
 var _rune_entries: Array = []
+var _current_rune_thresholds_key: Array = []
 var _portrait_material: ShaderMaterial
 var _ward_overlay: PanelContainer
 var _has_ward := false
@@ -121,8 +122,8 @@ func set_rune_thresholds(thresholds) -> void:
 
 func get_rune_states() -> Array:
 	var states: Array = []
-	for threshold in DEFAULT_RUNE_THRESHOLDS:
-		states.append(_has_active_rune_near(threshold))
+	for rune_entry in _rune_entries:
+		states.append(_has_active_rune_near(int(rune_entry["threshold"])))
 	return states
 
 
@@ -146,6 +147,8 @@ func get_rune_anchor(threshold: int) -> Control:
 
 func apply_player_state(player: Dictionary, is_opponent_presentation := false, portrait: Texture2D = null) -> void:
 	health = int(player.get("health", _health))
+	var initial_thresholds: Array = player.get("_initial_rune_thresholds", DEFAULT_RUNE_THRESHOLDS)
+	_rebuild_rune_entries_if_needed(initial_thresholds)
 	active_rune_thresholds = _normalize_rune_thresholds(player.get("rune_thresholds", DEFAULT_RUNE_THRESHOLDS))
 	has_ward = bool(player.get("has_ward", false))
 	set_is_opponent(is_opponent_presentation)
@@ -216,6 +219,7 @@ func _build_internal_nodes() -> void:
 	badge_box.add_child(_health_caption_label)
 
 	_rune_entries.clear()
+	_current_rune_thresholds_key = DEFAULT_RUNE_THRESHOLDS.duplicate()
 	for threshold in DEFAULT_RUNE_THRESHOLDS:
 		var rune_panel := PanelContainer.new()
 		rune_panel.name = "Rune_%d" % threshold
@@ -245,6 +249,53 @@ func _build_internal_nodes() -> void:
 		})
 
 	_is_built = true
+
+
+func _rebuild_rune_entries_if_needed(thresholds: Array) -> void:
+	if not _is_built:
+		return
+	var int_thresholds: Array = []
+	for t in thresholds:
+		int_thresholds.append(int(t))
+	if int_thresholds == _current_rune_thresholds_key:
+		return
+	_current_rune_thresholds_key = int_thresholds
+	# Remove old rune panels
+	for rune_entry in _rune_entries:
+		var panel = rune_entry.get("panel")
+		if panel != null and is_instance_valid(panel):
+			panel.queue_free()
+	_rune_entries.clear()
+	# Create new rune panels for the given thresholds
+	for threshold in int_thresholds:
+		var rune_panel := PanelContainer.new()
+		rune_panel.name = "Rune_%d" % threshold
+		rune_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_content_root.add_child(rune_panel)
+
+		var rune_inner := PanelContainer.new()
+		rune_inner.name = "Inner"
+		rune_inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_set_full_rect(rune_inner, 4)
+		rune_panel.add_child(rune_inner)
+
+		var crack := Label.new()
+		crack.name = "Crack"
+		crack.text = "\u00d7"
+		crack.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		crack.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		crack.add_theme_font_size_override("font_size", 21)
+		_set_full_rect(crack)
+		rune_panel.add_child(crack)
+
+		_rune_entries.append({
+			"threshold": threshold,
+			"panel": rune_panel,
+			"inner": rune_inner,
+			"crack": crack,
+		})
+	_refresh_runes()
+	_layout_internal_nodes()
 
 
 func _refresh_all() -> void:
@@ -483,27 +534,9 @@ func _build_style_box(fill: Color, border: Color, border_width := 1, corner_radi
 
 
 func _has_active_rune_near(threshold: int) -> bool:
-	# Exact match (standard runes)
 	for active_threshold in _active_rune_thresholds:
 		if int(active_threshold) == threshold:
 			return true
-	# Nearest match for non-standard thresholds (e.g. fortified spirit boon)
-	if _active_rune_thresholds.size() > DEFAULT_RUNE_THRESHOLDS.size():
-		# Extra runes exist — check if any non-standard threshold is closest to this slot
-		for active_threshold in _active_rune_thresholds:
-			var at := int(active_threshold)
-			if at in DEFAULT_RUNE_THRESHOLDS:
-				continue
-			# Find which default threshold this non-standard one is nearest to
-			var best_default := -1
-			var best_dist := 999
-			for dt in DEFAULT_RUNE_THRESHOLDS:
-				var dist := absi(at - dt)
-				if dist < best_dist:
-					best_dist = dist
-					best_default = dt
-			if best_default == threshold:
-				return true
 	return false
 
 
