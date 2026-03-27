@@ -254,6 +254,24 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 				break
 		if not found:
 			return false
+	# Required attribute in hand condition
+	var required_hand_attr := str(descriptor.get("required_attribute_in_hand", ""))
+	if not required_hand_attr.is_empty():
+		var hand: Array = controller.get("hand", [])
+		var raih_found := false
+		for card in hand:
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			var attrs = card.get("attributes", [])
+			if typeof(attrs) == TYPE_ARRAY and attrs.has(required_hand_attr):
+				raih_found = true
+				break
+			# Neutral cards have empty attributes array
+			if required_hand_attr == "neutral" and typeof(attrs) == TYPE_ARRAY and attrs.is_empty():
+				raih_found = true
+				break
+		if not raih_found:
+			return false
 	# Creature died this turn condition
 	if bool(descriptor.get("creature_died_this_turn", false)):
 		var found_death := false
@@ -312,6 +330,16 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 					if typeof(card) == TYPE_DICTIONARY and str(card.get("_marked_by", "")) == mark_source_id:
 						marked_alive = true
 		if not marked_alive:
+			return false
+	# Required target is the marked creature (e.g. Preying Elytra)
+	var req_target := str(descriptor.get("required_target", ""))
+	if req_target == "marked":
+		var rt_source_id := str(trigger.get("source_instance_id", ""))
+		var rt_event_target_id := str(event.get("target_instance_id", ""))
+		if rt_event_target_id.is_empty():
+			return false
+		var rt_target_card := _find_card_anywhere(match_state, rt_event_target_id)
+		if rt_target_card.is_empty() or str(rt_target_card.get("_marked_by", "")) != rt_source_id:
 			return false
 	# Max magicka threshold conditions
 	var req_magicka_gte := int(descriptor.get("required_max_magicka_gte", 0))

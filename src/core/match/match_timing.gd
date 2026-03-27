@@ -4250,6 +4250,14 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 										continue
 									drawn_card["_base_cost"] = card_cost
 									drawn_card["cost"] = maxi(0, card_cost - reduce_amount)
+						elif effect.has("if_action_set_cost"):
+							var iacs_cost := int(effect.get("if_action_set_cost", 0))
+							for drawn_card in drawn_cards:
+								if typeof(drawn_card) == TYPE_DICTIONARY and str(drawn_card.get("card_type", "")) == "action":
+									var original_cost := int(drawn_card.get("cost", 0))
+									if iacs_cost != original_cost:
+										drawn_card["_base_cost"] = original_cost
+									drawn_card["cost"] = iacs_cost
 			"draw_filtered":
 				var filter_dict: Dictionary = effect.get("filter", {}) if typeof(effect.get("filter", null)) == TYPE_DICTIONARY else {}
 				var filter_max_cost := int(effect.get("max_cost", filter_dict.get("max_cost", -1)))
