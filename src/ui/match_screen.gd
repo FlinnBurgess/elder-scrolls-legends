@@ -1157,7 +1157,10 @@ func target_selected_card(target_instance_id: String) -> Dictionary:
 		return _invalid_ui_result("Current selection does not use card targets.")
 	var finalized := _finalize_engine_result(result, "Resolved %s onto %s." % [_card_name(selected_card), _card_name(target_card)])
 	if bool(finalized.get("is_valid", false)) and not saved_item_id.is_empty():
-		_check_summon_target_mode(saved_item_id)
+		# Skip summon target mode for throw-mode items (item went to discard, not equipped)
+		var item_location := MatchMutations.find_card_location(_match_state, saved_item_id)
+		if bool(item_location.get("is_valid", false)) and str(item_location.get("zone", "")) != MatchMutations.ZONE_DISCARD:
+			_check_summon_target_mode(saved_item_id)
 	if bool(finalized.get("is_valid", false)) and not saved_action_id.is_empty():
 		_check_betray_mode(saved_action_id, saved_action_card)
 	return finalized

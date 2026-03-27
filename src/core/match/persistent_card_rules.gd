@@ -97,9 +97,69 @@ static func play_item_from_hand(match_state: Dictionary, player_id: String, inst
 			return _invalid_result("Items can only target creatures in a lane.")
 
 	var play_cost := 0 if bool(options.get("played_for_free", false)) else get_effective_play_cost(match_state, player_id, item_card)
+
+	# Check for throw-mode: item with on_play enemy damage ability targeting an enemy creature
+	var is_throw := false
+	var throw_ability := {}
+	if not target_card.is_empty() and str(target_card.get("controller_player_id", "")) != player_id:
+		for ta in item_card.get("triggered_abilities", []):
+			if typeof(ta) == TYPE_DICTIONARY and str(ta.get("family", "")) == "on_play":
+				var tm := str(ta.get("target_mode", ""))
+				if tm == "enemy_creature_optional" or tm == "enemy_creature":
+					is_throw = true
+					throw_ability = ta
+					break
+
 	if play_cost > 0:
 		_spend_magicka(match_state, player_id, play_cost)
 	_consume_cost_reduction(match_state, player_id)
+
+	if is_throw:
+		# Throw mode: discard item and apply on_play effects to the target
+		var player := _get_player_state(match_state, player_id)
+		var hand: Array = player.get(ZONE_HAND, [])
+		var hand_idx := -1
+		for i in range(hand.size()):
+			if typeof(hand[i]) == TYPE_DICTIONARY and str(hand[i].get("instance_id", "")) == instance_id:
+				hand_idx = i
+				break
+		if hand_idx == -1:
+			return _invalid_result("Item %s not found in hand." % instance_id)
+		var thrown_card: Dictionary = hand[hand_idx]
+		hand.remove_at(hand_idx)
+		thrown_card["zone"] = "discard"
+		player.get("discard", []).append(thrown_card)
+		generated_events.append({
+			"event_type": MatchTiming.EVENT_CARD_PLAYED,
+			"playing_player_id": player_id,
+			"player_id": player_id,
+			"source_instance_id": instance_id,
+			"source_controller_player_id": player_id,
+			"source_zone": ZONE_HAND,
+			"target_zone": "discard",
+			"target_instance_id": target_instance_id,
+			"card_type": CARD_TYPE_ITEM,
+			"played_cost": int(item_card.get("cost", 0)),
+			"played_for_free": bool(options.get("played_for_free", false)),
+			"reason": "throw_item",
+		})
+		# Apply throw damage to the target creature
+		for effect in throw_ability.get("effects", []):
+			if typeof(effect) != TYPE_DICTIONARY:
+				continue
+			var op := str(effect.get("op", ""))
+			if op == "deal_damage":
+				var amount := int(effect.get("amount", 0))
+				var damage_result := EvergreenRules.apply_damage_to_creature(target_card, amount)
+				generated_events.append({
+					"event_type": "creature_damaged",
+					"source_instance_id": instance_id,
+					"target_instance_id": target_instance_id,
+					"amount": int(damage_result.get("applied", 0)),
+					"player_id": player_id,
+				})
+		var timing_result := MatchTiming.publish_events(match_state, generated_events)
+		return {"is_valid": true, "errors": [], "card": thrown_card, "events": timing_result.get("processed_events", []), "trigger_resolutions": timing_result.get("trigger_resolutions", [])}
 
 	var attach_result := MatchMutations.attach_item_to_creature(match_state, player_id, instance_id, target_instance_id, {"source_zone": ZONE_HAND})
 	if not bool(attach_result.get("is_valid", false)):
