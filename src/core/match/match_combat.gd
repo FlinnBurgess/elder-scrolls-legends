@@ -560,10 +560,21 @@ static func _destroy_creature(match_state: Dictionary, lookup: Dictionary, destr
 	if not bool(moved.get("is_valid", false)):
 		return
 	var destroyed_card: Dictionary = moved["card"]
+	# Clean up cost locks tied to this creature
+	var destroyed_instance_id := str(destroyed_card.get("instance_id", ""))
+	for player in match_state.get("players", []):
+		if typeof(player) != TYPE_DICTIONARY:
+			continue
+		var cost_locks: Array = player.get("cost_locks", [])
+		var i := cost_locks.size() - 1
+		while i >= 0:
+			if typeof(cost_locks[i]) == TYPE_DICTIONARY and str(cost_locks[i].get("source_instance_id", "")) == destroyed_instance_id:
+				cost_locks.remove_at(i)
+			i -= 1
 	var destroy_event := {
 		"event_type": "creature_destroyed",
-		"instance_id": str(destroyed_card.get("instance_id", "")),
-		"source_instance_id": str(destroyed_card.get("instance_id", "")),
+		"instance_id": destroyed_instance_id,
+		"source_instance_id": destroyed_instance_id,
 		"owner_player_id": str(destroyed_card.get("owner_player_id", lookup.get("player_id", ""))),
 		"controller_player_id": destroyed_controller_player_id,
 		"destroyed_by_instance_id": destroyed_by_instance_id,

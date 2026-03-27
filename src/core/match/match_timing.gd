@@ -1128,6 +1128,25 @@ static func resolve_pending_player_choice(match_state: Dictionary, player_id: St
 			break
 	if choice_idx == -1:
 		return {"is_valid": false, "errors": ["No pending player choice for %s." % player_id]}
+	# then_op path: choices that store an operation to execute with the chosen option value
+	var then_op := str(choice.get("then_op", ""))
+	if not then_op.is_empty():
+		var options: Array = choice.get("options", [])
+		if chosen_index < 0 or chosen_index >= options.size():
+			return {"is_valid": false, "errors": ["Invalid choice index: %d" % chosen_index]}
+		choices.remove_at(choice_idx)
+		var chosen_value: String = str(options[chosen_index])
+		var then_context: Dictionary = choice.get("then_context", {})
+		var source_instance_id := str(choice.get("source_instance_id", ""))
+		var events: Array = _resolve_then_op(match_state, player_id, source_instance_id, then_op, chosen_value, then_context)
+		var timing_result := publish_events(match_state, events)
+		return {
+			"is_valid": true,
+			"errors": [],
+			"chosen_index": chosen_index,
+			"events": timing_result.get("processed_events", []),
+		}
+	# effects_per_option path: choices with pre-built effect arrays per option
 	var effects_per_option: Array = choice.get("effects_per_option", [])
 	if chosen_index < 0 or chosen_index >= effects_per_option.size():
 		return {"is_valid": false, "errors": ["Invalid choice index: %d" % chosen_index]}
@@ -1170,6 +1189,45 @@ static func resolve_pending_player_choice(match_state: Dictionary, player_id: St
 		"chosen_index": chosen_index,
 		"events": timing_result.get("processed_events", []),
 	}
+
+
+static func _resolve_then_op(match_state: Dictionary, player_id: String, source_instance_id: String, then_op: String, chosen_value: String, then_context: Dictionary) -> Array:
+	var events: Array = []
+	match then_op:
+		"set_cost_lock":
+			# Store the locked cost on the opponent's player state
+			var opponent := {}
+			for p in match_state.get("players", []):
+				if typeof(p) == TYPE_DICTIONARY and str(p.get("player_id", "")) != player_id:
+					opponent = p
+					break
+			if not opponent.is_empty():
+				var locks: Array = opponent.get("cost_locks", [])
+				locks.append({"cost": int(chosen_value), "source_instance_id": source_instance_id})
+				opponent["cost_locks"] = locks
+				events.append({"event_type": "cost_lock_applied", "player_id": player_id, "target_player_id": str(opponent.get("player_id", "")), "locked_cost": int(chosen_value), "source_instance_id": source_instance_id})
+		"set_cost_trigger":
+			# Store a cost-triggered effect on the source card
+			var source_card := _find_card_anywhere(match_state, source_instance_id)
+			if not source_card.is_empty():
+				var cost_triggers: Array = source_card.get("cost_triggers", [])
+				cost_triggers.append({"cost": int(chosen_value), "effects": then_context})
+				source_card["cost_triggers"] = cost_triggers
+				events.append({"event_type": "cost_trigger_set", "source_instance_id": source_instance_id, "chosen_cost": int(chosen_value)})
+		"apply_subtype_aura":
+			# Apply the subtype aura to the source card with the chosen subtype as filter
+			var source_card := _find_card_anywhere(match_state, source_instance_id)
+			if not source_card.is_empty():
+				var aura_template: Dictionary = then_context.duplicate(true)
+				aura_template["filter_subtype"] = chosen_value
+				var existing_auras = source_card.get("aura", {})
+				if typeof(existing_auras) == TYPE_DICTIONARY:
+					# Merge subtype filter into existing aura
+					existing_auras["filter_subtype"] = chosen_value
+				else:
+					source_card["aura"] = aura_template
+				events.append({"event_type": "subtype_aura_applied", "source_instance_id": source_instance_id, "chosen_subtype": chosen_value})
+	return events
 
 
 static func has_pending_secondary_target(match_state: Dictionary, player_id: String = "") -> bool:
@@ -2461,6 +2519,10 @@ static func play_action_from_hand(match_state: Dictionary, player_id: String, in
 	var play_cost := 0 if played_for_free else maxi(0, base_action_cost - action_cost_reduction)
 	if play_cost > _get_available_magicka(player):
 		return _invalid_result("Player does not have enough magicka to play %s." % instance_id)
+	if not played_for_free:
+		for cl in player.get("cost_locks", []):
+			if typeof(cl) == TYPE_DICTIONARY and int(cl.get("cost", -1)) == play_cost:
+				return _invalid_result("Cannot play cards with cost %d." % play_cost)
 	if play_cost > 0:
 		_spend_magicka(match_state, player_id, play_cost)
 	if action_cost_reduction > 0:

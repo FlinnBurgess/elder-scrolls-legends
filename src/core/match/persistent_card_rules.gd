@@ -238,6 +238,13 @@ static func _validate_hand_card(match_state: Dictionary, player_id: String, inst
 		return _invalid_result("Card %s is not a %s." % [instance_id, expected_type])
 	if not played_for_free and get_effective_play_cost(match_state, player_id, card) > _get_available_magicka(_get_player_state(match_state, player_id)):
 		return _invalid_result("Player does not have enough magicka to play %s." % instance_id)
+	if not played_for_free:
+		var card_cost := get_effective_play_cost(match_state, player_id, card)
+		var player_state := _get_player_state(match_state, player_id)
+		var cost_locks: Array = player_state.get("cost_locks", [])
+		for lock in cost_locks:
+			if typeof(lock) == TYPE_DICTIONARY and int(lock.get("cost", -1)) == card_cost:
+				return _invalid_result("Cannot play cards with cost %d." % card_cost)
 	return {"is_valid": true, "errors": [], "card": card}
 
 
