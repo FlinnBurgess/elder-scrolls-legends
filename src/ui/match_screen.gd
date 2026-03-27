@@ -2518,6 +2518,9 @@ func _dismiss_mulligan_overlay() -> void:
 func _finalize_mulligan(discard_instance_ids: Array) -> void:
 	MatchBootstrap.apply_mulligan(_match_state, _local_player_id(), discard_instance_ids)
 	_hydrate_match_cards(_match_state, _mulligan_card_by_id)
+	# Re-apply augments after hydration so stat bonuses aren't overwritten
+	if not _adventure_augments.is_empty():
+		_apply_adventure_augments(_match_state, PLAYER_ORDER[1])
 	GameLogger.start_match(_match_state)
 	MatchTurnLoop.begin_first_turn(_match_state)
 	_ai_enabled = true
