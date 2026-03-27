@@ -815,6 +815,11 @@ static func _collect_target_requirements(triggers: Array) -> Dictionary:
 
 static func _expand_target_parameter_sets(match_state: Dictionary, requirements: Dictionary) -> Array:
 	var parameter_sets: Array = [{}]
+	# choose_lane action_target_mode needs a lane_id
+	var atm_for_lane := str(requirements.get("action_target_mode", ""))
+	if atm_for_lane == "choose_lane":
+		requirements["needs_lane_id"] = true
+		requirements["needs_card_target"] = false
 	if bool(requirements.get("needs_player_target", false)):
 		var expanded_player_sets: Array = []
 		for parameters in parameter_sets:
@@ -874,8 +879,8 @@ static func _expand_target_parameter_sets(match_state: Dictionary, requirements:
 				var next_parameters: Dictionary = parameters.duplicate(true)
 				next_parameters["target_instance_id"] = str(card.get("instance_id", ""))
 				expanded_card_sets.append(next_parameters)
-			# Actions with no action_target_mode can also target players (face)
-			if atm.is_empty():
+			# Actions that can target players (face) — empty atm, creature_or_player, any_creature_or_player
+			if atm.is_empty() or atm == "creature_or_player" or atm == "any_creature_or_player":
 				for player_id in _player_ids(match_state):
 					var next_parameters: Dictionary = parameters.duplicate(true)
 					next_parameters["target_player_id"] = player_id

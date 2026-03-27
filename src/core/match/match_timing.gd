@@ -478,6 +478,9 @@ static func get_valid_targets_for_mode(match_state: Dictionary, source_instance_
 			targets = targets.filter(func(c):
 				var items = c.get("attached_items", [])
 				return typeof(items) == TYPE_ARRAY and items.size() >= 3)
+		"another_creature_with_cover":
+			targets = _all_lane_creatures(match_state)
+			targets = targets.filter(func(c): return str(c.get("instance_id", "")) != source_instance_id and EvergreenRules.has_status(c, EvergreenRules.STATUS_COVER))
 		"enemy_creature_and_friendly_creature":
 			# Return all creatures — UI handles the two-step pick
 			targets = _all_lane_creatures(match_state)

@@ -2300,6 +2300,8 @@ static func _card_matches_target_mode(target_mode: String, card: Dictionary, con
 				return false
 			var items = card.get("attached_items", [])
 			return typeof(items) == TYPE_ARRAY and items.size() >= 3
+		"another_creature_with_cover":
+			return EvergreenRules.has_status(card, EvergreenRules.STATUS_COVER)
 		"enemy_creature_and_friendly_creature":
 			return true
 	return true
