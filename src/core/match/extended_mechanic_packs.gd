@@ -320,6 +320,20 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 	var req_magicka_lt := int(descriptor.get("required_max_magicka_lt", 0))
 	if req_magicka_lt > 0 and int(controller.get("max_magicka", 0)) >= req_magicka_lt:
 		return false
+	# Required friendly creature with minimum power
+	var rfcmp := int(descriptor.get("required_friendly_creature_min_power", 0))
+	if rfcmp > 0:
+		var rfcmp_controller := str(trigger.get("controller_player_id", ""))
+		var rfcmp_found := false
+		for lane in match_state.get("lanes", []):
+			for card in lane.get("player_slots", {}).get(rfcmp_controller, []):
+				if typeof(card) == TYPE_DICTIONARY and EvergreenRules.get_power(card) >= rfcmp:
+					rfcmp_found = true
+					break
+			if rfcmp_found:
+				break
+		if not rfcmp_found:
+			return false
 	# Minimum destroyed enemy runes condition
 	var min_runes := int(descriptor.get("min_destroyed_enemy_runes", 0))
 	if min_runes > 0:
