@@ -10,10 +10,14 @@ const AdventureCatalogScript = preload("res://src/adventure/adventure_catalog.gd
 var _regions: Array = []
 var _world_config: Dictionary = {}
 var _clickmap_image: Image = null
+var _clickmap_texture: Texture2D = null
 var _map_texture_rect: TextureRect = null
+var _map_shader_material: ShaderMaterial = null
 var _region_color_map: Dictionary = {}  # Color -> region_id
 var _hover_label: Label = null
 var _is_fallback := false
+var _map_container: CenterContainer = null
+var _map_texture: Texture2D = null
 
 
 func _ready() -> void:
@@ -59,6 +63,22 @@ func _build_ui() -> void:
 	add_child(deck_btn)
 
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED and _map_container != null:
+		_resize_map()
+
+
+func _resize_map() -> void:
+	if _map_texture == null or _map_texture_rect == null:
+		return
+	var tex_size := _map_texture.get_size()
+	var available := size
+	var scale_factor := minf(available.x / tex_size.x, available.y / tex_size.y)
+	var fitted := tex_size * scale_factor
+	_map_texture_rect.custom_minimum_size = fitted
+	_map_texture_rect.size = fitted
+
+
 func _build_map_ui(map_texture: Texture2D) -> void:
 	# Background color matching the map edges for seamless blending
 	var bg_rect := ColorRect.new()
@@ -66,21 +86,38 @@ func _build_map_ui(map_texture: Texture2D) -> void:
 	bg_rect.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(bg_rect)
 
+	# Use a container to center the TextureRect at correct aspect ratio
+	# so the shader UV maps 1:1 to the texture pixels
+	var map_container := CenterContainer.new()
+	map_container.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	map_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(map_container)
+
 	_map_texture_rect = TextureRect.new()
 	_map_texture_rect.texture = map_texture
-	_map_texture_rect.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	_map_texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_map_texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_map_texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_map_texture_rect.mouse_filter = Control.MOUSE_FILTER_STOP
 	_map_texture_rect.gui_input.connect(_on_map_input)
-	add_child(_map_texture_rect)
+	map_container.add_child(_map_texture_rect)
 
-	# Load clickmap for hit detection
+	# Size the TextureRect to fit within the screen while preserving aspect ratio
+	# This is done in _notification(NOTIFICATION_RESIZED) but we need an initial call
+	_map_container = map_container
+	_map_texture = map_texture
+	call_deferred("_resize_map")
+
+	# Load clickmap for hit detection and hover shader
 	var clickmap_path: String = str(_world_config.get("clickmap_image", ""))
+	print("[WorldMap] clickmap_path: ", clickmap_path, " exists: ", ResourceLoader.exists(clickmap_path))
 	if not clickmap_path.is_empty() and ResourceLoader.exists(clickmap_path):
-		var clickmap_tex: Texture2D = load(clickmap_path)
-		if clickmap_tex != null:
-			_clickmap_image = clickmap_tex.get_image()
+		_clickmap_texture = load(clickmap_path)
+		print("[WorldMap] clickmap_texture loaded: ", _clickmap_texture != null)
+		if _clickmap_texture != null:
+			_clickmap_image = _clickmap_texture.get_image()
+			print("[WorldMap] clickmap_image size: ", _clickmap_image.get_width(), "x", _clickmap_image.get_height())
+			_setup_hover_shader()
+			print("[WorldMap] shader material assigned: ", _map_texture_rect.material != null)
 
 	# Hover label for region name
 	_hover_label = Label.new()
@@ -151,6 +188,56 @@ func _build_fallback_ui() -> void:
 	center.add_child(back_btn)
 
 
+func _setup_hover_shader() -> void:
+	var shader := Shader.new()
+	shader.code = """
+shader_type canvas_item;
+
+uniform sampler2D clickmap : filter_nearest;
+uniform vec3 hover_color;
+uniform float hover_active;
+uniform float saturate_strength : hint_range(0.0, 3.0) = 1.5;
+uniform float color_tolerance : hint_range(0.0, 0.5) = 0.15;
+
+void fragment() {
+	vec4 map_color = texture(TEXTURE, UV);
+	vec3 final_rgb = map_color.rgb;
+	if (hover_active >= 0.5) {
+		vec3 click_sample = texture(clickmap, UV).rgb;
+		float dist = distance(click_sample, hover_color);
+		if (dist < color_tolerance) {
+			float grey = dot(map_color.rgb, vec3(0.299, 0.587, 0.114));
+			final_rgb = map_color.rgb + (map_color.rgb - vec3(grey)) * saturate_strength;
+			final_rgb = clamp(final_rgb, 0.0, 1.0);
+		}
+	}
+	COLOR = vec4(final_rgb, map_color.a);
+}
+"""
+	_map_shader_material = ShaderMaterial.new()
+	_map_shader_material.shader = shader
+	_map_shader_material.set_shader_parameter("clickmap", _clickmap_texture)
+	_map_shader_material.set_shader_parameter("hover_color", Vector3(0, 0, 0))
+	_map_shader_material.set_shader_parameter("hover_active", 0.0)
+	_map_texture_rect.material = _map_shader_material
+
+
+func _set_hover_region(region_id: String) -> void:
+	if _map_shader_material == null:
+		print("[WorldMap] _set_hover_region: shader material is null!")
+		return
+	if region_id.is_empty():
+		_map_shader_material.set_shader_parameter("hover_active", 0.0)
+	else:
+		# Find the clickmap color for this region
+		# Convert sRGB -> linear to match source_color sampler conversion
+		for color in _region_color_map:
+			if _region_color_map[color] == region_id:
+				_map_shader_material.set_shader_parameter("hover_color", Vector3(color.r, color.g, color.b))
+				_map_shader_material.set_shader_parameter("hover_active", 1.0)
+				break
+
+
 func _on_map_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var region_id := _get_region_at_position(event.position)
@@ -162,9 +249,11 @@ func _on_map_input(event: InputEvent) -> void:
 			var region_name := _get_region_name(region_id)
 			_hover_label.text = region_name
 			_hover_label.visible = true
+			_set_hover_region(region_id)
 			Input.set_default_cursor_shape(Input.CURSOR_POINTING_HAND)
 		else:
 			_hover_label.visible = false
+			_set_hover_region("")
 			Input.set_default_cursor_shape(Input.CURSOR_ARROW)
 
 
@@ -172,20 +261,18 @@ func _get_region_at_position(local_pos: Vector2) -> String:
 	if _clickmap_image == null or _map_texture_rect == null:
 		return ""
 
-	var tex_size := _map_texture_rect.texture.get_size()
 	var rect_size := _map_texture_rect.size
-
-	# Calculate the actual drawn area for STRETCH_KEEP_ASPECT_CENTERED
-	var scale_factor := minf(rect_size.x / tex_size.x, rect_size.y / tex_size.y)
-	var drawn_size := tex_size * scale_factor
-	var offset := (rect_size - drawn_size) / 2.0
-
-	var relative_pos := local_pos - offset
-	if relative_pos.x < 0 or relative_pos.y < 0 or relative_pos.x >= drawn_size.x or relative_pos.y >= drawn_size.y:
+	if rect_size.x <= 0 or rect_size.y <= 0:
 		return ""
 
-	var image_x := int(relative_pos.x / scale_factor)
-	var image_y := int(relative_pos.y / scale_factor)
+	# TextureRect is sized to fit, so local_pos maps directly via UV
+	var uv_x := local_pos.x / rect_size.x
+	var uv_y := local_pos.y / rect_size.y
+	if uv_x < 0.0 or uv_y < 0.0 or uv_x > 1.0 or uv_y > 1.0:
+		return ""
+
+	var image_x := int(uv_x * _clickmap_image.get_width())
+	var image_y := int(uv_y * _clickmap_image.get_height())
 
 	if image_x < 0 or image_y < 0 or image_x >= _clickmap_image.get_width() or image_y >= _clickmap_image.get_height():
 		return ""
