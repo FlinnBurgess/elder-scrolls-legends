@@ -25,15 +25,11 @@ Read `data/regions/{region_id}.json` to see the current state — what adventure
 
 ### 1c. Research lore from web sources
 
-**Most wiki sites (UESP, Fandom, Imperial Library) frequently return 403 errors on direct fetch.** Start with `WebSearch` to gather lore from search result snippets, then selectively try fetching pages that appear in results. Effective fallback sources include game journalism sites (gamerant.com, dualshockers.com) and lore community blogs (theskyforge.ning.com, imperial-library.info).
+**WebSearch snippets are usually sufficient.** Multiple targeted web searches (one for geography, one for history, one for cultural traditions, one for ESO storylines, etc.) will typically surface enough lore from result summaries alone — often more efficiently than fetching full wiki pages. Launch 5-8 parallel web searches as the primary lore-gathering strategy.
 
-Try fetching in this order, but expect failures and move on quickly:
-1. UESP Wiki: `https://en.uesp.net/wiki/Lore:{Region_Name}`
-2. Elder Scrolls Fandom: `https://elderscrolls.fandom.com/wiki/{Region_Name}`
-3. Imperial Library: `https://www.imperial-library.info/content/{region-name}`
-4. Any promising URLs from web search results
+Only use `WebFetch` if a specific page looks exceptionally promising from search results. Most wiki sites (UESP, Fandom, Imperial Library) frequently return 403 errors on direct fetch, so don't spend time on fetch-then-fallback chains. Web searches are the workhorse here.
 
-**Parallelise aggressively** — launch web searches and fetch attempts concurrently. Don't wait for one source to fail before trying the next. Multiple targeted web searches (e.g., one for geography, one for history, one for cultural traditions) will often yield more usable information than a single wiki page.
+**Parallelise aggressively** — launch all initial web searches concurrently, not sequentially.
 
 Gather information across these categories:
 
@@ -72,6 +68,7 @@ For the most promising storylines, do additional targeted searches. For example:
 - If the region has a unique warrior tradition, research its history, notable practitioners, and ranks
 - If there's a famous war, research key battles and commanders
 - If there's a prominent game storyline, research its full plot arc and major characters
+- **ESO zone storylines** — If the region has ESO zones (most do), search for each zone's main storyline. ESO zones often have self-contained narrative arcs with named villains, faction conflicts, and set-piece battles that translate directly into adventure proposals. Search for `"Elder Scrolls Online {zone_name} storyline"` for each zone in the region.
 
 ## Phase 2: Catalog Audit
 
@@ -130,7 +127,7 @@ This prevents proposing an adventure with enemy decks that duplicate what's alre
 
 ## Phase 3: Cross-Reference
 
-Run Phase 2 and Phase 3 work in parallel where possible — catalog greps don't depend on lore research completing first. Start grepping for the region's dominant race and obvious place names while lore fetches are still in flight.
+Run Phase 1 (lore) and Phase 2 (catalog) in parallel — catalog greps don't depend on lore research completing first. Start grepping for the region's dominant race and obvious place names while lore searches are still in flight. Phase 3 cross-referencing begins once both are done.
 
 ### 3a. Match figures to cards
 
@@ -146,13 +143,15 @@ For each promising storyline, assess whether the card catalog has enough themati
 - **Enemy decks** for 3-5 combat encounters (can reuse cards across enemies)
 - At least one **boss** with a signature card or mechanic
 
-### 3c. Review existing adventures for patterns
+### 3c. Review existing adventures and decks for patterns
 
 Read 1-2 existing adventure JSON files in `data/adventures/` to understand:
 - Node count and type distribution (how many combats, events, shops, etc.)
 - Enemy deck naming conventions
 - XP reward ranges
 - Boss health ranges and quality values
+
+**Critical**: Read ALL existing player deck files in `data/decks/adventure/` (excluding `enemies/`) and note the `attribute_ids` of each. Map out which attribute pairs are already used. Every adventure proposal should target an **unused** attribute pair (or a tri-color combo) to ensure mechanical variety across the adventure catalog.
 
 ## Phase 4: Propose Adventures
 
@@ -186,6 +185,8 @@ Rate each adventure on:
 - **Card pool depth** (Excellent / Good / Moderate / Thin) — enough cards for a coherent deck?
 - **Boss availability** (Ready / Needs import / Custom only) — is there a legendary card for the boss?
 - **Lore richness** (Deep / Solid / Surface) — how much narrative material is there?
+- **Mechanical uniqueness** (High / Moderate / Low) — does this play differently from existing adventures?
+- **Suggested difficulty** (1-3) — matches the `difficulty` field in adventure JSON
 
 ## Phase 5: Write Report
 
@@ -199,8 +200,9 @@ Save the complete findings to `development-artifacts/{region_id}_adventure_resea
 5. **Prominent Figures** — table with name, role, and boss potential
 6. **Signature Cultural Elements** — what makes this region unique
 7. **Cards in the Catalog** — organized by legendary cards, place-named cards, and thematic groups
-8. **Adventure Proposals** — 3-5 proposals with full details from Phase 4
-9. **Summary Table** — ranked comparison of all proposals
+8. **Existing Adventures & Attribute Usage** — table of all current adventure decks with their attribute pairs, plus list of unused pairs. This is critical context for ensuring proposals don't overlap.
+9. **Adventure Proposals** — 3-5 proposals with full details from Phase 4
+10. **Summary Table** — ranked comparison of all proposals
 
 ### 5b. Prioritize and recommend
 

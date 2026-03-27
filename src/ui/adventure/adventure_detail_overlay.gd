@@ -17,19 +17,6 @@ const REWARD_COLOR := Color(0.9, 0.75, 0.3, 1.0)
 const COMPLETED_COLOR := Color(0.4, 0.75, 0.4, 1.0)
 const SPECIAL_RULE_COLOR := Color(0.7, 0.5, 0.9, 1.0)
 
-const FADE_SHADER_CODE := "
-shader_type canvas_item;
-uniform float fade_start : hint_range(0.0, 1.0) = 0.0;
-uniform float fade_end : hint_range(0.0, 1.0) = 0.35;
-uniform float rect_width = 600.0;
-void fragment() {
-	float t = VERTEX.x / rect_width;
-	float fade = smoothstep(fade_start, fade_end, t);
-	COLOR = texture(TEXTURE, UV);
-	COLOR.a *= fade;
-}
-"
-
 var _adventure: Dictionary = {}
 var _first_clear: bool = false  # true if this deck has NOT yet completed this adventure
 var _first_completion_reward: Dictionary = {}
@@ -113,7 +100,7 @@ func _build_left_content() -> Control:
 	# Title
 	var title := Label.new()
 	title.text = str(_adventure.get("name", "Unknown Adventure"))
-	title.add_theme_font_size_override("font_size", 36)
+	title.add_theme_font_size_override("font_size", 42)
 	title.add_theme_color_override("font_color", TITLE_COLOR)
 	vbox.add_child(title)
 
@@ -121,7 +108,7 @@ func _build_left_content() -> Control:
 	var difficulty: int = int(_adventure.get("difficulty", 1))
 	var diff_label := Label.new()
 	diff_label.text = "Difficulty: " + _get_difficulty_stars(difficulty)
-	diff_label.add_theme_font_size_override("font_size", 20)
+	diff_label.add_theme_font_size_override("font_size", 26)
 	diff_label.add_theme_color_override("font_color", SUBTITLE_COLOR)
 	vbox.add_child(diff_label)
 
@@ -130,7 +117,7 @@ func _build_left_content() -> Control:
 	if not description.is_empty():
 		var desc_label := Label.new()
 		desc_label.text = description
-		desc_label.add_theme_font_size_override("font_size", 18)
+		desc_label.add_theme_font_size_override("font_size", 22)
 		desc_label.add_theme_color_override("font_color", TEXT_COLOR)
 		desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		desc_label.custom_minimum_size = Vector2(300, 0)
@@ -138,21 +125,24 @@ func _build_left_content() -> Control:
 
 	# Special rules
 	var special_rules: Array = _adventure.get("special_rules", []) if typeof(_adventure.get("special_rules")) == TYPE_ARRAY else []
-	if not special_rules.is_empty():
-		var rules_spacer := Control.new()
-		rules_spacer.custom_minimum_size = Vector2(0, 4)
-		vbox.add_child(rules_spacer)
 
-		var rules_header := Label.new()
-		rules_header.text = "Special Rules"
-		rules_header.add_theme_font_size_override("font_size", 22)
-		rules_header.add_theme_color_override("font_color", SPECIAL_RULE_COLOR)
-		vbox.add_child(rules_header)
+	var rules_header := Label.new()
+	rules_header.text = "Special Rules"
+	rules_header.add_theme_font_size_override("font_size", 26)
+	rules_header.add_theme_color_override("font_color", SPECIAL_RULE_COLOR)
+	vbox.add_child(rules_header)
 
+	if special_rules.is_empty():
+		var none_label := Label.new()
+		none_label.text = "None"
+		none_label.add_theme_font_size_override("font_size", 21)
+		none_label.add_theme_color_override("font_color", MUTED_COLOR)
+		vbox.add_child(none_label)
+	else:
 		for rule in special_rules:
 			var rule_label := Label.new()
 			rule_label.text = "  - " + str(rule)
-			rule_label.add_theme_font_size_override("font_size", 17)
+			rule_label.add_theme_font_size_override("font_size", 21)
 			rule_label.add_theme_color_override("font_color", TEXT_COLOR)
 			rule_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			rule_label.custom_minimum_size = Vector2(280, 0)
@@ -166,14 +156,14 @@ func _build_left_content() -> Control:
 	# Reward section
 	var reward_header := Label.new()
 	reward_header.text = "Reward"
-	reward_header.add_theme_font_size_override("font_size", 22)
+	reward_header.add_theme_font_size_override("font_size", 26)
 	reward_header.add_theme_color_override("font_color", SUBTITLE_COLOR)
 	vbox.add_child(reward_header)
 
 	var reward_text := _get_reward_text()
 	var reward_label := Label.new()
 	reward_label.text = reward_text
-	reward_label.add_theme_font_size_override("font_size", 18)
+	reward_label.add_theme_font_size_override("font_size", 22)
 	reward_label.add_theme_color_override("font_color", REWARD_COLOR if _first_clear else COMPLETED_COLOR)
 	reward_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	reward_label.custom_minimum_size = Vector2(280, 0)
@@ -222,23 +212,8 @@ func _build_right_art() -> Control:
 	tex_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tex_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 
-	# Apply left-fade shader using local VERTEX.x / rect_width
-	var shader := Shader.new()
-	shader.code = FADE_SHADER_CODE
-	var mat := ShaderMaterial.new()
-	mat.shader = shader
-	mat.set_shader_parameter("fade_start", 0.0)
-	mat.set_shader_parameter("fade_end", 0.35)
-	mat.set_shader_parameter("rect_width", 600.0)
-	tex_rect.material = mat
-
 	container.add_child(tex_rect)
 	container.clip_contents = true
-
-	# Keep rect_width uniform in sync with actual size
-	tex_rect.resized.connect(func() -> void:
-		mat.set_shader_parameter("rect_width", tex_rect.size.x)
-	)
 
 	return container
 
