@@ -19,11 +19,13 @@ const SPECIAL_RULE_COLOR := Color(0.7, 0.5, 0.9, 1.0)
 
 const FADE_SHADER_CODE := "
 shader_type canvas_item;
-uniform float fade_start : hint_range(0.0, 1.0) = 0.3;
-uniform float fade_end : hint_range(0.0, 1.0) = 0.7;
+uniform float fade_start : hint_range(0.0, 1.0) = 0.0;
+uniform float fade_end : hint_range(0.0, 1.0) = 0.35;
+uniform float rect_width = 600.0;
 void fragment() {
+	float t = VERTEX.x / rect_width;
+	float fade = smoothstep(fade_start, fade_end, t);
 	COLOR = texture(TEXTURE, UV);
-	float fade = smoothstep(fade_start, fade_end, 1.0 - UV.x);
 	COLOR.a *= fade;
 }
 "
@@ -67,9 +69,10 @@ func _build_ui() -> void:
 	main.offset_bottom = -40
 	add_child(main)
 
-	# Panel background
+	# Panel background with clip_contents to respect rounded corners
 	var panel := PanelContainer.new()
 	panel.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	panel.clip_contents = true
 	var style := StyleBoxFlat.new()
 	style.bg_color = PANEL_BG
 	style.border_color = PANEL_BORDER
@@ -78,11 +81,10 @@ func _build_ui() -> void:
 	panel.add_theme_stylebox_override("panel", style)
 	main.add_child(panel)
 
-	# Inner HBoxContainer: left content + right boss art
+	# Inner HBoxContainer: left content + right boss art (inside panel for clipping)
 	var hbox := HBoxContainer.new()
-	hbox.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	hbox.add_theme_constant_override("separation", 0)
-	main.add_child(hbox)
+	panel.add_child(hbox)
 
 	# --- Left side: text content ---
 	var left := _build_left_content()
@@ -220,19 +222,23 @@ func _build_right_art() -> Control:
 	tex_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tex_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 
-	# Apply left-fade shader
+	# Apply left-fade shader using local VERTEX.x / rect_width
 	var shader := Shader.new()
 	shader.code = FADE_SHADER_CODE
 	var mat := ShaderMaterial.new()
 	mat.shader = shader
 	mat.set_shader_parameter("fade_start", 0.0)
 	mat.set_shader_parameter("fade_end", 0.35)
+	mat.set_shader_parameter("rect_width", 600.0)
 	tex_rect.material = mat
 
 	container.add_child(tex_rect)
-
-	# Clip content to container bounds
 	container.clip_contents = true
+
+	# Keep rect_width uniform in sync with actual size
+	tex_rect.resized.connect(func() -> void:
+		mat.set_shader_parameter("rect_width", tex_rect.size.x)
+	)
 
 	return container
 

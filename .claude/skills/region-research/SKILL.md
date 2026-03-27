@@ -106,6 +106,28 @@ Note which clusters have enough depth (8+ cards) to support a full adventure dec
 
 Look for cards that directly reference lore events or artifacts (e.g., "Siege of Stros M'Kai", "The Red Year"). These provide strong thematic anchors.
 
+### 2e. Audit enemy card pools
+
+Search the catalog for cards that could populate **enemy decks** — this is just as important as finding player cards. Common enemy pools:
+- **Daedra** subtype (for Daedric invasion themes)
+- **Skeleton/Spirit/Vampire** subtypes (for undead/necromancy themes)
+- **Beast/Animal** subtypes native to the region
+- **Ward/Mage** cards in Intelligence (for enemy mage decks)
+- Any race subtype that could serve as an enemy faction
+
+Note the card count per enemy theme. A viable enemy deck needs ~12-15 distinct cards (with quantity multipliers reaching ~30 total). If an enemy theme has fewer than 8 cards, flag it as insufficient.
+
+**Tip**: Use a subagent (Agent tool with `subagent_type: Explore`) for the full catalog audit. Searching `card_catalog.gd` and `data/wiki_scrape/cards.json` across 10+ grep patterns is a perfect subagent task — it keeps the main context clean and runs faster via parallel searches.
+
+### 2f. Review existing enemy decks
+
+Read enemy deck files in `data/decks/adventure/enemies/` to understand:
+- What enemy themes are already built (e.g., Thalmor, Necromancer, Draugr)
+- Enemy deck structure: card count, quantity distribution, attribute spread
+- Which cards are already "claimed" by existing enemy decks (avoid reusing the same deck wholesale)
+
+This prevents proposing an adventure with enemy decks that duplicate what's already in the game.
+
 ## Phase 3: Cross-Reference
 
 Run Phase 2 and Phase 3 work in parallel where possible — catalog greps don't depend on lore research completing first. Start grepping for the region's dominant race and obvious place names while lore fetches are still in flight.
@@ -120,7 +142,7 @@ For each prominent lore figure identified in Phase 1, check if they exist as a c
 ### 3b. Match storylines to card pools
 
 For each promising storyline, assess whether the card catalog has enough thematically matching cards to build:
-- A **player deck** (30 cards, coherent theme, 1-2 attributes)
+- A **player deck** (30 cards, coherent theme, 1-3 attributes — tri-color is valid if the region has a tri-color faction like the Aldmeri Dominion)
 - **Enemy decks** for 3-5 combat encounters (can reuse cards across enemies)
 - At least one **boss** with a signature card or mechanic
 
@@ -192,7 +214,7 @@ End with a clear recommendation for which adventure to build first, based on:
 
 - **UESP may block requests** — always have fallback sources. Web searches often surface enough lore even when wikis are inaccessible.
 - **Card catalog is the constraint** — exciting lore means nothing if the catalog can't support a deck. Always verify card pool depth before proposing an adventure.
-- **Check existing adventures for overlap** — don't propose a theme too similar to an existing adventure in another region. Read `data/adventures/*.json` headlines.
+- **Check existing adventures for overlap** — don't propose a theme too similar to an existing adventure in another region. Read `data/adventures/*.json` headlines. Also read existing player deck files in `data/decks/adventure/` to check attribute overlap — if an existing deck already uses INT/WIL, differentiate your proposal with different attributes, a tri-color build, or a distinctly different mechanical identity (e.g., token/buff vs action-spam).
 - **Dual-attribute cards matter** — a STR/INT deck can use STR cards, INT cards, AND STR/INT dual cards. Don't miss the dual-attribute section of the catalog.
 - **Race subtypes are key** — the dominant race's subtype (e.g., "Redguard", "Dark Elf") is the strongest filter for finding thematically appropriate cards.
 - **Items, keywords, and effects cluster by attribute** — STR has items/weapons, INT has wards/spells, AGI has movement/pilfer, END has guards/last gasp, WIL has tokens/healing. Match the region's cultural flavor to the right attribute.
