@@ -3100,6 +3100,10 @@ static func _get_aura_targets(match_state: Dictionary, source_card: Dictionary, 
 				var attributes: Array = card.get("attributes", [])
 				if not attributes.has(filter_attribute):
 					continue
+			var filter_kw: String = str(aura.get("filter_keyword", ""))
+			if not filter_kw.is_empty():
+				if not EvergreenRules.has_keyword(card, filter_kw):
+					continue
 			targets.append(card)
 	return targets
 
@@ -3944,7 +3948,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						base_health = EvergreenRules.get_power(ms_source_h)
 				var total_power := base_power * stat_multiplier
 				var total_health := base_health * stat_multiplier
-				var is_temp := str(effect.get("duration", "")) == "end_of_turn" or bool(effect.get("temporary", false))
+				var is_temp := str(effect.get("duration", "")) == "end_of_turn" or bool(effect.get("temporary", false)) or bool(effect.get("expires_end_of_turn", false))
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					EvergreenRules.apply_stat_bonus(card, total_power, total_health, reason)
 					if is_temp:
@@ -3980,7 +3984,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"status_id": status_id,
 					})
 			"grant_keyword":
-				var kw_is_temp := str(effect.get("duration", "")) == "end_of_turn" or bool(effect.get("temporary", false))
+				var kw_is_temp := str(effect.get("duration", "")) == "end_of_turn" or bool(effect.get("temporary", false)) or bool(effect.get("expires_end_of_turn", false))
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					EvergreenRules.ensure_card_state(card)
 					var keyword_id := str(effect.get("keyword_id", ""))
@@ -8067,7 +8071,7 @@ static func _resolve_card_targets(match_state: Dictionary, trigger: Dictionary, 
 			if typeof(subtypes) == TYPE_ARRAY and subtypes.has(filter_subtype):
 				filtered.append(card)
 		targets = filtered
-	var filter_keyword := str(effect.get("target_filter_keyword", ""))
+	var filter_keyword := str(effect.get("target_filter_keyword", effect.get("filter_keyword", "")))
 	if not filter_keyword.is_empty():
 		var filtered: Array = []
 		for card in targets:
