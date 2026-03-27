@@ -2,6 +2,6 @@
 	"id": "valenwood",
 	"name": "Valenwood",
 	"clickmap_color": "#FF8C00",
-	"background_image": "res://assets/images/maps/regions/valenwood.png",
+	"background_image": "res://assets/images/maps/valenwood.png",
 	"adventures": []
 }

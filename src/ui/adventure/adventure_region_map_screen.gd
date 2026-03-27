@@ -49,6 +49,11 @@ func _build_ui() -> void:
 
 
 func _build_map_ui(bg_texture: Texture2D) -> void:
+	var bg_rect := ColorRect.new()
+	bg_rect.color = Color(0.773, 0.820, 0.820, 1.0)  # #C5D1D1 — matches Tamriel map edges
+	bg_rect.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	add_child(bg_rect)
+
 	var bg := TextureRect.new()
 	bg.texture = bg_texture
 	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)

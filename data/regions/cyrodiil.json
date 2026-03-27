@@ -2,6 +2,6 @@
 	"id": "cyrodiil",
 	"name": "Cyrodiil",
 	"clickmap_color": "#B02636",
-	"background_image": "res://assets/images/maps/regions/cyrodiil.png",
+	"background_image": "res://assets/images/maps/cyrodiil.png",
 	"adventures": []
 }

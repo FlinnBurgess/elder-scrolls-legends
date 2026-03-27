@@ -2,6 +2,6 @@
 	"id": "black_marsh",
 	"name": "Black Marsh",
 	"clickmap_color": "#BE6336",
-	"background_image": "res://assets/images/maps/regions/black_marsh.png",
+	"background_image": "res://assets/images/maps/black-marsh.png",
 	"adventures": []
 }

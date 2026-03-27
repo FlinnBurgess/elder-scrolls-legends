@@ -2,6 +2,6 @@
 	"id": "high_rock",
 	"name": "High Rock",
 	"clickmap_color": "#468046",
-	"background_image": "res://assets/images/maps/regions/high_rock.png",
+	"background_image": "res://assets/images/maps/high-rock.png",
 	"adventures": []
 }

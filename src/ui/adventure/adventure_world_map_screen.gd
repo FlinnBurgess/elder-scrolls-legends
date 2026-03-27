@@ -14,7 +14,6 @@ var _clickmap_texture: Texture2D = null
 var _map_texture_rect: TextureRect = null
 var _map_shader_material: ShaderMaterial = null
 var _region_color_map: Dictionary = {}  # Color -> region_id
-var _hover_label: Label = null
 var _is_fallback := false
 var _map_container: CenterContainer = null
 var _map_texture: Texture2D = null
@@ -118,17 +117,6 @@ func _build_map_ui(map_texture: Texture2D) -> void:
 			print("[WorldMap] clickmap_image size: ", _clickmap_image.get_width(), "x", _clickmap_image.get_height())
 			_setup_hover_shader()
 			print("[WorldMap] shader material assigned: ", _map_texture_rect.material != null)
-
-	# Hover label for region name
-	_hover_label = Label.new()
-	_hover_label.add_theme_font_size_override("font_size", 28)
-	_hover_label.add_theme_color_override("font_color", Color.WHITE)
-	_hover_label.set_anchors_and_offsets_preset(PRESET_BOTTOM_LEFT)
-	_hover_label.offset_left = 20
-	_hover_label.offset_bottom = -20
-	_hover_label.offset_top = -60
-	_hover_label.visible = false
-	add_child(_hover_label)
 
 	# Back button bottom-left
 	var back_btn := Button.new()
@@ -246,13 +234,9 @@ func _on_map_input(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion:
 		var region_id := _get_region_at_position(event.position)
 		if not region_id.is_empty():
-			var region_name := _get_region_name(region_id)
-			_hover_label.text = region_name
-			_hover_label.visible = true
 			_set_hover_region(region_id)
 			Input.set_default_cursor_shape(Input.CURSOR_POINTING_HAND)
 		else:
-			_hover_label.visible = false
 			_set_hover_region("")
 			Input.set_default_cursor_shape(Input.CURSOR_ARROW)
 
@@ -295,13 +279,6 @@ func _color_distance(a: Color, b: Color) -> float:
 	var dg := a.g - b.g
 	var db := a.b - b.b
 	return sqrt(dr * dr + dg * dg + db * db)
-
-
-func _get_region_name(region_id: String) -> String:
-	for region in _regions:
-		if str(region.get("id", "")) == region_id:
-			return str(region.get("name", region_id))
-	return region_id
 
 
 func _exit_tree() -> void:
