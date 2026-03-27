@@ -245,6 +245,13 @@ static func _clear_temporary_stat_bonuses(match_state: Dictionary) -> void:
 					EvergreenRules.remove_status(card, str(status_id))
 				if not temp_statuses.is_empty():
 					card["_temp_statuses"] = []
+				# Promote next-turn temp statuses to temp statuses (expire next end-of-turn)
+				var next_turn_temps: Array = card.get("_next_turn_temp_statuses", [])
+				if not next_turn_temps.is_empty():
+					var promoted: Array = card.get("_temp_statuses", [])
+					promoted.append_array(next_turn_temps)
+					card["_temp_statuses"] = promoted
+					card["_next_turn_temp_statuses"] = []
 
 
 static func _expire_shadow_cover_if_needed(card: Dictionary, current_turn_number: int) -> void:

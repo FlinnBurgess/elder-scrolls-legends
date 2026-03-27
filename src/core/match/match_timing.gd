@@ -3972,11 +3972,18 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						EvergreenRules.grant_cover(card, int(match_state.get("turn_number", 0)) + offset, reason)
 					else:
 						EvergreenRules.add_status(card, status_id)
-						if bool(effect.get("expires_end_of_turn", false)) or str(effect.get("duration", "")) == "end_of_turn":
+						var gs_duration := str(effect.get("duration", ""))
+						if bool(effect.get("expires_end_of_turn", false)) or gs_duration == "end_of_turn":
 							var temp_statuses: Array = card.get("_temp_statuses", [])
 							if not temp_statuses.has(status_id):
 								temp_statuses.append(status_id)
 							card["_temp_statuses"] = temp_statuses
+						elif gs_duration == "until_start_of_next_turn":
+							# Expires at end of next turn (survives one extra turn-end cycle)
+							var next_turn_temps: Array = card.get("_next_turn_temp_statuses", [])
+							if not next_turn_temps.has(status_id):
+								next_turn_temps.append(status_id)
+							card["_next_turn_temp_statuses"] = next_turn_temps
 					generated_events.append({
 						"event_type": "status_granted",
 						"source_instance_id": str(trigger.get("source_instance_id", "")),
@@ -4375,7 +4382,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					generated_events.append_array(silence_result.get("events", []))
 			"shackle":
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
-					if _is_immune_to_effect(match_state, card, "shackle"):
+					if _is_immune_to_effect(match_state, card, "shackle") or EvergreenRules.has_raw_status(card, "shackle_immune"):
 						continue
 					EvergreenRules.add_status(card, EvergreenRules.STATUS_SHACKLED)
 					card["shackle_expires_on_turn"] = int(match_state.get("turn_number", 0)) + 1

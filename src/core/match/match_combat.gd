@@ -108,6 +108,9 @@ static func _validate_player_attack_target(attacker_lookup: Dictionary, defendin
 	if str(target.get("player_id", "")) != defending_player_id:
 		return _invalid_result("Creatures can only attack the opposing player.")
 
+	if EvergreenRules.has_raw_status(attacker_lookup["card"], "can_only_attack_creatures"):
+		return _invalid_result("This creature can only attack other creatures.")
+
 	if not enemy_guards.is_empty() and not EvergreenRules.has_status(attacker_lookup["card"], "ignore_guard"):
 		return _invalid_result("Guard creatures in lane %s must be attacked first." % attacker_lookup["lane_id"])
 
