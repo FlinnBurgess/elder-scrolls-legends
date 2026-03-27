@@ -1,0 +1,7 @@
+{
+	"id": "summerset_isles",
+	"name": "Summerset Isles",
+	"clickmap_color": "#3A7DB1",
+	"background_image": "res://assets/images/maps/regions/summerset_isles.png",
+	"adventures": []
+}

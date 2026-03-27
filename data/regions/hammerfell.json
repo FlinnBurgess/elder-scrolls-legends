@@ -1,0 +1,7 @@
+{
+	"id": "hammerfell",
+	"name": "Hammerfell",
+	"clickmap_color": "#AF8753",
+	"background_image": "res://assets/images/maps/regions/hammerfell.png",
+	"adventures": []
+}

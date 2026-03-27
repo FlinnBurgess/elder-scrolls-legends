@@ -1,0 +1,7 @@
+{
+	"id": "elsweyr",
+	"name": "Elsweyr",
+	"clickmap_color": "#C79921",
+	"background_image": "res://assets/images/maps/regions/elsweyr.png",
+	"adventures": []
+}

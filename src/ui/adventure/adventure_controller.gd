@@ -8,7 +8,8 @@ const AdventureRunManagerScript = preload("res://src/adventure/adventure_run_man
 const AdventureDeckLoaderScript = preload("res://src/adventure/adventure_deck_loader.gd")
 const AdventureCardPoolScript = preload("res://src/adventure/adventure_card_pool.gd")
 const AdventureDeckSelectScreenScript = preload("res://src/ui/adventure/adventure_deck_select_screen.gd")
-const AdventureSelectScreenScript = preload("res://src/ui/adventure/adventure_select_screen.gd")
+const AdventureWorldMapScreenScript = preload("res://src/ui/adventure/adventure_world_map_screen.gd")
+const AdventureRegionMapScreenScript = preload("res://src/ui/adventure/adventure_region_map_screen.gd")
 const AdventureNodeMapScreenScript = preload("res://src/ui/adventure/adventure_node_map_screen.gd")
 const AdventureResultScreenScript = preload("res://src/ui/adventure/adventure_result_screen.gd")
 const BoonCatalogScript = preload("res://src/adventure/boon_catalog.gd")
@@ -34,11 +35,14 @@ var _current_screen: Control = null
 var _current_overlay: Control = null
 var _selected_deck: Dictionary = {}
 var _run_result_data: Dictionary = {}  # Stores XP/level-up info for result screen
+var _current_region_id: String = ""
+var _deck_screen_return_to: String = ""  # "world_map" or "region_map"
 
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	_progression = AdventureProgressionManagerScript.load_progression()
+	_auto_select_deck()
 	if AdventureRunManagerScript.has_active_run():
 		_run_manager = AdventureRunManagerScript.load_run()
 		_current_adventure = AdventureCatalogScript.load_adventure(_run_manager.adventure_id)
@@ -48,9 +52,25 @@ func _ready() -> void:
 			AdventureRunManagerScript.State.IN_MATCH:
 				_resume_match()
 			_:
-				_show_deck_screen()
+				_show_world_map()
 	else:
-		_show_deck_screen()
+		_show_world_map()
+
+
+func _auto_select_deck() -> void:
+	if not _selected_deck.is_empty():
+		return
+	var decks := AdventureDeckLoaderScript.list_player_decks()
+	if decks.is_empty():
+		return
+	var selected_deck_id: String = str(_progression.last_selected_deck_id)
+	if not selected_deck_id.is_empty():
+		for d in decks:
+			if str(d.get("deck_id", "")) == selected_deck_id:
+				_selected_deck = d
+				break
+	if _selected_deck.is_empty():
+		_selected_deck = decks[0]
 
 
 func _clear_screen() -> void:
@@ -68,32 +88,66 @@ func _dismiss_overlay() -> void:
 
 # --- Screen Navigation ---
 
-func _show_deck_screen() -> void:
+func _show_world_map() -> void:
 	_clear_screen()
-	# Auto-select last deck only if no deck is currently selected
 	if _selected_deck.is_empty():
-		var decks := AdventureDeckLoaderScript.list_player_decks()
-		if decks.is_empty():
+		_auto_select_deck()
+		if _selected_deck.is_empty():
 			return_to_menu.emit()
 			return
-		var selected_deck_id: String = str(_progression.last_selected_deck_id)
-		if not selected_deck_id.is_empty():
-			for d in decks:
-				if str(d.get("deck_id", "")) == selected_deck_id:
-					_selected_deck = d
-					break
-		if _selected_deck.is_empty():
-			_selected_deck = decks[0]
-	var screen := AdventureDeckScreenScript.new()
-	screen.begin_adventure_pressed.connect(_on_begin_adventure)
-	screen.switch_deck_pressed.connect(_on_switch_deck)
+	var screen := AdventureWorldMapScreenScript.new()
+	screen.region_selected.connect(_on_region_selected)
+	screen.deck_pressed.connect(func() -> void: _show_deck_screen_overlay("world_map"))
 	screen.back_pressed.connect(func() -> void: return_to_menu.emit())
+	add_child(screen)
+	_current_screen = screen
+
+
+func _on_region_selected(region_id: String) -> void:
+	_current_region_id = region_id
+	_show_region_map(region_id)
+
+
+func _show_region_map(region_id: String) -> void:
+	_clear_screen()
+	var region_data := AdventureCatalogScript.load_region(region_id)
+	if region_data.is_empty():
+		_show_world_map()
+		return
+	var deck_id := str(_selected_deck.get("deck_id", ""))
+	var screen := AdventureRegionMapScreenScript.new()
+	screen.adventure_selected.connect(_on_adventure_selected)
+	screen.deck_pressed.connect(func() -> void: _show_deck_screen_overlay("region_map"))
+	screen.back_pressed.connect(func() -> void: _show_world_map())
+	add_child(screen)
+	_current_screen = screen
+	screen.set_region(region_data, deck_id)
+
+
+func _show_deck_screen_overlay(return_to: String) -> void:
+	_clear_screen()
+	_deck_screen_return_to = return_to
+	var screen := AdventureDeckScreenScript.new()
+	screen.set_view_only(true)
+	screen.switch_deck_pressed.connect(_on_switch_deck)
+	screen.back_pressed.connect(_on_deck_screen_overlay_back)
 	screen.relic_equipped.connect(_on_relic_equipped)
 	screen.relic_unequipped.connect(_on_relic_unequipped)
 	screen.view_progression_pressed.connect(_on_view_progression)
 	add_child(screen)
 	_current_screen = screen
 	_update_deck_screen(screen)
+
+
+func _on_deck_screen_overlay_back() -> void:
+	match _deck_screen_return_to:
+		"region_map":
+			if not _current_region_id.is_empty():
+				_show_region_map(_current_region_id)
+			else:
+				_show_world_map()
+		_:
+			_show_world_map()
 
 
 func _update_deck_screen(screen = null) -> void:
@@ -117,17 +171,6 @@ func _update_deck_screen(screen = null) -> void:
 	)
 
 
-func _on_begin_adventure() -> void:
-	var deck_id: String = str(_selected_deck.get("deck_id", ""))
-	_progression.last_selected_deck_id = deck_id
-	_progression.save()
-	var adventures := AdventureCatalogScript.get_adventures_for_deck(deck_id)
-	if adventures.size() == 1:
-		_on_adventure_selected(adventures[0])
-	else:
-		_show_adventure_select(adventures)
-
-
 func _on_switch_deck() -> void:
 	_clear_screen()
 	var screen := AdventureDeckSelectScreenScript.new()
@@ -135,9 +178,9 @@ func _on_switch_deck() -> void:
 		_selected_deck = deck_data
 		_progression.last_selected_deck_id = str(deck_data.get("deck_id", ""))
 		_progression.save()
-		_show_deck_screen()
+		_on_deck_screen_overlay_back()
 	)
-	screen.back_pressed.connect(_show_deck_screen)
+	screen.back_pressed.connect(_on_deck_screen_overlay_back)
 	add_child(screen)
 	_current_screen = screen
 
@@ -186,20 +229,12 @@ func _on_view_progression() -> void:
 	)
 
 
-func _show_adventure_select(adventures: Array) -> void:
-	_clear_screen()
-	var screen := AdventureSelectScreenScript.new()
-	screen.adventure_selected.connect(_on_adventure_selected)
-	screen.back_pressed.connect(_show_deck_screen)
-	add_child(screen)
-	_current_screen = screen
-	screen.set_adventures(adventures)
-
-
 func _on_adventure_selected(adventure: Dictionary) -> void:
 	_current_adventure = adventure
 	var adventure_id: String = str(adventure.get("id", ""))
 	var deck_id: String = str(_selected_deck.get("deck_id", ""))
+	_progression.last_selected_deck_id = deck_id
+	_progression.save()
 	var base_cards: Array = _selected_deck.get("cards", [])
 	var start_node_id: String = str(adventure.get("start_node", ""))
 
@@ -558,7 +593,7 @@ func _show_result() -> void:
 func _on_result_return() -> void:
 	_run_manager = null
 	_run_result_data = {}
-	_show_deck_screen()
+	_show_world_map()
 
 
 func _on_abandon_pressed() -> void:
@@ -569,7 +604,7 @@ func _on_abandon_pressed() -> void:
 		_progression.award_xp(deck_id, xp)
 	_run_manager.abandon_run()
 	_run_manager = null
-	_show_deck_screen()
+	_show_world_map()
 
 
 # --- Creature Augment Node ---

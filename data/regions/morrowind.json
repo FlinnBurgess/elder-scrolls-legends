@@ -1,0 +1,7 @@
+{
+	"id": "morrowind",
+	"name": "Morrowind",
+	"clickmap_color": "#6D649B",
+	"background_image": "res://assets/images/maps/regions/morrowind.png",
+	"adventures": []
+}

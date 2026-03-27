@@ -35,6 +35,14 @@ var _card_preview_container: CenterContainer
 var _card_preview: Control = null  # CardDisplayComponent
 var _card_lookup: Dictionary = {}
 var _augment_map: Dictionary = {}  # card_id -> [augment dicts], cached for hover
+var _view_only := false
+var _begin_row: HBoxContainer = null
+
+
+func set_view_only(enabled: bool) -> void:
+	_view_only = enabled
+	if _begin_row != null:
+		_begin_row.visible = not _view_only
 
 
 func _ready() -> void:
@@ -197,9 +205,11 @@ func _build_ui() -> void:
 	btn_container.alignment = BoxContainer.ALIGNMENT_CENTER
 	left_panel.add_child(btn_container)
 
-	var begin_row := HBoxContainer.new()
-	begin_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	btn_container.add_child(begin_row)
+	_begin_row = HBoxContainer.new()
+	_begin_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_begin_row.visible = not _view_only
+	btn_container.add_child(_begin_row)
+	var begin_row := _begin_row
 	var begin_btn := Button.new()
 	begin_btn.text = "Begin Adventure"
 	begin_btn.add_theme_font_size_override("font_size", 26)

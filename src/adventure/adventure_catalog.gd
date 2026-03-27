@@ -2,6 +2,7 @@ class_name AdventureCatalog
 extends RefCounted
 
 const ADVENTURES_DIR := "res://data/adventures/"
+const REGIONS_DIR := "res://data/regions/"
 
 
 static func load_adventure(adventure_id: String) -> Dictionary:
@@ -25,6 +26,32 @@ static func load_all_adventures() -> Array:
 		file_name = dir.get_next()
 	dir.list_dir_end()
 	return adventures
+
+
+static func load_world_map_config() -> Dictionary:
+	return _load_json_file(REGIONS_DIR + "world_map.json")
+
+
+static func load_all_regions() -> Array:
+	var regions: Array = []
+	var dir := DirAccess.open(REGIONS_DIR)
+	if dir == null:
+		push_error("AdventureCatalog: cannot open directory '%s'" % REGIONS_DIR)
+		return regions
+	dir.list_dir_begin()
+	var file_name := dir.get_next()
+	while not file_name.is_empty():
+		if file_name.ends_with(".json") and file_name != "world_map.json":
+			var data := _load_json_file(REGIONS_DIR + file_name)
+			if not data.is_empty():
+				regions.append(data)
+		file_name = dir.get_next()
+	dir.list_dir_end()
+	return regions
+
+
+static func load_region(region_id: String) -> Dictionary:
+	return _load_json_file(REGIONS_DIR + region_id + ".json")
 
 
 static func get_adventures_for_deck(deck_id: String) -> Array:
