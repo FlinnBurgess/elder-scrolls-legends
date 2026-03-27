@@ -3,6 +3,8 @@
 	"name": "Blood of Sovngarde",
 	"portrait_image": "res://assets/images/cards/end_night_talon_lord.png",
 	"difficulty": 2,
+	"description": "The Companions of Jorrvaskr harbor a dark secret — their inner circle carries the blood of the beast. When the Silver Hand strikes at the heart of the guild, you must defend your shield-siblings and confront the ancient evil lurking in the depths of Ysgramor's Tomb.",
+	"special_rules": [],
 	"allowed_deck_ids": ["the_companions"],
 	"combat_xp": 15,
 	"mini_boss_xp": 30,

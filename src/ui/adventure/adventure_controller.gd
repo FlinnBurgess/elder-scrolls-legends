@@ -27,6 +27,7 @@ const AdventureProgressionManagerScript = preload("res://src/adventure/adventure
 const RelicCatalogScript = preload("res://src/adventure/relic_catalog.gd")
 const AdventureDeckScreenScript = preload("res://src/ui/adventure/adventure_deck_screen.gd")
 const AdventureProgressionPathOverlayScript = preload("res://src/ui/adventure/adventure_progression_path_overlay.gd")
+const AdventureDetailOverlayScript = preload("res://src/ui/adventure/adventure_detail_overlay.gd")
 
 var _run_manager = null
 var _progression = null  # AdventureProgressionManager
@@ -230,6 +231,25 @@ func _on_view_progression() -> void:
 
 
 func _on_adventure_selected(adventure: Dictionary) -> void:
+	_dismiss_overlay()
+	var adventure_id: String = str(adventure.get("id", ""))
+	var deck_id: String = str(_selected_deck.get("deck_id", ""))
+	var already_completed: bool = _progression.is_adventure_completed(adventure_id)
+
+	var overlay := AdventureDetailOverlayScript.new()
+	overlay.start_pressed.connect(func() -> void:
+		_dismiss_overlay()
+		_start_adventure(adventure)
+	)
+	overlay.closed.connect(func() -> void:
+		_dismiss_overlay()
+	)
+	add_child(overlay)
+	_current_overlay = overlay
+	overlay.set_data(adventure, already_completed)
+
+
+func _start_adventure(adventure: Dictionary) -> void:
 	_current_adventure = adventure
 	var adventure_id: String = str(adventure.get("id", ""))
 	var deck_id: String = str(_selected_deck.get("deck_id", ""))

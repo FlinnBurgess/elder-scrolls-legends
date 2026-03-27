@@ -3,6 +3,8 @@
 	"name": "Eye of Magnus",
 	"portrait_image": "res://assets/images/cards/hos_int_ancano.png",
 	"difficulty": 2,
+	"description": "A mysterious orb of immense power has been unearthed beneath Saarthal. As the Thalmor advisor Ancano grows ever more obsessed with the Eye of Magnus, the College of Winterhold teeters on the brink of catastrophe. Unravel the mystery before Ancano unleashes forces beyond control.",
+	"special_rules": [],
 	"allowed_deck_ids": ["college_of_winterhold"],
 	"combat_xp": 15,
 	"mini_boss_xp": 30,

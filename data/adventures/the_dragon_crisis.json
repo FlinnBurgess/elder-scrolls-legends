@@ -3,6 +3,8 @@
 	"name": "The Dragon Crisis",
 	"portrait_image": "res://assets/images/cards/hos_neu_alduin.png",
 	"difficulty": 3,
+	"description": "Alduin, the World-Eater, has returned to Skyrim. Ancient dragons stir from their burial mounds, and only the Dragonborn can stop the destruction. Fight your way through dragon lairs and Nordic ruins to confront the devourer of worlds at the Throat of the World.",
+	"special_rules": [],
 	"allowed_deck_ids": ["dragons_of_skyrim"],
 	"combat_xp": 15,
 	"mini_boss_xp": 30,

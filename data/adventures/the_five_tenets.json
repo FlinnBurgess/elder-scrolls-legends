@@ -3,6 +3,8 @@
 	"name": "The Five Tenets",
 	"portrait_image": "res://assets/images/cards/hos_end_emperor_titus_mede_ii.png",
 	"difficulty": 1,
+	"description": "The Night Mother whispers, and the Dark Brotherhood answers. Prove your devotion by carrying out five contracts, each more dangerous than the last. Your final mark: Emperor Titus Mede II himself, aboard his ship in Solitude harbor.",
+	"special_rules": [],
 	"allowed_deck_ids": ["dark_brotherhood"],
 	"combat_xp": 15,
 	"mini_boss_xp": 30,
