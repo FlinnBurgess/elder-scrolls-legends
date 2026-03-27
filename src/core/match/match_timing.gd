@@ -2571,7 +2571,17 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 		queue.append(_normalize_event(match_state, raw_event, context))
 	var processed_events: Array = []
 	var trigger_resolutions: Array = []
+	var _loop_guard := 0
 	while not queue.is_empty():
+		_loop_guard += 1
+		if _loop_guard > 200:
+			print("[LOOP_GUARD] publish_events iteration %d. Queue size: %d" % [_loop_guard, queue.size()])
+			for _dbg_i in range(mini(5, queue.size())):
+				var _dbg_evt: Dictionary = queue[_dbg_i]
+				print("[LOOP_GUARD]   queued[%d]: type=%s src=%s" % [_dbg_i, str(_dbg_evt.get("event_type", "")), str(_dbg_evt.get("source_instance_id", ""))])
+			if _loop_guard > 250:
+				print("[LOOP_GUARD] BREAKING OUT at %d iterations." % _loop_guard)
+				break
 		var event: Dictionary = queue.pop_front()
 		processed_events.append(event)
 		_append_event_log(match_state, event)
@@ -3896,7 +3906,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						EvergreenRules.grant_cover(card, int(match_state.get("turn_number", 0)) + offset, reason)
 					else:
 						EvergreenRules.add_status(card, status_id)
-						if bool(effect.get("expires_end_of_turn", false)):
+						if bool(effect.get("expires_end_of_turn", false)) or str(effect.get("duration", "")) == "end_of_turn":
 							var temp_statuses: Array = card.get("_temp_statuses", [])
 							if not temp_statuses.has(status_id):
 								temp_statuses.append(status_id)

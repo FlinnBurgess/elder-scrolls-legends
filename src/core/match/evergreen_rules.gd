@@ -17,6 +17,7 @@ const STATUS_EXALTED := "exalted"
 const STATUS_SHACKLED := "shackled"
 const STATUS_SILENCED := "silenced"
 const STATUS_WOUNDED := "wounded"
+const STATUS_DAMAGE_IMMUNE := "damage_immune"
 
 static var _cached_registry: Dictionary = {}
 static var _cached_keyword_ids: Array = []
@@ -195,6 +196,12 @@ static func apply_damage_to_creature(card: Dictionary, amount: int) -> Dictionar
 	ensure_card_state(card)
 	var requested := maxi(0, amount)
 	if requested <= 0:
+		return {
+			"applied": 0,
+			"ward_removed": false,
+			"remaining_health": get_remaining_health(card),
+		}
+	if has_status(card, STATUS_DAMAGE_IMMUNE):
 		return {
 			"applied": 0,
 			"ward_removed": false,
