@@ -255,9 +255,9 @@ static func _build_card_snapshot(card: Dictionary) -> Dictionary:
 	var granted_keywords: Array = card.get("granted_keywords", [])
 	if not granted_keywords.is_empty():
 		snapshot["granted_keywords"] = granted_keywords.duplicate()
-	var statuses: Array = card.get("statuses", [])
+	var statuses: Array = card.get("status_markers", [])
 	if not statuses.is_empty():
-		snapshot["statuses"] = statuses.duplicate()
+		snapshot["status_markers"] = statuses.duplicate()
 	if card.has("rules_text"):
 		snapshot["rules_text"] = str(card.get("rules_text", ""))
 	# Action targeting mode: critical for diagnosing targeting bugs

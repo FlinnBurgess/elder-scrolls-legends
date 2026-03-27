@@ -7415,7 +7415,8 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						generated_events.append_array(ecfd_equip.get("events", []))
 			"grant_slay_ability":
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
-					var gsa_effects: Array = effect.get("slay_effects", [])
+					var gsa_raw = effect.get("slay_effects", effect.get("slay_effect", []))
+					var gsa_effects: Array = [gsa_raw] if typeof(gsa_raw) == TYPE_DICTIONARY else (gsa_raw if typeof(gsa_raw) == TYPE_ARRAY else [])
 					if not gsa_effects.is_empty():
 						var gsa_triggers = card.get("triggered_abilities", [])
 						if typeof(gsa_triggers) != TYPE_ARRAY:
