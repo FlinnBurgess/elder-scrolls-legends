@@ -2208,7 +2208,7 @@ static func _card_matches_target_mode(target_mode: String, card: Dictionary, con
 		"creature_or_player":
 			return true
 		"wounded_creature":
-			return EvergreenRules.has_status(card, EvergreenRules.STATUS_WOUNDED) if card.has("statuses") else false
+			return EvergreenRules.has_status(card, EvergreenRules.STATUS_WOUNDED)
 		"enemy_support_or_neutral_creature":
 			if card_controller == controller_player_id:
 				return false

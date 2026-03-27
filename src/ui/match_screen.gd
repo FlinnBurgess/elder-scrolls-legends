@@ -5772,6 +5772,8 @@ func _action_target_mode_allows(action_card: Dictionary, target_instance_id: Str
 			mode_allowed = target_controller != controller_id
 		"wounded_enemy_creature":
 			mode_allowed = target_controller != controller_id and EvergreenRules.has_status(target_card, EvergreenRules.STATUS_WOUNDED)
+		"wounded_creature":
+			mode_allowed = EvergreenRules.has_status(target_card, EvergreenRules.STATUS_WOUNDED)
 		"any_creature", "another_creature":
 			mode_allowed = true
 		"enemy_support_or_neutral_creature":
