@@ -3372,6 +3372,14 @@ static func _matches_trigger_role(match_state: Dictionary, trigger: Dictionary, 
 				return false
 			var target_card := _find_card_anywhere(match_state, target_id)
 			return not target_card.is_empty() and str(target_card.get("controller_player_id", "")) != controller_player_id
+		"friendly_target":
+			var ft_target_id := _event_target_instance_id(event)
+			if ft_target_id.is_empty():
+				ft_target_id = str(event.get("target_instance_id", ""))
+			if ft_target_id.is_empty():
+				return false
+			var ft_target_card := _find_card_anywhere(match_state, ft_target_id)
+			return not ft_target_card.is_empty() and str(ft_target_card.get("controller_player_id", "")) == controller_player_id
 	return false
 
 
@@ -3421,7 +3429,7 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 	var rfac_spec: Dictionary = descriptor.get("required_friendly_attribute_count", {})
 	if not rfac_spec.is_empty():
 		var rfac_attr := str(rfac_spec.get("attribute", ""))
-		var rfac_min := int(rfac_spec.get("min_count", 0))
+		var rfac_min := int(rfac_spec.get("min", rfac_spec.get("min_count", 0)))
 		var rfac_controller := str(trigger.get("controller_player_id", ""))
 		var rfac_creatures := _player_lane_creatures(match_state, rfac_controller)
 		var rfac_count := 0

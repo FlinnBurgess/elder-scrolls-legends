@@ -406,7 +406,8 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 					var dmg_rune_result: Dictionary = _timing_rules().destroy_front_rune(match_state, dmg_opponent_id, {"source_instance_id": str(trigger.get("source_instance_id", ""))})
 					dmg_events.append_array(dmg_rune_result.get("events", []))
 				return {"handled": true, "events": dmg_events}
-			return {"handled": true, "events": _resolve_player_damage(match_state, trigger, event, effect, int(dmg_amount_raw))}
+			var dmg_total := int(dmg_amount_raw) * _count_source_multiplier(match_state, trigger, effect)
+			return {"handled": true, "events": _resolve_player_damage(match_state, trigger, event, effect, dmg_total)}
 		"empower_damage":
 			var controller := _get_player_state(match_state, str(trigger.get("controller_player_id", "")))
 			ensure_player_state(controller)
@@ -1630,6 +1631,24 @@ static func _resolve_treasure_hunt(match_state: Dictionary, trigger: Dictionary,
 		"player_id": str(trigger.get("controller_player_id", "")),
 		"source_instance_id": str(source_card.get("instance_id", "")),
 	}]
+
+
+static func _count_source_multiplier(match_state: Dictionary, trigger: Dictionary, effect: Dictionary) -> int:
+	var count_source := str(effect.get("count_source", ""))
+	if count_source.is_empty():
+		return 1
+	var controller_player_id := str(trigger.get("controller_player_id", ""))
+	var count := 0
+	match count_source:
+		"friendly_creatures":
+			for lane in match_state.get("lanes", []):
+				var slots = lane.get("player_slots", {}).get(controller_player_id, [])
+				for card in slots:
+					if typeof(card) == TYPE_DICTIONARY:
+						count += 1
+		_:
+			return 1
+	return maxi(count, 1)
 
 
 static func _resolve_player_damage(match_state: Dictionary, trigger: Dictionary, event: Dictionary, effect: Dictionary, amount: int) -> Array:
