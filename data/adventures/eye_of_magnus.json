@@ -1,6 +1,8 @@
 {
 	"id": "eye_of_magnus",
 	"name": "Eye of Magnus",
+	"portrait_image": "res://assets/images/cards/hos_int_ancano.png",
+	"difficulty": 2,
 	"allowed_deck_ids": ["college_of_winterhold"],
 	"combat_xp": 15,
 	"mini_boss_xp": 30,

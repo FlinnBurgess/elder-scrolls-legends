@@ -4,9 +4,9 @@
 	"clickmap_color": "#E7F1F3",
 	"background_image": "res://assets/images/maps/skyrim.png",
 	"adventures": [
-		{ "adventure_id": "blood_of_sovngarde", "position": [300, 350] },
-		{ "adventure_id": "the_five_tenets", "position": [600, 200] },
-		{ "adventure_id": "eye_of_magnus", "position": [200, 150] },
-		{ "adventure_id": "the_dragon_crisis", "position": [500, 400] }
+		{ "adventure_id": "blood_of_sovngarde", "position": [0.23, 0.49] },
+		{ "adventure_id": "the_five_tenets", "position": [0.47, 0.28] },
+		{ "adventure_id": "eye_of_magnus", "position": [0.16, 0.21] },
+		{ "adventure_id": "the_dragon_crisis", "position": [0.39, 0.56] }
 	]
 }

@@ -1,6 +1,8 @@
 {
 	"id": "the_dragon_crisis",
 	"name": "The Dragon Crisis",
+	"portrait_image": "res://assets/images/cards/hos_neu_alduin.png",
+	"difficulty": 3,
 	"allowed_deck_ids": ["dragons_of_skyrim"],
 	"combat_xp": 15,
 	"mini_boss_xp": 30,

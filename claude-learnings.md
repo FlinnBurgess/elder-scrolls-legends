@@ -1,7 +1,7 @@
 # Claude Learnings
 
 ## Tags
-`ai` `anchors` `assemble` `attributes` `auras` `boons` `boss-config` `card-catalog` `card-hydration` `card-state` `case-sensitivity` `cost-reduction` `death-checks` `delegation` `end-of-turn` `events` `generated-cards` `identity` `invade` `lane-resolution` `match-engine` `match-screen` `multi-target` `neutral` `passives` `player-state` `prophecy` `randomness` `registry` `runes` `shouts` `stat-helpers` `supports` `target-resolution` `testing` `triggers` `ui`
+`ai` `anchors` `assemble` `attributes` `augments` `auras` `boons` `boss-config` `card-catalog` `card-hydration` `card-state` `case-sensitivity` `cost-reduction` `death-checks` `delegation` `end-of-turn` `events` `generated-cards` `identity` `invade` `lane-resolution` `match-engine` `match-screen` `multi-target` `neutral` `passives` `player-state` `prophecy` `randomness` `registry` `runes` `shouts` `stat-helpers` `supports` `target-resolution` `testing` `triggers` `ui`
 
 ## Card Hydration & Attributes
 
@@ -16,6 +16,10 @@
 - **Bootstrap cards are lightweight — most fields come from hydration** `[card-state, card-hydration, match-engine]`
   `match_bootstrap.gd:_build_shuffled_deck` creates cards with only `definition_id`, `instance_id`, zone, and state fields (keywords, damage_marked, etc). Fields like `subtypes`, `attributes`, `triggered_abilities`, `cost`, `power`, `health` are all added by `_hydrate_card`/`_hydrate_all_zones` before the match engine processes them.
   _Refs: `src/core/match/match_bootstrap.gd:162-180`, `src/ui/match_screen.gd:462-479`_
+
+- **Re-hydration erases augment stat bonuses — keywords survive but power/health don't** `[card-hydration, augments, match-screen]`
+  `_hydrate_card` unconditionally overwrites `card["power"]` and `card["health"]` from the definition's base values. Augment power/health bonuses applied before hydration are lost. Keywords survive because hydration only sets them from the definition if present, rather than clearing the array. Any code path that re-hydrates cards (e.g., `_finalize_mulligan`, AI mulligan) must re-apply augments afterward.
+  _Refs: `src/ui/match_screen.gd:447-448`, `src/ui/match_screen.gd:2520-2523`_
 
 ## Assemble Mechanic
 
@@ -49,6 +53,10 @@
 - **Rune-break boon choice must explicitly open prophecy window** `[boons, prophecy, match-engine]`
   The `draw_one_shuffle_rest` handler in `resolve_pending_top_deck_multi_choice` moves the chosen card to hand and emits an `EVENT_CARD_DRAWN` event with `allow_prophecy_interrupt: true`, but this flag is just event metadata — nothing consumes it. The handler must explicitly call `_can_open_prophecy_window()` and `_open_prophecy_window()` after drawing, the same pattern used in `draw_cards()`.
   _Refs: `src/core/match/match_timing.gd:1085-1087`_
+
+- **Boons must be applied AFTER health overrides in boss match setup** `[boons, boss-config, runes]`
+  `fortified_spirit` boon recalculates rune thresholds based on `player["health"]`. In `start_arena_boss_match`, if boons are applied before boss/player health overrides, `fortified_spirit` reads the default health (30) instead of the overridden value, producing wrong thresholds. Always apply health overrides first, then boons.
+  _Refs: `src/ui/match_screen.gd:323-339`_
 
 - **Adventure boons must be restored on match resume** `[boons, match-screen, ui]`
   `_launch_match()` sets `match_screen._adventure_boons` before starting, but `_resume_match()` creates a new MatchScreen without setting this field. Boons are correctly persisted in `run.json` via `save_run()`/`load_run()`, but the resume path must also pass `_run_manager.active_boons.duplicate()` to the recreated match screen.
@@ -186,6 +194,18 @@
   The `count_source` field on `summon_from_effect` effects multiplies the summon count via `_resolve_count_multiplier`. Without this, the op summons exactly one creature per lane per player. Cards like Grave Grasp ("summon a 1/1 Skeleton for each enemy in the lane") need `count_source: "enemies_in_target_lane"` to summon the correct number.
   _Refs: `src/core/match/match_timing.gd:4116-4129`_
 
+- **`"damage"` op in extended_mechanic_packs doesn't use `_resolve_count_multiplier`** `[match-engine, supports, card-catalog]`
+  The `"damage"` (player damage) op handler in `extended_mechanic_packs.gd` only reads the base `amount` from the effect dict. Unlike `"deal_damage"` in `match_timing.gd` which multiplies by `_resolve_count_multiplier`, the `"damage"` handler needs its own count multiplier. Cards like Rimmen Siege Weapons ("each friendly creature deals 1 damage") use `count_source: "friendly_creatures"` which is ignored without this.
+  _Refs: `src/core/match/extended_mechanic_packs.gd:398-410`_
+
+- **Unimplemented `match_role` values in trigger descriptors silently prevent matching** `[triggers, match-engine, card-catalog]`
+  `_matches_trigger_role` uses a match statement that returns `false` at the end for any unrecognized role string. A new match_role value in card data (like `"friendly_target"`) will silently prevent the trigger from ever firing. When adding a new match_role to card data, a corresponding case must be added to `_matches_trigger_role`. This is analogous to the aura condition and passive ability silent-ignore patterns.
+  _Refs: `src/core/match/match_timing.gd:3332-3375`_
+
+- **Trigger condition key mismatches silently use defaults — same pattern as effect handler keys** `[triggers, card-catalog, match-engine]`
+  Trigger condition specs (like `required_friendly_attribute_count`) are read via `spec.get("key", default)`. If the card data uses a different key than the engine expects (e.g., `"min"` vs `"min_count"`), the default is used silently. This caused Pact Oathman's Agility check to always pass (min defaulted to 0). Always cross-reference condition spec keys in card data against the engine's `.get()` calls.
+  _Refs: `src/core/match/match_timing.gd:3429-3432`, `src/deck/card_catalog.gd:1049`_
+
 ## Multi-Target & Dual-Target Actions
 
 - **Multi-target actions use sequential `pending_summon_effect_targets` collection with `_multi_target_ids`** `[multi-target, match-engine, target-resolution]`
@@ -217,6 +237,12 @@
 - **`boss_health` is the key for AI health override in `start_arena_boss_match`** `[boss-config, match-screen, match-engine]`
   The `boss_config` dict passed to `start_arena_boss_match` uses `"boss_health"` (not `"starting_health"` or `"enemy_health"`) to override AI player HP. The boss is always `PLAYER_ORDER[0]` which is `"player_2"` (the AI). The health override is applied after `MatchBootstrap.create_standard_match` and before hydration.
   _Refs: `src/ui/match_screen.gd:314-319`_
+
+## Relationship & Alt-View System
+
+- **`RELATED_CARD_OPS` only works for ops that embed a `card_template`** `[ui, card-catalog]`
+  The `CardRelationshipResolver` scans effect dicts for ops in `RELATED_CARD_OPS` and extracts `card_template` to show as alt-views. Ops that use random selection (`generate_random_to_hand`, `summon_random_from_catalog`) don't embed a `card_template` — they only have `filter` dicts. Adding them to the list has no effect. Only ops with a concrete, predetermined card definition benefit from inclusion.
+  _Refs: `src/ui/components/card_relationship_resolver.gd:10`, `src/ui/components/card_relationship_resolver.gd:46-48`_
 
 ## Self Cost Reduction
 

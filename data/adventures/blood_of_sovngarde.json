@@ -1,6 +1,8 @@
 {
 	"id": "blood_of_sovngarde",
 	"name": "Blood of Sovngarde",
+	"portrait_image": "res://assets/images/cards/end_night_talon_lord.png",
+	"difficulty": 2,
 	"allowed_deck_ids": ["the_companions"],
 	"combat_xp": 15,
 	"mini_boss_xp": 30,

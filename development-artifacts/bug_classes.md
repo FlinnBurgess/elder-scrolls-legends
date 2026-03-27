@@ -150,6 +150,11 @@ Card's effect uses `amount_source` with a value that `_resolve_amount()` in `mat
 Example: Blast from Oblivion (`amount_source: "oblivion_gate_level"` was not handled — always dealt 0 damage)
 How to spot: User reports a damage/heal/stat effect "does nothing" or always applies 0. Check if the card's effect has `amount_source` and whether that value is handled in `_resolve_amount` in `match_timing.gd`.
 
+## Self-referencing definition_id causes unwanted ability inheritance on copies
+Card's `summon_from_effect` `card_template` uses the same `definition_id` as the original card but omits `triggered_abilities`. `build_generated_card` detects the missing field, looks up the catalog by `definition_id`, and copies the original card's `triggered_abilities` onto the generated copy. The copy then fires the same summon/last_gasp/etc. trigger, causing infinite chaining. Fix by adding `"triggered_abilities": []` to the `card_template` to prevent the catalog lookup.
+Example: Ayleid Guardian (summon chained left-right-left-right filling all lanes), Golden Saint, Umaril the Unfeathered, Kagouti Fabricant
+How to spot: User reports a "Summon: Summon a copy in the other lane" effect chaining infinitely or filling both lanes. Check if the card's `card_template` has the same `definition_id` as the parent card and lacks `"triggered_abilities": []`.
+
 ## Unresolved "chosen" lane literal in summon ops
 Effect uses `"lane": "chosen"` to indicate the player picks the lane, but the op handler (`summon_from_effect`, `fill_lane_with`, `summon_copies_to_lane`) treated `"chosen"` as a literal lane ID instead of resolving it to the actual lane from the event's `lane_id`. The lane resolution chain (`effect.lane_id` → `effect.target_lane_id` → `effect.lane` → `event.lane_id`) stops at `effect.lane` = `"chosen"` and never falls through to the event. The summon silently fails because no lane with ID `"chosen"` exists.
 Example: Call of Valor, Wolf Cage, A Land Divided, Crassius' Favor, Rising of Bones, Strategist's Map, Corsair Ship, The Night Mother, Reconstruction Engine

@@ -31,7 +31,7 @@ Process all in-game error reports that were submitted via the error reporting po
    a. Mark the task as `in_progress`
    b. Analyse the report: read the `comment`, `element_context`, and `snapshot` to understand the bug
    c. Explore the codebase to locate the relevant code and read the card definition in `card_catalog.gd`
-   d. **Pre-fix learnings scan**: Run the `scan-learnings` skill with a description of the bug area (e.g., "triggered abilities with target_mode", "item equip bonuses"). This surfaces known pitfalls before you start writing code.
+   d. **Pre-fix learnings scan**: Run the `scan-learnings` skill with a description of the bug area (e.g., "triggered abilities with target_mode", "item equip bonuses"). This surfaces known pitfalls before you start writing code. When processing a batch of reports, a single upfront scan covering all bug areas is acceptable — you don't need to scan per-report.
    e. **Check if already fixed**: If a recent commit appears to address the issue, verify the fix covers the reported scenario. If so, mark the task as completed, delete the report file, and move on — no new commit needed.
    f. If the report is unclear or requires a design decision, **ask the user for guidance** before proceeding
    g. Implement the fix

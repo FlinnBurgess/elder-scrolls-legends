@@ -1,6 +1,8 @@
 {
 	"id": "the_five_tenets",
 	"name": "The Five Tenets",
+	"portrait_image": "res://assets/images/cards/hos_end_emperor_titus_mede_ii.png",
+	"difficulty": 1,
 	"allowed_deck_ids": ["dark_brotherhood"],
 	"combat_xp": 15,
 	"mini_boss_xp": 30,
