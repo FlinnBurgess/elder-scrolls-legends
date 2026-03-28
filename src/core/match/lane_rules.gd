@@ -66,6 +66,11 @@ static func validate_summon_from_hand(match_state: Dictionary, player_id: String
 		total_play_cost += get_exalt_extra_cost(card)
 	if not bool(options.get("played_for_free", false)) and total_play_cost > _get_available_magicka(player):
 		return _invalid_result("Player does not have enough magicka to play %s." % instance_id)
+	if not bool(options.get("played_for_free", false)):
+		var cost_locks: Array = player.get("cost_locks", [])
+		for lock in cost_locks:
+			if typeof(lock) == TYPE_DICTIONARY and int(lock.get("cost", -1)) == total_play_cost:
+				return _invalid_result("Cannot play cards with cost %d." % total_play_cost)
 	var validation := _validate_lane_entry(match_state, player_id, card, lane_id, options)
 	validation["player_index"] = player_lookup["player_index"]
 	validation["hand_index"] = hand_index
