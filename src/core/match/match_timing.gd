@@ -1667,6 +1667,9 @@ static func _check_summon_effect_target_mode(match_state: Dictionary, summoned_c
 		dual_wax_wane = bool(player.get("_dual_wax_wane", false))
 	for ab in get_target_mode_abilities(summoned_card):
 		var family := str(ab.get("family", ""))
+		# Check conditions before adding — abilities with unmet conditions should be skipped
+		if not _summon_ability_conditions_met(match_state, summoned_card, ab):
+			continue
 		if family == FAMILY_SUMMON:
 			# Skip abilities with consume: true — handled by _check_consume_abilities
 			if bool(ab.get("consume", false)):
@@ -1695,6 +1698,27 @@ static func _check_summon_effect_target_mode(match_state: Dictionary, summoned_c
 		"source_instance_id": instance_id,
 		"mandatory": is_mandatory,
 	})
+
+
+static func _summon_ability_conditions_met(match_state: Dictionary, card: Dictionary, descriptor: Dictionary) -> bool:
+	var rfac_spec: Dictionary = descriptor.get("required_friendly_attribute_count", {})
+	if not rfac_spec.is_empty():
+		var rfac_attr := str(rfac_spec.get("attribute", ""))
+		var rfac_min := int(rfac_spec.get("min", rfac_spec.get("min_count", 0)))
+		var rfac_exclude_self := bool(rfac_spec.get("exclude_self", false))
+		var rfac_controller := str(card.get("controller_player_id", ""))
+		var rfac_self_id := str(card.get("instance_id", ""))
+		var rfac_creatures := _player_lane_creatures(match_state, rfac_controller)
+		var rfac_count := 0
+		for rfac_card in rfac_creatures:
+			if rfac_exclude_self and str(rfac_card.get("instance_id", "")) == rfac_self_id:
+				continue
+			var rfac_attrs = rfac_card.get("attributes", [])
+			if typeof(rfac_attrs) == TYPE_ARRAY and rfac_attrs.has(rfac_attr):
+				rfac_count += 1
+		if rfac_count < rfac_min:
+			return false
+	return true
 
 
 ## Check if a creature that just killed something has slay triggers with target_mode.
@@ -3603,10 +3627,14 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 	if not rfac_spec.is_empty():
 		var rfac_attr := str(rfac_spec.get("attribute", ""))
 		var rfac_min := int(rfac_spec.get("min", rfac_spec.get("min_count", 0)))
+		var rfac_exclude_self := bool(rfac_spec.get("exclude_self", false))
 		var rfac_controller := str(trigger.get("controller_player_id", ""))
+		var rfac_self_id := str(trigger.get("source_instance_id", ""))
 		var rfac_creatures := _player_lane_creatures(match_state, rfac_controller)
 		var rfac_count := 0
 		for rfac_card in rfac_creatures:
+			if rfac_exclude_self and str(rfac_card.get("instance_id", "")) == rfac_self_id:
+				continue
 			var rfac_attrs = rfac_card.get("attributes", [])
 			if typeof(rfac_attrs) == TYPE_ARRAY and rfac_attrs.has(rfac_attr):
 				rfac_count += 1
