@@ -5,14 +5,16 @@
 	{
 	  "id": "standard_versus",
 	  "display_name": "Standard Versus",
-	  "lane_ids": ["field", "shadow"],
-	  "slot_capacity": 4,
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "slot_capacity": 4}
+	  ],
 	  "source_ids": ["uesp_lanes", "workspace_spec"]
 	}
   ],
   "lane_types": [
-	{ "id": "field", "display_name": "Field Lane", "implementation_bucket": "mvp", "availability": ["versus"], "description": "No special rules.", "source_ids": ["uesp_lanes"] },
-	{ "id": "shadow", "display_name": "Shadow", "implementation_bucket": "mvp", "availability": ["versus", "story"], "description": "Creatures entering this lane gain Cover for one turn unless they have Guard.", "source_ids": ["uesp_lanes", "uesp_card_effects"] },
+	{ "id": "field", "display_name": "Field Lane", "icon": "res://assets/images/lanes/field.png", "implementation_bucket": "mvp", "availability": ["versus"], "description": "No special rules.", "source_ids": ["uesp_lanes"] },
+	{ "id": "shadow", "display_name": "Shadow", "icon": "res://assets/images/lanes/shadow.png", "implementation_bucket": "mvp", "availability": ["versus", "story"], "description": "Creatures entering this lane gain Cover for one turn unless they have Guard.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_grant_cover"}]}, {"family": "on_move", "match_role": "any_player", "effects": [{"op": "lane_grant_cover"}]}], "source_ids": ["uesp_lanes", "uesp_card_effects"] },
 	{ "id": "dementia", "display_name": "Dementia", "implementation_bucket": "deferred_variant", "availability": ["story"], "description": "Start of turn: player with the highest-power creature here deals 3 damage to the opponent.", "source_ids": ["uesp_lanes"] },
 	{ "id": "mania", "display_name": "Mania", "implementation_bucket": "deferred_variant", "availability": ["story"], "description": "Start of turn: player with the highest-health creature here draws a card.", "source_ids": ["uesp_lanes"] },
 	{ "id": "altar_of_silence", "display_name": "Altar of Silence", "implementation_bucket": "deferred_variant", "availability": ["story"], "description": "After a player silences a creature, they summon a 1/1 Skeleton here and give it Guard.", "source_ids": ["uesp_lanes"] },

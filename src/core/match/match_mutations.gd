@@ -14,7 +14,6 @@ const ZONE_ATTACHED_ITEM := "attached_item"
 const ZONE_DISCARD := "discard"
 const ZONE_BANISHED := "banished"
 const ZONE_GENERATED := "generated"
-const SHADOW_LANE_ID := "shadow"
 const PLAYER_ZONE_ORDER := [ZONE_HAND, ZONE_SUPPORT, ZONE_DISCARD, ZONE_BANISHED, ZONE_DECK]
 const IDENTITY_FIELDS := [
 	"definition_id", "name", "card_type", "cost", "power", "health", "base_power", "base_health",
@@ -189,7 +188,7 @@ static func validate_lane_entry(match_state: Dictionary, player_id: String, card
 		"slot_index": slot_index,
 		"lane_type": str(lane.get("lane_type", lane_id)),
 		"lane_rule_payload": lane.get("lane_rule_payload", {}),
-		"granted_cover": _should_grant_cover(lane, card, bool(options.get("apply_shadow_cover", true))),
+		"granted_cover": false,
 	}
 
 
@@ -627,9 +626,6 @@ static func _apply_lane_entry(match_state: Dictionary, controller_player_id: Str
 	card["slot_index"] = validation["slot_index"]
 	if not bool(options.get("preserve_entered_lane_on_turn", false)) or not card.has("entered_lane_on_turn"):
 		card["entered_lane_on_turn"] = int(match_state.get("turn_number", 0))
-	if bool(validation.get("granted_cover", false)):
-		var cover_offset := 1 if str(card.get("controller_player_id", "")) == str(match_state.get("active_player_id", "")) else 0
-		EvergreenRules.grant_cover(card, int(match_state.get("turn_number", 0)) + cover_offset)
 	_sync_attached_item_controllers(card)
 	player_slots.insert(validation["slot_index"], card)
 	_reindex_player_slots(player_slots)
@@ -822,18 +818,6 @@ static func _build_move_event(card: Dictionary, source_zone: String, target_zone
 		"target_zone": target_zone,
 	}
 
-
-static func _should_grant_cover(lane: Dictionary, card: Dictionary, apply_shadow_cover: bool) -> bool:
-	if not apply_shadow_cover:
-		return false
-	if str(lane.get("lane_type", lane.get("lane_id", ""))) != SHADOW_LANE_ID:
-		return false
-	if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_GUARD):
-		return false
-	var self_immunities = card.get("self_immunity", [])
-	if typeof(self_immunities) == TYPE_ARRAY and self_immunities.has("cover"):
-		return false
-	return not EvergreenRules.has_raw_status(card, EvergreenRules.STATUS_COVER)
 
 
 static func _find_player(players: Array, player_id: String) -> Dictionary:

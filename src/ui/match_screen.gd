@@ -98,6 +98,9 @@ var _lane_panels := {}
 var _lane_row_panels := {}
 var _lane_row_containers := {}
 var _lane_header_buttons := {}
+var _lane_tooltip_panel: PanelContainer
+var _lane_tooltip_name_label: Label
+var _lane_tooltip_desc_label: Label
 var _card_buttons := {}
 var _lane_slot_buttons := {}
 var _invalid_feedback := {}
@@ -1348,6 +1351,9 @@ func _build_ui() -> void:
 	_pause_overlay = _build_pause_overlay()
 	root.add_child(_pause_overlay)
 
+	_lane_tooltip_panel = _build_lane_tooltip_panel()
+	add_child(_lane_tooltip_panel)
+
 
 
 func _build_player_section(player_id: String) -> Dictionary:
@@ -1805,6 +1811,26 @@ func _build_lanes_panel() -> Control:
 			row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			row_box.add_child(row)
 			_lane_row_containers[_lane_row_key(lane_id, player_id)] = row
+
+		# Lane icon at bottom of lane panel, centered
+		var icon_center := CenterContainer.new()
+		icon_center.name = "%s_lane_icon_center" % lane_id
+		icon_center.size_flags_horizontal = SIZE_EXPAND_FILL
+		icon_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		lane_box.add_child(icon_center)
+		var icon_button := TextureRect.new()
+		icon_button.name = "%s_lane_icon" % lane_id
+		icon_button.custom_minimum_size = Vector2(28, 28)
+		icon_button.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon_button.modulate = Color.WHITE
+		icon_button.mouse_filter = Control.MOUSE_FILTER_STOP
+		icon_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		var icon_path := str(lane.get("icon", ""))
+		if not icon_path.is_empty() and ResourceLoader.exists(icon_path):
+			icon_button.texture = load(icon_path)
+		icon_button.mouse_entered.connect(_on_lane_icon_mouse_entered.bind(lane_id, icon_button))
+		icon_button.mouse_exited.connect(_on_lane_icon_mouse_exited)
+		icon_center.add_child(icon_button)
 
 	lanes_row.add_child(_build_lane_separator())
 
@@ -7338,10 +7364,32 @@ func _pile_button_tooltip(player: Dictionary, zone: String) -> String:
 
 
 func _lane_entries() -> Array:
-	return _lane_registry.get("lanes", [
-		{"id": "field", "display_name": "Field Lane", "description": "Default combat lane."},
-		{"id": "shadow", "display_name": "Shadow Lane", "description": "New creatures gain Cover briefly here."},
-	])
+	var lane_type_lookup := {}
+	for raw_record in _lane_registry.get("lane_types", []):
+		if typeof(raw_record) == TYPE_DICTIONARY:
+			lane_type_lookup[str(raw_record.get("id", ""))] = raw_record
+	var board_profile := {}
+	for profile in _lane_registry.get("board_profiles", []):
+		if str(profile.get("id", "")) == "standard_versus":
+			board_profile = profile
+			break
+	var entries: Array = []
+	for lane_entry in board_profile.get("lanes", []):
+		var lane_id := str(lane_entry.get("lane_id", ""))
+		var lane_type_id := str(lane_entry.get("lane_type", lane_id))
+		var lane_type: Dictionary = lane_type_lookup.get(lane_type_id, {})
+		entries.append({
+			"id": lane_id,
+			"display_name": str(lane_type.get("display_name", lane_id)),
+			"description": str(lane_type.get("description", "")),
+			"icon": str(lane_type.get("icon", "")),
+		})
+	if entries.is_empty():
+		return [
+			{"id": "field", "display_name": "Field Lane", "description": "Default combat lane.", "icon": ""},
+			{"id": "shadow", "display_name": "Shadow Lane", "description": "New creatures gain Cover briefly here.", "icon": ""},
+		]
+	return entries
 
 
 func _lane_name(lane_id: String) -> String:
@@ -7356,6 +7404,13 @@ func _lane_description(lane_id: String) -> String:
 		if str(lane.get("id", "")) == lane_id:
 			return str(lane.get("description", lane_id))
 	return lane_id
+
+
+func _lane_icon_path(lane_id: String) -> String:
+	for lane in _lane_entries():
+		if str(lane.get("id", "")) == lane_id:
+			return str(lane.get("icon", ""))
+	return ""
 
 
 func _lane_header_text(lane_id: String) -> String:
@@ -9582,6 +9637,67 @@ func _on_lane_mouse_exited() -> void:
 	if _error_report_hovered_type == "lane":
 		_error_report_hovered_type = ""
 		_error_report_hovered_context = ""
+
+
+func _on_lane_icon_mouse_entered(lane_id: String, icon: Control) -> void:
+	_lane_tooltip_name_label.text = _lane_name(lane_id)
+	_lane_tooltip_desc_label.text = _lane_description(lane_id)
+	_lane_tooltip_panel.reset_size()
+	_lane_tooltip_panel.visible = true
+	# Position tooltip above the icon, anchored to the icon's global position
+	# Overlap the icon by a few pixels to prevent flicker when cursor moves between icon and tooltip
+	await get_tree().process_frame
+	var icon_rect := icon.get_global_rect()
+	var tooltip_size := _lane_tooltip_panel.size
+	_lane_tooltip_panel.position = Vector2(
+		clampf(icon_rect.position.x + icon_rect.size.x * 0.5 - tooltip_size.x * 0.5, 8.0, size.x - tooltip_size.x - 8.0),
+		icon_rect.position.y - tooltip_size.y + 4.0
+	)
+
+
+func _on_lane_icon_mouse_exited() -> void:
+	# Delay hide so cursor can travel onto the tooltip without flicker
+	await get_tree().create_timer(0.08).timeout
+	if _lane_tooltip_panel == null:
+		return
+	var mouse_pos := get_global_mouse_position()
+	var tooltip_rect := _lane_tooltip_panel.get_global_rect().grow(4.0)
+	if not tooltip_rect.has_point(mouse_pos):
+		_lane_tooltip_panel.visible = false
+
+
+func _on_lane_tooltip_mouse_exited() -> void:
+	_lane_tooltip_panel.visible = false
+
+
+func _build_lane_tooltip_panel() -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.name = "LaneTooltipPanel"
+	panel.visible = false
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS
+	panel.z_index = 500
+	panel.custom_minimum_size = Vector2(220, 0)
+	panel.mouse_exited.connect(_on_lane_tooltip_mouse_exited)
+	_apply_panel_style(panel, Color(0.1, 0.08, 0.12, 0.95), Color(0.55, 0.45, 0.35, 0.8), 2, 8)
+	var box := _build_panel_box(panel, 6, 14)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_lane_tooltip_name_label = Label.new()
+	_lane_tooltip_name_label.name = "LaneTooltipName"
+	_lane_tooltip_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_lane_tooltip_name_label.add_theme_font_size_override("font_size", 20)
+	_lane_tooltip_name_label.add_theme_color_override("font_color", Color(0.95, 0.85, 0.65))
+	_lane_tooltip_name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(_lane_tooltip_name_label)
+	_lane_tooltip_desc_label = Label.new()
+	_lane_tooltip_desc_label.name = "LaneTooltipDesc"
+	_lane_tooltip_desc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_lane_tooltip_desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_lane_tooltip_desc_label.custom_minimum_size = Vector2(192, 0)
+	_lane_tooltip_desc_label.add_theme_font_size_override("font_size", 17)
+	_lane_tooltip_desc_label.add_theme_color_override("font_color", Color(0.82, 0.78, 0.72))
+	_lane_tooltip_desc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(_lane_tooltip_desc_label)
+	return panel
 
 
 func _on_match_history_mouse_entered(entry: Dictionary, entry_index: int) -> void:

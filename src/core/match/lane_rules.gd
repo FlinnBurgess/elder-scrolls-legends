@@ -9,7 +9,6 @@ const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.
 const CARD_TYPE_CREATURE := "creature"
 const ZONE_HAND := "hand"
 const ZONE_LANE := "lane"
-const SHADOW_LANE_ID := "shadow"
 
 
 static func get_lane_occupancy(match_state: Dictionary, lane_id: String, player_id: String) -> Dictionary:
@@ -125,13 +124,6 @@ static func summon_from_hand(match_state: Dictionary, player_id: String, instanc
 	for key in _ensure_dictionary(options.get("summon_event_overrides", {})).keys():
 		summon_event[key] = options["summon_event_overrides"][key]
 	var publish_list := [play_event, summon_event]
-	if bool(summon_result.get("granted_cover", false)):
-		publish_list.append({
-			"event_type": "status_granted",
-			"source_instance_id": str(card.get("instance_id", "")),
-			"target_instance_id": str(card.get("instance_id", "")),
-			"status_id": "cover",
-		})
 	var timing_result := MatchTiming.publish_events(match_state, publish_list, _ensure_dictionary(options.get("event_context", {})))
 	# Check for consume abilities on the summoned card (must happen before target mode)
 	MatchTiming._check_consume_abilities(match_state, card)
@@ -254,13 +246,6 @@ static func summon_with_sacrifice(match_state: Dictionary, player_id: String, in
 	publish_list.append_array(sacrifice_events)
 	publish_list.append(play_event)
 	publish_list.append(summon_event)
-	if bool(summon_result.get("granted_cover", false)):
-		publish_list.append({
-			"event_type": "status_granted",
-			"source_instance_id": str(card.get("instance_id", "")),
-			"target_instance_id": str(card.get("instance_id", "")),
-			"status_id": "cover",
-		})
 	var timing_result := MatchTiming.publish_events(match_state, publish_list, _ensure_dictionary(options.get("event_context", {})))
 	return {
 		"is_valid": true,
@@ -304,6 +289,9 @@ static func move_creature(match_state: Dictionary, player_id: String, instance_i
 	if not bool(move_result.get("is_valid", false)):
 		return move_result
 
+	var move_events: Array = move_result.get("events", [])
+	var timing_result := MatchTiming.publish_events(match_state, move_events, _ensure_dictionary(options.get("event_context", {})))
+
 	return {
 		"is_valid": true,
 		"errors": [],
@@ -311,7 +299,8 @@ static func move_creature(match_state: Dictionary, player_id: String, instance_i
 		"to_lane_id": target_lane_id,
 		"slot_index": move_result["slot_index"],
 		"card": move_result["card"],
-		"granted_cover": bool(move_result.get("granted_cover", false)),
+		"events": timing_result.get("processed_events", []),
+		"trigger_resolutions": timing_result.get("trigger_resolutions", []),
 	}
 
 
@@ -330,26 +319,9 @@ static func _apply_lane_entry(match_state: Dictionary, player_id: String, card: 
 	card["lane_id"] = validation["lane_id"]
 	card["slot_index"] = validation["slot_index"]
 	card["entered_lane_on_turn"] = int(match_state.get("turn_number", 0))
-	if bool(validation.get("granted_cover", false)):
-		var cover_offset := 1 if str(card.get("controller_player_id", "")) == str(match_state.get("active_player_id", "")) else 0
-		EvergreenRules.grant_cover(card, int(match_state.get("turn_number", 0)) + cover_offset)
 	player_slots.insert(validation["slot_index"], card)
 	MatchMutations._reindex_player_slots(player_slots)
 
-
-static func _grant_cover(card: Dictionary, cover_expires_on_turn: int) -> void:
-	EvergreenRules.grant_cover(card, cover_expires_on_turn)
-
-
-static func _should_grant_cover(match_state: Dictionary, lane: Dictionary, card: Dictionary) -> bool:
-	if str(lane.get("lane_type", lane.get("lane_id", ""))) != SHADOW_LANE_ID:
-		return false
-	if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_GUARD):
-		return false
-	var self_immunities = card.get("self_immunity", [])
-	if typeof(self_immunities) == TYPE_ARRAY and self_immunities.has("cover"):
-		return false
-	return not EvergreenRules.has_raw_status(card, EvergreenRules.STATUS_COVER)
 
 
 static func _find_player(players: Array, player_id: String) -> Dictionary:

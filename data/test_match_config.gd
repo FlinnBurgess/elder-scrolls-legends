@@ -255,19 +255,19 @@ static func _build_lanes_with_creatures(
 			board_profile = profile
 			break
 
-	var slot_capacity := int(board_profile.get("slot_capacity", 4))
+	var creature_map := {
+		"field": {"player_1": p1_field, "player_2": p2_field},
+		"shadow": {"player_1": p1_shadow, "player_2": p2_shadow},
+	}
+
+	var lane_entries: Array = board_profile.get("lanes", [])
 	var lanes: Array = []
 
-	for lane_id in board_profile.get("lane_ids", ["field", "shadow"]):
-		var lane_record: Dictionary = lane_type_lookup.get(str(lane_id), {})
-		var p1_creatures: Array
-		var p2_creatures: Array
-		if lane_id == "field":
-			p1_creatures = p1_field
-			p2_creatures = p2_field
-		else:
-			p1_creatures = p1_shadow
-			p2_creatures = p2_shadow
+	for lane_entry in lane_entries:
+		var lane_id: String = str(lane_entry.get("lane_id", ""))
+		var slot_capacity := int(lane_entry.get("slot_capacity", 4))
+		var lane_record: Dictionary = lane_type_lookup.get(str(lane_entry.get("lane_type", lane_id)), {})
+		var lane_creatures: Dictionary = creature_map.get(lane_id, {"player_1": [], "player_2": []})
 
 		var lane_rule_payload := {}
 		if not lane_record.is_empty():
@@ -279,12 +279,18 @@ static func _build_lanes_with_creatures(
 			var raw_sources = lane_record.get("source_ids", [])
 			if typeof(raw_sources) == TYPE_ARRAY:
 				source_ids = raw_sources.duplicate()
+			var effects: Array = []
+			var raw_effects = lane_record.get("effects", [])
+			if typeof(raw_effects) == TYPE_ARRAY:
+				effects = raw_effects.duplicate(true)
 			lane_rule_payload = {
 				"display_name": str(lane_record.get("display_name", lane_id)),
 				"description": str(lane_record.get("description", "")),
+				"icon": str(lane_record.get("icon", "")),
 				"implementation_bucket": str(lane_record.get("implementation_bucket", "")),
 				"availability": availability,
 				"source_ids": source_ids,
+				"effects": effects,
 			}
 
 		lanes.append({
@@ -292,8 +298,8 @@ static func _build_lanes_with_creatures(
 			"lane_type": lane_record.get("id", lane_id),
 			"slot_capacity": slot_capacity,
 			"player_slots": {
-				"player_1": p1_creatures.duplicate(true),
-				"player_2": p2_creatures.duplicate(true),
+				"player_1": lane_creatures.get("player_1", []).duplicate(true),
+				"player_2": lane_creatures.get("player_2", []).duplicate(true),
 			},
 			"lane_rule_payload": lane_rule_payload,
 		})

@@ -182,14 +182,23 @@ static func _build_shuffled_deck(player_id: String, deck_definition_ids: Array, 
 
 static func _build_lanes(board_profile: Dictionary, players: Array) -> Array:
 	var lanes: Array = []
-	var lane_ids: Array = board_profile.get("lane_ids", [])
-	var slot_capacity := int(board_profile.get("slot_capacity", 0))
+	var lane_entries: Array = board_profile.get("lanes", [])
 	var lane_type_lookup := _load_lane_type_lookup()
-	for lane_id in lane_ids:
+
+	var total_capacity := 0
+	for lane_entry in lane_entries:
+		total_capacity += int(lane_entry.get("slot_capacity", 0))
+	if total_capacity != 8:
+		push_error("Board profile total slot_capacity must equal 8, got %d." % total_capacity)
+		return []
+
+	for lane_entry in lane_entries:
+		var lane_id: String = str(lane_entry.get("lane_id", ""))
+		var slot_capacity := int(lane_entry.get("slot_capacity", 0))
 		var player_slots := {}
 		for player in players:
 			player_slots[player["player_id"]] = _build_empty_slots(slot_capacity)
-		var lane_record: Dictionary = lane_type_lookup.get(str(lane_id), {})
+		var lane_record: Dictionary = lane_type_lookup.get(str(lane_entry.get("lane_type", lane_id)), {})
 		lanes.append({
 			"lane_id": lane_id,
 			"lane_type": lane_record.get("id", lane_id),
@@ -245,12 +254,19 @@ static func _build_lane_rule_payload(lane_record: Dictionary) -> Dictionary:
 	if typeof(raw_source_ids) == TYPE_ARRAY:
 		source_ids = raw_source_ids.duplicate()
 
+	var effects: Array = []
+	var raw_effects = lane_record.get("effects", [])
+	if typeof(raw_effects) == TYPE_ARRAY:
+		effects = raw_effects.duplicate(true)
+
 	return {
 		"display_name": str(lane_record.get("display_name", lane_record.get("id", ""))),
 		"description": str(lane_record.get("description", "")),
+		"icon": str(lane_record.get("icon", "")),
 		"implementation_bucket": str(lane_record.get("implementation_bucket", "")),
 		"availability": availability,
 		"source_ids": source_ids,
+		"effects": effects,
 	}
 
 

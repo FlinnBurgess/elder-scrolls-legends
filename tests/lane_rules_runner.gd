@@ -70,12 +70,10 @@ func _test_shadow_lane_grants_cover_except_for_guard() -> bool:
 	var player: Dictionary = match_state["players"][0]
 	var shadow_creature := _append_creature_to_hand(player, "shadow_summon")
 	var shadow_result := LaneRules.summon_from_hand(match_state, player["player_id"], shadow_creature["instance_id"], "shadow")
-	if not (
-		_assert(shadow_result["is_valid"], "Expected shadow-lane summon to succeed.") and
-		_assert(shadow_result["granted_cover"], "Shadow lane should grant Cover to non-Guard creatures.")
-	):
+	if not _assert(shadow_result["is_valid"], "Expected shadow-lane summon to succeed."):
 		return false
 
+	# Cover is now applied via the generic lane effect trigger system
 	var shadow_lane_card = match_state["lanes"][1]["player_slots"][player["player_id"]][0]
 	if not (
 		_assert(_has_status(shadow_lane_card, "cover"), "Shadow-lane summon should carry the Cover status marker.") and
@@ -90,7 +88,6 @@ func _test_shadow_lane_grants_cover_except_for_guard() -> bool:
 
 	var guard_lane_card = match_state["lanes"][1]["player_slots"][player["player_id"]][1]
 	return (
-		_assert(not guard_result["granted_cover"], "Guard creatures should not gain Cover from shadow entry.") and
 		_assert(not _has_status(guard_lane_card, "cover"), "Guard creatures in shadow should not receive Cover status.") and
 		_assert(not guard_lane_card.has("cover_expires_on_turn"), "Guard creatures should not get a shadow Cover expiry marker.")
 	)
@@ -130,10 +127,7 @@ func _test_move_between_lanes_updates_slots_and_shadow_cover() -> bool:
 		return false
 
 	var move_result := LaneRules.move_creature(match_state, player["player_id"], creature["instance_id"], "shadow")
-	if not (
-		_assert(move_result["is_valid"], "Expected cross-lane move to succeed.") and
-		_assert(move_result["granted_cover"], "Moving into shadow should grant Cover to non-Guard creatures.")
-	):
+	if not _assert(move_result["is_valid"], "Expected cross-lane move to succeed."):
 		return false
 
 	var field_slots: Array = match_state["lanes"][0]["player_slots"][player["player_id"]]

@@ -7,6 +7,7 @@ const GameLogger = preload("res://src/core/match/game_logger.gd")
 const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
 const BoonRules = preload("res://src/adventure/boon_rules.gd")
+const LaneEffectRules = preload("res://src/core/match/lane_effect_rules.gd")
 
 const ZONE_HAND := "hand"
 const ZONE_DECK := "deck"
@@ -3294,6 +3295,8 @@ static func rebuild_trigger_registry(match_state: Dictionary) -> Array:
 	_inject_copied_expertise_triggers(registry, lanes)
 	# Inject virtual triggers for active adventure boons
 	BoonRules.inject_boon_triggers(match_state, registry)
+	# Inject virtual triggers for lane effects
+	LaneEffectRules.inject_lane_triggers(match_state, registry)
 	match_state["trigger_registry"] = registry.duplicate(true)
 	return registry
 
@@ -8224,6 +8227,10 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				var custom_result := ExtendedMechanicPacks.apply_custom_effect(match_state, trigger, event, resolved_effect)
 				if bool(custom_result.get("handled", false)):
 					generated_events.append_array(custom_result.get("events", []))
+				else:
+					var lane_result := LaneEffectRules.apply_lane_effect(match_state, trigger, event, resolved_effect)
+					if bool(lane_result.get("handled", false)):
+						generated_events.append_array(lane_result.get("events", []))
 	return generated_events
 
 
