@@ -1,11 +1,11 @@
 ---
 name: test-match
-description: Configure a test match scenario for manual gameplay testing. Use when user wants to test a card, mechanic, keyword, or interaction in-game — e.g. "test veteran", "set up a match with treasure hunt cards", "I want to try Consume". Edits data/test_match_config.gd so the user can press ? on the Match button to launch.
+description: Configure a test match scenario for manual gameplay testing. Use when user wants to test a card, mechanic, keyword, or interaction in-game — e.g. "test veteran", "set up a match with treasure hunt cards", "I want to try Consume". Creates a JSON config in data/test_match_configs/ so the user can press ? on the Match button to pick and launch it.
 ---
 
 # Test Match Setup
 
-Configure `data/test_match_config.gd` to create a targeted test scenario for a specific card, mechanic, or interaction.
+Create a JSON config file in `data/test_match_configs/` to set up a targeted test scenario for a specific card, mechanic, or interaction.
 
 ## Input
 
@@ -46,74 +46,101 @@ Consider what the player needs to test the mechanic:
 Set these parameters:
 - **Player 1 magicka**: High enough to play the test cards (usually 12)
 - **Player 2 magicka**: Low (1-3) so AI doesn't overwhelm the board
-- **Player 2 runes**: Empty (`[]`) unless testing prophecy/rune interactions
+- **Player 2 runes**: Standard (`[25, 20, 15, 10, 5]`) unless testing prophecy/rune interactions where you want no runes (`[]`)
 - **Player 2 creatures**: Weak (1/1 Fiery Imps or Nord Firebrands) as punching bags
 - **Lane creatures**: Pre-place one key card in lane if it needs to attack or be attacked immediately
 
-### Step 3 — Edit the Config
+### Step 3 — Create the JSON Config
 
-Edit **only the CONFIGURATION section** of `data/test_match_config.gd` (between the `── CONFIGURATION ──` and `── END CONFIGURATION ──` markers). Do not modify the helper functions below.
+Create a JSON file in `data/test_match_configs/` with a descriptive snake_case filename (e.g. `veteran_test.json`, `consume_imbued.json`). The `"name"` and `"description"` fields are required — they appear in the picker UI.
 
-The configurable variables are:
-```
-turn_number, first_player
-p1_health, p1_max_magicka, p1_current_magicka, p1_rune_thresholds, p1_has_ring, p1_ring_charges
-p1_hand_ids, p1_deck_ids, p1_discard_ids, p1_support_ids, p1_field_creatures, p1_shadow_creatures
-p2_health, p2_max_magicka, p2_current_magicka, p2_rune_thresholds, p2_has_ring, p2_ring_charges
-p2_hand_ids, p2_deck_ids, p2_discard_ids, p2_field_creatures, p2_shadow_creatures
+**JSON schema:**
+```json
+{
+  "name": "Human-readable name",
+  "description": "Short description shown in the picker UI",
+  "board_profile": "standard_versus",
+  "turn_number": 1,
+  "first_player": "player_1",
+  "player_1": {
+    "health": 30,
+    "max_magicka": 12,
+    "current_magicka": 12,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": ["card_id_1", "card_id_2"],
+    "deck": ["card_id_3", "card_id_4"],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [],
+    "shadow_creatures": []
+  },
+  "player_2": {
+    "health": 30,
+    "max_magicka": 2,
+    "current_magicka": 2,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": ["card_id_1"],
+    "deck": ["card_id_2"],
+    "discard": [],
+    "field_creatures": [],
+    "shadow_creatures": []
+  }
+}
 ```
 
 **Card IDs** are the first argument to `_seed()` in `card_catalog.gd` — e.g. `"aw_end_great_moot_squire"`.
 
-**Discard pile** uses `p1_discard_ids` / `p2_discard_ids` — an array of card IDs placed directly into the discard pile at match start. Essential for Consume testing.
+**Discard pile** uses `discard` — an array of card IDs placed directly into the discard pile at match start. Essential for Consume testing.
 
-**Lane creatures** use `_make_lane_creature(player_id, definition_id, index, overrides)`:
-- `index`: unique number (start at 100 to avoid collisions with hand/deck)
-- `overrides`: optional dict with `can_attack`, `turns_in_play`, `damage_marked`, `power_bonus`, `health_bonus`, `keywords`, `status_markers`
+**Lane creatures** can be either:
+- A string (just the definition_id): `"str_fiery_imp"`
+- A dict with overrides: `{ "definition_id": "str_fiery_imp", "can_attack": false, "damage_marked": 2 }`
+
+Available overrides: `can_attack`, `turns_in_play`, `damage_marked`, `power_bonus`, `health_bonus`, `keywords`, `status_markers`.
+
+For arbitrary extra properties (e.g. Oblivion Gates), use `"extras"`:
+```json
+{ "definition_id": "joo_neu_oblivion_gate", "can_attack": false, "extras": {
+    "rules_tags": ["oblivion_gate"],
+    "gate_level": 1,
+    "cannot_attack": true,
+    "status_markers": ["permanent_shackle"],
+    "grants_immunity": ["silence"],
+    "triggered_abilities": [...]
+}}
+```
 
 ### Testing Special Lane Types (Dementia, Mania, etc.)
 
-The test match defaults to the `standard_versus` board profile (field + shadow lanes). To test a special lane type, you must make two changes **outside** the CONFIGURATION section:
+Set `"board_profile"` to a test profile that uses the special lane type. The test profile must already exist in `data/legends/registries/lane_registry.json` under `board_profiles`. Example profile:
 
-1. **Add a test board profile** to `data/legends/registries/lane_registry.json` under `board_profiles`. Use `lane_type` to override the lane effect while keeping `lane_id` as `"shadow"` so the creature_map still routes `p1_shadow_creatures` / `p2_shadow_creatures` correctly:
-   ```json
-   {
-     "id": "dementia_test",
-     "display_name": "Dementia Test",
-     "lanes": [
-       {"lane_id": "field", "slot_capacity": 4},
-       {"lane_id": "shadow", "lane_type": "dementia", "slot_capacity": 4}
-     ],
-     "source_ids": ["workspace_spec"]
-   }
-   ```
-
-2. **Change the profile lookup** in `_build_lanes_with_creatures` (around line 254) from `"standard_versus"` to your test profile ID (e.g. `"dementia_test"`).
-
-After testing, remember to revert the profile lookup back to `"standard_versus"`.
-
-### Pre-placing Oblivion Gates
-
-Oblivion Gates are "generated" cards — their runtime state (`rules_tags`, `gate_level`, `triggered_abilities`) is NOT in the catalog seed `joo_neu_oblivion_gate`. It only exists in `ExtendedMechanicPacks._build_gate_template()`. When pre-placing gates, you must set these properties manually after `_make_lane_creature`:
-
-```gdscript
-var gate := _make_lane_creature("player_1", "joo_neu_oblivion_gate", 100, {"can_attack": false})
-gate["rules_tags"] = ["oblivion_gate"]
-gate["gate_level"] = 1  # 1-5
-gate["cannot_attack"] = true
-gate["status_markers"] = ["permanent_shackle"]
-gate["grants_immunity"] = ["silence"]
-gate["triggered_abilities"] = [{"id": "oblivion_gate_buff", "event_type": "creature_summoned", "match_role": "controller", "required_zone": "lane", "required_event_source_subtype": "Daedra", "excluded_event_source_rule_tag": "oblivion_gate", "effects": [{"op": "buff_oblivion_gate_summon", "target": "event_source"}]}]
+```json
+{
+  "id": "dementia_test",
+  "display_name": "Dementia Test",
+  "lanes": [
+    {"lane_id": "field", "slot_capacity": 4},
+    {"lane_id": "shadow", "lane_type": "dementia", "slot_capacity": 4}
+  ],
+  "source_ids": ["workspace_spec"]
+}
 ```
 
-Gate health scales: base 4 + 2 per level above 1 (use `health_bonus` in overrides). `_find_player_gate` returns the **first** gate in the shadow lane slot array — slot order determines which gate gets upgraded.
+Use `lane_id: "shadow"` so creatures route to `shadow_creatures` in the config. The `lane_type` override applies the special effect.
 
-### Step 4 — Annotate with Comments
+For **pilfer-based lane effects** (Heist, Madness), give the enemy **no runes** (`[]`) so the player can attack face freely without triggering prophecies. Pre-place friendly creatures in the shadow lane ready to attack.
 
-Add a comment next to each card ID explaining what it does and why it's in the scenario:
-```gdscript
-"aw_end_great_moot_squire",  # Cost 1, 1/2, Veteran: +1/+1
-```
+### Bulk Config Creation
+
+When creating configs for many related mechanics (e.g. all lane types), define a **sensible default template** first — shared magicka, enemy setup, deck filler — then customize only the cards/board that each specific lane effect requires. This avoids redundant card research per config.
+
+### Step 4 — Annotate the JSON
+
+Use `"name"` and `"description"` fields to make the config self-documenting. The description appears in the picker UI alongside the name.
 
 ### Step 5 — Summarize for the User
 
@@ -124,7 +151,7 @@ Tell the user:
 4. What's in the discard pile (if populated)
 5. What the enemy board looks like
 6. Step-by-step instructions for testing (e.g. "Attack Squire into the Imp to trigger Veteran")
-7. Remind them: **Launch the game, hover the Match button, press `?`**
+7. Remind them: **Launch the game, hover the Match button, press `?`, then select the config**
 
 ## Common Card IDs for Testing
 

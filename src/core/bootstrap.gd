@@ -20,6 +20,7 @@ var _deck_entries: Array = []
 var _selected_deck_index := -1
 var _start_match_button: Button
 var _match_button: Button
+var _test_match_picker: Control
 
 
 func _ready() -> void:
@@ -358,11 +359,121 @@ func _load_deck_entries() -> Array:
 	return entries
 
 
-func _start_test_match() -> void:
+func _show_test_match_picker() -> void:
+	if _test_match_picker != null:
+		_test_match_picker.queue_free()
+		_test_match_picker = null
+
+	var configs := TestMatchConfig.list_configs()
+	if configs.is_empty():
+		push_warning("No test match configs found in data/test_match_configs/")
+		return
+
 	_main_menu.visible = false
-	var test_state := TestMatchConfig.build_test_match_state()
+
+	_test_match_picker = Control.new()
+	_test_match_picker.name = "TestMatchPicker"
+	_test_match_picker.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_test_match_picker.z_index = 100
+	add_child(_test_match_picker)
+
+	var bg := ColorRect.new()
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.color = Color(0, 0, 0, 0.7)
+	_test_match_picker.add_child(bg)
+
+	# Centre the panel using anchors — anchor to centre, then offset by half-size
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(500, 0)
+	panel.anchor_left = 0.5
+	panel.anchor_right = 0.5
+	panel.anchor_top = 0.5
+	panel.anchor_bottom = 0.5
+	panel.offset_left = -250
+	panel.offset_right = 250
+	panel.offset_top = -250
+	panel.offset_bottom = 250
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_test_match_picker.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 24)
+	margin.add_theme_constant_override("margin_right", 24)
+	margin.add_theme_constant_override("margin_top", 24)
+	margin.add_theme_constant_override("margin_bottom", 24)
+	panel.add_child(margin)
+
+	var outer_vbox := VBoxContainer.new()
+	outer_vbox.add_theme_constant_override("separation", 8)
+	margin.add_child(outer_vbox)
+
+	var title := Label.new()
+	title.text = "Test Match Configs"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 22)
+	outer_vbox.add_child(title)
+
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0, 8)
+	outer_vbox.add_child(spacer)
+
+	# Scrollable list of configs
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.custom_minimum_size = Vector2(0, 100)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	outer_vbox.add_child(scroll)
+
+	var list_vbox := VBoxContainer.new()
+	list_vbox.add_theme_constant_override("separation", 8)
+	list_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(list_vbox)
+
+	for config_entry in configs:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		list_vbox.add_child(row)
+
+		var launch_btn := Button.new()
+		var btn_text := str(config_entry.get("name", ""))
+		var desc := str(config_entry.get("description", ""))
+		if not desc.is_empty():
+			btn_text += "  —  " + desc
+		launch_btn.text = btn_text
+		launch_btn.custom_minimum_size = Vector2(400, 44)
+		launch_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		launch_btn.clip_text = true
+		var filename: String = config_entry.get("filename", "")
+		launch_btn.pressed.connect(_on_test_match_selected.bind(filename))
+		row.add_child(launch_btn)
+
+		var delete_btn := Button.new()
+		delete_btn.text = "X"
+		delete_btn.custom_minimum_size = Vector2(36, 44)
+		delete_btn.tooltip_text = "Delete this config"
+		delete_btn.pressed.connect(_on_test_match_delete.bind(filename))
+		row.add_child(delete_btn)
+
+	var bottom_spacer := Control.new()
+	bottom_spacer.custom_minimum_size = Vector2(0, 8)
+	outer_vbox.add_child(bottom_spacer)
+
+	var back_btn := Button.new()
+	back_btn.text = "Back"
+	back_btn.custom_minimum_size = Vector2(0, 44)
+	back_btn.pressed.connect(_on_test_match_picker_back)
+	outer_vbox.add_child(back_btn)
+
+
+func _on_test_match_selected(filename: String) -> void:
+	if _test_match_picker != null:
+		_test_match_picker.queue_free()
+		_test_match_picker = null
+
+	var test_state := TestMatchConfig.build_test_match_state_from_file(filename)
 	if test_state.is_empty():
-		push_error("TestMatchConfig returned an empty match state.")
+		push_error("TestMatchConfig returned an empty match state for '%s'" % filename)
 		_main_menu.visible = true
 		return
 	var match_screen := MatchScreen.new()
@@ -371,6 +482,19 @@ func _start_test_match() -> void:
 	add_child(match_screen)
 	_active_screen = match_screen
 	match_screen.start_test_match(test_state)
+
+
+func _on_test_match_delete(filename: String) -> void:
+	TestMatchConfig.delete_config(filename)
+	# Re-open the picker to refresh the list
+	_show_test_match_picker()
+
+
+func _on_test_match_picker_back() -> void:
+	if _test_match_picker != null:
+		_test_match_picker.queue_free()
+		_test_match_picker = null
+	_main_menu.visible = true
 
 
 func _on_deckbuilder_pressed() -> void:
@@ -387,7 +511,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if _main_menu != null and _main_menu.visible and event.unicode == 63:
 			if _match_button != null and _match_button.is_hovered():
 				get_viewport().set_input_as_handled()
-				_start_test_match()
+				_show_test_match_picker()
 				return
 	if _active_screen == null:
 		return

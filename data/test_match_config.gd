@@ -3,111 +3,102 @@ extends RefCounted
 
 ## Test match configuration for manual testing.
 ##
-## Edit this file to set up any match scenario you want to test.
-## Press "?" while hovering the Match button on the main menu to launch.
+## Configs are stored as JSON files in data/test_match_configs/.
+## Press "?" while hovering the Match button on the main menu to open the picker.
 ##
 ## The match starts at the action phase — mulligan is skipped entirely.
 ## Deck order is preserved exactly as listed (index 0 is drawn first).
 
-const MatchBootstrap = preload("res://src/core/match/match_bootstrap.gd")
-
 const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
+const CONFIGS_DIR := "res://data/test_match_configs/"
 
 
-static func build_test_match_state() -> Dictionary:
-	## ── CONFIGURATION ──────────────────────────────────────────────────
-	## Edit the values below to set up your test scenario.
-	## Testing: Armory Lane — each summon gives a random friendly creature +1/+1
+## List all available test match config files. Returns an array of dicts:
+## [{ "filename": "armory_lane.json", "name": "...", "description": "..." }, ...]
+static func list_configs() -> Array:
+	var entries: Array = []
+	var dir := DirAccess.open(CONFIGS_DIR)
+	if dir == null:
+		return entries
+	dir.list_dir_begin()
+	var file_name := dir.get_next()
+	while not file_name.is_empty():
+		if file_name.ends_with(".json"):
+			var config := _load_config_file(file_name)
+			if not config.is_empty():
+				entries.append({
+					"filename": file_name,
+					"name": str(config.get("name", file_name.get_basename())),
+					"description": str(config.get("description", "")),
+				})
+		file_name = dir.get_next()
+	dir.list_dir_end()
+	entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return str(a.get("name", "")) < str(b.get("name", "")))
+	return entries
 
-	var turn_number := 1
-	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — 12 magicka to flood the armory lane with cheap creatures
-	var p1_health := 30
-	var p1_max_magicka := 12
-	var p1_current_magicka := 12
-	var p1_rune_thresholds := [25, 20, 15, 10, 5]
-	var p1_has_ring := false
-	var p1_ring_charges := 0
+## Delete a config file by filename.
+static func delete_config(filename: String) -> bool:
+	var path := CONFIGS_DIR + filename
+	var err := DirAccess.remove_absolute(path)
+	return err == OK
 
-	# Player 1 hand — cheap creatures to summon rapidly into the armory lane
-	var p1_hand_ids: Array = [
-		"str_nord_firebrand",               # Cost 0, 1/1 Charge — free summon, triggers buff immediately
-		"str_fiery_imp",                    # Cost 1, 1/1 — cheap summon, triggers +1/+1 on a random ally
-		"str_scuttler",                     # Cost 1, 1/2 — another cheap body
-		"str_morthal_watchman",             # Cost 1, 2/1 — see how buffs stack across multiple summons
-		"neu_enraged_mudcrab",              # Cost 1, 2/1 — fifth cheap creature to flood the lane
-	]
 
-	# Player 1 deck — more cheap creatures to keep summoning
-	var p1_deck_ids: Array = [
-		"str_jerall_forager",               # Cost 2, 2/2
-		"wil_septim_guardsman",             # Cost 0, 1/2 Guard — free summon next turn
-		"end_deadly_draugr",                # Cost 1, 1/1 Lethal — cheap + deadly with buff
-	]
+## Build a full match state dictionary from a named config file.
+static func build_test_match_state_from_file(filename: String) -> Dictionary:
+	var config := _load_config_file(filename)
+	if config.is_empty():
+		push_error("TestMatchConfig: Failed to load config '%s'" % filename)
+		return {}
+	return build_test_match_state(config)
 
-	var p1_discard_ids: Array = []
 
-	var p1_support_ids: Array = []
+## Build a full match state dictionary from a config dictionary.
+static func build_test_match_state(config: Dictionary) -> Dictionary:
+	var turn_number := int(config.get("turn_number", 1))
+	var first_player := str(config.get("first_player", "player_1"))
+	var board_profile_id := str(config.get("board_profile", "standard_versus"))
 
-	var p1_field_creatures: Array = []
+	var p1_cfg: Dictionary = config.get("player_1", {})
+	var p2_cfg: Dictionary = config.get("player_2", {})
 
-	# Pre-place one creature in armory lane so first summon can buff an existing ally
-	var p1_shadow_creatures: Array = [
-		_make_lane_creature("player_1", "str_fiery_imp", 100),           # 1/1 — existing target for +1/+1 buff
-	]
+	var p1_hand_ids: Array = _to_string_array(p1_cfg.get("hand", []))
+	var p1_deck_ids: Array = _to_string_array(p1_cfg.get("deck", []))
+	var p1_discard_ids: Array = _to_string_array(p1_cfg.get("discard", []))
+	var p1_support_ids: Array = _to_string_array(p1_cfg.get("supports", []))
+	var p1_field_creatures: Array = _build_lane_creatures("player_1", p1_cfg.get("field_creatures", []))
+	var p1_shadow_creatures: Array = _build_lane_creatures("player_1", p1_cfg.get("shadow_creatures", []))
 
-	# Player 2 (AI) — low magicka, weak hand
-	var p2_health := 30
-	var p2_max_magicka := 2
-	var p2_current_magicka := 2
-	var p2_rune_thresholds := []
-	var p2_has_ring := false
-	var p2_ring_charges := 0
+	var p2_hand_ids: Array = _to_string_array(p2_cfg.get("hand", []))
+	var p2_deck_ids: Array = _to_string_array(p2_cfg.get("deck", []))
+	var p2_discard_ids: Array = _to_string_array(p2_cfg.get("discard", []))
+	var p2_field_creatures: Array = _build_lane_creatures("player_2", p2_cfg.get("field_creatures", []))
+	var p2_shadow_creatures: Array = _build_lane_creatures("player_2", p2_cfg.get("shadow_creatures", []))
 
-	# Player 2 hand — weak creatures
-	var p2_hand_ids: Array = [
-		"str_fiery_imp",                    # Cost 1, 1/1
-		"str_fiery_imp",                    # Cost 1, 1/1
-		"str_scuttler",                     # Cost 1, 1/2
-	]
-
-	# Player 2 deck
-	var p2_deck_ids: Array = [
-		"str_fiery_imp",                    # Cost 1, 1/1
-		"str_fiery_imp",                    # Cost 1, 1/1
-		"str_scuttler",                     # Cost 1, 1/2
-		"str_fiery_imp",                    # Cost 1, 1/1
-		"str_fiery_imp",                    # Cost 1, 1/1
-		"str_scuttler",                     # Cost 1, 1/2
-	]
-
-	var p2_discard_ids: Array = []
-
-	# Enemy board — punching bags to attack with your buffed creatures
-	var p2_field_creatures: Array = [
-		_make_lane_creature("player_2", "str_fiery_imp", 200),           # 1/1 — punching bag
-		_make_lane_creature("player_2", "str_fiery_imp", 201),           # 1/1 — punching bag
-	]
-	var p2_shadow_creatures: Array = [
-		_make_lane_creature("player_2", "str_scuttler", 202),            # 1/2 — enemy in armory lane
-	]
-
-	## ── END CONFIGURATION ──────────────────────────────────────────────
-
-	# Auto-assign unique instance IDs across all cards for each player
+	# Auto-assign unique instance IDs
 	_reassign_instance_ids("player_1", p1_hand_ids, p1_deck_ids,
 		p1_field_creatures, p1_shadow_creatures, p1_discard_ids)
 	_reassign_instance_ids("player_2", p2_hand_ids, p2_deck_ids,
-		p2_field_creatures, p2_shadow_creatures)
+		p2_field_creatures, p2_shadow_creatures, p2_discard_ids)
 
 	# Build player states
-	var p1 := _build_player("player_1", p1_health, p1_max_magicka, p1_current_magicka,
-		p1_rune_thresholds, p1_has_ring, p1_ring_charges,
+	var p1 := _build_player("player_1",
+		int(p1_cfg.get("health", 30)),
+		int(p1_cfg.get("max_magicka", 12)),
+		int(p1_cfg.get("current_magicka", 12)),
+		_to_int_array(p1_cfg.get("rune_thresholds", [25, 20, 15, 10, 5])),
+		bool(p1_cfg.get("has_ring", false)),
+		int(p1_cfg.get("ring_charges", 0)),
 		p1_hand_ids, p1_deck_ids, turn_number, p1_discard_ids)
-	var p2 := _build_player("player_2", p2_health, p2_max_magicka, p2_current_magicka,
-		p2_rune_thresholds, p2_has_ring, p2_ring_charges,
-		p2_hand_ids, p2_deck_ids, turn_number)
+	var p2 := _build_player("player_2",
+		int(p2_cfg.get("health", 30)),
+		int(p2_cfg.get("max_magicka", 3)),
+		int(p2_cfg.get("current_magicka", 3)),
+		_to_int_array(p2_cfg.get("rune_thresholds", [])),
+		bool(p2_cfg.get("has_ring", false)),
+		int(p2_cfg.get("ring_charges", 0)),
+		p2_hand_ids, p2_deck_ids, turn_number, p2_discard_ids)
 
 	# Place pre-played support cards into the support zone
 	var p1_support_start: int = p1["hand"].size() + p1["deck"].size() + p1["discard"].size() + p1_field_creatures.size() + p1_shadow_creatures.size() + 1
@@ -117,7 +108,8 @@ static func build_test_match_state() -> Dictionary:
 	# Build lanes with creatures
 	var lanes := _build_lanes_with_creatures(
 		p1_field_creatures, p1_shadow_creatures,
-		p2_field_creatures, p2_shadow_creatures
+		p2_field_creatures, p2_shadow_creatures,
+		board_profile_id
 	)
 
 	var rng := RandomNumberGenerator.new()
@@ -146,6 +138,64 @@ static func build_test_match_state() -> Dictionary:
 		"lanes": lanes,
 		"mulligan": {"pending_player_ids": []},
 	}
+
+
+static func _load_config_file(filename: String) -> Dictionary:
+	var path := CONFIGS_DIR + filename
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		push_error("TestMatchConfig: Cannot open config file: %s" % path)
+		return {}
+	var parsed = JSON.parse_string(file.get_as_text())
+	if typeof(parsed) != TYPE_DICTIONARY:
+		push_error("TestMatchConfig: Invalid JSON in config file: %s" % path)
+		return {}
+	return parsed
+
+
+static func _to_string_array(input) -> Array:
+	var result: Array = []
+	if typeof(input) != TYPE_ARRAY:
+		return result
+	for item in input:
+		result.append(str(item))
+	return result
+
+
+static func _to_int_array(input) -> Array:
+	var result: Array = []
+	if typeof(input) != TYPE_ARRAY:
+		return result
+	for item in input:
+		result.append(int(item))
+	return result
+
+
+## Build lane creature card states from JSON creature definitions.
+## Each entry is either a string (definition_id only) or a dict with
+## "definition_id" and optional overrides.
+static func _build_lane_creatures(player_id: String, entries) -> Array:
+	var creatures: Array = []
+	if typeof(entries) != TYPE_ARRAY:
+		return creatures
+	for i in range(entries.size()):
+		var entry = entries[i]
+		if typeof(entry) == TYPE_STRING:
+			creatures.append(_make_lane_creature(player_id, entry, 100 + i))
+		elif typeof(entry) == TYPE_DICTIONARY:
+			var def_id := str(entry.get("definition_id", ""))
+			var overrides := {}
+			for key in entry:
+				if key != "definition_id" and key != "extras":
+					overrides[key] = entry[key]
+			var creature := _make_lane_creature(player_id, def_id, 100 + i, overrides)
+			# Merge any extra properties (e.g. rules_tags, gate_level for Oblivion Gates)
+			var extras = entry.get("extras", {})
+			if typeof(extras) == TYPE_DICTIONARY:
+				for key in extras:
+					creature[key] = extras[key]
+			creatures.append(creature)
+	return creatures
 
 
 static func _build_player(player_id: String, health: int, max_magicka: int,
@@ -227,8 +277,6 @@ static func _make_lane_creature(player_id: String, definition_id: String,
 
 
 ## Re-number instance_ids so hand, deck, and lane creatures never collide.
-## Hand/deck cards are created later by _build_player using their array index,
-## so we just need lane creatures to start after hand + deck count.
 static func _reassign_instance_ids(player_id: String, hand_ids: Array,
 		deck_ids: Array, field_creatures: Array, shadow_creatures: Array,
 		discard_ids: Array = []) -> void:
@@ -243,7 +291,8 @@ static func _reassign_instance_ids(player_id: String, hand_ids: Array,
 
 static func _build_lanes_with_creatures(
 		p1_field: Array, p1_shadow: Array,
-		p2_field: Array, p2_shadow: Array) -> Array:
+		p2_field: Array, p2_shadow: Array,
+		board_profile_id: String = "standard_versus") -> Array:
 	var lane_registry := _load_lane_registry()
 	var lane_type_lookup := {}
 	for raw_record in lane_registry.get("lane_types", []):
@@ -252,7 +301,7 @@ static func _build_lanes_with_creatures(
 
 	var board_profile := {}
 	for profile in lane_registry.get("board_profiles", []):
-		if profile.get("id", "") == "armory_test":
+		if profile.get("id", "") == board_profile_id:
 			board_profile = profile
 			break
 

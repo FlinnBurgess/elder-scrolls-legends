@@ -1,0 +1,58 @@
+{
+  "name": "Flanking Lane",
+  "description": "Summoning here gives friendly creatures in the other lane +1/+0",
+  "board_profile": "flanking_test",
+  "turn_number": 1,
+  "first_player": "player_1",
+  "player_1": {
+    "health": 30,
+    "max_magicka": 12,
+    "current_magicka": 12,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [
+      "str_nord_firebrand",
+      "str_fiery_imp",
+      "str_scuttler",
+      "str_morthal_watchman",
+      "str_whiterun_trooper"
+    ],
+    "deck": [
+      "str_jerall_forager",
+      "end_deadly_draugr",
+      "str_fiery_imp"
+    ],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      { "definition_id": "str_whiterun_trooper" },
+      { "definition_id": "str_fiery_imp" }
+    ],
+    "shadow_creatures": []
+  },
+  "player_2": {
+    "health": 30,
+    "max_magicka": 2,
+    "current_magicka": 2,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [
+      "str_fiery_imp",
+      "str_fiery_imp"
+    ],
+    "deck": [
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_scuttler"
+    ],
+    "discard": [],
+    "field_creatures": [
+      { "definition_id": "str_fiery_imp" }
+    ],
+    "shadow_creatures": [
+      { "definition_id": "str_fiery_imp" }
+    ]
+  }
+}

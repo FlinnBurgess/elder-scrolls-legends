@@ -1,0 +1,58 @@
+{
+  "name": "Masquerade Ball Lane",
+  "description": "Creatures that move into this lane get +1/+1",
+  "board_profile": "masquerade_ball_test",
+  "turn_number": 1,
+  "first_player": "player_1",
+  "player_1": {
+    "health": 30,
+    "max_magicka": 12,
+    "current_magicka": 12,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [
+      "agi_shadow_shift",
+      "agi_dune_smuggler",
+      "agi_dune_stalker",
+      "str_whiterun_trooper",
+      "str_fiery_imp"
+    ],
+    "deck": [
+      "agi_shadow_shift",
+      "str_scuttler",
+      "str_jerall_forager"
+    ],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      { "definition_id": "str_whiterun_trooper" },
+      { "definition_id": "str_fiery_imp" }
+    ],
+    "shadow_creatures": []
+  },
+  "player_2": {
+    "health": 30,
+    "max_magicka": 2,
+    "current_magicka": 2,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [
+      "str_fiery_imp",
+      "str_fiery_imp"
+    ],
+    "deck": [
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_scuttler"
+    ],
+    "discard": [],
+    "field_creatures": [
+      { "definition_id": "str_fiery_imp" }
+    ],
+    "shadow_creatures": [
+      { "definition_id": "str_scuttler" }
+    ]
+  }
+}
