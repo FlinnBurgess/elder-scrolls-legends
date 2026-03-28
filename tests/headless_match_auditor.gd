@@ -17,6 +17,7 @@ const MatchActionExecutor = preload("res://src/ai/match_action_executor.gd")
 const HeuristicMatchPolicy = preload("res://src/ai/heuristic_match_policy.gd")
 const MatchScreen = preload("res://src/ui/match_screen.gd")
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
+const ErrorReportWriter = preload("res://src/core/error_report_writer.gd")
 
 const NUM_MATCHES := 10
 const MAX_ACTIONS_PER_MATCH := 400
@@ -65,11 +66,14 @@ func _initialize() -> void:
 			print("[%d] Match %d, Turn %d, Action %d" % [i + 1, int(v.get("match", 0)), int(v.get("turn", 0)), int(v.get("action", 0))])
 			print("    Check: %s" % str(v.get("check", "")))
 			print("    Detail: %s" % str(v.get("detail", "")))
+		print("\nWriting %d bug report(s)..." % _violations.size())
+		_write_bug_reports()
 
 	if _violations.is_empty():
 		print("\nHEADLESS_AUDITOR_OK")
 		quit(0)
 	else:
+		print("\nHEADLESS_AUDITOR_FOUND_%d_ISSUES" % _violations.size())
 		quit(1)
 
 
@@ -161,10 +165,11 @@ func _run_single_match(match_index: int) -> void:
 		var events: Array = result.get("events", [])
 		var resolutions: Array = result.get("trigger_resolutions", [])
 
-		_audit_subtype_filter(match_state, match_index, turn_number, action_count, resolutions)
-		_audit_cost_lock_enforcement(match_state, match_index, turn_number, action_count, events, cost_locks_before)
-		_audit_trigger_family_event_match(match_state, match_index, turn_number, action_count, resolutions)
-		_audit_ward_consumption(match_state, match_index, turn_number, action_count, events)
+		var audit_ctx := {"match": match_index, "turn": turn_number, "action": action_count, "match_state": match_state}
+		_audit_subtype_filter(audit_ctx, resolutions)
+		_audit_cost_lock_enforcement(audit_ctx, events, cost_locks_before)
+		_audit_trigger_family_event_match(audit_ctx, resolutions)
+		_audit_ward_consumption(audit_ctx, events)
 
 	_matches_played += 1
 	_total_actions += action_count
@@ -186,13 +191,13 @@ func _build_random_deck(rng: RandomNumberGenerator) -> Array:
 # After each trigger resolution with target_filter_subtype, verify all
 # affected cards actually have the required subtype.
 
-func _audit_subtype_filter(match_state: Dictionary, match_idx: int, turn: int, action_idx: int, resolutions: Array) -> void:
+func _audit_subtype_filter(ctx: Dictionary, resolutions: Array) -> void:
+	var match_state: Dictionary = ctx["match_state"]
 	for resolution in resolutions:
 		if typeof(resolution) != TYPE_DICTIONARY:
 			continue
 		var effects: Array = resolution.get("effects", [])
 		var descriptor: Dictionary = resolution.get("descriptor", {})
-		# Also check the descriptor-level effects
 		if effects.is_empty():
 			effects = descriptor.get("effects", [])
 		for effect in effects:
@@ -201,7 +206,6 @@ func _audit_subtype_filter(match_state: Dictionary, match_idx: int, turn: int, a
 			var filter_st := str(effect.get("target_filter_subtype", ""))
 			if filter_st.is_empty():
 				continue
-			# Check if any affected target cards lack the subtype
 			var target_ids: Array = resolution.get("affected_instance_ids", [])
 			for tid in target_ids:
 				var card := _find_card(match_state, str(tid))
@@ -209,17 +213,18 @@ func _audit_subtype_filter(match_state: Dictionary, match_idx: int, turn: int, a
 					continue
 				var subtypes: Array = card.get("subtypes", [])
 				if typeof(subtypes) != TYPE_ARRAY or not subtypes.has(filter_st):
-					_violations.append({
-						"match": match_idx, "turn": turn, "action": action_idx,
-						"check": "subtype_filter",
-						"detail": "Card %s (subtypes=%s) was affected by effect with target_filter_subtype=%s" % [str(card.get("name", tid)), str(subtypes), filter_st],
-					})
+					var source_card := _find_card(match_state, str(resolution.get("source_instance_id", "")))
+					_record_violation(ctx, "subtype_filter",
+						"Card %s (subtypes=%s) was affected by effect with target_filter_subtype=%s" % [str(card.get("name", tid)), str(subtypes), filter_st],
+						str(source_card.get("name", resolution.get("source_instance_id", ""))),
+						str(source_card.get("definition_id", "")))
 
 
 # ── AUDIT: COST LOCK ENFORCEMENT ───────────────────────────────────────────
 # After each card_played event, verify the card's cost isn't locked.
 
-func _audit_cost_lock_enforcement(match_state: Dictionary, match_idx: int, turn: int, action_idx: int, events: Array, cost_locks_before: Dictionary) -> void:
+func _audit_cost_lock_enforcement(ctx: Dictionary, events: Array, cost_locks_before: Dictionary) -> void:
+	var match_state: Dictionary = ctx["match_state"]
 	for event in events:
 		if typeof(event) != TYPE_DICTIONARY:
 			continue
@@ -232,18 +237,19 @@ func _audit_cost_lock_enforcement(match_state: Dictionary, match_idx: int, turn:
 		var locks: Array = cost_locks_before.get(playing_player, [])
 		for lock in locks:
 			if int(lock.get("cost", -1)) == played_cost:
-				var card_name := str(event.get("source_name", event.get("source_instance_id", "")))
-				_violations.append({
-					"match": match_idx, "turn": turn, "action": action_idx,
-					"check": "cost_lock_enforcement",
-					"detail": "Player %s played %s (cost %d) but cost %d is locked by %s" % [playing_player, card_name, played_cost, played_cost, str(lock.get("source_instance_id", ""))],
-				})
+				var source_id := str(event.get("source_instance_id", ""))
+				var card := _find_card(match_state, source_id)
+				var card_name := str(card.get("name", source_id))
+				_record_violation(ctx, "cost_lock_enforcement",
+					"Player %s played %s (cost %d) but cost %d is locked" % [playing_player, card_name, played_cost, played_cost],
+					card_name, str(card.get("definition_id", "")))
 
 
 # ── AUDIT: TRIGGER FAMILY vs EVENT TYPE ────────────────────────────────────
 # Verify trigger resolutions match the expected event type for their family.
 
-func _audit_trigger_family_event_match(match_state: Dictionary, match_idx: int, turn: int, action_idx: int, resolutions: Array) -> void:
+func _audit_trigger_family_event_match(ctx: Dictionary, resolutions: Array) -> void:
+	var match_state: Dictionary = ctx["match_state"]
 	for resolution in resolutions:
 		if typeof(resolution) != TYPE_DICTIONARY:
 			continue
@@ -261,17 +267,18 @@ func _audit_trigger_family_event_match(match_state: Dictionary, match_idx: int, 
 		if family == MatchTiming.FAMILY_SLAY and event_type == MatchTiming.EVENT_DAMAGE_RESOLVED:
 			continue
 		if event_type != expected_event:
-			_violations.append({
-				"match": match_idx, "turn": turn, "action": action_idx,
-				"check": "trigger_family_event_mismatch",
-				"detail": "Trigger family '%s' expects event '%s' but fired on '%s'" % [family, expected_event, event_type],
-			})
+			var source_id := str(resolution.get("source_instance_id", ""))
+			var card := _find_card(match_state, source_id)
+			_record_violation(ctx, "trigger_family_event_mismatch",
+				"Trigger family '%s' expects event '%s' but fired on '%s'" % [family, expected_event, event_type],
+				str(card.get("name", source_id)), str(card.get("definition_id", "")))
 
 
 # ── AUDIT: WARD CONSUMPTION ────────────────────────────────────────────────
 # After ward_removed events, verify the creature no longer has ward.
 
-func _audit_ward_consumption(match_state: Dictionary, match_idx: int, turn: int, action_idx: int, events: Array) -> void:
+func _audit_ward_consumption(ctx: Dictionary, events: Array) -> void:
+	var match_state: Dictionary = ctx["match_state"]
 	for event in events:
 		if typeof(event) != TYPE_DICTIONARY:
 			continue
@@ -284,11 +291,9 @@ func _audit_ward_consumption(match_state: Dictionary, match_idx: int, turn: int,
 		if card.is_empty():
 			continue
 		if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_WARD):
-			_violations.append({
-				"match": match_idx, "turn": turn, "action": action_idx,
-				"check": "ward_not_consumed",
-				"detail": "Card %s still has ward after ward_removed event" % str(card.get("name", target_id)),
-			})
+			_record_violation(ctx, "ward_not_consumed",
+				"Card %s still has ward after ward_removed event" % str(card.get("name", target_id)),
+				str(card.get("name", target_id)), str(card.get("definition_id", "")))
 
 
 # ── HELPERS ────────────────────────────────────────────────────────────────
@@ -320,6 +325,55 @@ func _hydrate_unhydrated_cards(match_state: Dictionary) -> void:
 			for card in lane.get("player_slots", {}).get(pid, []):
 				if typeof(card) == TYPE_DICTIONARY and not card.has("name"):
 					MatchScreen._hydrate_card(card, _card_by_id)
+
+
+func _record_violation(ctx: Dictionary, check: String, detail: String, card_name: String, definition_id: String) -> void:
+	var match_state: Dictionary = ctx["match_state"]
+	var history: Array = match_state.get("event_log", [])
+	# Take the last 5 events as match_history for the snapshot
+	var recent_history: Array = []
+	for i in range(maxi(0, history.size() - 5), history.size()):
+		if i < history.size() and typeof(history[i]) == TYPE_DICTIONARY:
+			recent_history.append(history[i])
+	_violations.append({
+		"match": int(ctx.get("match", 0)),
+		"turn": int(ctx.get("turn", 0)),
+		"action": int(ctx.get("action", 0)),
+		"check": check,
+		"detail": detail,
+		"card_name": card_name,
+		"definition_id": definition_id,
+		"snapshot": ErrorReportWriter.build_match_snapshot(match_state, recent_history),
+	})
+
+
+func _write_bug_reports() -> void:
+	# Ensure report directory exists
+	var dir := DirAccess.open("res://")
+	if dir != null and not dir.dir_exists("reports"):
+		dir.make_dir("reports")
+	dir = DirAccess.open("res://reports")
+	if dir != null and not dir.dir_exists("bug-reports"):
+		dir.make_dir("bug-reports")
+
+	for violation in _violations:
+		var check := str(violation.get("check", ""))
+		var detail := str(violation.get("detail", ""))
+		var card_name := str(violation.get("card_name", "unknown"))
+		var definition_id := str(violation.get("definition_id", ""))
+		var match_idx := int(violation.get("match", 0))
+		var turn := int(violation.get("turn", 0))
+
+		var report := {
+			"screen": "match",
+			"element_type": "card",
+			"element_context": "%s (auditor match %d, turn %d)" % [card_name, match_idx + 1, turn],
+			"comment": "[AUDITOR:%s] %s" % [check, detail],
+			"snapshot": violation.get("snapshot", {}),
+		}
+
+		ErrorReportWriter.write_report(report)
+		print("  Written report for: %s" % detail)
 
 
 func _get_cost_locks(match_state: Dictionary) -> Dictionary:
