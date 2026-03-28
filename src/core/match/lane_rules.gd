@@ -206,13 +206,19 @@ static func summon_with_sacrifice(match_state: Dictionary, player_id: String, in
 	if play_cost > 0:
 		_spend_magicka(match_state, player_id, play_cost)
 	PersistentCardRules._consume_cost_reduction(match_state, player_id)
-	# Step 1: Sacrifice the target creature (frees a lane slot)
+	# Step 1: Record the sacrifice target's slot index so the replacement occupies the same position
+	var sacrifice_location := MatchMutations.find_card_location(match_state, sacrifice_instance_id)
+	var sacrifice_slot_index := int(sacrifice_location.get("slot_index", -1))
+	# Step 2: Sacrifice the target creature (frees a lane slot)
 	var sacrifice_result := MatchMutations.sacrifice_card(match_state, player_id, sacrifice_instance_id, options)
 	if not bool(sacrifice_result.get("is_valid", false)):
 		return sacrifice_result
 	var sacrifice_events: Array = sacrifice_result.get("events", [])
-	# Step 2: Summon the new creature into the now-available slot
-	var summon_result := MatchMutations.summon_card_to_lane(match_state, player_id, instance_id, lane_id, options)
+	# Step 3: Summon the new creature into the same slot the sacrificed creature occupied
+	var summon_options := options.duplicate()
+	if sacrifice_slot_index >= 0:
+		summon_options["slot_index"] = sacrifice_slot_index
+	var summon_result := MatchMutations.summon_card_to_lane(match_state, player_id, instance_id, lane_id, summon_options)
 	if not bool(summon_result.get("is_valid", false)):
 		return summon_result
 	var card: Dictionary = summon_result["card"]

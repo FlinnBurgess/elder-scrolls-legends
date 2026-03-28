@@ -25,6 +25,7 @@ func _run_all_tests() -> bool:
 		_test_lane_capacity_and_slot_validation() and
 		_test_move_between_lanes_updates_slots_and_shadow_cover() and
 		_test_sacrifice_summon_into_full_lane() and
+		_test_sacrifice_summon_preserves_slot_position() and
 		_test_sacrifice_summon_publishes_correct_events() and
 		_test_sacrifice_summon_rejects_wrong_lane() and
 		_test_sacrifice_summon_rejects_non_full_lane() and
@@ -249,6 +250,31 @@ func _test_sacrifice_summon_into_full_lane() -> bool:
 			in_discard = true
 			break
 	return _assert(in_discard, "Sacrificed creature should be in the discard pile.")
+
+
+func _test_sacrifice_summon_preserves_slot_position() -> bool:
+	var match_state := _build_match()
+	var player: Dictionary = match_state["players"][0]
+	var player_id: String = player["player_id"]
+	# Fill the field lane to capacity (4 creatures)
+	var creatures: Array = []
+	for i in range(4):
+		var creature := _append_creature_to_hand(player, "sac_pos_%d" % i)
+		var summon_result := LaneRules.summon_from_hand(match_state, player_id, creature["instance_id"], "field")
+		if not _assert(summon_result["is_valid"], "Expected slot %d fill to succeed." % i):
+			return false
+		creatures.append(creature)
+	# Sacrifice creature at slot 1 (middle) and replace with new creature
+	var new_creature := _append_creature_to_hand(player, "sac_pos_new")
+	var sacrifice_target_id: String = creatures[1]["instance_id"]
+	var result := LaneRules.summon_with_sacrifice(match_state, player_id, new_creature["instance_id"], "field", sacrifice_target_id)
+	if not _assert(result["is_valid"], "Sacrifice-summon should succeed."):
+		return false
+	if not _assert(int(result.get("slot_index", -1)) == 1, "New creature should be placed at slot 1 (same as sacrificed)."):
+		return false
+	var field_slots: Array = match_state["lanes"][0]["player_slots"][player_id]
+	var actual_id := str(field_slots[1].get("instance_id", ""))
+	return _assert(actual_id == new_creature["instance_id"], "New creature should physically occupy slot 1 in the lane array.")
 
 
 func _test_sacrifice_summon_publishes_correct_events() -> bool:
