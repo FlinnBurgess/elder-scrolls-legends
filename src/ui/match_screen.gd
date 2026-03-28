@@ -3178,8 +3178,9 @@ func _show_player_choice_overlay() -> void:
 	vbox.add_child(hbox)
 
 	for oi in range(options.size()):
-		var option: Dictionary = options[oi] if typeof(options[oi]) == TYPE_DICTIONARY else {}
-		var label := str(option.get("label", "Option %d" % (oi + 1)))
+		var raw_option = options[oi]
+		var option: Dictionary = raw_option if typeof(raw_option) == TYPE_DICTIONARY else {}
+		var label := str(raw_option) if typeof(raw_option) == TYPE_STRING else str(option.get("label", "Option %d" % (oi + 1)))
 		var description := str(option.get("description", ""))
 
 		if mode == "card" and option.has("card"):

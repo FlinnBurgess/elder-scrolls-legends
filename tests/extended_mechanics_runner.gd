@@ -57,7 +57,9 @@ func _run_all_tests() -> bool:
 		_test_murkwater_guide_pack() and
 		_test_ratway_prospector_pack() and
 		_test_ruthless_freebooter_pack() and
-		_test_treasure_map_pack()
+		_test_treasure_map_pack() and
+		_test_choose_cost_lock_blocks_opponent_summon() and
+		_test_choose_cost_lock_allows_different_cost()
 	)
 
 
@@ -2261,6 +2263,77 @@ func _test_treasure_map_count_based_hunt() -> bool:
 			found_action = true
 			break
 	return _assert(found_action, "Count-based hunt: should find action even when hunt_count > 1.")
+
+
+func _test_choose_cost_lock_blocks_opponent_summon() -> bool:
+	var match_state := _build_started_match()
+	var p1: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var p2: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var p1_id := str(p1.get("player_id", ""))
+	var p2_id := str(p2.get("player_id", ""))
+	# Summon a creature with choose_cost_lock
+	var darkfire := ScenarioFixtures.add_hand_card(p1, "darkfire", {
+		"card_type": "creature",
+		"cost": 0,
+		"power": 7,
+		"health": 7,
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"required_zone": "lane",
+			"effects": [{"op": "choose_cost_lock", "target_player": "opponent"}],
+		}],
+	})
+	LaneRules.summon_from_hand(match_state, p1_id, str(darkfire.get("instance_id", "")), "field")
+	if not _assert(MatchTiming.has_pending_player_choice(match_state, p1_id), "Should have pending choice after summoning cost lock creature."):
+		return false
+	# Select cost 1 (index 1 in options ["0","1","2",...])
+	var resolve_result := MatchTiming.resolve_pending_player_choice(match_state, p1_id, 1)
+	if not _assert(bool(resolve_result.get("is_valid", false)), "Resolving cost lock choice should succeed."):
+		return false
+	# Verify the lock is on p2
+	var p2_locks: Array = p2.get("cost_locks", [])
+	if not _assert(p2_locks.size() == 1 and int(p2_locks[0].get("cost", -1)) == 1, "Opponent should have cost lock for cost 1."):
+		return false
+	# Opponent tries to summon a cost-1 creature — should fail
+	var blocked_creature := ScenarioFixtures.add_hand_card(p2, "blocked_imp", {
+		"card_type": "creature",
+		"cost": 1,
+		"power": 1,
+		"health": 1,
+	})
+	var blocked_result := LaneRules.validate_summon_from_hand(match_state, p2_id, str(blocked_creature.get("instance_id", "")), "field")
+	return _assert(not bool(blocked_result.get("is_valid", true)), "Opponent should NOT be able to summon cost-1 creature when cost 1 is locked.")
+
+
+func _test_choose_cost_lock_allows_different_cost() -> bool:
+	var match_state := _build_started_match()
+	var p1: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var p2: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var p1_id := str(p1.get("player_id", ""))
+	var p2_id := str(p2.get("player_id", ""))
+	# Summon and lock cost 1
+	var darkfire := ScenarioFixtures.add_hand_card(p1, "darkfire2", {
+		"card_type": "creature",
+		"cost": 0,
+		"power": 7,
+		"health": 7,
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"required_zone": "lane",
+			"effects": [{"op": "choose_cost_lock", "target_player": "opponent"}],
+		}],
+	})
+	LaneRules.summon_from_hand(match_state, p1_id, str(darkfire.get("instance_id", "")), "field")
+	MatchTiming.resolve_pending_player_choice(match_state, p1_id, 1)
+	# Opponent summons a cost-2 creature — should succeed
+	var allowed_creature := ScenarioFixtures.add_hand_card(p2, "allowed_bear", {
+		"card_type": "creature",
+		"cost": 2,
+		"power": 2,
+		"health": 2,
+	})
+	var allowed_result := LaneRules.validate_summon_from_hand(match_state, p2_id, str(allowed_creature.get("instance_id", "")), "field")
+	return _assert(bool(allowed_result.get("is_valid", false)), "Opponent SHOULD be able to summon cost-2 creature when cost 1 is locked.")
 
 
 func _build_started_match() -> Dictionary:
