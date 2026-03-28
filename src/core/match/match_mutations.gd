@@ -734,6 +734,7 @@ static func reset_transient_state(card: Dictionary) -> void:
 	card.erase("cover_granted_by")
 	card.erase("temporary_stat_bonuses")
 	card.erase("temporary_keywords")
+	card.erase("_consumed_equip_keywords")
 
 
 static func apply_first_turn_hand_cost(match_state: Dictionary, card: Dictionary, player_id: String) -> void:

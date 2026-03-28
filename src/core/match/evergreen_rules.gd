@@ -68,10 +68,11 @@ static func has_keyword(card: Dictionary, keyword_id: String) -> bool:
 	if _ensure_array(card.get("aura_keywords", [])).has(keyword_id):
 		return true
 	# Item-granted keywords bypass silence — items provide their own bonuses
+	var consumed_equip := _ensure_array(card.get("_consumed_equip_keywords", []))
 	for item in get_attached_items(card):
 		if typeof(item) != TYPE_DICTIONARY:
 			continue
-		if _ensure_array(item.get("equip_keywords", [])).has(keyword_id):
+		if _ensure_array(item.get("equip_keywords", [])).has(keyword_id) and not consumed_equip.has(keyword_id):
 			return true
 	if has_raw_status(card, STATUS_SILENCED):
 		return false
@@ -89,12 +90,13 @@ static func count_keyword(card: Dictionary, keyword_id: String) -> int:
 	for kw in _ensure_array(card.get("aura_keywords", [])):
 		if kw == keyword_id:
 			count += 1
-	# Item-granted keywords
+	# Item-granted keywords (skip consumed ones like ward after it's broken)
+	var ck_consumed := _ensure_array(card.get("_consumed_equip_keywords", []))
 	for item in get_attached_items(card):
 		if typeof(item) != TYPE_DICTIONARY:
 			continue
 		for kw in _ensure_array(item.get("equip_keywords", [])):
-			if kw == keyword_id:
+			if kw == keyword_id and not ck_consumed.has(kw):
 				count += 1
 	if has_raw_status(card, STATUS_SILENCED):
 		return count
@@ -114,6 +116,17 @@ static func remove_keyword(card: Dictionary, keyword_id: String) -> bool:
 			values.erase(keyword_id)
 			removed = true
 		card[key] = values
+	# Track consumed equip keywords so items don't re-grant them (e.g., ward)
+	for item in get_attached_items(card):
+		if typeof(item) != TYPE_DICTIONARY:
+			continue
+		if _ensure_array(item.get("equip_keywords", [])).has(keyword_id):
+			var consumed: Array = card.get("_consumed_equip_keywords", [])
+			if not consumed.has(keyword_id):
+				consumed.append(keyword_id)
+			card["_consumed_equip_keywords"] = consumed
+			removed = true
+			break
 	return removed
 
 
