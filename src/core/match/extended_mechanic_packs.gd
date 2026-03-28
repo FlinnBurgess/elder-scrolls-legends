@@ -1690,7 +1690,7 @@ static func _count_source_multiplier(match_state: Dictionary, trigger: Dictionar
 						count += 1
 		_:
 			return 1
-	return maxi(count, 1)
+	return count
 
 
 static func _resolve_player_damage(match_state: Dictionary, trigger: Dictionary, event: Dictionary, effect: Dictionary, amount: int) -> Array:
