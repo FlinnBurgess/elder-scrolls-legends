@@ -1,7 +1,7 @@
 # Claude Learnings
 
 ## Tags
-`ai` `anchors` `assemble` `attributes` `augments` `auras` `boons` `boss-config` `card-catalog` `card-hydration` `card-state` `case-sensitivity` `cost-reduction` `death-checks` `delegation` `end-of-turn` `events` `generated-cards` `identity` `invade` `lane-resolution` `match-engine` `match-screen` `multi-target` `neutral` `passives` `player-state` `prophecy` `randomness` `registry` `runes` `shouts` `stat-helpers` `supports` `target-resolution` `testing` `triggers` `ui`
+`ai` `anchors` `assemble` `attributes` `augments` `auras` `boons` `boss-config` `card-catalog` `card-hydration` `card-state` `case-sensitivity` `cost-reduction` `death-checks` `delegation` `end-of-turn` `events` `generated-cards` `identity` `invade` `lane-resolution` `match-engine` `match-screen` `multi-target` `neutral` `passives` `player-state` `prophecy` `randomness` `registry` `runes` `shouts` `stat-helpers` `summon-path` `supports` `target-resolution` `testing` `triggers` `ui`
 
 ## Card Hydration & Attributes
 
@@ -205,6 +205,18 @@
 - **Trigger condition key mismatches silently use defaults — same pattern as effect handler keys** `[triggers, card-catalog, match-engine]`
   Trigger condition specs (like `required_friendly_attribute_count`) are read via `spec.get("key", default)`. If the card data uses a different key than the engine expects (e.g., `"min"` vs `"min_count"`), the default is used silently. This caused Pact Oathman's Agility check to always pass (min defaulted to 0). Always cross-reference condition spec keys in card data against the engine's `.get()` calls.
   _Refs: `src/core/match/match_timing.gd:3429-3432`, `src/deck/card_catalog.gd:1049`_
+
+- **`_summon_ability_conditions_met` must delegate to full condition checkers** `[triggers, summon-path, match-engine]`
+  Targeted summon abilities (those with `target_mode`) go through `_check_summon_abilities` → `_summon_ability_conditions_met`, not through the normal trigger registry. This function must delegate to `_matches_conditions` + `ExtendedMechanicPacks.matches_additional_conditions` via a synthetic trigger/event dict, otherwise any condition only handled in those functions is silently bypassed for summon abilities. Previously caused plot_bonus, exalt_cost, required_friendly_creature_min_power, and required_creature_in_each_lane to be ignored.
+  _Refs: `src/core/match/match_timing.gd:1722-1753`_
+
+- **Hand-played creatures use UI-side targeting, effect-summoned creatures use engine-side targeting** `[summon-path, match-screen, triggers]`
+  Two separate code paths handle summon target_mode abilities: (1) `_check_summon_target_mode` in match_screen.gd for hand-played creatures — called after `LaneRules.summon_from_hand`, (2) `_check_summon_abilities` in match_timing.gd for effect-summoned creatures. Both must check conditions before opening targeting mode. The UI path calls `MatchTiming._summon_ability_conditions_met` to filter abilities.
+  _Refs: `src/ui/match_screen.gd:7910-7943`, `src/core/match/match_timing.gd:1667-1720`_
+
+- **"Enters a lane" needs both summon and on_move triggers; "when X moves" needs only on_move** `[triggers, card-catalog, events]`
+  The `on_move` trigger family fires on `"card_moved"` events (lane-to-lane moves only), not on `EVENT_CREATURE_SUMMONED`. Cards with "enters a lane" phrasing need BOTH a `summon` trigger (fires on initial play) and an `on_move` trigger (fires on lane switches). Cards with "when X moves" phrasing correctly need only `on_move`.
+  _Refs: `src/core/match/match_timing.gd:152`, `src/deck/card_catalog.gd:1671`_
 
 ## Multi-Target & Dual-Target Actions
 
