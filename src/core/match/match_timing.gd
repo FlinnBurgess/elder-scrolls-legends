@@ -592,7 +592,7 @@ static func get_all_valid_targets(match_state: Dictionary, source_instance_id: S
 	return all_targets
 
 
-static func resolve_targeted_effect(match_state: Dictionary, source_instance_id: String, target_info: Dictionary) -> Dictionary:
+static func resolve_targeted_effect(match_state: Dictionary, source_instance_id: String, target_info: Dictionary, options: Dictionary = {}) -> Dictionary:
 	ensure_match_state(match_state)
 	var source_card := _find_card_anywhere(match_state, source_instance_id)
 	if source_card.is_empty():
@@ -601,6 +601,15 @@ static func resolve_targeted_effect(match_state: Dictionary, source_instance_id:
 	if source_card.has("_multi_target_count"):
 		return _resolve_multi_target_selection(match_state, source_card, target_info)
 	var abilities := get_target_mode_abilities(source_card)
+	# Filter by allowed families if specified (prevents matching pilfer/expertise
+	# abilities when resolving summon targets on cards with multiple target_mode abilities)
+	var allowed_families: Array = options.get("allowed_families", [])
+	if typeof(allowed_families) == TYPE_ARRAY and not allowed_families.is_empty():
+		var filtered_abilities: Array = []
+		for ab in abilities:
+			if allowed_families.has(str(ab.get("family", ""))):
+				filtered_abilities.append(ab)
+		abilities = filtered_abilities
 	if abilities.is_empty():
 		return {"is_valid": false, "errors": ["No target_mode abilities on card."], "events": [], "trigger_resolutions": []}
 	# Determine which ability matches the chosen target
@@ -1306,7 +1315,11 @@ static func resolve_pending_summon_effect_target(match_state: Dictionary, player
 		return {"is_valid": false, "errors": ["No pending summon effect target for %s." % player_id]}
 	pending.remove_at(idx)
 	var source_id := str(entry.get("source_instance_id", ""))
-	var resolve_result := resolve_targeted_effect(match_state, source_id, target_info)
+	var resolve_options := {}
+	var entry_families: Array = entry.get("allowed_families", [])
+	if typeof(entry_families) == TYPE_ARRAY and not entry_families.is_empty():
+		resolve_options["allowed_families"] = entry_families
+	var resolve_result := resolve_targeted_effect(match_state, source_id, target_info, resolve_options)
 	# Resume any paused budget summon loops
 	var budget_resume := _resume_budget_summons_if_needed(match_state)
 	var combined_events: Array = resolve_result.get("events", []) + budget_resume.get("events", [])
@@ -1692,11 +1705,17 @@ static func _check_summon_effect_target_mode(match_state: Dictionary, summoned_c
 		if bool(ab.get("mandatory", false)):
 			is_mandatory = true
 			break
+	var allowed_families: Array = []
+	for ab in summon_abilities:
+		var fam := str(ab.get("family", ""))
+		if not fam.is_empty() and not allowed_families.has(fam):
+			allowed_families.append(fam)
 	var pending_arr: Array = match_state.get("pending_summon_effect_targets", [])
 	pending_arr.append({
 		"player_id": controller_id,
 		"source_instance_id": instance_id,
 		"mandatory": is_mandatory,
+		"allowed_families": allowed_families,
 	})
 
 

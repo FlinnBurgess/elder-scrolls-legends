@@ -55,7 +55,7 @@ static func execute_action(match_state: Dictionary, action: Dictionary) -> Dicti
 						target_info["target_instance_id"] = summon_target_id
 					if not summon_target_pid.is_empty():
 						target_info["target_player_id"] = summon_target_pid
-					var effect_result := MatchTiming.resolve_targeted_effect(match_state, source_instance_id, target_info)
+					var effect_result := MatchTiming.resolve_targeted_effect(match_state, source_instance_id, target_info, {"allowed_families": [MatchTiming.FAMILY_SUMMON, MatchTiming.FAMILY_WAX, MatchTiming.FAMILY_WANE]})
 					result["events"] = result.get("events", []) + effect_result.get("events", [])
 					result["trigger_resolutions"] = result.get("trigger_resolutions", []) + effect_result.get("trigger_resolutions", [])
 		MatchActionEnumerator.KIND_ATTACK:
