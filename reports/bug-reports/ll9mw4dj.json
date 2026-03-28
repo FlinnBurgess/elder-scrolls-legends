@@ -1,0 +1,366 @@
+{
+	"comment": "This didn't trigger when i played it. My expectation is that this card when it is either played or is effected by \"move\" will enter targeting mode to select an enemy creature *in the same lane* to deal damage to. If there is no enemy creature in the lane it entered, then the targeting phase is skipped",
+	"element_context": "Duneripper (in Shadow Lane, player side)",
+	"element_type": "card",
+	"screen": "match",
+	"snapshot": {
+		"board": {
+			"field": {
+				"opponent_cards": [],
+				"player_cards": []
+			},
+			"shadow": {
+				"opponent_cards": [
+					{
+						"card_type": "creature",
+						"cost": 4,
+						"definition_id": "aw_wil_bruma_oppressor",
+						"health": 3,
+						"name": "Bruma Oppressor",
+						"power": 3,
+						"rules_text": "Summon: If you have another creature in each lane, set a creature's power to 1.",
+						"subtypes": [
+							"Imperial"
+						]
+					},
+					{
+						"card_type": "creature",
+						"cost": 5,
+						"definition_id": "joo_int_attuned_dremora",
+						"health": 5,
+						"name": "Attuned Dremora",
+						"power": 4,
+						"rules_text": "Summon: Gain all Keywords friendly creatures have.",
+						"status_markers": [
+							"cover"
+						],
+						"subtypes": [
+							"Daedra"
+						]
+					}
+				],
+				"player_cards": [
+					{
+						"card_type": "creature",
+						"cost": 5,
+						"definition_id": "mc_dual_duneripper",
+						"health": 3,
+						"name": "Duneripper",
+						"power": 4,
+						"rules_text": "When Duneripper enters a lane, it deals 2 damage to an enemy creature in the lane.\nPilfer: Move.",
+						"status_markers": [
+							"cover"
+						],
+						"subtypes": [
+							"Beast"
+						]
+					},
+					{
+						"card_type": "creature",
+						"cost": 5,
+						"definition_id": "joo_int_attuned_dremora",
+						"health": 5,
+						"name": "Attuned Dremora",
+						"power": 4,
+						"rules_text": "Summon: Gain all Keywords friendly creatures have.",
+						"subtypes": [
+							"Daedra"
+						]
+					},
+					{
+						"attached_items": [
+							{
+								"definition_id": "cwc_str_grappling_hook",
+								"name": "Grappling Hook"
+							}
+						],
+						"card_type": "creature",
+						"cost": 3,
+						"damage_marked": 2,
+						"definition_id": "hos_agi_woodland_lookout",
+						"health": 4,
+						"name": "Woodland Lookout",
+						"power": 3,
+						"power_bonus": -5,
+						"rules_text": "When you summon a Dragon, gain 4 health.",
+						"status_markers": [
+							"wounded"
+						],
+						"subtypes": [
+							"Wood Elf"
+						]
+					}
+				]
+			}
+		},
+		"match_history": [
+			{
+				"action_type": "play_card",
+				"player_id": "player_1",
+				"source_card": "Attuned Dremora"
+			},
+			{
+				"action_type": "attack",
+				"player_id": "player_1",
+				"source_card": "Woodland Lookout",
+				"targets": [
+					""
+				]
+			},
+			{
+				"action_type": "play_card",
+				"player_id": "player_2",
+				"source_card": "Attuned Dremora"
+			},
+			{
+				"action_type": "attack",
+				"player_id": "player_2",
+				"source_card": "Bruma Oppressor",
+				"targets": [
+					""
+				]
+			},
+			{
+				"action_type": "play_card",
+				"player_id": "player_1",
+				"source_card": "Duneripper"
+			}
+		],
+		"players": {
+			"local": {
+				"deck_size": 41,
+				"discard": [
+					{
+						"action_target_mode": "enemy_creature",
+						"card_type": "action",
+						"cost": 3,
+						"definition_id": "hos_str_unrelenting_force_2",
+						"name": "Unrelenting Force",
+						"rules_text": "Shout\nLevel 2: Unsummon an enemy creature.",
+						"shout_level": 2
+					},
+					{
+						"card_type": "creature",
+						"cost": 2,
+						"definition_id": "agi_mournhold_traitor",
+						"health": 4,
+						"keywords": [
+							"guard"
+						],
+						"name": "Mournhold Traitor",
+						"power": 4,
+						"rules_text": "Last Gasp: Your opponent summons a 2/1 Mournhold Guardian with Guard.",
+						"subtypes": [
+							"Dark Elf"
+						]
+					}
+				],
+				"hand": [
+					{
+						"card_type": "action",
+						"cost": 10,
+						"definition_id": "fhc_neu_siege_of_stros_mkai",
+						"health": 0,
+						"name": "Siege of Stros M'Kai",
+						"power": 0,
+						"rules_text": "If you started the game with no duplicate cards in your deck, play a random creature, item, support and action from your deck."
+					},
+					{
+						"card_type": "creature",
+						"cost": 3,
+						"definition_id": "cwc_neu_star_sung_bard",
+						"health": 3,
+						"name": "Star-Sung Bard",
+						"power": 2,
+						"rules_text": "Immune to Silence.\nYour Unique cards cost 1 less.",
+						"subtypes": [
+							"Nord"
+						]
+					},
+					{
+						"card_type": "creature",
+						"cost": 7,
+						"definition_id": "hom_agi_nix_ox",
+						"health": 5,
+						"name": "Nix-Ox",
+						"power": 5,
+						"rules_text": "Summon: Gain 5 magicka this turn.",
+						"subtypes": [
+							"Beast"
+						]
+					}
+				],
+				"health": 27,
+				"magicka": {
+					"current": 1,
+					"max": 6
+				},
+				"runes": [
+					25,
+					20,
+					15,
+					10,
+					5
+				],
+				"turn_state": {
+					"cards_played_this_turn": 1,
+					"creature_summons_this_turn": 1
+				}
+			},
+			"opponent": {
+				"deck_size": 39,
+				"discard": [
+					{
+						"action_target_mode": "any_creature",
+						"card_type": "action",
+						"cost": 0,
+						"definition_id": "wil_calm",
+						"health": 0,
+						"name": "Calm",
+						"power": 0,
+						"rules_text": "Give a creature -4/-0 this turn."
+					},
+					{
+						"action_target_mode": "creature_4_power_or_more",
+						"card_type": "action",
+						"cost": 4,
+						"definition_id": "db_str_fell_the_mighty",
+						"health": 0,
+						"name": "Fell the Mighty",
+						"power": 0,
+						"rules_text": "Destroy a creature with 4 power or more."
+					},
+					{
+						"card_type": "creature",
+						"cost": 1,
+						"definition_id": "agi_mournhold_guardian",
+						"health": 1,
+						"keywords": [
+							"guard"
+						],
+						"name": "Mournhold Guardian",
+						"power": 2,
+						"rules_text": "Guard",
+						"subtypes": [
+							"Dark Elf"
+						]
+					}
+				],
+				"hand": [
+					{
+						"card_type": "creature",
+						"cost": 4,
+						"definition_id": "wil_auridon_paladin",
+						"health": 4,
+						"name": "Auridon Paladin",
+						"power": 4,
+						"rules_text": "When you play an action, Auridon Paladin gains Drain this turn.",
+						"subtypes": [
+							"High Elf"
+						]
+					},
+					{
+						"card_type": "support",
+						"cost": 3,
+						"definition_id": "cwc_wil_reconstruction_engine",
+						"health": 0,
+						"name": "Reconstruction Engine",
+						"power": 0,
+						"rules_text": "Uses: 5\nActivate: Give a friendly creature -1/-1 and summon a 1/1 Reconstructed Spider."
+					},
+					{
+						"card_type": "creature",
+						"cost": 3,
+						"definition_id": "end_wrothgar_artisan",
+						"health": 3,
+						"name": "Wrothgar Artisan",
+						"power": 2,
+						"rules_text": "Summon: Give a creature +1/+1.",
+						"subtypes": [
+							"Orc"
+						]
+					},
+					{
+						"card_type": "item",
+						"cost": 3,
+						"definition_id": "hos_str_shield_breaker",
+						"health": 0,
+						"name": "Shield Breaker",
+						"power": 0,
+						"rules_text": "+2/+2\nSummon: An enemy creature loses Guard."
+					},
+					{
+						"card_type": "creature",
+						"cost": 4,
+						"definition_id": "hom_end_caius_cosades",
+						"health": 4,
+						"name": "Caius Cosades",
+						"power": 3,
+						"rules_text": "Summon: Look at two of your opponent's cards. Guess the one in their hand. If you're right, give all creatures in your hand +1/+1.",
+						"subtypes": [
+							"Imperial"
+						]
+					},
+					{
+						"card_type": "creature",
+						"cost": 3,
+						"definition_id": "agi_snow_fox",
+						"health": 3,
+						"name": "Snow Fox",
+						"power": 2,
+						"rules_text": "",
+						"subtypes": [
+							"Beast"
+						]
+					},
+					{
+						"card_type": "item",
+						"cost": 3,
+						"definition_id": "db_str_quicksilver_crossbow",
+						"health": 0,
+						"name": "Quicksilver Crossbow",
+						"power": 0,
+						"rules_text": "+1/+1\nSummon: The wielder deals 1 damage."
+					}
+				],
+				"health": 18,
+				"magicka": {
+					"current": 0,
+					"max": 6
+				},
+				"runes": [
+					25,
+					20,
+					15,
+					10,
+					5
+				],
+				"turn_state": {
+					"cards_played_this_turn": 1,
+					"creature_summons_this_turn": 1,
+					"pilfer_or_drain_count_this_turn": 1
+				}
+			}
+		},
+		"ring_of_magicka": {
+			"local": {
+				"has_ring": false,
+				"ring_charges": 0,
+				"ring_used_this_turn": false
+			},
+			"opponent": {
+				"has_ring": false,
+				"ring_charges": 0,
+				"ring_used_this_turn": false
+			}
+		},
+		"supports": {
+			"local": [],
+			"opponent": []
+		},
+		"turn": {
+			"active_player": "player_1",
+			"number": 12
+		}
+	}
+}

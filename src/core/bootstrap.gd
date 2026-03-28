@@ -188,6 +188,12 @@ func _show_deck_select_screen() -> void:
 	_start_match_button.pressed.connect(_on_start_match_pressed)
 	center.add_child(_start_match_button)
 
+	var random_decks_button := Button.new()
+	random_decks_button.text = "Random Decks"
+	random_decks_button.custom_minimum_size = Vector2(400, 48)
+	random_decks_button.pressed.connect(_on_random_decks_pressed)
+	center.add_child(random_decks_button)
+
 	var back_button := Button.new()
 	back_button.text = "Back"
 	back_button.custom_minimum_size = Vector2(400, 44)
@@ -232,6 +238,35 @@ func _on_start_match_pressed() -> void:
 	var enemy_deck_ids := _pick_random_enemy_deck(selected_entry.get("path", ""))
 	if enemy_deck_ids.is_empty():
 		return
+
+	_deck_select_screen.queue_free()
+	_deck_select_screen = null
+
+	var match_screen := MatchScreen.new()
+	match_screen.name = "Match"
+	match_screen.return_to_main_menu_requested.connect(_show_main_menu)
+	add_child(match_screen)
+	_active_screen = match_screen
+	match_screen.start_match_with_decks(player_deck_ids, enemy_deck_ids)
+
+
+func _on_random_decks_pressed() -> void:
+	var catalog := CardCatalog.load_default()
+	var all_cards: Array = catalog.get("cards", [])
+	if all_cards.size() < 50:
+		return
+
+	var shuffled_p1 := all_cards.duplicate()
+	shuffled_p1.shuffle()
+	var player_deck_ids: Array = []
+	for i in range(50):
+		player_deck_ids.append(str(shuffled_p1[i].get("card_id", "")))
+
+	var shuffled_p2 := all_cards.duplicate()
+	shuffled_p2.shuffle()
+	var enemy_deck_ids: Array = []
+	for i in range(50):
+		enemy_deck_ids.append(str(shuffled_p2[i].get("card_id", "")))
 
 	_deck_select_screen.queue_free()
 	_deck_select_screen = null
