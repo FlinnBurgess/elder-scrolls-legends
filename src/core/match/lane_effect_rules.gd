@@ -1,5 +1,6 @@
 extends RefCounted
 
+const CardCatalog = preload("res://src/deck/card_catalog.gd")
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 
@@ -963,17 +964,28 @@ static func _resolve_lane_plunder_attach_item(match_state: Dictionary, trigger: 
 	if card.is_empty():
 		return {"handled": true, "events": []}
 	var player_id := str(card.get("controller_player_id", ""))
-	var synth_trigger := trigger.duplicate(true)
-	synth_trigger["controller_player_id"] = player_id
-	synth_trigger["source_instance_id"] = str(card.get("instance_id", ""))
-	var custom_result: Dictionary = _extended_packs().apply_custom_effect(match_state, synth_trigger, event, {
-		"op": "summon_random_from_catalog",
-		"filter": {"card_type": "item"},
-		"lane_id": str(trigger.get("descriptor", {}).get("_lane_id", "")),
-	})
-	if bool(custom_result.get("handled", false)):
-		return {"handled": true, "events": custom_result.get("events", [])}
-	return {"handled": true, "events": []}
+	var lane_id := str(trigger.get("descriptor", {}).get("_lane_id", ""))
+	var items: Array = []
+	for seed in CardCatalog._card_seeds():
+		if typeof(seed) != TYPE_DICTIONARY:
+			continue
+		if not bool(seed.get("collectible", true)):
+			continue
+		if str(seed.get("card_type", "")) != "item":
+			continue
+		items.append(seed)
+	if items.is_empty():
+		return {"handled": true, "events": []}
+	var pick: Dictionary = items[_timing_rules()._deterministic_index(match_state, str(card.get("instance_id", "")) + "_plunder", items.size())]
+	var template: Dictionary = pick.duplicate(true)
+	template["definition_id"] = str(template.get("card_id", ""))
+	var generated := MatchMutations.build_generated_card(match_state, player_id, template)
+	var attach_result := MatchMutations.attach_item_to_creature(match_state, player_id, generated, str(card.get("instance_id", "")), {"source_zone": MatchMutations.ZONE_GENERATED})
+	if not bool(attach_result.get("is_valid", false)):
+		return {"handled": true, "events": []}
+	var events: Array = attach_result.get("events", [])
+	events.append({"event_type": "lane_effect_applied", "lane_effect": "plunder", "lane_id": lane_id, "player_id": player_id, "target_instance_id": str(card.get("instance_id", "")), "item_instance_id": str(generated.get("instance_id", ""))})
+	return {"handled": true, "events": events}
 
 
 # --- Reanimation: resurrect non-Reanimated creature as 1/1 on first death ---

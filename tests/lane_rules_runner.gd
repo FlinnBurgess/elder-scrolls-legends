@@ -80,7 +80,10 @@ func _run_all_tests() -> bool:
 		_test_madness_lane_transforms_on_pilfer() and
 		_test_madness_lane_no_transform_in_other_lane() and
 		_test_madness_lane_transformed_creature_has_summoning_sickness() and
-		_test_madness_lane_transformed_charge_creature_can_attack()
+		_test_madness_lane_transformed_charge_creature_can_attack() and
+		_test_plunder_lane_attaches_item_on_summon() and
+		_test_plunder_lane_does_not_affect_other_lane() and
+		_test_plunder_lane_both_players_get_items()
 	)
 
 
@@ -1305,3 +1308,55 @@ func _assert(condition: bool, message: String) -> bool:
 
 	push_error(message)
 	return false
+
+
+# --- Plunder Lane Tests ---
+
+func _test_plunder_lane_attaches_item_on_summon() -> bool:
+	var match_state := _build_plunder_match()
+	var player: Dictionary = match_state["players"][0]
+	var creature := _summon_creature(player, match_state, "plunder_target", "plunder", 2, 3)
+	var attached: Array = creature.get("attached_items", [])
+	return (
+		_assert(attached.size() == 1, "Plunder lane should attach exactly 1 item, got %d." % attached.size()) and
+		_assert(str(attached[0].get("card_type", "")) == "item", "Attached card should be an item, got '%s'." % str(attached[0].get("card_type", "")))
+	)
+
+
+func _test_plunder_lane_does_not_affect_other_lane() -> bool:
+	var match_state := _build_plunder_match()
+	var player: Dictionary = match_state["players"][0]
+	var creature := _summon_creature(player, match_state, "field_target", "field", 2, 3)
+	var attached: Array = creature.get("attached_items", [])
+	return _assert(attached.size() == 0, "Summoning in field lane should not attach an item, got %d." % attached.size())
+
+
+func _test_plunder_lane_both_players_get_items() -> bool:
+	var match_state := _build_plunder_match()
+	var player_1: Dictionary = match_state["players"][0]
+	var player_2: Dictionary = match_state["players"][1]
+	var c1 := _summon_creature(player_1, match_state, "p1_plunder", "plunder", 2, 3)
+	var c2 := _summon_creature(player_2, match_state, "p2_plunder", "plunder", 2, 3)
+	var a1: Array = c1.get("attached_items", [])
+	var a2: Array = c2.get("attached_items", [])
+	return (
+		_assert(a1.size() == 1, "Player 1 creature should have 1 attached item, got %d." % a1.size()) and
+		_assert(a2.size() == 1, "Player 2 creature should have 1 attached item, got %d." % a2.size())
+	)
+
+
+func _build_plunder_match() -> Dictionary:
+	var match_state := _build_match()
+	var lane: Dictionary = match_state["lanes"][1]
+	lane["lane_id"] = "plunder"
+	lane["lane_type"] = "plunder"
+	lane["lane_rule_payload"] = {
+		"display_name": "Plunder",
+		"description": "After a creature is summoned here, attach a random item to it.",
+		"icon": "res://assets/images/lanes/plunder.png",
+		"implementation_bucket": "mvp",
+		"availability": ["story", "arena"],
+		"source_ids": ["uesp_lanes"],
+		"effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_plunder_attach_item"}]}],
+	}
+	return match_state
