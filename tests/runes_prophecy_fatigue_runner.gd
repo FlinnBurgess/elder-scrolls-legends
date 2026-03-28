@@ -23,7 +23,9 @@ func _run_all_tests() -> bool:
 		_test_prophecy_decline_discards_card_when_hand_full() and
 		_test_prophecy_creature_can_be_played_for_free() and
 		_test_prophecy_action_deals_damage_to_target() and
-		_test_fatigue_uses_out_of_cards_and_eventual_loss()
+		_test_fatigue_uses_out_of_cards_and_eventual_loss() and
+		_test_on_enemy_rune_destroyed_triggers_invade() and
+		_test_fighters_guild_hall_triggers_on_retaliation_damage()
 	)
 
 
@@ -209,6 +211,99 @@ func _test_fatigue_uses_out_of_cards_and_eventual_loss() -> bool:
 		_assert(active_player["health"] == 0, "Final fatigue should reduce health to zero when no runes remain.") and
 		_assert(str(match_state.get("winner_player_id", "")) == opponent["player_id"], "The opposing player should win when Out of Cards fires with no runes remaining.") and
 		_assert(_count_out_of_cards(active_player) == 6, "Each empty-deck draw should create a distinct Out of Cards card in discard.")
+	)
+
+
+func _test_on_enemy_rune_destroyed_triggers_invade() -> bool:
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	# Create a creature with the on_enemy_rune_destroyed family (like Widow Daedra)
+	var watcher := _summon_creature(active_player, match_state, "rune_invader", "shadow", 5, 3, [], 0, {
+		"subtypes": ["Daedra"],
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_ENEMY_RUNE_DESTROYED,
+			"required_zone": "lane",
+			"effects": [{"op": "invade"}],
+		}]
+	})
+	var attacker := _summon_creature(active_player, match_state, "face_hitter", "field", 6, 6, [], 0)
+	_target_ready_for_attack(attacker, match_state)
+
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], attacker["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	var families := _families_from_resolutions(result.get("trigger_resolutions", []))
+	# Invade should have created an Oblivion Gate
+	var gate_found := false
+	for lane in match_state.get("lanes", []):
+		if str(lane.get("lane_id", "")) == "shadow":
+			for card in lane.get("player_slots", {}).get(active_player["player_id"], []):
+				if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == "generated_oblivion_gate":
+					gate_found = true
+	if not (
+		_assert(result["is_valid"], "on_enemy_rune_destroyed test: attack should resolve.") and
+		_assert(opponent["health"] == 24, "on_enemy_rune_destroyed test: opponent should take 6 damage.") and
+		_assert(families.has(MatchTiming.FAMILY_ON_ENEMY_RUNE_DESTROYED), "on_enemy_rune_destroyed trigger should fire when enemy rune is broken.") and
+		_assert(gate_found, "on_enemy_rune_destroyed with invade effect should create an Oblivion Gate.")
+	):
+		return false
+	# Now test with existing gate (simulating Widow Daedra after an earlier invade)
+	# The gate was created at level 1. Attack face again to break another rune and trigger a second invade.
+	var attacker2 := _summon_creature(active_player, match_state, "face_hitter_2", "field", 6, 6, [], 1)
+	_target_ready_for_attack(attacker2, match_state)
+	var result2 := MatchCombat.resolve_attack(match_state, active_player["player_id"], attacker2["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	var families2 := _families_from_resolutions(result2.get("trigger_resolutions", []))
+	# Find the gate and check its level
+	var gate_level := 0
+	for lane in match_state.get("lanes", []):
+		if str(lane.get("lane_id", "")) == "shadow":
+			for card in lane.get("player_slots", {}).get(active_player["player_id"], []):
+				if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == "generated_oblivion_gate":
+					gate_level = int(card.get("gate_level", 0))
+	return (
+		_assert(result2["is_valid"], "on_enemy_rune_destroyed test: second attack should resolve.") and
+		_assert(families2.has(MatchTiming.FAMILY_ON_ENEMY_RUNE_DESTROYED), "on_enemy_rune_destroyed should fire on second rune break too.") and
+		_assert(gate_level == 2, "Gate should be upgraded to level 2 after second invade (was %d)." % gate_level)
+	)
+
+
+func _test_fighters_guild_hall_triggers_on_retaliation_damage() -> bool:
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	# Add Fighters Guild Hall as a support
+	var support := ScenarioFixtures.make_card(active_player["player_id"], "fighters_guild", {
+		"card_type": "support",
+		"zone": "support",
+		"triggered_abilities": [{
+			"family": "on_damage",
+			"match_role": "friendly_target",
+			"required_zone": "support",
+			"required_controller_turn": true,
+			"effects": [{"op": "modify_stats", "target": "damaged_creature", "power": 2, "health": 0}],
+		}]
+	})
+	active_player["support"].append(support)
+	# Summon attacker for active player
+	var attacker := _summon_creature(active_player, match_state, "guild_fighter", "field", 6, 6, [], 0)
+	_target_ready_for_attack(attacker, match_state)
+	# Summon a defender for opponent
+	var defender := _summon_creature(opponent, match_state, "guild_target", "field", 3, 2, [], 0)
+
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], attacker["instance_id"], {
+		"type": "creature",
+		"instance_id": defender["instance_id"],
+	})
+	var families := _families_from_resolutions(result.get("trigger_resolutions", []))
+	return (
+		_assert(result["is_valid"], "Fighters Guild Hall test: attack should resolve.") and
+		_assert(families.has(MatchTiming.FAMILY_ON_DAMAGE), "on_damage trigger should fire when friendly creature takes retaliation damage.") and
+		_assert(int(attacker.get("power_bonus", 0)) == 2, "Fighters Guild Hall should give +2/+0 to damaged creature.")
 	)
 
 
