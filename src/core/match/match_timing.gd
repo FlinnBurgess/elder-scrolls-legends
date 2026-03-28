@@ -2843,6 +2843,7 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 		_check_slay_target_mode(match_state, event)
 	recalculate_auras(match_state)
 	# After auras recalculate, check for creatures that should die due to lost aura health
+	var combat_pending: Array = match_state.get("_combat_pending_deaths", [])
 	var aura_death_events: Array = []
 	for lane in match_state.get("lanes", []):
 		var player_slots_by_id: Dictionary = lane.get("player_slots", {})
@@ -2851,6 +2852,8 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 			for slot_index in range(slots.size() - 1, -1, -1):
 				var card = slots[slot_index]
 				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				if combat_pending.has(str(card.get("instance_id", ""))):
 					continue
 				if EvergreenRules.get_remaining_health(card) <= 0:
 					var instance_id := str(card.get("instance_id", ""))

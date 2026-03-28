@@ -37,6 +37,7 @@ static func inject_lane_triggers(match_state: Dictionary, registry: Array) -> vo
 
 static func apply_lane_effect(match_state: Dictionary, trigger: Dictionary, event: Dictionary, effect: Dictionary) -> Dictionary:
 	var op := str(effect.get("op", ""))
+	print("[LANE_EFFECT] apply_lane_effect called — op=%s event_type=%s" % [op, event.get("event_type", "")])
 	match op:
 		"lane_grant_cover":
 			return _resolve_lane_grant_cover(match_state, trigger, event)
@@ -531,13 +532,18 @@ static func _resolve_lane_campfire_share_keywords(match_state: Dictionary, trigg
 static func _resolve_lane_champions_arena_extra_attack(match_state: Dictionary, trigger: Dictionary, event: Dictionary, _effect: Dictionary) -> Dictionary:
 	var lane_id := str(trigger.get("descriptor", {}).get("_lane_id", ""))
 	var attacker_id := str(event.get("source_instance_id", event.get("attacker_instance_id", "")))
+	print("[CHAMPIONS_ARENA] called — lane_id=%s attacker_id=%s event=%s" % [lane_id, attacker_id, event])
 	if attacker_id.is_empty():
+		print("[CHAMPIONS_ARENA] bail: attacker_id empty")
 		return {"handled": true, "events": []}
 	var location := MatchMutations.find_card_location(match_state, attacker_id)
 	if not bool(location.get("is_valid", false)):
+		print("[CHAMPIONS_ARENA] bail: card not found for %s" % attacker_id)
 		return {"handled": true, "events": []}
 	var card: Dictionary = location.get("card", {})
-	if str(card.get("lane_id", "")) != lane_id:
+	var card_lane_id := str(location.get("lane_id", ""))
+	if card_lane_id != lane_id:
+		print("[CHAMPIONS_ARENA] bail: card lane_id=%s != trigger lane_id=%s" % [card_lane_id, lane_id])
 		return {"handled": true, "events": []}
 	var turn_key := "champions_arena_attacked_turn_%s" % lane_id
 	var player_id := str(card.get("controller_player_id", ""))
@@ -545,9 +551,11 @@ static func _resolve_lane_champions_arena_extra_attack(match_state: Dictionary, 
 	var player_turn_key := "%s_%s" % [turn_key, player_id]
 	var last_attack_turn := int(match_state.get(player_turn_key, -1))
 	if last_attack_turn == current_turn:
+		print("[CHAMPIONS_ARENA] bail: already used this turn (turn=%d)" % current_turn)
 		return {"handled": true, "events": []}
 	match_state[player_turn_key] = current_turn
-	card["attacks_remaining"] = int(card.get("attacks_remaining", 0)) + 1
+	card["extra_attacks_remaining"] = int(card.get("extra_attacks_remaining", 0)) + 1
+	print("[CHAMPIONS_ARENA] granted extra attack to %s — extra_attacks_remaining=%d" % [attacker_id, card["extra_attacks_remaining"]])
 	return {"handled": true, "events": [{
 		"event_type": "extra_attack_granted",
 		"source_instance_id": attacker_id,
@@ -646,6 +654,11 @@ static func _resolve_lane_graveyard_summon_draugr(match_state: Dictionary, trigg
 	var destroyed_id := str(event.get("instance_id", ""))
 	if destroyed_id.is_empty():
 		return {"handled": true, "events": []}
+	# Only trigger for creatures that died in this lane (use event's lane_id since
+	# _clear_lane_state erases it from the card before it reaches discard)
+	var event_lane_id := str(event.get("lane_id", ""))
+	if event_lane_id != lane_id:
+		return {"handled": true, "events": []}
 	# Check if the destroyed creature's name was "Rotting Draugr" — look for it in discard
 	var controller_id := str(event.get("controller_player_id", ""))
 	for player in match_state.get("players", []):
@@ -653,8 +666,6 @@ static func _resolve_lane_graveyard_summon_draugr(match_state: Dictionary, trigg
 			continue
 		for card in player.get("discard", []):
 			if str(card.get("instance_id", "")) == destroyed_id:
-				if str(card.get("lane_id", card.get("_last_lane_id", ""))) != lane_id:
-					return {"handled": true, "events": []}
 				if str(card.get("name", "")) == "Rotting Draugr":
 					return {"handled": true, "events": []}
 	# Check lane has room
@@ -675,6 +686,8 @@ static func _resolve_lane_graveyard_summon_draugr(match_state: Dictionary, trigg
 		"zone": "lane", "lane_id": lane_id, "slot_index": int(player_slots.size()),
 		"keywords": [], "granted_keywords": [], "status_markers": [],
 		"is_token": true, "attacks_remaining": 0,
+		"entered_lane_on_turn": int(match_state.get("turn_number", 0)),
+		"art_path": "res://assets/images/cards/end_rotting_draugr.png",
 	}
 	player_slots.append(token)
 	return {"handled": true, "events": [{

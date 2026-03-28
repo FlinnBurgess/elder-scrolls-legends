@@ -4839,7 +4839,10 @@ func _lane_readiness_badge_text(card: Dictionary) -> String:
 	if bool(card.get("cannot_attack", false)) or EvergreenRules.has_status(card, EvergreenRules.STATUS_SHACKLED):
 		return "WAITING"
 	if bool(card.get("has_attacked_this_turn", false)):
-		return "WAITING"
+		var extra := int(card.get("extra_attacks_remaining", 0))
+		print("[READINESS] %s has_attacked=true extra_attacks_remaining=%d" % [card.get("instance_id", "?"), extra])
+		if extra <= 0:
+			return "WAITING"
 	if _entered_lane_this_turn(card) and not EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_CHARGE):
 		return "WAITING"
 	return "READY"
@@ -5088,13 +5091,14 @@ func _creature_readiness_state(card: Dictionary) -> Dictionary:
 			"font": Color(0.98, 0.94, 1.0, 1.0),
 		}
 	if bool(card.get("has_attacked_this_turn", false)):
-		return {
-			"id": "spent",
-			"label": "SPENT",
-			"fill": Color(0.18, 0.2, 0.26, 0.98),
-			"border": Color(0.62, 0.68, 0.78, 0.94),
-			"font": Color(0.89, 0.92, 0.98, 1.0),
-		}
+		if int(card.get("extra_attacks_remaining", 0)) <= 0:
+			return {
+				"id": "spent",
+				"label": "SPENT",
+				"fill": Color(0.18, 0.2, 0.26, 0.98),
+				"border": Color(0.62, 0.68, 0.78, 0.94),
+				"font": Color(0.89, 0.92, 0.98, 1.0),
+			}
 	if _entered_lane_this_turn(card) and not EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_CHARGE):
 		return {
 			"id": "summoning_sick",

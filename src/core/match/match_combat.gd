@@ -52,6 +52,10 @@ static func resolve_attack(match_state: Dictionary, player_id: String, attacker_
 		return validation
 
 	var attacker: Dictionary = validation["attacker"]
+	if bool(attacker.get("has_attacked_this_turn", false)):
+		var extra := int(attacker.get("extra_attacks_remaining", 0))
+		if extra > 0:
+			attacker["extra_attacks_remaining"] = extra - 1
 	attacker["has_attacked_this_turn"] = true
 	if EvergreenRules.has_raw_status(attacker, EvergreenRules.STATUS_COVER):
 		EvergreenRules.remove_status(attacker, EvergreenRules.STATUS_COVER)
@@ -268,7 +272,14 @@ static func _resolve_creature_attack(match_state: Dictionary, validation: Dictio
 		var def_destroy_lookup: Dictionary = validation["defender_lookup"] if defender_damage_target == defender else _find_creature_on_board(match_state.get("lanes", []), str(defender_damage_target.get("instance_id", "")))
 		if bool(def_destroy_lookup.get("is_valid", false)):
 			_destroy_creature(match_state, def_destroy_lookup, str(attacker.get("instance_id", "")), phase1_events)
+		# Mark the attacker as pending combat death so publish_events' aura
+		# recalculation doesn't prematurely destroy it before phase 2.
+		var atk_id := str(attacker_damage_target.get("instance_id", ""))
+		var pending_deaths: Array = match_state.get("_combat_pending_deaths", [])
+		pending_deaths.append(atk_id)
+		match_state["_combat_pending_deaths"] = pending_deaths
 		phase1_timing = MatchTiming.publish_events(match_state, phase1_events)
+		match_state.erase("_combat_pending_deaths")
 		var atk_destroy_lookup: Dictionary = _find_creature_on_board(match_state.get("lanes", []), str(attacker_damage_target.get("instance_id", "")))
 		if atk_destroy_lookup["is_valid"]:
 			_destroy_creature(match_state, atk_destroy_lookup, str(defender.get("instance_id", "")), events, true)

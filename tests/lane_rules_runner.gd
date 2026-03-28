@@ -5,6 +5,7 @@ const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const LaneRules = preload("res://src/core/match/lane_rules.gd")
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
+const MatchCombat = preload("res://src/core/match/match_combat.gd")
 
 
 func _initialize() -> void:
@@ -69,7 +70,11 @@ func _run_all_tests() -> bool:
 		_test_venom_grants_lethal() and
 		_test_warzone_damages_opponent_on_summon() and
 		_test_sewer_blocks_high_health() and
-		_test_sewer_allows_low_health()
+		_test_sewer_allows_low_health() and
+		_test_graveyard_spawns_draugr_on_death() and
+		_test_graveyard_spawns_draugr_on_second_death() and
+		_test_graveyard_dual_death_spawns_both_draugrs() and
+		_test_graveyard_draugr_has_summoning_sickness()
 	)
 
 
@@ -942,6 +947,120 @@ func _build_dementia_match() -> Dictionary:
 		"effects": [{"family": "start_of_turn", "match_role": "any_player", "effects": [{"op": "lane_dementia_damage", "amount": 3}]}],
 	}
 	return match_state
+
+
+func _build_graveyard_match() -> Dictionary:
+	var match_state := _build_match()
+	var lane: Dictionary = match_state["lanes"][1]
+	lane["lane_id"] = "graveyard"
+	lane["lane_type"] = "graveyard"
+	lane["lane_rule_payload"] = {
+		"display_name": "Graveyard",
+		"description": "After a creature other than Rotting Draugr is destroyed, summon a 1/1 Rotting Draugr.",
+		"effects": [{"family": "on_friendly_death", "match_role": "any_player", "effects": [{"op": "lane_graveyard_summon_draugr"}]}],
+	}
+	return match_state
+
+
+func _test_graveyard_spawns_draugr_on_death() -> bool:
+	var match_state := _build_graveyard_match()
+	var player_1: Dictionary = match_state["players"][0]
+	var player_2: Dictionary = match_state["players"][1]
+	# Summon a small creature for p1 and a big creature for p2
+	_summon_creature(player_1, match_state, "small_a", "graveyard", 1, 1)
+	_summon_creature(player_2, match_state, "big_a", "graveyard", 5, 5)
+	# Advance turn so p1's creature can attack (no summoning sickness)
+	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
+	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
+	# p1 attacks p2's big creature — p1's creature dies
+	var attacker_id := str(player_1["player_id"]) + "_small_a"
+	var defender_id := str(player_2["player_id"]) + "_big_a"
+	MatchCombat.resolve_attack(match_state, player_1["player_id"], attacker_id, {"type": "creature", "instance_id": defender_id})
+	var p1_slots: Array = match_state["lanes"][1].get("player_slots", {}).get(player_1["player_id"], [])
+	var draugr_count := 0
+	for card in p1_slots:
+		if typeof(card) == TYPE_DICTIONARY and str(card.get("name", "")) == "Rotting Draugr":
+			draugr_count += 1
+	return _assert(draugr_count == 1, "Graveyard should spawn 1 Rotting Draugr when a creature dies. Found: %d" % draugr_count)
+
+
+func _test_graveyard_spawns_draugr_on_second_death() -> bool:
+	var match_state := _build_graveyard_match()
+	var player_1: Dictionary = match_state["players"][0]
+	var player_2: Dictionary = match_state["players"][1]
+	# Summon two small creatures for p1 and a big creature for p2
+	_summon_creature(player_1, match_state, "small_a", "graveyard", 1, 1)
+	_summon_creature(player_1, match_state, "small_b", "graveyard", 1, 1)
+	_summon_creature(player_2, match_state, "big_a", "graveyard", 5, 5)
+	# Advance turn so p1's creatures can attack
+	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
+	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
+	# First attack — small_a dies
+	var attacker_a_id := str(player_1["player_id"]) + "_small_a"
+	var defender_id := str(player_2["player_id"]) + "_big_a"
+	MatchCombat.resolve_attack(match_state, player_1["player_id"], attacker_a_id, {"type": "creature", "instance_id": defender_id})
+	# Second attack — small_b dies
+	var attacker_b_id := str(player_1["player_id"]) + "_small_b"
+	MatchCombat.resolve_attack(match_state, player_1["player_id"], attacker_b_id, {"type": "creature", "instance_id": defender_id})
+	var p1_slots: Array = match_state["lanes"][1].get("player_slots", {}).get(player_1["player_id"], [])
+	var draugr_count := 0
+	for card in p1_slots:
+		if typeof(card) == TYPE_DICTIONARY and str(card.get("name", "")) == "Rotting Draugr":
+			draugr_count += 1
+	return _assert(draugr_count == 2, "Graveyard should spawn 2 Rotting Draugrs after 2 separate creature deaths. Found: %d" % draugr_count)
+
+
+func _test_graveyard_dual_death_spawns_both_draugrs() -> bool:
+	var match_state := _build_graveyard_match()
+	var player_1: Dictionary = match_state["players"][0]
+	var player_2: Dictionary = match_state["players"][1]
+	# Equal-sized creatures — both die on combat
+	_summon_creature(player_1, match_state, "equal_a", "graveyard", 3, 3)
+	_summon_creature(player_2, match_state, "equal_b", "graveyard", 3, 3)
+	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
+	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
+	var attacker_id := str(player_1["player_id"]) + "_equal_a"
+	var defender_id := str(player_2["player_id"]) + "_equal_b"
+	MatchCombat.resolve_attack(match_state, player_1["player_id"], attacker_id, {"type": "creature", "instance_id": defender_id})
+	var p1_slots: Array = match_state["lanes"][1].get("player_slots", {}).get(player_1["player_id"], [])
+	var p2_slots: Array = match_state["lanes"][1].get("player_slots", {}).get(player_2["player_id"], [])
+	var p1_draugr := 0
+	var p2_draugr := 0
+	for card in p1_slots:
+		if typeof(card) == TYPE_DICTIONARY and str(card.get("name", "")) == "Rotting Draugr":
+			p1_draugr += 1
+	for card in p2_slots:
+		if typeof(card) == TYPE_DICTIONARY and str(card.get("name", "")) == "Rotting Draugr":
+			p2_draugr += 1
+	return (
+		_assert(p1_draugr == 1, "Player 1 should get a draugr when their creature dies in dual combat. Found: %d" % p1_draugr) and
+		_assert(p2_draugr == 1, "Player 2 should get a draugr when their creature dies in dual combat. Found: %d" % p2_draugr)
+	)
+
+
+func _test_graveyard_draugr_has_summoning_sickness() -> bool:
+	var match_state := _build_graveyard_match()
+	var player_1: Dictionary = match_state["players"][0]
+	var player_2: Dictionary = match_state["players"][1]
+	_summon_creature(player_1, match_state, "small_a", "graveyard", 1, 1)
+	_summon_creature(player_2, match_state, "big_a", "graveyard", 5, 5)
+	# Advance turn so p1's creature can attack
+	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
+	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
+	var attacker_id := str(player_1["player_id"]) + "_small_a"
+	var defender_id := str(player_2["player_id"]) + "_big_a"
+	MatchCombat.resolve_attack(match_state, player_1["player_id"], attacker_id, {"type": "creature", "instance_id": defender_id})
+	# Find the spawned draugr and check it can't attack
+	var p1_slots: Array = match_state["lanes"][1].get("player_slots", {}).get(player_1["player_id"], [])
+	var draugr: Dictionary = {}
+	for card in p1_slots:
+		if typeof(card) == TYPE_DICTIONARY and str(card.get("name", "")) == "Rotting Draugr":
+			draugr = card
+			break
+	if draugr.is_empty():
+		return _assert(false, "Expected a Rotting Draugr to exist for summoning sickness check.")
+	var can_attack := MatchCombat.validate_attack(match_state, player_1["player_id"], str(draugr.get("instance_id", "")), {"type": "creature", "instance_id": defender_id})
+	return _assert(not bool(can_attack.get("is_valid", false)), "Rotting Draugr should have summoning sickness and cannot attack on the turn it was spawned.")
 
 
 func _summon_creature(player: Dictionary, match_state: Dictionary, label: String, lane_id: String, power: int, health: int) -> Dictionary:
