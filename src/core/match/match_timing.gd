@@ -2403,6 +2403,100 @@ static func play_pending_prophecy(match_state: Dictionary, player_id: String, in
 			"trigger_resolutions": trigger_resolutions,
 		}
 
+	if card_type == CARD_TYPE_ITEM:
+		var target_instance_id := str(options.get("target_instance_id", ""))
+		if target_instance_id.is_empty():
+			return _invalid_result("Item Prophecy play requires a target_instance_id.")
+		var target_lookup := MatchMutations.find_card_location(match_state, target_instance_id)
+		if not bool(target_lookup.get("is_valid", false)):
+			return _invalid_result("Target %s is not on the board." % target_instance_id)
+		var target_card: Dictionary = target_lookup["card"]
+		if str(target_lookup.get("zone", "")) != ZONE_LANE or str(target_card.get("card_type", "")) != CARD_TYPE_CREATURE:
+			return _invalid_result("Items can only target creatures in a lane.")
+		_consume_pending_prophecy_window(match_state, window_index)
+		var player := _get_player_state(match_state, player_id)
+		var hand: Array = player.get(ZONE_HAND, [])
+		var hand_index := _find_card_index(hand, instance_id)
+		if hand_index == -1:
+			return _invalid_result("Pending Prophecy card %s is no longer in hand." % instance_id)
+		var item_card: Dictionary = hand[hand_index]
+		var original_priority := str(match_state.get("priority_player_id", ""))
+		match_state["priority_player_id"] = player_id
+		# Check for throw-mode: item with on_play enemy damage ability targeting an enemy creature
+		var is_throw := false
+		var throw_ability := {}
+		if str(target_card.get("controller_player_id", "")) != player_id:
+			for ta in item_card.get("triggered_abilities", []):
+				if typeof(ta) == TYPE_DICTIONARY and str(ta.get("family", "")) == "on_play":
+					var tm := str(ta.get("target_mode", ""))
+					if tm == "enemy_creature_optional" or tm == "enemy_creature":
+						is_throw = true
+						throw_ability = ta
+						break
+		var generated_events: Array = []
+		if is_throw:
+			hand.remove_at(hand_index)
+			item_card["zone"] = ZONE_DISCARD
+			player.get(ZONE_DISCARD, []).append(item_card)
+			generated_events.append({
+				"event_type": EVENT_CARD_PLAYED,
+				"playing_player_id": player_id,
+				"player_id": player_id,
+				"source_instance_id": instance_id,
+				"source_controller_player_id": player_id,
+				"source_zone": ZONE_HAND,
+				"target_zone": ZONE_DISCARD,
+				"target_instance_id": target_instance_id,
+				"card_type": CARD_TYPE_ITEM,
+				"played_cost": int(item_card.get("cost", 0)),
+				"played_for_free": true,
+				"reason": RULE_TAG_PROPHECY,
+				"timing_window": WINDOW_INTERRUPT,
+			})
+		else:
+			var attach_result := MatchMutations.attach_item_to_creature(match_state, player_id, instance_id, target_instance_id, {"source_zone": ZONE_HAND})
+			if not bool(attach_result.get("is_valid", false)):
+				match_state["priority_player_id"] = original_priority
+				return attach_result
+			generated_events.append({
+				"event_type": EVENT_CARD_PLAYED,
+				"playing_player_id": player_id,
+				"player_id": player_id,
+				"source_instance_id": instance_id,
+				"source_controller_player_id": player_id,
+				"source_zone": ZONE_HAND,
+				"target_zone": "attached_item",
+				"target_instance_id": target_instance_id,
+				"card_type": CARD_TYPE_ITEM,
+				"played_cost": int(item_card.get("cost", 0)),
+				"played_for_free": true,
+				"reason": RULE_TAG_PROPHECY,
+				"timing_window": WINDOW_INTERRUPT,
+			})
+			generated_events.append({
+				"event_type": "card_equipped",
+				"player_id": player_id,
+				"source_instance_id": instance_id,
+				"source_controller_player_id": str(attach_result["card"].get("controller_player_id", player_id)),
+				"target_instance_id": target_instance_id,
+			})
+		var timing_result := publish_events(match_state, generated_events)
+		var processed_events: Array = timing_result.get("processed_events", []).duplicate(true)
+		var trigger_resolutions: Array = timing_result.get("trigger_resolutions", []).duplicate(true)
+		var resume_result := _resume_pending_rune_breaks(match_state)
+		if not resume_result.get("events", []).is_empty():
+			var resumed_timing := publish_events(match_state, resume_result.get("events", []))
+			processed_events.append_array(resumed_timing.get("processed_events", []))
+			trigger_resolutions.append_array(resumed_timing.get("trigger_resolutions", []))
+		match_state["priority_player_id"] = original_priority
+		return {
+			"is_valid": true,
+			"errors": [],
+			"card": item_card,
+			"events": processed_events,
+			"trigger_resolutions": trigger_resolutions,
+		}
+
 	return _invalid_result("Prophecy free play is not implemented for card type `%s`." % card_type)
 
 

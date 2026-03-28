@@ -1139,7 +1139,10 @@ func target_selected_card(target_instance_id: String) -> Dictionary:
 	var result := {}
 	if bool(selected_location.get("is_valid", false)) and str(selected_location.get("zone", "")) == MatchMutations.ZONE_HAND and str(selected_card.get("card_type", "")) == "item":
 		saved_item_id = _selected_instance_id
-		result = PersistentCardRules.play_item_from_hand(_match_state, _active_player_id(), _selected_instance_id, {"target_instance_id": target_instance_id})
+		if _is_pending_prophecy_card(selected_card):
+			result = MatchTiming.play_pending_prophecy(_match_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"target_instance_id": target_instance_id})
+		else:
+			result = PersistentCardRules.play_item_from_hand(_match_state, _active_player_id(), _selected_instance_id, {"target_instance_id": target_instance_id})
 	elif bool(selected_location.get("is_valid", false)) and str(selected_location.get("zone", "")) == MatchMutations.ZONE_HAND and str(selected_card.get("card_type", "")) == "action":
 		saved_action_id = _selected_instance_id
 		saved_action_card = selected_card.duplicate(true)

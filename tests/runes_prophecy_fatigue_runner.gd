@@ -25,7 +25,8 @@ func _run_all_tests() -> bool:
 		_test_prophecy_action_deals_damage_to_target() and
 		_test_fatigue_uses_out_of_cards_and_eventual_loss() and
 		_test_on_enemy_rune_destroyed_triggers_invade() and
-		_test_fighters_guild_hall_triggers_on_retaliation_damage()
+		_test_fighters_guild_hall_triggers_on_retaliation_damage() and
+		_test_prophecy_item_can_be_thrown_at_enemy()
 	)
 
 
@@ -269,6 +270,52 @@ func _test_on_enemy_rune_destroyed_triggers_invade() -> bool:
 		_assert(result2["is_valid"], "on_enemy_rune_destroyed test: second attack should resolve.") and
 		_assert(families2.has(MatchTiming.FAMILY_ON_ENEMY_RUNE_DESTROYED), "on_enemy_rune_destroyed should fire on second rune break too.") and
 		_assert(gate_level == 2, "Gate should be upgraded to level 2 after second invade (was %d)." % gate_level)
+	)
+
+
+func _test_prophecy_item_can_be_thrown_at_enemy() -> bool:
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	# Create a prophecy item card (like Spear of Embers) in the opponent's deck
+	var prophecy_item := _make_card(opponent["player_id"], "prophecy_spear", {
+		"card_type": "item",
+		"rules_tags": ["prophecy"],
+		"equip_power_bonus": 3,
+		"equip_health_bonus": 3,
+		"triggered_abilities": [{
+			"family": "on_play",
+			"target_mode": "enemy_creature_optional",
+			"effects": [{"op": "deal_damage", "target": "chosen_target", "amount": 3}],
+		}],
+	})
+	_set_deck_cards(opponent, [prophecy_item])
+	# Put a creature on the active player's side (enemy from opponent's perspective)
+	var target_creature := _summon_creature(active_player, match_state, "enemy_target", "field", 4, 6, [], 0)
+	# Attacker breaks opponent's rune, triggering prophecy draw
+	var attacker := _summon_creature(active_player, match_state, "rune_breaker_item", "field", 6, 6, [], 1)
+	_target_ready_for_attack(attacker, match_state)
+
+	var attack_result := MatchCombat.resolve_attack(match_state, active_player["player_id"], attacker["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	if not (
+		_assert(attack_result["is_valid"], "Prophecy item test: attack should resolve.") and
+		_assert(MatchTiming.has_pending_prophecy(match_state, opponent["player_id"]), "Item Prophecy draw should open a pending window.")
+	):
+		return false
+
+	# Play the prophecy item by throwing it at the enemy creature
+	var play_result := MatchTiming.play_pending_prophecy(match_state, opponent["player_id"], prophecy_item["instance_id"], {
+		"target_instance_id": target_creature["instance_id"],
+	})
+	var remaining := int(target_creature.get("health", 0)) - int(target_creature.get("damage_marked", 0))
+	return (
+		_assert(bool(play_result.get("is_valid", false)), "Playing a pending item Prophecy thrown at enemy should succeed.") and
+		_assert(not MatchTiming.has_pending_prophecy(match_state, opponent["player_id"]), "Prophecy play should consume the pending window.") and
+		_assert(remaining == 3, "Target creature should have 3 health remaining after 3 throw damage to a 6-health creature (got %d)." % remaining) and
+		_assert(str(prophecy_item.get("zone", "")) == "discard", "Thrown prophecy item should move to discard.")
 	)
 
 
