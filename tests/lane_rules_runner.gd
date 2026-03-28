@@ -4,6 +4,7 @@ const MatchBootstrap = preload("res://src/core/match/match_bootstrap.gd")
 const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const LaneRules = preload("res://src/core/match/lane_rules.gd")
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
+const MatchTiming = preload("res://src/core/match/match_timing.gd")
 
 
 func _initialize() -> void:
@@ -40,7 +41,35 @@ func _run_all_tests() -> bool:
 		_test_armory_lane_buffs_single_creature_on_summon() and
 		_test_armory_lane_does_not_affect_other_lane() and
 		_test_armory_lane_both_players_get_buff() and
-		_test_armory_lane_buffs_random_when_multiple_creatures()
+		_test_armory_lane_buffs_random_when_multiple_creatures() and
+		_test_ballista_tower_damages_opponent_when_most_creatures() and
+		_test_ballista_tower_no_damage_on_tie() and
+		_test_ballista_tower_no_damage_when_opponent_has_more() and
+		_test_ballista_tower_no_damage_when_empty() and
+		_test_barracks_draws_on_high_power_summon() and
+		_test_barracks_no_draw_on_low_power() and
+		_test_campfire_shares_keywords() and
+		_test_flanking_buffs_other_lane() and
+		_test_fortifications_buffs_guard() and
+		_test_fortifications_no_buff_without_guard() and
+		_test_fountain_grants_ward_low_power() and
+		_test_fountain_no_ward_high_power() and
+		_test_killing_field_grants_power_bonus() and
+		_test_king_of_hill_grants_guard_high_cost() and
+		_test_king_of_hill_no_guard_low_cost() and
+		_test_liquid_courage_buffs_on_damage() and
+		_test_lucky_grants_random_keyword() and
+		_test_masquerade_ball_buffs_on_move() and
+		_test_order_sets_stats_to_cost() and
+		_test_renewal_grants_regenerate() and
+		_test_siege_grants_breakthrough() and
+		_test_surplus_reduces_hand_card_cost() and
+		_test_temple_heals_on_summon() and
+		_test_torment_damages_on_summon() and
+		_test_venom_grants_lethal() and
+		_test_warzone_damages_opponent_on_summon() and
+		_test_sewer_blocks_high_health() and
+		_test_sewer_allows_low_health()
 	)
 
 
@@ -520,6 +549,345 @@ func _build_armory_match() -> Dictionary:
 		"availability": ["arena"],
 		"source_ids": ["uesp_lanes"],
 		"effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_armory_buff_random"}]}],
+	}
+	return match_state
+
+
+func _test_ballista_tower_damages_opponent_when_most_creatures() -> bool:
+	var match_state := _build_ballista_tower_match()
+	var player_1: Dictionary = match_state["players"][0]
+	var player_2: Dictionary = match_state["players"][1]
+	# Player 1 has 2 creatures, player 2 has 1
+	_summon_creature(player_1, match_state, "p1_bt_a", "ballista_tower", 2, 2)
+	_summon_creature(player_1, match_state, "p1_bt_b", "ballista_tower", 2, 2)
+	_summon_creature(player_2, match_state, "p2_bt_a", "ballista_tower", 2, 2)
+	var p2_health_before := int(player_2.get("health", 0))
+	# End p1 turn, start p2 turn — p2 does NOT have most creatures
+	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
+	var p2_health_after_p2_turn := int(player_2.get("health", 0))
+	# End p2 turn, start p1 turn — p1 HAS most creatures
+	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
+	var p2_health_after_p1_turn := int(player_2.get("health", 0))
+	return (
+		_assert(p2_health_after_p2_turn == p2_health_before, "Player 2 should not take ballista damage on their own turn when player 1 has more creatures.") and
+		_assert(p2_health_after_p1_turn == p2_health_before - 2, "Player 2 should take 2 ballista damage when player 1 starts turn with more creatures.")
+	)
+
+
+func _test_ballista_tower_no_damage_on_tie() -> bool:
+	var match_state := _build_ballista_tower_match()
+	var player_1: Dictionary = match_state["players"][0]
+	var player_2: Dictionary = match_state["players"][1]
+	_summon_creature(player_1, match_state, "p1_bt_tied", "ballista_tower", 2, 2)
+	_summon_creature(player_2, match_state, "p2_bt_tied", "ballista_tower", 2, 2)
+	var p1_health_before := int(player_1.get("health", 0))
+	var p2_health_before := int(player_2.get("health", 0))
+	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
+	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
+	return (
+		_assert(int(player_1.get("health", 0)) == p1_health_before, "Player 1 should not take damage when creature counts are tied.") and
+		_assert(int(player_2.get("health", 0)) == p2_health_before, "Player 2 should not take damage when creature counts are tied.")
+	)
+
+
+func _test_ballista_tower_no_damage_when_opponent_has_more() -> bool:
+	var match_state := _build_ballista_tower_match()
+	var player_1: Dictionary = match_state["players"][0]
+	var player_2: Dictionary = match_state["players"][1]
+	# Only player 2 has creatures
+	_summon_creature(player_2, match_state, "p2_bt_only", "ballista_tower", 2, 2)
+	var p1_health_before := int(player_1.get("health", 0))
+	var p2_health_before := int(player_2.get("health", 0))
+	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
+	# Player 2 starts turn with most creatures — player 1 takes damage
+	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
+	return (
+		_assert(int(player_1.get("health", 0)) == p1_health_before - 2, "Player 1 should take 2 ballista damage when player 2 has more creatures on player 2's turn.") and
+		_assert(int(player_2.get("health", 0)) == p2_health_before, "Player 2 should not take damage when they have the most creatures.")
+	)
+
+
+func _test_ballista_tower_no_damage_when_empty() -> bool:
+	var match_state := _build_ballista_tower_match()
+	var player_1: Dictionary = match_state["players"][0]
+	var player_2: Dictionary = match_state["players"][1]
+	var p1_health_before := int(player_1.get("health", 0))
+	var p2_health_before := int(player_2.get("health", 0))
+	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
+	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
+	return (
+		_assert(int(player_1.get("health", 0)) == p1_health_before, "No damage when ballista tower lane is empty (player 1).") and
+		_assert(int(player_2.get("health", 0)) == p2_health_before, "No damage when ballista tower lane is empty (player 2).")
+	)
+
+
+func _build_ballista_tower_match() -> Dictionary:
+	var match_state := _build_match()
+	var lane: Dictionary = match_state["lanes"][1]
+	lane["lane_id"] = "ballista_tower"
+	lane["lane_type"] = "ballista_tower"
+	lane["lane_rule_payload"] = {
+		"display_name": "Ballista Tower",
+		"description": "At the start of your turn, if you have the most creatures here, deal 2 damage to the opponent.",
+		"icon": "res://assets/images/lanes/ballista-tower.png",
+		"implementation_bucket": "mvp",
+		"availability": ["arena"],
+		"source_ids": ["uesp_lanes"],
+		"effects": [{"family": "start_of_turn", "match_role": "any_player", "effects": [{"op": "lane_ballista_damage", "amount": 2}]}],
+	}
+	return match_state
+
+
+func _test_barracks_draws_on_high_power_summon() -> bool:
+	var match_state := _build_lane_match("barracks", "Barracks", "After you summon a creature here with 4 or more power, draw a card.", ["arena", "gauntlet"], [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_barracks_draw", "min_power": 4}]}])
+	var player: Dictionary = match_state["players"][0]
+	var hand_before := int(player["hand"].size())
+	_summon_creature(player, match_state, "barracks_big", "barracks", 4, 3)
+	var hand_after := int(player["hand"].size())
+	return _assert(hand_after == hand_before + 1, "Barracks should draw a card when summoning 4+ power creature (hand %d -> %d, expect +1 from draw)." % [hand_before, hand_after])
+
+
+func _test_barracks_no_draw_on_low_power() -> bool:
+	var match_state := _build_lane_match("barracks", "Barracks", "After you summon a creature here with 4 or more power, draw a card.", ["arena", "gauntlet"], [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_barracks_draw", "min_power": 4}]}])
+	var player: Dictionary = match_state["players"][0]
+	var hand_before := int(player["hand"].size())
+	_summon_creature(player, match_state, "barracks_small", "barracks", 3, 3)
+	var hand_after := int(player["hand"].size())
+	return _assert(hand_after == hand_before, "Barracks should NOT draw when summoning creature with < 4 power (hand should stay same).")
+
+
+func _test_campfire_shares_keywords() -> bool:
+	var match_state := _build_lane_match("campfire", "Campfire", "After you summon a creature here, friendly creatures gain its keyword.", ["arena"], [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_campfire_share_keywords"}]}])
+	var player: Dictionary = match_state["players"][0]
+	var c1 := _summon_creature(player, match_state, "camp_first", "campfire", 2, 2)
+	var c2 := _append_creature_to_hand(player, "camp_guard", ["guard"])
+	c2["power"] = 2
+	c2["health"] = 2
+	LaneRules.summon_from_hand(match_state, player["player_id"], c2["instance_id"], "campfire")
+	# c1 should now have guard from campfire sharing
+	return _assert(EvergreenRules.has_keyword(c1, "guard"), "Campfire should share the summoned creature's keywords to existing friendlies.")
+
+
+func _test_flanking_buffs_other_lane() -> bool:
+	var match_state := _build_lane_match("flanking", "Flanking", "After a creature is summoned here, give friendly creatures in the other lane +1/+0.", ["chaos_arena"], [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_flanking_buff_other_lane"}]}])
+	var player: Dictionary = match_state["players"][0]
+	var field_creature := _summon_creature(player, match_state, "field_flank", "field", 2, 2)
+	var field_power_before := EvergreenRules.get_power(field_creature)
+	_summon_creature(player, match_state, "flanking_trigger", "flanking", 2, 2)
+	var field_power_after := EvergreenRules.get_power(field_creature)
+	return _assert(field_power_after == field_power_before + 1, "Flanking should give +1/+0 to creatures in the other lane, got %d -> %d." % [field_power_before, field_power_after])
+
+
+func _test_fortifications_buffs_guard() -> bool:
+	var match_state := _build_lane_match("fortifications", "Fortifications", "Guards here have +1/+1.", ["arena", "gauntlet"], [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_fortifications_buff_guard"}]}])
+	var player: Dictionary = match_state["players"][0]
+	var creature := _append_creature_to_hand(player, "fort_guard", ["guard"])
+	creature["power"] = 3
+	creature["health"] = 3
+	LaneRules.summon_from_hand(match_state, player["player_id"], creature["instance_id"], "fortifications")
+	return (
+		_assert(EvergreenRules.get_power(creature) == 4, "Fortifications should give Guard +1 power, got %d." % EvergreenRules.get_power(creature)) and
+		_assert(EvergreenRules.get_health(creature) == 4, "Fortifications should give Guard +1 health, got %d." % EvergreenRules.get_health(creature))
+	)
+
+
+func _test_fortifications_no_buff_without_guard() -> bool:
+	var match_state := _build_lane_match("fortifications", "Fortifications", "Guards here have +1/+1.", ["arena", "gauntlet"], [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_fortifications_buff_guard"}]}])
+	var player: Dictionary = match_state["players"][0]
+	var creature := _summon_creature(player, match_state, "fort_no_guard", "fortifications", 3, 3)
+	return _assert(EvergreenRules.get_power(creature) == 3, "Fortifications should NOT buff non-Guard creatures, got power %d." % EvergreenRules.get_power(creature))
+
+
+func _test_fountain_grants_ward_low_power() -> bool:
+	var match_state := _build_lane_match("fountain", "Fountain", "Creatures with 2 power or less summoned here gain a Ward.", ["arena"], [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_fountain_grant_ward", "max_power": 2}]}])
+	var player: Dictionary = match_state["players"][0]
+	var creature := _summon_creature(player, match_state, "fountain_low", "fountain", 2, 3)
+	return _assert(EvergreenRules.has_keyword(creature, "ward"), "Fountain should grant Ward to creatures with 2 or less power.")
+
+
+func _test_fountain_no_ward_high_power() -> bool:
+	var match_state := _build_lane_match("fountain", "Fountain", "Creatures with 2 power or less summoned here gain a Ward.", ["arena"], [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_fountain_grant_ward", "max_power": 2}]}])
+	var player: Dictionary = match_state["players"][0]
+	var creature := _summon_creature(player, match_state, "fountain_high", "fountain", 3, 3)
+	return _assert(not EvergreenRules.has_keyword(creature, "ward"), "Fountain should NOT grant Ward to creatures with more than 2 power.")
+
+
+func _test_killing_field_grants_power_bonus() -> bool:
+	var match_state := _build_lane_match("killing_field", "Killing Field", "Creatures here have +1/+0.", ["arena"], [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_stat_bonus", "power": 1, "health": 0}]}])
+	var player: Dictionary = match_state["players"][0]
+	var creature := _summon_creature(player, match_state, "kf_creature", "killing_field", 3, 3)
+	return (
+		_assert(EvergreenRules.get_power(creature) == 4, "Killing Field should give +1 power, got %d." % EvergreenRules.get_power(creature)) and
+		_assert(EvergreenRules.get_health(creature) == 3, "Killing Field should not change health, got %d." % EvergreenRules.get_health(creature))
+	)
+
+
+func _test_king_of_hill_grants_guard_high_cost() -> bool:
+	var match_state := _build_lane_match("king_of_the_hill", "King of the Hill", "After a creature with cost 5 or greater is summoned here, give it Guard.", ["arena"], [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_king_of_hill_grant_guard", "min_cost": 5}]}])
+	var player: Dictionary = match_state["players"][0]
+	var creature := _append_creature_to_hand(player, "koth_big")
+	creature["cost"] = 5
+	creature["power"] = 4
+	creature["health"] = 4
+	LaneRules.summon_from_hand(match_state, player["player_id"], creature["instance_id"], "king_of_the_hill")
+	return _assert(EvergreenRules.has_keyword(creature, "guard"), "King of the Hill should grant Guard to creatures with cost >= 5.")
+
+
+func _test_king_of_hill_no_guard_low_cost() -> bool:
+	var match_state := _build_lane_match("king_of_the_hill", "King of the Hill", "After a creature with cost 5 or greater is summoned here, give it Guard.", ["arena"], [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_king_of_hill_grant_guard", "min_cost": 5}]}])
+	var player: Dictionary = match_state["players"][0]
+	var creature := _summon_creature(player, match_state, "koth_small", "king_of_the_hill", 3, 3)
+	return _assert(not EvergreenRules.has_keyword(creature, "guard"), "King of the Hill should NOT grant Guard to creatures with cost < 5.")
+
+
+func _test_liquid_courage_buffs_on_damage() -> bool:
+	var match_state := _build_lane_match("liquid_courage", "Liquid Courage", "After a creature here takes damage, it gains +2/+0.", ["story"], [{"family": "on_damage", "match_role": "any_player", "effects": [{"op": "lane_liquid_courage_buff", "power": 2}]}])
+	var player: Dictionary = match_state["players"][0]
+	var creature := _summon_creature(player, match_state, "lc_target", "liquid_courage", 3, 5)
+	var power_before := EvergreenRules.get_power(creature)
+	# Simulate damage by applying it and publishing a damage_resolved event
+	EvergreenRules.apply_damage_to_creature(creature, 1)
+	var damage_event := {"event_type": "damage_resolved", "source_instance_id": "test_source", "target_instance_id": str(creature.get("instance_id", "")), "target_type": "creature", "amount": 1, "damage_kind": "combat"}
+	MatchTiming.publish_events(match_state, [damage_event])
+	var power_after := EvergreenRules.get_power(creature)
+	return _assert(power_after == power_before + 2, "Liquid Courage should give +2/+0 when creature takes damage, got %d -> %d." % [power_before, power_after])
+
+
+func _test_lucky_grants_random_keyword() -> bool:
+	var match_state := _build_lane_match("lucky", "Lucky", "Creatures summoned here gain a random keyword.", ["arena"], [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_lucky_random_keyword"}]}])
+	var player: Dictionary = match_state["players"][0]
+	var creature := _summon_creature(player, match_state, "lucky_creature", "lucky", 2, 2)
+	var has_any_keyword := false
+	for kw in ["guard", "ward", "charge", "drain", "lethal", "breakthrough", "regenerate"]:
+		if EvergreenRules.has_keyword(creature, kw):
+			has_any_keyword = true
+			break
+	return _assert(has_any_keyword, "Lucky should grant at least one random keyword.")
+
+
+func _test_masquerade_ball_buffs_on_move() -> bool:
+	var match_state := _build_lane_match("masquerade_ball", "Masquerade Ball", "After a creature moves into this lane, give it +1/+1.", ["story"], [{"family": "on_move", "match_role": "any_player", "effects": [{"op": "lane_stat_bonus", "power": 1, "health": 1}]}])
+	var player: Dictionary = match_state["players"][0]
+	var creature := _summon_creature(player, match_state, "masq_mover", "field", 2, 2)
+	var power_before := EvergreenRules.get_power(creature)
+	var health_before := EvergreenRules.get_health(creature)
+	LaneRules.move_creature(match_state, player["player_id"], creature["instance_id"], "masquerade_ball")
+	var power_after := EvergreenRules.get_power(creature)
+	var health_after := EvergreenRules.get_health(creature)
+	return (
+		_assert(power_after == power_before + 1, "Masquerade Ball should give +1 power on move, got %d -> %d." % [power_before, power_after]) and
+		_assert(health_after == health_before + 1, "Masquerade Ball should give +1 health on move, got %d -> %d." % [health_before, health_after])
+	)
+
+
+func _test_order_sets_stats_to_cost() -> bool:
+	var match_state := _build_lane_match("order", "Order", "When a creature enters this lane, set its power and health equal to its cost.", ["story"], [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_order_set_stats_to_cost"}]}, {"family": "on_move", "match_role": "any_player", "effects": [{"op": "lane_order_set_stats_to_cost"}]}])
+	var player: Dictionary = match_state["players"][0]
+	var creature := _append_creature_to_hand(player, "order_creature")
+	creature["cost"] = 5
+	creature["power"] = 2
+	creature["health"] = 8
+	LaneRules.summon_from_hand(match_state, player["player_id"], creature["instance_id"], "order")
+	return (
+		_assert(EvergreenRules.get_power(creature) == 5, "Order should set power to cost (5), got %d." % EvergreenRules.get_power(creature)) and
+		_assert(EvergreenRules.get_health(creature) == 5, "Order should set health to cost (5), got %d." % EvergreenRules.get_health(creature))
+	)
+
+
+func _test_renewal_grants_regenerate() -> bool:
+	var match_state := _build_lane_match("renewal", "Renewal", "Creatures here have Regenerate.", ["arena"], [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_grant_keyword", "keyword": "regenerate"}]}])
+	var player: Dictionary = match_state["players"][0]
+	var creature := _summon_creature(player, match_state, "renewal_creature", "renewal", 2, 2)
+	return _assert(EvergreenRules.has_keyword(creature, "regenerate"), "Renewal should grant Regenerate.")
+
+
+func _test_siege_grants_breakthrough() -> bool:
+	var match_state := _build_lane_match("siege", "Siege", "Creatures here have Breakthrough.", ["arena"], [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_grant_keyword", "keyword": "breakthrough"}]}])
+	var player: Dictionary = match_state["players"][0]
+	var creature := _summon_creature(player, match_state, "siege_creature", "siege", 2, 2)
+	return _assert(EvergreenRules.has_keyword(creature, "breakthrough"), "Siege should grant Breakthrough.")
+
+
+func _test_surplus_reduces_hand_card_cost() -> bool:
+	var match_state := _build_lane_match("surplus", "Surplus", "After you summon a creature here, reduce the cost of a random card in your hand by 1.", ["story", "arena", "gauntlet"], [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_surplus_reduce_cost"}]}])
+	var player: Dictionary = match_state["players"][0]
+	# Add a card to hand with known cost
+	var hand_card := _append_creature_to_hand(player, "surplus_target")
+	hand_card["cost"] = 5
+	var cost_before := int(hand_card.get("cost", 0))
+	_summon_creature(player, match_state, "surplus_trigger", "surplus", 2, 2)
+	# The hand card's cost should have been reduced (it's the only one with cost > 0)
+	var cost_after := int(hand_card.get("cost", 0))
+	return _assert(cost_after == cost_before - 1, "Surplus should reduce a hand card's cost by 1, got %d -> %d." % [cost_before, cost_after])
+
+
+func _test_temple_heals_on_summon() -> bool:
+	var match_state := _build_lane_match("temple", "Temple", "After you summon a creature here, gain 1 health.", ["story", "arena"], [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_temple_heal", "amount": 1}]}])
+	var player: Dictionary = match_state["players"][0]
+	player["health"] = 25
+	var health_before := int(player.get("health", 0))
+	_summon_creature(player, match_state, "temple_creature", "temple", 2, 2)
+	var health_after := int(player.get("health", 0))
+	return _assert(health_after == health_before + 1, "Temple should heal player by 1 on summon, got %d -> %d." % [health_before, health_after])
+
+
+func _test_torment_damages_on_summon() -> bool:
+	var match_state := _build_lane_match("torment", "Torment", "After a creature is summoned here, deal 1 damage to it.", ["story"], [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_torment_damage", "amount": 1}]}])
+	var player: Dictionary = match_state["players"][0]
+	var creature := _summon_creature(player, match_state, "torment_creature", "torment", 2, 5)
+	var remaining := EvergreenRules.get_remaining_health(creature)
+	return _assert(remaining == 4, "Torment should deal 1 damage to summoned creature, remaining health = %d." % remaining)
+
+
+func _test_venom_grants_lethal() -> bool:
+	var match_state := _build_lane_match("venom", "Venom", "Creatures in this lane have Lethal.", ["story"], [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_grant_keyword", "keyword": "lethal"}]}])
+	var player: Dictionary = match_state["players"][0]
+	var creature := _summon_creature(player, match_state, "venom_creature", "venom", 2, 2)
+	return _assert(EvergreenRules.has_keyword(creature, "lethal"), "Venom should grant Lethal.")
+
+
+func _test_warzone_damages_opponent_on_summon() -> bool:
+	var match_state := _build_lane_match("warzone", "Warzone", "After you summon a creature here, deal 1 damage to the opponent.", ["arena"], [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_warzone_damage", "amount": 1}]}])
+	var player_1: Dictionary = match_state["players"][0]
+	var player_2: Dictionary = match_state["players"][1]
+	var p2_health_before := int(player_2.get("health", 0))
+	_summon_creature(player_1, match_state, "warzone_creature", "warzone", 2, 2)
+	var p2_health_after := int(player_2.get("health", 0))
+	return _assert(p2_health_after == p2_health_before - 1, "Warzone should deal 1 damage to opponent on summon, got %d -> %d." % [p2_health_before, p2_health_after])
+
+
+func _test_sewer_blocks_high_health() -> bool:
+	var match_state := _build_lane_match("sewer", "Sewer", "Creatures with more than 2 health cannot be played here.", ["story"], [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_sewer_restrict", "max_health": 2}]}])
+	var player: Dictionary = match_state["players"][0]
+	var creature := _append_creature_to_hand(player, "sewer_big")
+	creature["health"] = 3
+	var result := LaneRules.validate_summon_from_hand(match_state, player["player_id"], creature["instance_id"], "sewer")
+	return _assert(not result["is_valid"], "Sewer should reject creatures with more than 2 health.")
+
+
+func _test_sewer_allows_low_health() -> bool:
+	var match_state := _build_lane_match("sewer", "Sewer", "Creatures with more than 2 health cannot be played here.", ["story"], [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_sewer_restrict", "max_health": 2}]}])
+	var player: Dictionary = match_state["players"][0]
+	var creature := _append_creature_to_hand(player, "sewer_small")
+	creature["health"] = 2
+	var result := LaneRules.summon_from_hand(match_state, player["player_id"], creature["instance_id"], "sewer")
+	return _assert(result["is_valid"], "Sewer should allow creatures with 2 or less health.")
+
+
+# --- Generic lane match builder ---
+func _build_lane_match(lane_id: String, display_name: String, description: String, availability: Array, effects: Array) -> Dictionary:
+	var match_state := _build_match()
+	var lane: Dictionary = match_state["lanes"][1]
+	lane["lane_id"] = lane_id
+	lane["lane_type"] = lane_id
+	lane["lane_rule_payload"] = {
+		"display_name": display_name,
+		"description": description,
+		"icon": "res://assets/images/lanes/%s.png" % lane_id.replace("_", "-"),
+		"implementation_bucket": "mvp",
+		"availability": availability,
+		"source_ids": ["uesp_lanes"],
+		"effects": effects,
 	}
 	return match_state
 

@@ -180,14 +180,27 @@ static func validate_lane_entry(match_state: Dictionary, player_id: String, card
 			return _invalid_result("Requested slot %d is out of range for lane %s." % [requested_slot, lane_id])
 		if player_slots.size() >= slot_capacity:
 			return _invalid_result("Lane %s is full for %s." % [lane_id, player_id])
+	# Sewer lane restriction: creatures with more than 2 health cannot be played here
+	var lane_type := str(lane.get("lane_type", lane_id))
+	var lane_payload: Dictionary = lane.get("lane_rule_payload", {})
+	var lane_effects: Array = lane_payload.get("effects", [])
+	for le in lane_effects:
+		if typeof(le) != TYPE_DICTIONARY:
+			continue
+		for le_eff in le.get("effects", []):
+			if typeof(le_eff) == TYPE_DICTIONARY and str(le_eff.get("op", "")) == "lane_sewer_restrict":
+				var max_health := int(le_eff.get("max_health", 2))
+				var card_health := int(card.get("health", card.get("base_health", 0)))
+				if card_health > max_health:
+					return _invalid_result("Creatures with more than %d health cannot be played in this lane." % max_health)
 	return {
 		"is_valid": true,
 		"errors": [],
 		"lane_id": lane_id,
 		"lane_index": lane_index,
 		"slot_index": slot_index,
-		"lane_type": str(lane.get("lane_type", lane_id)),
-		"lane_rule_payload": lane.get("lane_rule_payload", {}),
+		"lane_type": lane_type,
+		"lane_rule_payload": lane_payload,
 		"granted_cover": false,
 	}
 

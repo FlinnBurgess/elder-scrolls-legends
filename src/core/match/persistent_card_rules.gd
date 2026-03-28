@@ -453,6 +453,20 @@ static func get_effective_play_cost(match_state: Dictionary, player_id: String, 
 		var first_lesson_discount := int(player.get("_first_lesson_discount", 0))
 		if first_lesson_discount > 0:
 			reduction += first_lesson_discount
+	# Library lane: actions cost 1 less while player has a creature in a library lane
+	if str(card.get("card_type", "")) == "action":
+		for lane in match_state.get("lanes", []):
+			var lane_payload: Dictionary = lane.get("lane_rule_payload", {})
+			var lane_effects: Array = lane_payload.get("effects", [])
+			for le in lane_effects:
+				if typeof(le) != TYPE_DICTIONARY:
+					continue
+				for le_eff in le.get("effects", []):
+					if typeof(le_eff) == TYPE_DICTIONARY and str(le_eff.get("op", "")) == "lane_library_reduce_action_cost":
+						var slot_array: Array = lane.get("player_slots", {}).get(player_id, [])
+						if not slot_array.is_empty():
+							reduction += int(le_eff.get("amount", 1))
+						break
 	var effective := maxi(0, base_cost - reduction)
 	# min_card_cost passive: all cards cost at least N
 	var min_cost := _get_min_card_cost(match_state)

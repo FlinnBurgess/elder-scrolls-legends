@@ -46,6 +46,303 @@
 		{"lane_id": "shadow", "lane_type": "armory", "slot_capacity": 4}
 	  ],
 	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "ballista_tower_test",
+	  "display_name": "Ballista Tower Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "ballista_tower", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "barracks_test",
+	  "display_name": "Barracks Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "barracks", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "campfire_test",
+	  "display_name": "Campfire Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "campfire", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "champions_arena_test",
+	  "display_name": "Champion's Arena Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "champions_arena", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "eclipse_test",
+	  "display_name": "Eclipse Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "eclipse", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "flanking_test",
+	  "display_name": "Flanking Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "flanking", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "fortifications_test",
+	  "display_name": "Fortifications Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "fortifications", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "fountain_test",
+	  "display_name": "Fountain Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "fountain", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "graveyard_test",
+	  "display_name": "Graveyard Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "graveyard", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "hall_of_mirrors_test",
+	  "display_name": "Hall of Mirrors Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "hall_of_mirrors", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "heist_test",
+	  "display_name": "Heist Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "heist", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "killing_field_test",
+	  "display_name": "Killing Field Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "killing_field", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "king_of_the_hill_test",
+	  "display_name": "King of the Hill Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "king_of_the_hill", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "library_test",
+	  "display_name": "Library Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "library", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "liquid_courage_test",
+	  "display_name": "Liquid Courage Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "liquid_courage", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "lucky_test",
+	  "display_name": "Lucky Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "lucky", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "madness_test",
+	  "display_name": "Madness Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "madness", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "mage_tower_test",
+	  "display_name": "Mage Tower Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "mage_tower", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "masquerade_ball_test",
+	  "display_name": "Masquerade Ball Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "masquerade_ball", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "monastery_test",
+	  "display_name": "Monastery Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "monastery", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "order_test",
+	  "display_name": "Order Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "order", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "plunder_test",
+	  "display_name": "Plunder Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "plunder", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "reanimation_test",
+	  "display_name": "Reanimation Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "reanimation", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "renewal_test",
+	  "display_name": "Renewal Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "renewal", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "sewer_test",
+	  "display_name": "Sewer Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "sewer", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "siege_test",
+	  "display_name": "Siege Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "siege", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "surplus_test",
+	  "display_name": "Surplus Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "surplus", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "temple_test",
+	  "display_name": "Temple Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "temple", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "torment_test",
+	  "display_name": "Torment Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "torment", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "venom_test",
+	  "display_name": "Venom Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "venom", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "warzone_test",
+	  "display_name": "Warzone Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "warzone", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "windy_test",
+	  "display_name": "Windy Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "windy", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
+	  "id": "zoo_test",
+	  "display_name": "Zoo Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "zoo", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
 	}
   ],
   "lane_types": [
@@ -56,45 +353,45 @@
 	{ "id": "altar_of_silence", "display_name": "Altar of Silence", "implementation_bucket": "deferred_variant", "availability": ["story"], "description": "After a player silences a creature, they summon a 1/1 Skeleton here and give it Guard.", "source_ids": ["uesp_lanes"] },
 	{ "id": "armor", "display_name": "Armor", "icon": "res://assets/images/lanes/armor.png", "implementation_bucket": "mvp", "availability": ["story"], "description": "After a creature is summoned here, double its health.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_armor_double_health"}]}], "source_ids": ["uesp_lanes"] },
 	{ "id": "armory", "display_name": "Armory", "icon": "res://assets/images/lanes/armory.png", "implementation_bucket": "mvp", "availability": ["arena"], "description": "After you summon a creature here, a random friendly creature here gets +1/+1.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_armory_buff_random"}]}], "source_ids": ["uesp_lanes"] },
-	{ "id": "ballista_tower", "display_name": "Ballista Tower", "implementation_bucket": "deferred_variant", "availability": ["arena"], "description": "At the start of your turn, if you have the most creatures here, deal 2 damage to the opponent.", "source_ids": ["uesp_lanes"] },
-	{ "id": "barracks", "display_name": "Barracks", "implementation_bucket": "deferred_variant", "availability": ["arena", "gauntlet"], "description": "After you summon a creature here with 4 or more power, draw a card.", "source_ids": ["uesp_lanes"] },
-	{ "id": "campfire", "display_name": "Campfire", "implementation_bucket": "deferred_variant", "availability": ["arena"], "description": "After you summon a creature here, friendly creatures gain its keyword.", "source_ids": ["uesp_lanes"] },
-	{ "id": "champions_arena", "display_name": "Champion's Arena", "implementation_bucket": "deferred_variant", "availability": ["arena"], "description": "The first creature here you attack with each turn can attack an additional time.", "source_ids": ["uesp_lanes"] },
+	{ "id": "ballista_tower", "display_name": "Ballista Tower", "icon": "res://assets/images/lanes/ballista-tower.png", "implementation_bucket": "mvp", "availability": ["arena"], "description": "At the start of your turn, if you have the most creatures here, deal 2 damage to the opponent.", "effects": [{"family": "start_of_turn", "match_role": "any_player", "effects": [{"op": "lane_ballista_damage", "amount": 2}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "barracks", "display_name": "Barracks", "icon": "res://assets/images/lanes/barracks.png", "implementation_bucket": "mvp", "availability": ["arena", "gauntlet"], "description": "After you summon a creature here with 4 or more power, draw a card.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_barracks_draw", "min_power": 4}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "campfire", "display_name": "Campfire", "icon": "res://assets/images/lanes/campfire.png", "implementation_bucket": "mvp", "availability": ["arena"], "description": "After you summon a creature here, friendly creatures gain its keyword.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_campfire_share_keywords"}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "champions_arena", "display_name": "Champion's Arena", "icon": "res://assets/images/lanes/champions-arena.png", "implementation_bucket": "mvp", "availability": ["arena"], "description": "The first creature here you attack with each turn can attack an additional time.", "effects": [{"family": "on_attack", "match_role": "any_player", "effects": [{"op": "lane_champions_arena_extra_attack"}]}], "source_ids": ["uesp_lanes"] },
 	{ "id": "conveyor", "display_name": "Conveyor", "implementation_bucket": "deferred_variant", "availability": ["story"], "description": "At the end of your turn, creatures here move.", "source_ids": ["uesp_lanes"] },
 	{ "id": "dock", "display_name": "Dock", "implementation_bucket": "deferred_variant", "availability": ["story"], "description": "After a creature is attacked here, it falls into the water.", "source_ids": ["uesp_lanes"] },
-	{ "id": "eclipse", "display_name": "Eclipse", "implementation_bucket": "deferred_variant", "availability": ["story"], "description": "After a creature is summoned here, trigger its Last Gasp.", "source_ids": ["uesp_lanes"] },
-	{ "id": "flanking", "display_name": "Flanking", "implementation_bucket": "deferred_variant", "availability": ["chaos_arena"], "description": "After a creature is summoned here, give friendly creatures in the other lane +1/+0.", "source_ids": ["uesp_lanes"] },
-	{ "id": "fortifications", "display_name": "Fortifications", "implementation_bucket": "deferred_variant", "availability": ["arena", "gauntlet"], "description": "Guards here have +1/+1.", "source_ids": ["uesp_lanes"] },
-	{ "id": "fountain", "display_name": "Fountain", "implementation_bucket": "deferred_variant", "availability": ["arena"], "description": "Creatures with 2 power or less summoned here gain a Ward.", "source_ids": ["uesp_lanes"] },
-	{ "id": "graveyard", "display_name": "Graveyard", "implementation_bucket": "deferred_variant", "availability": ["story", "arena"], "description": "After a creature other than Rotting Draugr is destroyed, summon a 1/1 Rotting Draugr.", "source_ids": ["uesp_lanes"] },
-	{ "id": "hall_of_mirrors", "display_name": "Hall of Mirrors", "implementation_bucket": "deferred_variant", "availability": ["arena"], "description": "If there are no friendly creatures here when you summon one, copy it.", "source_ids": ["uesp_lanes"] },
-	{ "id": "heist", "display_name": "Heist", "implementation_bucket": "deferred_variant", "availability": ["story"], "description": "Creatures in this lane have Pilfer: Gain 1 magicka.", "source_ids": ["uesp_lanes"] },
+	{ "id": "eclipse", "display_name": "Eclipse", "icon": "res://assets/images/lanes/eclipse.png", "implementation_bucket": "mvp", "availability": ["story"], "description": "After a creature is summoned here, trigger its Last Gasp.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_eclipse_trigger_last_gasp"}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "flanking", "display_name": "Flanking", "icon": "res://assets/images/lanes/flanking.png", "implementation_bucket": "mvp", "availability": ["chaos_arena"], "description": "After a creature is summoned here, give friendly creatures in the other lane +1/+0.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_flanking_buff_other_lane"}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "fortifications", "display_name": "Fortifications", "icon": "res://assets/images/lanes/fortifications.png", "implementation_bucket": "mvp", "availability": ["arena", "gauntlet"], "description": "Guards here have +1/+1.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_fortifications_buff_guard"}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "fountain", "display_name": "Fountain", "icon": "res://assets/images/lanes/fountain.png", "implementation_bucket": "mvp", "availability": ["arena"], "description": "Creatures with 2 power or less summoned here gain a Ward.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_fountain_grant_ward", "max_power": 2}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "graveyard", "display_name": "Graveyard", "icon": "res://assets/images/lanes/graveyard.png", "implementation_bucket": "mvp", "availability": ["story", "arena"], "description": "After a creature other than Rotting Draugr is destroyed, summon a 1/1 Rotting Draugr.", "effects": [{"family": "on_friendly_death", "match_role": "any_player", "effects": [{"op": "lane_graveyard_summon_draugr"}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "hall_of_mirrors", "display_name": "Hall of Mirrors", "icon": "res://assets/images/lanes/hall-of-mirrors.png", "implementation_bucket": "mvp", "availability": ["arena"], "description": "If there are no friendly creatures here when you summon one, copy it.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_hall_of_mirrors_copy"}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "heist", "display_name": "Heist", "icon": "res://assets/images/lanes/heist.png", "implementation_bucket": "mvp", "availability": ["story"], "description": "Creatures in this lane have Pilfer: Gain 1 magicka.", "effects": [{"family": "pilfer", "match_role": "any_player", "effects": [{"op": "lane_heist_gain_magicka", "amount": 1}]}], "source_ids": ["uesp_lanes"] },
 	{ "id": "incinerator", "display_name": "Incinerator", "implementation_bucket": "deferred_variant", "availability": ["story"], "description": "Creatures cannot be played here. End of turn: creatures here take 1 damage.", "source_ids": ["uesp_lanes"] },
 	{ "id": "jail", "display_name": "Jail", "implementation_bucket": "deferred_variant", "availability": ["story"], "description": "Creatures cannot be summoned here except by card abilities.", "source_ids": ["uesp_lanes"] },
-	{ "id": "killing_field", "display_name": "Killing Field", "implementation_bucket": "deferred_variant", "availability": ["arena"], "description": "Creatures here have +1/+0.", "source_ids": ["uesp_lanes"] },
-	{ "id": "king_of_the_hill", "display_name": "King of the Hill", "implementation_bucket": "deferred_variant", "availability": ["arena"], "description": "After a creature with cost 5 or greater is summoned here, give it Guard.", "source_ids": ["uesp_lanes"] },
-	{ "id": "library", "display_name": "Library", "implementation_bucket": "deferred_variant", "availability": ["story", "arena", "gauntlet"], "description": "While you have a creature here, actions cost 1 less.", "source_ids": ["uesp_lanes"] },
-	{ "id": "liquid_courage", "display_name": "Liquid Courage", "implementation_bucket": "deferred_variant", "availability": ["story"], "description": "After a creature here takes damage, it gains +2/+0.", "source_ids": ["uesp_lanes"] },
-	{ "id": "lucky", "display_name": "Lucky", "implementation_bucket": "deferred_variant", "availability": ["arena"], "description": "Creatures summoned here gain a random keyword.", "source_ids": ["uesp_lanes"] },
-	{ "id": "madness", "display_name": "Madness", "implementation_bucket": "deferred_variant", "availability": ["story"], "description": "Creatures here have Pilfer: Transform into a random creature with cost 1 greater.", "source_ids": ["uesp_lanes"] },
-	{ "id": "mage_tower", "display_name": "Mage Tower", "implementation_bucket": "deferred_variant", "availability": ["arena"], "description": "After you play an action, summon a random creature in this lane with the same cost.", "source_ids": ["uesp_lanes"] },
-	{ "id": "masquerade_ball", "display_name": "Masquerade Ball", "implementation_bucket": "deferred_variant", "availability": ["story"], "description": "After a creature moves into this lane, give it +1/+1.", "source_ids": ["uesp_lanes"] },
+	{ "id": "killing_field", "display_name": "Killing Field", "icon": "res://assets/images/lanes/killing-field.png", "implementation_bucket": "mvp", "availability": ["arena"], "description": "Creatures here have +1/+0.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_stat_bonus", "power": 1, "health": 0}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "king_of_the_hill", "display_name": "King of the Hill", "icon": "res://assets/images/lanes/king-of-the-hill.png", "implementation_bucket": "mvp", "availability": ["arena"], "description": "After a creature with cost 5 or greater is summoned here, give it Guard.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_king_of_hill_grant_guard", "min_cost": 5}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "library", "display_name": "Library", "icon": "res://assets/images/lanes/library.png", "implementation_bucket": "mvp", "availability": ["story", "arena", "gauntlet"], "description": "While you have a creature here, actions cost 1 less.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_library_reduce_action_cost", "amount": 1}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "liquid_courage", "display_name": "Liquid Courage", "icon": "res://assets/images/lanes/liquid-courage.png", "implementation_bucket": "mvp", "availability": ["story"], "description": "After a creature here takes damage, it gains +2/+0.", "effects": [{"family": "on_damage", "match_role": "any_player", "effects": [{"op": "lane_liquid_courage_buff", "power": 2}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "lucky", "display_name": "Lucky", "icon": "res://assets/images/lanes/lucky.png", "implementation_bucket": "mvp", "availability": ["arena"], "description": "Creatures summoned here gain a random keyword.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_lucky_random_keyword"}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "madness", "display_name": "Madness", "icon": "res://assets/images/lanes/madness.png", "implementation_bucket": "mvp", "availability": ["story"], "description": "Creatures here have Pilfer: Transform into a random creature with cost 1 greater.", "effects": [{"family": "pilfer", "match_role": "any_player", "effects": [{"op": "lane_madness_transform"}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "mage_tower", "display_name": "Mage Tower", "icon": "res://assets/images/lanes/mage-tower.png", "implementation_bucket": "mvp", "availability": ["arena"], "description": "After you play an action, summon a random creature in this lane with the same cost.", "effects": [{"family": "after_action_played", "match_role": "any_player", "effects": [{"op": "lane_mage_tower_summon"}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "masquerade_ball", "display_name": "Masquerade Ball", "icon": "res://assets/images/lanes/masquerade-ball.png", "implementation_bucket": "mvp", "availability": ["story"], "description": "After a creature moves into this lane, give it +1/+1.", "effects": [{"family": "on_move", "match_role": "any_player", "effects": [{"op": "lane_stat_bonus", "power": 1, "health": 1}]}], "source_ids": ["uesp_lanes"] },
 	{ "id": "mine_depths", "display_name": "Mine Depths", "implementation_bucket": "deferred_variant", "availability": ["story"], "description": "Creatures cannot be summoned here except by card abilities. Each turn, a player gains 1 magicka for each creature they have here.", "source_ids": ["uesp_lanes"] },
-	{ "id": "monastery", "display_name": "Monastery", "implementation_bucket": "deferred_variant", "availability": ["story"], "description": "Whenever a player gains health, give a random creature of theirs in this lane +1/+1.", "source_ids": ["uesp_lanes"] },
-	{ "id": "order", "display_name": "Order", "implementation_bucket": "deferred_variant", "availability": ["story"], "description": "When a creature enters this lane, set its power and health equal to its cost.", "source_ids": ["uesp_lanes"] },
-	{ "id": "plunder", "display_name": "Plunder", "implementation_bucket": "deferred_variant", "availability": ["story", "arena"], "description": "After a creature is summoned here, attach a random item to it.", "source_ids": ["uesp_lanes"] },
-	{ "id": "reanimation", "display_name": "Reanimation", "implementation_bucket": "deferred_variant", "availability": ["story"], "description": "When a non-Reanimated creature in this lane dies for the first time, return it to play as a 1/1.", "source_ids": ["uesp_lanes"] },
-	{ "id": "renewal", "display_name": "Renewal", "implementation_bucket": "deferred_variant", "availability": ["arena"], "description": "Creatures here have Regenerate.", "source_ids": ["uesp_lanes"] },
-	{ "id": "sewer", "display_name": "Sewer", "implementation_bucket": "deferred_variant", "availability": ["story"], "description": "Creatures with more than 2 health cannot be played here.", "source_ids": ["uesp_lanes"] },
-	{ "id": "siege", "display_name": "Siege", "implementation_bucket": "deferred_variant", "availability": ["arena"], "description": "Creatures here have Breakthrough.", "source_ids": ["uesp_lanes"] },
-	{ "id": "surplus", "display_name": "Surplus", "implementation_bucket": "deferred_variant", "availability": ["story", "arena", "gauntlet"], "description": "After you summon a creature here, reduce the cost of a random card in your hand by 1.", "source_ids": ["uesp_lanes"] },
-	{ "id": "temple", "display_name": "Temple", "implementation_bucket": "deferred_variant", "availability": ["story", "arena"], "description": "After you summon a creature here, gain 1 health.", "source_ids": ["uesp_lanes"] },
-	{ "id": "torment", "display_name": "Torment", "implementation_bucket": "deferred_variant", "availability": ["story"], "description": "After a creature is summoned here, deal 1 damage to it.", "source_ids": ["uesp_lanes"] },
-	{ "id": "venom", "display_name": "Venom", "implementation_bucket": "deferred_variant", "availability": ["story"], "description": "Creatures in this lane have Lethal.", "source_ids": ["uesp_lanes"] },
-	{ "id": "warzone", "display_name": "Warzone", "implementation_bucket": "deferred_variant", "availability": ["arena"], "description": "After you summon a creature here, deal 1 damage to the opponent.", "source_ids": ["uesp_lanes"] },
+	{ "id": "monastery", "display_name": "Monastery", "icon": "res://assets/images/lanes/monastery.png", "implementation_bucket": "mvp", "availability": ["story"], "description": "Whenever a player gains health, give a random creature of theirs in this lane +1/+1.", "effects": [{"family": "on_player_healed", "match_role": "any_player", "effects": [{"op": "lane_monastery_buff_random"}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "order", "display_name": "Order", "icon": "res://assets/images/lanes/order.png", "implementation_bucket": "mvp", "availability": ["story"], "description": "When a creature enters this lane, set its power and health equal to its cost.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_order_set_stats_to_cost"}]}, {"family": "on_move", "match_role": "any_player", "effects": [{"op": "lane_order_set_stats_to_cost"}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "plunder", "display_name": "Plunder", "icon": "res://assets/images/lanes/plunder.png", "implementation_bucket": "mvp", "availability": ["story", "arena"], "description": "After a creature is summoned here, attach a random item to it.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_plunder_attach_item"}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "reanimation", "display_name": "Reanimation", "icon": "res://assets/images/lanes/reanimation.png", "implementation_bucket": "mvp", "availability": ["story"], "description": "When a non-Reanimated creature in this lane dies for the first time, return it to play as a 1/1.", "effects": [{"family": "on_friendly_death", "match_role": "any_player", "effects": [{"op": "lane_reanimation_resurrect"}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "renewal", "display_name": "Renewal", "icon": "res://assets/images/lanes/renewal.png", "implementation_bucket": "mvp", "availability": ["arena"], "description": "Creatures here have Regenerate.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_grant_keyword", "keyword": "regenerate"}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "sewer", "display_name": "Sewer", "icon": "res://assets/images/lanes/sewer.png", "implementation_bucket": "mvp", "availability": ["story"], "description": "Creatures with more than 2 health cannot be played here.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_sewer_restrict", "max_health": 2}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "siege", "display_name": "Siege", "icon": "res://assets/images/lanes/siege.png", "implementation_bucket": "mvp", "availability": ["arena"], "description": "Creatures here have Breakthrough.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_grant_keyword", "keyword": "breakthrough"}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "surplus", "display_name": "Surplus", "icon": "res://assets/images/lanes/surplus.png", "implementation_bucket": "mvp", "availability": ["story", "arena", "gauntlet"], "description": "After you summon a creature here, reduce the cost of a random card in your hand by 1.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_surplus_reduce_cost"}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "temple", "display_name": "Temple", "icon": "res://assets/images/lanes/temple.png", "implementation_bucket": "mvp", "availability": ["story", "arena"], "description": "After you summon a creature here, gain 1 health.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_temple_heal", "amount": 1}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "torment", "display_name": "Torment", "icon": "res://assets/images/lanes/torment.png", "implementation_bucket": "mvp", "availability": ["story"], "description": "After a creature is summoned here, deal 1 damage to it.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_torment_damage", "amount": 1}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "venom", "display_name": "Venom", "icon": "res://assets/images/lanes/venom.png", "implementation_bucket": "mvp", "availability": ["story"], "description": "Creatures in this lane have Lethal.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_grant_keyword", "keyword": "lethal"}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "warzone", "display_name": "Warzone", "icon": "res://assets/images/lanes/warzone.png", "implementation_bucket": "mvp", "availability": ["arena"], "description": "After you summon a creature here, deal 1 damage to the opponent.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_warzone_damage", "amount": 1}]}], "source_ids": ["uesp_lanes"] },
 	{ "id": "water", "display_name": "Water", "implementation_bucket": "deferred_variant", "availability": ["story"], "description": "When a creature enters this lane, Shackle it.", "source_ids": ["uesp_lanes"] },
-	{ "id": "windy", "display_name": "Windy", "implementation_bucket": "deferred_variant", "availability": ["story", "arena"], "description": "At the end of your opponent's turn, a random creature switches lanes.", "source_ids": ["uesp_lanes"] },
-	{ "id": "zoo", "display_name": "Zoo", "implementation_bucket": "deferred_variant", "availability": ["arena"], "description": "After you summon a creature here, transform it into a random Animal.", "source_ids": ["uesp_lanes"] },
+	{ "id": "windy", "display_name": "Windy", "icon": "res://assets/images/lanes/windy.png", "implementation_bucket": "mvp", "availability": ["story", "arena"], "description": "At the end of your opponent's turn, a random creature switches lanes.", "effects": [{"family": "end_of_turn", "match_role": "any_player", "effects": [{"op": "lane_windy_switch"}]}], "source_ids": ["uesp_lanes"] },
+	{ "id": "zoo", "display_name": "Zoo", "icon": "res://assets/images/lanes/zoo.png", "implementation_bucket": "mvp", "availability": ["arena"], "description": "After you summon a creature here, transform it into a random Animal.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_zoo_transform"}]}], "source_ids": ["uesp_lanes"] },
 	{ "id": "blitz", "display_name": "Blitz", "implementation_bucket": "reference_only", "availability": ["unused"], "description": "All creatures here lose Guard.", "source_ids": ["uesp_lanes"] },
 	{ "id": "dense_forest", "display_name": "Dense Forest", "implementation_bucket": "reference_only", "availability": ["unused"], "description": "After a non-Guard in this lane is dealt damage, that creature gains Cover.", "source_ids": ["uesp_lanes"] },
 	{ "id": "highly_changed", "display_name": "Highly Changed", "implementation_bucket": "reference_only", "availability": ["unused"], "description": "When you play an action, summon a random creature in this lane with the same cost.", "source_ids": ["uesp_lanes"] },
