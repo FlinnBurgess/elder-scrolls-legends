@@ -36,7 +36,11 @@ func _run_all_tests() -> bool:
 		_test_mania_lane_no_draw_when_empty() and
 		_test_armor_lane_doubles_health_on_summon() and
 		_test_armor_lane_does_not_affect_other_lane() and
-		_test_armor_lane_both_players_get_doubled()
+		_test_armor_lane_both_players_get_doubled() and
+		_test_armory_lane_buffs_single_creature_on_summon() and
+		_test_armory_lane_does_not_affect_other_lane() and
+		_test_armory_lane_both_players_get_buff() and
+		_test_armory_lane_buffs_random_when_multiple_creatures()
 	)
 
 
@@ -442,6 +446,82 @@ func _test_armor_lane_both_players_get_doubled() -> bool:
 		_assert(h1 == 8, "Player 1 creature health should double from 4 to 8, got %d." % h1) and
 		_assert(h2 == 10, "Player 2 creature health should double from 5 to 10, got %d." % h2)
 	)
+
+
+func _test_armory_lane_buffs_single_creature_on_summon() -> bool:
+	var match_state := _build_armory_match()
+	var player: Dictionary = match_state["players"][0]
+	var creature := _summon_creature(player, match_state, "armory_solo", "armory", 2, 3)
+	var final_power := EvergreenRules.get_power(creature)
+	var final_health := EvergreenRules.get_health(creature)
+	return (
+		_assert(final_power == 3, "Armory lane should buff power from 2 to 3, got %d." % final_power) and
+		_assert(final_health == 4, "Armory lane should buff health from 3 to 4, got %d." % final_health)
+	)
+
+
+func _test_armory_lane_does_not_affect_other_lane() -> bool:
+	var match_state := _build_armory_match()
+	var player: Dictionary = match_state["players"][0]
+	var creature := _summon_creature(player, match_state, "field_no_buff", "field", 2, 3)
+	var final_power := EvergreenRules.get_power(creature)
+	var final_health := EvergreenRules.get_health(creature)
+	return (
+		_assert(final_power == 2, "Field lane should not buff power, got %d." % final_power) and
+		_assert(final_health == 3, "Field lane should not buff health, got %d." % final_health)
+	)
+
+
+func _test_armory_lane_both_players_get_buff() -> bool:
+	var match_state := _build_armory_match()
+	var p1: Dictionary = match_state["players"][0]
+	var p2: Dictionary = match_state["players"][1]
+	var c1 := _summon_creature(p1, match_state, "p1_armory", "armory", 2, 2)
+	var c2 := _summon_creature(p2, match_state, "p2_armory", "armory", 3, 3)
+	var p1_power := EvergreenRules.get_power(c1)
+	var p1_health := EvergreenRules.get_health(c1)
+	var p2_power := EvergreenRules.get_power(c2)
+	var p2_health := EvergreenRules.get_health(c2)
+	return (
+		_assert(p1_power == 3, "P1 creature power should be 3 (2+1), got %d." % p1_power) and
+		_assert(p1_health == 3, "P1 creature health should be 3 (2+1), got %d." % p1_health) and
+		_assert(p2_power == 4, "P2 creature power should be 4 (3+1), got %d." % p2_power) and
+		_assert(p2_health == 4, "P2 creature health should be 4 (3+1), got %d." % p2_health)
+	)
+
+
+func _test_armory_lane_buffs_random_when_multiple_creatures() -> bool:
+	var match_state := _build_armory_match()
+	var player: Dictionary = match_state["players"][0]
+	var c1 := _summon_creature(player, match_state, "armory_first", "armory", 2, 2)
+	# c1 gets +1/+1 from its own summon (only creature), so now 3/3
+	var c2 := _summon_creature(player, match_state, "armory_second", "armory", 2, 2)
+	# c2's summon triggers buff on a random friendly creature (c1 or c2)
+	var total_power := EvergreenRules.get_power(c1) + EvergreenRules.get_power(c2)
+	var total_health := EvergreenRules.get_health(c1) + EvergreenRules.get_health(c2)
+	# c1 base 2+1(own summon) = 3, c2 base 2+1(c2 summon buff) = 3 OR c1 = 3+1 = 4, c2 base 2
+	# Total: 3+3 = 6 power, 3+3 = 6 health (regardless of which got the c2 buff)
+	return (
+		_assert(total_power == 6, "Total power across both creatures should be 6 (2+2 base + 2 buffs), got %d." % total_power) and
+		_assert(total_health == 6, "Total health across both creatures should be 6 (2+2 base + 2 buffs), got %d." % total_health)
+	)
+
+
+func _build_armory_match() -> Dictionary:
+	var match_state := _build_match()
+	var lane: Dictionary = match_state["lanes"][1]
+	lane["lane_id"] = "armory"
+	lane["lane_type"] = "armory"
+	lane["lane_rule_payload"] = {
+		"display_name": "Armory",
+		"description": "After you summon a creature here, a random friendly creature here gets +1/+1.",
+		"icon": "res://assets/images/lanes/armory.png",
+		"implementation_bucket": "mvp",
+		"availability": ["arena"],
+		"source_ids": ["uesp_lanes"],
+		"effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_armory_buff_random"}]}],
+	}
+	return match_state
 
 
 func _build_armor_match() -> Dictionary:

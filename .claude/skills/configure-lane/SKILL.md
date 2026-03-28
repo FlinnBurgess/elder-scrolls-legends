@@ -41,6 +41,19 @@ Update the lane entry:
 - Add `"icon": "res://assets/images/lanes/{lane_id}.png"`
 - Add `"effects"` array with the trigger descriptor(s)
 
+Also add a board profile under `"board_profiles"` for testing:
+```json
+{
+  "id": "{lane_id}_test",
+  "display_name": "{Display Name} Test",
+  "lanes": [
+    {"lane_id": "field", "slot_capacity": 4},
+    {"lane_id": "shadow", "lane_type": "{lane_id}", "slot_capacity": 4}
+  ],
+  "source_ids": ["workspace_spec"]
+}
+```
+
 Example (shadow lane — uses existing op):
 ```json
 "effects": [
@@ -124,6 +137,13 @@ var card: Dictionary = location.get("card", {})
 # Modify stats (e.g., double health)
 var current_health := EvergreenRules.get_health(card)
 EvergreenRules.apply_stat_bonus(card, 0, current_health)
+
+# --- Pattern: random creature selection ---
+# Use the existing deterministic RNG helper to pick from an array of cards.
+# It builds a fingerprint from rng_seed, turn_number, a source ID, and candidate instance_ids.
+var candidates: Array = [...]  # Array of card Dictionaries
+var selected_idx := EvergreenRules._choose_deterministic_candidate_index(match_state, creature_id, candidates)
+var target_card: Dictionary = candidates[selected_idx]
 
 # Always return this shape:
 return {"handled": true, "events": events_array}

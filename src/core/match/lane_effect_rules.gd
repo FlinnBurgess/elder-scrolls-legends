@@ -46,6 +46,8 @@ static func apply_lane_effect(match_state: Dictionary, trigger: Dictionary, even
 			return _resolve_lane_mania_draw(match_state, trigger, event, effect)
 		"lane_armor_double_health":
 			return _resolve_lane_armor_double_health(match_state, trigger, event, effect)
+		"lane_armory_buff_random":
+			return _resolve_lane_armory_buff_random(match_state, trigger, event, effect)
 		_:
 			return {"handled": false, "events": []}
 
@@ -255,6 +257,62 @@ static func _resolve_lane_armor_double_health(match_state: Dictionary, trigger: 
 		"player_id": str(card.get("controller_player_id", "")),
 		"lane_id": lane_id,
 		"granted_by": "lane_effect_armor",
+	}]
+	return {"handled": true, "events": events}
+
+
+static func _resolve_lane_armory_buff_random(match_state: Dictionary, trigger: Dictionary, event: Dictionary, _effect: Dictionary) -> Dictionary:
+	var creature_id := str(event.get("source_instance_id", ""))
+	if creature_id.is_empty():
+		return {"handled": true, "events": []}
+
+	var lane_id := str(trigger.get("descriptor", {}).get("_lane_id", ""))
+	var event_lane_id := str(event.get("lane_id", ""))
+	if lane_id != event_lane_id:
+		return {"handled": true, "events": []}
+
+	var location := MatchMutations.find_card_location(match_state, creature_id)
+	if not bool(location.get("is_valid", false)):
+		return {"handled": true, "events": []}
+	var summoned_card: Dictionary = location.get("card", {})
+	var player_id := str(summoned_card.get("controller_player_id", ""))
+
+	var lane: Dictionary = {}
+	for l in match_state.get("lanes", []):
+		if str(l.get("lane_id", "")) == lane_id:
+			lane = l
+			break
+	if lane.is_empty():
+		return {"handled": true, "events": []}
+
+	var friendly_creatures: Array = []
+	var slot_array: Array = lane.get("player_slots", {}).get(player_id, [])
+	for card in slot_array:
+		if typeof(card) == TYPE_DICTIONARY:
+			friendly_creatures.append(card)
+
+	if friendly_creatures.is_empty():
+		return {"handled": true, "events": []}
+
+	var target_card: Dictionary
+	if int(friendly_creatures.size()) == 1:
+		target_card = friendly_creatures[0]
+	else:
+		var selected_idx := EvergreenRules._choose_deterministic_candidate_index(match_state, creature_id, friendly_creatures)
+		target_card = friendly_creatures[selected_idx]
+
+	EvergreenRules.apply_stat_bonus(target_card, 1, 1)
+
+	var target_id := str(target_card.get("instance_id", ""))
+	var events: Array = [{
+		"event_type": "stat_modified",
+		"source_instance_id": creature_id,
+		"target_instance_id": target_id,
+		"power_change": 1,
+		"health_change": 1,
+		"player_id": player_id,
+		"lane_id": lane_id,
+		"granted_by": "lane_effect_armory",
 	}]
 	return {"handled": true, "events": events}
 

@@ -17,12 +17,12 @@ const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
 static func build_test_match_state() -> Dictionary:
 	## ── CONFIGURATION ──────────────────────────────────────────────────
 	## Edit the values below to set up your test scenario.
-	## Testing: Armor Lane — summon a creature here, its health is doubled
+	## Testing: Armory Lane — each summon gives a random friendly creature +1/+1
 
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — 12 magicka to play creatures into armor lane
+	# Player 1 (you) — 12 magicka to flood the armory lane with cheap creatures
 	var p1_health := 30
 	var p1_max_magicka := 12
 	var p1_current_magicka := 12
@@ -30,20 +30,20 @@ static func build_test_match_state() -> Dictionary:
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — creatures with varying health to see doubling at different scales
+	# Player 1 hand — cheap creatures to summon rapidly into the armory lane
 	var p1_hand_ids: Array = [
-		"str_fiery_imp",                    # Cost 1, 1/1 — doubles to 1/2
-		"str_scuttler",                     # Cost 1, 1/2 — doubles to 1/4
-		"end_fharun_defender",              # Cost 2, 1/4 Guard — doubles to 1/8, test Guard keeps doubled health
-		"end_young_mammoth",                # Cost 3, 4/4 Breakthrough — doubles to 4/8
-		"end_imprisoned_deathlord",         # Cost 4, 7/7 — doubles to 7/14, massive wall
+		"str_nord_firebrand",               # Cost 0, 1/1 Charge — free summon, triggers buff immediately
+		"str_fiery_imp",                    # Cost 1, 1/1 — cheap summon, triggers +1/+1 on a random ally
+		"str_scuttler",                     # Cost 1, 1/2 — another cheap body
+		"str_morthal_watchman",             # Cost 1, 2/1 — see how buffs stack across multiple summons
+		"neu_enraged_mudcrab",              # Cost 1, 2/1 — fifth cheap creature to flood the lane
 	]
 
-	# Player 1 deck — index 0 is drawn first
+	# Player 1 deck — more cheap creatures to keep summoning
 	var p1_deck_ids: Array = [
-		"end_lowland_troll",                # Cost 7, 4/8 Regenerate — doubles to 4/16
-		"end_lurking_mummy",                # Cost 5, 2/6 Guard — doubles to 2/12
-		"end_young_mammoth",                # Cost 3, 4/4
+		"str_jerall_forager",               # Cost 2, 2/2
+		"wil_septim_guardsman",             # Cost 0, 1/2 Guard — free summon next turn
+		"end_deadly_draugr",                # Cost 1, 1/1 Lethal — cheap + deadly with buff
 	]
 
 	var p1_discard_ids: Array = []
@@ -52,8 +52,10 @@ static func build_test_match_state() -> Dictionary:
 
 	var p1_field_creatures: Array = []
 
-	# No pre-placed creatures — armor only triggers on summon, not pre-existing
-	var p1_shadow_creatures: Array = []
+	# Pre-place one creature in armory lane so first summon can buff an existing ally
+	var p1_shadow_creatures: Array = [
+		_make_lane_creature("player_1", "str_fiery_imp", 100),           # 1/1 — existing target for +1/+1 buff
+	]
 
 	# Player 2 (AI) — low magicka, weak hand
 	var p2_health := 30
@@ -75,17 +77,20 @@ static func build_test_match_state() -> Dictionary:
 		"str_fiery_imp",                    # Cost 1, 1/1
 		"str_fiery_imp",                    # Cost 1, 1/1
 		"str_scuttler",                     # Cost 1, 1/2
+		"str_fiery_imp",                    # Cost 1, 1/1
+		"str_fiery_imp",                    # Cost 1, 1/1
+		"str_scuttler",                     # Cost 1, 1/2
 	]
 
 	var p2_discard_ids: Array = []
 
-	# Enemy board — punching bags in field lane to attack with your doubled creatures
+	# Enemy board — punching bags to attack with your buffed creatures
 	var p2_field_creatures: Array = [
 		_make_lane_creature("player_2", "str_fiery_imp", 200),           # 1/1 — punching bag
 		_make_lane_creature("player_2", "str_fiery_imp", 201),           # 1/1 — punching bag
 	]
 	var p2_shadow_creatures: Array = [
-		_make_lane_creature("player_2", "str_scuttler", 202),            # 1/2 — sits in armor lane so you can compare doubled vs non-doubled
+		_make_lane_creature("player_2", "str_scuttler", 202),            # 1/2 — enemy in armory lane
 	]
 
 	## ── END CONFIGURATION ──────────────────────────────────────────────
@@ -247,7 +252,7 @@ static func _build_lanes_with_creatures(
 
 	var board_profile := {}
 	for profile in lane_registry.get("board_profiles", []):
-		if profile.get("id", "") == "armor_test":
+		if profile.get("id", "") == "armory_test":
 			board_profile = profile
 			break
 
