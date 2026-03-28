@@ -6,6 +6,7 @@ static func core_suites() -> Array:
 	return [
 		{"id": "bootstrap", "label": "Bootstrap smoke", "script": "res://tests/bootstrap_runner.gd", "success_token": "BOOTSTRAP_SMOKE_OK"},
 		{"id": "deck_legality", "label": "Deck legality", "script": "res://tests/deck_validation_runner.gd", "success_token": "DECK_VALIDATION_OK"},
+		{"id": "card_data_validation", "label": "Card data vs engine coverage", "script": "res://tests/card_data_validation_runner.gd", "success_token": "CARD_DATA_VALIDATION_OK"},
 		{"id": "setup", "label": "Setup and mulligan", "script": "res://tests/setup_and_mulligan_runner.gd", "success_token": "SETUP_AND_MULLIGAN_OK"},
 		{"id": "lanes", "label": "Lane rules", "script": "res://tests/lane_rules_runner.gd", "success_token": "LANE_RULES_OK"},
 		{"id": "turn_magicka", "label": "Turn and magicka", "script": "res://tests/turn_and_magicka_runner.gd", "success_token": "TURN_AND_MAGICKA_OK"},
