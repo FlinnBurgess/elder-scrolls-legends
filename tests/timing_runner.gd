@@ -22,7 +22,9 @@ func _run_all_tests() -> bool:
 		_test_start_of_turn_triggers_resolve_in_slot_order() and
 		_test_on_play_summon_and_expertise_share_deterministic_order() and
 		_test_pilfer_and_veteran_trigger_from_damage_windows() and
-		_test_slay_on_death_and_last_gasp_follow_death_window_order()
+		_test_slay_on_death_and_last_gasp_follow_death_window_order() and
+		_test_pilfer_does_not_fire_on_summon() and
+		_test_end_of_turn_target_mode_does_not_fire_on_summon()
 	)
 
 
@@ -192,6 +194,52 @@ func _test_slay_on_death_and_last_gasp_follow_death_window_order() -> bool:
 		_assert(_families_from_resolutions(result.get("trigger_resolutions", [])) == [MatchTiming.FAMILY_SLAY, MatchTiming.FAMILY_ON_DEATH, MatchTiming.FAMILY_LAST_GASP], "Slay should resolve before the defender's death triggers, which should keep trigger declaration order.") and
 		_assert(slayer["power_bonus"] == 1, "Slay effect should apply to the surviving attacker.") and
 		_assert(log_events.size() == 2, "Death-trigger log effects should emit replay-visible events.")
+	)
+
+
+func _test_pilfer_does_not_fire_on_summon() -> bool:
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	# Summon a target creature first so equip has a valid target
+	var target := _summon_creature(active_player, match_state, "equip_target", "field", 2, 2, [], 0)
+	# Summon a creature with pilfer target_mode (like Prowl Smuggler)
+	var pilferer := _summon_creature(active_player, match_state, "prowl", "shadow", 3, 2, [], 0, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_PILFER,
+			"required_zone": "lane",
+			"target_mode": "friendly_creature",
+			"effects": [{"op": "modify_stats", "target": "chosen_target", "power": 5, "health": 0}],
+		}]
+	})
+	# Pilfer should NOT have fired on summon — no pending targets should exist
+	var pending: Array = match_state.get("pending_summon_effect_targets", [])
+	return (
+		_assert(pending.is_empty(), "Pilfer with target_mode should NOT create pending summon targets on summon.") and
+		_assert(target["power_bonus"] == 0, "No pilfer buff should be applied on summon.")
+	)
+
+
+func _test_end_of_turn_target_mode_does_not_fire_on_summon() -> bool:
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	# Summon a creature with end_of_turn target_mode (like Mythic Dawn Acolyte)
+	var eot := _summon_creature(active_player, match_state, "eot_creature", "field", 5, 4, [], 0, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_END_OF_TURN,
+			"required_zone": "lane",
+			"target_mode": "creature_or_player",
+			"effects": [{"op": "deal_damage", "target": "chosen_target", "amount": 2}],
+		}]
+	})
+	# End-of-turn triggers should NOT create pending summon targets
+	var pending_summon: Array = match_state.get("pending_summon_effect_targets", [])
+	var pending_turn: Array = match_state.get("pending_turn_trigger_targets", [])
+	return (
+		_assert(pending_summon.is_empty(), "End-of-turn target_mode should NOT create pending summon targets.") and
+		_assert(pending_turn.is_empty(), "End-of-turn target_mode should NOT create pending turn targets until turn ends.") and
+		_assert(opponent["health"] == 30, "No damage should be dealt on summon by end-of-turn effect.")
 	)
 
 
