@@ -1171,19 +1171,21 @@ static func _resolve_lane_warzone_damage(match_state: Dictionary, trigger: Dicti
 	return {"handled": true, "events": events}
 
 
-# --- Windy: random creature switches lanes at end of turn ---
+# --- Windy: random creature in this lane moves at end of turn ---
 static func _resolve_lane_windy_switch(match_state: Dictionary, trigger: Dictionary, event: Dictionary, _effect: Dictionary) -> Dictionary:
 	var lane_id := str(trigger.get("descriptor", {}).get("_lane_id", ""))
 	var active_player_id := str(event.get("player_id", ""))
 	if active_player_id.is_empty():
 		return {"handled": true, "events": []}
-	# Collect all creatures across all lanes
+	# Collect creatures only from the windy lane
 	var all_creatures: Array = []
-	for lane in match_state.get("lanes", []):
-		for pid in lane.get("player_slots", {}).keys():
-			for card in lane.get("player_slots", {}).get(pid, []):
-				if typeof(card) == TYPE_DICTIONARY:
-					all_creatures.append(card)
+	var windy_lane: Dictionary = _get_lane(match_state, lane_id)
+	if windy_lane.is_empty():
+		return {"handled": true, "events": []}
+	for pid in windy_lane.get("player_slots", {}).keys():
+		for card in windy_lane.get("player_slots", {}).get(pid, []):
+			if typeof(card) == TYPE_DICTIONARY:
+				all_creatures.append(card)
 	if all_creatures.is_empty():
 		return {"handled": true, "events": []}
 	var source_id := str(trigger.get("source_instance_id", ""))
@@ -1232,23 +1234,40 @@ static func _resolve_lane_windy_switch(match_state: Dictionary, trigger: Diction
 
 # --- Zoo: transform summoned creature into random Animal ---
 static func _resolve_lane_zoo_transform(match_state: Dictionary, trigger: Dictionary, event: Dictionary, _effect: Dictionary) -> Dictionary:
+	if str(event.get("reason", "")) == "lane_effect_zoo":
+		return {"handled": true, "events": []}
 	var card := _get_summoned_creature_in_lane(match_state, trigger, event)
 	if card.is_empty():
 		return {"handled": true, "events": []}
 	var creature_id := str(card.get("instance_id", ""))
-	var player_id := str(card.get("controller_player_id", ""))
-	var synth_trigger := trigger.duplicate(true)
-	synth_trigger["controller_player_id"] = player_id
-	synth_trigger["source_instance_id"] = creature_id
-	var custom_result: Dictionary = _extended_packs().apply_custom_effect(match_state, synth_trigger, event, {
-		"op": "summon_random_from_catalog",
-		"filter": {"card_type": "creature", "required_subtype": "Animal"},
-	})
-	if bool(custom_result.get("handled", false)):
-		# Transform the existing creature rather than summoning a new one
-		var catalog_events: Array = custom_result.get("events", [])
-		return {"handled": true, "events": catalog_events}
-	return {"handled": true, "events": []}
+	var seeds: Array = _card_catalog()._card_seeds()
+	var animal_subtypes: Array = ["Beast", "Fish", "Mammoth", "Mudcrab", "Netch", "Reptile", "Skeever", "Spider", "Wolf"]
+	var candidates: Array = []
+	for seed in seeds:
+		if typeof(seed) != TYPE_DICTIONARY:
+			continue
+		if not bool(seed.get("collectible", true)):
+			continue
+		if str(seed.get("card_type", "")) != "creature":
+			continue
+		var subtypes = seed.get("subtypes", [])
+		if typeof(subtypes) != TYPE_ARRAY:
+			continue
+		var is_animal := false
+		for st in subtypes:
+			if animal_subtypes.find(str(st)) != -1:
+				is_animal = true
+				break
+		if not is_animal:
+			continue
+		candidates.append(seed)
+	if candidates.is_empty():
+		return {"handled": true, "events": []}
+	var pick: Dictionary = candidates[_timing_rules()._deterministic_index(match_state, creature_id + "_zoo", candidates.size())]
+	var template: Dictionary = pick.duplicate(true)
+	template["definition_id"] = str(template.get("card_id", ""))
+	var result := MatchMutations.transform_card(match_state, creature_id, template, {"reason": "lane_effect_zoo"})
+	return {"handled": true, "events": result.get("events", [])}
 
 
 static func _resolve_lane_ballista_damage(match_state: Dictionary, trigger: Dictionary, event: Dictionary, effect: Dictionary) -> Dictionary:
