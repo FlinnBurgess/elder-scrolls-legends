@@ -17,87 +17,79 @@ const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
 static func build_test_match_state() -> Dictionary:
 	## ── CONFIGURATION ──────────────────────────────────────────────────
 	## Edit the values below to set up your test scenario.
-	## Testing: Fixed slay mechanics + newly implemented stub features
+	## Testing: Seducer Darkfire — choose_cost_lock blocks opponent from playing cards of chosen cost
 
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — 15 magicka to afford most cards
+	# Player 1 (you) — 12 magicka to afford Seducer Darkfire (cost 7)
 	var p1_health := 30
-	var p1_max_magicka := 15
-	var p1_current_magicka := 15
+	var p1_max_magicka := 12
+	var p1_current_magicka := 12
 	var p1_rune_thresholds := [25, 20, 15, 10, 5]
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — cards to test all fixed/implemented features
+	# Player 1 hand — Seducer Darkfire + filler to observe
 	var p1_hand_ids: Array = [
-		"db_agi_astrid",                    # Cost 3, 2/3, Lethal. Aura: friendly Lethal creatures slay -> Completed Contract. TEST: aura grants slay
-		"db_agi_brotherhood_slayer",        # Cost 3, 3/3, Prophecy. Slay: Completed Contract. TEST: slay reward + Brotherhood Sanctuary doubles it
-		"end_archein_venomtongue",          # Cost 4, 1/4, Lethal. Slay: +1 max magicka. TEST: should get doubled by Sanctuary
-		"dg_wil_penitus_oculatus_envoy",   # Cost 2, 2/2. Summon: give friendly creature immune to Lethal. TEST: immunity blocks lethal kill
-		"joo_wil_jauffre",                 # Cost 5, 3/9. Summon: redirect damage from chosen creature to self. TEST: damage redirect
-		"moe_end_zumog_phoom",             # Cost 6, 4/6. Summon: choose creature, when it dies resummon as 1/1. TEST: resummon on death
-		"mc_end_pure_blood_elder",         # Cost 7, 8/8. When you gain max magicka, double it. TEST: slay +1 magicka -> +2
+		"iom_wil_seducer_darkfire",         # Cost 7, 7/7. Summon: Choose a cost. Opponent can't play that cost.
+		"int_elusive_schemer",              # Cost 4, 3/1. Summon: Draw a card — for follow-up plays
+		"end_young_mammoth",                # Cost 4, 4/4 — vanilla body
+		"str_whiterun_trooper",             # Cost 2, 2/4 — vanilla body
 	]
 
-	# Player 1 deck — Aela's Huntmate for beast form art, Gates of Madness for drawn card bonus
+	# Player 1 deck
 	# Index 0 is drawn first.
 	var p1_deck_ids: Array = [
-		"hos_str_aelas_huntmate",           # Cost 4, 3/3. Beast Form: +1/+1 draw a card. TEST: art changes on transform
-		"iom_neu_gates_of_madness",         # Cost 3 support. Transform deck + buff drawn cards. TEST: drawn card bonus
-		"end_young_mammoth",                # 4/4 — draw target for Gates bonus test
 		"end_young_mammoth",
-		"int_elusive_schemer",
+		"end_young_mammoth",
+		"str_whiterun_trooper",
+		"str_whiterun_trooper",
 	]
 
 	var p1_discard_ids: Array = []
 
-	# Brotherhood Sanctuary already in play — doubles slay rewards
-	var p1_support_ids: Array = [
-		"db_agi_brotherhood_sanctuary",     # Ongoing. Friendly slay rewards trigger extra time. TEST: slay doubling
-	]
+	var p1_support_ids: Array = []
 
-	# Slay creature already in lane ready to attack into enemy
-	var p1_field_creatures: Array = [
-		_make_lane_creature("player_1", "db_end_falkreath_defiler", 100, {"can_attack": true}),  # 3/3 Slay: draw creature from discard. TEST: slay + Sanctuary double
-	]
+	var p1_field_creatures: Array = []
 
 	var p1_shadow_creatures: Array = []
 
-	# Player 2 (AI) — weak, no runes, low magicka
+	# Player 2 (AI) — ALL cost-1 cards, 5 magicka so it can afford multiples
 	var p2_health := 30
-	var p2_max_magicka := 1
-	var p2_current_magicka := 1
-	var p2_rune_thresholds := [25, 20, 15, 10, 5]
+	var p2_max_magicka := 5
+	var p2_current_magicka := 5
+	var p2_rune_thresholds := []
 	var p2_has_ring := false
 	var p2_ring_charges := 0
 
-	# Player 2 hand
+	# Player 2 hand — all cost 1 creatures
 	var p2_hand_ids: Array = [
-		"str_fiery_imp",                    # 1/1 — AI filler
+		"str_fiery_imp",                    # Cost 1, 1/1
+		"str_scuttler",                     # Cost 1, 1/2
+		"str_morthal_watchman",             # Cost 1, 2/1
+		"neu_enraged_mudcrab",              # Cost 1, 2/1
+		"end_deadly_draugr",                # Cost 1, 1/1 Lethal
 	]
 
-	# Player 2 deck
+	# Player 2 deck — all cost 1 creatures
 	var p2_deck_ids: Array = [
-		"str_fiery_imp",
-		"str_fiery_imp",
-		"str_fiery_imp",
-		"str_fiery_imp",
-		"str_fiery_imp",
+		"wil_cheydinhal_sapper",            # Cost 1, 1/3 Drain
+		"agi_mournhold_guardian",           # Cost 1, 2/1 Guard
+		"agi_voracious_spriggan",           # Cost 1, 2/1 Drain
+		"str_fiery_imp",                    # Cost 1, 1/1
+		"str_fiery_imp",                    # Cost 1, 1/1
 	]
 
 	var p2_discard_ids: Array = []
 
-	# Enemy board — Lethal creature for immunity test, plus punching bags for slay
+	# Enemy board — a couple of cost-1 punching bags already in lane
 	var p2_field_creatures: Array = [
-		_make_lane_creature("player_2", "end_deadly_draugr", 200),       # 1/1 Lethal — TEST: Penitus immunity should block this
-		_make_lane_creature("player_2", "str_fiery_imp", 201),           # 1/1 — slay punching bag
-		_make_lane_creature("player_2", "str_fiery_imp", 202),           # 1/1 — slay punching bag
+		_make_lane_creature("player_2", "str_fiery_imp", 200),           # 1/1 — punching bag
+		_make_lane_creature("player_2", "str_scuttler", 201),            # 1/2 — punching bag
 	]
 	var p2_shadow_creatures: Array = [
-		_make_lane_creature("player_2", "str_fiery_imp", 203),           # 1/1 — punching bag
-		_make_lane_creature("player_2", "str_fiery_imp", 204),           # 1/1 — punching bag
+		_make_lane_creature("player_2", "str_fiery_imp", 202),           # 1/1 — punching bag
 	]
 
 	## ── END CONFIGURATION ──────────────────────────────────────────────

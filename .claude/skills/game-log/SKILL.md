@@ -1,8 +1,6 @@
 ---
 name: game-log
 description: Check the latest game log for evidence of a specific issue described by the user.
-model: sonnet
-effort: medium
 ---
 
 # Game Log
@@ -11,7 +9,9 @@ Check the latest game log for evidence of a specific issue described by the user
 
 ## Arguments
 
-`$ARGUMENTS` — A description of the thing to look for (e.g., "Morkul Gatekeeper didn't use its summon effect", "Guard was ignored", "creature had wrong stats after buff").
+`$ARGUMENTS` — Either a specific issue to investigate (e.g., "Morkul Gatekeeper didn't use its summon effect", "Guard was ignored", "creature had wrong stats after buff") or a general request like "summarise the last game".
+
+**If the request is a general summary** (no specific bug), skip Steps 2-4 and instead provide: match duration (turns), key plays per player, board swings, final state, and any warnings logged. Keep it concise.
 
 ## Step 1: Read the Game Log
 

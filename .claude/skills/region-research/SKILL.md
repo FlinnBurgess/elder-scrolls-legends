@@ -19,9 +19,11 @@ Research Elder Scrolls lore for a specific region and propose Path of Tamriel ad
 
 Look in `development-artifacts/` for any existing research files for this region (e.g., `{region}_adventure_research.md`). If one exists, read it — you may be updating rather than starting fresh.
 
-### 1b. Check the region config
+### 1b. Check the region config and map covered storylines
 
 Read `data/regions/{region_id}.json` to see the current state — what adventures already exist, the region's display name, and map image path.
+
+**If the region already has adventures**, read each adventure JSON and its associated player deck to identify which lore storylines are already covered. For example, an adventure with a Companions deck and Jorrvaskr references = the Companions questline is covered. Map each existing adventure to its lore source so Phase 1c research can focus exclusively on **uncovered** storylines. This avoids wasting time researching ground already covered.
 
 ### 1c. Research lore from web sources
 
@@ -125,6 +127,8 @@ Read enemy deck files in `data/decks/adventure/enemies/` to understand:
 
 This prevents proposing an adventure with enemy decks that duplicate what's already in the game.
 
+**Also check player decks** — note which legendary/unique cards are already included in existing adventure player decks. A card used as a deck anchor in one adventure should not be proposed as a boss or anchor for another adventure in the same region (e.g., Miraak in the Dragon deck shouldn't also be the boss of a Dragonborn DLC adventure).
+
 ## Phase 3: Cross-Reference
 
 Run Phase 1 (lore) and Phase 2 (catalog) in parallel — catalog greps don't depend on lore research completing first. Start grepping for the region's dominant race and obvious place names while lore searches are still in flight. Phase 3 cross-referencing begins once both are done.
@@ -151,7 +155,7 @@ Read 1-2 existing adventure JSON files in `data/adventures/` to understand:
 - XP reward ranges
 - Boss health ranges and quality values
 
-**Critical**: Read ALL existing player deck files in `data/decks/adventure/` (excluding `enemies/`) and note the `attribute_ids` of each. Map out which attribute pairs are already used. Every adventure proposal should target an **unused** attribute pair (or a tri-color combo) to ensure mechanical variety across the adventure catalog.
+**Critical**: Read ALL existing player deck files in `data/decks/adventure/` (excluding `enemies/`) **across all regions, not just the current one**. Note the `attribute_ids` of each. Map out which attribute pairs are already used globally. Every adventure proposal should target an **unused** attribute pair (or a tri-color combo) to ensure mechanical variety across the entire adventure catalog.
 
 ## Phase 4: Propose Adventures
 
@@ -217,7 +221,7 @@ End with a clear recommendation for which adventure to build first, based on:
 - **UESP may block requests** — always have fallback sources. Web searches often surface enough lore even when wikis are inaccessible.
 - **Card catalog is the constraint** — exciting lore means nothing if the catalog can't support a deck. Always verify card pool depth before proposing an adventure.
 - **Check existing adventures for overlap** — don't propose a theme too similar to an existing adventure in another region. Read `data/adventures/*.json` headlines. Also read existing player deck files in `data/decks/adventure/` to check attribute overlap — if an existing deck already uses INT/WIL, differentiate your proposal with different attributes, a tri-color build, or a distinctly different mechanical identity (e.g., token/buff vs action-spam).
-- **Dual-attribute cards matter** — a STR/INT deck can use STR cards, INT cards, AND STR/INT dual cards. Don't miss the dual-attribute section of the catalog.
+- **Dual-attribute cards matter** — a STR/INT deck can use STR cards, INT cards, STR/INT dual cards, and NEU cards. It **cannot** use STR/WIL or INT/AGI duals — both attributes must match the deck's pair. Don't miss the dual-attribute section of the catalog, but don't accidentally include off-pair duals in proposals.
 - **Race subtypes are key** — the dominant race's subtype (e.g., "Redguard", "Dark Elf") is the strongest filter for finding thematically appropriate cards.
 - **Items, keywords, and effects cluster by attribute** — STR has items/weapons, INT has wards/spells, AGI has movement/pilfer, END has guards/last gasp, WIL has tokens/healing. Match the region's cultural flavor to the right attribute.
 - **Boss fights need a hook** — the best bosses have a unique mechanic or gimmick that reflects their lore identity, not just high stats.
