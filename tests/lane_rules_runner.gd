@@ -76,7 +76,11 @@ func _run_all_tests() -> bool:
 		_test_graveyard_dual_death_spawns_both_draugrs() and
 		_test_graveyard_draugr_has_summoning_sickness() and
 		_test_heist_lane_grants_magicka_on_pilfer() and
-		_test_heist_lane_no_magicka_in_other_lane()
+		_test_heist_lane_no_magicka_in_other_lane() and
+		_test_madness_lane_transforms_on_pilfer() and
+		_test_madness_lane_no_transform_in_other_lane() and
+		_test_madness_lane_transformed_creature_has_summoning_sickness() and
+		_test_madness_lane_transformed_charge_creature_can_attack()
 	)
 
 
@@ -1126,6 +1130,121 @@ func _build_heist_match() -> Dictionary:
 		"availability": ["story"],
 		"source_ids": ["uesp_lanes"],
 		"effects": [{"family": "pilfer", "match_role": "any_player", "effects": [{"op": "lane_heist_gain_magicka", "amount": 1}]}],
+	}
+	return match_state
+
+
+func _test_madness_lane_transforms_on_pilfer() -> bool:
+	var match_state := _build_madness_match()
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var creature := _summon_creature(player, match_state, "madness_pilferer", "madness", 2, 2)
+	creature["cost"] = 3
+	creature["entered_lane_on_turn"] = int(match_state.get("turn_number", 0)) - 1
+	creature["has_attacked_this_turn"] = false
+	var old_definition_id := str(creature.get("definition_id", ""))
+	var attack_result := MatchCombat.resolve_attack(match_state, player["player_id"], creature["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	var new_definition_id := str(creature.get("definition_id", ""))
+	var new_cost := int(creature.get("cost", 0))
+	return (
+		_assert(attack_result["is_valid"], "Madness lane pilfer attack should resolve.") and
+		_assert(new_definition_id != old_definition_id, "Madness lane should transform creature on pilfer, definition_id unchanged: %s." % old_definition_id) and
+		_assert(new_cost == 4, "Transformed creature should have cost 4 (original 3 + 1), got %d." % new_cost)
+	)
+
+
+func _test_madness_lane_no_transform_in_other_lane() -> bool:
+	var match_state := _build_madness_match()
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var creature := _summon_creature(player, match_state, "field_pilferer", "field", 2, 2)
+	creature["cost"] = 3
+	creature["entered_lane_on_turn"] = int(match_state.get("turn_number", 0)) - 1
+	creature["has_attacked_this_turn"] = false
+	var old_definition_id := str(creature.get("definition_id", ""))
+	var attack_result := MatchCombat.resolve_attack(match_state, player["player_id"], creature["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	var new_definition_id := str(creature.get("definition_id", ""))
+	return (
+		_assert(attack_result["is_valid"], "Field lane attack should resolve.") and
+		_assert(new_definition_id == old_definition_id, "Creatures in field lane should not be transformed by madness, got %s -> %s." % [old_definition_id, new_definition_id])
+	)
+
+
+func _test_madness_lane_transformed_creature_has_summoning_sickness() -> bool:
+	var match_state := _build_madness_match()
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var creature := _summon_creature(player, match_state, "madness_pilferer", "madness", 2, 2)
+	creature["cost"] = 3
+	creature["entered_lane_on_turn"] = int(match_state.get("turn_number", 0)) - 1
+	creature["has_attacked_this_turn"] = false
+	# Pilfer to trigger transform
+	MatchCombat.resolve_attack(match_state, player["player_id"], creature["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	# Remove charge if present so we test summoning sickness
+	var keywords: Array = creature.get("keywords", [])
+	keywords.erase("charge")
+	creature["keywords"] = keywords
+	var granted: Array = creature.get("granted_keywords", [])
+	granted.erase("charge")
+	creature["granted_keywords"] = granted
+	EvergreenRules.sync_derived_state(creature)
+	# Try to attack again — should fail due to summoning sickness
+	var second_attack := MatchCombat.resolve_attack(match_state, player["player_id"], creature["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	return _assert(not second_attack["is_valid"], "Transformed creature without Charge should have summoning sickness.")
+
+
+func _test_madness_lane_transformed_charge_creature_can_attack() -> bool:
+	var match_state := _build_madness_match()
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var creature := _summon_creature(player, match_state, "madness_pilferer", "madness", 2, 2)
+	creature["cost"] = 3
+	creature["entered_lane_on_turn"] = int(match_state.get("turn_number", 0)) - 1
+	creature["has_attacked_this_turn"] = false
+	# Pilfer to trigger transform
+	MatchCombat.resolve_attack(match_state, player["player_id"], creature["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	# Grant charge to simulate transforming into a charge creature
+	var keywords: Array = creature.get("keywords", [])
+	if not keywords.has("charge"):
+		keywords.append("charge")
+	creature["keywords"] = keywords
+	EvergreenRules.sync_derived_state(creature)
+	# Try to attack again — should succeed because of Charge
+	var second_attack := MatchCombat.resolve_attack(match_state, player["player_id"], creature["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	return _assert(second_attack["is_valid"], "Transformed creature with Charge should be able to attack again.")
+
+
+func _build_madness_match() -> Dictionary:
+	var match_state := _build_match()
+	var lane: Dictionary = match_state["lanes"][1]
+	lane["lane_id"] = "madness"
+	lane["lane_type"] = "madness"
+	lane["lane_rule_payload"] = {
+		"display_name": "Madness",
+		"description": "Creatures here have Pilfer: Transform into a random creature with cost 1 greater.",
+		"icon": "res://assets/images/lanes/madness.png",
+		"implementation_bucket": "mvp",
+		"availability": ["story"],
+		"source_ids": ["uesp_lanes"],
+		"effects": [{"family": "pilfer", "match_role": "any_player", "effects": [{"op": "lane_madness_transform"}]}],
 	}
 	return match_state
 

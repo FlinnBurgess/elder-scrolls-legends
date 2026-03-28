@@ -856,15 +856,30 @@ static func _resolve_lane_madness_transform(match_state: Dictionary, trigger: Di
 	if str(card.get("lane_id", "")) != lane_id:
 		return {"handled": true, "events": []}
 	var target_cost := int(card.get("cost", 0)) + 1
-	var custom_result: Dictionary = _extended_packs().apply_custom_effect(match_state, trigger, event, {
-		"op": "summon_random_from_catalog",
-		"filter": {"card_type": "creature", "exact_cost": target_cost},
-		"_transform_target_id": attacker_id,
-	})
-	# Transform the creature using the summoned template if available
-	if bool(custom_result.get("handled", false)):
-		return {"handled": true, "events": custom_result.get("events", [])}
-	return {"handled": true, "events": []}
+	var seeds: Array = _card_catalog()._card_seeds()
+	var candidates: Array = []
+	for seed in seeds:
+		if typeof(seed) != TYPE_DICTIONARY:
+			continue
+		if not bool(seed.get("collectible", true)):
+			continue
+		if str(seed.get("card_type", "")) != "creature":
+			continue
+		if int(seed.get("cost", 0)) != target_cost:
+			continue
+		candidates.append(seed)
+	if candidates.is_empty():
+		return {"handled": true, "events": []}
+	var pick: Dictionary = candidates[_timing_rules()._deterministic_index(match_state, attacker_id + "_madness", candidates.size())]
+	var template: Dictionary = pick.duplicate(true)
+	template["definition_id"] = str(template.get("card_id", ""))
+	var result := MatchMutations.transform_card(match_state, attacker_id, template, {"reason": "lane_effect_madness"})
+	# Transformed creature is treated as new — reset attack state so Charge works
+	if bool(result.get("is_valid", false)):
+		var transformed_card: Dictionary = result.get("card", {})
+		transformed_card["has_attacked_this_turn"] = false
+		transformed_card["entered_lane_on_turn"] = int(match_state.get("turn_number", 0))
+	return {"handled": true, "events": result.get("events", [])}
 
 
 # --- Mage Tower: summon random creature with same cost as action played ---
@@ -1292,3 +1307,7 @@ static func _timing_rules():
 
 static func _extended_packs():
 	return load("res://src/core/match/extended_mechanic_packs.gd")
+
+
+static func _card_catalog():
+	return load("res://src/deck/card_catalog.gd")
