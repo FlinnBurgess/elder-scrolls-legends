@@ -44,6 +44,8 @@ static func apply_lane_effect(match_state: Dictionary, trigger: Dictionary, even
 			return _resolve_lane_dementia_damage(match_state, trigger, event, effect)
 		"lane_mania_draw":
 			return _resolve_lane_mania_draw(match_state, trigger, event, effect)
+		"lane_armor_double_health":
+			return _resolve_lane_armor_double_health(match_state, trigger, event, effect)
 		_:
 			return {"handled": false, "events": []}
 
@@ -220,6 +222,40 @@ static func _resolve_lane_mania_draw(match_state: Dictionary, trigger: Dictionar
 		"lane_id": lane_id,
 	}]
 	events.append_array(draw_result.get("events", []))
+	return {"handled": true, "events": events}
+
+
+static func _resolve_lane_armor_double_health(match_state: Dictionary, trigger: Dictionary, event: Dictionary, _effect: Dictionary) -> Dictionary:
+	var creature_id := str(event.get("source_instance_id", ""))
+	if creature_id.is_empty():
+		return {"handled": true, "events": []}
+
+	var lane_id := str(trigger.get("descriptor", {}).get("_lane_id", ""))
+	var event_lane_id := str(event.get("lane_id", ""))
+	if lane_id != event_lane_id:
+		return {"handled": true, "events": []}
+
+	var location := MatchMutations.find_card_location(match_state, creature_id)
+	if not bool(location.get("is_valid", false)):
+		return {"handled": true, "events": []}
+	var card: Dictionary = location.get("card", {})
+
+	var current_health := EvergreenRules.get_health(card)
+	if current_health <= 0:
+		return {"handled": true, "events": []}
+
+	EvergreenRules.apply_stat_bonus(card, 0, current_health)
+
+	var events: Array = [{
+		"event_type": "stat_modified",
+		"source_instance_id": creature_id,
+		"target_instance_id": creature_id,
+		"power_change": 0,
+		"health_change": current_health,
+		"player_id": str(card.get("controller_player_id", "")),
+		"lane_id": lane_id,
+		"granted_by": "lane_effect_armor",
+	}]
 	return {"handled": true, "events": events}
 
 

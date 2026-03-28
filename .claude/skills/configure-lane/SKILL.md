@@ -106,6 +106,25 @@ for player in match_state.get("players", []):
     if str(player.get("player_id", "")) != active_player_id:
         opponent_id = str(player.get("player_id", ""))
 
+# --- Pattern: summon-triggered creature modification ---
+# Get the summoned creature (for on_friendly_summon triggers)
+var creature_id := str(event.get("source_instance_id", ""))
+
+# Verify the creature was summoned into THIS lane
+var event_lane_id := str(event.get("lane_id", ""))
+if lane_id != event_lane_id:
+    return {"handled": true, "events": []}
+
+# Look up the card
+var location := MatchMutations.find_card_location(match_state, creature_id)
+if not bool(location.get("is_valid", false)):
+    return {"handled": true, "events": []}
+var card: Dictionary = location.get("card", {})
+
+# Modify stats (e.g., double health)
+var current_health := EvergreenRules.get_health(card)
+EvergreenRules.apply_stat_bonus(card, 0, current_health)
+
 # Always return this shape:
 return {"handled": true, "events": events_array}
 ```

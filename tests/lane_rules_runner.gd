@@ -33,7 +33,10 @@ func _run_all_tests() -> bool:
 		_test_mania_lane_draws_card_for_highest_health() and
 		_test_mania_lane_no_draw_on_tie() and
 		_test_mania_lane_no_draw_when_opponent_has_highest() and
-		_test_mania_lane_no_draw_when_empty()
+		_test_mania_lane_no_draw_when_empty() and
+		_test_armor_lane_doubles_health_on_summon() and
+		_test_armor_lane_does_not_affect_other_lane() and
+		_test_armor_lane_both_players_get_doubled()
 	)
 
 
@@ -409,6 +412,53 @@ func _test_mania_lane_no_draw_when_empty() -> bool:
 		_assert(p1_hand_after == p1_hand_before + 1, "No extra draw when mania lane is empty (player 1).") and
 		_assert(p2_hand_after == p2_hand_before + 1, "No extra draw when mania lane is empty (player 2).")
 	)
+
+
+func _test_armor_lane_doubles_health_on_summon() -> bool:
+	var match_state := _build_armor_match()
+	var player: Dictionary = match_state["players"][0]
+	var creature := _summon_creature(player, match_state, "armor_target", "armor", 2, 3)
+	var final_health := EvergreenRules.get_health(creature)
+	return _assert(final_health == 6, "Armor lane should double creature health from 3 to 6, got %d." % final_health)
+
+
+func _test_armor_lane_does_not_affect_other_lane() -> bool:
+	var match_state := _build_armor_match()
+	var player: Dictionary = match_state["players"][0]
+	var creature := _summon_creature(player, match_state, "field_target", "field", 2, 3)
+	var final_health := EvergreenRules.get_health(creature)
+	return _assert(final_health == 3, "Summoning in field lane should not double health, got %d." % final_health)
+
+
+func _test_armor_lane_both_players_get_doubled() -> bool:
+	var match_state := _build_armor_match()
+	var player_1: Dictionary = match_state["players"][0]
+	var player_2: Dictionary = match_state["players"][1]
+	var c1 := _summon_creature(player_1, match_state, "p1_armor", "armor", 2, 4)
+	var c2 := _summon_creature(player_2, match_state, "p2_armor", "armor", 2, 5)
+	var h1 := EvergreenRules.get_health(c1)
+	var h2 := EvergreenRules.get_health(c2)
+	return (
+		_assert(h1 == 8, "Player 1 creature health should double from 4 to 8, got %d." % h1) and
+		_assert(h2 == 10, "Player 2 creature health should double from 5 to 10, got %d." % h2)
+	)
+
+
+func _build_armor_match() -> Dictionary:
+	var match_state := _build_match()
+	var lane: Dictionary = match_state["lanes"][1]
+	lane["lane_id"] = "armor"
+	lane["lane_type"] = "armor"
+	lane["lane_rule_payload"] = {
+		"display_name": "Armor",
+		"description": "After a creature is summoned here, double its health.",
+		"icon": "res://assets/images/lanes/armor.png",
+		"implementation_bucket": "mvp",
+		"availability": ["story"],
+		"source_ids": ["uesp_lanes"],
+		"effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_armor_double_health"}]}],
+	}
+	return match_state
 
 
 func _build_mania_match() -> Dictionary:

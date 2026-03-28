@@ -17,12 +17,12 @@ const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
 static func build_test_match_state() -> Dictionary:
 	## ── CONFIGURATION ──────────────────────────────────────────────────
 	## Edit the values below to set up your test scenario.
-	## Testing: Dementia Lane — start of turn, highest-power creature's controller deals 3 damage to opponent
+	## Testing: Armor Lane — summon a creature here, its health is doubled
 
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — 12 magicka to play big creatures into dementia lane
+	# Player 1 (you) — 12 magicka to play creatures into armor lane
 	var p1_health := 30
 	var p1_max_magicka := 12
 	var p1_current_magicka := 12
@@ -30,20 +30,20 @@ static func build_test_match_state() -> Dictionary:
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — mix of power levels to contest dementia lane
+	# Player 1 hand — creatures with varying health to see doubling at different scales
 	var p1_hand_ids: Array = [
-		"iom_str_syl_duchess_of_dementia",  # Cost 6, 7/6 — thematic, high power to dominate dementia lane
-		"end_young_mammoth",                # Cost 4, 4/4 — mid power, won't beat enemy 5-power
-		"str_whiterun_trooper",             # Cost 2, 2/4 — low power body for field lane
-		"int_elusive_schemer",              # Cost 4, 3/1 — draw a card, low power
-		"moe_str_enraged_dragonknight",     # Cost 4, 5/4 — ties with enemy 5-power creature
+		"str_fiery_imp",                    # Cost 1, 1/1 — doubles to 1/2
+		"str_scuttler",                     # Cost 1, 1/2 — doubles to 1/4
+		"end_fharun_defender",              # Cost 2, 1/4 Guard — doubles to 1/8, test Guard keeps doubled health
+		"end_young_mammoth",                # Cost 3, 4/4 Breakthrough — doubles to 4/8
+		"end_imprisoned_deathlord",         # Cost 4, 7/7 — doubles to 7/14, massive wall
 	]
 
 	# Player 1 deck — index 0 is drawn first
 	var p1_deck_ids: Array = [
-		"end_young_mammoth",                # Cost 4, 4/4
-		"str_whiterun_trooper",             # Cost 2, 2/4
-		"str_whiterun_trooper",             # Cost 2, 2/4
+		"end_lowland_troll",                # Cost 7, 4/8 Regenerate — doubles to 4/16
+		"end_lurking_mummy",                # Cost 5, 2/6 Guard — doubles to 2/12
+		"end_young_mammoth",                # Cost 3, 4/4
 	]
 
 	var p1_discard_ids: Array = []
@@ -52,10 +52,8 @@ static func build_test_match_state() -> Dictionary:
 
 	var p1_field_creatures: Array = []
 
-	# Pre-place a 4/4 in dementia lane so the effect fires on turn 1
-	var p1_shadow_creatures: Array = [
-		_make_lane_creature("player_1", "end_young_mammoth", 100),       # 4/4 — your creature in dementia lane
-	]
+	# No pre-placed creatures — armor only triggers on summon, not pre-existing
+	var p1_shadow_creatures: Array = []
 
 	# Player 2 (AI) — low magicka, weak hand
 	var p2_health := 30
@@ -81,12 +79,13 @@ static func build_test_match_state() -> Dictionary:
 
 	var p2_discard_ids: Array = []
 
-	# Enemy board — punching bag in field, 5-power creature contesting dementia lane
+	# Enemy board — punching bags in field lane to attack with your doubled creatures
 	var p2_field_creatures: Array = [
 		_make_lane_creature("player_2", "str_fiery_imp", 200),           # 1/1 — punching bag
+		_make_lane_creature("player_2", "str_fiery_imp", 201),           # 1/1 — punching bag
 	]
 	var p2_shadow_creatures: Array = [
-		_make_lane_creature("player_2", "db_wil_the_black_dragon", 201, {"can_attack": true}),  # 5/5 — contests dementia lane, higher power than your 4/4
+		_make_lane_creature("player_2", "str_scuttler", 202),            # 1/2 — sits in armor lane so you can compare doubled vs non-doubled
 	]
 
 	## ── END CONFIGURATION ──────────────────────────────────────────────
@@ -248,7 +247,7 @@ static func _build_lanes_with_creatures(
 
 	var board_profile := {}
 	for profile in lane_registry.get("board_profiles", []):
-		if profile.get("id", "") == "dementia_test":
+		if profile.get("id", "") == "armor_test":
 			board_profile = profile
 			break
 
