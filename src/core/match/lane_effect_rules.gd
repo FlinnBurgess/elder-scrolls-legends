@@ -1081,6 +1081,8 @@ static func _resolve_lane_surplus_reduce_cost(match_state: Dictionary, trigger: 
 			return {"handled": true, "events": []}
 		var idx := EvergreenRules._choose_deterministic_candidate_index(match_state, creature_id + "_surplus", candidates)
 		var target_card: Dictionary = candidates[idx]
+		if not target_card.has("_base_cost"):
+			target_card["_base_cost"] = int(target_card.get("cost", 0))
 		target_card["cost"] = int(target_card.get("cost", 0)) - 1
 		return {"handled": true, "events": [{
 			"event_type": "cost_reduced",
