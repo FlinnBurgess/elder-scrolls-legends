@@ -60,7 +60,8 @@ func _run_all_tests() -> bool:
 		_test_treasure_map_pack() and
 		_test_choose_cost_lock_blocks_opponent_summon() and
 		_test_choose_cost_lock_allows_different_cost() and
-		_test_filter_unique_cost_reduction()
+		_test_filter_unique_cost_reduction() and
+		_test_guess_opponent_card_varies_per_instance()
 	)
 
 
@@ -2359,6 +2360,59 @@ func _test_filter_unique_cost_reduction() -> bool:
 	return (
 		_assert(unique_cost == 4, "Unique card should cost 1 less with Star-Sung Bard (got %d)." % unique_cost) and
 		_assert(common_cost == 5, "Non-unique card should NOT be discounted (got %d)." % common_cost)
+	)
+
+
+func _test_guess_opponent_card_varies_per_instance() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Give opponent 5 distinct hand cards and 10 distinct deck cards
+	for i in range(5):
+		ScenarioFixtures.add_hand_card(opponent, "opp_hand_%d" % i, {
+			"card_type": "creature", "cost": i + 1, "power": i + 1, "health": i + 1,
+			"definition_id": "opp_hand_def_%d" % i,
+		})
+	for i in range(10):
+		ScenarioFixtures.make_card(oid, "opp_deck_%d" % i, {
+			"zone": "deck", "card_type": "creature", "cost": i + 1, "power": i + 1, "health": i + 1,
+			"definition_id": "opp_deck_def_%d" % i,
+		})
+	# Summon two copies of Caius Cosades (on_correct mode)
+	var caius1 := ScenarioFixtures.summon_creature(player, match_state, "caius_1", "field", 3, 4, [], -1, {
+		"cost": 0,
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "lane", "effects": [{"op": "guess_opponent_card", "on_correct": [{"op": "modify_stats", "target": "all_creatures_in_hand", "power": 1, "health": 1}]}]}],
+	})
+	# Read first pending choice options
+	var pending1: Array = match_state.get("pending_player_choices", [])
+	if not _assert(pending1.size() >= 1, "First Caius should create a pending choice."):
+		return false
+	var first_options: Array = pending1[pending1.size() - 1].get("options", [])
+	var first_labels: Array = []
+	for opt in first_options:
+		first_labels.append(str(opt.get("label", "")))
+	# Resolve the choice so it clears
+	MatchTiming.resolve_pending_player_choice(match_state, pid, 0)
+	# Summon second copy
+	var caius2 := ScenarioFixtures.summon_creature(player, match_state, "caius_2", "shadow", 3, 4, [], -1, {
+		"cost": 0,
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "lane", "effects": [{"op": "guess_opponent_card", "on_correct": [{"op": "modify_stats", "target": "all_creatures_in_hand", "power": 1, "health": 1}]}]}],
+	})
+	var pending2: Array = match_state.get("pending_player_choices", [])
+	if not _assert(pending2.size() >= 1, "Second Caius should create a pending choice."):
+		return false
+	var second_options: Array = pending2[pending2.size() - 1].get("options", [])
+	var second_labels: Array = []
+	for opt in second_options:
+		second_labels.append(str(opt.get("label", "")))
+	# With 5 hand cards and 10 deck cards, different instances should pick different cards
+	var labels_differ: bool = str(first_labels[0]) != str(second_labels[0]) or str(first_labels[1]) != str(second_labels[1])
+	return (
+		_assert(first_options.size() == 2, "First Caius should show exactly 2 options.") and
+		_assert(second_options.size() == 2, "Second Caius should show exactly 2 options.") and
+		_assert(labels_differ, "Different Caius instances should show different card pairs (got %s both times)." % [str(first_labels)])
 	)
 
 
