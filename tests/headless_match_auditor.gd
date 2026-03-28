@@ -19,7 +19,7 @@ const MatchScreen = preload("res://src/ui/match_screen.gd")
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const ErrorReportWriter = preload("res://src/core/error_report_writer.gd")
 
-const NUM_MATCHES := 10
+const NUM_MATCHES := 50
 const MAX_ACTIONS_PER_MATCH := 400
 const DECK_SIZE := 30
 
