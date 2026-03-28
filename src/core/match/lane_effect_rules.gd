@@ -995,6 +995,11 @@ static func _resolve_lane_reanimation_resurrect(match_state: Dictionary, trigger
 	if destroyed_id.is_empty():
 		return {"handled": true, "events": []}
 	var controller_id := str(event.get("controller_player_id", ""))
+	# Only trigger for creatures that died in this lane (use event's lane_id since
+	# _clear_lane_state erases it from the card before it reaches discard)
+	var event_lane_id := str(event.get("lane_id", ""))
+	if event_lane_id != lane_id:
+		return {"handled": true, "events": []}
 	# Find the destroyed card in discard
 	var destroyed_card: Dictionary = {}
 	for player in match_state.get("players", []):
@@ -1005,8 +1010,6 @@ static func _resolve_lane_reanimation_resurrect(match_state: Dictionary, trigger
 				destroyed_card = card
 				break
 	if destroyed_card.is_empty():
-		return {"handled": true, "events": []}
-	if str(destroyed_card.get("lane_id", destroyed_card.get("_last_lane_id", ""))) != lane_id:
 		return {"handled": true, "events": []}
 	if bool(destroyed_card.get("_reanimated", false)):
 		return {"handled": true, "events": []}
@@ -1035,8 +1038,12 @@ static func _resolve_lane_reanimation_resurrect(match_state: Dictionary, trigger
 	destroyed_card["base_health"] = 1
 	destroyed_card["damage_taken"] = 0
 	destroyed_card["_reanimated"] = true
-	destroyed_card["attacks_remaining"] = 0
+	destroyed_card["has_attacked_this_turn"] = false
 	destroyed_card["status_markers"] = []
+	destroyed_card["entered_lane_on_turn"] = int(match_state.get("turn_number", 0))
+	destroyed_card["granted_keywords"] = []
+	destroyed_card["stat_bonuses"] = []
+	destroyed_card["attached_items"] = []
 	player_slots.append(destroyed_card)
 	return {"handled": true, "events": [{
 		"event_type": "creature_summoned",

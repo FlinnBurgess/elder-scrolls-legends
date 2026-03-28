@@ -83,7 +83,12 @@ func _run_all_tests() -> bool:
 		_test_madness_lane_transformed_charge_creature_can_attack() and
 		_test_plunder_lane_attaches_item_on_summon() and
 		_test_plunder_lane_does_not_affect_other_lane() and
-		_test_plunder_lane_both_players_get_items()
+		_test_plunder_lane_both_players_get_items() and
+		_test_reanimation_resurrects_as_1_1() and
+		_test_reanimation_does_not_resurrect_twice() and
+		_test_reanimation_does_not_affect_other_lane() and
+		_test_reanimation_has_summoning_sickness() and
+		_test_reanimation_charge_can_attack_immediately()
 	)
 
 
@@ -1360,3 +1365,138 @@ func _build_plunder_match() -> Dictionary:
 		"effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_plunder_attach_item"}]}],
 	}
 	return match_state
+
+
+# --- Reanimation Lane Tests ---
+
+func _build_reanimation_match() -> Dictionary:
+	var match_state := _build_match()
+	var lane: Dictionary = match_state["lanes"][1]
+	lane["lane_id"] = "reanimation"
+	lane["lane_type"] = "reanimation"
+	lane["lane_rule_payload"] = {
+		"display_name": "Reanimation",
+		"description": "When a non-Reanimated creature in this lane dies for the first time, return it to play as a 1/1.",
+		"effects": [{"family": "on_friendly_death", "match_role": "any_player", "effects": [{"op": "lane_reanimation_resurrect"}]}],
+	}
+	return match_state
+
+
+func _test_reanimation_resurrects_as_1_1() -> bool:
+	var match_state := _build_reanimation_match()
+	var player_1: Dictionary = match_state["players"][0]
+	var player_2: Dictionary = match_state["players"][1]
+	_summon_creature(player_1, match_state, "small_a", "reanimation", 2, 3)
+	_summon_creature(player_2, match_state, "big_a", "reanimation", 5, 5)
+	# Advance turn so p1's creature can attack
+	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
+	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
+	# p1 attacks p2's big creature — p1's creature dies
+	var attacker_id := str(player_1["player_id"]) + "_small_a"
+	var defender_id := str(player_2["player_id"]) + "_big_a"
+	MatchCombat.resolve_attack(match_state, player_1["player_id"], attacker_id, {"type": "creature", "instance_id": defender_id})
+	# Check that the creature was resurrected as 1/1 in the lane
+	var lane_slots: Array = match_state["lanes"][1]["player_slots"].get(player_1["player_id"], [])
+	var found := false
+	for card in lane_slots:
+		if str(card.get("instance_id", "")) == attacker_id:
+			found = true
+			if not _assert(EvergreenRules.get_power(card) == 1, "Reanimated creature should have 1 power, got %d." % EvergreenRules.get_power(card)):
+				return false
+			if not _assert(EvergreenRules.get_health(card) == 1, "Reanimated creature should have 1 health, got %d." % EvergreenRules.get_health(card)):
+				return false
+			if not _assert(bool(card.get("_reanimated", false)), "Reanimated creature should have _reanimated flag."):
+				return false
+	return _assert(found, "Creature should be resurrected in the reanimation lane.")
+
+
+func _test_reanimation_does_not_resurrect_twice() -> bool:
+	var match_state := _build_reanimation_match()
+	var player_1: Dictionary = match_state["players"][0]
+	var player_2: Dictionary = match_state["players"][1]
+	_summon_creature(player_1, match_state, "small_a", "reanimation", 2, 3)
+	_summon_creature(player_2, match_state, "big_a", "reanimation", 5, 5)
+	# Advance turn so p1's creature can attack
+	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
+	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
+	# First death — creature gets reanimated as 1/1
+	var attacker_id := str(player_1["player_id"]) + "_small_a"
+	var defender_id := str(player_2["player_id"]) + "_big_a"
+	MatchCombat.resolve_attack(match_state, player_1["player_id"], attacker_id, {"type": "creature", "instance_id": defender_id})
+	# Advance turn so the reanimated creature can attack
+	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
+	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
+	# Second death — the 1/1 reanimated creature attacks the big creature again
+	MatchCombat.resolve_attack(match_state, player_1["player_id"], attacker_id, {"type": "creature", "instance_id": defender_id})
+	# The reanimated creature should NOT come back a second time
+	var lane_slots: Array = match_state["lanes"][1]["player_slots"].get(player_1["player_id"], [])
+	var found := false
+	for card in lane_slots:
+		if str(card.get("instance_id", "")) == attacker_id:
+			found = true
+	return _assert(not found, "Reanimated creature should not resurrect a second time.")
+
+
+func _test_reanimation_does_not_affect_other_lane() -> bool:
+	var match_state := _build_reanimation_match()
+	var player_1: Dictionary = match_state["players"][0]
+	var player_2: Dictionary = match_state["players"][1]
+	# Summon in field lane (not reanimation lane)
+	_summon_creature(player_1, match_state, "field_a", "field", 1, 1)
+	_summon_creature(player_2, match_state, "field_big", "field", 5, 5)
+	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
+	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
+	var attacker_id := str(player_1["player_id"]) + "_field_a"
+	var defender_id := str(player_2["player_id"]) + "_field_big"
+	MatchCombat.resolve_attack(match_state, player_1["player_id"], attacker_id, {"type": "creature", "instance_id": defender_id})
+	# Creature should NOT be resurrected in the field lane
+	var field_slots: Array = match_state["lanes"][0]["player_slots"].get(player_1["player_id"], [])
+	var found := false
+	for card in field_slots:
+		if str(card.get("instance_id", "")) == attacker_id:
+			found = true
+	return _assert(not found, "Creatures dying in field lane should not be resurrected by reanimation lane.")
+
+
+func _test_reanimation_has_summoning_sickness() -> bool:
+	var match_state := _build_reanimation_match()
+	var player_1: Dictionary = match_state["players"][0]
+	var player_2: Dictionary = match_state["players"][1]
+	_summon_creature(player_1, match_state, "small_a", "reanimation", 2, 3)
+	_summon_creature(player_2, match_state, "big_a", "reanimation", 5, 5)
+	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
+	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
+	var attacker_id := str(player_1["player_id"]) + "_small_a"
+	var defender_id := str(player_2["player_id"]) + "_big_a"
+	MatchCombat.resolve_attack(match_state, player_1["player_id"], attacker_id, {"type": "creature", "instance_id": defender_id})
+	# The reanimated non-charge creature should not be able to attack (summoning sickness)
+	var lane_slots: Array = match_state["lanes"][1]["player_slots"].get(player_1["player_id"], [])
+	for card in lane_slots:
+		if str(card.get("instance_id", "")) == attacker_id:
+			var can_attack := MatchCombat.can_attack(match_state, player_1["player_id"], attacker_id, {"type": "creature", "instance_id": defender_id})
+			return _assert(not can_attack, "Reanimated non-charge creature should have summoning sickness.")
+	return _assert(false, "Reanimated creature not found in lane.")
+
+
+func _test_reanimation_charge_can_attack_immediately() -> bool:
+	var match_state := _build_reanimation_match()
+	var player_1: Dictionary = match_state["players"][0]
+	var player_2: Dictionary = match_state["players"][1]
+	# Summon a creature with charge for p1
+	var charge_creature := _summon_creature(player_1, match_state, "charger", "reanimation", 2, 3)
+	charge_creature["keywords"] = ["charge"]
+	_summon_creature(player_2, match_state, "big_a", "reanimation", 5, 5)
+	# Advance turn so p1's creature can attack
+	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
+	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
+	# p1's charge creature attacks and dies
+	var attacker_id := str(player_1["player_id"]) + "_charger"
+	var defender_id := str(player_2["player_id"]) + "_big_a"
+	MatchCombat.resolve_attack(match_state, player_1["player_id"], attacker_id, {"type": "creature", "instance_id": defender_id})
+	# The reanimated charge creature should be able to attack immediately
+	var lane_slots: Array = match_state["lanes"][1]["player_slots"].get(player_1["player_id"], [])
+	for card in lane_slots:
+		if str(card.get("instance_id", "")) == attacker_id:
+			var can_attack := MatchCombat.can_attack(match_state, player_1["player_id"], attacker_id, {"type": "creature", "instance_id": defender_id})
+			return _assert(can_attack, "Reanimated charge creature should be able to attack immediately.")
+	return _assert(false, "Reanimated charge creature not found in lane.")
