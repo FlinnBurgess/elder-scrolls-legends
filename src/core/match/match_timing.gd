@@ -1720,6 +1720,19 @@ static func _check_summon_effect_target_mode(match_state: Dictionary, summoned_c
 
 
 static func _summon_ability_conditions_met(match_state: Dictionary, card: Dictionary, descriptor: Dictionary) -> bool:
+	# required_creature_in_each_lane — controller needs another creature in every lane
+	if bool(descriptor.get("required_creature_in_each_lane", false)):
+		var rciel_controller := str(card.get("controller_player_id", ""))
+		var rciel_self_id := str(card.get("instance_id", ""))
+		var rciel_lanes: Array = match_state.get("lanes", [])
+		for rciel_lane in rciel_lanes:
+			var rciel_slots: Array = rciel_lane.get("player_slots", {}).get(rciel_controller, [])
+			var rciel_count := 0
+			for rciel_card in rciel_slots:
+				if typeof(rciel_card) == TYPE_DICTIONARY and str(rciel_card.get("instance_id", "")) != rciel_self_id:
+					rciel_count += 1
+			if rciel_count < 1:
+				return false
 	var rfac_spec: Dictionary = descriptor.get("required_friendly_attribute_count", {})
 	if not rfac_spec.is_empty():
 		var rfac_attr := str(rfac_spec.get("attribute", ""))
@@ -3629,15 +3642,16 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 		var rct_controller := str(trigger.get("controller_player_id", ""))
 		if str(match_state.get("active_player_id", "")) != rct_controller:
 			return false
-	# 2. required_creature_in_each_lane — controller has at least one creature in every lane
+	# 2. required_creature_in_each_lane — controller has another creature in every lane (excludes self)
 	if bool(descriptor.get("required_creature_in_each_lane", false)):
 		var rciel_controller := str(trigger.get("controller_player_id", ""))
+		var rciel_self_id := str(trigger.get("source_instance_id", ""))
 		var rciel_lanes: Array = match_state.get("lanes", [])
 		for rciel_lane in rciel_lanes:
 			var rciel_slots: Array = rciel_lane.get("player_slots", {}).get(rciel_controller, [])
 			var rciel_count := 0
 			for rciel_card in rciel_slots:
-				if typeof(rciel_card) == TYPE_DICTIONARY:
+				if typeof(rciel_card) == TYPE_DICTIONARY and str(rciel_card.get("instance_id", "")) != rciel_self_id:
 					rciel_count += 1
 			if rciel_count < 1:
 				return false

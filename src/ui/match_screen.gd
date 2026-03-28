@@ -7918,6 +7918,8 @@ func _check_summon_target_mode(source_instance_id: String) -> void:
 	abilities = abilities.filter(func(ab):
 		if bool(ab.get("consume", false)):
 			return false
+		if not MatchTiming._summon_ability_conditions_met(_match_state, card, ab):
+			return false
 		var family := str(ab.get("family", ""))
 		if family == MatchTiming.FAMILY_SUMMON or family == MatchTiming.FAMILY_ON_PLAY:
 			return true
