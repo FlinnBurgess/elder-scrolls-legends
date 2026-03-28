@@ -507,6 +507,23 @@ static func _get_aura_cost_reduction(match_state: Dictionary, player_id: String,
 			var card_subtypes = card.get("subtypes", [])
 			if typeof(card_subtypes) != TYPE_ARRAY or not card_subtypes.has(aura_filter_subtype):
 				continue
+		if aura.get("filter_unique", false) and not card.get("is_unique", false):
+			continue
+		var aura_filter_card_type := str(aura.get("filter_card_type", ""))
+		if not aura_filter_card_type.is_empty() and card_type != aura_filter_card_type:
+			continue
+		if aura.get("filter_deals_damage", false):
+			if not _cost_reduction_condition_met(match_state, player_id, card, "filter_deals_damage", aura):
+				continue
+		if aura.get("filter_min_power", 0) is int and int(aura.get("filter_min_power", 0)) > 0:
+			if not _cost_reduction_condition_met(match_state, player_id, card, "filter_min_power", aura):
+				continue
+		if aura.get("filter_not_in_starting_deck", false):
+			if not _cost_reduction_condition_met(match_state, player_id, card, "filter_not_in_starting_deck", aura):
+				continue
+		if aura.get("required_singleton_deck", false):
+			if not _cost_reduction_condition_met(match_state, player_id, card, "required_singleton_deck", aura):
+				continue
 		total += int(aura.get("amount", 0))
 	# Match-state-level cost reduction auras (e.g. Oblivion Gate Daedra discount)
 	for ms_aura in match_state.get("card_cost_reduction_auras", []):
@@ -538,7 +555,7 @@ static func _cost_reduction_condition_met(match_state: Dictionary, player_id: St
 			var effect_ids = card.get("effect_ids", [])
 			return typeof(effect_ids) == TYPE_ARRAY and (effect_ids.has("damage") or effect_ids.has("deal_damage"))
 		"filter_min_power":
-			var min_power := int(aura.get("min_power", 5))
+			var min_power := int(aura.get("filter_min_power", aura.get("min_power", 5)))
 			return EvergreenRules.get_power(card) >= min_power
 		"filter_not_in_starting_deck":
 			return bool(card.get("_not_in_starting_deck", false))

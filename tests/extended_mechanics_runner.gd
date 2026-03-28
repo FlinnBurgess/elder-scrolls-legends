@@ -59,7 +59,8 @@ func _run_all_tests() -> bool:
 		_test_ruthless_freebooter_pack() and
 		_test_treasure_map_pack() and
 		_test_choose_cost_lock_blocks_opponent_summon() and
-		_test_choose_cost_lock_allows_different_cost()
+		_test_choose_cost_lock_allows_different_cost() and
+		_test_filter_unique_cost_reduction()
 	)
 
 
@@ -2334,6 +2335,31 @@ func _test_choose_cost_lock_allows_different_cost() -> bool:
 	})
 	var allowed_result := LaneRules.validate_summon_from_hand(match_state, p2_id, str(allowed_creature.get("instance_id", "")), "field")
 	return _assert(bool(allowed_result.get("is_valid", false)), "Opponent SHOULD be able to summon cost-2 creature when cost 1 is locked.")
+
+
+func _test_filter_unique_cost_reduction() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Place Star-Sung Bard in lane with filter_unique cost reduction aura
+	var bard := ScenarioFixtures.summon_creature(player, match_state, "star_sung_bard", "field", 2, 3, [], -1, {
+		"cost": 3,
+		"cost_reduction_aura": {"scope": "hand", "target": "friendly", "amount": 1, "filter_unique": true},
+	})
+	# Add a unique creature to hand (should get discount)
+	var unique_card := ScenarioFixtures.add_hand_card(player, "unique_creature", {
+		"card_type": "creature", "cost": 5, "power": 3, "health": 3, "is_unique": true,
+	})
+	# Add a non-unique creature to hand (should NOT get discount)
+	var common_card := ScenarioFixtures.add_hand_card(player, "common_creature", {
+		"card_type": "creature", "cost": 5, "power": 3, "health": 3,
+	})
+	var unique_cost := PersistentCardRules.get_effective_play_cost(match_state, pid, unique_card)
+	var common_cost := PersistentCardRules.get_effective_play_cost(match_state, pid, common_card)
+	return (
+		_assert(unique_cost == 4, "Unique card should cost 1 less with Star-Sung Bard (got %d)." % unique_cost) and
+		_assert(common_cost == 5, "Non-unique card should NOT be discounted (got %d)." % common_cost)
+	)
 
 
 func _build_started_match() -> Dictionary:
