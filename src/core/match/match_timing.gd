@@ -8688,8 +8688,14 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 				for card in lane.get("player_slots", {}).get(fbn_controller_id, []):
 					if typeof(card) == TYPE_DICTIONARY:
 						targets.append(card)
-		"all", "all_creatures_in_hand":
-			# all_creatures_in_hand handled by custom ops; "all" is a fallback to all lane creatures
+		"all_creatures_in_hand":
+			var acih_controller_id := str(trigger.get("controller_player_id", ""))
+			var acih_player := _get_player_state(match_state, acih_controller_id)
+			if not acih_player.is_empty():
+				for card in acih_player.get(ZONE_HAND, []):
+					if typeof(card) == TYPE_DICTIONARY and str(card.get("card_type", "")) == "creature":
+						targets.append(card)
+		"all":
 			for lane in match_state.get("lanes", []):
 				var player_slots: Dictionary = lane.get("player_slots", {})
 				for pid in player_slots.keys():
