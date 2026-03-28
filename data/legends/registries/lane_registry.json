@@ -12,6 +12,15 @@
 	  "source_ids": ["uesp_lanes", "workspace_spec"]
 	},
 	{
+	  "id": "split_2_6",
+	  "display_name": "2/6 Lane Split",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 2},
+		{"lane_id": "shadow", "slot_capacity": 6}
+	  ],
+	  "source_ids": ["workspace_spec"]
+	},
+	{
 	  "id": "dementia_test",
 	  "display_name": "Dementia Test",
 	  "lanes": [

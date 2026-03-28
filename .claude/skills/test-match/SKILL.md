@@ -42,6 +42,7 @@ Consider what the player needs to test the mechanic:
 | Assemble (Factotum) | Factotums already in lane as buff targets + more Factotums in hand to play | Weak enemies, low magicka |
 | Invade | Cheap Invade triggers (0-3 cost) + payoffs (Keeper of the Gates, Mankar Camoran) + Great Sigil Stone support. For basic invade testing, don't pre-place gates — they spawn automatically. For **multi-gate or specific-level testing**, pre-place gates manually (see "Pre-placing Oblivion Gates" below). Include varied enemies (1/1s + a Guard with health) to test gate-level damage effects | Weak creatures in both lanes, no runes |
 | Special lane types (Dementia, Mania, etc.) | Creatures in the shadow lane (which becomes the special lane) + creatures of varying power/health to test the lane effect trigger conditions. Pre-place creatures so the effect fires immediately. See "Testing Special Lane Types" below | A creature contesting the lane to test both-sides behavior + punching bags in field lane |
+| Lane layout / slot capacity | Enough cheap creatures to fill both lanes — test that the capacity cap is enforced and the UI reflects the different sizes. See "Testing Lane Layout Variations" below | Weak creatures spread across both lanes as visual reference |
 
 Set these parameters:
 - **Player 1 magicka**: High enough to play the test cards (usually 12)
@@ -133,6 +134,24 @@ Set `"board_profile"` to a test profile that uses the special lane type. The tes
 Use `lane_id: "shadow"` so creatures route to `shadow_creatures` in the config. The `lane_type` override applies the special effect.
 
 For **pilfer-based lane effects** (Heist, Madness), give the enemy **no runes** (`[]`) so the player can attack face freely without triggering prophecies. Pre-place friendly creatures in the shadow lane ready to attack.
+
+### Testing Lane Layout Variations (Asymmetric Splits)
+
+To test non-standard lane capacities (e.g. 2/6, 3/4), you may need to **create a new board profile** in `data/legends/registries/lane_registry.json` under `board_profiles`. Check `supported_lane_widths` in that file to confirm the desired capacities are valid. Example profile for a 2/6 split:
+
+```json
+{
+  "id": "split_2_6",
+  "display_name": "2/6 Lane Split",
+  "lanes": [
+    {"lane_id": "field", "slot_capacity": 2},
+    {"lane_id": "shadow", "slot_capacity": 6}
+  ],
+  "source_ids": ["workspace_spec"]
+}
+```
+
+Then set `"board_profile"` in the test config to the new profile's `id`. Provide enough cheap creatures in hand/deck to fill both lanes and verify the cap is enforced.
 
 ### Bulk Config Creation
 

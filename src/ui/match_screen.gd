@@ -2220,6 +2220,9 @@ func _refresh_lanes() -> void:
 		var lane_id := str(lane.get("id", ""))
 		var lane_panel: PanelContainer = _lane_panels.get(lane_id)
 		_apply_lane_panel_style(lane_panel, lane_id)
+		var capacity := _lane_slot_capacity(lane_id)
+		if capacity > 0 and lane_panel != null:
+			lane_panel.size_flags_stretch_ratio = float(capacity)
 		var header: Button = _lane_header_buttons.get(lane_id)
 		if header != null:
 			header.text = _lane_header_text(lane_id)
