@@ -8205,12 +8205,24 @@ static func _resolve_card_targets(match_state: Dictionary, trigger: Dictionary, 
 		return _resolve_copies_in_hand_and_deck(match_state, trigger, effect)
 	var targets := _resolve_card_targets_by_name(match_state, trigger, event, target)
 	var filter_subtype := str(effect.get("target_filter_subtype", ""))
+	var filter_subtypes_arr = effect.get("target_filter_subtypes", [])
 	if not filter_subtype.is_empty():
 		var filtered: Array = []
 		for card in targets:
 			var subtypes: Array = card.get("subtypes", [])
 			if typeof(subtypes) == TYPE_ARRAY and subtypes.has(filter_subtype):
 				filtered.append(card)
+		targets = filtered
+	elif typeof(filter_subtypes_arr) == TYPE_ARRAY and not filter_subtypes_arr.is_empty():
+		var filtered: Array = []
+		for card in targets:
+			var subtypes = card.get("subtypes", [])
+			if typeof(subtypes) != TYPE_ARRAY:
+				continue
+			for fs in filter_subtypes_arr:
+				if subtypes.has(str(fs)):
+					filtered.append(card)
+					break
 		targets = filtered
 	var filter_keyword := str(effect.get("target_filter_keyword", effect.get("filter_keyword", "")))
 	if not filter_keyword.is_empty():
