@@ -3,6 +3,7 @@ extends SceneTree
 const MatchBootstrap = preload("res://src/core/match/match_bootstrap.gd")
 const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const LaneRules = preload("res://src/core/match/lane_rules.gd")
+const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 
 
 func _initialize() -> void:
@@ -24,7 +25,11 @@ func _run_all_tests() -> bool:
 		_test_sacrifice_summon_into_full_lane() and
 		_test_sacrifice_summon_publishes_correct_events() and
 		_test_sacrifice_summon_rejects_wrong_lane() and
-		_test_sacrifice_summon_rejects_non_full_lane()
+		_test_sacrifice_summon_rejects_non_full_lane() and
+		_test_dementia_lane_damages_opponent_on_turn_start() and
+		_test_dementia_lane_no_damage_when_opponent_has_highest() and
+		_test_dementia_lane_no_damage_on_tie() and
+		_test_dementia_lane_no_damage_when_empty()
 	)
 
 
@@ -251,6 +256,105 @@ func _test_sacrifice_summon_rejects_non_full_lane() -> bool:
 	var new_creature := _append_creature_to_hand(player, "sac_nf_new")
 	var result := LaneRules.validate_summon_with_sacrifice(match_state, player_id, new_creature["instance_id"], "field", creatures[0]["instance_id"])
 	return _assert(not result["is_valid"], "Should reject sacrifice-summon when lane is not full.")
+
+
+func _test_dementia_lane_damages_opponent_on_turn_start() -> bool:
+	var match_state := _build_dementia_match()
+	var player_1: Dictionary = match_state["players"][0]
+	var player_2: Dictionary = match_state["players"][1]
+	# Player 1 has a 5-power creature, player 2 has a 3-power creature
+	_summon_creature(player_1, match_state, "p1_big", "dementia", 5, 3)
+	_summon_creature(player_2, match_state, "p2_small", "dementia", 3, 3)
+	var p2_health_before := int(player_2.get("health", 0))
+	# End player 1's turn, start player 2's turn — player 2 does NOT have highest power
+	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
+	var p2_health_after_p2_turn := int(player_2.get("health", 0))
+	# Player 2's turn started — player 1 has highest power so no damage to player 1
+	var p1_health_after_p2_turn := int(player_1.get("health", 0))
+	# End player 2's turn, start player 1's turn — player 1 HAS highest power
+	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
+	var p2_health_after_p1_turn := int(player_2.get("health", 0))
+	return (
+		_assert(p2_health_after_p2_turn == p2_health_before, "Player 2 should not take dementia damage on their own turn when player 1 has highest power.") and
+		_assert(p1_health_after_p2_turn == 30, "Player 1 should not take dementia damage on player 2's turn since player 2 doesn't have highest power.") and
+		_assert(p2_health_after_p1_turn == p2_health_before - 3, "Player 2 should take 3 dementia damage when player 1 starts their turn with the highest power creature.")
+	)
+
+
+func _test_dementia_lane_no_damage_when_opponent_has_highest() -> bool:
+	var match_state := _build_dementia_match()
+	var player_1: Dictionary = match_state["players"][0]
+	var player_2: Dictionary = match_state["players"][1]
+	# Only player 2 has a creature
+	_summon_creature(player_2, match_state, "p2_only", "dementia", 4, 4)
+	var p1_health_before := int(player_1.get("health", 0))
+	var p2_health_before := int(player_2.get("health", 0))
+	# End player 1's turn (player 1 has no creature, so no damage on this turn)
+	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
+	# Player 2's turn starts — player 2 has highest power, so player 1 takes 3 damage
+	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
+	return (
+		_assert(int(player_1.get("health", 0)) == p1_health_before - 3, "Player 1 should take 3 damage when player 2 has the highest power creature on player 2's turn.") and
+		_assert(int(player_2.get("health", 0)) == p2_health_before, "Player 2 should not take damage when they own the highest power creature.")
+	)
+
+
+func _test_dementia_lane_no_damage_on_tie() -> bool:
+	var match_state := _build_dementia_match()
+	var player_1: Dictionary = match_state["players"][0]
+	var player_2: Dictionary = match_state["players"][1]
+	# Both have creatures with equal power
+	_summon_creature(player_1, match_state, "p1_tied", "dementia", 4, 3)
+	_summon_creature(player_2, match_state, "p2_tied", "dementia", 4, 3)
+	var p1_health_before := int(player_1.get("health", 0))
+	var p2_health_before := int(player_2.get("health", 0))
+	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
+	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
+	return (
+		_assert(int(player_1.get("health", 0)) == p1_health_before, "Player 1 should not take damage when powers are tied.") and
+		_assert(int(player_2.get("health", 0)) == p2_health_before, "Player 2 should not take damage when powers are tied.")
+	)
+
+
+func _test_dementia_lane_no_damage_when_empty() -> bool:
+	var match_state := _build_dementia_match()
+	var player_1: Dictionary = match_state["players"][0]
+	var player_2: Dictionary = match_state["players"][1]
+	var p1_health_before := int(player_1.get("health", 0))
+	var p2_health_before := int(player_2.get("health", 0))
+	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
+	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
+	return (
+		_assert(int(player_1.get("health", 0)) == p1_health_before, "No damage when dementia lane is empty (player 1).") and
+		_assert(int(player_2.get("health", 0)) == p2_health_before, "No damage when dementia lane is empty (player 2).")
+	)
+
+
+func _build_dementia_match() -> Dictionary:
+	var match_state := _build_match()
+	# Convert the shadow lane (index 1) to dementia
+	var lane: Dictionary = match_state["lanes"][1]
+	lane["lane_id"] = "dementia"
+	lane["lane_type"] = "dementia"
+	lane["lane_rule_payload"] = {
+		"display_name": "Dementia",
+		"description": "Start of turn: player with the highest-power creature here deals 3 damage to the opponent.",
+		"icon": "res://assets/images/lanes/dementia.png",
+		"implementation_bucket": "mvp",
+		"availability": ["story"],
+		"source_ids": ["uesp_lanes"],
+		"effects": [{"family": "start_of_turn", "match_role": "any_player", "effects": [{"op": "lane_dementia_damage", "amount": 3}]}],
+	}
+	return match_state
+
+
+func _summon_creature(player: Dictionary, match_state: Dictionary, label: String, lane_id: String, power: int, health: int) -> Dictionary:
+	var creature := _append_creature_to_hand(player, label)
+	creature["power"] = power
+	creature["health"] = health
+	var result := LaneRules.summon_from_hand(match_state, player["player_id"], creature["instance_id"], lane_id)
+	_assert(result["is_valid"], "Expected summon of %s to succeed." % label)
+	return creature
 
 
 func _build_match() -> Dictionary:

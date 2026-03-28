@@ -22,3 +22,7 @@ config/icon="res://icon.svg"
 [display]
 
 window/size/mode=2
+
+[network]
+
+tls/certificate_bundle_override="res://cacert.pem"

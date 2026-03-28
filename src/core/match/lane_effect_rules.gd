@@ -40,6 +40,8 @@ static func apply_lane_effect(match_state: Dictionary, trigger: Dictionary, even
 	match op:
 		"lane_grant_cover":
 			return _resolve_lane_grant_cover(match_state, trigger, event)
+		"lane_dementia_damage":
+			return _resolve_lane_dementia_damage(match_state, trigger, event, effect)
 		_:
 			return {"handled": false, "events": []}
 
@@ -83,3 +85,80 @@ static func _resolve_lane_grant_cover(match_state: Dictionary, trigger: Dictiona
 		"granted_by": "lane_effect",
 	}]
 	return {"handled": true, "events": events}
+
+
+static func _resolve_lane_dementia_damage(match_state: Dictionary, trigger: Dictionary, event: Dictionary, effect: Dictionary) -> Dictionary:
+	var lane_id := str(trigger.get("descriptor", {}).get("_lane_id", ""))
+	var active_player_id := str(event.get("player_id", ""))
+	if active_player_id.is_empty():
+		return {"handled": true, "events": []}
+
+	var lane: Dictionary = {}
+	for l in match_state.get("lanes", []):
+		if str(l.get("lane_id", "")) == lane_id:
+			lane = l
+			break
+	if lane.is_empty():
+		return {"handled": true, "events": []}
+
+	var highest_per_player := {}
+	var player_slots: Dictionary = lane.get("player_slots", {})
+	for pid in player_slots:
+		var max_power := -1
+		for card in player_slots[pid]:
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			var power := EvergreenRules.get_power(card)
+			if power > max_power:
+				max_power = power
+		if max_power >= 0:
+			highest_per_player[str(pid)] = max_power
+
+	if highest_per_player.is_empty():
+		return {"handled": true, "events": []}
+	var best_power := -1
+	var best_owner := ""
+	var tied := false
+	for pid in highest_per_player:
+		var power: int = highest_per_player[pid]
+		if power > best_power:
+			best_power = power
+			best_owner = pid
+			tied = false
+		elif power == best_power:
+			tied = true
+
+	if tied or best_owner != active_player_id:
+		return {"handled": true, "events": []}
+
+	var opponent_id := ""
+	for player in match_state.get("players", []):
+		if typeof(player) == TYPE_DICTIONARY and str(player.get("player_id", "")) != active_player_id:
+			opponent_id = str(player.get("player_id", ""))
+			break
+	if opponent_id.is_empty():
+		return {"handled": true, "events": []}
+
+	var amount := int(effect.get("amount", 3))
+	var damage_result: Dictionary = _timing_rules().apply_player_damage(match_state, opponent_id, amount, {
+		"reason": "lane_effect_dementia",
+		"source_instance_id": str(trigger.get("source_instance_id", "")),
+		"source_controller_player_id": active_player_id,
+	})
+
+	var events: Array = [{
+		"event_type": "damage_resolved",
+		"damage_kind": "lane_effect_dementia",
+		"source_instance_id": str(trigger.get("source_instance_id", "")),
+		"source_controller_player_id": active_player_id,
+		"target_type": "player",
+		"target_player_id": opponent_id,
+		"amount": int(damage_result.get("applied_damage", 0)),
+		"lane_id": lane_id,
+	}]
+	events.append_array(damage_result.get("events", []))
+	return {"handled": true, "events": events}
+
+
+static func _timing_rules():
+	return load("res://src/core/match/match_timing.gd")
