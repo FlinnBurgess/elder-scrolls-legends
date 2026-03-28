@@ -365,9 +365,6 @@ func _show_test_match_picker() -> void:
 		_test_match_picker = null
 
 	var configs := TestMatchConfig.list_configs()
-	if configs.is_empty():
-		push_warning("No test match configs found in data/test_match_configs/")
-		return
 
 	_main_menu.visible = false
 
@@ -418,42 +415,51 @@ func _show_test_match_picker() -> void:
 	spacer.custom_minimum_size = Vector2(0, 8)
 	outer_vbox.add_child(spacer)
 
-	# Scrollable list of configs
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.custom_minimum_size = Vector2(0, 100)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	outer_vbox.add_child(scroll)
+	if configs.is_empty():
+		var empty_label := Label.new()
+		empty_label.text = "No test matches configured"
+		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		empty_label.add_theme_font_size_override("font_size", 16)
+		empty_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6, 1.0))
+		empty_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		outer_vbox.add_child(empty_label)
+	else:
+		# Scrollable list of configs
+		var scroll := ScrollContainer.new()
+		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		scroll.custom_minimum_size = Vector2(0, 100)
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		outer_vbox.add_child(scroll)
 
-	var list_vbox := VBoxContainer.new()
-	list_vbox.add_theme_constant_override("separation", 8)
-	list_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(list_vbox)
+		var list_vbox := VBoxContainer.new()
+		list_vbox.add_theme_constant_override("separation", 8)
+		list_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.add_child(list_vbox)
 
-	for config_entry in configs:
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 8)
-		list_vbox.add_child(row)
+		for config_entry in configs:
+			var row := HBoxContainer.new()
+			row.add_theme_constant_override("separation", 8)
+			list_vbox.add_child(row)
 
-		var launch_btn := Button.new()
-		var btn_text := str(config_entry.get("name", ""))
-		var desc := str(config_entry.get("description", ""))
-		if not desc.is_empty():
-			btn_text += "  —  " + desc
-		launch_btn.text = btn_text
-		launch_btn.custom_minimum_size = Vector2(400, 44)
-		launch_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		launch_btn.clip_text = true
-		var filename: String = config_entry.get("filename", "")
-		launch_btn.pressed.connect(_on_test_match_selected.bind(filename))
-		row.add_child(launch_btn)
+			var launch_btn := Button.new()
+			var btn_text := str(config_entry.get("name", ""))
+			var desc := str(config_entry.get("description", ""))
+			if not desc.is_empty():
+				btn_text += "  —  " + desc
+			launch_btn.text = btn_text
+			launch_btn.custom_minimum_size = Vector2(400, 44)
+			launch_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			launch_btn.clip_text = true
+			var filename: String = config_entry.get("filename", "")
+			launch_btn.pressed.connect(_on_test_match_selected.bind(filename))
+			row.add_child(launch_btn)
 
-		var delete_btn := Button.new()
-		delete_btn.text = "X"
-		delete_btn.custom_minimum_size = Vector2(36, 44)
-		delete_btn.tooltip_text = "Delete this config"
-		delete_btn.pressed.connect(_on_test_match_delete.bind(filename))
-		row.add_child(delete_btn)
+			var delete_btn := Button.new()
+			delete_btn.text = "X"
+			delete_btn.custom_minimum_size = Vector2(36, 44)
+			delete_btn.tooltip_text = "Delete this config"
+			delete_btn.pressed.connect(_on_test_match_delete.bind(filename))
+			row.add_child(delete_btn)
 
 	var bottom_spacer := Control.new()
 	bottom_spacer.custom_minimum_size = Vector2(0, 8)
