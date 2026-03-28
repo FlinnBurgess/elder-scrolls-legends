@@ -1720,36 +1720,30 @@ static func _check_summon_effect_target_mode(match_state: Dictionary, summoned_c
 
 
 static func _summon_ability_conditions_met(match_state: Dictionary, card: Dictionary, descriptor: Dictionary) -> bool:
-	# required_creature_in_each_lane — controller needs another creature in every lane
-	if bool(descriptor.get("required_creature_in_each_lane", false)):
-		var rciel_controller := str(card.get("controller_player_id", ""))
-		var rciel_self_id := str(card.get("instance_id", ""))
-		var rciel_lanes: Array = match_state.get("lanes", [])
-		for rciel_lane in rciel_lanes:
-			var rciel_slots: Array = rciel_lane.get("player_slots", {}).get(rciel_controller, [])
-			var rciel_count := 0
-			for rciel_card in rciel_slots:
-				if typeof(rciel_card) == TYPE_DICTIONARY and str(rciel_card.get("instance_id", "")) != rciel_self_id:
-					rciel_count += 1
-			if rciel_count < 1:
-				return false
-	var rfac_spec: Dictionary = descriptor.get("required_friendly_attribute_count", {})
-	if not rfac_spec.is_empty():
-		var rfac_attr := str(rfac_spec.get("attribute", ""))
-		var rfac_min := int(rfac_spec.get("min", rfac_spec.get("min_count", 0)))
-		var rfac_exclude_self := bool(rfac_spec.get("exclude_self", false))
-		var rfac_controller := str(card.get("controller_player_id", ""))
-		var rfac_self_id := str(card.get("instance_id", ""))
-		var rfac_creatures := _player_lane_creatures(match_state, rfac_controller)
-		var rfac_count := 0
-		for rfac_card in rfac_creatures:
-			if rfac_exclude_self and str(rfac_card.get("instance_id", "")) == rfac_self_id:
-				continue
-			var rfac_attrs = rfac_card.get("attributes", [])
-			if typeof(rfac_attrs) == TYPE_ARRAY and rfac_attrs.has(rfac_attr):
-				rfac_count += 1
-		if rfac_count < rfac_min:
-			return false
+	# Build a synthetic trigger + event so we can delegate to the full condition
+	# checkers (_matches_conditions + matches_additional_conditions) rather than
+	# duplicating every condition here.
+	var controller_id := str(card.get("controller_player_id", ""))
+	var instance_id := str(card.get("instance_id", ""))
+	var synthetic_trigger := {
+		"controller_player_id": controller_id,
+		"source_instance_id": instance_id,
+		"source_zone": str(card.get("zone", ZONE_LANE)),
+	}
+	var synthetic_event := {
+		"event_type": EVENT_CREATURE_SUMMONED,
+		"source_instance_id": instance_id,
+		"player_id": controller_id,
+		"playing_player_id": controller_id,
+		"controller_player_id": controller_id,
+		"source_controller_player_id": controller_id,
+	}
+	var family := str(descriptor.get("family", FAMILY_SUMMON))
+	var family_spec: Dictionary = FAMILY_SPECS.get(family, {})
+	if not _matches_conditions(match_state, synthetic_trigger, descriptor, family_spec, synthetic_event):
+		return false
+	if not ExtendedMechanicPacks.matches_additional_conditions(match_state, synthetic_trigger, descriptor, synthetic_event):
+		return false
 	return true
 
 
