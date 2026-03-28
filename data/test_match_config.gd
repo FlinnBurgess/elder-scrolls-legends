@@ -17,12 +17,12 @@ const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
 static func build_test_match_state() -> Dictionary:
 	## ── CONFIGURATION ──────────────────────────────────────────────────
 	## Edit the values below to set up your test scenario.
-	## Testing: Seducer Darkfire — choose_cost_lock blocks opponent from playing cards of chosen cost
+	## Testing: Dementia Lane — start of turn, highest-power creature's controller deals 3 damage to opponent
 
 	var turn_number := 1
 	var first_player := "player_1"  # "player_1" (you) or "player_2" (AI)
 
-	# Player 1 (you) — 12 magicka to afford Seducer Darkfire (cost 7)
+	# Player 1 (you) — 12 magicka to play big creatures into dementia lane
 	var p1_health := 30
 	var p1_max_magicka := 12
 	var p1_current_magicka := 12
@@ -30,21 +30,20 @@ static func build_test_match_state() -> Dictionary:
 	var p1_has_ring := false
 	var p1_ring_charges := 0
 
-	# Player 1 hand — Seducer Darkfire + filler to observe
+	# Player 1 hand — mix of power levels to contest dementia lane
 	var p1_hand_ids: Array = [
-		"iom_wil_seducer_darkfire",         # Cost 7, 7/7. Summon: Choose a cost. Opponent can't play that cost.
-		"int_elusive_schemer",              # Cost 4, 3/1. Summon: Draw a card — for follow-up plays
-		"end_young_mammoth",                # Cost 4, 4/4 — vanilla body
-		"str_whiterun_trooper",             # Cost 2, 2/4 — vanilla body
+		"iom_str_syl_duchess_of_dementia",  # Cost 6, 7/6 — thematic, high power to dominate dementia lane
+		"end_young_mammoth",                # Cost 4, 4/4 — mid power, won't beat enemy 5-power
+		"str_whiterun_trooper",             # Cost 2, 2/4 — low power body for field lane
+		"int_elusive_schemer",              # Cost 4, 3/1 — draw a card, low power
+		"moe_str_enraged_dragonknight",     # Cost 4, 5/4 — ties with enemy 5-power creature
 	]
 
-	# Player 1 deck
-	# Index 0 is drawn first.
+	# Player 1 deck — index 0 is drawn first
 	var p1_deck_ids: Array = [
-		"end_young_mammoth",
-		"end_young_mammoth",
-		"str_whiterun_trooper",
-		"str_whiterun_trooper",
+		"end_young_mammoth",                # Cost 4, 4/4
+		"str_whiterun_trooper",             # Cost 2, 2/4
+		"str_whiterun_trooper",             # Cost 2, 2/4
 	]
 
 	var p1_discard_ids: Array = []
@@ -53,43 +52,41 @@ static func build_test_match_state() -> Dictionary:
 
 	var p1_field_creatures: Array = []
 
-	var p1_shadow_creatures: Array = []
+	# Pre-place a 4/4 in dementia lane so the effect fires on turn 1
+	var p1_shadow_creatures: Array = [
+		_make_lane_creature("player_1", "end_young_mammoth", 100),       # 4/4 — your creature in dementia lane
+	]
 
-	# Player 2 (AI) — ALL cost-1 cards, 5 magicka so it can afford multiples
+	# Player 2 (AI) — low magicka, weak hand
 	var p2_health := 30
-	var p2_max_magicka := 5
-	var p2_current_magicka := 5
+	var p2_max_magicka := 2
+	var p2_current_magicka := 2
 	var p2_rune_thresholds := []
 	var p2_has_ring := false
 	var p2_ring_charges := 0
 
-	# Player 2 hand — all cost 1 creatures
+	# Player 2 hand — weak creatures
 	var p2_hand_ids: Array = [
 		"str_fiery_imp",                    # Cost 1, 1/1
+		"str_fiery_imp",                    # Cost 1, 1/1
 		"str_scuttler",                     # Cost 1, 1/2
-		"str_morthal_watchman",             # Cost 1, 2/1
-		"neu_enraged_mudcrab",              # Cost 1, 2/1
-		"end_deadly_draugr",                # Cost 1, 1/1 Lethal
 	]
 
-	# Player 2 deck — all cost 1 creatures
+	# Player 2 deck
 	var p2_deck_ids: Array = [
-		"wil_cheydinhal_sapper",            # Cost 1, 1/3 Drain
-		"agi_mournhold_guardian",           # Cost 1, 2/1 Guard
-		"agi_voracious_spriggan",           # Cost 1, 2/1 Drain
 		"str_fiery_imp",                    # Cost 1, 1/1
 		"str_fiery_imp",                    # Cost 1, 1/1
+		"str_scuttler",                     # Cost 1, 1/2
 	]
 
 	var p2_discard_ids: Array = []
 
-	# Enemy board — a couple of cost-1 punching bags already in lane
+	# Enemy board — punching bag in field, 5-power creature contesting dementia lane
 	var p2_field_creatures: Array = [
 		_make_lane_creature("player_2", "str_fiery_imp", 200),           # 1/1 — punching bag
-		_make_lane_creature("player_2", "str_scuttler", 201),            # 1/2 — punching bag
 	]
 	var p2_shadow_creatures: Array = [
-		_make_lane_creature("player_2", "str_fiery_imp", 202),           # 1/1 — punching bag
+		_make_lane_creature("player_2", "db_wil_the_black_dragon", 201, {"can_attack": true}),  # 5/5 — contests dementia lane, higher power than your 4/4
 	]
 
 	## ── END CONFIGURATION ──────────────────────────────────────────────
@@ -251,7 +248,7 @@ static func _build_lanes_with_creatures(
 
 	var board_profile := {}
 	for profile in lane_registry.get("board_profiles", []):
-		if profile.get("id", "") == "standard_versus":
+		if profile.get("id", "") == "dementia_test":
 			board_profile = profile
 			break
 

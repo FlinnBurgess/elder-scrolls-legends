@@ -98,6 +98,7 @@ var _lane_panels := {}
 var _lane_row_panels := {}
 var _lane_row_containers := {}
 var _lane_header_buttons := {}
+var _lane_icon_textures := {}
 var _lane_tooltip_panel: PanelContainer
 var _lane_tooltip_name_label: Label
 var _lane_tooltip_desc_label: Label
@@ -1831,6 +1832,7 @@ func _build_lanes_panel() -> Control:
 		icon_button.mouse_entered.connect(_on_lane_icon_mouse_entered.bind(lane_id, icon_button))
 		icon_button.mouse_exited.connect(_on_lane_icon_mouse_exited)
 		icon_center.add_child(icon_button)
+		_lane_icon_textures[lane_id] = icon_button
 
 	lanes_row.add_child(_build_lane_separator())
 
@@ -2223,6 +2225,13 @@ func _refresh_lanes() -> void:
 			header.text = _lane_header_text(lane_id)
 			header.tooltip_text = _lane_description(lane_id)
 			_apply_lane_header_style(header, lane_id)
+		var icon_tex: TextureRect = _lane_icon_textures.get(lane_id)
+		if icon_tex != null:
+			var icon_path := str(lane.get("icon", ""))
+			if not icon_path.is_empty() and ResourceLoader.exists(icon_path):
+				icon_tex.texture = load(icon_path)
+			else:
+				icon_tex.texture = null
 		for player_id in PLAYER_ORDER:
 			var row_panel: PanelContainer = _lane_row_panels.get(_lane_row_key(lane_id, player_id))
 			_apply_lane_row_panel_style(row_panel, lane_id, player_id)
@@ -7346,6 +7355,25 @@ func _lane_entries() -> Array:
 	for raw_record in _lane_registry.get("lane_types", []):
 		if typeof(raw_record) == TYPE_DICTIONARY:
 			lane_type_lookup[str(raw_record.get("id", ""))] = raw_record
+	# Prefer match state lanes when available — they carry the runtime lane_type
+	# which may differ from the board profile (e.g. dementia_test, or after Syl
+	# transforms a lane mid-match).
+	var match_lanes: Array = _match_state.get("lanes", []) if not _match_state.is_empty() else []
+	if not match_lanes.is_empty():
+		var entries: Array = []
+		for lane in match_lanes:
+			var lane_id := str(lane.get("lane_id", ""))
+			var lane_type_id := str(lane.get("lane_type", lane_id))
+			var lane_type: Dictionary = lane_type_lookup.get(lane_type_id, {})
+			entries.append({
+				"id": lane_id,
+				"display_name": str(lane_type.get("display_name", lane_id)),
+				"description": str(lane_type.get("description", "")),
+				"icon": str(lane_type.get("icon", "")),
+			})
+		if not entries.is_empty():
+			return entries
+	# Fallback: read from board profile (used during initial build before match state)
 	var board_profile := {}
 	for profile in _lane_registry.get("board_profiles", []):
 		if str(profile.get("id", "")) == "standard_versus":

@@ -8,6 +8,7 @@ const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
 const BoonRules = preload("res://src/adventure/boon_rules.gd")
 const LaneEffectRules = preload("res://src/core/match/lane_effect_rules.gd")
+const MatchBootstrap = preload("res://src/core/match/match_bootstrap.gd")
 
 const ZONE_HAND := "hand"
 const ZONE_DECK := "deck"
@@ -5123,8 +5124,12 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						generated_events.append_array(redraw_result.get("events", []))
 			"change_lane_types":
 				var new_lane_type := str(effect.get("lane_type", "shadow"))
+				var clts_type_lookup := MatchBootstrap._load_lane_type_lookup()
+				var clts_new_record: Dictionary = clts_type_lookup.get(new_lane_type, {})
 				for lane in match_state.get("lanes", []):
 					lane["lane_type"] = new_lane_type
+					if not clts_new_record.is_empty():
+						lane["lane_rule_payload"] = MatchBootstrap._build_lane_rule_payload(clts_new_record)
 					generated_events.append({"event_type": "lane_type_changed", "lane_id": str(lane.get("lane_id", "")), "new_lane_type": new_lane_type, "source_instance_id": str(trigger.get("source_instance_id", ""))})
 			"trigger_friendly_last_gasps":
 				var tflg_controller_id := str(trigger.get("controller_player_id", ""))
@@ -7957,9 +7962,13 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				var clt_lane_type := str(effect.get("lane_type", "shadow"))
 				var clt_source_loc := MatchMutations.find_card_location(match_state, str(trigger.get("source_instance_id", "")))
 				var clt_lane_id := str(clt_source_loc.get("lane_id", ""))
+				var clt_type_lookup := MatchBootstrap._load_lane_type_lookup()
+				var clt_new_record: Dictionary = clt_type_lookup.get(clt_lane_type, {})
 				for lane in match_state.get("lanes", []):
 					if str(lane.get("lane_id", "")) == clt_lane_id:
 						lane["lane_type"] = clt_lane_type
+						if not clt_new_record.is_empty():
+							lane["lane_rule_payload"] = MatchBootstrap._build_lane_rule_payload(clt_new_record)
 						generated_events.append({"event_type": "lane_type_changed", "lane_id": clt_lane_id, "new_type": clt_lane_type, "source_instance_id": str(trigger.get("source_instance_id", ""))})
 			"add_counter":
 				var ac_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))

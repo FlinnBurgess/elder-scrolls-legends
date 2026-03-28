@@ -60,13 +60,13 @@ Example (dementia lane — uses custom lane op):
 
 Edit `src/core/match/lane_effect_rules.gd`:
 
-1. Add a new case to `apply_lane_effect()`:
+1. Add a new case to `apply_lane_effect()`. Use a descriptive op name (e.g., `lane_dementia_damage`, `lane_mania_draw`), not just `lane_{id}_effect`:
 ```gdscript
-"lane_{id}_effect":
-    return _resolve_lane_{id}_effect(match_state, trigger, event, effect)
+"lane_{id}_{action}":
+    return _resolve_lane_{id}_{action}(match_state, trigger, event, effect)
 ```
 
-2. Implement `_resolve_lane_{id}_effect()`. Key patterns:
+2. Implement `_resolve_lane_{id}_{action}()`. Key patterns:
 
 ```gdscript
 # Get the lane this trigger belongs to
@@ -91,6 +91,13 @@ var damage_result := _timing_rules().apply_player_damage(match_state, target_pid
     "reason": "lane_effect_{id}",
     "source_instance_id": str(trigger.get("source_instance_id", "")),
     "source_controller_player_id": causing_pid,
+})
+
+# Draw cards (uses lazy loader to avoid circular dep):
+var draw_result := _timing_rules().draw_cards(match_state, player_id, 1, {
+    "reason": "lane_effect_{id}",
+    "source_instance_id": str(trigger.get("source_instance_id", "")),
+    "source_controller_player_id": player_id,
 })
 
 # Find opponent
@@ -145,6 +152,10 @@ func _build_{lane_id}_match() -> Dictionary:
 Use existing helpers: `_summon_creature(player, match_state, label, lane_id, power, health)`, `_append_creature_to_hand`, `_assert`.
 
 For turn-based effects, use `MatchTurnLoop.end_turn(match_state, player_id)` to advance turns.
+
+**GDScript gotcha:** `Array.size()` returns Variant, so `var x := arr.size()` fails type inference. Always wrap with `int()`: `var x := int(arr.size())`.
+
+**Turn-draw accounting:** Each `end_turn` starts the next player's turn, which includes a normal draw (+1 card). When testing lane effects that draw cards, capture hand sizes immediately before and after the `end_turn` call, and assert the expected total (e.g., `+2` for normal draw + lane bonus, `+1` for normal draw only).
 
 ## Step 7: Run Tests
 

@@ -42,6 +42,8 @@ static func apply_lane_effect(match_state: Dictionary, trigger: Dictionary, even
 			return _resolve_lane_grant_cover(match_state, trigger, event)
 		"lane_dementia_damage":
 			return _resolve_lane_dementia_damage(match_state, trigger, event, effect)
+		"lane_mania_draw":
+			return _resolve_lane_mania_draw(match_state, trigger, event, effect)
 		_:
 			return {"handled": false, "events": []}
 
@@ -157,6 +159,67 @@ static func _resolve_lane_dementia_damage(match_state: Dictionary, trigger: Dict
 		"lane_id": lane_id,
 	}]
 	events.append_array(damage_result.get("events", []))
+	return {"handled": true, "events": events}
+
+
+static func _resolve_lane_mania_draw(match_state: Dictionary, trigger: Dictionary, event: Dictionary, _effect: Dictionary) -> Dictionary:
+	var lane_id := str(trigger.get("descriptor", {}).get("_lane_id", ""))
+	var active_player_id := str(event.get("player_id", ""))
+	if active_player_id.is_empty():
+		return {"handled": true, "events": []}
+
+	var lane: Dictionary = {}
+	for l in match_state.get("lanes", []):
+		if str(l.get("lane_id", "")) == lane_id:
+			lane = l
+			break
+	if lane.is_empty():
+		return {"handled": true, "events": []}
+
+	var highest_per_player := {}
+	var player_slots: Dictionary = lane.get("player_slots", {})
+	for pid in player_slots:
+		var max_health := -1
+		for card in player_slots[pid]:
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			var health := EvergreenRules.get_remaining_health(card)
+			if health > max_health:
+				max_health = health
+		if max_health >= 0:
+			highest_per_player[str(pid)] = max_health
+
+	if highest_per_player.is_empty():
+		return {"handled": true, "events": []}
+	var best_health := -1
+	var best_owner := ""
+	var tied := false
+	for pid in highest_per_player:
+		var health: int = highest_per_player[pid]
+		if health > best_health:
+			best_health = health
+			best_owner = pid
+			tied = false
+		elif health == best_health:
+			tied = true
+
+	if tied or best_owner != active_player_id:
+		return {"handled": true, "events": []}
+
+	var draw_result: Dictionary = _timing_rules().draw_cards(match_state, active_player_id, 1, {
+		"reason": "lane_effect_mania",
+		"source_instance_id": str(trigger.get("source_instance_id", "")),
+		"source_controller_player_id": active_player_id,
+	})
+
+	var events: Array = [{
+		"event_type": "card_drawn",
+		"draw_reason": "lane_effect_mania",
+		"source_instance_id": str(trigger.get("source_instance_id", "")),
+		"player_id": active_player_id,
+		"lane_id": lane_id,
+	}]
+	events.append_array(draw_result.get("events", []))
 	return {"handled": true, "events": events}
 
 

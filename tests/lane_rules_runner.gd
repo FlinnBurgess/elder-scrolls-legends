@@ -29,7 +29,11 @@ func _run_all_tests() -> bool:
 		_test_dementia_lane_damages_opponent_on_turn_start() and
 		_test_dementia_lane_no_damage_when_opponent_has_highest() and
 		_test_dementia_lane_no_damage_on_tie() and
-		_test_dementia_lane_no_damage_when_empty()
+		_test_dementia_lane_no_damage_when_empty() and
+		_test_mania_lane_draws_card_for_highest_health() and
+		_test_mania_lane_no_draw_on_tie() and
+		_test_mania_lane_no_draw_when_opponent_has_highest() and
+		_test_mania_lane_no_draw_when_empty()
 	)
 
 
@@ -328,6 +332,100 @@ func _test_dementia_lane_no_damage_when_empty() -> bool:
 		_assert(int(player_1.get("health", 0)) == p1_health_before, "No damage when dementia lane is empty (player 1).") and
 		_assert(int(player_2.get("health", 0)) == p2_health_before, "No damage when dementia lane is empty (player 2).")
 	)
+
+
+func _test_mania_lane_draws_card_for_highest_health() -> bool:
+	var match_state := _build_mania_match()
+	var player_1: Dictionary = match_state["players"][0]
+	var player_2: Dictionary = match_state["players"][1]
+	# Player 1 has a higher-health creature
+	_summon_creature(player_1, match_state, "p1_healthy", "mania", 2, 6)
+	_summon_creature(player_2, match_state, "p2_weak", "mania", 2, 3)
+	# End player 1's turn, start player 2's — player 2 does NOT have highest health
+	var p2_hand_before_p2_turn := int(player_2["hand"].size())
+	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
+	var p2_hand_after_p2_turn := int(player_2["hand"].size())
+	# End player 2's turn, start player 1's — player 1 HAS highest health
+	var p1_hand_before_p1_turn := int(player_1["hand"].size())
+	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
+	var p1_hand_after_p1_turn := int(player_1["hand"].size())
+	return (
+		_assert(p2_hand_after_p2_turn == p2_hand_before_p2_turn + 1, "Player 2 should only get normal turn draw (no mania bonus) when player 1 has highest health.") and
+		_assert(p1_hand_after_p1_turn == p1_hand_before_p1_turn + 2, "Player 1 should draw normal + mania card when starting their turn with the highest-health creature.")
+	)
+
+
+func _test_mania_lane_no_draw_on_tie() -> bool:
+	var match_state := _build_mania_match()
+	var player_1: Dictionary = match_state["players"][0]
+	var player_2: Dictionary = match_state["players"][1]
+	# Both have equal health creatures
+	_summon_creature(player_1, match_state, "p1_tied", "mania", 2, 5)
+	_summon_creature(player_2, match_state, "p2_tied", "mania", 2, 5)
+	var p1_hand_before := int(player_1["hand"].size())
+	var p2_hand_before := int(player_2["hand"].size())
+	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
+	var p2_hand_after := int(player_2["hand"].size())
+	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
+	var p1_hand_after := int(player_1["hand"].size())
+	# Each player draws 1 card from normal turn draw, but no extra from mania
+	return (
+		_assert(p1_hand_after == p1_hand_before + 1, "Player 1 should only get the normal turn draw when health is tied (no mania bonus).") and
+		_assert(p2_hand_after == p2_hand_before + 1, "Player 2 should only get the normal turn draw when health is tied (no mania bonus).")
+	)
+
+
+func _test_mania_lane_no_draw_when_opponent_has_highest() -> bool:
+	var match_state := _build_mania_match()
+	var player_1: Dictionary = match_state["players"][0]
+	var player_2: Dictionary = match_state["players"][1]
+	# Only player 2 has a creature
+	_summon_creature(player_2, match_state, "p2_only", "mania", 2, 6)
+	var p1_hand_before := int(player_1["hand"].size())
+	var p2_hand_before := int(player_2["hand"].size())
+	# End player 1's turn (no creature, no draw)
+	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
+	var p2_hand_after_p2_turn := int(player_2["hand"].size())
+	# Player 2's turn starts — player 2 has highest health, draws extra
+	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
+	var p1_hand_after := int(player_1["hand"].size())
+	return (
+		_assert(p2_hand_after_p2_turn == p2_hand_before + 2, "Player 2 should draw an extra card from mania when they have the highest-health creature on their turn.") and
+		_assert(p1_hand_after == p1_hand_before + 1, "Player 1 should only get the normal turn draw when they have no creatures in the mania lane.")
+	)
+
+
+func _test_mania_lane_no_draw_when_empty() -> bool:
+	var match_state := _build_mania_match()
+	var player_1: Dictionary = match_state["players"][0]
+	var player_2: Dictionary = match_state["players"][1]
+	var p1_hand_before := int(player_1["hand"].size())
+	var p2_hand_before := int(player_2["hand"].size())
+	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
+	var p2_hand_after := int(player_2["hand"].size())
+	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
+	var p1_hand_after := int(player_1["hand"].size())
+	return (
+		_assert(p1_hand_after == p1_hand_before + 1, "No extra draw when mania lane is empty (player 1).") and
+		_assert(p2_hand_after == p2_hand_before + 1, "No extra draw when mania lane is empty (player 2).")
+	)
+
+
+func _build_mania_match() -> Dictionary:
+	var match_state := _build_match()
+	var lane: Dictionary = match_state["lanes"][1]
+	lane["lane_id"] = "mania"
+	lane["lane_type"] = "mania"
+	lane["lane_rule_payload"] = {
+		"display_name": "Mania",
+		"description": "Start of turn: player with the highest-health creature here draws a card.",
+		"icon": "res://assets/images/lanes/mania.png",
+		"implementation_bucket": "mvp",
+		"availability": ["story"],
+		"source_ids": ["uesp_lanes"],
+		"effects": [{"family": "start_of_turn", "match_role": "any_player", "effects": [{"op": "lane_mania_draw"}]}],
+	}
+	return match_state
 
 
 func _build_dementia_match() -> Dictionary:

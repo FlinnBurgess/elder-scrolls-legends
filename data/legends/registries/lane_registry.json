@@ -10,13 +10,22 @@
 		{"lane_id": "shadow", "slot_capacity": 4}
 	  ],
 	  "source_ids": ["uesp_lanes", "workspace_spec"]
+	},
+	{
+	  "id": "dementia_test",
+	  "display_name": "Dementia Test",
+	  "lanes": [
+		{"lane_id": "field", "slot_capacity": 4},
+		{"lane_id": "shadow", "lane_type": "dementia", "slot_capacity": 4}
+	  ],
+	  "source_ids": ["workspace_spec"]
 	}
   ],
   "lane_types": [
 	{ "id": "field", "display_name": "Field Lane", "icon": "res://assets/images/lanes/field.png", "implementation_bucket": "mvp", "availability": ["versus"], "description": "No special rules.", "source_ids": ["uesp_lanes"] },
 	{ "id": "shadow", "display_name": "Shadow", "icon": "res://assets/images/lanes/shadow.png", "implementation_bucket": "mvp", "availability": ["versus", "story"], "description": "Creatures entering this lane gain Cover for one turn unless they have Guard.", "effects": [{"family": "on_friendly_summon", "match_role": "any_player", "effects": [{"op": "lane_grant_cover"}]}, {"family": "on_move", "match_role": "any_player", "effects": [{"op": "lane_grant_cover"}]}], "source_ids": ["uesp_lanes", "uesp_card_effects"] },
 	{ "id": "dementia", "display_name": "Dementia", "icon": "res://assets/images/lanes/dementia.png", "implementation_bucket": "mvp", "availability": ["story"], "description": "Start of turn: player with the highest-power creature here deals 3 damage to the opponent.", "effects": [{"family": "start_of_turn", "match_role": "any_player", "effects": [{"op": "lane_dementia_damage", "amount": 3}]}], "source_ids": ["uesp_lanes"] },
-	{ "id": "mania", "display_name": "Mania", "implementation_bucket": "deferred_variant", "availability": ["story"], "description": "Start of turn: player with the highest-health creature here draws a card.", "source_ids": ["uesp_lanes"] },
+	{ "id": "mania", "display_name": "Mania", "icon": "res://assets/images/lanes/mania.png", "implementation_bucket": "mvp", "availability": ["story"], "description": "Start of turn: player with the highest-health creature here draws a card.", "effects": [{"family": "start_of_turn", "match_role": "any_player", "effects": [{"op": "lane_mania_draw"}]}], "source_ids": ["uesp_lanes"] },
 	{ "id": "altar_of_silence", "display_name": "Altar of Silence", "implementation_bucket": "deferred_variant", "availability": ["story"], "description": "After a player silences a creature, they summon a 1/1 Skeleton here and give it Guard.", "source_ids": ["uesp_lanes"] },
 	{ "id": "armor", "display_name": "Armor", "implementation_bucket": "deferred_variant", "availability": ["story"], "description": "After a creature is summoned here, double its health.", "source_ids": ["uesp_lanes"] },
 	{ "id": "armory", "display_name": "Armory", "implementation_bucket": "deferred_variant", "availability": ["arena"], "description": "After you summon a creature here, a random friendly creature here gets +1/+1.", "source_ids": ["uesp_lanes"] },

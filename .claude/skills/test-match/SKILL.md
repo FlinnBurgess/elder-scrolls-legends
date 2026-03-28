@@ -41,6 +41,7 @@ Consider what the player needs to test the mechanic:
 | Consume | Consumer + creatures in discard pile | Normal board |
 | Assemble (Factotum) | Factotums already in lane as buff targets + more Factotums in hand to play | Weak enemies, low magicka |
 | Invade | Cheap Invade triggers (0-3 cost) + payoffs (Keeper of the Gates, Mankar Camoran) + Great Sigil Stone support. For basic invade testing, don't pre-place gates — they spawn automatically. For **multi-gate or specific-level testing**, pre-place gates manually (see "Pre-placing Oblivion Gates" below). Include varied enemies (1/1s + a Guard with health) to test gate-level damage effects | Weak creatures in both lanes, no runes |
+| Special lane types (Dementia, Mania, etc.) | Creatures in the shadow lane (which becomes the special lane) + creatures of varying power/health to test the lane effect trigger conditions. Pre-place creatures so the effect fires immediately. See "Testing Special Lane Types" below | A creature contesting the lane to test both-sides behavior + punching bags in field lane |
 
 Set these parameters:
 - **Player 1 magicka**: High enough to play the test cards (usually 12)
@@ -69,6 +70,27 @@ p2_hand_ids, p2_deck_ids, p2_discard_ids, p2_field_creatures, p2_shadow_creature
 **Lane creatures** use `_make_lane_creature(player_id, definition_id, index, overrides)`:
 - `index`: unique number (start at 100 to avoid collisions with hand/deck)
 - `overrides`: optional dict with `can_attack`, `turns_in_play`, `damage_marked`, `power_bonus`, `health_bonus`, `keywords`, `status_markers`
+
+### Testing Special Lane Types (Dementia, Mania, etc.)
+
+The test match defaults to the `standard_versus` board profile (field + shadow lanes). To test a special lane type, you must make two changes **outside** the CONFIGURATION section:
+
+1. **Add a test board profile** to `data/legends/registries/lane_registry.json` under `board_profiles`. Use `lane_type` to override the lane effect while keeping `lane_id` as `"shadow"` so the creature_map still routes `p1_shadow_creatures` / `p2_shadow_creatures` correctly:
+   ```json
+   {
+     "id": "dementia_test",
+     "display_name": "Dementia Test",
+     "lanes": [
+       {"lane_id": "field", "slot_capacity": 4},
+       {"lane_id": "shadow", "lane_type": "dementia", "slot_capacity": 4}
+     ],
+     "source_ids": ["workspace_spec"]
+   }
+   ```
+
+2. **Change the profile lookup** in `_build_lanes_with_creatures` (around line 254) from `"standard_versus"` to your test profile ID (e.g. `"dementia_test"`).
+
+After testing, remember to revert the profile lookup back to `"standard_versus"`.
 
 ### Pre-placing Oblivion Gates
 
