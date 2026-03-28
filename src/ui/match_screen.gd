@@ -2001,19 +2001,7 @@ func _apply_surface_button_style(button: Button, surface: String, hidden := fals
 func _apply_lane_panel_style(panel: PanelContainer, lane_id: String) -> void:
 	if panel == null:
 		return
-	var fill := Color(0, 0, 0, 0)
-	var border := Color(0, 0, 0, 0)
-	var border_width := 0
-	var interaction_state := _lane_panel_interaction_state(lane_id)
-	if interaction_state == "valid":
-		fill = _lane_panel_fill(lane_id).lightened(0.05)
-		border = Color(0.74, 0.94, 0.68, 1.0)
-		border_width = 2
-	elif interaction_state == "invalid":
-		fill = _lane_panel_fill(lane_id).lerp(Color(0.27, 0.12, 0.14, 0.98), 0.58)
-		border = Color(0.98, 0.48, 0.44, 1.0)
-		border_width = 2
-	_apply_panel_style(panel, fill, border, border_width, 12)
+	_apply_panel_style(panel, Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 12)
 
 
 func _apply_lane_header_style(button: Button, lane_id: String) -> void:
@@ -2021,32 +2009,22 @@ func _apply_lane_header_style(button: Button, lane_id: String) -> void:
 		return
 	var fill := _lane_header_fill(lane_id)
 	var border := _lane_panel_border(lane_id)
-	var interaction_state := _lane_panel_interaction_state(lane_id)
-	if interaction_state == "valid":
-		fill = fill.lightened(0.06)
-		border = Color(0.74, 0.94, 0.68, 1.0)
-	elif interaction_state == "invalid":
-		fill = fill.lerp(Color(0.28, 0.12, 0.14, 1.0), 0.52)
-		border = Color(0.98, 0.48, 0.44, 1.0)
-	_apply_button_style(button, fill, border, Color(0.96, 0.95, 0.9, 1.0), 2 if interaction_state != "default" else 1, 10)
+	_apply_button_style(button, fill, border, Color(0.96, 0.95, 0.9, 1.0), 1, 10)
 
 
 func _apply_lane_row_panel_style(panel: PanelContainer, lane_id: String, player_id: String) -> void:
 	if panel == null:
 		return
-	var fill := Color(0, 0, 0, 0)
 	var border := Color(0, 0, 0, 0)
 	var border_width := 0
 	var interaction_state := _lane_row_interaction_state(lane_id, player_id)
 	if interaction_state == "valid":
-		fill = _lane_row_fill(lane_id).lightened(0.05)
 		border = Color(0.74, 0.94, 0.68, 1.0)
 		border_width = 2
 	elif interaction_state == "invalid":
-		fill = _lane_row_fill(lane_id).lerp(Color(0.28, 0.12, 0.14, 0.98), 0.56)
 		border = Color(0.98, 0.48, 0.44, 1.0)
 		border_width = 2
-	_apply_panel_style(panel, fill, border, border_width, 10)
+	_apply_panel_style(panel, Color(0, 0, 0, 0), border, border_width, 10)
 
 
 
@@ -6019,7 +5997,7 @@ func _lane_row_interaction_state(lane_id: String, player_id: String) -> String:
 	if not wants_lane:
 		return "default"
 	if player_id != _target_lane_player_id():
-		return "invalid"
+		return "default"
 	return "valid" if _valid_lane_ids().has(lane_id) else "invalid"
 
 
