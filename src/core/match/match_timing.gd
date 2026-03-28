@@ -7281,7 +7281,9 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(spcil_card.get("instance_id", "")), "reason": reason})
 			"destroy_all_except_strongest_in_lane":
 				var daesl_controller_id := str(trigger.get("controller_player_id", ""))
-				var daesl_lane_id := str(effect.get("lane_id", ""))
+				var daesl_lane_id := str(event.get("lane_id", ""))
+				if daesl_lane_id.is_empty():
+					daesl_lane_id = str(effect.get("lane_id", ""))
 				if daesl_lane_id.is_empty():
 					var daesl_loc := MatchMutations.find_card_location(match_state, str(trigger.get("source_instance_id", "")))
 					daesl_lane_id = str(daesl_loc.get("lane_id", ""))
@@ -7289,8 +7291,8 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				for lane in match_state.get("lanes", []):
 					if str(lane.get("lane_id", "")) != daesl_lane_id:
 						continue
-					for daesl_ps in lane.get("player_slots", []):
-						for daesl_card in daesl_ps.get("cards", []):
+					for daesl_pid in lane.get("player_slots", {}).keys():
+						for daesl_card in lane.get("player_slots", {})[daesl_pid]:
 							if typeof(daesl_card) == TYPE_DICTIONARY:
 								daesl_all.append(daesl_card)
 				if daesl_all.size() > 1:
@@ -8231,6 +8233,15 @@ static func _resolve_card_targets(match_state: Dictionary, trigger: Dictionary, 
 	if target == "copies_in_hand_and_deck":
 		return _resolve_copies_in_hand_and_deck(match_state, trigger, effect)
 	var targets := _resolve_card_targets_by_name(match_state, trigger, event, target)
+	# friendly_by_name: filter by card name from the effect dict
+	if target == "friendly_by_name":
+		var fbn_name := str(effect.get("name", ""))
+		if not fbn_name.is_empty():
+			var fbn_filtered: Array = []
+			for card in targets:
+				if typeof(card) == TYPE_DICTIONARY and str(card.get("name", "")) == fbn_name:
+					fbn_filtered.append(card)
+			targets = fbn_filtered
 	var filter_subtype := str(effect.get("target_filter_subtype", ""))
 	var filter_subtypes_arr = effect.get("target_filter_subtypes", [])
 	if not filter_subtype.is_empty():

@@ -552,7 +552,17 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			return {"handled": true, "events": srfc_events}
 		"generate_random_to_hand":
 			var grth_filter_raw = effect.get("filter", {})
-			var grth_filter: Dictionary = grth_filter_raw if typeof(grth_filter_raw) == TYPE_DICTIONARY else {}
+			var grth_filter: Dictionary = grth_filter_raw.duplicate(true) if typeof(grth_filter_raw) == TYPE_DICTIONARY else {}
+			# Escalating filter: increase a filter field each time the source card uses this effect
+			var grth_esc_key := str(effect.get("escalating_filter_key", ""))
+			var grth_esc_field := str(effect.get("escalating_filter_field", ""))
+			var grth_esc_increment := int(effect.get("escalating_increment", 0))
+			if not grth_esc_key.is_empty() and not grth_esc_field.is_empty() and grth_esc_increment > 0:
+				var grth_source_card := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+				var grth_esc_state_key := "_escalating_" + grth_esc_key
+				var grth_current_esc := int(grth_source_card.get(grth_esc_state_key, 0))
+				grth_filter[grth_esc_field] = int(grth_filter.get(grth_esc_field, 0)) + grth_current_esc
+				grth_source_card[grth_esc_state_key] = grth_current_esc + grth_esc_increment
 			var grth_seeds: Array = CardCatalog._card_seeds()
 			var grth_candidates: Array = []
 			var grth_controller_id := str(trigger.get("controller_player_id", ""))
@@ -794,11 +804,12 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			srfd_events.append(_timing_rules()._build_summon_event(srfd_result["card"], srfd_controller_id, srfd_lane_id, int(srfd_result.get("slot_index", -1)), "summon_from_deck"))
 			return {"handled": true, "events": srfd_events}
 		"summon_random_by_target_cost":
-			var srbtc_target_id := str(event.get("target_instance_id", ""))
-			var srbtc_target := _find_card_anywhere(match_state, srbtc_target_id)
-			var srbtc_base_cost := int(srbtc_target.get("cost", 0))
-			var srbtc_cost_offset := int(effect.get("cost_offset", 0))
-			var srbtc_exact_cost := srbtc_base_cost + srbtc_cost_offset
+			var srbtc_exact_cost := int(effect.get("target_cost", -1))
+			if srbtc_exact_cost < 0:
+				# Fall back to deriving cost from event target card
+				var srbtc_target_id := str(event.get("target_instance_id", ""))
+				var srbtc_target := _find_card_anywhere(match_state, srbtc_target_id)
+				srbtc_exact_cost = int(srbtc_target.get("cost", 0)) + int(effect.get("cost_offset", 0))
 			var srbtc_seeds: Array = CardCatalog._card_seeds()
 			var srbtc_candidates: Array = []
 			for seed in srbtc_seeds:
@@ -817,13 +828,15 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			var srbtc_pick: Dictionary = srbtc_candidates[_timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_srbtc", srbtc_candidates.size())]
 			var srbtc_template: Dictionary = srbtc_pick.duplicate(true)
 			srbtc_template["definition_id"] = str(srbtc_template.get("card_id", ""))
-			var srbtc_lane_id := ""
-			var srbtc_lanes: Array = match_state.get("lanes", [])
-			var srbtc_lane_index := int(trigger.get("lane_index", -1))
-			if srbtc_lane_index >= 0 and srbtc_lane_index < srbtc_lanes.size():
-				srbtc_lane_id = str(srbtc_lanes[srbtc_lane_index].get("lane_id", ""))
-			if srbtc_lane_id.is_empty() and not srbtc_lanes.is_empty():
-				srbtc_lane_id = str(srbtc_lanes[0].get("lane_id", ""))
+			var srbtc_lane_id := str(effect.get("lane", ""))
+			if srbtc_lane_id.is_empty():
+				# Fall back to trigger lane index
+				var srbtc_lanes: Array = match_state.get("lanes", [])
+				var srbtc_lane_index := int(trigger.get("lane_index", -1))
+				if srbtc_lane_index >= 0 and srbtc_lane_index < srbtc_lanes.size():
+					srbtc_lane_id = str(srbtc_lanes[srbtc_lane_index].get("lane_id", ""))
+				if srbtc_lane_id.is_empty() and not srbtc_lanes.is_empty():
+					srbtc_lane_id = str(srbtc_lanes[0].get("lane_id", ""))
 			if srbtc_lane_id.is_empty():
 				return {"handled": true, "events": []}
 			var srbtc_gen := MatchMutations.build_generated_card(match_state, srbtc_controller_id, srbtc_template)
