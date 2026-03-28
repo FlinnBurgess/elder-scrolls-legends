@@ -1,7 +1,7 @@
 # Claude Learnings
 
 ## Tags
-`ai` `anchors` `assemble` `attributes` `augments` `auras` `boons` `boss-config` `card-catalog` `card-hydration` `card-state` `case-sensitivity` `cost-reduction` `death-checks` `delegation` `end-of-turn` `events` `generated-cards` `identity` `invade` `lane-resolution` `match-engine` `match-screen` `multi-target` `neutral` `passives` `player-state` `prophecy` `randomness` `registry` `runes` `shouts` `stat-helpers` `summon-path` `supports` `target-resolution` `testing` `triggers` `ui`
+`ai` `anchors` `assemble` `attributes` `augments` `auras` `boons` `boss-config` `card-catalog` `card-hydration` `card-state` `case-sensitivity` `cost-reduction` `death-checks` `delegation` `end-of-turn` `events` `generated-cards` `identity` `invade` `lane-effects` `lane-resolution` `match-engine` `match-screen` `multi-target` `neutral` `passives` `player-state` `prophecy` `randomness` `registry` `runes` `shouts` `stat-helpers` `summon-path` `supports` `target-resolution` `test-match-config` `testing` `triggers` `ui`
 
 ## Card Hydration & Attributes
 
@@ -319,3 +319,9 @@
 - **`_set_player_health` in match_debug_scenarios adjusts rune thresholds to match health** `[runes, player-state, testing]`
   `_set_player_health` doesn't just set health — it also rebuilds `rune_thresholds` to only include thresholds at or below the new health value. A player at 12 health gets `rune_thresholds = [10, 5]`, not the full `[25, 20, 15, 10, 5]`. This means AI attacks on a player with reduced health may break runes at thresholds you don't expect.
   _Refs: `src/ui/match_debug_scenarios.gd:401-407`_
+
+## Lane Effects & Test Match Config
+
+- **Pre-placed creatures in test match configs lack `lane_id` and `slot_index`** `[test-match-config, lane-effects, testing]`
+  `_build_lanes_with_creatures` in `test_match_config.gd` places creatures directly into `player_slots` without setting `lane_id` or `slot_index` on the card dicts. In contrast, `lane_rules.gd:summon_from_hand` sets both fields on summon. Lane effect handlers that check `card.get("lane_id", "")` (like heist, liquid courage, etc.) silently fail for pre-placed creatures because `lane_id` is empty string. The fix: iterate all pre-placed creatures in `_build_lanes_with_creatures` and set `lane_id` and `slot_index` after building `player_slots`.
+  _Refs: `data/test_match_config.gd:346-358`, `src/core/match/lane_rules.gd:319-320`_

@@ -343,14 +343,22 @@ static func _build_lanes_with_creatures(
 				"effects": effects,
 			}
 
+		var player_slots := {
+			"player_1": lane_creatures.get("player_1", []).duplicate(true),
+			"player_2": lane_creatures.get("player_2", []).duplicate(true),
+		}
+		for pid in player_slots:
+			var slot_list: Array = player_slots[pid]
+			for slot_index in range(slot_list.size()):
+				var creature = slot_list[slot_index]
+				if typeof(creature) == TYPE_DICTIONARY:
+					creature["lane_id"] = lane_id
+					creature["slot_index"] = slot_index
 		lanes.append({
 			"lane_id": lane_id,
 			"lane_type": lane_record.get("id", lane_id),
 			"slot_capacity": slot_capacity,
-			"player_slots": {
-				"player_1": lane_creatures.get("player_1", []).duplicate(true),
-				"player_2": lane_creatures.get("player_2", []).duplicate(true),
-			},
+			"player_slots": player_slots,
 			"lane_rule_payload": lane_rule_payload,
 		})
 

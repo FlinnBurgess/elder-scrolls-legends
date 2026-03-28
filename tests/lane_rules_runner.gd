@@ -74,7 +74,9 @@ func _run_all_tests() -> bool:
 		_test_graveyard_spawns_draugr_on_death() and
 		_test_graveyard_spawns_draugr_on_second_death() and
 		_test_graveyard_dual_death_spawns_both_draugrs() and
-		_test_graveyard_draugr_has_summoning_sickness()
+		_test_graveyard_draugr_has_summoning_sickness() and
+		_test_heist_lane_grants_magicka_on_pilfer() and
+		_test_heist_lane_no_magicka_in_other_lane()
 	)
 
 
@@ -1070,6 +1072,62 @@ func _summon_creature(player: Dictionary, match_state: Dictionary, label: String
 	var result := LaneRules.summon_from_hand(match_state, player["player_id"], creature["instance_id"], lane_id)
 	_assert(result["is_valid"], "Expected summon of %s to succeed." % label)
 	return creature
+
+
+func _test_heist_lane_grants_magicka_on_pilfer() -> bool:
+	var match_state := _build_heist_match()
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var creature := _summon_creature(player, match_state, "heist_pilferer", "heist", 2, 2)
+	# Make creature ready to attack
+	creature["entered_lane_on_turn"] = int(match_state.get("turn_number", 0)) - 1
+	creature["has_attacked_this_turn"] = false
+	var magicka_before := int(player.get("current_magicka", 0)) + int(player.get("temporary_magicka", 0))
+	var attack_result := MatchCombat.resolve_attack(match_state, player["player_id"], creature["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	var magicka_after := int(player.get("current_magicka", 0)) + int(player.get("temporary_magicka", 0))
+	return (
+		_assert(attack_result["is_valid"], "Heist lane pilfer attack should resolve.") and
+		_assert(magicka_after == magicka_before + 1, "Heist lane should grant 1 magicka on pilfer, got %d -> %d." % [magicka_before, magicka_after])
+	)
+
+
+func _test_heist_lane_no_magicka_in_other_lane() -> bool:
+	var match_state := _build_heist_match()
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var creature := _summon_creature(player, match_state, "field_pilferer", "field", 2, 2)
+	creature["entered_lane_on_turn"] = int(match_state.get("turn_number", 0)) - 1
+	creature["has_attacked_this_turn"] = false
+	var magicka_before := int(player.get("current_magicka", 0)) + int(player.get("temporary_magicka", 0))
+	var attack_result := MatchCombat.resolve_attack(match_state, player["player_id"], creature["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	var magicka_after := int(player.get("current_magicka", 0)) + int(player.get("temporary_magicka", 0))
+	return (
+		_assert(attack_result["is_valid"], "Field lane attack should resolve.") and
+		_assert(magicka_after == magicka_before, "Creatures in field lane should not get heist magicka, got %d -> %d." % [magicka_before, magicka_after])
+	)
+
+
+func _build_heist_match() -> Dictionary:
+	var match_state := _build_match()
+	var lane: Dictionary = match_state["lanes"][1]
+	lane["lane_id"] = "heist"
+	lane["lane_type"] = "heist"
+	lane["lane_rule_payload"] = {
+		"display_name": "Heist",
+		"description": "Creatures in this lane have Pilfer: Gain 1 magicka.",
+		"icon": "res://assets/images/lanes/heist.png",
+		"implementation_bucket": "mvp",
+		"availability": ["story"],
+		"source_ids": ["uesp_lanes"],
+		"effects": [{"family": "pilfer", "match_role": "any_player", "effects": [{"op": "lane_heist_gain_magicka", "amount": 1}]}],
+	}
+	return match_state
 
 
 func _build_match() -> Dictionary:

@@ -37,7 +37,6 @@ static func inject_lane_triggers(match_state: Dictionary, registry: Array) -> vo
 
 static func apply_lane_effect(match_state: Dictionary, trigger: Dictionary, event: Dictionary, effect: Dictionary) -> Dictionary:
 	var op := str(effect.get("op", ""))
-	print("[LANE_EFFECT] apply_lane_effect called — op=%s event_type=%s" % [op, event.get("event_type", "")])
 	match op:
 		"lane_grant_cover":
 			return _resolve_lane_grant_cover(match_state, trigger, event)
