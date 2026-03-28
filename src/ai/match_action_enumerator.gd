@@ -185,7 +185,7 @@ static func enumerate_legal_actions(match_state: Dictionary, player_id: String =
 		var pc_options: Array = player_choice.get("options", [])
 		var pc_actions: Array = []
 		for oi in range(pc_options.size()):
-			var pc_label := str(pc_options[oi].get("label", "Option %d" % (oi + 1))) if typeof(pc_options[oi]) == TYPE_DICTIONARY else "Option %d" % (oi + 1)
+			var pc_label := str(pc_options[oi].get("label", "Option %d" % (oi + 1))) if typeof(pc_options[oi]) == TYPE_DICTIONARY else str(pc_options[oi])
 			pc_actions.append(_build_descriptor(KIND_CHOOSE_PLAYER_CHOICE, match_state, decision_player_id, {"chosen_index": oi}, {}, {
 				"timing_window": TIMING_INTERRUPT,
 				"label": pc_label,
