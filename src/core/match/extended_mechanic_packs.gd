@@ -2221,6 +2221,26 @@ static func apply_hand_selection_effect(match_state: Dictionary, player_id: Stri
 				granted_keywords.append(keyword_id)
 				chosen_card["granted_keywords"] = granted_keywords
 			return [{"event_type": "keyword_granted", "source_instance_id": source_instance_id, "target_instance_id": str(chosen_card.get("instance_id", "")), "keyword_id": keyword_id, "zone": "hand"}]
+		"shuffle_buffed_copies":
+			var sbc_power := int(then_context.get("power_bonus", 3))
+			var sbc_health := int(then_context.get("health_bonus", 3))
+			var sbc_count := int(then_context.get("copy_count", 3))
+			var sbc_player := _get_player_state(match_state, player_id)
+			if sbc_player.is_empty():
+				return []
+			var sbc_deck: Array = sbc_player.get("deck", [])
+			var sbc_events: Array = []
+			for sbc_i in range(sbc_count):
+				var sbc_template: Dictionary = chosen_card.duplicate(true)
+				sbc_template.erase("instance_id")
+				sbc_template.erase("status_markers")
+				var sbc_copy := MatchMutations.build_generated_card(match_state, player_id, sbc_template)
+				EvergreenRules.apply_stat_bonus(sbc_copy, sbc_power, sbc_health, "shuffle_buffed_copies")
+				sbc_copy["zone"] = "deck"
+				var sbc_insert: int = _timing_rules()._deterministic_index(match_state, str(sbc_copy.get("instance_id", "")) + "_sbc", sbc_deck.size() + 1)
+				sbc_deck.insert(sbc_insert, sbc_copy)
+			sbc_events.append({"event_type": "copies_shuffled_to_deck", "player_id": player_id, "source_instance_id": source_instance_id, "chosen_instance_id": str(chosen_card.get("instance_id", "")), "count": sbc_count, "power_bonus": sbc_power, "health_bonus": sbc_health})
+			return sbc_events
 		"trade_for_opponent_deck":
 			var tfo_opponent := ""
 			for player in match_state.get("players", []):

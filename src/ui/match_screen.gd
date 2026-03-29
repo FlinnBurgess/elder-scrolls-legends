@@ -5527,6 +5527,11 @@ func _on_lane_row_gui_input(event: InputEvent, lane_id: String, player_id: Strin
 		return
 	if button_event.button_index != MOUSE_BUTTON_LEFT:
 		return
+	# Betray lane selection: if waiting for a lane for betray replay, resolve it
+	if not _pending_betray.is_empty() and bool(_pending_betray.get("is_lane_targeted", false)) and not str(_pending_betray.get("sacrifice_instance_id", "")).is_empty():
+		_resolve_betray_replay_lane(lane_id)
+		accept_event()
+		return
 	var card := _selected_card()
 	if card.is_empty():
 		return
@@ -8515,6 +8520,7 @@ func _check_betray_mode(action_instance_id: String, action_card: Dictionary) -> 
 	if candidates.is_empty():
 		return
 	var is_targeted := not str(action_card.get("action_target_mode", "")).is_empty()
+	var is_lane_targeted := _action_has_event_lane_targets(action_card)
 	if is_targeted:
 		var any_valid := false
 		for candidate in candidates:
@@ -8527,11 +8533,27 @@ func _check_betray_mode(action_instance_id: String, action_card: Dictionary) -> 
 		"action_instance_id": action_instance_id,
 		"action_card": action_card,
 		"is_targeted": is_targeted,
+		"is_lane_targeted": is_lane_targeted,
 	}
 	_show_betray_skip_button()
 	var card_name := str(action_card.get("name", ""))
 	_status_message = "Sacrifice a creature to play %s again." % card_name
 	_refresh_ui()
+
+
+func _action_has_event_lane_targets(action_card: Dictionary) -> bool:
+	for trigger in action_card.get("triggered_abilities", []):
+		if typeof(trigger) != TYPE_DICTIONARY:
+			continue
+		if str(trigger.get("family", "")) != "on_play":
+			continue
+		for effect in trigger.get("effects", []):
+			if typeof(effect) != TYPE_DICTIONARY:
+				continue
+			var target_str := str(effect.get("target", ""))
+			if target_str.ends_with("_in_event_lane"):
+				return true
+	return false
 
 
 var _summon_skip_button: Button = null
@@ -8868,6 +8890,11 @@ func _resolve_betray_sacrifice(sacrifice_instance_id: String) -> void:
 		var card_name := str(_pending_betray.get("action_card", {}).get("name", ""))
 		_status_message = "Choose a target for %s." % card_name
 		_refresh_ui()
+	elif bool(_pending_betray.get("is_lane_targeted", false)):
+		_pending_betray["sacrifice_instance_id"] = sacrifice_instance_id
+		var card_name := str(_pending_betray.get("action_card", {}).get("name", ""))
+		_status_message = "Choose a lane for %s." % card_name
+		_refresh_ui()
 	else:
 		var action_instance_id := str(_pending_betray.get("action_instance_id", ""))
 		var result := MatchTiming.execute_betray_replay(_match_state, _active_player_id(), action_instance_id, sacrifice_instance_id, {})
@@ -8892,6 +8919,15 @@ func _resolve_betray_replay_target_player(player_id: String) -> void:
 	var result := MatchTiming.execute_betray_replay(_match_state, _active_player_id(), action_instance_id, sacrifice_id, replay_options)
 	_pending_betray = {}
 	_cancel_targeting_mode_silent()
+	_finalize_engine_result(result, "Betray replay resolved.")
+
+
+func _resolve_betray_replay_lane(lane_id: String) -> void:
+	var action_instance_id := str(_pending_betray.get("action_instance_id", ""))
+	var sacrifice_id := str(_pending_betray.get("sacrifice_instance_id", ""))
+	var replay_options := {"lane_id": lane_id}
+	var result := MatchTiming.execute_betray_replay(_match_state, _active_player_id(), action_instance_id, sacrifice_id, replay_options)
+	_pending_betray = {}
 	_finalize_engine_result(result, "Betray replay resolved.")
 
 

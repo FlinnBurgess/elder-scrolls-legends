@@ -5778,6 +5778,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							teaf_trigger["source_instance_id"] = str(card.get("instance_id", ""))
 							teaf_trigger["controller_player_id"] = teaf_controller
 							teaf_trigger["lane_index"] = int(teaf_loc.get("lane_index", -1))
+							teaf_trigger["descriptor"] = ability.duplicate(true)
 							generated_events.append_array(_apply_effects(match_state, teaf_trigger, event, {"effects": teaf_trigger.get("effects", [])}))
 							generated_events.append({"event_type": "exalt_triggered", "instance_id": str(card.get("instance_id", "")), "reason": reason})
 							break
@@ -7189,21 +7190,23 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				var ccihsc_player := _get_player_state(match_state, ccihsc_controller_id)
 				if not ccihsc_player.is_empty():
 					var ccihsc_hand: Array = ccihsc_player.get(ZONE_HAND, [])
-					var ccihsc_creature_ids: Array = []
+					var ccihsc_filter: Dictionary = effect.get("filter", {})
+					var ccihsc_allowed_types: Array = ccihsc_filter.get("card_type_in", ["creature"])
+					var ccihsc_candidate_ids: Array = []
 					for ccihsc_card in ccihsc_hand:
-						if str(ccihsc_card.get("card_type", "")) == CARD_TYPE_CREATURE:
-							ccihsc_creature_ids.append(str(ccihsc_card.get("instance_id", "")))
-					if not ccihsc_creature_ids.is_empty():
-						var ccihsc_power := int(effect.get("power_bonus", 3))
-						var ccihsc_health := int(effect.get("health_bonus", 3))
+						if ccihsc_allowed_types.has(str(ccihsc_card.get("card_type", ""))):
+							ccihsc_candidate_ids.append(str(ccihsc_card.get("instance_id", "")))
+					if not ccihsc_candidate_ids.is_empty():
+						var ccihsc_power := int(effect.get("stat_bonus_power", effect.get("power_bonus", 3)))
+						var ccihsc_health := int(effect.get("stat_bonus_health", effect.get("health_bonus", 3)))
 						var ccihsc_copies := int(effect.get("copy_count", 3))
 						match_state["pending_hand_selections"].append({
 							"player_id": ccihsc_controller_id,
 							"source_instance_id": str(trigger.get("source_instance_id", "")),
-							"candidate_instance_ids": ccihsc_creature_ids,
+							"candidate_instance_ids": ccihsc_candidate_ids,
 							"then_op": "shuffle_buffed_copies",
 							"then_context": {"power_bonus": ccihsc_power, "health_bonus": ccihsc_health, "copy_count": ccihsc_copies},
-							"prompt": "Choose a creature to shuffle copies of into your deck.",
+							"prompt": "Choose a creature or item to shuffle copies of into your deck.",
 						})
 			"optional_consume_for_keyword":
 				# Handled via pending consume selection
