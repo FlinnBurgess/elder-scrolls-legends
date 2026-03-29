@@ -9,6 +9,7 @@ const PuzzleCodecScript = preload("res://src/puzzle/puzzle_codec.gd")
 const PuzzleConfigScript = preload("res://src/puzzle/puzzle_config.gd")
 const PuzzleCardSearchOverlayScript = preload("res://src/ui/puzzle/puzzle_card_search_overlay.gd")
 const PuzzleCreatureModifyOverlayScript = preload("res://src/ui/puzzle/puzzle_creature_modify_overlay.gd")
+const CardDisplayComponentScript = preload("res://src/ui/components/CardDisplayComponent.gd")
 const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
 
 var _config: Dictionary = {}
@@ -421,6 +422,7 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 	var board_row := HBoxContainer.new()
 	board_row.add_theme_constant_override("separation", 32)
 	board_row.size_flags_horizontal = SIZE_EXPAND_FILL
+	board_row.size_flags_vertical = SIZE_EXPAND_FILL
 	section.add_child(board_row)
 
 	var lane_keys: Array[String] = ["field_creatures", "shadow_creatures"]
@@ -430,68 +432,87 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 		var lane_frame := VBoxContainer.new()
 		lane_frame.add_theme_constant_override("separation", 6)
 		lane_frame.size_flags_horizontal = SIZE_EXPAND_FILL
+		lane_frame.size_flags_vertical = SIZE_EXPAND_FILL
 		board_row.add_child(lane_frame)
 
 		var slots_row := HBoxContainer.new()
-		slots_row.add_theme_constant_override("separation", 10)
+		slots_row.add_theme_constant_override("separation", 8)
 		slots_row.size_flags_horizontal = SIZE_EXPAND_FILL
+		slots_row.size_flags_vertical = SIZE_EXPAND_FILL
 		lane_frame.add_child(slots_row)
 
 		var creatures: Array = _get_side_cfg(side).get(lane_keys[lane_idx], [])
 
 		for slot_idx in range(width):
 			var slot_frame := VBoxContainer.new()
-			slot_frame.add_theme_constant_override("separation", 6)
+			slot_frame.add_theme_constant_override("separation", 4)
 			slot_frame.size_flags_horizontal = SIZE_EXPAND_FILL
+			slot_frame.size_flags_vertical = SIZE_EXPAND_FILL
 			slots_row.add_child(slot_frame)
 
-			if slot_idx < creatures.size():
-				var creature = creatures[slot_idx]
+			var creature = creatures[slot_idx] if slot_idx < creatures.size() else null
+			if creature != null:
 				var def_id := ""
 				if typeof(creature) == TYPE_STRING:
 					def_id = creature
 				elif typeof(creature) == TYPE_DICTIONARY:
 					def_id = str(creature.get("definition_id", ""))
-				var card_data: Dictionary = _card_by_id.get(def_id, {})
-				var display_name := str(card_data.get("name", def_id)).substr(0, 14)
+				var card_data: Dictionary = _card_by_id.get(def_id, {}).duplicate(true)
 
-				var slot_btn := Button.new()
-				slot_btn.text = display_name
-				slot_btn.custom_minimum_size = Vector2(0, 80)
-				slot_btn.size_flags_horizontal = SIZE_EXPAND_FILL
-				slot_btn.add_theme_font_size_override("font_size", 17)
-				var s := side
-				var li := lane_idx
-				var si := slot_idx
-				slot_btn.pressed.connect(func(): _on_populated_slot_clicked(s, li, si))
-				slot_frame.add_child(slot_btn)
+				# Apply stat overrides for display
+				if typeof(creature) == TYPE_DICTIONARY:
+					for key in creature:
+						if key != "definition_id":
+							card_data[key] = creature[key]
+
+				# Card display component — sized to fill slot
+				var card_container := Control.new()
+				card_container.size_flags_horizontal = SIZE_EXPAND_FILL
+				card_container.size_flags_vertical = SIZE_EXPAND_FILL
+				slot_frame.add_child(card_container)
+
+				var display := CardDisplayComponentScript.new()
+				# Set small minimum so _ready() doesn't force 220x384
+				display.custom_minimum_size = Vector2(1, 1)
+				display.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+				card_container.add_child(display)
+				var cd := card_data
+				display.ready.connect(func() -> void:
+					display.custom_minimum_size = Vector2(1, 1)
+					display.apply_card(cd, "full")
+					display.custom_minimum_size = Vector2(1, 1)
+				)
 
 				# Remove + Modify buttons
 				var action_row := HBoxContainer.new()
-				action_row.add_theme_constant_override("separation", 6)
+				action_row.add_theme_constant_override("separation", 4)
 				action_row.size_flags_horizontal = SIZE_EXPAND_FILL
 				slot_frame.add_child(action_row)
 
+				var s := side
+				var li := lane_idx
+				var si := slot_idx
+
 				var remove_btn := Button.new()
-				remove_btn.text = "Remove"
-				remove_btn.custom_minimum_size = Vector2(0, 38)
+				remove_btn.text = "X"
+				remove_btn.custom_minimum_size = Vector2(0, 28)
 				remove_btn.size_flags_horizontal = SIZE_EXPAND_FILL
-				remove_btn.add_theme_font_size_override("font_size", 16)
+				remove_btn.add_theme_font_size_override("font_size", 14)
 				remove_btn.pressed.connect(func(): _remove_creature(s, li, si))
 				action_row.add_child(remove_btn)
 
 				var modify_btn := Button.new()
-				modify_btn.text = "Modify"
-				modify_btn.custom_minimum_size = Vector2(0, 38)
+				modify_btn.text = "Mod"
+				modify_btn.custom_minimum_size = Vector2(0, 28)
 				modify_btn.size_flags_horizontal = SIZE_EXPAND_FILL
-				modify_btn.add_theme_font_size_override("font_size", 16)
+				modify_btn.add_theme_font_size_override("font_size", 14)
 				modify_btn.pressed.connect(func(): _modify_creature(s, li, si))
 				action_row.add_child(modify_btn)
 			else:
 				var empty_btn := Button.new()
 				empty_btn.text = "+"
-				empty_btn.custom_minimum_size = Vector2(0, 80)
 				empty_btn.size_flags_horizontal = SIZE_EXPAND_FILL
+				empty_btn.size_flags_vertical = SIZE_EXPAND_FILL
 				empty_btn.add_theme_font_size_override("font_size", 28)
 				var s := side
 				var li := lane_idx
