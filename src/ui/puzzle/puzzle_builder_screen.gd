@@ -326,9 +326,12 @@ func _build_lane_config_row(lane_widths: Array) -> void:
 	_left_lane_width_spin.value = int(lane_widths[0])
 	_left_lane_width_spin.custom_minimum_size = Vector2(90, 46)
 	_left_lane_width_spin.value_changed.connect(func(val):
-		_config["lanes"][0]["width"] = int(val)
-		_config["lanes"][1]["width"] = 8 - int(val)
-		_right_lane_width_label.text = str(8 - int(val))
+		var old_w0: int = int(_config["lanes"][0].get("width", 4))
+		var new_w0: int = int(val)
+		_config["lanes"][0]["width"] = new_w0
+		_config["lanes"][1]["width"] = 8 - new_w0
+		_right_lane_width_label.text = str(8 - new_w0)
+		_redistribute_overflow(old_w0, new_w0)
 		_refresh_board()
 	)
 	lane1_box.add_child(_left_lane_width_spin)
@@ -367,6 +370,32 @@ func _build_lane_config_row(lane_widths: Array) -> void:
 	var right_spacer := Control.new()
 	right_spacer.size_flags_horizontal = SIZE_EXPAND_FILL
 	row.add_child(right_spacer)
+
+
+func _redistribute_overflow(old_lane1_width: int, new_lane1_width: int) -> void:
+	if old_lane1_width == new_lane1_width:
+		return
+	for side in ["player", "enemy"]:
+		var cfg: Dictionary = _get_side_cfg(side)
+		var lane1: Array = cfg.get("field_creatures", [])
+		var lane2: Array = cfg.get("shadow_creatures", [])
+		if new_lane1_width < old_lane1_width:
+			# Lane 1 shrank — move overflow to front of lane 2
+			var overflow: Array = []
+			while lane1.size() > new_lane1_width:
+				overflow.append(lane1.pop_back())
+			overflow.reverse()
+			for i in range(overflow.size() - 1, -1, -1):
+				lane2.push_front(overflow[i])
+		else:
+			# Lane 1 grew — pull from front of lane 2 into end of lane 1
+			var slots_gained: int = new_lane1_width - old_lane1_width
+			var moved := 0
+			while moved < slots_gained and not lane2.is_empty():
+				lane1.append(lane2.pop_front())
+				moved += 1
+		cfg["field_creatures"] = lane1
+		cfg["shadow_creatures"] = lane2
 
 
 func _build_side_section(side: String, label_text: String, lane_widths: Array) -> void:
@@ -428,6 +457,17 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 	var lane_keys: Array[String] = ["field_creatures", "shadow_creatures"]
 
 	for lane_idx in range(2):
+		# Red vertical lane separator between lanes
+		if lane_idx == 1:
+			var lane_sep := VSeparator.new()
+			lane_sep.add_theme_stylebox_override("separator", StyleBoxLine.new())
+			var sep_style: StyleBoxLine = lane_sep.get_theme_stylebox("separator")
+			sep_style.color = Color(0.8, 0.2, 0.2, 0.7)
+			sep_style.thickness = 2
+			sep_style.vertical = true
+			lane_sep.custom_minimum_size = Vector2(2, 0)
+			board_row.add_child(lane_sep)
+
 		var width: int = int(lane_widths[lane_idx])
 		var lane_frame := VBoxContainer.new()
 		lane_frame.add_theme_constant_override("separation", 6)
