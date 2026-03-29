@@ -19,7 +19,7 @@ var _filtered: Array = []
 var _page := 0
 var _search_input: LineEdit
 var _type_filter: OptionButton
-var _grid: GridContainer
+var _grid: VBoxContainer
 var _page_label: Label
 var _card_type_filter := ""
 
@@ -114,13 +114,11 @@ func _build_ui() -> void:
 	_type_filter.item_selected.connect(func(_idx): _page = 0; _apply_filter())
 	filter_row.add_child(_type_filter)
 
-	# Grid
-	_grid = GridContainer.new()
-	_grid.columns = GRID_COLUMNS
+	# Card grid area — VBox of HBox rows
+	_grid = VBoxContainer.new()
 	_grid.size_flags_horizontal = SIZE_EXPAND_FILL
 	_grid.size_flags_vertical = SIZE_EXPAND_FILL
-	_grid.add_theme_constant_override("h_separation", 8)
-	_grid.add_theme_constant_override("v_separation", 8)
+	_grid.add_theme_constant_override("separation", 8)
 	root.add_child(_grid)
 
 	# Pagination
@@ -186,22 +184,25 @@ func _render_page() -> void:
 	var start := _page * CARDS_PER_PAGE
 	var end := mini(start + CARDS_PER_PAGE, _filtered.size())
 
+	var current_row: HBoxContainer
 	for i in range(start, end):
+		# Start a new row every GRID_COLUMNS cards
+		if (i - start) % GRID_COLUMNS == 0:
+			current_row = HBoxContainer.new()
+			current_row.add_theme_constant_override("separation", 8)
+			current_row.size_flags_horizontal = SIZE_EXPAND_FILL
+			current_row.size_flags_vertical = SIZE_EXPAND_FILL
+			_grid.add_child(current_row)
+
 		var card: Dictionary = _filtered[i]
 		var card_id := str(card.get("_card_id", ""))
 
-		# Wrapper: card display + select button
-		var cell := VBoxContainer.new()
-		cell.add_theme_constant_override("separation", 4)
-		cell.size_flags_horizontal = SIZE_EXPAND_FILL
-		cell.size_flags_vertical = SIZE_EXPAND_FILL
-
-		# Clickable card container
+		# Card container — fills slot, clickable
 		var card_container := Control.new()
 		card_container.size_flags_horizontal = SIZE_EXPAND_FILL
 		card_container.size_flags_vertical = SIZE_EXPAND_FILL
 		card_container.mouse_filter = MOUSE_FILTER_STOP
-		cell.add_child(card_container)
+		current_row.add_child(card_container)
 
 		var display := CardDisplayComponentScript.new()
 		display.custom_minimum_size = Vector2(1, 1)
@@ -218,4 +219,11 @@ func _render_page() -> void:
 				card_selected.emit(cid)
 		)
 
-		_grid.add_child(cell)
+	# Pad the last row with empty spacers to keep cards same width
+	if current_row != null:
+		var items_in_last_row := (end - start) % GRID_COLUMNS
+		if items_in_last_row > 0:
+			for _j in range(GRID_COLUMNS - items_in_last_row):
+				var spacer := Control.new()
+				spacer.size_flags_horizontal = SIZE_EXPAND_FILL
+				current_row.add_child(spacer)

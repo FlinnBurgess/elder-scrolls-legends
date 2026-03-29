@@ -642,8 +642,10 @@ func _open_card_search(type_hint: String = "") -> void:
 	if not type_hint.is_empty():
 		overlay.set_type_filter(type_hint)
 	overlay.card_selected.connect(func(card_id: String):
-		_on_card_selected(card_id)
+		# Dismiss the search overlay BEFORE _on_card_selected,
+		# which may reopen the list editor (setting a new _active_overlay)
 		_dismiss_overlay()
+		_on_card_selected(card_id)
 	)
 	overlay.cancelled.connect(func(): _dismiss_overlay())
 
@@ -665,10 +667,16 @@ func _on_card_selected(card_id: String) -> void:
 			var list: Array = _get_side_cfg(_pending_list_side).get(_pending_card_target, [])
 			list.append(card_id)
 			_get_side_cfg(_pending_list_side)[_pending_card_target] = list
+			_refresh_board()
+			_open_list_editor(_pending_list_side, _pending_card_target)
+			return
 		"supports":
 			var list: Array = _get_side_cfg(_pending_list_side).get("supports", [])
 			list.append(card_id)
 			_get_side_cfg(_pending_list_side)["supports"] = list
+			_refresh_board()
+			_open_list_editor(_pending_list_side, "supports")
+			return
 	_refresh_board()
 
 
@@ -735,6 +743,7 @@ func _open_list_editor(side: String, list_key: String) -> void:
 	for i in range(list_data.size()):
 		var entry_row := HBoxContainer.new()
 		entry_row.add_theme_constant_override("separation", 8)
+		entry_row.mouse_filter = MOUSE_FILTER_STOP
 		list_vbox.add_child(entry_row)
 
 		var idx_label := Label.new()
@@ -748,6 +757,17 @@ func _open_list_editor(side: String, list_key: String) -> void:
 		name_label.text = str(card_data.get("name", card_id))
 		name_label.size_flags_horizontal = SIZE_EXPAND_FILL
 		entry_row.add_child(name_label)
+
+		# Hover preview
+		var cd := card_data
+		entry_row.mouse_entered.connect(func() -> void:
+			_hover_card_data = cd
+			_hover_timer.start()
+		)
+		entry_row.mouse_exited.connect(func() -> void:
+			_hover_timer.stop()
+			_dismiss_hover_preview()
+		)
 
 		if list_key == "deck" or list_key == "discard":
 			# Reorder buttons
