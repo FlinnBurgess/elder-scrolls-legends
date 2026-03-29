@@ -1,0 +1,41 @@
+{
+  "name": "Telvanni Initiation",
+  "type": "kill",
+  "lanes": [
+    { "lane_type": "field", "width": 4 },
+    { "lane_type": "shadow", "width": 4 }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 7,
+    "current_magicka": 7,
+    "has_ring": false,
+    "hand": [
+      "hom_agi_drain_blood",
+      "hom_int_wild_clumsiness",
+      "hom_agi_blood_sacrament"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "int_redoran_enforcer",
+      "end_young_mammoth"
+    ],
+    "shadow_creatures": []
+  },
+  "enemy": {
+    "health": 9,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": ["str_fiery_imp"],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "hom_end_risen_dead",
+      "hos_wil_revered_guardian"
+    ],
+    "shadow_creatures": []
+  }
+}
