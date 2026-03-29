@@ -476,12 +476,11 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 				display.custom_minimum_size = Vector2(1, 1)
 				display.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 				card_container.add_child(display)
-				var cd := card_data
-				display.ready.connect(func() -> void:
-					display.custom_minimum_size = Vector2(1, 1)
-					display.apply_card(cd, "full")
-					display.custom_minimum_size = Vector2(1, 1)
-				)
+				# _ready() fires during add_child, so set_card works immediately after
+				display.set_presentation_mode("full")
+				display.custom_minimum_size = Vector2(1, 1)
+				display.set_card(card_data)
+				display.custom_minimum_size = Vector2(1, 1)
 
 				# Remove + Modify buttons
 				var action_row := HBoxContainer.new()
