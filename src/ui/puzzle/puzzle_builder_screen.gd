@@ -100,43 +100,39 @@ func _build_ui() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 
 	var bg := ColorRect.new()
-	bg.color = Color(0.06, 0.07, 0.09, 1.0)
+	bg.color = Color(0.16, 0.17, 0.21, 1.0)
 	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	bg.mouse_filter = MOUSE_FILTER_IGNORE
 	add_child(bg)
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 40)
-	margin.add_theme_constant_override("margin_right", 40)
-	margin.add_theme_constant_override("margin_top", 24)
-	margin.add_theme_constant_override("margin_bottom", 24)
+	margin.add_theme_constant_override("margin_left", 48)
+	margin.add_theme_constant_override("margin_right", 48)
+	margin.add_theme_constant_override("margin_top", 28)
+	margin.add_theme_constant_override("margin_bottom", 28)
 	add_child(margin)
 
 	var root := VBoxContainer.new()
 	root.size_flags_horizontal = SIZE_EXPAND_FILL
 	root.size_flags_vertical = SIZE_EXPAND_FILL
-	root.add_theme_constant_override("separation", 14)
+	root.add_theme_constant_override("separation", 20)
 	margin.add_child(root)
 
 	# Top bar
 	_build_top_bar(root)
 
-	# Board area
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = SIZE_EXPAND_FILL
-	scroll.size_flags_horizontal = SIZE_EXPAND_FILL
-	root.add_child(scroll)
-
+	# Board area — takes all remaining vertical space
 	_board_container = VBoxContainer.new()
 	_board_container.size_flags_horizontal = SIZE_EXPAND_FILL
-	_board_container.add_theme_constant_override("separation", 12)
-	scroll.add_child(_board_container)
+	_board_container.size_flags_vertical = SIZE_EXPAND_FILL
+	_board_container.add_theme_constant_override("separation", 0)
+	root.add_child(_board_container)
 
 	# Status bar
 	_status_label = Label.new()
-	_status_label.add_theme_font_size_override("font_size", 16)
-	_status_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.8))
+	_status_label.add_theme_font_size_override("font_size", 18)
+	_status_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8, 0.9))
 	root.add_child(_status_label)
 
 	# Import dialog
@@ -150,23 +146,23 @@ func _build_top_bar(parent: VBoxContainer) -> void:
 
 	var back_btn := Button.new()
 	back_btn.text = "Back"
-	back_btn.custom_minimum_size = Vector2(80, 44)
-	back_btn.add_theme_font_size_override("font_size", 17)
+	back_btn.custom_minimum_size = Vector2(100, 52)
+	back_btn.add_theme_font_size_override("font_size", 20)
 	back_btn.pressed.connect(func(): back_requested.emit())
 	bar.add_child(back_btn)
 
 	_name_input = LineEdit.new()
 	_name_input.placeholder_text = "Puzzle Name (max 40 characters)"
 	_name_input.max_length = 40
-	_name_input.custom_minimum_size = Vector2(320, 44)
-	_name_input.add_theme_font_size_override("font_size", 17)
+	_name_input.custom_minimum_size = Vector2(400, 52)
+	_name_input.add_theme_font_size_override("font_size", 20)
 	_name_input.text_changed.connect(func(t): _config["name"] = t)
 	bar.add_child(_name_input)
 
 	_type_toggle = CheckButton.new()
 	_type_toggle.text = "Survive Mode"
 	_type_toggle.button_pressed = false
-	_type_toggle.add_theme_font_size_override("font_size", 17)
+	_type_toggle.add_theme_font_size_override("font_size", 20)
 	_type_toggle.toggled.connect(func(pressed):
 		_config["type"] = "survive" if pressed else "kill"
 	)
@@ -178,22 +174,22 @@ func _build_top_bar(parent: VBoxContainer) -> void:
 
 	var export_btn := Button.new()
 	export_btn.text = "Export"
-	export_btn.custom_minimum_size = Vector2(100, 44)
-	export_btn.add_theme_font_size_override("font_size", 17)
+	export_btn.custom_minimum_size = Vector2(120, 52)
+	export_btn.add_theme_font_size_override("font_size", 20)
 	export_btn.pressed.connect(_on_export)
 	bar.add_child(export_btn)
 
 	var import_btn := Button.new()
 	import_btn.text = "Import"
-	import_btn.custom_minimum_size = Vector2(100, 44)
-	import_btn.add_theme_font_size_override("font_size", 17)
+	import_btn.custom_minimum_size = Vector2(120, 52)
+	import_btn.add_theme_font_size_override("font_size", 20)
 	import_btn.pressed.connect(_show_import_dialog)
 	bar.add_child(import_btn)
 
 	var play_btn := Button.new()
 	play_btn.text = "Play"
-	play_btn.custom_minimum_size = Vector2(100, 44)
-	play_btn.add_theme_font_size_override("font_size", 17)
+	play_btn.custom_minimum_size = Vector2(120, 52)
+	play_btn.add_theme_font_size_override("font_size", 20)
 	play_btn.pressed.connect(_on_play)
 	bar.add_child(play_btn)
 
@@ -208,11 +204,11 @@ func _build_top_bar(parent: VBoxContainer) -> void:
 
 	var l1_label := Label.new()
 	l1_label.text = "Lane 1:"
-	l1_label.add_theme_font_size_override("font_size", 17)
+	l1_label.add_theme_font_size_override("font_size", 20)
 	lane_box.add_child(l1_label)
 
 	_left_lane_type_dropdown = OptionButton.new()
-	_left_lane_type_dropdown.custom_minimum_size = Vector2(150, 40)
+	_left_lane_type_dropdown.custom_minimum_size = Vector2(170, 46)
 	_populate_lane_dropdown(_left_lane_type_dropdown)
 	_left_lane_type_dropdown.item_selected.connect(func(idx):
 		_config["lanes"][0]["lane_type"] = str(_left_lane_type_dropdown.get_item_text(idx))
@@ -223,7 +219,7 @@ func _build_top_bar(parent: VBoxContainer) -> void:
 	_left_lane_width_spin.min_value = 1
 	_left_lane_width_spin.max_value = 7
 	_left_lane_width_spin.value = 4
-	_left_lane_width_spin.custom_minimum_size = Vector2(80, 40)
+	_left_lane_width_spin.custom_minimum_size = Vector2(90, 46)
 	_left_lane_width_spin.value_changed.connect(func(val):
 		_config["lanes"][0]["width"] = int(val)
 		_config["lanes"][1]["width"] = 8 - int(val)
@@ -234,11 +230,11 @@ func _build_top_bar(parent: VBoxContainer) -> void:
 
 	var l2_label := Label.new()
 	l2_label.text = "Lane 2:"
-	l2_label.add_theme_font_size_override("font_size", 17)
+	l2_label.add_theme_font_size_override("font_size", 20)
 	lane_box.add_child(l2_label)
 
 	_right_lane_type_dropdown = OptionButton.new()
-	_right_lane_type_dropdown.custom_minimum_size = Vector2(150, 40)
+	_right_lane_type_dropdown.custom_minimum_size = Vector2(170, 46)
 	_populate_lane_dropdown(_right_lane_type_dropdown)
 	_select_lane_dropdown(_right_lane_type_dropdown, "shadow")
 	_right_lane_type_dropdown.item_selected.connect(func(idx):
@@ -248,7 +244,7 @@ func _build_top_bar(parent: VBoxContainer) -> void:
 
 	_right_lane_width_label = Label.new()
 	_right_lane_width_label.text = "4"
-	_right_lane_width_label.add_theme_font_size_override("font_size", 18)
+	_right_lane_width_label.add_theme_font_size_override("font_size", 22)
 	lane_box.add_child(_right_lane_width_label)
 
 	# Third row: player/enemy settings
@@ -269,7 +265,7 @@ func _build_top_bar(parent: VBoxContainer) -> void:
 	_ring_check = CheckBox.new()
 	_ring_check.text = "Ring of Magicka"
 	_ring_check.button_pressed = false
-	_ring_check.add_theme_font_size_override("font_size", 17)
+	_ring_check.add_theme_font_size_override("font_size", 20)
 	_ring_check.toggled.connect(func(v): _config["player"]["has_ring"] = v)
 	player_settings.add_child(_ring_check)
 
@@ -294,69 +290,89 @@ func _refresh_board() -> void:
 		int(_config["lanes"][1].get("width", 4)),
 	]
 
+	# Top spacer — pushes board toward vertical center
+	var top_spacer := Control.new()
+	top_spacer.size_flags_vertical = SIZE_EXPAND_FILL
+	_board_container.add_child(top_spacer)
+
 	# Enemy side (top)
 	_build_side_section("enemy", "Enemy", lane_widths)
 
-	# Separator
+	# Separator with generous spacing
+	var sep_spacer := Control.new()
+	sep_spacer.custom_minimum_size = Vector2(0, 30)
+	sep_spacer.size_flags_vertical = SIZE_EXPAND_FILL
+	_board_container.add_child(sep_spacer)
+
 	var sep := HSeparator.new()
-	sep.add_theme_constant_override("separation", 8)
+	sep.add_theme_constant_override("separation", 4)
 	_board_container.add_child(sep)
+
+	var sep_spacer2 := Control.new()
+	sep_spacer2.custom_minimum_size = Vector2(0, 30)
+	sep_spacer2.size_flags_vertical = SIZE_EXPAND_FILL
+	_board_container.add_child(sep_spacer2)
 
 	# Player side (bottom)
 	_build_side_section("player", "Player", lane_widths)
 
+	# Bottom spacer
+	var bottom_spacer := Control.new()
+	bottom_spacer.size_flags_vertical = SIZE_EXPAND_FILL
+	_board_container.add_child(bottom_spacer)
+
 
 func _build_side_section(side: String, label_text: String, lane_widths: Array) -> void:
 	var section := VBoxContainer.new()
-	section.add_theme_constant_override("separation", 8)
+	section.add_theme_constant_override("separation", 12)
 	_board_container.add_child(section)
 
 	# Side header with clickable zones
 	var header := HBoxContainer.new()
-	header.add_theme_constant_override("separation", 16)
+	header.add_theme_constant_override("separation", 20)
 	section.add_child(header)
 
 	var side_label := Label.new()
 	side_label.text = label_text
-	side_label.add_theme_font_size_override("font_size", 20)
-	side_label.custom_minimum_size = Vector2(80, 0)
+	side_label.add_theme_font_size_override("font_size", 24)
+	side_label.custom_minimum_size = Vector2(100, 0)
 	header.add_child(side_label)
 
 	var hand_btn := Button.new()
 	var hand_count: int = _get_side_cfg(side).get("hand", []).size()
 	hand_btn.text = "Hand (%d)" % hand_count
-	hand_btn.custom_minimum_size = Vector2(110, 40)
-	hand_btn.add_theme_font_size_override("font_size", 16)
+	hand_btn.custom_minimum_size = Vector2(140, 48)
+	hand_btn.add_theme_font_size_override("font_size", 20)
 	hand_btn.pressed.connect(func(): _open_list_editor(side, "hand"))
 	header.add_child(hand_btn)
 
 	var deck_btn := Button.new()
 	var deck_count: int = _get_side_cfg(side).get("deck", []).size()
 	deck_btn.text = "Deck (%d)" % deck_count
-	deck_btn.custom_minimum_size = Vector2(110, 40)
-	deck_btn.add_theme_font_size_override("font_size", 16)
+	deck_btn.custom_minimum_size = Vector2(140, 48)
+	deck_btn.add_theme_font_size_override("font_size", 20)
 	deck_btn.pressed.connect(func(): _open_list_editor(side, "deck"))
 	header.add_child(deck_btn)
 
 	var discard_btn := Button.new()
 	var discard_count: int = _get_side_cfg(side).get("discard", []).size()
 	discard_btn.text = "Discard (%d)" % discard_count
-	discard_btn.custom_minimum_size = Vector2(130, 40)
-	discard_btn.add_theme_font_size_override("font_size", 16)
+	discard_btn.custom_minimum_size = Vector2(160, 48)
+	discard_btn.add_theme_font_size_override("font_size", 20)
 	discard_btn.pressed.connect(func(): _open_list_editor(side, "discard"))
 	header.add_child(discard_btn)
 
 	var support_btn := Button.new()
 	var support_count: int = _get_side_cfg(side).get("supports", []).size()
 	support_btn.text = "Supports (%d)" % support_count
-	support_btn.custom_minimum_size = Vector2(140, 40)
-	support_btn.add_theme_font_size_override("font_size", 16)
+	support_btn.custom_minimum_size = Vector2(170, 48)
+	support_btn.add_theme_font_size_override("font_size", 20)
 	support_btn.pressed.connect(func(): _open_list_editor(side, "supports"))
 	header.add_child(support_btn)
 
 	# Board slots — 2 lane groups
 	var board_row := HBoxContainer.new()
-	board_row.add_theme_constant_override("separation", 24)
+	board_row.add_theme_constant_override("separation", 32)
 	board_row.size_flags_horizontal = SIZE_EXPAND_FILL
 	section.add_child(board_row)
 
@@ -365,12 +381,12 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 	for lane_idx in range(2):
 		var width: int = int(lane_widths[lane_idx])
 		var lane_frame := VBoxContainer.new()
-		lane_frame.add_theme_constant_override("separation", 4)
+		lane_frame.add_theme_constant_override("separation", 6)
 		lane_frame.size_flags_horizontal = SIZE_EXPAND_FILL
 		board_row.add_child(lane_frame)
 
 		var slots_row := HBoxContainer.new()
-		slots_row.add_theme_constant_override("separation", 8)
+		slots_row.add_theme_constant_override("separation", 10)
 		slots_row.size_flags_horizontal = SIZE_EXPAND_FILL
 		lane_frame.add_child(slots_row)
 
@@ -378,7 +394,7 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 
 		for slot_idx in range(width):
 			var slot_frame := VBoxContainer.new()
-			slot_frame.add_theme_constant_override("separation", 4)
+			slot_frame.add_theme_constant_override("separation", 6)
 			slot_frame.size_flags_horizontal = SIZE_EXPAND_FILL
 			slots_row.add_child(slot_frame)
 
@@ -394,9 +410,9 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 
 				var slot_btn := Button.new()
 				slot_btn.text = display_name
-				slot_btn.custom_minimum_size = Vector2(0, 64)
+				slot_btn.custom_minimum_size = Vector2(0, 80)
 				slot_btn.size_flags_horizontal = SIZE_EXPAND_FILL
-				slot_btn.add_theme_font_size_override("font_size", 14)
+				slot_btn.add_theme_font_size_override("font_size", 17)
 				var s := side
 				var li := lane_idx
 				var si := slot_idx
@@ -405,31 +421,31 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 
 				# Remove + Modify buttons
 				var action_row := HBoxContainer.new()
-				action_row.add_theme_constant_override("separation", 4)
+				action_row.add_theme_constant_override("separation", 6)
 				action_row.size_flags_horizontal = SIZE_EXPAND_FILL
 				slot_frame.add_child(action_row)
 
 				var remove_btn := Button.new()
 				remove_btn.text = "Remove"
-				remove_btn.custom_minimum_size = Vector2(0, 32)
+				remove_btn.custom_minimum_size = Vector2(0, 38)
 				remove_btn.size_flags_horizontal = SIZE_EXPAND_FILL
-				remove_btn.add_theme_font_size_override("font_size", 13)
+				remove_btn.add_theme_font_size_override("font_size", 16)
 				remove_btn.pressed.connect(func(): _remove_creature(s, li, si))
 				action_row.add_child(remove_btn)
 
 				var modify_btn := Button.new()
 				modify_btn.text = "Modify"
-				modify_btn.custom_minimum_size = Vector2(0, 32)
+				modify_btn.custom_minimum_size = Vector2(0, 38)
 				modify_btn.size_flags_horizontal = SIZE_EXPAND_FILL
-				modify_btn.add_theme_font_size_override("font_size", 13)
+				modify_btn.add_theme_font_size_override("font_size", 16)
 				modify_btn.pressed.connect(func(): _modify_creature(s, li, si))
 				action_row.add_child(modify_btn)
 			else:
 				var empty_btn := Button.new()
 				empty_btn.text = "+"
-				empty_btn.custom_minimum_size = Vector2(0, 64)
+				empty_btn.custom_minimum_size = Vector2(0, 80)
 				empty_btn.size_flags_horizontal = SIZE_EXPAND_FILL
-				empty_btn.add_theme_font_size_override("font_size", 20)
+				empty_btn.add_theme_font_size_override("font_size", 28)
 				var s := side
 				var li := lane_idx
 				var si := slot_idx
@@ -866,10 +882,10 @@ func _on_import_confirmed() -> void:
 
 func _labeled(text: String, control: Control, is_spin: bool = false) -> HBoxContainer:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
+	row.add_theme_constant_override("separation", 10)
 	var lbl := Label.new()
 	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", 17)
+	lbl.add_theme_font_size_override("font_size", 20)
 	row.add_child(lbl)
 	row.add_child(control)
 	return row
@@ -880,7 +896,7 @@ func _make_spin(min_val: int, max_val: int, default_val: int, on_change: Callabl
 	spin.min_value = min_val
 	spin.max_value = max_val
 	spin.value = default_val
-	spin.custom_minimum_size = Vector2(90, 40)
+	spin.custom_minimum_size = Vector2(100, 46)
 	spin.value_changed.connect(on_change)
 	return spin
 
@@ -888,8 +904,8 @@ func _make_spin(min_val: int, max_val: int, default_val: int, on_change: Callabl
 func _make_magicka_input(default_text: String, on_change: Callable) -> LineEdit:
 	var input := LineEdit.new()
 	input.text = default_text
-	input.custom_minimum_size = Vector2(70, 40)
-	input.add_theme_font_size_override("font_size", 17)
+	input.custom_minimum_size = Vector2(80, 46)
+	input.add_theme_font_size_override("font_size", 20)
 	input.text_changed.connect(on_change)
 	return input
 
