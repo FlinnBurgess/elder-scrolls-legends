@@ -1,0 +1,42 @@
+{
+  "name": "Redoran Initiation",
+  "type": "kill",
+  "lanes": [
+    { "lane_type": "field", "width": 4 },
+    { "lane_type": "shadow", "width": 4 }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 8,
+    "current_magicka": 8,
+    "has_ring": false,
+    "hand": [
+      "hom_str_sarethi_scion",
+      "hom_str_sarethi_scion",
+      "hom_str_sarethi_scion",
+      "hom_str_sarethi_scion",
+      "hom_str_aldruhn_arms_master"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "hom_wil_warclaw_mercenary",
+      "hom_wil_warclaw_mercenary"
+    ],
+    "shadow_creatures": []
+  },
+  "enemy": {
+    "health": 4,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "end_lurking_mummy"
+    ],
+    "shadow_creatures": []
+  }
+}
