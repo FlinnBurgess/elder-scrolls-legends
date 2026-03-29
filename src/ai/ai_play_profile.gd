@@ -88,6 +88,35 @@ const CONTROL := {
 }
 
 
+# Survive puzzle AI: hyper-aggressive, zero noise, focused on clearing guards
+# and dealing maximum face damage. Willing to trade creatures freely.
+const SURVIVE_PUZZLE := {
+	"face_damage_bonus": 1.2,
+	"shadow_lane_bonus": 0.85,
+	"creature_killed_bonus": 2.5,
+	"own_creature_lost_penalty": 0.8,
+	"guard_removed_bonus": 3.5,
+	"incoming_threat_weight": 1.0,
+	"health_weight": 1.0,
+	"min_action_gain": 0.3,
+	"hand_weight": 0.3,
+	"opponent_hand_weight": 0.1,
+	"summon_power_weight": 0.55,
+	"summon_health_weight": 0.15,
+	"support_base_value": 0.5,
+	"rune_weight": 0.4,
+	"threat_reduction_weight": 1.0,
+	"score_noise": 0.0,
+	"lookahead_depth": 1,
+	"top_candidate_lookahead": 3,
+	"lookahead_discount": 0.85,
+}
+
+
+static func build_survive_puzzle_options() -> Dictionary:
+	return SURVIVE_PUZZLE.duplicate()
+
+
 ## Build the full options dictionary for HeuristicMatchPolicy.choose_action().
 ##
 ## aggro_score: -1.0 (pure aggro) to +1.0 (pure control), from DeckArchetypeDetector.

@@ -4,6 +4,8 @@ extends Control
 signal return_to_main_menu_requested
 signal forfeit_requested
 signal match_state_changed(match_state: Dictionary)
+signal puzzle_retry_requested
+signal puzzle_return_to_select_requested
 
 const HeuristicMatchPolicy = preload("res://src/ai/heuristic_match_policy.gd")
 const MatchActionEnumerator = preload("res://src/ai/match_action_enumerator.gd")
@@ -164,6 +166,10 @@ var _hovered_hand_instance_id := ""
 var _overdraw_queue: Array = []
 var _match_end_button: Button
 var _arena_mode := false
+var _puzzle_mode := false
+var _puzzle_type := ""
+var _puzzle_config: Dictionary = {}
+var _puzzle_id := ""
 var _adventure_boons: Array = []
 var _adventure_augments: Dictionary = {}  # card_id -> Array of augment dicts
 var _pause_overlay: PanelContainer
@@ -578,6 +584,56 @@ func start_test_match(test_state: Dictionary) -> void:
 		"turn_number": int(test_state.get("turn_number", 1)),
 	}])
 	_status_message = "Test match started."
+	_refresh_ui()
+
+
+func start_puzzle_match(puzzle_state: Dictionary, puzzle_config: Dictionary = {},
+		puzzle_id: String = "", ai_options: Dictionary = {}) -> void:
+	_cancel_detached_card_silent()
+	_dismiss_mulligan_overlay()
+	_dismiss_prophecy_overlay()
+	_dismiss_discard_viewer()
+	_dismiss_discard_choice_overlay()
+	_dismiss_consume_selection_overlay()
+	_dismiss_deck_selection_overlay()
+	_dismiss_player_choice_overlay()
+	_exit_hand_selection_mode()
+	_exit_top_deck_choice_mode()
+	_dismiss_spell_reveal()
+	_reset_invalid_feedback()
+	_clear_feedback_state()
+	_reset_local_match_ai_queue()
+	_reset_match_history()
+	_local_match_ai_action_count = 0
+	var catalog_result := CardCatalog.load_default()
+	var card_by_id: Dictionary = catalog_result.get("card_by_id", {})
+	_hydrate_all_zones(puzzle_state, card_by_id)
+	GameLogger.start_match(puzzle_state)
+	_match_state = puzzle_state
+	_ai_options = ai_options
+	_scenario_id = LOCAL_MATCH_AI_SCENARIO_ID
+	_selected_instance_id = ""
+	_last_turn_owner_id = ""
+	_floating_card_ids.clear()
+	_turn_banner_until_ms = 0
+	_clear_pile_selection()
+	_mulligan_card_by_id = {}
+	_ai_enabled = true
+	_puzzle_mode = true
+	_puzzle_type = str(puzzle_state.get("puzzle_type", "kill"))
+	_puzzle_config = puzzle_config
+	_puzzle_id = puzzle_id
+	for p in puzzle_state.get("players", []):
+		if typeof(p) == TYPE_DICTIONARY:
+			ExtendedMechanicPacks.ensure_player_state(p)
+	MatchTiming.publish_events(puzzle_state, [{
+		"event_type": MatchTiming.EVENT_TURN_STARTED,
+		"player_id": str(puzzle_state.get("active_player_id", "")),
+		"source_controller_player_id": str(puzzle_state.get("active_player_id", "")),
+		"turn_number": int(puzzle_state.get("turn_number", 1)),
+	}])
+	var starting_text := "Survive for one turn to win." if _puzzle_type == "survive" else "Win this turn."
+	_status_message = starting_text
 	_refresh_ui()
 
 
@@ -1232,11 +1288,24 @@ func end_turn_action() -> bool:
 
 func _complete_end_turn(player_id: String) -> void:
 	_pending_end_turn = false
+	# Kill puzzle: if the player ends their turn without killing the enemy, they lose
+	if _puzzle_mode and _puzzle_type == "kill" and player_id == _local_player_id():
+		if str(_match_state.get("winner_player_id", "")).is_empty():
+			_match_state["winner_player_id"] = _enemy_player_id()
+			_status_message = "Puzzle Failed"
+			_refresh_ui()
+			return
 	MatchTurnLoop.end_turn(_match_state, player_id)
 	var timing_result: Dictionary = _match_state.get("last_timing_result", {})
 	_record_feedback_from_events(_copy_array(timing_result.get("processed_events", [])))
 	_selected_instance_id = ""
 	_status_message = "Ended %s's turn." % _player_name(player_id)
+	# Survive puzzle: if the enemy's turn just ended and it's now the player's turn,
+	# and the player is still alive, they win
+	if _puzzle_mode and _puzzle_type == "survive" and player_id == _enemy_player_id():
+		if str(_match_state.get("winner_player_id", "")).is_empty():
+			_match_state["winner_player_id"] = _local_player_id()
+			_status_message = "Puzzle Complete!"
 	_refresh_ui()
 	if _arena_mode:
 		match_state_changed.emit(_match_state.duplicate(true))
@@ -1694,6 +1763,21 @@ func _build_match_end_overlay() -> PanelContainer:
 	_match_end_button.add_theme_font_size_override("font_size", 17)
 	_match_end_button.pressed.connect(func(): return_to_main_menu_requested.emit())
 	box.add_child(_match_end_button)
+	if _puzzle_mode:
+		var retry_btn := Button.new()
+		retry_btn.name = "PuzzleRetryButton"
+		retry_btn.text = "Retry"
+		retry_btn.custom_minimum_size = Vector2(280, 48)
+		retry_btn.add_theme_font_size_override("font_size", 17)
+		retry_btn.pressed.connect(func(): puzzle_retry_requested.emit())
+		box.add_child(retry_btn)
+		var return_btn := Button.new()
+		return_btn.name = "PuzzleReturnButton"
+		return_btn.text = "Return to Puzzles"
+		return_btn.custom_minimum_size = Vector2(280, 48)
+		return_btn.add_theme_font_size_override("font_size", 17)
+		return_btn.pressed.connect(func(): puzzle_return_to_select_requested.emit())
+		box.add_child(return_btn)
 	return overlay
 
 
@@ -1731,7 +1815,22 @@ func _build_pause_overlay() -> PanelContainer:
 	_apply_button_style(resume_button, Color(0.18, 0.22, 0.18, 0.98), Color(0.5, 0.7, 0.5, 0.94), Color(0.95, 0.98, 0.95, 1.0), 1, 12)
 	resume_button.pressed.connect(_toggle_pause_menu)
 	box.add_child(resume_button)
-	if _arena_mode:
+	if _puzzle_mode:
+		var retry_button := Button.new()
+		retry_button.text = "Retry"
+		retry_button.custom_minimum_size = Vector2(260, 48)
+		retry_button.add_theme_font_size_override("font_size", 17)
+		_apply_button_style(retry_button, Color(0.18, 0.18, 0.22, 0.98), Color(0.5, 0.5, 0.7, 0.94), Color(0.95, 0.95, 0.98, 1.0), 1, 12)
+		retry_button.pressed.connect(func(): _pause_overlay.visible = false; puzzle_retry_requested.emit())
+		box.add_child(retry_button)
+		var return_button := Button.new()
+		return_button.text = "Return to Puzzles"
+		return_button.custom_minimum_size = Vector2(260, 48)
+		return_button.add_theme_font_size_override("font_size", 17)
+		_apply_button_style(return_button, Color(0.22, 0.18, 0.18, 0.98), Color(0.7, 0.5, 0.5, 0.94), Color(0.98, 0.95, 0.95, 1.0), 1, 12)
+		return_button.pressed.connect(func(): _pause_overlay.visible = false; puzzle_return_to_select_requested.emit())
+		box.add_child(return_button)
+	elif _arena_mode:
 		var forfeit_button := Button.new()
 		forfeit_button.text = "Forfeit"
 		forfeit_button.custom_minimum_size = Vector2(260, 48)
@@ -7079,6 +7178,10 @@ func _local_player_id() -> String:
 	return PLAYER_ORDER[1]
 
 
+func _enemy_player_id() -> String:
+	return PLAYER_ORDER[0]
+
+
 func _is_local_player_turn() -> bool:
 	return _active_player_id() == _local_player_id()
 
@@ -7207,15 +7310,29 @@ func _refresh_match_end_overlay() -> void:
 	if not visible:
 		return
 	var local_won := winner_player_id == _local_player_id()
+	# Mark puzzle as solved on first win detection
+	if _puzzle_mode and local_won and not _puzzle_id.is_empty():
+		const PuzzlePersistence = preload("res://src/puzzle/puzzle_persistence.gd")
+		if not PuzzlePersistence.is_solved(_puzzle_id):
+			PuzzlePersistence.mark_solved(_puzzle_id)
 	_apply_panel_style(_match_end_overlay, Color(0.04, 0.05, 0.07, 0.78), Color(0.88, 0.74, 0.44, 0.96) if local_won else Color(0.9, 0.42, 0.42, 0.96), 2, 18)
 	if _match_end_title_label != null:
-		_match_end_title_label.text = "Victory" if local_won else "Defeat"
+		if _puzzle_mode:
+			_match_end_title_label.text = "Puzzle Complete!" if local_won else "Puzzle Failed"
+		else:
+			_match_end_title_label.text = "Victory" if local_won else "Defeat"
 		_match_end_title_label.add_theme_color_override("font_color", Color(1.0, 0.95, 0.84, 1.0) if local_won else Color(1.0, 0.9, 0.9, 1.0))
 	if _match_end_detail_label != null:
-		_match_end_detail_label.text = _match_end_detail_text(winner_player_id)
+		if _puzzle_mode:
+			_match_end_detail_label.text = _match_state.get("puzzle_name", "") if local_won else "Try again!"
+		else:
+			_match_end_detail_label.text = _match_end_detail_text(winner_player_id)
 		_match_end_detail_label.add_theme_color_override("font_color", Color(0.93, 0.95, 0.99, 0.96))
 	if _match_end_button != null:
-		_match_end_button.text = "Continue" if _arena_mode else "Return to Main Menu"
+		if _puzzle_mode:
+			_match_end_button.visible = false
+		else:
+			_match_end_button.text = "Continue" if _arena_mode else "Return to Main Menu"
 
 
 func _refresh_end_turn_button_style(has_pending_prophecy: bool) -> void:

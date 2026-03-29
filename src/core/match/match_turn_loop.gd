@@ -148,10 +148,13 @@ static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionar
 	_refresh_board_state_for_turn(match_state, player_id)
 	player["turns_started"] = int(player.get("turns_started", 0)) + 1
 	player["temporary_magicka"] = 0
-	var current_max := int(player.get("max_magicka", 0))
-	var new_max := maxi(current_max, mini(MAX_MAGICKA_CAP, current_max + 1))
-	var magicka_gained := new_max - current_max
-	player["max_magicka"] = new_max
+	var suppress_magicka := bool(match_state.get("puzzle_suppress_magicka_gain", false))
+	var magicka_gained := 0
+	if not suppress_magicka:
+		var current_max := int(player.get("max_magicka", 0))
+		var new_max := maxi(current_max, mini(MAX_MAGICKA_CAP, current_max + 1))
+		magicka_gained = new_max - current_max
+		player["max_magicka"] = new_max
 	player["current_magicka"] = int(player["max_magicka"])
 	player["ring_of_magicka_used_this_turn"] = false
 
@@ -165,15 +168,17 @@ static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionar
 			"target_player_id": player_id,
 			"amount": magicka_gained,
 		}])
-	var draw_result := MatchTiming.draw_cards(match_state, player_id, 1, {
-		"reason": MatchTiming.EVENT_TURN_STARTED,
-		"source_controller_player_id": player_id,
-	})
-	var events: Array = draw_result.get("events", []).duplicate(true)
-	var drawn_cards: Array = draw_result.get("cards", [])
+	var events: Array = []
 	var drawn_instance_id := ""
-	if not drawn_cards.is_empty():
-		drawn_instance_id = str(drawn_cards[0].get("instance_id", ""))
+	if not bool(match_state.get("puzzle_suppress_draw", false)):
+		var draw_result := MatchTiming.draw_cards(match_state, player_id, 1, {
+			"reason": MatchTiming.EVENT_TURN_STARTED,
+			"source_controller_player_id": player_id,
+		})
+		events = draw_result.get("events", []).duplicate(true)
+		var drawn_cards: Array = draw_result.get("cards", [])
+		if not drawn_cards.is_empty():
+			drawn_instance_id = str(drawn_cards[0].get("instance_id", ""))
 	if int(player.get("turns_started", 0)) == 1:
 		for hand_card in player.get("hand", []):
 			if typeof(hand_card) == TYPE_DICTIONARY:

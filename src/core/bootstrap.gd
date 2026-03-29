@@ -8,6 +8,12 @@ const DeckbuilderScreen = preload("res://src/ui/deckbuilder_screen.gd")
 const ArenaControllerScript = preload("res://src/ui/arena/arena_controller.gd")
 const AdventureControllerScript = preload("res://src/ui/adventure/adventure_controller.gd")
 const TestMatchConfig = preload("res://data/test_match_config.gd")
+const PuzzleSelectScreenScript = preload("res://src/ui/puzzle/puzzle_select_screen.gd")
+const PuzzleConfigScript = preload("res://src/puzzle/puzzle_config.gd")
+const PuzzleCodecScript = preload("res://src/puzzle/puzzle_codec.gd")
+const PuzzlePersistenceScript = preload("res://src/puzzle/puzzle_persistence.gd")
+const AIPlayProfile = preload("res://src/ai/ai_play_profile.gd")
+const PuzzleBuilderScreenScript = preload("res://src/ui/puzzle/puzzle_builder_screen.gd")
 
 const DECKS_DIR := "res://data/decks/"
 
@@ -21,6 +27,9 @@ var _selected_deck_index := -1
 var _start_match_button: Button
 var _match_button: Button
 var _test_match_picker: Control
+var _puzzle_screen: Control
+var _current_puzzle_entry: Dictionary = {}
+var _current_puzzle_config: Dictionary = {}
 
 
 func _ready() -> void:
@@ -83,6 +92,12 @@ func _show_main_menu() -> void:
 	arena_button.pressed.connect(_on_arena_pressed)
 	center.add_child(arena_button)
 
+	var puzzles_button := Button.new()
+	puzzles_button.text = "Puzzles"
+	puzzles_button.custom_minimum_size = Vector2(320, 52)
+	puzzles_button.pressed.connect(_on_puzzles_pressed)
+	center.add_child(puzzles_button)
+
 	var deckbuilder_button := Button.new()
 	deckbuilder_button.text = "Deck Builder"
 	deckbuilder_button.custom_minimum_size = Vector2(320, 52)
@@ -111,6 +126,130 @@ func _on_arena_pressed() -> void:
 	arena_controller.return_to_menu.connect(_show_main_menu)
 	add_child(arena_controller)
 	_active_screen = arena_controller
+
+
+func _on_puzzles_pressed() -> void:
+	_main_menu.visible = false
+	_puzzle_screen = PuzzleSelectScreenScript.new()
+	_puzzle_screen.name = "PuzzleSelectScreen"
+	_puzzle_screen.puzzle_selected.connect(_on_puzzle_selected)
+	_puzzle_screen.builder_requested.connect(_on_puzzle_builder_requested)
+	_puzzle_screen.back_requested.connect(_on_puzzle_back)
+	add_child(_puzzle_screen)
+	_active_screen = _puzzle_screen
+
+
+func _on_puzzle_selected(entry: Dictionary) -> void:
+	var code := str(entry.get("code", ""))
+	var result: Dictionary = PuzzleCodecScript.decode(code)
+	if not str(result.get("error", "")).is_empty():
+		push_error("Failed to decode puzzle: %s" % result.get("error"))
+		return
+	_current_puzzle_entry = entry
+	_current_puzzle_config = result.get("config", {})
+	_start_puzzle_match()
+
+
+func _start_puzzle_match() -> void:
+	var puzzle_state := PuzzleConfigScript.build_puzzle_match_state(_current_puzzle_config)
+	var puzzle_type := str(_current_puzzle_config.get("type", "kill"))
+	var ai_options := {}
+	if puzzle_type == "survive":
+		ai_options = AIPlayProfile.build_survive_puzzle_options()
+
+	if _puzzle_screen != null:
+		_puzzle_screen.visible = false
+
+	var match_screen := MatchScreen.new()
+	match_screen.name = "PuzzleMatch"
+	match_screen.puzzle_retry_requested.connect(_on_puzzle_retry.bind(match_screen))
+	match_screen.puzzle_return_to_select_requested.connect(_on_puzzle_return_to_select.bind(match_screen))
+	match_screen.return_to_main_menu_requested.connect(_on_puzzle_return_to_select.bind(match_screen))
+	add_child(match_screen)
+	_active_screen = match_screen
+	match_screen.start_puzzle_match(puzzle_state, _current_puzzle_config,
+		str(_current_puzzle_entry.get("id", "")), ai_options)
+
+
+func _on_puzzle_retry(match_screen: Control) -> void:
+	match_screen.queue_free()
+	_start_puzzle_match()
+
+
+func _on_puzzle_return_to_select(match_screen: Control) -> void:
+	match_screen.queue_free()
+	# Mark solved if player won
+	var puzzle_id := str(_current_puzzle_entry.get("id", ""))
+	if not puzzle_id.is_empty():
+		# Check the match state for a win — the match_screen is being freed
+		# so we rely on the puzzle_id tracking; completion is marked in _complete_end_turn
+		pass
+	if _puzzle_screen != null:
+		_puzzle_screen.visible = true
+		_active_screen = _puzzle_screen
+		# Refresh the list in case completion status changed
+		if _puzzle_screen.has_method("_refresh_custom_puzzles"):
+			_puzzle_screen._refresh_custom_puzzles()
+	else:
+		_show_main_menu()
+
+
+func _on_puzzle_back() -> void:
+	if _puzzle_screen != null:
+		_puzzle_screen.queue_free()
+		_puzzle_screen = null
+	_show_main_menu()
+
+
+func _on_puzzle_builder_requested() -> void:
+	if _puzzle_screen != null:
+		_puzzle_screen.visible = false
+	var builder := PuzzleBuilderScreenScript.new()
+	builder.name = "PuzzleBuilder"
+	builder.back_requested.connect(_on_builder_back.bind(builder))
+	builder.play_requested.connect(_on_builder_play.bind(builder))
+	add_child(builder)
+	_active_screen = builder
+
+
+func _on_builder_back(builder: Control) -> void:
+	builder.queue_free()
+	if _puzzle_screen != null:
+		_puzzle_screen.visible = true
+		_active_screen = _puzzle_screen
+	else:
+		_show_main_menu()
+
+
+func _on_builder_play(config: Dictionary, builder: Control) -> void:
+	builder.visible = false
+	_current_puzzle_config = config
+	_current_puzzle_entry = {}
+	var puzzle_state := PuzzleConfigScript.build_puzzle_match_state(config)
+	var puzzle_type := str(config.get("type", "kill"))
+	var ai_options := {}
+	if puzzle_type == "survive":
+		ai_options = AIPlayProfile.build_survive_puzzle_options()
+
+	var match_screen := MatchScreen.new()
+	match_screen.name = "PuzzleBuilderTest"
+	match_screen.puzzle_retry_requested.connect(func():
+		match_screen.queue_free()
+		_on_builder_play(config, builder)
+	)
+	match_screen.puzzle_return_to_select_requested.connect(func():
+		match_screen.queue_free()
+		builder.visible = true
+		_active_screen = builder
+	)
+	match_screen.return_to_main_menu_requested.connect(func():
+		match_screen.queue_free()
+		builder.visible = true
+		_active_screen = builder
+	)
+	add_child(match_screen)
+	_active_screen = match_screen
+	match_screen.start_puzzle_match(puzzle_state, config, "", ai_options)
 
 
 func _show_deck_select_screen() -> void:
