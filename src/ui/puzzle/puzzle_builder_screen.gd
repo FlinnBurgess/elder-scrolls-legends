@@ -40,6 +40,13 @@ var _import_dialog: PanelContainer
 var _import_input: TextEdit
 var _import_error_label: Label
 
+# Hover preview
+var _hover_preview: Control
+var _hover_timer: Timer
+var _hover_card_data: Dictionary = {}
+const HOVER_DELAY := 0.35
+const PREVIEW_SIZE := Vector2(220, 384)
+
 # Active overlay tracking
 var _active_overlay: Control
 var _pending_slot_side := ""   # "player" or "enemy"
@@ -52,6 +59,11 @@ var _pending_list_side := ""
 func _ready() -> void:
 	_load_data()
 	_init_default_config()
+	_hover_timer = Timer.new()
+	_hover_timer.one_shot = true
+	_hover_timer.wait_time = HOVER_DELAY
+	_hover_timer.timeout.connect(_show_hover_preview)
+	add_child(_hover_timer)
 	_build_ui()
 	_refresh_board()
 
@@ -506,22 +518,33 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 						if key != "definition_id":
 							card_data[key] = creature[key]
 
-				# Card display component — sized to fill slot
+				# Card display component — minimal mode, hover for full
 				var card_container := Control.new()
 				card_container.size_flags_horizontal = SIZE_EXPAND_FILL
 				card_container.size_flags_vertical = SIZE_EXPAND_FILL
+				card_container.mouse_filter = MOUSE_FILTER_STOP
 				slot_frame.add_child(card_container)
 
 				var display := CardDisplayComponentScript.new()
-				# Set small minimum so _ready() doesn't force 220x384
 				display.custom_minimum_size = Vector2(1, 1)
 				display.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 				card_container.add_child(display)
-				# _ready() fires during add_child, so set_card works immediately after
-				display.set_presentation_mode("full")
+				display.set_presentation_mode("creature_board_minimal")
 				display.custom_minimum_size = Vector2(1, 1)
+				display.set_interactive(true)
 				display.set_card(card_data)
 				display.custom_minimum_size = Vector2(1, 1)
+
+				# Hover to show full card preview
+				var cd := card_data
+				card_container.mouse_entered.connect(func() -> void:
+					_hover_card_data = cd
+					_hover_timer.start()
+				)
+				card_container.mouse_exited.connect(func() -> void:
+					_hover_timer.stop()
+					_dismiss_hover_preview()
+				)
 
 				# Remove + Modify buttons
 				var action_row := HBoxContainer.new()
@@ -816,6 +839,43 @@ func _dismiss_overlay() -> void:
 	if _active_overlay != null:
 		_active_overlay.queue_free()
 		_active_overlay = null
+
+
+func _show_hover_preview() -> void:
+	if _hover_card_data.is_empty():
+		return
+	_dismiss_hover_preview()
+
+	var preview := CardDisplayComponentScript.new()
+	preview.custom_minimum_size = PREVIEW_SIZE
+	preview.mouse_filter = MOUSE_FILTER_IGNORE
+
+	var mouse_pos := get_viewport().get_mouse_position()
+	var viewport_size := get_viewport_rect().size
+
+	var pos := mouse_pos + Vector2(20, -PREVIEW_SIZE.y * 0.5)
+	pos.x = clampf(pos.x, 0, viewport_size.x - PREVIEW_SIZE.x)
+	pos.y = clampf(pos.y, 0, viewport_size.y - PREVIEW_SIZE.y)
+
+	if pos.x < mouse_pos.x + 20 and pos.x + PREVIEW_SIZE.x > mouse_pos.x:
+		pos.x = mouse_pos.x - PREVIEW_SIZE.x - 20
+		pos.x = maxf(pos.x, 0)
+
+	preview.position = pos
+	preview.size = PREVIEW_SIZE
+	preview.z_index = 80
+
+	var cd := _hover_card_data
+	add_child(preview)
+	preview.set_card(cd)
+
+	_hover_preview = preview
+
+
+func _dismiss_hover_preview() -> void:
+	if _hover_preview != null:
+		_hover_preview.queue_free()
+		_hover_preview = null
 
 
 func _get_side_cfg(side: String) -> Dictionary:

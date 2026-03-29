@@ -14,6 +14,7 @@ var _power_bonus_spin: SpinBox
 var _health_bonus_spin: SpinBox
 var _damage_spin: SpinBox
 var _can_attack_check: CheckBox
+var _shackled_check: CheckBox
 var _keyword_checks: Dictionary = {}  # keyword_name -> CheckBox
 
 
@@ -26,6 +27,8 @@ func load_overrides(overrides: Dictionary) -> void:
 	_health_bonus_spin.value = int(overrides.get("health_bonus", 0))
 	_damage_spin.value = int(overrides.get("damage_marked", 0))
 	_can_attack_check.button_pressed = bool(overrides.get("can_attack", true))
+	var status_markers: Array = overrides.get("status_markers", [])
+	_shackled_check.button_pressed = status_markers.has("shackled")
 	var keywords: Array = overrides.get("keywords", [])
 	for kw_name in _keyword_checks:
 		_keyword_checks[kw_name].button_pressed = keywords.has(kw_name)
@@ -118,6 +121,12 @@ func _build_ui() -> void:
 	_can_attack_check.button_pressed = true
 	vbox.add_child(_can_attack_check)
 
+	# Shackled
+	_shackled_check = CheckBox.new()
+	_shackled_check.text = "Shackled"
+	_shackled_check.button_pressed = false
+	vbox.add_child(_shackled_check)
+
 	# Keywords section
 	var kw_title := Label.new()
 	kw_title.text = "Keywords:"
@@ -168,6 +177,8 @@ func _on_confirm() -> void:
 	if dmg > 0:
 		overrides["damage_marked"] = dmg
 	overrides["can_attack"] = _can_attack_check.button_pressed
+	if _shackled_check.button_pressed:
+		overrides["status_markers"] = ["shackled"]
 	var keywords: Array = []
 	for kw_name in _keyword_checks:
 		if _keyword_checks[kw_name].button_pressed:
