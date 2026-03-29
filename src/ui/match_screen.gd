@@ -635,9 +635,66 @@ func start_puzzle_match(puzzle_state: Dictionary, puzzle_config: Dictionary = {}
 		"source_controller_player_id": str(puzzle_state.get("active_player_id", "")),
 		"turn_number": int(puzzle_state.get("turn_number", 1)),
 	}])
-	var starting_text := "Survive for one turn to win." if _puzzle_type == "survive" else "Win this turn."
-	_status_message = starting_text
+	_status_message = ""
 	_refresh_ui()
+	_show_puzzle_objective_popup()
+
+
+func _show_puzzle_objective_popup() -> void:
+	var objective_text := "Survive for one turn to win." if _puzzle_type == "survive" else "Win this turn."
+
+	var overlay := PanelContainer.new()
+	overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	overlay.z_index = 80
+	overlay.mouse_filter = MOUSE_FILTER_STOP
+	add_child(overlay)
+
+	var bg_style := StyleBoxFlat.new()
+	bg_style.bg_color = Color(0.0, 0.0, 0.0, 0.6)
+	overlay.add_theme_stylebox_override("panel", bg_style)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	overlay.add_child(center)
+
+	var card := PanelContainer.new()
+	card.custom_minimum_size = Vector2(400, 0)
+	var card_style := StyleBoxFlat.new()
+	card_style.bg_color = Color(0.1, 0.11, 0.16, 0.98)
+	card_style.border_color = Color(0.5, 0.5, 0.55, 0.96)
+	card_style.set_border_width_all(2)
+	card_style.set_corner_radius_all(12)
+	card.add_theme_stylebox_override("panel", card_style)
+	center.add_child(card)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 24)
+	margin.add_theme_constant_override("margin_right", 24)
+	margin.add_theme_constant_override("margin_top", 24)
+	margin.add_theme_constant_override("margin_bottom", 24)
+	card.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 16)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	margin.add_child(vbox)
+
+	var msg := Label.new()
+	msg.text = objective_text
+	msg.add_theme_font_size_override("font_size", 26)
+	msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(msg)
+
+	var btn_row := HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_child(btn_row)
+
+	var ok_btn := Button.new()
+	ok_btn.text = "Okay"
+	ok_btn.custom_minimum_size = Vector2(140, 44)
+	ok_btn.add_theme_font_size_override("font_size", 20)
+	ok_btn.pressed.connect(func(): overlay.queue_free())
+	btn_row.add_child(ok_btn)
 
 
 func resume_from_state(saved_state: Dictionary) -> void:

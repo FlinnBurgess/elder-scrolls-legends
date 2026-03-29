@@ -134,6 +134,7 @@ func _on_puzzles_pressed() -> void:
 	_puzzle_screen.name = "PuzzleSelectScreen"
 	_puzzle_screen.puzzle_selected.connect(_on_puzzle_selected)
 	_puzzle_screen.builder_requested.connect(_on_puzzle_builder_requested)
+	_puzzle_screen.edit_requested.connect(_on_puzzle_edit_requested)
 	_puzzle_screen.back_requested.connect(_on_puzzle_back)
 	add_child(_puzzle_screen)
 	_active_screen = _puzzle_screen
@@ -202,6 +203,14 @@ func _on_puzzle_back() -> void:
 
 
 func _on_puzzle_builder_requested() -> void:
+	_open_puzzle_builder()
+
+
+func _on_puzzle_edit_requested(config: Dictionary) -> void:
+	_open_puzzle_builder(config)
+
+
+func _open_puzzle_builder(config: Dictionary = {}) -> void:
 	if _puzzle_screen != null:
 		_puzzle_screen.visible = false
 	var builder := PuzzleBuilderScreenScript.new()
@@ -209,12 +218,15 @@ func _on_puzzle_builder_requested() -> void:
 	builder.back_requested.connect(_on_builder_back.bind(builder))
 	builder.play_requested.connect(_on_builder_play.bind(builder))
 	add_child(builder)
+	if not config.is_empty():
+		builder.load_config(config)
 	_active_screen = builder
 
 
 func _on_builder_back(builder: Control) -> void:
 	builder.queue_free()
 	if _puzzle_screen != null:
+		_puzzle_screen.refresh()
 		_puzzle_screen.visible = true
 		_active_screen = _puzzle_screen
 	else:

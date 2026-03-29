@@ -10,6 +10,7 @@ const PuzzleConfigScript = preload("res://src/puzzle/puzzle_config.gd")
 const PuzzleCardSearchOverlayScript = preload("res://src/ui/puzzle/puzzle_card_search_overlay.gd")
 const PuzzleCreatureModifyOverlayScript = preload("res://src/ui/puzzle/puzzle_creature_modify_overlay.gd")
 const CardDisplayComponentScript = preload("res://src/ui/components/CardDisplayComponent.gd")
+const PuzzlePersistenceScript = preload("res://src/puzzle/puzzle_persistence.gd")
 const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
 
 var _config: Dictionary = {}
@@ -226,6 +227,13 @@ func _build_top_bar(parent: VBoxContainer) -> void:
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = SIZE_EXPAND_FILL
 	bar.add_child(spacer)
+
+	var save_btn := Button.new()
+	save_btn.text = "Save"
+	save_btn.custom_minimum_size = Vector2(100, 44)
+	save_btn.add_theme_font_size_override("font_size", 18)
+	save_btn.pressed.connect(_on_save)
+	bar.add_child(save_btn)
 
 	var export_btn := Button.new()
 	export_btn.text = "Export"
@@ -905,11 +913,34 @@ func _get_side_cfg(side: String) -> Dictionary:
 	return _config.get(side, {})
 
 
+func _on_save() -> void:
+	_sync_config_from_ui()
+	var validation := PuzzleConfigScript.validate_config(_config)
+	if not bool(validation.get("valid", false)):
+		_show_error_popup("Save failed", validation.get("errors", []))
+		return
+	var code := PuzzleCodecScript.encode(_config)
+	var puzzle_name := str(_config.get("name", "")).strip_edges()
+
+	# Check for existing puzzle with same name
+	var existing_id := ""
+	for entry in PuzzlePersistenceScript.list_puzzles():
+		if str(entry.get("name", "")) == puzzle_name:
+			existing_id = str(entry.get("id", ""))
+			break
+
+	if existing_id.is_empty():
+		PuzzlePersistenceScript.add_puzzle(puzzle_name, code)
+		_status_label.text = "Puzzle '%s' saved." % puzzle_name
+	else:
+		_show_overwrite_confirm(puzzle_name, code, existing_id)
+
+
 func _on_export() -> void:
 	_sync_config_from_ui()
 	var validation := PuzzleConfigScript.validate_config(_config)
 	if not bool(validation.get("valid", false)):
-		_status_label.text = "Export failed: %s" % str(validation.get("errors", []))
+		_show_error_popup("Export failed", validation.get("errors", []))
 		return
 	var code := PuzzleCodecScript.encode(_config)
 	DisplayServer.clipboard_set(code)
@@ -918,11 +949,142 @@ func _on_export() -> void:
 
 func _on_play() -> void:
 	_sync_config_from_ui()
-	var validation := PuzzleConfigScript.validate_config(_config)
+	var play_config := _config.duplicate(true)
+	if str(play_config.get("name", "")).strip_edges().is_empty():
+		play_config["name"] = "Untitled Puzzle"
+	var validation := PuzzleConfigScript.validate_config(play_config)
 	if not bool(validation.get("valid", false)):
-		_status_label.text = "Cannot play: %s" % str(validation.get("errors", []))
+		_show_error_popup("Cannot play", validation.get("errors", []))
 		return
-	play_requested.emit(_config.duplicate(true))
+	play_requested.emit(play_config)
+
+
+func _show_overwrite_confirm(puzzle_name: String, code: String, existing_id: String) -> void:
+	var overlay := PanelContainer.new()
+	overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	overlay.z_index = 75
+	overlay.mouse_filter = MOUSE_FILTER_STOP
+	add_child(overlay)
+
+	var bg_style := StyleBoxFlat.new()
+	bg_style.bg_color = Color(0.04, 0.05, 0.07, 0.85)
+	overlay.add_theme_stylebox_override("panel", bg_style)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	overlay.add_child(center)
+
+	var card := PanelContainer.new()
+	card.custom_minimum_size = Vector2(450, 0)
+	var card_style := StyleBoxFlat.new()
+	card_style.bg_color = Color(0.1, 0.11, 0.16, 0.98)
+	card_style.border_color = Color(0.6, 0.55, 0.3, 0.96)
+	card_style.set_border_width_all(2)
+	card_style.set_corner_radius_all(12)
+	card.add_theme_stylebox_override("panel", card_style)
+	center.add_child(card)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 20)
+	margin.add_theme_constant_override("margin_right", 20)
+	margin.add_theme_constant_override("margin_top", 20)
+	margin.add_theme_constant_override("margin_bottom", 20)
+	card.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 14)
+	margin.add_child(vbox)
+
+	var msg := Label.new()
+	msg.text = "A puzzle named '%s' already exists.\nOverwrite it?" % puzzle_name
+	msg.add_theme_font_size_override("font_size", 20)
+	msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(msg)
+
+	var btn_row := HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row.add_theme_constant_override("separation", 16)
+	vbox.add_child(btn_row)
+
+	var cancel_btn := Button.new()
+	cancel_btn.text = "Cancel"
+	cancel_btn.custom_minimum_size = Vector2(120, 40)
+	cancel_btn.add_theme_font_size_override("font_size", 18)
+	cancel_btn.pressed.connect(func(): overlay.queue_free())
+	btn_row.add_child(cancel_btn)
+
+	var overwrite_btn := Button.new()
+	overwrite_btn.text = "Overwrite"
+	overwrite_btn.custom_minimum_size = Vector2(120, 40)
+	overwrite_btn.add_theme_font_size_override("font_size", 18)
+	overwrite_btn.pressed.connect(func():
+		PuzzlePersistenceScript.delete_puzzle(existing_id)
+		PuzzlePersistenceScript.add_puzzle(puzzle_name, code)
+		_status_label.text = "Puzzle '%s' saved (overwritten)." % puzzle_name
+		overlay.queue_free()
+	)
+	btn_row.add_child(overwrite_btn)
+
+
+func _show_error_popup(title_text: String, errors: Array) -> void:
+	var overlay := PanelContainer.new()
+	overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	overlay.z_index = 75
+	overlay.mouse_filter = MOUSE_FILTER_STOP
+	add_child(overlay)
+
+	var bg_style := StyleBoxFlat.new()
+	bg_style.bg_color = Color(0.04, 0.05, 0.07, 0.85)
+	overlay.add_theme_stylebox_override("panel", bg_style)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	overlay.add_child(center)
+
+	var card := PanelContainer.new()
+	card.custom_minimum_size = Vector2(450, 0)
+	var card_style := StyleBoxFlat.new()
+	card_style.bg_color = Color(0.12, 0.1, 0.1, 0.98)
+	card_style.border_color = Color(0.8, 0.3, 0.3, 0.96)
+	card_style.set_border_width_all(2)
+	card_style.set_corner_radius_all(12)
+	card.add_theme_stylebox_override("panel", card_style)
+	center.add_child(card)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 20)
+	margin.add_theme_constant_override("margin_right", 20)
+	margin.add_theme_constant_override("margin_top", 20)
+	margin.add_theme_constant_override("margin_bottom", 20)
+	card.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 12)
+	margin.add_child(vbox)
+
+	var title := Label.new()
+	title.text = title_text
+	title.add_theme_font_size_override("font_size", 22)
+	title.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+	vbox.add_child(title)
+
+	for err in errors:
+		var err_label := Label.new()
+		err_label.text = "• %s" % str(err)
+		err_label.add_theme_font_size_override("font_size", 18)
+		err_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		vbox.add_child(err_label)
+
+	var btn_row := HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_child(btn_row)
+
+	var ok_btn := Button.new()
+	ok_btn.text = "OK"
+	ok_btn.custom_minimum_size = Vector2(120, 40)
+	ok_btn.add_theme_font_size_override("font_size", 18)
+	ok_btn.pressed.connect(func(): overlay.queue_free())
+	btn_row.add_child(ok_btn)
 
 
 func _sync_config_from_ui() -> void:

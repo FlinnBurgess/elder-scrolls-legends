@@ -3,6 +3,7 @@ extends Control
 
 signal puzzle_selected(puzzle_entry: Dictionary)
 signal builder_requested
+signal edit_requested(config: Dictionary)
 signal back_requested
 
 const PuzzleCodecScript = preload("res://src/puzzle/puzzle_codec.gd")
@@ -17,6 +18,10 @@ var _import_error_label: Label
 
 func _ready() -> void:
 	_build_ui()
+
+
+func refresh() -> void:
+	_refresh_custom_puzzles()
 
 
 func _build_ui() -> void:
@@ -145,6 +150,14 @@ func _add_puzzle_row(entry: Dictionary) -> void:
 	name_btn.pressed.connect(func(): _on_puzzle_clicked(entry_copy))
 	row.add_child(name_btn)
 
+	# Edit button
+	var edit_btn := Button.new()
+	edit_btn.text = "Edit"
+	edit_btn.custom_minimum_size = Vector2(60, 36)
+	var code_for_edit := str(entry.get("code", ""))
+	edit_btn.pressed.connect(func(): _on_edit_puzzle(code_for_edit))
+	row.add_child(edit_btn)
+
 	# Delete button
 	var delete_btn := Button.new()
 	delete_btn.text = "X"
@@ -158,6 +171,15 @@ func _add_puzzle_row(entry: Dictionary) -> void:
 
 func _on_puzzle_clicked(entry: Dictionary) -> void:
 	puzzle_selected.emit(entry)
+
+
+func _on_edit_puzzle(code: String) -> void:
+	var result: Dictionary = PuzzleCodecScript.decode(code)
+	var error: String = str(result.get("error", ""))
+	if not error.is_empty():
+		return
+	var config: Dictionary = result.get("config", {})
+	edit_requested.emit(config)
 
 
 func _on_delete_puzzle(id: String) -> void:
