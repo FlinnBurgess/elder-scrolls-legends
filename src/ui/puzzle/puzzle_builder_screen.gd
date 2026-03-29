@@ -931,7 +931,7 @@ func _on_save() -> void:
 
 	if existing_id.is_empty():
 		PuzzlePersistenceScript.add_puzzle(puzzle_name, code)
-		_status_label.text = "Puzzle '%s' saved." % puzzle_name
+		_show_success_popup("Puzzle '%s' saved." % puzzle_name)
 	else:
 		_show_overwrite_confirm(puzzle_name, code, existing_id)
 
@@ -1020,10 +1020,64 @@ func _show_overwrite_confirm(puzzle_name: String, code: String, existing_id: Str
 	overwrite_btn.pressed.connect(func():
 		PuzzlePersistenceScript.delete_puzzle(existing_id)
 		PuzzlePersistenceScript.add_puzzle(puzzle_name, code)
-		_status_label.text = "Puzzle '%s' saved (overwritten)." % puzzle_name
 		overlay.queue_free()
+		_show_success_popup("Puzzle '%s' saved (overwritten)." % puzzle_name)
 	)
 	btn_row.add_child(overwrite_btn)
+
+
+func _show_success_popup(message: String) -> void:
+	var overlay := PanelContainer.new()
+	overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	overlay.z_index = 75
+	overlay.mouse_filter = MOUSE_FILTER_STOP
+	add_child(overlay)
+
+	var bg_style := StyleBoxFlat.new()
+	bg_style.bg_color = Color(0.04, 0.05, 0.07, 0.85)
+	overlay.add_theme_stylebox_override("panel", bg_style)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	overlay.add_child(center)
+
+	var card := PanelContainer.new()
+	card.custom_minimum_size = Vector2(400, 0)
+	var card_style := StyleBoxFlat.new()
+	card_style.bg_color = Color(0.1, 0.13, 0.12, 0.98)
+	card_style.border_color = Color(0.3, 0.7, 0.4, 0.96)
+	card_style.set_border_width_all(2)
+	card_style.set_corner_radius_all(12)
+	card.add_theme_stylebox_override("panel", card_style)
+	center.add_child(card)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 20)
+	margin.add_theme_constant_override("margin_right", 20)
+	margin.add_theme_constant_override("margin_top", 20)
+	margin.add_theme_constant_override("margin_bottom", 20)
+	card.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 14)
+	margin.add_child(vbox)
+
+	var msg := Label.new()
+	msg.text = message
+	msg.add_theme_font_size_override("font_size", 20)
+	msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(msg)
+
+	var btn_row := HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_child(btn_row)
+
+	var ok_btn := Button.new()
+	ok_btn.text = "Okay"
+	ok_btn.custom_minimum_size = Vector2(120, 40)
+	ok_btn.add_theme_font_size_override("font_size", 18)
+	ok_btn.pressed.connect(func(): overlay.queue_free())
+	btn_row.add_child(ok_btn)
 
 
 func _show_error_popup(title_text: String, errors: Array) -> void:
