@@ -432,6 +432,7 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 		var lane_frame := VBoxContainer.new()
 		lane_frame.add_theme_constant_override("separation", 6)
 		lane_frame.size_flags_horizontal = SIZE_EXPAND_FILL
+		lane_frame.size_flags_stretch_ratio = float(width)
 		lane_frame.size_flags_vertical = SIZE_EXPAND_FILL
 		board_row.add_child(lane_frame)
 
