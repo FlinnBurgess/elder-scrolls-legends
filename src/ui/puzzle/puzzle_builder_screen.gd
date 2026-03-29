@@ -29,7 +29,10 @@ var _player_cur_magicka_input: LineEdit
 var _enemy_magicka_input: LineEdit
 var _enemy_cur_magicka_input: LineEdit
 var _ring_check: CheckBox
+var _enemy_settings_container: HBoxContainer
+var _lane_config_container: HBoxContainer
 var _board_container: VBoxContainer
+var _player_settings_container: HBoxContainer
 var _status_label: Label
 var _slot_buttons: Array = []  # [side][lane_idx][slot_idx] -> Button
 var _import_dialog: PanelContainer
@@ -109,18 +112,31 @@ func _build_ui() -> void:
 	margin.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	margin.add_theme_constant_override("margin_left", 48)
 	margin.add_theme_constant_override("margin_right", 48)
-	margin.add_theme_constant_override("margin_top", 28)
-	margin.add_theme_constant_override("margin_bottom", 28)
+	margin.add_theme_constant_override("margin_top", 12)
+	margin.add_theme_constant_override("margin_bottom", 12)
 	add_child(margin)
 
 	var root := VBoxContainer.new()
 	root.size_flags_horizontal = SIZE_EXPAND_FILL
 	root.size_flags_vertical = SIZE_EXPAND_FILL
-	root.add_theme_constant_override("separation", 20)
+	root.add_theme_constant_override("separation", 6)
 	margin.add_child(root)
 
-	# Top bar
+	# Top bar (back + name + toggle + action buttons)
 	_build_top_bar(root)
+
+	# Enemy settings row (rebuilt in _refresh_board)
+	_enemy_settings_container = HBoxContainer.new()
+	_enemy_settings_container.size_flags_horizontal = SIZE_EXPAND_FILL
+	_enemy_settings_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	_enemy_settings_container.add_theme_constant_override("separation", 24)
+	root.add_child(_enemy_settings_container)
+
+	# Lane config row (rebuilt in _refresh_board)
+	_lane_config_container = HBoxContainer.new()
+	_lane_config_container.size_flags_horizontal = SIZE_EXPAND_FILL
+	_lane_config_container.add_theme_constant_override("separation", 0)
+	root.add_child(_lane_config_container)
 
 	# Board area — takes all remaining vertical space
 	_board_container = VBoxContainer.new()
@@ -128,6 +144,13 @@ func _build_ui() -> void:
 	_board_container.size_flags_vertical = SIZE_EXPAND_FILL
 	_board_container.add_theme_constant_override("separation", 0)
 	root.add_child(_board_container)
+
+	# Player settings row (rebuilt in _refresh_board)
+	_player_settings_container = HBoxContainer.new()
+	_player_settings_container.size_flags_horizontal = SIZE_EXPAND_FILL
+	_player_settings_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	_player_settings_container.add_theme_constant_override("separation", 24)
+	root.add_child(_player_settings_container)
 
 	# Status bar
 	_status_label = Label.new()
@@ -140,17 +163,52 @@ func _build_ui() -> void:
 
 
 func _build_top_bar(parent: VBoxContainer) -> void:
-	# Top row: Back on left, action buttons on right
+	# Single row: Back | Name | Kill/Survive toggle | Export Import Play
 	var bar := HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 14)
 	parent.add_child(bar)
 
 	var back_btn := Button.new()
 	back_btn.text = "Back"
-	back_btn.custom_minimum_size = Vector2(100, 52)
-	back_btn.add_theme_font_size_override("font_size", 20)
+	back_btn.custom_minimum_size = Vector2(80, 44)
+	back_btn.add_theme_font_size_override("font_size", 18)
 	back_btn.pressed.connect(func(): back_requested.emit())
 	bar.add_child(back_btn)
+
+	# Puzzle name — in the top bar
+	_name_input = LineEdit.new()
+	_name_input.placeholder_text = "Puzzle Name"
+	_name_input.max_length = 40
+	_name_input.custom_minimum_size = Vector2(300, 44)
+	_name_input.add_theme_font_size_override("font_size", 20)
+	_name_input.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_name_input.text_changed.connect(func(t): _config["name"] = t)
+	bar.add_child(_name_input)
+
+	# Kill/Survive toggle inline
+	var kill_label := Label.new()
+	kill_label.text = "Kill"
+	kill_label.add_theme_font_size_override("font_size", 20)
+	kill_label.add_theme_color_override("font_color", Color(0.95, 0.65, 0.55, 1.0))
+
+	var survive_label := Label.new()
+	survive_label.text = "Survive"
+	survive_label.add_theme_font_size_override("font_size", 20)
+	survive_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6, 0.7))
+
+	_type_toggle = CheckButton.new()
+	_type_toggle.text = ""
+	_type_toggle.button_pressed = false
+	_type_toggle.custom_minimum_size = Vector2(70, 36)
+	_type_toggle.toggled.connect(func(pressed):
+		_config["type"] = "survive" if pressed else "kill"
+		kill_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6, 0.7) if pressed else Color(0.95, 0.65, 0.55, 1.0))
+		survive_label.add_theme_color_override("font_color", Color(0.55, 0.85, 0.65, 1.0) if pressed else Color(0.6, 0.6, 0.6, 0.7))
+	)
+
+	bar.add_child(kill_label)
+	bar.add_child(_type_toggle)
+	bar.add_child(survive_label)
 
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -158,74 +216,31 @@ func _build_top_bar(parent: VBoxContainer) -> void:
 
 	var export_btn := Button.new()
 	export_btn.text = "Export"
-	export_btn.custom_minimum_size = Vector2(120, 52)
-	export_btn.add_theme_font_size_override("font_size", 20)
+	export_btn.custom_minimum_size = Vector2(100, 44)
+	export_btn.add_theme_font_size_override("font_size", 18)
 	export_btn.pressed.connect(_on_export)
 	bar.add_child(export_btn)
 
 	var import_btn := Button.new()
 	import_btn.text = "Import"
-	import_btn.custom_minimum_size = Vector2(120, 52)
-	import_btn.add_theme_font_size_override("font_size", 20)
+	import_btn.custom_minimum_size = Vector2(100, 44)
+	import_btn.add_theme_font_size_override("font_size", 18)
 	import_btn.pressed.connect(_show_import_dialog)
 	bar.add_child(import_btn)
 
 	var play_btn := Button.new()
 	play_btn.text = "Play"
-	play_btn.custom_minimum_size = Vector2(120, 52)
-	play_btn.add_theme_font_size_override("font_size", 20)
+	play_btn.custom_minimum_size = Vector2(100, 44)
+	play_btn.add_theme_font_size_override("font_size", 18)
 	play_btn.pressed.connect(_on_play)
 	bar.add_child(play_btn)
 
-	# Puzzle name — centered
-	var name_row := HBoxContainer.new()
-	name_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	parent.add_child(name_row)
-
-	_name_input = LineEdit.new()
-	_name_input.placeholder_text = "Puzzle Name (max 40 characters)"
-	_name_input.max_length = 40
-	_name_input.custom_minimum_size = Vector2(500, 56)
-	_name_input.add_theme_font_size_override("font_size", 24)
-	_name_input.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_name_input.text_changed.connect(func(t): _config["name"] = t)
-	name_row.add_child(_name_input)
-
-	# Survive mode toggle — centered, large and obvious
-	var toggle_row := HBoxContainer.new()
-	toggle_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	parent.add_child(toggle_row)
-
-	var kill_label := Label.new()
-	kill_label.text = "Kill"
-	kill_label.add_theme_font_size_override("font_size", 22)
-	kill_label.add_theme_color_override("font_color", Color(0.95, 0.65, 0.55, 1.0))
-
-	var survive_label := Label.new()
-	survive_label.text = "Survive"
-	survive_label.add_theme_font_size_override("font_size", 22)
-	survive_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6, 0.7))
-
-	_type_toggle = CheckButton.new()
-	_type_toggle.text = ""
-	_type_toggle.button_pressed = false
-	_type_toggle.custom_minimum_size = Vector2(80, 40)
-	_type_toggle.toggled.connect(func(pressed):
-		_config["type"] = "survive" if pressed else "kill"
-		kill_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6, 0.7) if pressed else Color(0.95, 0.65, 0.55, 1.0))
-		survive_label.add_theme_color_override("font_color", Color(0.55, 0.85, 0.65, 1.0) if pressed else Color(0.6, 0.6, 0.6, 0.7))
-	)
-
-	toggle_row.add_child(kill_label)
-	toggle_row.add_child(_type_toggle)
-	toggle_row.add_child(survive_label)
-
-	# Player/enemy settings are built in _refresh_board, positioned in the board area
-
 
 func _refresh_board() -> void:
-	for child in _board_container.get_children():
-		child.queue_free()
+	# Clear all dynamic containers
+	for container in [_enemy_settings_container, _lane_config_container, _board_container, _player_settings_container]:
+		for child in container.get_children():
+			child.queue_free()
 	_slot_buttons.clear()
 
 	var lane_widths: Array = [
@@ -233,100 +248,52 @@ func _refresh_board() -> void:
 		int(_config["lanes"][1].get("width", 4)),
 	]
 
-	# Top spacer
-	var top_spacer := Control.new()
-	top_spacer.size_flags_vertical = SIZE_EXPAND_FILL
-	_board_container.add_child(top_spacer)
-
-	# Enemy health/magicka — centered horizontally
+	# Enemy health/magicka
 	_build_enemy_settings_row()
 
-	# 100px gap between enemy settings and lane config
-	var enemy_to_lane_spacer := Control.new()
-	enemy_to_lane_spacer.custom_minimum_size = Vector2(0, 100)
-	_board_container.add_child(enemy_to_lane_spacer)
-
-	# Lane config row — positioned at 25% and 75%
+	# Lane config row
 	_build_lane_config_row(lane_widths)
 
-	var lane_board_spacer := Control.new()
-	lane_board_spacer.custom_minimum_size = Vector2(0, 40)
-	_board_container.add_child(lane_board_spacer)
-
-	# Enemy side (top)
+	# Enemy side (top half of board)
 	_build_side_section("enemy", "Enemy", lane_widths)
 
-	# Separator with generous spacing
-	var sep_spacer := Control.new()
-	sep_spacer.custom_minimum_size = Vector2(0, 30)
-	sep_spacer.size_flags_vertical = SIZE_EXPAND_FILL
-	_board_container.add_child(sep_spacer)
-
+	# Separator
 	var sep := HSeparator.new()
 	sep.add_theme_constant_override("separation", 4)
 	_board_container.add_child(sep)
 
-	var sep_spacer2 := Control.new()
-	sep_spacer2.custom_minimum_size = Vector2(0, 30)
-	sep_spacer2.size_flags_vertical = SIZE_EXPAND_FILL
-	_board_container.add_child(sep_spacer2)
-
-	# Player side (bottom)
+	# Player side (bottom half of board)
 	_build_side_section("player", "Player", lane_widths)
 
-	# Player health/magicka/ring — centered horizontally, below player board
-	var player_settings_spacer := Control.new()
-	player_settings_spacer.custom_minimum_size = Vector2(0, 24)
-	_board_container.add_child(player_settings_spacer)
-
+	# Player health/magicka/ring
 	_build_player_settings_row()
-
-	# Bottom spacer
-	var bottom_spacer := Control.new()
-	bottom_spacer.size_flags_vertical = SIZE_EXPAND_FILL
-	_board_container.add_child(bottom_spacer)
 
 
 func _build_enemy_settings_row() -> void:
-	var row := HBoxContainer.new()
-	row.size_flags_horizontal = SIZE_EXPAND_FILL
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 24)
-	_board_container.add_child(row)
+	_enemy_settings_container.add_child(_labeled("Enemy Health:", _make_spin(1, 99, int(_config.get("enemy", {}).get("health", 30)), func(v): _config["enemy"]["health"] = int(v)), true))
+	_enemy_health_spin = _enemy_settings_container.get_child(_enemy_settings_container.get_child_count() - 1).get_child(1)
 
-	row.add_child(_labeled("Enemy Health:", _make_spin(1, 99, int(_config.get("enemy", {}).get("health", 30)), func(v): _config["enemy"]["health"] = int(v)), true))
-	_enemy_health_spin = row.get_child(row.get_child_count() - 1).get_child(1)
-
-	row.add_child(_labeled("Enemy Magicka:", _make_magicka_input(str(int(_config.get("enemy", {}).get("max_magicka", 3))), func(t): _config["enemy"]["max_magicka"] = _parse_int(t, 3); _config["enemy"]["current_magicka"] = _parse_int(t, 3))))
-	_enemy_magicka_input = row.get_child(row.get_child_count() - 1).get_child(1)
+	_enemy_settings_container.add_child(_labeled("Enemy Magicka:", _make_magicka_input(str(int(_config.get("enemy", {}).get("max_magicka", 3))), func(t): _config["enemy"]["max_magicka"] = _parse_int(t, 3); _config["enemy"]["current_magicka"] = _parse_int(t, 3))))
+	_enemy_magicka_input = _enemy_settings_container.get_child(_enemy_settings_container.get_child_count() - 1).get_child(1)
 
 
 func _build_player_settings_row() -> void:
-	var row := HBoxContainer.new()
-	row.size_flags_horizontal = SIZE_EXPAND_FILL
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 24)
-	_board_container.add_child(row)
+	_player_settings_container.add_child(_labeled("Player Health:", _make_spin(1, 99, int(_config.get("player", {}).get("health", 30)), func(v): _config["player"]["health"] = int(v)), true))
+	_player_health_spin = _player_settings_container.get_child(_player_settings_container.get_child_count() - 1).get_child(1)
 
-	row.add_child(_labeled("Player Health:", _make_spin(1, 99, int(_config.get("player", {}).get("health", 30)), func(v): _config["player"]["health"] = int(v)), true))
-	_player_health_spin = row.get_child(row.get_child_count() - 1).get_child(1)
-
-	row.add_child(_labeled("Player Magicka:", _make_magicka_input(str(int(_config.get("player", {}).get("max_magicka", 12))), func(t): _config["player"]["max_magicka"] = _parse_int(t, 12); _config["player"]["current_magicka"] = _parse_int(t, 12))))
-	_player_magicka_input = row.get_child(row.get_child_count() - 1).get_child(1)
+	_player_settings_container.add_child(_labeled("Player Magicka:", _make_magicka_input(str(int(_config.get("player", {}).get("max_magicka", 12))), func(t): _config["player"]["max_magicka"] = _parse_int(t, 12); _config["player"]["current_magicka"] = _parse_int(t, 12))))
+	_player_magicka_input = _player_settings_container.get_child(_player_settings_container.get_child_count() - 1).get_child(1)
 
 	_ring_check = CheckBox.new()
 	_ring_check.text = "Ring of Magicka"
 	_ring_check.button_pressed = bool(_config.get("player", {}).get("has_ring", false))
 	_ring_check.add_theme_font_size_override("font_size", 20)
 	_ring_check.toggled.connect(func(v): _config["player"]["has_ring"] = v)
-	row.add_child(_ring_check)
+	_player_settings_container.add_child(_ring_check)
 
 
 func _build_lane_config_row(lane_widths: Array) -> void:
-	var row := HBoxContainer.new()
-	row.size_flags_horizontal = SIZE_EXPAND_FILL
-	row.add_theme_constant_override("separation", 0)
-	_board_container.add_child(row)
+	var row := _lane_config_container
 
 	# Lane 1 config — centered in the left half (25% mark)
 	var left_spacer := Control.new()
@@ -403,7 +370,8 @@ func _build_lane_config_row(lane_widths: Array) -> void:
 
 func _build_side_section(side: String, label_text: String, lane_widths: Array) -> void:
 	var section := VBoxContainer.new()
-	section.add_theme_constant_override("separation", 12)
+	section.add_theme_constant_override("separation", 8)
+	section.size_flags_vertical = SIZE_EXPAND_FILL
 	_board_container.add_child(section)
 
 	# Side header with clickable zones
