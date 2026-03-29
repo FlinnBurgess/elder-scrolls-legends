@@ -972,6 +972,13 @@ func _execute_local_match_ai_step() -> Dictionary:
 	_selected_instance_id = ""
 	_record_feedback_from_events(_ai_feedback_events(action, result))
 	_status_message = _ai_action_status_message(action)
+	# Survive puzzle: AI just ended its turn — check if player survived
+	if _puzzle_mode and _puzzle_type == "survive" and str(action.get("kind", "")) == MatchActionEnumerator.KIND_END_TURN:
+		if str(_match_state.get("winner_player_id", "")).is_empty():
+			_match_state["winner_player_id"] = _local_player_id()
+			_status_message = "Puzzle Complete!"
+			_refresh_ui()
+			return {"did_execute": true, "yield_reason": "match_complete", "action": action.duplicate(true), "result": result.duplicate(true)}
 	if not _prophecy_overlay_state.is_empty() and not bool(_prophecy_overlay_state.get("is_local", true)):
 		_animate_enemy_prophecy_resolution(action, result)
 	else:
@@ -1366,6 +1373,8 @@ func _complete_end_turn(player_id: String) -> void:
 		if str(_match_state.get("winner_player_id", "")).is_empty():
 			_match_state["winner_player_id"] = _local_player_id()
 			_status_message = "Puzzle Complete!"
+			_refresh_ui()
+			return
 	_refresh_ui()
 	if _arena_mode:
 		match_state_changed.emit(_match_state.duplicate(true))
