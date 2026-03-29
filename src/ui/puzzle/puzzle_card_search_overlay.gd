@@ -8,9 +8,10 @@ signal card_selected(card_id: String)
 signal cancelled
 
 const CardCatalog = preload("res://src/deck/card_catalog.gd")
+const CardDisplayComponentScript = preload("res://src/ui/components/CardDisplayComponent.gd")
 
-const GRID_COLUMNS := 4
-const GRID_ROWS := 4
+const GRID_COLUMNS := 7
+const GRID_ROWS := 2
 const CARDS_PER_PAGE := GRID_COLUMNS * GRID_ROWS
 
 var _all_cards: Array = []
@@ -187,17 +188,34 @@ func _render_page() -> void:
 
 	for i in range(start, end):
 		var card: Dictionary = _filtered[i]
-		var btn := Button.new()
-		var card_name := str(card.get("name", "???"))
-		var cost := str(card.get("cost", "?"))
-		var card_type := str(card.get("card_type", ""))
-		var stats := ""
-		if card_type.to_lower() == "creature":
-			stats = " %s/%s" % [str(card.get("base_power", "?")), str(card.get("base_health", "?"))]
-		btn.text = "[%s] %s%s" % [cost, card_name, stats]
-		btn.custom_minimum_size = Vector2(0, 36)
-		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		btn.size_flags_horizontal = SIZE_EXPAND_FILL
 		var card_id := str(card.get("_card_id", ""))
-		btn.pressed.connect(func(): card_selected.emit(card_id))
-		_grid.add_child(btn)
+
+		# Wrapper: card display + select button
+		var cell := VBoxContainer.new()
+		cell.add_theme_constant_override("separation", 4)
+		cell.size_flags_horizontal = SIZE_EXPAND_FILL
+		cell.size_flags_vertical = SIZE_EXPAND_FILL
+
+		# Clickable card container
+		var card_container := Control.new()
+		card_container.size_flags_horizontal = SIZE_EXPAND_FILL
+		card_container.size_flags_vertical = SIZE_EXPAND_FILL
+		card_container.mouse_filter = MOUSE_FILTER_STOP
+		cell.add_child(card_container)
+
+		var display := CardDisplayComponentScript.new()
+		display.custom_minimum_size = Vector2(1, 1)
+		display.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		card_container.add_child(display)
+		display.set_presentation_mode("full")
+		display.custom_minimum_size = Vector2(1, 1)
+		display.set_card(card)
+		display.custom_minimum_size = Vector2(1, 1)
+
+		var cid := card_id
+		card_container.gui_input.connect(func(event: InputEvent) -> void:
+			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+				card_selected.emit(cid)
+		)
+
+		_grid.add_child(cell)
