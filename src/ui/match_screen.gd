@@ -165,6 +165,9 @@ var _floating_card_ids: Dictionary = {}
 var _hovered_hand_instance_id := ""
 var _overdraw_queue: Array = []
 var _match_end_button: Button
+var _match_end_box: VBoxContainer
+var _puzzle_end_retry_btn: Button
+var _puzzle_end_return_btn: Button
 var _arena_mode := false
 var _puzzle_mode := false
 var _puzzle_type := ""
@@ -1763,21 +1766,7 @@ func _build_match_end_overlay() -> PanelContainer:
 	_match_end_button.add_theme_font_size_override("font_size", 17)
 	_match_end_button.pressed.connect(func(): return_to_main_menu_requested.emit())
 	box.add_child(_match_end_button)
-	if _puzzle_mode:
-		var retry_btn := Button.new()
-		retry_btn.name = "PuzzleRetryButton"
-		retry_btn.text = "Retry"
-		retry_btn.custom_minimum_size = Vector2(280, 48)
-		retry_btn.add_theme_font_size_override("font_size", 17)
-		retry_btn.pressed.connect(func(): puzzle_retry_requested.emit())
-		box.add_child(retry_btn)
-		var return_btn := Button.new()
-		return_btn.name = "PuzzleReturnButton"
-		return_btn.text = "Return to Puzzles"
-		return_btn.custom_minimum_size = Vector2(280, 48)
-		return_btn.add_theme_font_size_override("font_size", 17)
-		return_btn.pressed.connect(func(): puzzle_return_to_select_requested.emit())
-		box.add_child(return_btn)
+	_match_end_box = box
 	return overlay
 
 
@@ -7331,8 +7320,32 @@ func _refresh_match_end_overlay() -> void:
 	if _match_end_button != null:
 		if _puzzle_mode:
 			_match_end_button.visible = false
+			_ensure_puzzle_end_buttons()
 		else:
 			_match_end_button.text = "Continue" if _arena_mode else "Return to Main Menu"
+
+
+func _ensure_puzzle_end_buttons() -> void:
+	if _puzzle_end_retry_btn != null:
+		return
+	if _match_end_box == null:
+		return
+	var is_builder_test := _puzzle_id.is_empty()
+	_puzzle_end_retry_btn = Button.new()
+	_puzzle_end_retry_btn.name = "PuzzleRetryButton"
+	_puzzle_end_retry_btn.text = "Retry"
+	_puzzle_end_retry_btn.custom_minimum_size = Vector2(280, 48)
+	_puzzle_end_retry_btn.add_theme_font_size_override("font_size", 17)
+	_puzzle_end_retry_btn.pressed.connect(func(): puzzle_retry_requested.emit())
+	_match_end_box.add_child(_puzzle_end_retry_btn)
+
+	_puzzle_end_return_btn = Button.new()
+	_puzzle_end_return_btn.name = "PuzzleReturnButton"
+	_puzzle_end_return_btn.text = "Return to Puzzle Editor" if is_builder_test else "Return to Puzzles"
+	_puzzle_end_return_btn.custom_minimum_size = Vector2(280, 48)
+	_puzzle_end_return_btn.add_theme_font_size_override("font_size", 17)
+	_puzzle_end_return_btn.pressed.connect(func(): puzzle_return_to_select_requested.emit())
+	_match_end_box.add_child(_puzzle_end_return_btn)
 
 
 func _refresh_end_turn_button_style(has_pending_prophecy: bool) -> void:
