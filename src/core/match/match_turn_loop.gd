@@ -213,6 +213,15 @@ static func _refresh_board_state_for_turn(match_state: Dictionary, player_id: St
 			if card == null:
 				continue
 
+			# Clear persistent shackle if source creature is no longer in play
+			var pss_source_id := str(card.get("_shackle_persistent_source_id", ""))
+			if not pss_source_id.is_empty():
+				var pss_loc := MatchMutations.find_card_location(match_state, pss_source_id)
+				if not bool(pss_loc.get("is_valid", false)) or str(pss_loc.get("zone", "")) != "lane":
+					EvergreenRules.remove_status(card, EvergreenRules.STATUS_SHACKLED)
+					card.erase("shackle_expires_on_turn")
+					card.erase("_shackle_persistent_source_id")
+
 			var result := EvergreenRules.refresh_for_controller_turn(card, current_turn_number)
 			var regen_healed := int(result.get("regenerate_healed", 0))
 			if regen_healed > 0:

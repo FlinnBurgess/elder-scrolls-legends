@@ -8553,6 +8553,8 @@ func _action_has_event_lane_targets(action_card: Dictionary) -> bool:
 			var target_str := str(effect.get("target", ""))
 			if target_str.ends_with("_in_event_lane"):
 				return true
+			if str(effect.get("lane", "")) == "chosen":
+				return true
 	return false
 
 

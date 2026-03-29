@@ -2756,6 +2756,8 @@ static func execute_betray_replay(match_state: Dictionary, player_id: String, ac
 			break
 	if action_card.is_empty():
 		return {"is_valid": false, "errors": ["Action card %s not found in discard." % action_instance_id], "events": [], "trigger_resolutions": []}
+	# Queue multi-target / dual-target abilities before replaying
+	_check_action_multi_target_abilities(match_state, action_card)
 	# Replay the action for free from discard
 	var replay_timing := publish_events(match_state, [{
 		"event_type": EVENT_CARD_PLAYED,
@@ -4155,6 +4157,12 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					if status_id == EvergreenRules.STATUS_COVER:
 						var offset := int(effect.get("expires_on_turn_offset", 1))
 						EvergreenRules.grant_cover(card, int(match_state.get("turn_number", 0)) + offset, reason)
+					elif status_id == "shackle" or status_id == EvergreenRules.STATUS_SHACKLED:
+						EvergreenRules.add_status(card, EvergreenRules.STATUS_SHACKLED)
+						if bool(effect.get("permanent", false)):
+							card["shackle_expires_on_turn"] = 999999
+						else:
+							card["shackle_expires_on_turn"] = int(match_state.get("turn_number", 0)) + 1
 					else:
 						EvergreenRules.add_status(card, status_id)
 						var gs_duration := str(effect.get("duration", ""))
@@ -4402,18 +4410,23 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						var card_location := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
 						if bool(card_location.get("is_valid", false)):
 							var controller_pid := str(card.get("controller_player_id", ""))
-							var moved := MatchMutations.discard_card(match_state, str(card.get("instance_id", "")))
-							if bool(moved.get("is_valid", false)):
-								generated_events.append({
-									"event_type": "creature_destroyed",
-									"instance_id": str(card.get("instance_id", "")),
-									"source_instance_id": str(card.get("instance_id", "")),
-									"owner_player_id": str(card.get("owner_player_id", "")),
-									"controller_player_id": controller_pid,
-									"destroyed_by_instance_id": damage_source_id,
-									"lane_id": str(card_location.get("lane_id", "")),
-									"source_zone": ZONE_LANE,
-								})
+							if bool(effect.get("banish_on_kill", false)):
+								var banish_moved := MatchMutations.banish_card(match_state, str(card.get("instance_id", "")))
+								if bool(banish_moved.get("is_valid", false)):
+									generated_events.append_array(banish_moved.get("events", []))
+							else:
+								var moved := MatchMutations.discard_card(match_state, str(card.get("instance_id", "")))
+								if bool(moved.get("is_valid", false)):
+									generated_events.append({
+										"event_type": "creature_destroyed",
+										"instance_id": str(card.get("instance_id", "")),
+										"source_instance_id": str(card.get("instance_id", "")),
+										"owner_player_id": str(card.get("owner_player_id", "")),
+										"controller_player_id": controller_pid,
+										"destroyed_by_instance_id": damage_source_id,
+										"lane_id": str(card_location.get("lane_id", "")),
+										"source_zone": ZONE_LANE,
+									})
 			"draw_cards":
 				for player_id in _resolve_player_targets(match_state, trigger, event, effect):
 						var draw_count := int(effect.get("count", 1)) * _resolve_count_multiplier(match_state, trigger, event, effect)
@@ -4570,7 +4583,11 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					if _is_immune_to_effect(match_state, card, "shackle") or EvergreenRules.has_raw_status(card, "shackle_immune"):
 						continue
 					EvergreenRules.add_status(card, EvergreenRules.STATUS_SHACKLED)
-					card["shackle_expires_on_turn"] = int(match_state.get("turn_number", 0)) + 1
+					if bool(effect.get("persistent_while_source_alive", false)):
+						card["shackle_expires_on_turn"] = 999999
+						card["_shackle_persistent_source_id"] = str(trigger.get("source_instance_id", ""))
+					else:
+						card["shackle_expires_on_turn"] = int(match_state.get("turn_number", 0)) + 1
 					generated_events.append({"event_type": "status_granted", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "status_id": "shackled", "reason": reason})
 			"battle_creature":
 				var battle_source_id := str(trigger.get("source_instance_id", ""))
@@ -5186,7 +5203,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 								"lane_index": int(card.get("lane_index", -1)),
 								"descriptor": raw_trigger.duplicate(true),
 							}
-							var fake_event := {"event_type": EVENT_CREATURE_DESTROYED, "instance_id": str(card.get("instance_id", "")), "source_instance_id": str(card.get("instance_id", "")), "controller_player_id": tflg_controller_id}
+							var fake_event := {"event_type": EVENT_CREATURE_DESTROYED, "instance_id": str(card.get("instance_id", "")), "source_instance_id": str(card.get("instance_id", "")), "controller_player_id": tflg_controller_id, "lane_id": str(card.get("lane_id", "")), "lane_index": int(card.get("lane_index", -1))}
 							var fake_resolution := _build_trigger_resolution(match_state, fake_trigger, fake_event)
 							generated_events.append_array(_apply_effects(match_state, fake_trigger, fake_event, fake_resolution))
 			"summon_random_from_discard":

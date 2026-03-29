@@ -1273,7 +1273,13 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			stdc_stolen["controller_player_id"] = stdc_controller
 			var stdc_hand: Array = stdc_my_player.get("hand", [])
 			stdc_hand.append(stdc_stolen)
-			return {"handled": true, "events": [{"event_type": "card_stolen_from_deck", "player_id": stdc_controller, "from_player_id": stdc_opponent, "instance_id": str(stdc_stolen.get("instance_id", ""))}]}
+			var stdc_events: Array = [{"event_type": "card_stolen_from_deck", "player_id": stdc_controller, "from_player_id": stdc_opponent, "instance_id": str(stdc_stolen.get("instance_id", ""))}]
+			var stdc_replace_template: Dictionary = effect.get("replace_with", {})
+			if not stdc_replace_template.is_empty():
+				var stdc_replacement := MatchMutations.build_generated_card(match_state, stdc_opponent, stdc_replace_template)
+				stdc_replacement["zone"] = "deck"
+				stdc_opp_deck.append(stdc_replacement)
+			return {"handled": true, "events": stdc_events}
 		"generate_random_shouts_to_hand":
 			var grsh_controller := str(trigger.get("controller_player_id", ""))
 			var grsh_player := _get_player_state(match_state, grsh_controller)
@@ -2339,6 +2345,7 @@ static func betray_replay_has_valid_target(match_state: Dictionary, player_id: S
 	var action_target_mode := str(action_card.get("action_target_mode", ""))
 	if action_target_mode.is_empty():
 		return true
+	var primary_valid := false
 	for lane in match_state.get("lanes", []):
 		for lane_player_id in lane.get("player_slots", {}).keys():
 			for card in _ensure_array(lane.get("player_slots", {}).get(lane_player_id, [])):
@@ -2347,10 +2354,44 @@ static func betray_replay_has_valid_target(match_state: Dictionary, player_id: S
 				if str(card.get("instance_id", "")) == excluding_instance_id:
 					continue
 				if _card_matches_target_mode(action_target_mode, card, player_id, match_state, action_card):
-					return true
-	if action_target_mode == "creature_or_player" or action_target_mode == "any_creature_or_player":
-		return true
-	return false
+					primary_valid = true
+					break
+			if primary_valid:
+				break
+		if primary_valid:
+			break
+	if not primary_valid:
+		if action_target_mode == "creature_or_player" or action_target_mode == "any_creature_or_player":
+			primary_valid = true
+	if not primary_valid:
+		return false
+	# Check secondary targets if action has dual-target on_play trigger
+	for trigger in action_card.get("triggered_abilities", []):
+		if typeof(trigger) != TYPE_DICTIONARY:
+			continue
+		if str(trigger.get("family", "")) != "on_play":
+			continue
+		var secondary_mode := str(trigger.get("secondary_target_mode", ""))
+		if secondary_mode.is_empty():
+			continue
+		var secondary_valid := false
+		for lane in match_state.get("lanes", []):
+			for lane_player_id in lane.get("player_slots", {}).keys():
+				for card in _ensure_array(lane.get("player_slots", {}).get(lane_player_id, [])):
+					if typeof(card) != TYPE_DICTIONARY:
+						continue
+					if str(card.get("instance_id", "")) == excluding_instance_id:
+						continue
+					if _card_matches_target_mode(secondary_mode, card, player_id, match_state, action_card):
+						secondary_valid = true
+						break
+				if secondary_valid:
+					break
+			if secondary_valid:
+				break
+		if not secondary_valid:
+			return false
+	return true
 
 
 static func _card_matches_target_mode(target_mode: String, card: Dictionary, controller_player_id: String, match_state: Dictionary = {}, source_card: Dictionary = {}) -> bool:
