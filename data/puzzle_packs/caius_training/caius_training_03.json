@@ -1,0 +1,42 @@
+{
+  "name": "Hlaalu Initiation",
+  "type": "kill",
+  "lanes": [
+    { "lane_type": "field", "width": 4 },
+    { "lane_type": "shadow", "width": 4 }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 10,
+    "current_magicka": 10,
+    "has_ring": false,
+    "hand": [
+      "hom_agi_glass_greaves",
+      "hos_dual_archers_gambit",
+      "hom_agi_twin_lamps_consul",
+      "hom_str_lower_canton_smith"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "hom_wil_dren_bodyguard"
+    ],
+    "shadow_creatures": []
+  },
+  "enemy": {
+    "health": 8,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "end_mountain_tyrant"
+    ],
+    "shadow_creatures": [
+      "end_mountain_tyrant"
+    ]
+  }
+}

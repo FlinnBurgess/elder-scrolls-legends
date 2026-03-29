@@ -3,6 +3,7 @@
   "display_name": "Caius' Training",
   "puzzles": [
     { "id": "caius_training_01", "name": "Redoran Initiation", "type": "kill", "file": "caius_training_01.json" },
-    { "id": "caius_training_02", "name": "Dagoth Initiation", "type": "kill", "file": "caius_training_02.json" }
+    { "id": "caius_training_02", "name": "Dagoth Initiation", "type": "kill", "file": "caius_training_02.json" },
+    { "id": "caius_training_03", "name": "Hlaalu Initiation", "type": "kill", "file": "caius_training_03.json" }
   ]
 }

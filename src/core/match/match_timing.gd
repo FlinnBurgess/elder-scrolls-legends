@@ -1279,11 +1279,37 @@ static func resolve_pending_secondary_target(match_state: Dictionary, player_id:
 	var defender := _find_card_anywhere(match_state, target_instance_id)
 	if not defender.is_empty():
 		var result := EvergreenRules.apply_damage_to_creature(defender, damage_amount)
-		events.append({"event_type": "damage_resolved", "source_instance_id": source_id, "source_controller_player_id": str(source.get("controller_player_id", "")), "target_instance_id": target_instance_id, "target_type": "creature", "amount": int(result.get("applied", 0)), "damage_kind": "ability"})
-		if EvergreenRules.is_creature_destroyed(defender, false):
+		var source_has_lethal := not source.is_empty() and EvergreenRules.has_keyword(source, EvergreenRules.KEYWORD_LETHAL)
+		var dealt := int(result.get("applied", 0))
+		events.append({"event_type": "damage_resolved", "source_instance_id": source_id, "source_controller_player_id": str(source.get("controller_player_id", "")), "target_instance_id": target_instance_id, "target_type": "creature", "amount": dealt, "damage_kind": "ability"})
+		if EvergreenRules.is_creature_destroyed(defender, source_has_lethal and dealt > 0):
 			var moved := MatchMutations.discard_card(match_state, target_instance_id)
 			if bool(moved.get("is_valid", false)):
 				events.append({"event_type": "creature_destroyed", "instance_id": target_instance_id, "reason": "deal_damage_from_creature"})
+	var timing_result := publish_events(match_state, events)
+	return {"is_valid": true, "errors": [], "events": timing_result.get("processed_events", [])}
+
+
+static func resolve_pending_secondary_target_player(match_state: Dictionary, player_id: String, target_player_id: String) -> Dictionary:
+	ensure_match_state(match_state)
+	var pending: Array = match_state.get("pending_secondary_targets", [])
+	var idx := -1
+	var entry := {}
+	for i in range(pending.size()):
+		if typeof(pending[i]) == TYPE_DICTIONARY and str(pending[i].get("player_id", "")) == player_id:
+			idx = i
+			entry = pending[i]
+			break
+	if idx == -1:
+		return {"is_valid": false, "errors": ["No pending secondary target for %s." % player_id]}
+	pending.remove_at(idx)
+	var source_id := str(entry.get("source_instance_id", ""))
+	var damage_amount := int(entry.get("damage_amount", 1))
+	var source := _find_card_anywhere(match_state, source_id)
+	var events: Array = []
+	var damage_result := apply_player_damage(match_state, target_player_id, damage_amount, {"source_instance_id": source_id})
+	events.append({"event_type": "damage_resolved", "source_instance_id": source_id, "source_controller_player_id": str(source.get("controller_player_id", "")), "target_player_id": target_player_id, "target_type": "player", "amount": damage_amount, "damage_kind": "ability"})
+	events.append_array(damage_result.get("events", []))
 	var timing_result := publish_events(match_state, events)
 	return {"is_valid": true, "errors": [], "events": timing_result.get("processed_events", [])}
 
@@ -5427,12 +5453,14 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				if ddfc_source.is_empty():
 					continue
 				var ddfc_secondary_id := str(trigger.get("_secondary_target_id", ""))
+				var ddfc_has_lethal := EvergreenRules.has_keyword(ddfc_source, EvergreenRules.KEYWORD_LETHAL)
 				if not ddfc_secondary_id.is_empty():
 					var ddfc_defender := _find_card_anywhere(match_state, ddfc_secondary_id)
 					if not ddfc_defender.is_empty():
 						var ddfc_result := EvergreenRules.apply_damage_to_creature(ddfc_defender, ddfc_amount)
-						generated_events.append({"event_type": "damage_resolved", "source_instance_id": ddfc_source_id, "source_controller_player_id": str(ddfc_source.get("controller_player_id", "")), "target_instance_id": ddfc_secondary_id, "target_type": "creature", "amount": int(ddfc_result.get("applied", 0)), "damage_kind": "ability", "reason": reason})
-						if EvergreenRules.is_creature_destroyed(ddfc_defender, false):
+						var ddfc_dealt := int(ddfc_result.get("applied", 0))
+						generated_events.append({"event_type": "damage_resolved", "source_instance_id": ddfc_source_id, "source_controller_player_id": str(ddfc_source.get("controller_player_id", "")), "target_instance_id": ddfc_secondary_id, "target_type": "creature", "amount": ddfc_dealt, "damage_kind": "ability", "reason": reason})
+						if EvergreenRules.is_creature_destroyed(ddfc_defender, ddfc_has_lethal and ddfc_dealt > 0):
 							var ddfc_moved := MatchMutations.discard_card(match_state, ddfc_secondary_id)
 							if bool(ddfc_moved.get("is_valid", false)):
 								generated_events.append({"event_type": "creature_destroyed", "instance_id": ddfc_secondary_id, "reason": reason})

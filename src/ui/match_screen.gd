@@ -112,6 +112,7 @@ var _insertion_preview := {}
 var _targeting_arrow_state := {}
 var _targeting_arrow: Line2D
 var _pending_summon_target := {}
+var _pending_secondary_target_state := {}
 var _pending_end_turn := false
 var _pending_end_turn_player_id := ""
 var _pending_betray := {}
@@ -5387,6 +5388,9 @@ func _input(event: InputEvent) -> void:
 			elif not _pending_betray.is_empty():
 				_cancel_betray_mode()
 				get_viewport().set_input_as_handled()
+			elif not _pending_secondary_target_state.is_empty():
+				# Secondary targets (e.g. Archer's Gambit damage) are mandatory
+				get_viewport().set_input_as_handled()
 			elif not _pending_summon_target.is_empty():
 				if not _is_pending_summon_mandatory():
 					_cancel_summon_target_mode()
@@ -5444,6 +5448,9 @@ func _on_card_pressed(instance_id: String) -> void:
 			# Betray sacrifice selection phase — resolve sacrifice
 			_resolve_betray_sacrifice(instance_id)
 			return
+	if not _pending_secondary_target_state.is_empty():
+		_resolve_secondary_target_card(instance_id)
+		return
 	if not _pending_summon_target.is_empty():
 		_resolve_summon_target_card(instance_id)
 		return
@@ -5665,6 +5672,9 @@ func _on_player_pressed(player_id: String) -> void:
 		return
 	if not _pending_betray.is_empty() and _pending_betray.has("sacrifice_instance_id"):
 		_resolve_betray_replay_target_player(player_id)
+		return
+	if not _pending_secondary_target_state.is_empty():
+		_resolve_secondary_target_player(player_id)
 		return
 	if not _pending_summon_target.is_empty():
 		_resolve_summon_target_player(player_id)
@@ -6275,6 +6285,7 @@ func _finalize_engine_result(result: Dictionary, success_message: String, clear_
 		_status_message = str(result.get("errors", ["Action failed."])[0])
 	_refresh_ui()
 	if bool(result.get("is_valid", false)):
+		_check_pending_secondary_target()
 		_check_pending_summon_effect_target()
 		_check_pending_forced_play()
 	return result
@@ -7267,7 +7278,7 @@ func _is_local_prophecy_interrupt_open() -> bool:
 
 
 func _local_player_has_pending_interrupt() -> bool:
-	return _is_local_prophecy_interrupt_open() or not _pending_summon_target.is_empty() or _has_local_pending_discard_choice() or _has_local_pending_consume_selection() or _has_local_pending_deck_selection() or not _hand_selection_state.is_empty() or MatchTiming.has_pending_summon_effect_target(_match_state, _local_player_id()) or MatchTiming.has_pending_forced_play(_match_state, _local_player_id())
+	return _is_local_prophecy_interrupt_open() or not _pending_summon_target.is_empty() or not _pending_secondary_target_state.is_empty() or _has_local_pending_discard_choice() or _has_local_pending_consume_selection() or _has_local_pending_deck_selection() or not _hand_selection_state.is_empty() or MatchTiming.has_pending_summon_effect_target(_match_state, _local_player_id()) or MatchTiming.has_pending_forced_play(_match_state, _local_player_id())
 
 
 func _is_local_match_ai_enabled() -> bool:
@@ -8301,6 +8312,37 @@ func _cancel_summon_target_mode() -> void:
 	_refresh_ui()
 	if is_turn_trigger:
 		_check_pending_turn_trigger_target()
+
+
+func _check_pending_secondary_target() -> void:
+	var local_id := _local_player_id()
+	if not MatchTiming.has_pending_secondary_target(_match_state, local_id):
+		return
+	if not _pending_secondary_target_state.is_empty():
+		return
+	if not _pending_summon_target.is_empty():
+		return
+	var pending := MatchTiming.get_pending_secondary_target(_match_state, local_id)
+	var source_id := str(pending.get("source_instance_id", ""))
+	_pending_secondary_target_state = pending.duplicate(true)
+	_selected_instance_id = source_id
+	_enter_targeting_mode(source_id)
+	_status_message = "Choose a target for damage."
+	_refresh_ui()
+
+
+func _resolve_secondary_target_card(target_instance_id: String) -> void:
+	_pending_secondary_target_state = {}
+	_cancel_targeting_mode_silent()
+	var result := MatchTiming.resolve_pending_secondary_target(_match_state, _local_player_id(), target_instance_id)
+	_finalize_engine_result(result, "Dealt damage to %s." % _card_name(_card_from_instance_id(target_instance_id)))
+
+
+func _resolve_secondary_target_player(player_id: String) -> void:
+	_pending_secondary_target_state = {}
+	_cancel_targeting_mode_silent()
+	var result := MatchTiming.resolve_pending_secondary_target_player(_match_state, _local_player_id(), player_id)
+	_finalize_engine_result(result, "Dealt damage to %s." % _player_name(player_id))
 
 
 func _check_pending_summon_effect_target() -> void:
