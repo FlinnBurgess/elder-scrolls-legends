@@ -29,6 +29,19 @@ func _ready() -> void:
 	_apply_filter()
 
 
+func set_type_filter(card_type: String) -> void:
+	var idx := 0
+	match card_type.to_lower():
+		"creature": idx = 1
+		"action": idx = 2
+		"item": idx = 3
+		"support": idx = 4
+	if _type_filter != null:
+		_type_filter.select(idx)
+		_page = 0
+		_apply_filter()
+
+
 func _load_catalog() -> void:
 	var result := CardCatalog.load_default()
 	var card_by_id: Dictionary = result.get("card_by_id", {})

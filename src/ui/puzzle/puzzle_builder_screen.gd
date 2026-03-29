@@ -639,6 +639,8 @@ func _open_card_search(type_hint: String = "") -> void:
 	var overlay := PuzzleCardSearchOverlayScript.new()
 	add_child(overlay)
 	_active_overlay = overlay
+	if not type_hint.is_empty():
+		overlay.set_type_filter(type_hint)
 	overlay.card_selected.connect(func(card_id: String):
 		_on_card_selected(card_id)
 		_dismiss_overlay()
@@ -798,11 +800,12 @@ func _open_list_editor(side: String, list_key: String) -> void:
 	var add_btn := Button.new()
 	add_btn.text = "Add Card"
 	add_btn.custom_minimum_size = Vector2(100, 36)
+	var filter_hint := "support" if list_key == "supports" else ""
 	add_btn.pressed.connect(func():
 		_dismiss_overlay()
 		_pending_card_target = list_key
 		_pending_list_side = side
-		_open_card_search()
+		_open_card_search(filter_hint)
 	)
 	btn_row.add_child(add_btn)
 
