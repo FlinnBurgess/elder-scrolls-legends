@@ -1,0 +1,43 @@
+{
+  "name": "Dagoth Initiation",
+  "type": "kill",
+  "lanes": [
+    { "lane_type": "field", "width": 4 },
+    { "lane_type": "shadow", "width": 4 }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 10,
+    "current_magicka": 10,
+    "has_ring": false,
+    "hand": [
+      "agi_arrow_in_the_knee",
+      "agi_hidden_trail",
+      "hom_tri_hand_of_dagoth",
+      "hom_int_ash_piercer",
+      "hom_agi_cliff_racer_onslaught"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "str_orc_clan_captain"
+    ],
+    "shadow_creatures": []
+  },
+  "enemy": {
+    "health": 3,
+    "max_magicka": 9,
+    "current_magicka": 9,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "agi_blacksap_protector"
+    ],
+    "shadow_creatures": [
+      "agi_blacksap_protector"
+    ]
+  }
+}

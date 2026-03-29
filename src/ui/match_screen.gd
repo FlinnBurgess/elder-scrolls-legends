@@ -636,8 +636,17 @@ func start_puzzle_match(puzzle_state: Dictionary, puzzle_config: Dictionary = {}
 		"turn_number": int(puzzle_state.get("turn_number", 1)),
 	}])
 	_status_message = ""
+	_rebuild_pause_overlay()
 	_refresh_ui()
 	_show_puzzle_objective_popup()
+
+
+func _rebuild_pause_overlay() -> void:
+	if _pause_overlay != null:
+		var parent := _pause_overlay.get_parent()
+		_pause_overlay.queue_free()
+		_pause_overlay = _build_pause_overlay()
+		parent.add_child(_pause_overlay)
 
 
 func _show_puzzle_objective_popup() -> void:
