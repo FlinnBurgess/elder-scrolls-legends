@@ -1,0 +1,56 @@
+{
+  "name": "The Bigger They Are",
+  "type": "kill",
+  "lanes": [
+    {
+      "lane_type": "field",
+      "width": 4
+    },
+    {
+      "lane_type": "shadow",
+      "width": 4
+    }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 7,
+    "current_magicka": 7,
+    "has_ring": false,
+    "hand": [
+      "str_sharpshooter_scout",
+      "iom_str_tiny_dragon",
+      "str_skaven_pyromancer",
+      "wil_summerset_shieldmage"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "int_niben_bay_cutthroat",
+      "int_niben_bay_cutthroat",
+      "int_niben_bay_cutthroat"
+    ],
+    "shadow_creatures": [
+      "int_niben_bay_cutthroat",
+      "int_niben_bay_cutthroat"
+    ]
+  },
+  "enemy": {
+    "health": 15,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "iom_str_nervous_giant",
+      "iom_str_nervous_giant",
+      "iom_str_nervous_giant"
+    ],
+    "shadow_creatures": [
+      "iom_str_nervous_giant",
+      "iom_str_nervous_giant"
+    ]
+  }
+}

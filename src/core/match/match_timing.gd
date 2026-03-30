@@ -3859,9 +3859,11 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 		if int(rghtt_player.get("health_gained_this_turn", 0)) <= 0:
 			return false
 	# 16. required_card_types_in_discard_or_play — each listed type present in discard or lanes
-	var rctidop_spec: Dictionary = descriptor.get("required_card_types_in_discard_or_play", {})
-	if not rctidop_spec.is_empty():
-		var rctidop_types: Array = rctidop_spec.get("types", [])
+	var rctidop_raw = descriptor.get("required_card_types_in_discard_or_play", {})
+	var rctidop_spec: Dictionary = rctidop_raw if typeof(rctidop_raw) == TYPE_DICTIONARY else {}
+	var rctidop_types_direct: Array = rctidop_raw if typeof(rctidop_raw) == TYPE_ARRAY else []
+	if not rctidop_spec.is_empty() or not rctidop_types_direct.is_empty():
+		var rctidop_types: Array = rctidop_types_direct if not rctidop_types_direct.is_empty() else rctidop_spec.get("types", [])
 		var rctidop_controller := str(trigger.get("controller_player_id", ""))
 		var rctidop_player := _get_player_state(match_state, rctidop_controller)
 		var rctidop_found_types: Dictionary = {}

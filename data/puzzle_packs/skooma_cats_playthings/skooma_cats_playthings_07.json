@@ -1,0 +1,49 @@
+{
+  "name": "Weakness",
+  "type": "kill",
+  "lanes": [
+    {
+      "lane_type": "field",
+      "width": 4
+    },
+    {
+      "lane_type": "shadow",
+      "width": 4
+    }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 6,
+    "current_magicka": 6,
+    "has_ring": false,
+    "hand": [
+      "cwc_str_grappling_hook",
+      "cwc_end_weakness"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "str_alikr_survivalist",
+      "wil_imperial_grunt"
+    ],
+    "shadow_creatures": [
+      "str_rihad_horseman"
+    ]
+  },
+  "enemy": {
+    "health": 11,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "cwc_neu_awakened_imperfect"
+    ],
+    "shadow_creatures": [
+      "cwc_neu_awakened_imperfect"
+    ]
+  }
+}

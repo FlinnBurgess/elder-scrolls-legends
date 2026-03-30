@@ -1,0 +1,57 @@
+{
+  "name": "Seeking Trouble",
+  "type": "kill",
+  "lanes": [
+    {
+      "lane_type": "field",
+      "width": 4
+    },
+    {
+      "lane_type": "shadow",
+      "width": 4
+    }
+  ],
+  "player": {
+    "health": 16,
+    "max_magicka": 27,
+    "current_magicka": 27,
+    "has_ring": false,
+    "hand": [
+      "iom_end_tavyar_the_knight",
+      "iom_int_rayvat_the_mage",
+      "str_cast_out",
+      "mhc_neu_close_call",
+      "hos_end_east_empire_crafter",
+      "iom_str_trouble_seeker",
+      "int_fire_storm"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "hom_int_therana"
+    ],
+    "shadow_creatures": [
+      "str_afflicted_alit",
+      "str_bog_lurcher"
+    ]
+  },
+  "enemy": {
+    "health": 17,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "wil_auroran_sentry"
+    ],
+    "shadow_creatures": [
+      "str_fortress_watchman",
+      "str_fortress_watchman",
+      "str_fortress_watchman",
+      "str_fortress_watchman"
+    ]
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "name": "Driven",
+  "type": "kill",
+  "lanes": [
+    {
+      "lane_type": "field",
+      "width": 4
+    },
+    {
+      "lane_type": "shadow",
+      "width": 4
+    }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 26,
+    "current_magicka": 26,
+    "has_ring": false,
+    "hand": [
+      "str_improvised_weapon",
+      "end_daedric_dagger",
+      "iom_end_squish_the_wimpy",
+      "hos_end_soul_tear",
+      "iom_str_drive_mad",
+      "hos_str_world_eaters_eyrie"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "end_night_talon_lord"
+    ],
+    "shadow_creatures": []
+  },
+  "enemy": {
+    "health": 22,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "wil_hive_defender",
+      "hos_str_candlehearth_brawler",
+      "hos_str_swiftwing_dragon"
+    ],
+    "shadow_creatures": []
+  }
+}

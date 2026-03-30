@@ -1,7 +1,7 @@
 # Claude Learnings
 
 ## Tags
-`ai` `anchors` `assemble` `attributes` `augments` `auras` `boons` `boss-config` `card-catalog` `card-hydration` `card-state` `case-sensitivity` `cost-reduction` `death-checks` `delegation` `end-of-turn` `events` `generated-cards` `identity` `invade` `lane-effects` `lane-resolution` `match-engine` `match-screen` `multi-target` `neutral` `passives` `player-state` `prophecy` `randomness` `registry` `runes` `shouts` `stat-helpers` `summon-path` `supports` `target-resolution` `test-match-config` `testing` `triggers` `ui`
+`ai` `anchors` `assemble` `attributes` `augments` `auras` `boons` `boss-config` `card-catalog` `card-hydration` `card-state` `case-sensitivity` `combat` `consume` `cost-reduction` `death-checks` `delegation` `end-of-turn` `events` `generated-cards` `identity` `invade` `lane-effects` `lane-resolution` `match-engine` `match-screen` `multi-target` `neutral` `passives` `player-state` `prophecy` `randomness` `registry` `runes` `shouts` `stat-helpers` `subtype-groups` `summon-path` `supports` `target-resolution` `test-match-config` `testing` `triggers` `ui`
 
 ## Card Hydration & Attributes
 
@@ -325,3 +325,33 @@
 - **Pre-placed creatures in test match configs lack `lane_id` and `slot_index`** `[test-match-config, lane-effects, testing]`
   `_build_lanes_with_creatures` in `test_match_config.gd` places creatures directly into `player_slots` without setting `lane_id` or `slot_index` on the card dicts. In contrast, `lane_rules.gd:summon_from_hand` sets both fields on summon. Lane effect handlers that check `card.get("lane_id", "")` (like heist, liquid courage, etc.) silently fail for pre-placed creatures because `lane_id` is empty string. The fix: iterate all pre-placed creatures in `_build_lanes_with_creatures` and set `lane_id` and `slot_index` after building `player_slots`.
   _Refs: `data/test_match_config.gd:346-358`, `src/core/match/lane_rules.gd:319-320`_
+
+## Subtype Groups & Filtering
+
+- **SUBTYPE_GROUPS expansion is NOT applied in most subtype filtering paths** `[subtype-groups, target-resolution, match-engine]`
+  `ExtendedMechanicPacks.SUBTYPE_GROUPS` maps group names ("Animal", "Undead") to member subtypes. Only catalog seed filtering (`summon_random_from_catalog`, `generate_random_to_hand`) expands groups. Target filtering (`target_filter_subtype`, `target_filter_subtypes`), condition checks (`_has_friendly_with_subtype`), aura filtering, draw filtering, and required-subtype checks all do exact string matching. Any card data using a group name ("Animal", "Undead") in these paths will silently fail to match. When adding subtype filtering, always check if the value could be a group name and expand via `SUBTYPE_GROUPS.get()`.
+  _Refs: `src/core/match/extended_mechanic_packs.gd:21-24`, `src/core/match/match_timing.gd:8509-8540`_
+
+- **`effect_is_enabled()` is the central gate for per-effect conditions — new condition keys must be added here** `[match-engine, card-catalog, triggers]`
+  `ExtendedMechanicPacks.effect_is_enabled()` checks conditions on individual effects before they execute. It handles `required_source_status`, `required_wax_wane_phase`, `required_min_friendly_with_attribute`, `required_friendly_attribute`, `require_source_uses_exhausted`, and `unless_min_friendly_with_attribute`. Any new condition key on an effect dict must have a corresponding check added here, or the effect will fire unconditionally. The function is called in `_apply_effects` for every effect before dispatch.
+  _Refs: `src/core/match/extended_mechanic_packs.gd:385-448`_
+
+## Combat & Attack Validation
+
+- **`_combat_pending_deaths` contains instance IDs of creatures about to die in combat phase 2** `[combat, death-checks, match-engine]`
+  During simultaneous death in combat, the defender is destroyed in phase 1 while the attacker is kept alive for slay trigger resolution. The attacker's instance_id is pushed to `match_state["_combat_pending_deaths"]`. Lane capacity checks (`validate_lane_entry`) must subtract pending-death creatures from the effective slot count, otherwise slay-summon effects fail in "full" lanes where the attacker is about to free a slot.
+  _Refs: `src/core/match/match_combat.gd:280-284`, `src/core/match/match_mutations.gd:160-205`_
+
+- **`attack_condition` dict on card data gates non-standard attack behaviors** `[combat, card-catalog, match-engine]`
+  Cards like Cicero the Betrayer use `"attack_condition": {"can_attack_friendly": true}` to override normal attack validation. The `_validate_creature_attack_target` function must check this dict. When allowing friendly attacks, skip cover and guard checks for the friendly target, and prevent self-targeting.
+  _Refs: `src/core/match/match_combat.gd:139-174`_
+
+## Consume Mechanic
+
+- **Consumed card info (`_consumed_card_info`) must include keywords for keyword-copying effects** `[consume, card-state, match-engine]`
+  `resolve_consume_selection` builds a `consumed_info` dict stored on the source card and injected into triggers. Originally it only tracked `instance_id`, `definition_id`, `name`, `power`, `health`, and `subtypes`. Effects like `copy_keywords_from_consumed` (Black Worm Neophyte) need `keywords` to be included. The consumed card's `keywords` array should be duplicated into `consumed_info`.
+  _Refs: `src/core/match/match_timing.gd:1948-1956`_
+
+- **`summon_from_effect` supports consume-conditional template upgrades** `[consume, match-engine, card-catalog]`
+  `upgrade_if_consumed_subtype` + `upgrade_template` swap the summon template when the consumed creature's subtypes include the specified subtype (e.g., Alfiq Conjurer summons Storm Atronach instead of Flame Atronach if an Atronach was consumed). `copy_keywords_from_consumed` copies the consumed creature's keywords to the summoned template. Both read from `trigger._consumed_card_info`.
+  _Refs: `src/core/match/match_timing.gd:5030-5045`_

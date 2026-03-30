@@ -1,0 +1,51 @@
+{
+  "name": "Spite",
+  "type": "kill",
+  "lanes": [
+    {
+      "lane_type": "field",
+      "width": 4
+    },
+    {
+      "lane_type": "shadow",
+      "width": 4
+    }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 2,
+    "current_magicka": 2,
+    "has_ring": false,
+    "hand": [
+      "iom_end_squish_the_wimpy"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "hom_agi_naryu_virian",
+      "iom_int_seething_flesh_golem"
+    ],
+    "shadow_creatures": [
+      "neu_dwarven_ballista"
+    ]
+  },
+  "enemy": {
+    "health": 11,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "cwc_neu_awakened_imperfect",
+      "agi_blacksap_protector",
+      "agi_blacksap_protector",
+      "hom_neu_target"
+    ],
+    "shadow_creatures": [
+      "hom_neu_target"
+    ]
+  }
+}

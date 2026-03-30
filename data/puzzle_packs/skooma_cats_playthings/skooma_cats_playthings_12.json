@@ -1,0 +1,53 @@
+{
+  "name": "Bawk Bawk Bawk",
+  "type": "kill",
+  "lanes": [
+    {
+      "lane_type": "field",
+      "width": 4
+    },
+    {
+      "lane_type": "shadow",
+      "width": 4
+    }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 17,
+    "current_magicka": 17,
+    "has_ring": false,
+    "hand": [
+      "hos_agi_ring_of_namira",
+      "iom_wil_blessing_of_the_grove",
+      "iom_wil_blessing_of_the_grove",
+      "iom_agi_felldew",
+      "iom_agi_elytra_noble"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "iom_wil_golden_initiate",
+      "iom_neu_giant_chicken"
+    ],
+    "shadow_creatures": [
+      "iom_wil_golden_initiate",
+      "iom_neu_giant_chicken"
+    ]
+  },
+  "enemy": {
+    "health": 41,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "wil_hive_defender"
+    ],
+    "shadow_creatures": [
+      "iom_int_pointy_wall_of_spikes"
+    ]
+  }
+}

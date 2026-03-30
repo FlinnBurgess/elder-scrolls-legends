@@ -79,6 +79,14 @@ For any field the user doesn't specify, use the defaults listed above. Empty arr
 
 Look up card names in `src/deck/card_catalog.gd` using the `_seed()` calls. The first argument is the `card_id`. Match by name (2nd argument) case-insensitively. If ambiguous, ask the user to clarify.
 
+**Batch efficiency**: For large batches (10+ puzzles), extract the full card_id→name mapping first rather than searching one card at a time:
+```
+grep -o '_seed("[^"]*", "[^"]*"' src/deck/card_catalog.gd | sed 's/_seed("//;s/", "/ | /' > /tmp/claude/card_ids.txt
+```
+Then grep this mapping file for each card name. Many cards have duplicates across sets (e.g., Risen Dead, Colovian Trooper, Target, Recruit) — check existing puzzles for precedent on which version to use.
+
+**Missing cards**: If a card referenced in the puzzle doesn't exist in the catalog, ask the user how to proceed (skip the puzzle, substitute, or add the card). If adding, use `"collectible": false` for puzzle-only/unobtainable cards.
+
 ### Step 4 — Write the Puzzle JSON
 
 Create the puzzle file at `data/puzzle_packs/<pack_id>/<puzzle_id>.json`:

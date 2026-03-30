@@ -1,0 +1,51 @@
+{
+  "name": "Powering Up",
+  "type": "kill",
+  "lanes": [
+    {
+      "lane_type": "field",
+      "width": 4
+    },
+    {
+      "lane_type": "shadow",
+      "width": 4
+    }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 8,
+    "current_magicka": 8,
+    "has_ring": false,
+    "hand": [
+      "aw_int_forked_bolt",
+      "int_firebolt",
+      "aw_int_channeled_storm",
+      "int_fire_storm",
+      "joo_int_fingers_of_the_mountain"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "hos_int_ancano",
+      "aw_tri_dominion_battlereeve"
+    ],
+    "shadow_creatures": []
+  },
+  "enemy": {
+    "health": 26,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "hom_end_risen_dead",
+      "end_colovian_trooper",
+      "agi_blacksap_protector",
+      "iom_str_trouble_seeker"
+    ],
+    "shadow_creatures": []
+  }
+}

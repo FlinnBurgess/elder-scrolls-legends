@@ -1,0 +1,59 @@
+{
+  "name": "Empress's New Recruits",
+  "type": "kill",
+  "lanes": [
+    {
+      "lane_type": "field",
+      "width": 4
+    },
+    {
+      "lane_type": "shadow",
+      "width": 4
+    }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 20,
+    "current_magicka": 20,
+    "has_ring": false,
+    "hand": [
+      "aw_agi_bewildering_speed",
+      "hos_neu_a_night_to_remember",
+      "wil_bruma_profiteer",
+      "wil_bruma_profiteer",
+      "joo_agi_blades_flanker",
+      "joo_wil_defense_of_bruma",
+      "moe_dual_euraxia_tharn"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "aw_tri_clivia_tharn",
+      "aw_neu_recruit"
+    ],
+    "shadow_creatures": [
+      "aw_neu_recruit"
+    ]
+  },
+  "enemy": {
+    "health": 29,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [
+      "hos_agi_ring_of_namira"
+    ],
+    "field_creatures": [],
+    "shadow_creatures": [
+      {
+        "definition_id": "iom_int_manic_jack",
+        "keywords": [
+          "charge"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "name": "Stolen Pants",
+  "type": "kill",
+  "lanes": [
+    {
+      "lane_type": "field",
+      "width": 4
+    },
+    {
+      "lane_type": "shadow",
+      "width": 4
+    }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 13,
+    "current_magicka": 13,
+    "has_ring": false,
+    "hand": [
+      "wil_fifth_legion_trainer",
+      "wil_fifth_legion_trainer",
+      "str_stone_throw",
+      "hom_neu_stolen_pants",
+      "hom_neu_stolen_pants",
+      "hom_neu_stolen_pants",
+      "int_soul_split"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "hom_end_vvardvark",
+      "hom_end_vvardvark",
+      "hom_end_vvardvark",
+      "agi_deshaan_sneak"
+    ],
+    "shadow_creatures": [
+      "int_niben_bay_cutthroat"
+    ]
+  },
+  "enemy": {
+    "health": 6,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "agi_mournhold_guardian",
+      "agi_mournhold_guardian",
+      "agi_mournhold_guardian"
+    ],
+    "shadow_creatures": [
+      "int_dres_renegade"
+    ]
+  }
+}

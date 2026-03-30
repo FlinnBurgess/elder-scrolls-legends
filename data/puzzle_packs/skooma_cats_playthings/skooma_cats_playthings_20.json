@@ -1,0 +1,56 @@
+{
+  "name": "Battle Hardened",
+  "type": "kill",
+  "lanes": [
+    {
+      "lane_type": "field",
+      "width": 4
+    },
+    {
+      "lane_type": "shadow",
+      "width": 4
+    }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 17,
+    "current_magicka": 17,
+    "has_ring": false,
+    "hand": [
+      "str_rapid_shot",
+      "iom_end_squish_the_wimpy",
+      "hos_str_berserker_of_the_pale",
+      "aw_tri_forerunner_of_the_pact",
+      "cwc_end_galyn_the_shelterer",
+      "aw_end_steel_eyed_visionary",
+      "aw_tri_mournhold_taskmaster",
+      "aw_str_jorunns_vanguard",
+      "aw_end_black_marsh_centurion",
+      "aw_agi_invoker_of_the_hist"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [],
+    "shadow_creatures": []
+  },
+  "enemy": {
+    "health": 26,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "wil_hive_defender",
+      "hom_int_theranas_lawman",
+      "str_vigilant_giant"
+    ],
+    "shadow_creatures": [
+      "wil_hive_defender",
+      "hom_int_theranas_lawman",
+      "str_vigilant_giant"
+    ]
+  }
+}

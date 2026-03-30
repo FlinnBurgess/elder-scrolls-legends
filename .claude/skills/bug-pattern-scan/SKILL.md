@@ -15,6 +15,7 @@ This skill is about **discovery, not specifics** — it surfaces issues the deve
 
 - This skill must be invoked **in the same conversation** where fixes were made. It relies on session context (the fixes you just made, the code you read, the reasoning behind each change) rather than git history.
 - At least two fixes should have been made in the session to make pattern clustering meaningful. A single fix can still be scanned, but clustering won't apply.
+- **Pre-defined pattern mode:** The user may supply a specific pattern class directly (e.g., "scan for stale snapshot capacity checks"). In this case, skip Phases 1-2 and go straight to Phase 3 with the user's pattern description and concrete example(s).
 
 ## Workflow
 
@@ -42,7 +43,7 @@ Aim to produce the fewest clusters that still capture distinct root causes. If t
 
 ### Phase 3 — Parallel scan
 
-Launch one subagent per pattern class, **all in parallel**. Each subagent should:
+Launch one subagent per pattern class, **all in parallel**. For a single pattern class, direct execution without a subagent is acceptable. Each subagent (or direct scan) should:
 
 1. Receive the abstract pattern description plus one or two concrete examples from the session (so it understands what to look for)
 2. Determine the appropriate scan scope for the pattern — some patterns are localized to specific file pairs, others are codebase-wide
@@ -71,7 +72,9 @@ Findings: <count>
 | 2 | ...     | Likely     | ...           |
 ```
 
-After presenting the report, create tasks using TaskCreate. Group closely related findings into a single task when they share the same root cause and fix location (e.g., 4 missing aura conditions → 1 task, 6 raw field accesses in the same file → 1 task). Create separate tasks when findings require distinct fix approaches or touch different subsystems. Each task should include:
+If the scan finds **zero actionable issues** (all sites are either already fixed, not vulnerable, or false positives), report the clean result with reasoning for why each candidate was cleared. Skip task creation and Phase 5 in this case -- a clean scan is a valid and valuable outcome.
+
+Otherwise, create tasks using TaskCreate. Group closely related findings into a single task when they share the same root cause and fix location (e.g., 4 missing aura conditions → 1 task, 6 raw field accesses in the same file → 1 task). Create separate tasks when findings require distinct fix approaches or touch different subsystems. Each task should include:
 - **Subject**: A concise description of the issue(s)
 - **Description**: The pattern class it belongs to, the specific finding(s), confidence level, and suggested fix approach
 

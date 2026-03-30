@@ -1,0 +1,49 @@
+{
+  "name": "Shining",
+  "type": "kill",
+  "lanes": [
+    {
+      "lane_type": "field",
+      "width": 4
+    },
+    {
+      "lane_type": "shadow",
+      "width": 4
+    }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 18,
+    "current_magicka": 18,
+    "has_ring": false,
+    "hand": [
+      "iom_wil_shining_saint",
+      "wil_spiteful_dremora",
+      "mhc_neu_close_call",
+      "cwc_wil_mecinars_will",
+      "int_lightning_bolt"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [],
+    "shadow_creatures": [
+      "wil_cheydinhal_sapper"
+    ]
+  },
+  "enemy": {
+    "health": 5,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [],
+    "shadow_creatures": [
+      "hos_wil_revered_guardian",
+      "mc_str_stampede_sentinel",
+      "agi_fighters_guild_recruit"
+    ]
+  }
+}

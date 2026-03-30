@@ -1,0 +1,127 @@
+{
+  "pack_id": "skooma_cats_playthings",
+  "display_name": "Skooma Cat's Playthings",
+  "order": 4,
+  "puzzles": [
+    {
+      "id": "skooma_cats_playthings_01",
+      "name": "Prey",
+      "type": "kill",
+      "file": "skooma_cats_playthings_01.json"
+    },
+    {
+      "id": "skooma_cats_playthings_02",
+      "name": "Shambles",
+      "type": "kill",
+      "file": "skooma_cats_playthings_02.json"
+    },
+    {
+      "id": "skooma_cats_playthings_03",
+      "name": "Shining",
+      "type": "kill",
+      "file": "skooma_cats_playthings_03.json"
+    },
+    {
+      "id": "skooma_cats_playthings_04",
+      "name": "Driven",
+      "type": "kill",
+      "file": "skooma_cats_playthings_04.json"
+    },
+    {
+      "id": "skooma_cats_playthings_05",
+      "name": "Order",
+      "type": "kill",
+      "file": "skooma_cats_playthings_05.json"
+    },
+    {
+      "id": "skooma_cats_playthings_06",
+      "name": "The Bigger They Are",
+      "type": "kill",
+      "file": "skooma_cats_playthings_06.json"
+    },
+    {
+      "id": "skooma_cats_playthings_07",
+      "name": "Weakness",
+      "type": "kill",
+      "file": "skooma_cats_playthings_07.json"
+    },
+    {
+      "id": "skooma_cats_playthings_08",
+      "name": "Darkest Hour",
+      "type": "survive",
+      "file": "skooma_cats_playthings_08.json"
+    },
+    {
+      "id": "skooma_cats_playthings_09",
+      "name": "Spite",
+      "type": "kill",
+      "file": "skooma_cats_playthings_09.json"
+    },
+    {
+      "id": "skooma_cats_playthings_10",
+      "name": "Seeking Trouble",
+      "type": "kill",
+      "file": "skooma_cats_playthings_10.json"
+    },
+    {
+      "id": "skooma_cats_playthings_11",
+      "name": "Keep the Gate",
+      "type": "survive",
+      "file": "skooma_cats_playthings_11.json"
+    },
+    {
+      "id": "skooma_cats_playthings_12",
+      "name": "Bawk Bawk Bawk",
+      "type": "kill",
+      "file": "skooma_cats_playthings_12.json"
+    },
+    {
+      "id": "skooma_cats_playthings_13",
+      "name": "Torture Fun",
+      "type": "kill",
+      "file": "skooma_cats_playthings_13.json"
+    },
+    {
+      "id": "skooma_cats_playthings_14",
+      "name": "Manic",
+      "type": "kill",
+      "file": "skooma_cats_playthings_14.json"
+    },
+    {
+      "id": "skooma_cats_playthings_15",
+      "name": "A Bard's Tale",
+      "type": "kill",
+      "file": "skooma_cats_playthings_15.json"
+    },
+    {
+      "id": "skooma_cats_playthings_16",
+      "name": "Expert Opinion",
+      "type": "kill",
+      "file": "skooma_cats_playthings_16.json"
+    },
+    {
+      "id": "skooma_cats_playthings_17",
+      "name": "Mobilized for War",
+      "type": "kill",
+      "file": "skooma_cats_playthings_17.json"
+    },
+    {
+      "id": "skooma_cats_playthings_18",
+      "name": "Powering Up",
+      "type": "kill",
+      "file": "skooma_cats_playthings_18.json"
+    },
+    {
+      "id": "skooma_cats_playthings_19",
+      "name": "Empress's New Recruits",
+      "type": "kill",
+      "file": "skooma_cats_playthings_19.json"
+    },
+    {
+      "id": "skooma_cats_playthings_20",
+      "name": "Battle Hardened",
+      "type": "kill",
+      "file": "skooma_cats_playthings_20.json"
+    }
+  ]
+}

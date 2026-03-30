@@ -1,0 +1,58 @@
+{
+  "name": "Torture Fun",
+  "type": "kill",
+  "lanes": [
+    {
+      "lane_type": "field",
+      "width": 4
+    },
+    {
+      "lane_type": "shadow",
+      "width": 4
+    }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "has_ring": false,
+    "hand": [
+      "mhc_agi_swindlers_market",
+      "agi_curse",
+      "agi_curse",
+      "agi_curse",
+      "hom_agi_blood_sacrament",
+      "int_soul_split",
+      "int_soul_split",
+      "hom_agi_drain_blood"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "iom_agi_eager_torturer",
+      "iom_agi_eager_torturer",
+      "hom_agi_moon_sugar_smuggler"
+    ],
+    "shadow_creatures": [
+      "hom_agi_moon_sugar_smuggler",
+      "hom_agi_moon_sugar_smuggler",
+      "hom_agi_moon_sugar_smuggler"
+    ]
+  },
+  "enemy": {
+    "health": 27,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "end_colovian_trooper",
+      "end_colovian_trooper",
+      "iom_str_bedeviling_scamp"
+    ],
+    "shadow_creatures": []
+  }
+}

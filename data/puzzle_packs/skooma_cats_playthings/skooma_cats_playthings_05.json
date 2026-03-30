@@ -1,0 +1,56 @@
+{
+  "name": "Order",
+  "type": "kill",
+  "lanes": [
+    {
+      "lane_type": "field",
+      "width": 4
+    },
+    {
+      "lane_type": "shadow",
+      "width": 4
+    }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 38,
+    "current_magicka": 38,
+    "has_ring": false,
+    "hand": [
+      "hom_str_redoran_battlespear",
+      "hom_str_redoran_battlespear",
+      "cwc_str_grappling_hook",
+      "str_orcish_warhammer",
+      "hos_int_dragon_priest_mask",
+      "hos_int_dragon_priest_mask",
+      "iom_end_squish_the_wimpy",
+      "int_master_of_arms",
+      "iom_end_knight_of_order"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "hos_neu_mudcrab_anklesnapper"
+    ],
+    "shadow_creatures": []
+  },
+  "enemy": {
+    "health": 24,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "end_iron_atronach",
+      "end_iron_atronach",
+      "end_iron_atronach"
+    ],
+    "shadow_creatures": [
+      "int_evermore_steward",
+      "int_evermore_steward"
+    ]
+  }
+}

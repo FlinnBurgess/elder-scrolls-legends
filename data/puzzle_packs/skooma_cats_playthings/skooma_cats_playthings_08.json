@@ -1,0 +1,53 @@
+{
+  "name": "Darkest Hour",
+  "type": "survive",
+  "lanes": [
+    {
+      "lane_type": "field",
+      "width": 4
+    },
+    {
+      "lane_type": "shadow",
+      "width": 4
+    }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 10,
+    "current_magicka": 10,
+    "has_ring": false,
+    "hand": [
+      "str_bone_bow",
+      "iom_end_dark_seducer",
+      "int_evermore_steward",
+      "int_evermore_steward"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "hom_neu_target"
+    ],
+    "shadow_creatures": [
+      "hom_neu_target"
+    ]
+  },
+  "enemy": {
+    "health": 30,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "end_young_mammoth",
+      "end_young_mammoth",
+      "end_young_mammoth",
+      "end_young_mammoth"
+    ],
+    "shadow_creatures": [
+      "str_reclusive_giant"
+    ]
+  }
+}

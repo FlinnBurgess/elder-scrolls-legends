@@ -1,0 +1,62 @@
+{
+  "name": "Sun-in-Shadow",
+  "type": "kill",
+  "lanes": [
+    {
+      "lane_type": "field",
+      "width": 4
+    },
+    {
+      "lane_type": "shadow",
+      "width": 4
+    }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 100,
+    "current_magicka": 100,
+    "has_ring": false,
+    "hand": [
+      "cwc_end_galyn_the_shelterer",
+      "hom_tri_sun_in_shadow"
+    ],
+    "deck": [
+      "neu_forsworn_guide",
+      "mhc_neu_close_call",
+      "hom_end_vvardvark_experiment",
+      "hos_neu_a_night_to_remember",
+      "cwc_end_weakness",
+      "hom_agi_blood_sacrament",
+      "hos_int_dark_rebirth",
+      "hom_agi_fleeting_apparition",
+      "hom_agi_fleeting_apparition",
+      "fhc_neu_ulfrics_uprising",
+      "hom_tri_divayths_experiments"
+    ],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "end_young_mammoth"
+    ],
+    "shadow_creatures": [
+      "hos_neu_mudcrab_anklesnapper"
+    ]
+  },
+  "enemy": {
+    "health": 13,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "hom_wil_dren_bodyguard",
+      "hom_wil_dren_bodyguard"
+    ],
+    "shadow_creatures": [
+      "hom_wil_dren_bodyguard",
+      "hom_wil_dren_bodyguard"
+    ]
+  }
+}

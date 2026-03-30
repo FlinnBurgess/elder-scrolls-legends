@@ -1,0 +1,50 @@
+{
+  "name": "Falkreath Defiler",
+  "type": "kill",
+  "lanes": [
+    {
+      "lane_type": "field",
+      "width": 4
+    },
+    {
+      "lane_type": "shadow",
+      "width": 4
+    }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 12,
+    "current_magicka": 12,
+    "has_ring": false,
+    "hand": [
+      "hos_dual_archers_gambit",
+      "hos_neu_a_night_to_remember",
+      "hos_neu_a_night_to_remember",
+      "hos_str_world_eaters_eyrie",
+      "agi_tazkad_the_packmaster",
+      "int_supreme_atromancer",
+      "hom_agi_morag_tong_assassin",
+      "hom_agi_cornerclub_gambler"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [
+      "neu_lichs_ring"
+    ],
+    "field_creatures": [
+      "db_end_falkreath_defiler"
+    ],
+    "shadow_creatures": []
+  },
+  "enemy": {
+    "health": 16,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [],
+    "shadow_creatures": []
+  }
+}

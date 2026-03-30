@@ -46,6 +46,12 @@ Otherwise, discover the image URL from the card's wiki page:
 - Also try `.jpg` if `.png` returns nothing
 - The subtype to use (e.g., "Nord", "Werewolf") can be found in the card's `subtypes` field in the catalog `_seed()` call
 
+**Wiki API fallback**: If you can't find the full-resolution URL from the card page HTML, confirm the file exists via the wiki API and then fetch the File: page to extract the direct URL:
+```
+curl -sL -A "Mozilla/5.0" "https://en.uesp.net/w/api.php?action=query&titles=File:LG-cardart-<Card_Name>.png&format=json"
+```
+If the response contains a `pageid` (no `"missing"` key), the file exists. Then fetch the File: page and extract the direct image URL from the `href` pointing to `//images.uesp.net/<hash>/<hash>/LG-cardart-<Name>.png`.
+
 If none of these attempts find card art, report the error and stop.
 
 ### Step 3 — Download and save the image

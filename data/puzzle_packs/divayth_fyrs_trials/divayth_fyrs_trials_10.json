@@ -1,0 +1,58 @@
+{
+  "name": "Mushroom Tower",
+  "type": "kill",
+  "lanes": [
+    {
+      "lane_type": "field",
+      "width": 4
+    },
+    {
+      "lane_type": "shadow",
+      "width": 4
+    }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 21,
+    "current_magicka": 21,
+    "has_ring": false,
+    "hand": [
+      "hos_agi_drain_vitality",
+      "agi_leafwater_blessing",
+      "hos_wil_call_of_valor",
+      "hos_str_unrelenting_force",
+      "cwc_neu_dragon_aspect",
+      "hos_neu_greybeard_mentor"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [
+      "hom_end_mushroom_tower"
+    ],
+    "field_creatures": [
+      "hom_int_therana"
+    ],
+    "shadow_creatures": [
+      "int_crystal_tower_crafter"
+    ]
+  },
+  "enemy": {
+    "health": 21,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "str_fortress_watchman",
+      "str_fortress_watchman",
+      "db_neu_makeshift_defenses"
+    ],
+    "shadow_creatures": [
+      "wil_senchetiger",
+      "wil_senchetiger",
+      "db_neu_makeshift_defenses"
+    ]
+  }
+}

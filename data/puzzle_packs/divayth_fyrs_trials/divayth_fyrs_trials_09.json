@@ -1,0 +1,58 @@
+{
+  "name": "Unite the Houses",
+  "type": "kill",
+  "lanes": [
+    {
+      "lane_type": "field",
+      "width": 4
+    },
+    {
+      "lane_type": "shadow",
+      "width": 4
+    }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 35,
+    "current_magicka": 35,
+    "has_ring": false,
+    "hand": [
+      "cwc_int_memory_wraith",
+      "hom_neu_unite_the_houses",
+      "str_cast_out",
+      "hom_agi_nix_ox",
+      "hom_agi_nix_ox",
+      "fhc_neu_ulfrics_uprising",
+      "hom_agi_gentleman_jim_stacey",
+      "cwc_wil_mecinars_will"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "int_redoran_enforcer"
+    ],
+    "shadow_creatures": [
+      "cwc_int_memory_wraith",
+      "hos_int_vigilant_of_stendarr"
+    ]
+  },
+  "enemy": {
+    "health": 60,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "hos_str_ulfrics_zealot",
+      "fhc_int_doppelganger"
+    ],
+    "shadow_creatures": [
+      "hos_end_skeletal_dragon",
+      "wil_senchetiger",
+      "end_mountain_tyrant"
+    ]
+  }
+}

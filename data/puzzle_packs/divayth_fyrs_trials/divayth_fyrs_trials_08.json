@@ -1,0 +1,53 @@
+{
+  "name": "Vivec",
+  "type": "kill",
+  "lanes": [
+    {
+      "lane_type": "field",
+      "width": 4
+    },
+    {
+      "lane_type": "shadow",
+      "width": 4
+    }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 25,
+    "current_magicka": 25,
+    "has_ring": false,
+    "hand": [
+      "hom_wil_umbra",
+      "hos_int_dragon_priest_mask",
+      "cwc_str_grappling_hook",
+      "mhc_int_gardener_of_swords",
+      "hom_int_enamors_keeper",
+      "str_afflicted_alit",
+      "agi_dune_stalker"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "hom_wil_vivec"
+    ],
+    "shadow_creatures": []
+  },
+  "enemy": {
+    "health": 15,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "hom_int_theranas_lawman",
+      "hom_int_theranas_lawman"
+    ],
+    "shadow_creatures": [
+      "hom_int_theranas_lawman",
+      "hom_int_theranas_lawman"
+    ]
+  }
+}

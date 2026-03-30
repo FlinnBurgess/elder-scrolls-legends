@@ -1,0 +1,50 @@
+{
+  "name": "A Bard's Tale",
+  "type": "kill",
+  "lanes": [
+    {
+      "lane_type": "field",
+      "width": 4
+    },
+    {
+      "lane_type": "shadow",
+      "width": 4
+    }
+  ],
+  "player": {
+    "health": 11,
+    "max_magicka": 13,
+    "current_magicka": 13,
+    "has_ring": false,
+    "hand": [
+      "int_firebolt",
+      "iom_agi_lady_syls_cruelty",
+      "iom_agi_lady_syls_cruelty",
+      "iom_agi_lady_syls_cruelty",
+      "int_brilliant_experiment",
+      "aw_int_abnur_tharn",
+      "hom_end_odirniran_necromancer"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "iom_agi_crazed_hunger",
+      "iom_agi_crazed_hunger",
+      "wil_golden_saint",
+      "iom_int_luzrah_gro_shar"
+    ],
+    "shadow_creatures": []
+  },
+  "enemy": {
+    "health": 20,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [],
+    "shadow_creatures": []
+  }
+}

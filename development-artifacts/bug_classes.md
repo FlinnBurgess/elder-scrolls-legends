@@ -190,6 +190,11 @@ Effect ops that read from a `source` field (e.g., `copy_keywords_to_friendly`) d
 Example: Mentor's Ring
 How to spot: User reports an item's on-play effect doing nothing despite the trigger firing. Check if the effect uses an op that reads from a source card (e.g., `copy_keywords_to_friendly`) and whether `"source"` is specified in the effect dict. If missing, it defaults to the item card instead of the equipped creature.
 
+## Unresolved "same"/"other" lane sentinel in fill/copy summon ops
+The `fill_lane_with` and `summon_copies_to_lane` ops resolve lanes via a fallback chain (`effect.lane_id` → `effect.target_lane_id` → `effect.lane` → `event.lane_id`) but only handled the `"chosen"` and `"both"` sentinel values. The `"same"` and `"other"`/`"other_lane"` sentinels (already handled by `summon_from_effect`) passed through as literal lane IDs and silently failed because no lane has those IDs. Fixed by adding resolution branches in both op handlers.
+Example: Prized Chicken, Vastarie, Prophet of Bones (`"lane": "same"` on `fill_lane_with`)
+How to spot: User reports a "Fill this lane" effect doing nothing. Check if the card's effect uses `"lane": "same"` or `"lane": "other"` with `fill_lane_with` or `summon_copies_to_lane`.
+
 ## Lane-targeting action_target_mode enters creature targeting mode
 `_action_needs_explicit_target` returns `true` for any non-empty `action_target_mode`, including lane-based modes like `choose_lane`. This sends the card into creature targeting (arrow) mode, but the `_on_lane_pressed` handler blocks lane plays when `_action_needs_explicit_target` is true. The card gets stuck — can't target a creature (wrong mode) and can't target a lane (blocked). Fix by excluding `choose_lane` from `_action_needs_explicit_target` so the card uses the detach-to-lane flow.
 Example: Trial of Flame (`action_target_mode: "choose_lane"`)

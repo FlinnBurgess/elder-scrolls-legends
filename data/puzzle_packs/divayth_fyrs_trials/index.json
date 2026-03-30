@@ -1,0 +1,73 @@
+{
+  "pack_id": "divayth_fyrs_trials",
+  "display_name": "Divayth Fyr's Trials",
+  "order": 3,
+  "puzzles": [
+    {
+      "id": "divayth_fyrs_trials_01",
+      "name": "Arcanaeum Librarian",
+      "type": "kill",
+      "file": "divayth_fyrs_trials_01.json"
+    },
+    {
+      "id": "divayth_fyrs_trials_02",
+      "name": "Fighters Guild Hall",
+      "type": "kill",
+      "file": "divayth_fyrs_trials_02.json"
+    },
+    {
+      "id": "divayth_fyrs_trials_03",
+      "name": "Leafwater Blessing",
+      "type": "kill",
+      "file": "divayth_fyrs_trials_03.json"
+    },
+    {
+      "id": "divayth_fyrs_trials_04",
+      "name": "Stolen Pants",
+      "type": "kill",
+      "file": "divayth_fyrs_trials_04.json"
+    },
+    {
+      "id": "divayth_fyrs_trials_05",
+      "name": "Shadowmere",
+      "type": "kill",
+      "file": "divayth_fyrs_trials_05.json"
+    },
+    {
+      "id": "divayth_fyrs_trials_06",
+      "name": "Skeletal Dragon",
+      "type": "kill",
+      "file": "divayth_fyrs_trials_06.json"
+    },
+    {
+      "id": "divayth_fyrs_trials_07",
+      "name": "Falkreath Defiler",
+      "type": "kill",
+      "file": "divayth_fyrs_trials_07.json"
+    },
+    {
+      "id": "divayth_fyrs_trials_08",
+      "name": "Vivec",
+      "type": "kill",
+      "file": "divayth_fyrs_trials_08.json"
+    },
+    {
+      "id": "divayth_fyrs_trials_09",
+      "name": "Unite the Houses",
+      "type": "kill",
+      "file": "divayth_fyrs_trials_09.json"
+    },
+    {
+      "id": "divayth_fyrs_trials_10",
+      "name": "Mushroom Tower",
+      "type": "kill",
+      "file": "divayth_fyrs_trials_10.json"
+    },
+    {
+      "id": "divayth_fyrs_trials_11",
+      "name": "Sun-in-Shadow",
+      "type": "kill",
+      "file": "divayth_fyrs_trials_11.json"
+    }
+  ]
+}

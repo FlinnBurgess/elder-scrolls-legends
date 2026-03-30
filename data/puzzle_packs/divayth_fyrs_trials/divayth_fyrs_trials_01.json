@@ -1,0 +1,47 @@
+{
+  "name": "Arcanaeum Librarian",
+  "type": "kill",
+  "lanes": [
+    {
+      "lane_type": "field",
+      "width": 4
+    },
+    {
+      "lane_type": "shadow",
+      "width": 4
+    }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 6,
+    "current_magicka": 6,
+    "has_ring": false,
+    "hand": [
+      "hom_agi_morag_tong_assassin",
+      "int_iron_sword",
+      "int_lightning_bolt",
+      "hom_str_bushwhack"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "str_nord_firebrand",
+      "cwc_int_arcanaeum_librarian"
+    ],
+    "shadow_creatures": [
+      "db_end_cicero_the_betrayer"
+    ]
+  },
+  "enemy": {
+    "health": 13,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [],
+    "shadow_creatures": []
+  }
+}

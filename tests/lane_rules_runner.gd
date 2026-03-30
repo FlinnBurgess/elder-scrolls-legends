@@ -291,11 +291,14 @@ func _test_sacrifice_summon_publishes_correct_events() -> bool:
 		return false
 	var events: Array = result.get("events", [])
 	# Find event indices
+	var destroyed_idx := -1
 	var sacrifice_idx := -1
 	var played_idx := -1
 	var summoned_idx := -1
 	for i in range(events.size()):
 		var evt_type := str(events[i].get("event_type", ""))
+		if evt_type == "creature_destroyed" and destroyed_idx == -1:
+			destroyed_idx = i
 		if evt_type == "card_sacrificed" and sacrifice_idx == -1:
 			sacrifice_idx = i
 		if evt_type == "card_played" and played_idx == -1:
@@ -303,9 +306,11 @@ func _test_sacrifice_summon_publishes_correct_events() -> bool:
 		if evt_type == "creature_summoned" and summoned_idx == -1:
 			summoned_idx = i
 	return (
+		_assert(destroyed_idx >= 0, "Should publish creature_destroyed event for last gasp triggers.") and
 		_assert(sacrifice_idx >= 0, "Should publish card_sacrificed event.") and
 		_assert(played_idx >= 0, "Should publish card_played event.") and
 		_assert(summoned_idx >= 0, "Should publish creature_summoned event.") and
+		_assert(destroyed_idx < sacrifice_idx, "creature_destroyed should come before card_sacrificed.") and
 		_assert(sacrifice_idx < played_idx, "card_sacrificed should come before card_played.") and
 		_assert(played_idx < summoned_idx, "card_played should come before creature_summoned.")
 	)

@@ -1,0 +1,54 @@
+{
+  "name": "Manic",
+  "type": "kill",
+  "lanes": [
+    {
+      "lane_type": "field",
+      "width": 4
+    },
+    {
+      "lane_type": "shadow",
+      "width": 4
+    }
+  ],
+  "player": {
+    "health": 3,
+    "max_magicka": 17,
+    "current_magicka": 17,
+    "has_ring": false,
+    "hand": [
+      "hom_tri_redoran_forerunner",
+      "int_mentors_ring",
+      "int_wisdom_of_ancients",
+      "iom_agi_lady_syls_cruelty",
+      "int_royal_sage",
+      "end_daedric_dagger",
+      "iom_int_manic_jack",
+      "iom_int_manic_mutation",
+      "hos_end_mentor_of_the_watch"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [
+      "neu_elixir_of_conflict",
+      "neu_elixir_of_conflict"
+    ],
+    "field_creatures": [],
+    "shadow_creatures": []
+  },
+  "enemy": {
+    "health": 18,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "agi_fighters_guild_recruit"
+    ],
+    "shadow_creatures": [
+      "agi_fighters_guild_recruit"
+    ]
+  }
+}
