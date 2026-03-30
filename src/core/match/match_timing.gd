@@ -5668,7 +5668,22 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var moved := MatchMutations.discard_card(match_state, str(card.get("instance_id", "")))
 					if bool(moved.get("is_valid", false)):
 						generated_events.append({"event_type": "creature_destroyed", "instance_id": str(card.get("instance_id", "")), "reason": "sacrifice_and_resummon"})
-						var sar_template := {"definition_id": sar_def_id}
+						var sar_base_power := int(card.get("base_power", card.get("power", 0)))
+						var sar_base_health := int(card.get("base_health", card.get("health", 0)))
+						var sar_template := {
+							"definition_id": sar_def_id,
+							"card_type": CARD_TYPE_CREATURE,
+							"name": str(card.get("name", "")),
+							"cost": int(card.get("cost", 0)),
+							"power": sar_base_power,
+							"health": sar_base_health,
+							"base_power": sar_base_power,
+							"base_health": sar_base_health,
+							"keywords": card.get("keywords", []).duplicate() if typeof(card.get("keywords", [])) == TYPE_ARRAY else [],
+							"subtypes": card.get("subtypes", []).duplicate() if typeof(card.get("subtypes", [])) == TYPE_ARRAY else [],
+							"attributes": card.get("attributes", []).duplicate() if typeof(card.get("attributes", [])) == TYPE_ARRAY else [],
+							"rules_text": str(card.get("rules_text", "")),
+						}
 						var sar_copy := MatchMutations.build_generated_card(match_state, sar_controller, sar_template)
 						if sar_lane_index >= 0:
 							var sar_summon := MatchMutations.summon_card_to_lane(match_state, sar_controller, sar_copy, sar_lane_id, {"source_zone": MatchMutations.ZONE_GENERATED})
@@ -6413,7 +6428,12 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"target_instance_id": str(dceot_source.get("instance_id", "")),
 					})
 			"deal_damage_to_lane":
-				var ddtl_source_id := str(trigger.get("source_instance_id", ""))
+				var ddtl_damage_source := str(effect.get("damage_source", "self"))
+				var ddtl_source_id := ""
+				if ddtl_damage_source == "event_target":
+					ddtl_source_id = _event_target_instance_id(event)
+				else:
+					ddtl_source_id = str(trigger.get("source_instance_id", ""))
 				var ddtl_source := _find_card_anywhere(match_state, ddtl_source_id)
 				if not ddtl_source.is_empty() and str(ddtl_source.get("zone", "")) == ZONE_LANE:
 					var ddtl_power := EvergreenRules.get_power(ddtl_source)
@@ -6424,34 +6444,37 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					if ddtl_lane_id.is_empty():
 						continue
 					generated_events.append({"event_type": "lane_aoe_damage", "source_instance_id": ddtl_source_id, "lane_id": ddtl_lane_id, "amount": ddtl_power})
+					var ddtl_targets: Array = []
 					for ddtl_lane in match_state.get("lanes", []):
 						if str(ddtl_lane.get("lane_id", "")) != ddtl_lane_id:
 							continue
-						for ddtl_player_slots in ddtl_lane.get("player_slots", []):
-							for ddtl_card in ddtl_player_slots.get("cards", []):
+						for ddtl_pid in ddtl_lane.get("player_slots", {}).keys():
+							for ddtl_card in ddtl_lane.get("player_slots", {})[ddtl_pid]:
 								if typeof(ddtl_card) != TYPE_DICTIONARY:
 									continue
 								if str(ddtl_card.get("instance_id", "")) == ddtl_source_id:
 									continue
-								var ddtl_dmg_result := EvergreenRules.apply_damage_to_creature(ddtl_card, ddtl_power)
-								generated_events.append({
-									"event_type": EVENT_DAMAGE_RESOLVED,
-									"source_instance_id": ddtl_source_id,
-									"target_instance_id": str(ddtl_card.get("instance_id", "")),
-									"amount": ddtl_power,
-									"damage_kind": "ability",
-									"ward_removed": bool(ddtl_dmg_result.get("ward_removed", false)),
-								})
-								if EvergreenRules.get_remaining_health(ddtl_card) <= 0:
-									var ddtl_destroy := MatchMutations.discard_card(match_state, str(ddtl_card.get("instance_id", "")), {"reason": "deal_damage_to_lane"})
-									generated_events.append({
-										"event_type": EVENT_CREATURE_DESTROYED,
-										"instance_id": str(ddtl_card.get("instance_id", "")),
-										"controller_player_id": str(ddtl_card.get("controller_player_id", "")),
-										"killer_instance_id": ddtl_source_id,
-										"lane_id": ddtl_lane_id,
-									})
-									generated_events.append_array(ddtl_destroy.get("events", []))
+								ddtl_targets.append(ddtl_card)
+					for ddtl_card in ddtl_targets:
+						var ddtl_dmg_result := EvergreenRules.apply_damage_to_creature(ddtl_card, ddtl_power)
+						generated_events.append({
+							"event_type": EVENT_DAMAGE_RESOLVED,
+							"source_instance_id": ddtl_source_id,
+							"target_instance_id": str(ddtl_card.get("instance_id", "")),
+							"amount": ddtl_power,
+							"damage_kind": "ability",
+							"ward_removed": bool(ddtl_dmg_result.get("ward_removed", false)),
+						})
+						if EvergreenRules.get_remaining_health(ddtl_card) <= 0:
+							var ddtl_destroy := MatchMutations.discard_card(match_state, str(ddtl_card.get("instance_id", "")), {"reason": "deal_damage_to_lane"})
+							generated_events.append({
+								"event_type": EVENT_CREATURE_DESTROYED,
+								"instance_id": str(ddtl_card.get("instance_id", "")),
+								"controller_player_id": str(ddtl_card.get("controller_player_id", "")),
+								"killer_instance_id": ddtl_source_id,
+								"lane_id": ddtl_lane_id,
+							})
+							generated_events.append_array(ddtl_destroy.get("events", []))
 			"steal_from_discard", "draw_from_opponent_discard":
 				var sfd_controller_id := str(trigger.get("controller_player_id", ""))
 				var sfd_opponent_id := _get_opposing_player_id(match_state.get("players", []), sfd_controller_id)
@@ -7449,25 +7472,29 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				if daesl_lane_id.is_empty():
 					var daesl_loc := MatchMutations.find_card_location(match_state, str(trigger.get("source_instance_id", "")))
 					daesl_lane_id = str(daesl_loc.get("lane_id", ""))
-				var daesl_all: Array = []
+				var daesl_to_destroy: Array = []
 				for lane in match_state.get("lanes", []):
 					if str(lane.get("lane_id", "")) != daesl_lane_id:
 						continue
 					for daesl_pid in lane.get("player_slots", {}).keys():
+						var daesl_side: Array = []
 						for daesl_card in lane.get("player_slots", {})[daesl_pid]:
 							if typeof(daesl_card) == TYPE_DICTIONARY:
-								daesl_all.append(daesl_card)
-				if daesl_all.size() > 1:
-					var daesl_max_power := -1
-					for daesl_card in daesl_all:
-						var p := EvergreenRules.get_power(daesl_card)
-						if p > daesl_max_power:
-							daesl_max_power = p
-					for daesl_card in daesl_all:
-						if EvergreenRules.get_power(daesl_card) < daesl_max_power:
-							var daesl_destroy := MatchMutations.discard_card(match_state, str(daesl_card.get("instance_id", "")), {"reason": reason})
-							generated_events.append({"event_type": EVENT_CREATURE_DESTROYED, "instance_id": str(daesl_card.get("instance_id", "")), "controller_player_id": str(daesl_card.get("controller_player_id", "")), "lane_id": daesl_lane_id})
-							generated_events.append_array(daesl_destroy.get("events", []))
+								daesl_side.append(daesl_card)
+						if daesl_side.size() <= 1:
+							continue
+						var daesl_max_power := -1
+						for daesl_card in daesl_side:
+							var p := EvergreenRules.get_power(daesl_card)
+							if p > daesl_max_power:
+								daesl_max_power = p
+						for daesl_card in daesl_side:
+							if EvergreenRules.get_power(daesl_card) < daesl_max_power:
+								daesl_to_destroy.append(daesl_card)
+				for daesl_card in daesl_to_destroy:
+					var daesl_destroy := MatchMutations.discard_card(match_state, str(daesl_card.get("instance_id", "")), {"reason": reason})
+					generated_events.append({"event_type": EVENT_CREATURE_DESTROYED, "instance_id": str(daesl_card.get("instance_id", "")), "controller_player_id": str(daesl_card.get("controller_player_id", "")), "lane_id": daesl_lane_id})
+					generated_events.append_array(daesl_destroy.get("events", []))
 			"copy_from_opponent_deck":
 				var cfod_controller_id := str(trigger.get("controller_player_id", ""))
 				var cfod_opponent_id := _get_opposing_player_id(match_state.get("players", []), cfod_controller_id)

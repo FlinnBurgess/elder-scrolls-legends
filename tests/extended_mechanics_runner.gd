@@ -61,7 +61,10 @@ func _run_all_tests() -> bool:
 		_test_choose_cost_lock_blocks_opponent_summon() and
 		_test_choose_cost_lock_allows_different_cost() and
 		_test_filter_unique_cost_reduction() and
-		_test_guess_opponent_card_varies_per_instance()
+		_test_guess_opponent_card_varies_per_instance() and
+		_test_unstoppable_rage_deal_damage_to_lane() and
+		_test_dark_rebirth_sacrifice_and_resummon() and
+		_test_trial_of_flame_destroy_all_except_strongest()
 	)
 
 
@@ -2453,3 +2456,117 @@ func _assert(condition: bool, message: String) -> bool:
 		return true
 	push_error(message)
 	return false
+
+
+func _test_unstoppable_rage_deal_damage_to_lane() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Summon a 5-power friendly creature in field lane
+	var friendly := ScenarioFixtures.summon_creature(player, match_state, "friendly_brute", "field", 5, 5)
+	# Summon 2 enemy creatures in field lane (3hp each)
+	var enemy1 := ScenarioFixtures.summon_creature(opponent, match_state, "enemy1", "field", 2, 3)
+	var enemy2 := ScenarioFixtures.summon_creature(opponent, match_state, "enemy2", "field", 2, 3)
+	# Another friendly creature in field lane (should also take damage)
+	var friendly2 := ScenarioFixtures.summon_creature(player, match_state, "friendly2", "field", 1, 10)
+	# Unstoppable Rage: deal damage equal to target creature's power to all other creatures in lane
+	var rage := ScenarioFixtures.add_hand_card(player, "unstoppable_rage", {
+		"card_type": "action", "cost": 0,
+		"action_target_mode": "friendly_creature",
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "deal_damage_to_lane", "target": "event_target", "damage_source": "event_target", "exclude_self": true}]}],
+	})
+	var result := MatchTiming.play_action_from_hand(match_state, pid, str(rage.get("instance_id", "")), {"target_instance_id": str(friendly.get("instance_id", ""))})
+	if not _assert(bool(result.get("is_valid", false)), "Unstoppable Rage should be playable."):
+		return false
+	# enemy1 and enemy2 had 3hp, took 5 damage -> destroyed
+	var e1_loc := MatchMutations.find_card_location(match_state, str(enemy1.get("instance_id", "")))
+	var e2_loc := MatchMutations.find_card_location(match_state, str(enemy2.get("instance_id", "")))
+	if not _assert(str(e1_loc.get("zone", "")) == "discard", "Unstoppable Rage: enemy1 (3hp) should be destroyed by 5 damage."):
+		return false
+	if not _assert(str(e2_loc.get("zone", "")) == "discard", "Unstoppable Rage: enemy2 (3hp) should be destroyed by 5 damage."):
+		return false
+	# friendly2 had 10hp, took 5 damage -> 5hp remaining
+	if not _assert(EvergreenRules.get_remaining_health(friendly2) == 5, "Unstoppable Rage: friendly2 (10hp) should have 5hp remaining after 5 damage."):
+		return false
+	# The source creature should NOT take damage from itself
+	return _assert(EvergreenRules.get_remaining_health(friendly) == 5, "Unstoppable Rage: source creature should not damage itself.")
+
+
+func _test_dark_rebirth_sacrifice_and_resummon() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Summon a creature to sacrifice
+	var target := ScenarioFixtures.summon_creature(player, match_state, "summon_target", "field", 3, 3, [], -1, {
+		"definition_id": "test_summon_creature",
+	})
+	var target_id := str(target.get("instance_id", ""))
+	# Dark Rebirth: sacrifice target, resummon a copy
+	var rebirth := ScenarioFixtures.add_hand_card(player, "dark_rebirth", {
+		"card_type": "action", "cost": 0,
+		"action_target_mode": "friendly_creature",
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "sacrifice_and_resummon", "target": "event_target"}]}],
+	})
+	var result := MatchTiming.play_action_from_hand(match_state, pid, str(rebirth.get("instance_id", "")), {"target_instance_id": target_id})
+	if not _assert(bool(result.get("is_valid", false)), "Dark Rebirth should be playable."):
+		return false
+	# Original creature should be in discard
+	var orig_loc := MatchMutations.find_card_location(match_state, target_id)
+	if not _assert(str(orig_loc.get("zone", "")) == "discard", "Dark Rebirth: original creature should be sacrificed to discard."):
+		return false
+	# A new copy should exist in the field lane with base stats
+	var copy: Dictionary = {}
+	for lane in match_state.get("lanes", []):
+		if str(lane.get("lane_id", "")) != "field":
+			continue
+		for card in lane.get("player_slots", {}).get(pid, []):
+			if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == "test_summon_creature" and str(card.get("instance_id", "")) != target_id:
+				copy = card
+	if not _assert(not copy.is_empty(), "Dark Rebirth: a copy of the creature should be summoned in the same lane."):
+		return false
+	return (
+		_assert(EvergreenRules.get_power(copy) == 3, "Dark Rebirth: copy should have original base power (3).") and
+		_assert(EvergreenRules.get_health(copy) == 3, "Dark Rebirth: copy should have original base health (3).")
+	)
+
+
+func _test_trial_of_flame_destroy_all_except_strongest() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Player has a 5-power and a 2-power creature in field
+	var p_strong := ScenarioFixtures.summon_creature(player, match_state, "p_strong", "field", 5, 5)
+	var p_weak := ScenarioFixtures.summon_creature(player, match_state, "p_weak", "field", 2, 2)
+	# Opponent has an 8-power and two 3-power creatures in field
+	var o_strong := ScenarioFixtures.summon_creature(opponent, match_state, "o_strong", "field", 8, 8)
+	var o_weak1 := ScenarioFixtures.summon_creature(opponent, match_state, "o_weak1", "field", 3, 3)
+	var o_weak2 := ScenarioFixtures.summon_creature(opponent, match_state, "o_weak2", "field", 3, 3)
+	# Trial of Flame: destroy all except strongest on each side
+	var trial := ScenarioFixtures.add_hand_card(player, "trial_of_flame", {
+		"card_type": "action", "cost": 0,
+		"action_target_mode": "choose_lane",
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "destroy_all_except_strongest_in_lane", "target": "chosen_lane"}]}],
+	})
+	var result := MatchTiming.play_action_from_hand(match_state, pid, str(trial.get("instance_id", "")), {"lane_id": "field"})
+	if not _assert(bool(result.get("is_valid", false)), "Trial of Flame should be playable."):
+		return false
+	# Player's strong (5-power) survives, weak (2-power) destroyed
+	var ps_loc := MatchMutations.find_card_location(match_state, str(p_strong.get("instance_id", "")))
+	var pw_loc := MatchMutations.find_card_location(match_state, str(p_weak.get("instance_id", "")))
+	if not _assert(str(ps_loc.get("zone", "")) == "lane", "Trial of Flame: player's strongest creature should survive."):
+		return false
+	if not _assert(str(pw_loc.get("zone", "")) == "discard", "Trial of Flame: player's weaker creature should be destroyed."):
+		return false
+	# Opponent's strong (8-power) survives, both weaks destroyed
+	var os_loc := MatchMutations.find_card_location(match_state, str(o_strong.get("instance_id", "")))
+	var ow1_loc := MatchMutations.find_card_location(match_state, str(o_weak1.get("instance_id", "")))
+	var ow2_loc := MatchMutations.find_card_location(match_state, str(o_weak2.get("instance_id", "")))
+	if not _assert(str(os_loc.get("zone", "")) == "lane", "Trial of Flame: opponent's strongest creature should survive."):
+		return false
+	if not _assert(str(ow1_loc.get("zone", "")) == "discard", "Trial of Flame: opponent's weaker creature should be destroyed."):
+		return false
+	return _assert(str(ow2_loc.get("zone", "")) == "discard", "Trial of Flame: opponent's second weaker creature should be destroyed.")

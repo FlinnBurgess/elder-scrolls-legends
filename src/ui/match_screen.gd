@@ -1239,6 +1239,8 @@ func play_or_activate_selected() -> Dictionary:
 			"item":
 				return _invalid_ui_result("Select a friendly creature to equip this item.")
 			"action":
+				if _action_needs_explicit_target(card):
+					return _invalid_ui_result("Select a target for this action.")
 				if _check_exalt_action(card, {}, _is_pending_prophecy_card(card)):
 					return {"is_valid": true}
 				result = MatchTiming.play_action_from_hand(_match_state, _active_player_id(), _selected_instance_id)
