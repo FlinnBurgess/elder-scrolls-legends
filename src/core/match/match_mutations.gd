@@ -251,6 +251,10 @@ static func move_card_to_zone(match_state: Dictionary, instance_id: String, zone
 	if not bool(player_lookup.get("is_valid", false)):
 		return player_lookup
 	if str(location.get("zone", "")) == ZONE_LANE and str(card.get("card_type", "")) == CARD_TYPE_CREATURE:
+		# Snapshot drain before items are detached and state is reset,
+		# so last gasp / death triggers can still check for drain.
+		if zone_name == ZONE_DISCARD and EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_DRAIN):
+			card["_had_drain_at_death"] = true
 		_move_attached_items_to_owner_discard(match_state, card, {"reason": str(options.get("reason", "host_left_play"))})
 	_detach_card(match_state, location)
 	var target_cards: Array = player_lookup["player"][zone_name]
@@ -355,8 +359,22 @@ static func sacrifice_card(match_state: Dictionary, controller_player_id: String
 		return _invalid_result("Only lane cards can be sacrificed.")
 	if str(location.get("player_id", "")) != controller_player_id:
 		return _invalid_result("Card %s is not controlled by %s." % [instance_id, controller_player_id])
+	var card: Dictionary = location.get("card", {})
+	var lane_id := str(location.get("lane_id", ""))
+	var owner_player_id := str(card.get("owner_player_id", controller_player_id))
 	var result := discard_card(match_state, instance_id, options)
 	if bool(result.get("is_valid", false)):
+		result["events"].append({
+			"event_type": "creature_destroyed",
+			"instance_id": instance_id,
+			"source_instance_id": instance_id,
+			"owner_player_id": owner_player_id,
+			"controller_player_id": controller_player_id,
+			"destroyed_by_instance_id": "",
+			"lane_id": lane_id,
+			"source_zone": ZONE_LANE,
+			"is_sacrifice": true,
+		})
 		result["events"].append({
 			"event_type": "card_sacrificed",
 			"source_instance_id": instance_id,

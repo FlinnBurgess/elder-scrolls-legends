@@ -1847,6 +1847,26 @@ static func _resolve_player_damage(match_state: Dictionary, trigger: Dictionary,
 			"amount": int(damage_result.get("applied_damage", 0)),
 		})
 		events.append_array(damage_result.get("events", []))
+		# Drain: if the source creature has drain, heal its controller
+		var applied_damage := int(damage_result.get("applied_damage", 0))
+		if applied_damage > 0:
+			var drain_source_id := str(trigger.get("source_instance_id", ""))
+			var drain_source := _find_card_anywhere(match_state, drain_source_id)
+			# Check current keywords OR snapshot taken before death processing
+			var has_drain := not drain_source.is_empty() and (EvergreenRules.has_keyword(drain_source, EvergreenRules.KEYWORD_DRAIN) or bool(drain_source.get("_had_drain_at_death", false)))
+			if has_drain:
+				var drain_controller_id := str(trigger.get("controller_player_id", ""))
+				var drain_player := _get_player_state(match_state, drain_controller_id)
+				if not drain_player.is_empty():
+					var heal_amount: int = applied_damage * int(_timing_rules()._get_heal_multiplier(match_state, drain_controller_id))
+					drain_player["health"] = int(drain_player.get("health", 0)) + heal_amount
+					events.append({
+						"event_type": "player_healed",
+						"target_player_id": drain_controller_id,
+						"source_instance_id": drain_source_id,
+						"amount": heal_amount,
+						"reason": EvergreenRules.KEYWORD_DRAIN,
+					})
 		var winner := _get_opponent(match_state, player_id)
 		_timing_rules().append_match_win_if_needed(match_state, player_id, str(winner.get("player_id", "")), events)
 	return events

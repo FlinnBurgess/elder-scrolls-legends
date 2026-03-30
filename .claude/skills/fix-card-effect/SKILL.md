@@ -82,6 +82,7 @@ These are optional fields on the trigger descriptor that gate whether the trigge
 - `heal` — handled via `ExtendedMechanicPacks.apply_custom_effect()`
 - `gain_magicka` — `{op, amount}` — adds to `temporary_magicka`; handled via `ExtendedMechanicPacks.apply_custom_effect()`
 - `summon_from_effect` — `{op, card_template, lane_id (optional)}`
+- `fill_lane_with` — `{op, card_template, lane?, owner?}` — fills controller's side of a lane with copies of the template. `lane` supports sentinels: `"same"` (event lane), `"other"` (opposite lane), `"chosen"` (player-picked), `"both"` (all lanes). `owner: "both"` fills both sides.
 - `summon_copies_to_lane` — `{op, card_template, count OR fill_lane: true}`
 - `silence` — `{op, target}`
 - `unsummon` — `{op, target}`
