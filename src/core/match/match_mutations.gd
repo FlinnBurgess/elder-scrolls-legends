@@ -169,16 +169,24 @@ static func validate_lane_entry(match_state: Dictionary, player_id: String, card
 		return _invalid_result("Lane %s does not track player_id %s." % [lane_id, player_id])
 	var player_slots: Array = player_slots_by_id[player_id]
 	var slot_capacity := int(lane.get("slot_capacity", 0))
+	var pending_deaths: Array = match_state.get("_combat_pending_deaths", [])
+	var pending_death_count := 0
+	if not pending_deaths.is_empty():
+		for slot_card in player_slots:
+			if typeof(slot_card) == TYPE_DICTIONARY and pending_deaths.has(str(slot_card.get("instance_id", ""))):
+				pending_death_count += 1
+	var effective_slot_count := player_slots.size() - pending_death_count
 	var requested_slot := int(options.get("slot_index", -1))
 	var slot_index := requested_slot
 	if requested_slot == -1:
-		slot_index = _find_open_slot(player_slots, slot_capacity)
-		if slot_index == -1:
+		if effective_slot_count < slot_capacity:
+			slot_index = player_slots.size()
+		else:
 			return _invalid_result("Lane %s is full for %s." % [lane_id, player_id])
 	else:
 		if requested_slot < 0 or requested_slot > player_slots.size():
 			return _invalid_result("Requested slot %d is out of range for lane %s." % [requested_slot, lane_id])
-		if player_slots.size() >= slot_capacity:
+		if effective_slot_count >= slot_capacity:
 			return _invalid_result("Lane %s is full for %s." % [lane_id, player_id])
 	# Sewer lane restriction: creatures with more than 2 health cannot be played here
 	var lane_type := str(lane.get("lane_type", lane_id))

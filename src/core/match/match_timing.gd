@@ -5034,6 +5034,16 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				var fill_lane_id := str(effect.get("lane_id", effect.get("target_lane_id", effect.get("lane", event.get("lane_id", "")))))
 				if fill_lane_id == "chosen":
 					fill_lane_id = str(trigger.get("_chosen_lane_id", event.get("lane_id", "")))
+				if fill_lane_id == "same":
+					fill_lane_id = str(event.get("lane_id", ""))
+				if fill_lane_id == "other_lane" or fill_lane_id == "other":
+					var _flt_source_lane := str(event.get("lane_id", ""))
+					fill_lane_id = ""
+					for _flt_lane in match_state.get("lanes", []):
+						var _flt_lid := str(_flt_lane.get("lane_id", ""))
+						if _flt_lid != _flt_source_lane and not _flt_lid.is_empty():
+							fill_lane_id = _flt_lid
+							break
 				var fill_template: Dictionary = effect.get("card_template", {})
 				if fill_controller_id.is_empty() or fill_template.is_empty():
 					continue
@@ -5071,6 +5081,16 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				var copies_lane_id := str(effect.get("lane_id", effect.get("target_lane_id", effect.get("lane", event.get("lane_id", "")))))
 				if copies_lane_id == "chosen":
 					copies_lane_id = str(trigger.get("_chosen_lane_id", event.get("lane_id", "")))
+				if copies_lane_id == "same":
+					copies_lane_id = str(event.get("lane_id", ""))
+				if copies_lane_id == "other_lane" or copies_lane_id == "other":
+					var _scl_source_lane := str(event.get("lane_id", ""))
+					copies_lane_id = ""
+					for _scl_lane in match_state.get("lanes", []):
+						var _scl_lid := str(_scl_lane.get("lane_id", ""))
+						if _scl_lid != _scl_source_lane and not _scl_lid.is_empty():
+							copies_lane_id = _scl_lid
+							break
 				var copies_players := _resolve_player_targets(match_state, trigger, event, effect)
 				var copies_template: Dictionary = effect.get("card_template", {})
 				if copies_lane_id.is_empty() or copies_players.is_empty() or copies_template.is_empty():
@@ -8494,13 +8514,23 @@ static func _resolve_card_targets(match_state: Dictionary, trigger: Dictionary, 
 				filtered.append(card)
 		targets = filtered
 	elif typeof(filter_subtypes_arr) == TYPE_ARRAY and not filter_subtypes_arr.is_empty():
+		var expanded_subtypes: Array = []
+		for fs in filter_subtypes_arr:
+			var group: Array = ExtendedMechanicPacks.SUBTYPE_GROUPS.get(str(fs), [])
+			if not group.is_empty():
+				for g in group:
+					if not expanded_subtypes.has(g):
+						expanded_subtypes.append(g)
+			else:
+				if not expanded_subtypes.has(str(fs)):
+					expanded_subtypes.append(str(fs))
 		var filtered: Array = []
 		for card in targets:
 			var subtypes = card.get("subtypes", [])
 			if typeof(subtypes) != TYPE_ARRAY:
 				continue
-			for fs in filter_subtypes_arr:
-				if subtypes.has(str(fs)):
+			for es in expanded_subtypes:
+				if subtypes.has(es):
 					filtered.append(card)
 					break
 		targets = filtered
@@ -9302,7 +9332,8 @@ static func _resolve_effect_template(match_state: Dictionary, trigger: Dictionar
 	var template: Dictionary = effect.get("card_template", {})
 	if not template.is_empty():
 		return template
-	var source_cards := _resolve_card_targets_by_name(match_state, trigger, event, str(effect.get("source_target", "event_source")))
+	var copy_source := str(effect.get("copy_of", effect.get("source_target", "event_source")))
+	var source_cards := _resolve_card_targets_by_name(match_state, trigger, event, copy_source)
 	return {} if source_cards.is_empty() else source_cards[0].duplicate(true)
 
 

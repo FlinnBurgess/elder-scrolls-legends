@@ -408,6 +408,22 @@ static func effect_is_enabled(match_state: Dictionary, trigger: Dictionary, effe
 					attr_count += 1
 		if attr_count < min_count:
 			return false
+	var rfa := str(effect.get("required_friendly_attribute", ""))
+	if not rfa.is_empty():
+		var rfa_controller := str(trigger.get("controller_player_id", ""))
+		var rfa_found := false
+		for lane in match_state.get("lanes", []):
+			for card in lane.get("player_slots", {}).get(rfa_controller, []):
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				var attrs = card.get("attributes", [])
+				if typeof(attrs) == TYPE_ARRAY and attrs.has(rfa):
+					rfa_found = true
+					break
+			if rfa_found:
+				break
+		if not rfa_found:
+			return false
 	if bool(effect.get("require_source_uses_exhausted", false)):
 		if source_card.is_empty():
 			return false
