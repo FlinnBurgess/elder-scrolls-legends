@@ -20,6 +20,7 @@ const SHADOW_LANE_ID := "shadow"
 
 const SUBTYPE_GROUPS := {
 	"Animal": ["Beast", "Fish", "Mammoth", "Mudcrab", "Netch", "Reptile", "Spider", "Skeever", "Wolf"],
+	"Undead": ["Skeleton", "Vampire", "Spirit", "Mummy"],
 }
 
 const WAX := "wax"
@@ -107,6 +108,13 @@ static func observe_event(match_state: Dictionary, event: Dictionary) -> void:
 		if not summon_player.is_empty():
 			ensure_player_state(summon_player)
 			summon_player["creature_summons_this_turn"] = int(summon_player.get("creature_summons_this_turn", 0)) + 1
+			var summoned_id := str(event.get("source_instance_id", ""))
+			if not summoned_id.is_empty():
+				var summoned_card := _find_card_anywhere(match_state, summoned_id)
+				if not summoned_card.is_empty():
+					var summoned_subtypes = summoned_card.get("subtypes", [])
+					if typeof(summoned_subtypes) == TYPE_ARRAY and summoned_subtypes.has("Skeever"):
+						summon_player["skeevers_summoned_this_game"] = int(summon_player.get("skeevers_summoned_this_game", 0)) + 1
 		return
 	if event_type == "invade_triggered":
 		var invade_player := _get_player_state(match_state, str(event.get("player_id", "")))

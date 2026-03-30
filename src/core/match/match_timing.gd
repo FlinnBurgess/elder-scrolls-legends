@@ -9095,7 +9095,7 @@ static func _resolve_count_multiplier(match_state: Dictionary, trigger: Dictiona
 						for card in slots:
 							if typeof(card) == TYPE_DICTIONARY:
 								count += 1
-		"friendly_subtype_count":
+		"friendly_subtype_count", "friendly_creatures_with_subtype":
 			var fsc_subtype := str(effect.get("count_subtype", ""))
 			if not fsc_subtype.is_empty():
 				for lane in match_state.get("lanes", []):
@@ -9108,6 +9108,107 @@ static func _resolve_count_multiplier(match_state: Dictionary, trigger: Dictiona
 						var subtypes = card.get("subtypes", [])
 						if typeof(subtypes) == TYPE_ARRAY and subtypes.has(fsc_subtype):
 							count += 1
+		"other_friendly_creatures":
+			for lane in match_state.get("lanes", []):
+				var slots = lane.get("player_slots", {}).get(controller_player_id, [])
+				for card in slots:
+					if typeof(card) != TYPE_DICTIONARY:
+						continue
+					if str(card.get("instance_id", "")) == self_instance_id:
+						continue
+					count += 1
+		"enemy_creatures_in_lane":
+			var ecil_opponent_id := _get_opposing_player_id(match_state.get("players", []), controller_player_id)
+			var ecil_lane_index := int(trigger.get("lane_index", -1))
+			var ecil_lanes: Array = match_state.get("lanes", [])
+			if ecil_lane_index >= 0 and ecil_lane_index < ecil_lanes.size():
+				var slots = ecil_lanes[ecil_lane_index].get("player_slots", {}).get(ecil_opponent_id, [])
+				for card in slots:
+					if typeof(card) == TYPE_DICTIONARY:
+						count += 1
+		"undead_creatures_in_play":
+			var undead_subtypes: Array = ExtendedMechanicPacks.SUBTYPE_GROUPS.get("Undead", [])
+			for lane in match_state.get("lanes", []):
+				for pid in lane.get("player_slots", {}).keys():
+					for card in lane.get("player_slots", {}).get(pid, []):
+						if typeof(card) != TYPE_DICTIONARY:
+							continue
+						if exclude_self and str(card.get("instance_id", "")) == self_instance_id:
+							continue
+						var subtypes = card.get("subtypes", [])
+						if typeof(subtypes) == TYPE_ARRAY:
+							for st in subtypes:
+								if undead_subtypes.has(st):
+									count += 1
+									break
+		"actions_in_discard":
+			var aid_player := _get_player_state(match_state, controller_player_id)
+			if not aid_player.is_empty():
+				for card in aid_player.get("discard", []):
+					if typeof(card) == TYPE_DICTIONARY and str(card.get("card_type", "")) == "action":
+						count += 1
+		"copies_in_discard":
+			var cid_name := str(effect.get("count_card_name", ""))
+			if not cid_name.is_empty():
+				var cid_player := _get_player_state(match_state, controller_player_id)
+				if not cid_player.is_empty():
+					for card in cid_player.get("discard", []):
+						if typeof(card) == TYPE_DICTIONARY and str(card.get("name", "")) == cid_name:
+							count += 1
+		"friendly_supports":
+			var fs_player := _get_player_state(match_state, controller_player_id)
+			if not fs_player.is_empty():
+				for card in fs_player.get("support", []):
+					if typeof(card) == TYPE_DICTIONARY:
+						count += 1
+		"self_power":
+			var sp_source := _find_card_anywhere(match_state, self_instance_id)
+			if not sp_source.is_empty():
+				count = EvergreenRules.get_power(sp_source)
+		"deaths_this_turn":
+			var dtt_event_log: Array = match_state.get("event_log", [])
+			for i in range(dtt_event_log.size() - 1, -1, -1):
+				var logged = dtt_event_log[i]
+				if str(logged.get("event_type", "")) == "turn_started":
+					break
+				if str(logged.get("event_type", "")) == "creature_destroyed":
+					count += 1
+		"friendly_deaths_this_turn":
+			var fdtt_event_log: Array = match_state.get("event_log", [])
+			for i in range(fdtt_event_log.size() - 1, -1, -1):
+				var logged = fdtt_event_log[i]
+				if str(logged.get("event_type", "")) == "turn_started":
+					break
+				if str(logged.get("event_type", "")) == "creature_destroyed":
+					if str(logged.get("controller_player_id", "")) == controller_player_id:
+						count += 1
+		"opponent_cards_drawn_this_turn":
+			var ocdtt_opponent_id := _get_opposing_player_id(match_state.get("players", []), controller_player_id)
+			var ocdtt_event_log: Array = match_state.get("event_log", [])
+			for i in range(ocdtt_event_log.size() - 1, -1, -1):
+				var logged = ocdtt_event_log[i]
+				if str(logged.get("event_type", "")) == "turn_started":
+					break
+				if str(logged.get("event_type", "")) == "card_drawn":
+					if str(logged.get("player_id", "")) == ocdtt_opponent_id:
+						count += 1
+		"other_cards_played_this_turn":
+			var ocptt_player := _get_player_state(match_state, controller_player_id)
+			if not ocptt_player.is_empty():
+				count = maxi(0, int(ocptt_player.get("cards_played_this_turn", 0)) - 1)
+		"friendly_creatures_chosen_lane":
+			var fccl_lane_id := str(_event.get("lane_id", ""))
+			if not fccl_lane_id.is_empty():
+				for lane in match_state.get("lanes", []):
+					if str(lane.get("lane_id", "")) == fccl_lane_id:
+						var slots = lane.get("player_slots", {}).get(controller_player_id, [])
+						for card in slots:
+							if typeof(card) == TYPE_DICTIONARY:
+								count += 1
+		"skeevers_summoned_this_game":
+			var ssthg_player := _get_player_state(match_state, controller_player_id)
+			if not ssthg_player.is_empty():
+				count = int(ssthg_player.get("skeevers_summoned_this_game", 0))
 		"friendly_deaths_in_lane_this_turn":
 			var trigger_lane_index := int(trigger.get("lane_index", -1))
 			if trigger_lane_index < 0:
