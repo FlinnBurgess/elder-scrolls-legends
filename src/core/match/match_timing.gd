@@ -2556,6 +2556,29 @@ static func play_pending_prophecy(match_state: Dictionary, player_id: String, in
 				"reason": RULE_TAG_PROPHECY,
 				"timing_window": WINDOW_INTERRUPT,
 			})
+			# Apply throw effects directly (item on_play triggers are excluded from the registry)
+			for throw_effect in throw_ability.get("effects", []):
+				if typeof(throw_effect) != TYPE_DICTIONARY:
+					continue
+				var throw_op := str(throw_effect.get("op", ""))
+				if throw_op == "deal_damage":
+					var throw_amount := int(throw_effect.get("amount", 0))
+					var throw_dmg_result := EvergreenRules.apply_damage_to_creature(target_card, throw_amount)
+					generated_events.append({
+						"event_type": EVENT_DAMAGE_RESOLVED,
+						"source_instance_id": instance_id,
+						"target_instance_id": target_instance_id,
+						"target_type": "creature",
+						"amount": int(throw_dmg_result.get("applied", 0)),
+						"damage_kind": "ability",
+					})
+					if EvergreenRules.is_creature_destroyed(target_card, false):
+						var throw_loc := MatchMutations.find_card_location(match_state, target_instance_id)
+						var throw_moved := MatchMutations.discard_card(match_state, target_instance_id)
+						if bool(throw_moved.get("is_valid", false)):
+							generated_events.append({"event_type": EVENT_CREATURE_DESTROYED, "instance_id": target_instance_id, "source_instance_id": target_instance_id, "owner_player_id": str(target_card.get("owner_player_id", "")), "controller_player_id": str(target_card.get("controller_player_id", "")), "destroyed_by_instance_id": instance_id, "lane_id": str(throw_loc.get("lane_id", "")), "source_zone": ZONE_LANE})
+				elif throw_op == "shackle":
+					EvergreenRules.add_status(target_card, EvergreenRules.STATUS_SHACKLED)
 		else:
 			var attach_result := MatchMutations.attach_item_to_creature(match_state, player_id, instance_id, target_instance_id, {"source_zone": ZONE_HAND})
 			if not bool(attach_result.get("is_valid", false)):

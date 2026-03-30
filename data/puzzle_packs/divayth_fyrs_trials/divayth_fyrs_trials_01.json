@@ -22,7 +22,7 @@
 	  "int_lightning_bolt",
       "hom_str_bushwhack"
 	],
-	"deck": ["str_nord_firebrand", "str_nord_firebrand", "str_nord_firebrand"],
+	"deck": ["cwc_neu_abomination", "cwc_neu_abomination", "cwc_neu_abomination"],
 	"discard": [],
 	"supports": [],
 	"field_creatures": [
@@ -38,7 +38,7 @@
 	"max_magicka": 3,
 	"current_magicka": 3,
 	"hand": [],
-	"deck": [],
+	"deck": ["str_nord_firebrand", "str_nord_firebrand", "str_nord_firebrand"],
 	"discard": [],
 	"supports": [],
 	"field_creatures": [],
