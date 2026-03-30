@@ -4,6 +4,7 @@ extends RefCounted
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const CardCatalog = preload("res://src/deck/card_catalog.gd")
+const GameLogger = preload("res://src/core/match/game_logger.gd")
 
 const EVENT_CARD_PLAYED := "card_played"
 const EVENT_DAMAGE_RESOLVED := "damage_resolved"
@@ -86,6 +87,7 @@ static func toggle_wax_wane(player: Dictionary) -> void:
 
 
 static func observe_event(match_state: Dictionary, event: Dictionary) -> void:
+	GameLogger.trc("ExtMech", "observe_event", "evt:%s" % [str(event.get("event_type", ""))])
 	var event_type := str(event.get("event_type", ""))
 	if event_type == EVENT_CARD_PLAYED:
 		var player := _get_player_state(match_state, str(event.get("playing_player_id", event.get("player_id", ""))))
@@ -135,6 +137,7 @@ static func observe_event(match_state: Dictionary, event: Dictionary) -> void:
 
 
 static func apply_pre_play_options(card: Dictionary, options: Dictionary) -> void:
+	GameLogger.trc("ExtMech", "pre_play_opts", "card:%s,exalt:%s" % [str(card.get("name", card.get("instance_id", "?"))), str(options.get("exalt", false))])
 	if bool(options.get("exalt", false)):
 		EvergreenRules.add_status(card, EvergreenRules.STATUS_EXALTED)
 	if options.has("assemble_choice"):
@@ -144,6 +147,7 @@ static func apply_pre_play_options(card: Dictionary, options: Dictionary) -> voi
 
 
 static func matches_additional_conditions(match_state: Dictionary, trigger: Dictionary, descriptor: Dictionary, event: Dictionary) -> bool:
+	GameLogger.trc("ExtMech", "check_condition", "type:%s" % [str(descriptor.get("type", ""))])
 	var controller := _get_player_state(match_state, str(trigger.get("controller_player_id", "")))
 	if not controller.is_empty():
 		ensure_player_state(controller)
@@ -379,6 +383,42 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 		var destroyed_runes: int = 5 - remaining_count
 		if destroyed_runes < min_runes:
 			return false
+	# Required card types in discard pile or in play (e.g. Voice of Balance)
+	var req_types_in_discard_or_play = descriptor.get("required_card_types_in_discard_or_play", [])
+	if typeof(req_types_in_discard_or_play) == TYPE_ARRAY and not req_types_in_discard_or_play.is_empty():
+		var found_types := {}
+		var ctrl_id := str(trigger.get("controller_player_id", ""))
+		# Check discard pile
+		var discard: Array = controller.get("discard", [])
+		for card in discard:
+			if typeof(card) == TYPE_DICTIONARY:
+				var ct := str(card.get("card_type", ""))
+				if not ct.is_empty():
+					found_types[ct] = true
+		# Check supports in play
+		var supports: Array = controller.get("support", [])
+		for card in supports:
+			if typeof(card) == TYPE_DICTIONARY:
+				found_types["support"] = true
+		# Check creatures and items in lanes
+		for lane in match_state.get("lanes", []):
+			for card in lane.get("player_slots", {}).get(ctrl_id, []):
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				found_types["creature"] = true
+				for item in card.get("attached_items", []):
+					if typeof(item) == TYPE_DICTIONARY:
+						found_types["item"] = true
+		for req_type in req_types_in_discard_or_play:
+			if not found_types.has(str(req_type)):
+				return false
+	# Required/excluded event lane ID (e.g. Clockwork Dragon left/right lane check)
+	var req_lane := str(descriptor.get("required_event_lane_id", ""))
+	if not req_lane.is_empty() and str(event.get("lane_id", "")) != req_lane:
+		return false
+	var excl_lane := str(descriptor.get("excluded_event_lane_id", ""))
+	if not excl_lane.is_empty() and str(event.get("lane_id", "")) == excl_lane:
+		return false
 	return true
 
 
@@ -449,6 +489,7 @@ static func effect_is_enabled(match_state: Dictionary, trigger: Dictionary, effe
 
 
 static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, event: Dictionary, effect: Dictionary) -> Dictionary:
+	GameLogger.trc("ExtMech", "resolve_effect", "op:%s,src:%s" % [str(effect.get("op", "")), str(trigger.get("source_instance_id", ""))])
 	match str(effect.get("op", "")):
 		"assemble":
 			return {"handled": true, "events": _resolve_assemble(match_state, trigger, effect)}

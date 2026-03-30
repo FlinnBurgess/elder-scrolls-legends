@@ -6,6 +6,7 @@ const ExtendedMechanicPacks = preload("res://src/core/match/extended_mechanic_pa
 const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
+const GameLogger = preload("res://src/core/match/game_logger.gd")
 const CARD_TYPE_CREATURE := "creature"
 const ZONE_HAND := "hand"
 const ZONE_LANE := "lane"
@@ -77,6 +78,7 @@ static func validate_summon_from_hand(match_state: Dictionary, player_id: String
 
 
 static func summon_from_hand(match_state: Dictionary, player_id: String, instance_id: String, lane_id: String, options: Dictionary = {}) -> Dictionary:
+	GameLogger.trc("Lane", "summon_from_hand", "p:%s,id:%s,lane:%s" % [player_id, instance_id, lane_id])
 	var validation := validate_summon_from_hand(match_state, player_id, instance_id, lane_id, options)
 	if not validation["is_valid"]:
 		return validation
@@ -189,6 +191,7 @@ static func validate_summon_with_sacrifice(match_state: Dictionary, player_id: S
 
 
 static func summon_with_sacrifice(match_state: Dictionary, player_id: String, instance_id: String, lane_id: String, sacrifice_instance_id: String, options: Dictionary = {}) -> Dictionary:
+	GameLogger.trc("Lane", "summon_w_sacrifice", "p:%s,id:%s,lane:%s,sac:%s" % [player_id, instance_id, lane_id, sacrifice_instance_id])
 	var validation := validate_summon_with_sacrifice(match_state, player_id, instance_id, lane_id, sacrifice_instance_id, options)
 	if not validation["is_valid"]:
 		return validation
@@ -286,6 +289,7 @@ static func validate_move(match_state: Dictionary, player_id: String, instance_i
 
 
 static func move_creature(match_state: Dictionary, player_id: String, instance_id: String, target_lane_id: String, options: Dictionary = {}) -> Dictionary:
+	GameLogger.trc("Lane", "move_creature", "p:%s,id:%s,to:%s" % [player_id, instance_id, target_lane_id])
 	var validation := validate_move(match_state, player_id, instance_id, target_lane_id, options)
 	if not validation["is_valid"]:
 		return validation

@@ -3,6 +3,7 @@ extends RefCounted
 
 const CardCatalog = preload("res://src/deck/card_catalog.gd")
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
+const GameLogger = preload("res://src/core/match/game_logger.gd")
 
 const CARD_TYPE_CREATURE := "creature"
 const CARD_TYPE_ITEM := "item"
@@ -91,6 +92,7 @@ static func find_card_location(match_state: Dictionary, instance_id: String) -> 
 
 
 static func attach_item_to_creature(match_state: Dictionary, controller_player_id: String, item_source, target_instance_id: String, options: Dictionary = {}) -> Dictionary:
+	GameLogger.trc("Mut", "attach_item", "item:%s,tgt:%s" % [str(item_source) if typeof(item_source) == TYPE_STRING else str(item_source.get("name", "?") if typeof(item_source) == TYPE_DICTIONARY else "?"), target_instance_id])
 	var target_location := find_card_location(match_state, target_instance_id)
 	if not bool(target_location.get("is_valid", false)):
 		return target_location
@@ -214,6 +216,7 @@ static func validate_lane_entry(match_state: Dictionary, player_id: String, card
 
 
 static func summon_card_to_lane(match_state: Dictionary, controller_player_id: String, card_source, lane_id: String, options: Dictionary = {}) -> Dictionary:
+	GameLogger.trc("Mut", "summon_to_lane", "card:%s,lane:%s,ctrl:%s" % [str(card_source) if typeof(card_source) == TYPE_STRING else str(card_source.get("name", card_source.get("instance_id", "")) if typeof(card_source) == TYPE_DICTIONARY else "?"), lane_id, controller_player_id])
 	var card: Dictionary = {}
 	var source_location: Dictionary = {}
 	var source_zone := str(options.get("source_zone", ""))
@@ -248,6 +251,7 @@ static func summon_card_to_lane(match_state: Dictionary, controller_player_id: S
 
 
 static func move_card_to_zone(match_state: Dictionary, instance_id: String, zone_name: String, options: Dictionary = {}) -> Dictionary:
+	GameLogger.trc("Mut", "move_to_zone", "id:%s,zone:%s" % [instance_id, zone_name])
 	if not PLAYER_ZONE_ORDER.has(zone_name):
 		return _invalid_result("Unsupported destination zone: %s" % zone_name)
 	var location := find_card_location(match_state, instance_id)
@@ -295,6 +299,7 @@ static func move_card_to_zone(match_state: Dictionary, instance_id: String, zone
 
 
 static func move_card_between_lanes(match_state: Dictionary, controller_player_id: String, instance_id: String, target_lane_id: String, options: Dictionary = {}) -> Dictionary:
+	GameLogger.trc("Mut", "move_between_lanes", "id:%s,to:%s" % [instance_id, target_lane_id])
 	var location := find_card_location(match_state, instance_id)
 	if not bool(location.get("is_valid", false)):
 		return location
@@ -325,6 +330,7 @@ static func move_card_between_lanes(match_state: Dictionary, controller_player_i
 
 
 static func discard_card(match_state: Dictionary, instance_id: String, options: Dictionary = {}) -> Dictionary:
+	GameLogger.trc("Mut", "discard", "id:%s" % [instance_id])
 	var location := find_card_location(match_state, instance_id)
 	if not bool(location.get("is_valid", false)):
 		return location
@@ -336,6 +342,7 @@ static func discard_card(match_state: Dictionary, instance_id: String, options: 
 
 
 static func banish_card(match_state: Dictionary, instance_id: String, options: Dictionary = {}) -> Dictionary:
+	GameLogger.trc("Mut", "banish", "id:%s" % [instance_id])
 	var location := find_card_location(match_state, instance_id)
 	if not bool(location.get("is_valid", false)):
 		return location
@@ -347,6 +354,7 @@ static func banish_card(match_state: Dictionary, instance_id: String, options: D
 
 
 static func unsummon_card(match_state: Dictionary, instance_id: String, options: Dictionary = {}) -> Dictionary:
+	GameLogger.trc("Mut", "unsummon", "id:%s" % [instance_id])
 	var location := find_card_location(match_state, instance_id)
 	if not bool(location.get("is_valid", false)):
 		return location
@@ -360,6 +368,7 @@ static func unsummon_card(match_state: Dictionary, instance_id: String, options:
 
 
 static func sacrifice_card(match_state: Dictionary, controller_player_id: String, instance_id: String, options: Dictionary = {}) -> Dictionary:
+	GameLogger.trc("Mut", "sacrifice", "id:%s,ctrl:%s" % [instance_id, controller_player_id])
 	var location := find_card_location(match_state, instance_id)
 	if not bool(location.get("is_valid", false)):
 		return location
@@ -420,6 +429,7 @@ static func discard_from_hand(match_state: Dictionary, player_id: String, count:
 
 
 static func steal_card(match_state: Dictionary, controller_player_id: String, instance_id: String, options: Dictionary = {}) -> Dictionary:
+	GameLogger.trc("Mut", "steal", "id:%s,to:%s" % [instance_id, controller_player_id])
 	var location := find_card_location(match_state, instance_id)
 	if not bool(location.get("is_valid", false)):
 		return location
@@ -466,6 +476,7 @@ static func update_card_owner(match_state: Dictionary, instance_id: String, owne
 
 
 static func build_generated_card(match_state: Dictionary, controller_player_id: String, template: Dictionary) -> Dictionary:
+	GameLogger.trc("Mut", "gen_card", "def:%s,ctrl:%s" % [str(template.get("definition_id", template.get("name", "?"))), controller_player_id])
 	match_state["generated_card_sequence"] = int(match_state.get("generated_card_sequence", 0)) + 1
 	var card := template.duplicate(true)
 	var def_id := str(card.get("definition_id", ""))

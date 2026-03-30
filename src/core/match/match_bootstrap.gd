@@ -7,9 +7,11 @@ const STARTING_HAND_SIZE := 3
 const RING_OF_MAGICKA_CHARGES := 3
 const STANDARD_BOARD_PROFILE_ID := "standard_versus"
 const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
+const GameLogger = preload("res://src/core/match/game_logger.gd")
 
 
 static func create_standard_match(player_decks: Array, options: Dictionary = {}) -> Dictionary:
+	GameLogger.trc("Bootstrap", "create_match", "seed:%s,decks:%s" % [str(options.get("seed", 0)), str(player_decks.size())])
 	if player_decks.size() != 2:
 		push_error("Standard matches require exactly two player decks.")
 		return {}
@@ -62,6 +64,7 @@ static func create_standard_match(player_decks: Array, options: Dictionary = {})
 
 
 static func apply_mulligan(match_state: Dictionary, player_id: String, discard_instance_ids: Array) -> Dictionary:
+	GameLogger.trc("Bootstrap", "apply_mulligan", "p:%s,discards:%s" % [player_id, str(discard_instance_ids.size())])
 	if match_state.get("phase", "") != "mulligan":
 		push_error("Mulligan can only be applied during the mulligan phase.")
 		return match_state

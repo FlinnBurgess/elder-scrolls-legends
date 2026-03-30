@@ -1,6 +1,7 @@
 class_name MatchCombat
 extends RefCounted
 
+const GameLogger = preload("res://src/core/match/game_logger.gd")
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
@@ -47,6 +48,7 @@ static func validate_attack(match_state: Dictionary, player_id: String, attacker
 
 
 static func resolve_attack(match_state: Dictionary, player_id: String, attacker_instance_id: String, target: Dictionary) -> Dictionary:
+	GameLogger.trc("Combat", "resolve_attack", "atk:%s,tgt_type:%s,tgt:%s" % [attacker_instance_id, str(target.get("type", "")), str(target.get("instance_id", target.get("player_id", "")))])
 	var validation := validate_attack(match_state, player_id, attacker_instance_id, target)
 	if not validation["is_valid"]:
 		return validation
@@ -179,6 +181,7 @@ static func _validate_creature_attack_target(match_state: Dictionary, attacker_l
 
 
 static func _resolve_player_attack(match_state: Dictionary, validation: Dictionary, attacker: Dictionary, events: Array) -> Dictionary:
+	GameLogger.trc("Combat", "_resolve_player_attack", "atk:%s,tgt_p:%s,dmg:%s" % [str(attacker.get("name", attacker.get("instance_id", ""))), str(validation.get("target_player_id", "")), str(maxi(0, EvergreenRules.get_power(attacker)))])
 	var damage := maxi(0, EvergreenRules.get_power(attacker))
 	var applied_damage_result := MatchTiming.apply_player_damage(match_state, str(validation.get("target_player_id", "")), damage, {
 		"reason": "combat",
@@ -217,6 +220,7 @@ static func _resolve_player_attack(match_state: Dictionary, validation: Dictiona
 
 static func _resolve_creature_attack(match_state: Dictionary, validation: Dictionary, attacker: Dictionary, events: Array) -> Dictionary:
 	var defender: Dictionary = validation["defender"]
+	GameLogger.trc("Combat", "_resolve_creature_attack", "atk:%s,def:%s" % [str(attacker.get("name", attacker.get("instance_id", ""))), str(defender.get("name", defender.get("instance_id", "")))])
 	var attacker_remaining_before := EvergreenRules.get_remaining_health(attacker)
 	var defender_remaining_before := EvergreenRules.get_remaining_health(defender)
 	var damage_to_defender := maxi(0, EvergreenRules.get_power(attacker))
@@ -593,6 +597,7 @@ static func _resolve_rally_empty_hand_draws(match_state: Dictionary, attacker: D
 
 
 static func _resolve_drain(match_state: Dictionary, attacker: Dictionary, damage_dealt: int, events: Array) -> int:
+	GameLogger.trc("Combat", "_resolve_drain", "card:%s,dmg:%s,drain:%s" % [str(attacker.get("name", attacker.get("instance_id", ""))), str(damage_dealt), str(EvergreenRules.has_keyword(attacker, EvergreenRules.KEYWORD_DRAIN))])
 	if damage_dealt <= 0:
 		return 0
 	if not EvergreenRules.has_keyword(attacker, EvergreenRules.KEYWORD_DRAIN):
@@ -633,6 +638,7 @@ static func _get_health(card: Dictionary) -> int:
 
 
 static func _destroy_creature(match_state: Dictionary, lookup: Dictionary, destroyed_by_instance_id: String, events: Array, is_retaliation_kill := false) -> void:
+	GameLogger.trc("Combat", "_destroy_creature", "card:%s,by:%s" % [str(lookup.get("card", {}).get("name", lookup.get("card", {}).get("instance_id", ""))), destroyed_by_instance_id])
 	var card := MatchMutations.find_card_location(match_state, str(lookup.get("card", {}).get("instance_id", "")))
 	if not bool(card.get("is_valid", false)):
 		return

@@ -6,12 +6,14 @@ const ExtendedMechanicPacks = preload("res://src/core/match/extended_mechanic_pa
 const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
+const GameLogger = preload("res://src/core/match/game_logger.gd")
 const PHASE_READY_FOR_FIRST_TURN := "ready_for_first_turn"
 const PHASE_ACTION := "action"
 const MAX_MAGICKA_CAP := 12
 
 
 static func begin_first_turn(match_state: Dictionary) -> Dictionary:
+	GameLogger.trc("Turn", "begin_first_turn", "active:%s" % [str(match_state.get("active_player_id", ""))])
 	if match_state.get("phase", "") != PHASE_READY_FOR_FIRST_TURN:
 		push_error("First turn can only begin from ready_for_first_turn.")
 		return match_state
@@ -25,6 +27,7 @@ static func begin_first_turn(match_state: Dictionary) -> Dictionary:
 
 
 static func end_turn(match_state: Dictionary, player_id: String) -> Dictionary:
+	GameLogger.trc("Turn", "end_turn", "p:%s,turn:%s" % [player_id, str(match_state.get("turn_number", 0))])
 	if not _validate_action_owner(match_state, player_id, "End turn"):
 		return match_state
 	MatchTiming.publish_events(match_state, [{
@@ -54,6 +57,7 @@ static func end_turn(match_state: Dictionary, player_id: String) -> Dictionary:
 
 
 static func gain_temporary_magicka(match_state: Dictionary, player_id: String, amount: int) -> Dictionary:
+	GameLogger.trc("Turn", "gain_temp_magicka", "p:%s,amt:%s" % [player_id, str(amount)])
 	if amount <= 0:
 		push_error("Temporary magicka gains must be positive.")
 		return match_state
@@ -67,6 +71,7 @@ static func gain_temporary_magicka(match_state: Dictionary, player_id: String, a
 
 
 static func activate_ring_of_magicka(match_state: Dictionary, player_id: String) -> Dictionary:
+	GameLogger.trc("Turn", "ring_activate", "p:%s" % [player_id])
 	if not _validate_action_owner(match_state, player_id, "Ring of Magicka activation"):
 		return match_state
 
@@ -113,6 +118,7 @@ static func can_activate_ring_of_magicka(match_state: Dictionary, player_id: Str
 
 
 static func spend_magicka(match_state: Dictionary, player_id: String, amount: int) -> Dictionary:
+	GameLogger.trc("Turn", "spend_magicka", "p:%s,amt:%s" % [player_id, str(amount)])
 	if amount <= 0:
 		push_error("Magicka spend amount must be positive.")
 		return match_state
@@ -142,6 +148,7 @@ static func get_available_magicka(player_state: Dictionary) -> int:
 
 
 static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionary:
+	GameLogger.trc("Turn", "_start_turn", "p:%s,turn:%s" % [player_id, str(int(match_state.get("turn_number", 0)) + 1)])
 	var player := _get_player_state(match_state, player_id)
 	ExtendedMechanicPacks.ensure_player_state(player)
 	ExtendedMechanicPacks.reset_turn_state(player)

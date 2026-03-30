@@ -3518,6 +3518,9 @@ static func _append_card_triggers(registry: Array, card, zone_name: String, cont
 				continue
 			if tm_family == FAMILY_ON_PLAY and not str(descriptor.get("secondary_target_mode", "")).is_empty():
 				continue
+			# Item on_play triggers with target_mode use pending system (equip target != ability target)
+			if tm_family == FAMILY_ON_PLAY and str(card.get("card_type", "")) == "item":
+				continue
 		if bool(descriptor.get("consume", false)):
 			var consume_family := str(descriptor.get("family", ""))
 			if consume_family == FAMILY_SUMMON or consume_family == "on_play":
@@ -3858,7 +3861,7 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 		var rghtt_player := _get_player_state(match_state, rghtt_controller)
 		if int(rghtt_player.get("health_gained_this_turn", 0)) <= 0:
 			return false
-	# 16. required_card_types_in_discard_or_play — each listed type present in discard or lanes
+	# 16. required_card_types_in_discard_or_play — each listed type present in discard or lanes/support
 	var rctidop_raw = descriptor.get("required_card_types_in_discard_or_play", {})
 	var rctidop_spec: Dictionary = rctidop_raw if typeof(rctidop_raw) == TYPE_DICTIONARY else {}
 	var rctidop_types_direct: Array = rctidop_raw if typeof(rctidop_raw) == TYPE_ARRAY else []
@@ -3872,6 +3875,12 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 				rctidop_found_types[str(rctidop_card.get("card_type", ""))] = true
 		for rctidop_card in _player_lane_creatures(match_state, rctidop_controller):
 			rctidop_found_types[str(rctidop_card.get("card_type", ""))] = true
+			for rctidop_item in rctidop_card.get("attached_items", []):
+				if typeof(rctidop_item) == TYPE_DICTIONARY:
+					rctidop_found_types["item"] = true
+		for rctidop_card in rctidop_player.get("support", []):
+			if typeof(rctidop_card) == TYPE_DICTIONARY:
+				rctidop_found_types["support"] = true
 		for rctidop_type in rctidop_types:
 			if not rctidop_found_types.has(str(rctidop_type)):
 				return false

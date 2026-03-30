@@ -4,6 +4,7 @@ extends RefCounted
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
+const GameLogger = preload("res://src/core/match/game_logger.gd")
 
 const PHASE_ACTION := "action"
 const CARD_TYPE_CREATURE := "creature"
@@ -25,6 +26,7 @@ static func can_activate_support(match_state: Dictionary, player_id: String, ins
 
 
 static func play_support_from_hand(match_state: Dictionary, player_id: String, instance_id: String, options: Dictionary = {}) -> Dictionary:
+	GameLogger.trc("Persist", "play_support", "p:%s,id:%s" % [player_id, instance_id])
 	var validation := _validate_hand_card(match_state, player_id, instance_id, CARD_TYPE_SUPPORT, "Support play", bool(options.get("played_for_free", false)))
 	if not bool(validation.get("is_valid", false)):
 		return validation
@@ -54,6 +56,7 @@ static func play_support_from_hand(match_state: Dictionary, player_id: String, i
 
 
 static func play_item_from_hand(match_state: Dictionary, player_id: String, instance_id: String, options: Dictionary = {}) -> Dictionary:
+	GameLogger.trc("Persist", "play_item", "p:%s,id:%s" % [player_id, instance_id])
 	var validation := _validate_hand_card(match_state, player_id, instance_id, CARD_TYPE_ITEM, "Item play", bool(options.get("played_for_free", false)))
 	if not bool(validation.get("is_valid", false)):
 		return validation
@@ -143,7 +146,7 @@ static func play_item_from_hand(match_state: Dictionary, player_id: String, inst
 			"played_for_free": bool(options.get("played_for_free", false)),
 			"reason": "throw_item",
 		})
-		# Apply throw damage to the target creature
+		# Apply throw effects to the target creature
 		for effect in throw_ability.get("effects", []):
 			if typeof(effect) != TYPE_DICTIONARY:
 				continue
@@ -158,6 +161,8 @@ static func play_item_from_hand(match_state: Dictionary, player_id: String, inst
 					"amount": int(damage_result.get("applied", 0)),
 					"player_id": player_id,
 				})
+			elif op == "shackle":
+				EvergreenRules.add_status(target_card, EvergreenRules.STATUS_SHACKLED)
 		var timing_result := MatchTiming.publish_events(match_state, generated_events)
 		return {"is_valid": true, "errors": [], "card": thrown_card, "events": timing_result.get("processed_events", []), "trigger_resolutions": timing_result.get("trigger_resolutions", [])}
 
@@ -188,6 +193,8 @@ static func play_item_from_hand(match_state: Dictionary, player_id: String, inst
 	var timing_result := MatchTiming.publish_events(match_state, generated_events)
 	# Check for consume abilities on the played item (e.g., Bone Armor)
 	MatchTiming._check_consume_abilities(match_state, attach_result["card"])
+	# Check for on_play targeted abilities (e.g., Mace of Encumbrance shackle)
+	_check_item_on_play_target_mode(match_state, attach_result["card"])
 	return {"is_valid": true, "errors": [], "card": attach_result["card"], "host": attach_result["host"], "events": timing_result.get("processed_events", []), "trigger_resolutions": timing_result.get("trigger_resolutions", [])}
 
 
@@ -220,6 +227,7 @@ static func validate_activate_support(match_state: Dictionary, player_id: String
 
 
 static func activate_support(match_state: Dictionary, player_id: String, instance_id: String, options: Dictionary = {}) -> Dictionary:
+	GameLogger.trc("Persist", "activate_support", "p:%s,id:%s" % [player_id, instance_id])
 	var validation := validate_activate_support(match_state, player_id, instance_id)
 	if not bool(validation.get("is_valid", false)):
 		return validation
@@ -633,6 +641,35 @@ static func _spend_magicka(match_state: Dictionary, player_id: String, amount: i
 		remaining -= temporary_spent
 	if remaining > 0:
 		player["current_magicka"] = maxi(0, int(player.get("current_magicka", 0)) - remaining)
+
+
+static func _check_item_on_play_target_mode(match_state: Dictionary, item_card: Dictionary) -> void:
+	var controller_id := str(item_card.get("controller_player_id", ""))
+	var instance_id := str(item_card.get("instance_id", ""))
+	var raw_triggers = item_card.get("triggered_abilities", [])
+	if typeof(raw_triggers) != TYPE_ARRAY:
+		return
+	var on_play_abilities: Array = []
+	for ab in raw_triggers:
+		if typeof(ab) != TYPE_DICTIONARY:
+			continue
+		if str(ab.get("family", "")) != "on_play":
+			continue
+		if str(ab.get("target_mode", "")).is_empty():
+			continue
+		on_play_abilities.append(ab)
+	if on_play_abilities.is_empty():
+		return
+	var valid := MatchTiming.get_all_valid_targets(match_state, instance_id)
+	if valid.is_empty():
+		return
+	var pending_arr: Array = match_state.get("pending_summon_effect_targets", [])
+	pending_arr.append({
+		"player_id": controller_id,
+		"source_instance_id": instance_id,
+		"mandatory": true,
+		"allowed_families": ["on_play"],
+	})
 
 
 static func _invalid_result(message: String) -> Dictionary:

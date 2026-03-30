@@ -14,6 +14,7 @@ const PuzzleCodecScript = preload("res://src/puzzle/puzzle_codec.gd")
 const PuzzlePersistenceScript = preload("res://src/puzzle/puzzle_persistence.gd")
 const AIPlayProfile = preload("res://src/ai/ai_play_profile.gd")
 const PuzzleBuilderScreenScript = preload("res://src/ui/puzzle/puzzle_builder_screen.gd")
+const GameLogger = preload("res://src/core/match/game_logger.gd")
 
 const DECKS_DIR := "res://data/decks/"
 
@@ -106,11 +107,13 @@ func _show_main_menu() -> void:
 
 
 func _on_match_pressed() -> void:
+	GameLogger.trc("App", "screen", "to:deck_select")
 	_main_menu.visible = false
 	_show_deck_select_screen()
 
 
 func _on_adventure_pressed() -> void:
+	GameLogger.trc("App", "screen", "to:adventure")
 	_main_menu.visible = false
 	var adventure_controller := AdventureControllerScript.new()
 	adventure_controller.name = "AdventureController"
@@ -120,6 +123,7 @@ func _on_adventure_pressed() -> void:
 
 
 func _on_arena_pressed() -> void:
+	GameLogger.trc("App", "screen", "to:arena")
 	_main_menu.visible = false
 	var arena_controller := ArenaControllerScript.new()
 	arena_controller.name = "ArenaController"
@@ -129,6 +133,7 @@ func _on_arena_pressed() -> void:
 
 
 func _on_puzzles_pressed() -> void:
+	GameLogger.trc("App", "screen", "to:puzzles")
 	_main_menu.visible = false
 	_puzzle_screen = PuzzleSelectScreenScript.new()
 	_puzzle_screen.name = "PuzzleSelectScreen"
@@ -376,6 +381,7 @@ func _on_deck_selected(index: int) -> void:
 
 
 func _on_start_match_pressed() -> void:
+	GameLogger.trc("App", "start_match", "deck_idx:%s" % [str(_selected_deck_index)])
 	if _selected_deck_index < 0 or _selected_deck_index >= _deck_entries.size():
 		return
 	var selected_entry: Dictionary = _deck_entries[_selected_deck_index]
@@ -655,6 +661,7 @@ func _on_test_match_picker_back() -> void:
 
 
 func _on_deckbuilder_pressed() -> void:
+	GameLogger.trc("App", "screen", "to:deckbuilder")
 	_main_menu.visible = false
 	var deckbuilder_screen := DeckbuilderScreen.new()
 	deckbuilder_screen.name = "Deckbuilder"

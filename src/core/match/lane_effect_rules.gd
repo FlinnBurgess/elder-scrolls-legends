@@ -3,6 +3,7 @@ extends RefCounted
 const CardCatalog = preload("res://src/deck/card_catalog.gd")
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const MatchMutations = preload("res://src/core/match/match_mutations.gd")
+const GameLogger = preload("res://src/core/match/game_logger.gd")
 
 
 static func inject_lane_triggers(match_state: Dictionary, registry: Array) -> void:
@@ -37,6 +38,7 @@ static func inject_lane_triggers(match_state: Dictionary, registry: Array) -> vo
 
 
 static func apply_lane_effect(match_state: Dictionary, trigger: Dictionary, event: Dictionary, effect: Dictionary) -> Dictionary:
+	GameLogger.trc("LaneEffect", "apply", "op:%s,evt:%s" % [str(effect.get("op", "")), str(event.get("event_type", ""))])
 	var op := str(effect.get("op", ""))
 	match op:
 		"lane_grant_cover":

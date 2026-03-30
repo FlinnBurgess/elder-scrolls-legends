@@ -195,6 +195,11 @@ The `fill_lane_with` and `summon_copies_to_lane` ops resolve lanes via a fallbac
 Example: Prized Chicken, Vastarie, Prophet of Bones (`"lane": "same"` on `fill_lane_with`)
 How to spot: User reports a "Fill this lane" effect doing nothing. Check if the card's effect uses `"lane": "same"` or `"lane": "other"` with `fill_lane_with` or `summon_copies_to_lane`.
 
+## Missing triggered_abilities with cross-zone card type condition
+Card has rules text with a conditional summon effect that checks for card types across multiple zones (discard pile, supports in play, items equipped on creatures) but has no `triggered_abilities` array and may also have the conditional keyword incorrectly listed as a base keyword. The card sits inert because there is no trigger descriptor to fire the effect.
+Example: Voice of Balance ("Summon: +4/+4 and Guard if you have an action, item, and support in your discard pile or in play" — had `keywords: ["guard"]` as base keyword and no `triggered_abilities`)
+How to spot: User reports a conditional summon buff not triggering. Check if the card's `rules_text` mentions checking for card types "in your discard pile or in play" and whether it has `triggered_abilities` with the `required_card_types_in_discard_or_play` condition. Also check if conditional keywords are incorrectly listed in the base `keywords` array.
+
 ## Lane-targeting action_target_mode enters creature targeting mode
 `_action_needs_explicit_target` returns `true` for any non-empty `action_target_mode`, including lane-based modes like `choose_lane`. This sends the card into creature targeting (arrow) mode, but the `_on_lane_pressed` handler blocks lane plays when `_action_needs_explicit_target` is true. The card gets stuck — can't target a creature (wrong mode) and can't target a lane (blocked). Fix by excluding `choose_lane` from `_action_needs_explicit_target` so the card uses the detach-to-lane flow.
 Example: Trial of Flame (`action_target_mode: "choose_lane"`)

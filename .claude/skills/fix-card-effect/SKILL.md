@@ -1,7 +1,6 @@
 ---
 name: fix-card-effect
 description: Investigate and fix a card whose in-game effect is not working as described.
-model: opus
 ---
 
 # Fix Card Effect
@@ -14,15 +13,11 @@ Investigate and fix a card whose in-game effect is not working as described.
 
 ## Step 1: Gather Information
 
-1. Find the card in `src/deck/card_catalog.gd` by searching for the card name.
+1. Find the card in `scripts/generated_seeds.gd` (or `src/deck/card_catalog.gd`) by searching for the card name.
 2. Read the card's `rules_text` to understand what it should do.
 3. If the user references recent gameplay or a game log, read `game_log.txt` in the project root. Look for the card's play event and whether the trigger fired, what op was invoked, and whether subsequent state changes (e.g., `[SUMMON]`, `[DAMAGE]`) actually occurred. A trigger that fires but produces no downstream log entry points to a silent failure in the op handler.
 4. If the user has not described the problem, ask what is happening vs what they expected.
 5. If anything else is unclear about the expected behaviour, ask for clarification before proceeding.
-
-## Step 1b: Pre-fix Learnings Scan
-
-Run the `scan-learnings` skill with a description of the bug area based on what you gathered in Step 1 (e.g., "triggered abilities with target_mode", "item equip bonuses", "aura conditions"). This surfaces known pitfalls and engine conventions before you start writing code — for example, that all random selections must use `_deterministic_index`, or that `target_mode` triggers are silently filtered for certain families.
 
 ## Step 2: Diagnose the Issue
 
@@ -70,6 +65,9 @@ These are optional fields on the trigger descriptor that gate whether the trigge
 - `required_summon_keyword` — the summoned creature must have this keyword
 - `required_played_rules_tag` — the played card must have this rules_tag
 - `excluded_rule_tag` — the source card must NOT have this rules_tag
+- `required_card_types_in_discard_or_play` — array of card types (e.g., `["action", "item", "support"]`) that must each appear in the controller's discard pile, support zone, or as items attached to lane creatures
+- `required_event_lane_id` — the event's `lane_id` must match this value (e.g., `"field"` for left lane)
+- `excluded_event_lane_id` — the event's `lane_id` must NOT match this value (use for "Otherwise" branches)
 
 **Effect Operations** (defined in `match_timing._apply_effects()`):
 - `modify_stats` — `{op, target, power, health, duration?}` — use `"duration": "end_of_turn"` for "this turn" effects
@@ -213,8 +211,9 @@ Also update `action_is_legal` for `KIND_END_TURN` to block ending turn while the
 
 1. If a new effect op is needed, add it to `_apply_effects()` in `match_timing.gd`, following the pattern of existing ops. Make it generic/reusable rather than card-specific.
 2. If an existing op needs a new optional parameter (e.g., adding `duration` support to `grant_keyword`), extend the op handler in `_apply_effects()` rather than creating a new op. Follow the pattern of similar parameters on other ops (e.g., `modify_stats` already supports `duration`).
-3. **Before fixing card data, check scope.** If the same data-format mismatch affects multiple cards (scan Step 4 first), fix the engine handler to accept the existing data format rather than patching each card individually. This is especially relevant for `filter` dict mismatches — prefer updating the handler to fall back to `effect.get("filter", {})` over adding duplicate flat keys to every card.
-4. If the card just needs `triggered_abilities` wired up, update its `_seed()` call in `card_catalog.gd`.
+3. If a new trigger condition is needed (the card's condition doesn't match any existing condition in the Trigger Conditions list), add it to `matches_additional_conditions()` in `extended_mechanic_packs.gd`. Follow the pattern of existing conditions: read the field from the descriptor, check it against match state, return false if not met. Make the condition generic/reusable.
+4. **Before fixing card data, check scope.** If the same data-format mismatch affects multiple cards (scan Step 4 first), fix the engine handler to accept the existing data format rather than patching each card individually. This is especially relevant for `filter` dict mismatches — prefer updating the handler to fall back to `effect.get("filter", {})` over adding duplicate flat keys to every card.
+5. If the card just needs `triggered_abilities` wired up, update its `_seed()` call in `scripts/generated_seeds.gd` (or `card_catalog.gd`).
 5. If new fields are introduced, ensure they flow through:
    - `_seed()` in `card_catalog.gd`
    - `_build_card()` in `card_catalog.gd`

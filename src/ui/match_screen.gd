@@ -164,6 +164,8 @@ var _local_match_ai_action_count := 0
 var _pending_layout_scale_frames := 0
 var _floating_card_ids: Dictionary = {}
 var _hovered_hand_instance_id := ""
+var _hovered_pile_player_id := ""
+var _hovered_pile_zone := ""
 var _overdraw_queue: Array = []
 var _match_end_button: Button
 var _match_end_box: VBoxContainer
@@ -1302,11 +1304,6 @@ func target_selected_card(target_instance_id: String) -> Dictionary:
 	else:
 		return _invalid_ui_result("Current selection does not use card targets.")
 	var finalized := _finalize_engine_result(result, "Resolved %s onto %s." % [_card_name(selected_card), _card_name(target_card)])
-	if bool(finalized.get("is_valid", false)) and not saved_item_id.is_empty():
-		# Skip summon target mode for throw-mode items (item went to discard, not equipped)
-		var item_location := MatchMutations.find_card_location(_match_state, saved_item_id)
-		if bool(item_location.get("is_valid", false)) and str(item_location.get("zone", "")) != MatchMutations.ZONE_DISCARD:
-			_check_summon_target_mode(saved_item_id)
 	if bool(finalized.get("is_valid", false)) and not saved_action_id.is_empty():
 		_check_betray_mode(saved_action_id, saved_action_card)
 	return finalized
@@ -1606,6 +1603,8 @@ func _build_player_section(player_id: String) -> Dictionary:
 	deck_button.add_theme_font_size_override("font_size", 15)
 	_apply_button_style(deck_button, Color(0.15, 0.16, 0.2, 0.98), Color(0.36, 0.39, 0.49, 0.92), Color(0.92, 0.94, 0.98, 1.0), 1, 10)
 	deck_button.pressed.connect(_on_pile_pressed.bind(player_id, MatchMutations.ZONE_DECK))
+	deck_button.mouse_entered.connect(_on_pile_mouse_entered.bind(player_id, MatchMutations.ZONE_DECK))
+	deck_button.mouse_exited.connect(_on_pile_mouse_exited.bind(player_id, MatchMutations.ZONE_DECK))
 	pile_column.add_child(deck_button)
 
 	var discard_button := Button.new()
@@ -1614,6 +1613,8 @@ func _build_player_section(player_id: String) -> Dictionary:
 	discard_button.add_theme_font_size_override("font_size", 15)
 	_apply_button_style(discard_button, Color(0.2, 0.12, 0.16, 0.98), Color(0.58, 0.32, 0.39, 0.94), Color(0.97, 0.92, 0.94, 1.0), 1, 10)
 	discard_button.pressed.connect(_on_pile_pressed.bind(player_id, MatchMutations.ZONE_DISCARD))
+	discard_button.mouse_entered.connect(_on_pile_mouse_entered.bind(player_id, MatchMutations.ZONE_DISCARD))
+	discard_button.mouse_exited.connect(_on_pile_mouse_exited.bind(player_id, MatchMutations.ZONE_DISCARD))
 	pile_column.add_child(discard_button)
 
 	var rows := HBoxContainer.new()
@@ -5382,6 +5383,10 @@ func _input(event: InputEvent) -> void:
 			if lane_index >= 0:
 				_try_play_hovered_hand_card_to_lane(lane_index)
 				get_viewport().set_input_as_handled()
+		if key_event.pressed and not key_event.echo and key_event.keycode == KEY_EQUAL:
+			_debug_dump_hovered()
+			get_viewport().set_input_as_handled()
+			return
 	elif event is InputEventMouseButton:
 		var button_event := event as InputEventMouseButton
 		if button_event.button_index == MOUSE_BUTTON_RIGHT and button_event.pressed:
@@ -5707,6 +5712,17 @@ func _on_pile_pressed(player_id: String, zone: String) -> void:
 	else:
 		_status_message = "Inspecting %s's %s." % [_player_name(player_id), _identifier_to_name(zone)]
 		_refresh_ui()
+
+
+func _on_pile_mouse_entered(player_id: String, zone: String) -> void:
+	_hovered_pile_player_id = player_id
+	_hovered_pile_zone = zone
+
+
+func _on_pile_mouse_exited(player_id: String, zone: String) -> void:
+	if _hovered_pile_player_id == player_id and _hovered_pile_zone == zone:
+		_hovered_pile_player_id = ""
+		_hovered_pile_zone = ""
 
 
 func _on_prophecy_play_pressed(instance_id: String) -> void:
@@ -10072,3 +10088,56 @@ func _find_card_lane_id(instance_id: String) -> String:
 				if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) == instance_id:
 					return str(lane.get("lane_id", ""))
 	return ""
+
+
+func _debug_dump_hovered() -> void:
+	var instance_id := ""
+	if _hovered_hand_instance_id != "":
+		instance_id = _hovered_hand_instance_id
+	elif _lane_hover_preview_instance_id != "" or not _lane_hover_preview_pending.is_empty():
+		instance_id = _lane_hover_preview_instance_id if _lane_hover_preview_instance_id != "" else str(_lane_hover_preview_pending.get("instance_id", ""))
+	elif _support_hover_preview_instance_id != "" or not _support_hover_preview_pending.is_empty():
+		instance_id = _support_hover_preview_instance_id if _support_hover_preview_instance_id != "" else str(_support_hover_preview_pending.get("instance_id", ""))
+	if not instance_id.is_empty():
+		_debug_dump_card(instance_id)
+		return
+	if not _hovered_pile_zone.is_empty():
+		_debug_dump_pile(_hovered_pile_player_id, _hovered_pile_zone)
+		return
+	print("[DEBUG DUMP] No card or pile currently hovered.")
+
+
+func _debug_dump_card(instance_id: String) -> void:
+	var match_card := _card_from_instance_id(instance_id)
+	var definition_id := str(match_card.get("definition_id", ""))
+	var card_name := str(match_card.get("name", definition_id))
+	print("=== DEBUG DUMP: %s (instance: %s) ===" % [card_name, instance_id])
+	var catalog_result := CardCatalog.load_default()
+	var card_by_id: Dictionary = catalog_result.get("card_by_id", {})
+	var catalog_entry: Dictionary = card_by_id.get(definition_id, {})
+	if catalog_entry.is_empty():
+		print("  [Catalog] No catalog entry found for definition_id: %s" % definition_id)
+	else:
+		print("  [Catalog Definition]")
+		for key in catalog_entry.keys():
+			print("    %s: %s" % [key, str(catalog_entry[key])])
+	print("  [Match State]")
+	for key in match_card.keys():
+		print("    %s: %s" % [key, str(match_card[key])])
+	print("=== END DEBUG DUMP ===")
+
+
+func _debug_dump_pile(player_id: String, zone: String) -> void:
+	var player := _player_state(player_id)
+	var pile: Array = player.get(zone, [])
+	var zone_label := "Deck" if zone == MatchMutations.ZONE_DECK else "Discard"
+	var owner_label := _player_name(player_id)
+	print("=== DEBUG DUMP: %s's %s (%d cards) ===" % [owner_label, zone_label, pile.size()])
+	for i in pile.size():
+		var card: Dictionary = pile[i] if typeof(pile[i]) == TYPE_DICTIONARY else {}
+		var card_name := str(card.get("name", "???"))
+		var card_id := str(card.get("card_id", ""))
+		var iid := str(card.get("instance_id", ""))
+		var cost := str(card.get("cost", "?"))
+		print("  [%d] %s (id: %s, instance: %s, cost: %s)" % [i, card_name, card_id, iid, cost])
+	print("=== END DEBUG DUMP ===")

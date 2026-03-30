@@ -1,6 +1,7 @@
 class_name EvergreenRules
 extends RefCounted
 
+const GameLogger = preload("res://src/core/match/game_logger.gd")
 const REGISTRY_PATH := "res://data/legends/registries/keyword_effect_registry.json"
 const CARD_TYPE_CREATURE := "creature"
 const KEYWORD_BREAKTHROUGH := "breakthrough"
@@ -108,6 +109,7 @@ static func count_keyword(card: Dictionary, keyword_id: String) -> int:
 
 
 static func remove_keyword(card: Dictionary, keyword_id: String) -> bool:
+	GameLogger.trc("Evergreen", "rm_keyword", "card:%s,kw:%s" % [str(card.get("name", card.get("instance_id", "?"))), keyword_id])
 	ensure_card_state(card)
 	var removed := false
 	for key in ["keywords", "granted_keywords"]:
@@ -144,6 +146,7 @@ static func has_raw_status(card: Dictionary, status_id: String) -> bool:
 
 
 static func add_status(card: Dictionary, status_id: String) -> bool:
+	GameLogger.trc("Evergreen", "add_status", "card:%s,st:%s" % [str(card.get("name", card.get("instance_id", "?"))), status_id])
 	ensure_card_state(card)
 	var statuses := _ensure_array(card.get("status_markers", []))
 	if statuses.has(status_id):
@@ -154,6 +157,7 @@ static func add_status(card: Dictionary, status_id: String) -> bool:
 
 
 static func remove_status(card: Dictionary, status_id: String) -> bool:
+	GameLogger.trc("Evergreen", "rm_status", "card:%s,st:%s" % [str(card.get("name", card.get("instance_id", "?"))), status_id])
 	ensure_card_state(card)
 	var statuses := _ensure_array(card.get("status_markers", []))
 	if not statuses.has(status_id):
@@ -164,6 +168,7 @@ static func remove_status(card: Dictionary, status_id: String) -> bool:
 
 
 static func grant_cover(card: Dictionary, cover_expires_on_turn: int, source := "shadow_lane_entry") -> bool:
+	GameLogger.trc("Evergreen", "grant_cover", "card:%s" % [str(card.get("name", card.get("instance_id", "?")))])
 	ensure_card_state(card)
 	if has_raw_status(card, STATUS_COVER):
 		return false
@@ -206,6 +211,7 @@ static func refresh_for_controller_turn(card: Dictionary, current_turn_number: i
 
 
 static func apply_damage_to_creature(card: Dictionary, amount: int) -> Dictionary:
+	GameLogger.trc("Evergreen", "apply_dmg", "card:%s,amt:%s" % [str(card.get("name", card.get("instance_id", "?"))), str(amount)])
 	ensure_card_state(card)
 	var requested := maxi(0, amount)
 	if requested <= 0:
@@ -240,6 +246,7 @@ static func apply_damage_to_creature(card: Dictionary, amount: int) -> Dictionar
 
 
 static func restore_health(card: Dictionary, amount := -1) -> int:
+	GameLogger.trc("Evergreen", "restore_hp", "card:%s,amt:%s" % [str(card.get("name", card.get("instance_id", "?"))), str(amount)])
 	ensure_card_state(card)
 	var damage_marked := int(card.get("damage_marked", 0))
 	if damage_marked <= 0:
@@ -252,6 +259,7 @@ static func restore_health(card: Dictionary, amount := -1) -> int:
 
 
 static func apply_stat_bonus(card: Dictionary, power_bonus: int, health_bonus: int, _reason := "") -> Dictionary:
+	GameLogger.trc("Evergreen", "stat_bonus", "card:%s,p:%s,h:%s" % [str(card.get("name", card.get("instance_id", "?"))), str(power_bonus), str(health_bonus)])
 	ensure_card_state(card)
 	card["power_bonus"] = int(card.get("power_bonus", 0)) + power_bonus
 	card["health_bonus"] = int(card.get("health_bonus", 0)) + health_bonus

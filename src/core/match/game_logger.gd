@@ -14,6 +14,10 @@ static var _active_match_state: Dictionary = {}
 static var _missing_effect_cards: Array = []
 
 
+static func trc(node: String, method: String, vars_str: String) -> void:
+	print("[TRC]|%s|%s|%s|%s" % [Engine.get_physics_frames(), node, method, vars_str])
+
+
 static func start_match(match_state: Dictionary) -> void:
 	_missing_effect_cards = []
 	_active_match_state = match_state
