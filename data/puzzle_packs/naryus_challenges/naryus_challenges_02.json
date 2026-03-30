@@ -1,0 +1,45 @@
+{
+  "name": "Stendarr's Hammer",
+  "type": "kill",
+  "lanes": [
+    { "lane_type": "field", "width": 4 },
+    { "lane_type": "shadow", "width": 4 }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 20,
+    "current_magicka": 20,
+    "has_ring": false,
+    "hand": [
+      "int_mentors_ring",
+      "end_siege_catapult",
+      "str_nord_firebrand",
+      "end_imprisoned_deathlord",
+      "hom_agi_morag_tong_assassin",
+      "hom_str_stendarrs_hammer",
+      "str_rampaging_minotaur"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [],
+    "shadow_creatures": []
+  },
+  "enemy": {
+    "health": 23,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp"
+    ],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [],
+    "shadow_creatures": []
+  }
+}

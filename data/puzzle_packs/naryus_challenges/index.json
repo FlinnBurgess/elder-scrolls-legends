@@ -3,6 +3,7 @@
   "display_name": "Naryu's Challenges",
   "order": 2,
   "puzzles": [
-    { "id": "naryus_challenges_01", "name": "Orc Clan Shaman", "type": "kill", "file": "naryus_challenges_01.json" }
+    { "id": "naryus_challenges_01", "name": "Orc Clan Shaman", "type": "kill", "file": "naryus_challenges_01.json" },
+    { "id": "naryus_challenges_02", "name": "Stendarr's Hammer", "type": "kill", "file": "naryus_challenges_02.json" }
   ]
 }
