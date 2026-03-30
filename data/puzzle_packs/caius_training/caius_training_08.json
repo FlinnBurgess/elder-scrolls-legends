@@ -1,0 +1,43 @@
+{
+  "name": "Hlaalu Mastery",
+  "type": "kill",
+  "lanes": [
+    { "lane_type": "field", "width": 4 },
+    { "lane_type": "shadow", "width": 4 }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 100,
+    "current_magicka": 100,
+    "has_ring": false,
+    "hand": [
+      "int_cruel_firebloom",
+      "hom_str_hlaalu_sharpshooter",
+      "hom_str_camonna_tong_heavy",
+      "hom_str_sharp_eyed_ashkhan",
+      "hos_neu_journey_to_sovngarde"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "str_nord_firebrand"
+    ],
+    "shadow_creatures": [
+      "str_rampaging_minotaur"
+    ]
+  },
+  "enemy": {
+    "health": 18,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": ["str_kvatch_soldier", "str_kvatch_soldier", "str_kvatch_soldier", "str_kvatch_soldier", "str_kvatch_soldier"],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [],
+    "shadow_creatures": [
+      "hom_int_dres_guard"
+    ]
+  }
+}

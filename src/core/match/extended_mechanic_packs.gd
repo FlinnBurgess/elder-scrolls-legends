@@ -455,6 +455,31 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			ensure_player_state(controller)
 			var empower_amount := int(effect.get("amount", 0)) + int(effect.get("amount_per_damage", 0)) * int(controller.get("empower_count_this_turn", 0))
 			return {"handled": true, "events": _resolve_player_damage(match_state, trigger, event, effect, empower_amount)}
+		"heal":
+			var heal_controller_id := str(trigger.get("controller_player_id", ""))
+			var heal_target_key := str(effect.get("target_player", "controller"))
+			var heal_player_id := heal_controller_id
+			if heal_target_key == "opponent":
+				var heal_opponent := _get_opponent(match_state, heal_controller_id)
+				heal_player_id = str(heal_opponent.get("player_id", ""))
+			var heal_player := _get_player_state(match_state, heal_player_id)
+			if heal_player.is_empty():
+				return {"handled": true, "events": []}
+			var heal_amount := int(effect.get("amount", 0))
+			if heal_amount <= 0:
+				return {"handled": true, "events": []}
+			heal_player["health"] = int(heal_player.get("health", 0)) + heal_amount
+			return {"handled": true, "events": [{"event_type": "player_healed", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_player_id": heal_player_id, "amount": heal_amount}]}
+		"draw_cards":
+			var dc_controller_id := str(trigger.get("controller_player_id", ""))
+			var dc_target_key := str(effect.get("target_player", "controller"))
+			var dc_player_id := dc_controller_id
+			if dc_target_key == "opponent":
+				var dc_opponent := _get_opponent(match_state, dc_controller_id)
+				dc_player_id = str(dc_opponent.get("player_id", ""))
+			var dc_count := int(effect.get("count", 1))
+			var dc_result: Dictionary = _timing_rules().draw_cards(match_state, dc_player_id, dc_count, {"reason": "counter_threshold", "source_instance_id": str(trigger.get("source_instance_id", ""))})
+			return {"handled": true, "events": dc_result.get("events", [])}
 		"gain_magicka":
 			var gm_player := _get_player_state(match_state, str(trigger.get("controller_player_id", "")))
 			if gm_player.is_empty():

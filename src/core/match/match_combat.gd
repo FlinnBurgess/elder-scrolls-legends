@@ -73,6 +73,8 @@ static func resolve_attack(match_state: Dictionary, player_id: String, attacker_
 		"target_instance_id": str(validation.get("target_instance_id", "")),
 		"target_player_id": str(validation.get("target_player_id", "")),
 	})
+	var rally_draw_events := _resolve_rally_empty_hand_draws(match_state, attacker, player_id)
+	events.append_array(rally_draw_events)
 	var rally_results := EvergreenRules.resolve_rally(match_state, attacker)
 	for rally_result in rally_results:
 		events.append({
@@ -523,6 +525,62 @@ static func _collect_relevant_keywords(card: Dictionary) -> Array:
 		if _has_keyword(card, keyword_id):
 			keywords.append(keyword_id)
 	return keywords
+
+
+static func _resolve_rally_empty_hand_draws(match_state: Dictionary, attacker: Dictionary, controller_player_id: String) -> Array:
+	if not EvergreenRules.has_keyword(attacker, EvergreenRules.KEYWORD_RALLY):
+		return []
+	var player := EvergreenRules._get_player_state(match_state, controller_player_id)
+	if player.is_empty():
+		return []
+	var hand: Array = player.get("hand", [])
+	var has_creature_in_hand := false
+	for card in hand:
+		if typeof(card) != TYPE_DICTIONARY:
+			continue
+		EvergreenRules.ensure_card_state(card)
+		if str(card.get("card_type", "")) == "creature":
+			has_creature_in_hand = true
+			break
+	if has_creature_in_hand:
+		return []
+	# Scan board for creatures with on_rally_empty_hand triggered ability
+	var draw_definition_ids: Array = []
+	for lane in match_state.get("lanes", []):
+		var slots: Array = lane.get("player_slots", {}).get(controller_player_id, [])
+		for card in slots:
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			for ability in card.get("triggered_abilities", []):
+				if typeof(ability) != TYPE_DICTIONARY:
+					continue
+				if str(ability.get("family", "")) == "on_rally_empty_hand":
+					var def_id := str(card.get("definition_id", ""))
+					if not def_id.is_empty() and not draw_definition_ids.has(def_id):
+						draw_definition_ids.append(def_id)
+	if draw_definition_ids.is_empty():
+		return []
+	# Draw all matching cards from deck to hand
+	var events: Array = []
+	var deck: Array = player.get("deck", [])
+	var i := deck.size() - 1
+	while i >= 0:
+		var card: Dictionary = deck[i]
+		if typeof(card) == TYPE_DICTIONARY and draw_definition_ids.has(str(card.get("definition_id", ""))):
+			deck.remove_at(i)
+			card["zone"] = "hand"
+			hand.append(card)
+			MatchMutations.apply_first_turn_hand_cost(match_state, card, controller_player_id)
+			events.append({
+				"event_type": "card_drawn",
+				"player_id": controller_player_id,
+				"instance_id": str(card.get("instance_id", "")),
+				"definition_id": str(card.get("definition_id", "")),
+				"draw_reason": "rally_empty_hand",
+				"source_zone": "deck",
+			})
+		i -= 1
+	return events
 
 
 static func _resolve_drain(match_state: Dictionary, attacker: Dictionary, damage_dealt: int, events: Array) -> int:

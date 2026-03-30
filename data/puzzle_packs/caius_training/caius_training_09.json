@@ -1,0 +1,54 @@
+{
+  "name": "Telvanni Mastery",
+  "type": "kill",
+  "lanes": [
+    { "lane_type": "field", "width": 4 },
+    { "lane_type": "shadow", "width": 4 }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 19,
+    "current_magicka": 19,
+    "has_ring": false,
+    "hand": [
+      "str_improvised_weapon",
+      "hom_agi_cliff_strider",
+      "hom_int_traitors_flames",
+      "hos_int_ancano"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [],
+    "shadow_creatures": [
+      "hom_end_ancestral_dead"
+    ]
+  },
+  "enemy": {
+    "health": 11,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [
+      "end_deadly_draugr",
+      "end_deadly_draugr",
+      "end_deadly_draugr",
+      "end_deadly_draugr",
+      "end_deadly_draugr"
+    ],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "end_bone_colossus",
+      "end_skeleton",
+      "end_skeleton",
+      "end_skeleton"
+    ],
+    "shadow_creatures": [
+      "hom_end_risen_dead",
+      "hom_end_risen_dead",
+      "hom_end_risen_dead",
+      "hom_end_risen_dead"
+    ]
+  }
+}

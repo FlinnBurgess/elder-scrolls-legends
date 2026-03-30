@@ -98,6 +98,8 @@ These are optional fields on the trigger descriptor that gate whether the trigge
 - `sacrifice` — `{op, target}`
 - `double_stats` — `{op, target, stat?}` — doubles current power and/or health; `stat` can be `"power"`, `"health"`, or `"both"` (default `"both"`)
 - `select_card_from_hand` — `{op, filter, then_op, then_context?, prompt?}` — creates a pending hand selection; the player picks an eligible hand card, then `then_op` is applied to it. Filter supports: `rules_tag`, `card_type`, `subtype`, `keyword`, `attribute`, `definition_id`. If no eligible cards, the effect fizzles silently. This is a **pending state op** (see below).
+- `add_counter` — `{op, counter, amount?, threshold?, then_effects?}` — increments a named counter (`_counter_<name>`) on the source card. If `threshold` is set and the counter reaches it, fires `then_effects` (via `ExtendedMechanicPacks.apply_custom_effect`) and resets counter to 0. Useful for cards that track cumulative events (e.g., "When 20 enemy creatures have died..."). Note: `then_effects` only go through `apply_custom_effect`, not the full `_apply_effects` — so only ops handled there (`damage`, `heal`, `draw_cards`, `gain_magicka`, `summon_random_from_catalog`, etc.) work in `then_effects`.
+- `copy_keywords_to_friendly` — `{op, source?, target, target_filter_subtype?}` — copies all keywords from the source card to each target card. `source` defaults to `"self"` (the trigger's source card); for items, use `"source": "event_target"` to reference the equipped creature. Iterates `RANDOM_KEYWORD_POOL` and grants each keyword the source has via `granted_keywords`.
 - `log` — `{op, message}`
 
 **Target Values** for card targets:
@@ -134,6 +136,18 @@ If the user reports a missing or broken alt-view, check three things:
    - `arena_draft_screen.gd` — `_show_deck_hover_preview()` / `_build_draft_relationship_context()`
    - `deck_editor_screen.gd` — `_build_relationship_context()` (already wired up)
 
+### Passive Abilities System
+Cards with ongoing board effects that modify other cards' keywords or behavior use `passive_abilities` — an array of passive descriptors stored on the card. Unlike triggered abilities (event-driven), passives are recalculated each aura refresh cycle. Types:
+- `grant_keyword_to_type` — `{type, keyword, card_type}` — grants a keyword to all cards of a type in the controller's hand (e.g., Ancano: "Your actions have Breakthrough"). The keyword is applied via `aura_keywords` during `recalculate_auras()` Step 3d. The engine op that implements the keyword behavior must also check for the keyword on the source card (e.g., `deal_damage` checks for Breakthrough on action cards and applies overflow).
+- `grant_keyword_to_keyword` — `{type, granted_keyword, required_keyword}` — grants a keyword to friendly creatures that already have a specific keyword (e.g., Mournhold Taskmaster: "Friendly creatures with Veteran have Charge"). Applied during `recalculate_auras()` Step 3c.
+
+### Immunity System
+Two immunity mechanisms exist, each with its own format and consumer:
+- **`self_immunity`** (array) — immunities on the card itself (e.g., Lumbering Ogrim can't gain Cover, Mage Slayer immune to action damage). Checked by `_is_immune_to_effect()` via `target_card.get("self_immunity", [])`.
+- **`grants_immunity`** — two formats:
+  - **Array format** `["silence"]` — grants immunity to OTHER friendly lane creatures (excludes self). Checked by `_is_immune_to_effect()` which scans friendly board creatures for the array. Used by Dres Renegade, Keeper of Whispers, etc.
+  - **Dict format** `{"scope": "all_friendly", "condition": "exalted", "immunity": "damage"}` — conditional aura-style immunity. Evaluated in `recalculate_auras()` Step 3f, which sets `aura_damage_immune` on qualifying targets. Checked in `apply_damage_to_creature()`. Used by Almalexia.
+
 ### Common Root Causes
 
 1. **Missing `triggered_abilities`** — Card has `effect_ids` and `rules_text` but no `triggered_abilities` array, so the effect never fires.
@@ -155,6 +169,12 @@ If the user reports a missing or broken alt-view, check three things:
 14. **Activate/on_play trigger with `target_mode` blocked at four layers** — Support's activate (or action's on_play) trigger uses `target_mode` with `"target": "chosen_target"` in effects, but four systems block it: (1) `_append_card_triggers` unconditionally skips all triggers with `target_mode` from the registry — the trigger never even enters event processing, (2) UI's `_selected_support_uses_card_targets` / `_action_needs_explicit_target` — doesn't enter targeting mode, (3) engine's `_trigger_matches_event` — skips triggers with `target_mode` when `_chosen_target_id` is empty, (4) AI's `_collect_target_requirements` — doesn't expand card targets. Fix: exempt `activate` and `on_play` families from the registry skip in `_append_card_triggers`, inject `_chosen_target_id` from the event in `_trigger_matches_event`, and update UI/enumerator.
 15. **Multi-summon op delegates to single-summon helper** — An op that should summon multiple creatures (e.g., "summon random Daedra with total cost 10") delegates to a single-summon helper like `summon_random_from_catalog` without looping. The effect fires once and stops. Fix by rewriting the op handler as a loop that tracks a budget, filters candidates within remaining budget, checks lane capacity across all lanes, and summons until budget is exhausted or all lanes are full. When only one slot remains, pick the highest-cost candidate within budget to maximize value.
 16. **Unresolved sentinel parameter value** — An effect parameter uses a sentinel string (e.g., `"lane": "chosen"`, `"lane": "random"`, `"lane": "both"`) that should be resolved at runtime, but the op handler's resolution chain doesn't have a branch for that value. The literal string passes through silently — it doesn't match any real entity (lane, card, player) but produces no error. The effect appears to fire (trigger log shows it) but has no visible result. Fix by adding a resolution branch for the sentinel value alongside existing ones (e.g., `"same"`, `"other"`). Check all ops that resolve the same parameter type for consistency.
+17. **Board passive marker family not implemented in keyword resolution** — Card uses a custom trigger family (e.g., `on_rally_empty_hand`, `on_rally`) as a marker that keyword resolution code should scan for on board creatures, but the keyword resolution code (e.g., `resolve_rally` in `evergreen_rules.gd`, combat flow in `match_combat.gd`) doesn't check for it. These are NOT standard event-driven triggers — they're passive markers read by keyword-specific code. Fix by adding a board scan to the relevant keyword resolution function that looks for creatures with the marker family and applies the modifier behavior.
+18. **Missing `passive_abilities` for ongoing keyword grant to card type** — Card has rules text like "Your actions have Breakthrough" but no `passive_abilities` entry with `grant_keyword_to_type`. Additionally, the engine op that implements the keyword behavior (e.g., `deal_damage` for Breakthrough) may not check for the keyword on the source card. Fix requires both: (a) adding the passive to card data, and (b) ensuring the engine op applies the keyword's behavior when the source card has it via `aura_keywords`.
+19. **Missing `source` on item effect op defaults to item card** — Effect ops that read from a `source` parameter (e.g., `copy_keywords_to_friendly`) default to `"self"`, which for items resolves to the item card, not the equipped creature. The effect silently operates on the wrong card (typically finding no keywords/stats). Fix by adding `"source": "event_target"` to the effect descriptor so it references the equipped creature.
+20. **Stale per-turn state flag survives zone transitions** — A per-turn flag (e.g., `has_attacked_this_turn`) is set on a card dict during gameplay but only cleared at turn start via `refresh_for_controller_turn`. If the creature dies, is recycled back to deck/hand (e.g., Journey to Sovngarde, Soul Tear), and replayed in the same turn, the flag persists and incorrectly constrains the new activation. Fix by resetting the flag in `_apply_lane_entry` (guarded by `preserve_entered_lane_on_turn` so lane-to-lane moves don't reset it). This is an engine-level bug, not a card-data issue — no card catalog changes needed.
+21. **Meta-trigger op bypasses target selection for replayed abilities**
+22. **Dict-format `grants_immunity` not consumed by aura recalculation** — Card has `grants_immunity` as a dict (`{scope, condition, immunity}`) for conditional aura-style immunity (e.g., "Friendly Exalted creatures are immune to damage"), but the engine only consumed the array format via `_is_immune_to_effect()`. The dict data flows through build/hydrate correctly but is silently skipped by the `typeof == TYPE_ARRAY` check. Fix: `recalculate_auras()` Step 3f now scans for dict-format sources and sets `aura_damage_immune` on qualifying targets. — Effect ops that iterate other cards' `triggered_abilities` and directly call `_apply_effects` (e.g., `trigger_exalt_all_friendly`, `trigger_summon_ability`, `repeat_slay_reward`, `play_learned_actions`) work for self-targeting effects but silently fail for abilities with `target_mode` + `target: "chosen_target"`, because no `_chosen_target_id` is set on the synthetic trigger. Fix by checking `target_mode` on the replayed ability: if present, either queue a `pending_summon_effect_targets` entry (for interactive contexts like summon/slay replay) or auto-resolve a random valid target via `get_valid_targets_for_mode` + `_deterministic_index` (for non-interactive contexts like last gasp replays). Compare with `_force_wax_wane_triggers` which already handles this correctly by skipping `target_mode` triggers.
 
 ### Pending State Pattern (Interactive Effects)
 
@@ -174,6 +194,7 @@ Also update `action_is_legal` for `KIND_END_TURN` to block ending turn while the
 
 ### Key Files to Investigate
 
+- `src/core/match/match_combat.gd` — combat resolution, Rally/Drain/Breakthrough flows, keyword resolution hooks
 - `src/deck/card_catalog.gd` — card definitions
 - `src/core/match/match_timing.gd` — trigger matching and effect resolution
 - `src/core/match/match_mutations.gd` — state mutation helpers
@@ -237,7 +258,7 @@ Update the card's entry in `development-artifacts/core_set_cards.json` if releva
 
 IMPORTANT: Tests must be run after all changes are complete. Run the relevant test runners to verify no regressions:
 ```
-/Applications/Godot.app/Contents/MacOS/Godot --headless --script tests/<runner>.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --log-file "$TMPDIR/godot.log" --path /Users/flinnburgess/Development/Godot/ElderScrollsLegends --script tests/<runner>.gd
 ```
 
 Key runners to check after effect changes:

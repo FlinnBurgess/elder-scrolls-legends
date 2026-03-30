@@ -5,6 +5,12 @@
     { "id": "caius_training_01", "name": "Redoran Initiation", "type": "kill", "file": "caius_training_01.json" },
     { "id": "caius_training_02", "name": "Dagoth Initiation", "type": "kill", "file": "caius_training_02.json" },
     { "id": "caius_training_03", "name": "Hlaalu Initiation", "type": "kill", "file": "caius_training_03.json" },
-    { "id": "caius_training_04", "name": "Telvanni Initiation", "type": "kill", "file": "caius_training_04.json" }
+    { "id": "caius_training_04", "name": "Telvanni Initiation", "type": "kill", "file": "caius_training_04.json" },
+    { "id": "caius_training_05", "name": "Tribunal Initiation", "type": "kill", "file": "caius_training_05.json" },
+    { "id": "caius_training_06", "name": "Redoran Mastery", "type": "kill", "file": "caius_training_06.json" },
+    { "id": "caius_training_07", "name": "Dagoth Mastery", "type": "survive", "file": "caius_training_07.json" },
+    { "id": "caius_training_08", "name": "Hlaalu Mastery", "type": "kill", "file": "caius_training_08.json" },
+    { "id": "caius_training_09", "name": "Telvanni Mastery", "type": "kill", "file": "caius_training_09.json" },
+    { "id": "caius_training_10", "name": "Tribunal Mastery", "type": "kill", "file": "caius_training_10.json" }
   ]
 }

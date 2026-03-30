@@ -30,7 +30,11 @@ If the user provided a direct wiki URL (e.g., `https://en.uesp.net/wiki/File:LG-
 Otherwise, discover the image URL from the card's wiki page:
 
 1. Construct the wiki page URL: `https://en.uesp.net/wiki/Legends:<Card_Name>` (spaces replaced with underscores)
-2. Fetch the page and look for an image URL containing `LG-cardart-` (or its URL-encoded form `LG-cardart-` with `%28`/`%29` for parentheses, `%27` for apostrophes, etc.) in the filename. Card names with special characters like parentheses will be URL-encoded in the HTML. If multiple matches exist (card art + alternate art variants), use the first one — it is the primary card art.
+2. **WebFetch often returns 403 for UESP** due to Cloudflare. Use `curl` with a browser User-Agent instead:
+   ```
+   curl -sL -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" "<url>" | grep -o 'LG-cardart-[^"]*' | head -5
+   ```
+   This extracts all `LG-cardart-` image references from the HTML. Look for the hash path pattern (e.g., `//images.uesp.net/1/13/LG-cardart-Name.png`). Card names with special characters like parentheses will be URL-encoded in the HTML. If multiple matches exist (card art + alternate art variants), use the first one — it is the primary card art.
 
 **Thumbnail-to-full conversion:** If the URL contains `/thumb/` and a size prefix like `132px-`, convert to the full-resolution URL by:
 - Removing `/thumb` from the path
@@ -46,13 +50,16 @@ If none of these attempts find card art, report the error and stop.
 
 ### Step 3 — Download and save the image
 
-1. Download the full-resolution image using `curl` with a browser User-Agent header (Cloudflare blocks bare curl):
+1. **Sandbox workaround**: The sandbox blocks direct `curl` writes to `assets/`. Download to `$TMPDIR` first, then copy:
    ```
-   curl -sL -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" "<url>" -o assets/images/cards/<card_id>.png
+   curl -sL -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" "<url>" -o "$TMPDIR/<card_id>.png"
    ```
 2. Verify the downloaded file is actually a PNG (not an HTML error page) using `file`. If it's HTML, the download was blocked — report the error.
 3. If the image is not PNG, convert it to PNG using `sips -s format png` (macOS)
-4. Save to: `assets/images/cards/<card_id>.png`
+4. Copy to final location:
+   ```
+   cp "$TMPDIR/<card_id>.png" assets/images/cards/<card_id>.png
+   ```
 
 ### Step 4 — Verify
 

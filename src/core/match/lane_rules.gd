@@ -325,6 +325,7 @@ static func _apply_lane_entry(match_state: Dictionary, player_id: String, card: 
 	card["lane_id"] = validation["lane_id"]
 	card["slot_index"] = validation["slot_index"]
 	card["entered_lane_on_turn"] = int(match_state.get("turn_number", 0))
+	card["has_attacked_this_turn"] = false
 	player_slots.insert(validation["slot_index"], card)
 	MatchMutations._reindex_player_slots(player_slots)
 

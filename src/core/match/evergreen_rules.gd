@@ -214,7 +214,7 @@ static func apply_damage_to_creature(card: Dictionary, amount: int) -> Dictionar
 			"ward_removed": false,
 			"remaining_health": get_remaining_health(card),
 		}
-	if has_status(card, STATUS_DAMAGE_IMMUNE):
+	if has_status(card, STATUS_DAMAGE_IMMUNE) or bool(card.get("aura_damage_immune", false)):
 		return {
 			"applied": 0,
 			"ward_removed": false,

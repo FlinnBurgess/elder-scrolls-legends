@@ -1,0 +1,40 @@
+{
+  "name": "Tribunal Initiation",
+  "type": "kill",
+  "lanes": [
+    { "lane_type": "field", "width": 4 },
+    { "lane_type": "shadow", "width": 4 }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 8,
+    "current_magicka": 8,
+    "has_ring": false,
+    "hand": [
+      "hom_wil_orvas_bargain",
+      "hom_int_ghostgate_defender",
+      "hom_wil_grand_inquisitor"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "hom_end_mournhold_pilgrim"
+    ],
+    "shadow_creatures": []
+  },
+  "enemy": {
+    "health": 5,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "end_colovian_trooper",
+      "db_str_protector_of_the_innocent"
+    ],
+    "shadow_creatures": []
+  }
+}

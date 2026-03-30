@@ -1,0 +1,45 @@
+{
+  "name": "Dagoth Mastery",
+  "type": "survive",
+  "lanes": [
+    { "lane_type": "field", "width": 4 },
+    { "lane_type": "shadow", "width": 4 }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 13,
+    "current_magicka": 13,
+    "has_ring": false,
+    "hand": [
+      "hom_neu_stolen_pants",
+      "agi_dune_smuggler",
+      "hom_wil_feasting_hunger",
+      "agi_leaflurker",
+      "hom_str_servant_of_dagoth"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "wil_hive_defender",
+      "wil_hive_defender"
+    ],
+    "shadow_creatures": []
+  },
+  "enemy": {
+    "health": 100,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "mc_str_stampede_sentinel",
+      "cwc_neu_awakened_imperfect"
+    ],
+    "shadow_creatures": [
+      "cwc_neu_awakened_imperfect"
+    ]
+  }
+}

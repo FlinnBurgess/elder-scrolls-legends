@@ -155,7 +155,37 @@ Card's `summon_from_effect` `card_template` uses the same `definition_id` as the
 Example: Ayleid Guardian (summon chained left-right-left-right filling all lanes), Golden Saint, Umaril the Unfeathered, Kagouti Fabricant
 How to spot: User reports a "Summon: Summon a copy in the other lane" effect chaining infinitely or filling both lanes. Check if the card's `card_template` has the same `definition_id` as the parent card and lacks `"triggered_abilities": []`.
 
+## Attack state persists through death and replay
+`has_attacked_this_turn` was not reset when a creature entered a lane. If a Charge creature attacked, died, was shuffled back to deck (e.g., Journey to Sovngarde), drawn, and replayed in the same turn, the flag remained `true` and the attack validation blocked it. Fixed by resetting `has_attacked_this_turn = false` in `_apply_lane_entry` alongside `entered_lane_on_turn`, guarded by the same `preserve_entered_lane_on_turn` check so lane-to-lane moves don't reset it.
+Example: Nord Firebrand, Rampaging Minotaur (any Charge creature replayed same turn)
+How to spot: User reports a Charge creature unable to attack after being replayed in the same turn via graveyard recycling (Journey to Sovngarde, Soul Tear, etc.). The creature entered the lane correctly but shows as "WAITING" despite having Charge.
+
+## Board passive modifying keyword resolution not implemented
+Card has a `triggered_abilities` entry with a custom family name (e.g., `on_rally_empty_hand`, `on_rally`) that acts as a marker for keyword resolution code in the engine (e.g., `match_combat.gd` Rally flow), but the engine code that reads and acts on the marker was never written. The card data is correct but inert.
+Example: Bolvyn Venim (`on_rally_empty_hand` — draw self from deck when Rally fires with empty hand)
+How to spot: User reports a board creature's passive interaction with a keyword (Rally, Pilfer, etc.) not working. Check if the card's `triggered_abilities` family is a custom name not in `FAMILY_SPECS` — if it's meant to modify keyword resolution rather than fire as a standard trigger, the keyword resolution code must explicitly scan for it.
+
+## Missing passive_abilities for ongoing keyword grant to card type
+Card has rules text like "Your actions have Breakthrough" but no `passive_abilities` entry and no engine support. The `grant_keyword_to_type` passive grants `aura_keywords` to matching card types in hand, and the relevant engine op (e.g., `deal_damage`) must check for the keyword on the source card and apply the behavior (e.g., Breakthrough overflow damage to opponent).
+Example: Ancano ("Your actions have Breakthrough")
+How to spot: User reports an ongoing "Your [card_type] have [keyword]" effect not working. Check if the card has a `passive_abilities` entry with `type: "grant_keyword_to_type"`, and whether the engine op that handles the keyword actually checks for it on the source card.
+
 ## Unresolved "chosen" lane literal in summon ops
 Effect uses `"lane": "chosen"` to indicate the player picks the lane, but the op handler (`summon_from_effect`, `fill_lane_with`, `summon_copies_to_lane`) treated `"chosen"` as a literal lane ID instead of resolving it to the actual lane from the event's `lane_id`. The lane resolution chain (`effect.lane_id` → `effect.target_lane_id` → `effect.lane` → `event.lane_id`) stops at `effect.lane` = `"chosen"` and never falls through to the event. The summon silently fails because no lane with ID `"chosen"` exists.
 Example: Call of Valor, Wolf Cage, A Land Divided, Crassius' Favor, Rising of Bones, Strategist's Map, Corsair Ship, The Night Mother, Reconstruction Engine
 How to spot: User reports a "Summon a creature in a lane" or "Fill a lane" effect doing nothing. Check if the card's effect uses `"lane": "chosen"` — this value must be resolved to `event.lane_id` or `trigger._chosen_lane_id` at runtime.
+
+## Targeted exalt skipped by trigger_exalt_all_friendly
+Temple Patriarch's `trigger_exalt_all_friendly` op directly calls `_apply_effects` for each friendly creature's exalt ability. For exalt abilities with `target_mode` (e.g., "Exalt: Deal 2 damage to a creature"), the effect uses `target: "chosen_target"` but no `_chosen_target_id` is set on the trigger, so target resolution returns empty and the effect silently does nothing. Fix by checking for `target_mode` and queuing a `pending_summon_effect_targets` entry instead of direct effect application.
+Example: Ghostgate Defender (Exalt 3: Deal 2 damage to a creature — targeted exalt was skipped)
+How to spot: User reports Temple Patriarch not triggering a creature's exalt effect. Check if the exalt ability has `target_mode` — if so, it needs the pending target selection path.
+
+## Dict-format grants_immunity not consumed by aura recalculation
+Card has `grants_immunity` as a dict (with `scope`, `condition`, `immunity` fields) to grant conditional immunity to other creatures, but the engine only consumed the array format (used by `_is_immune_to_effect` for silence/shackle immunity). The dict data flows through `_build_card`, `_hydrate_card`, and lands on the card state, but no code in `recalculate_auras` scanned for it. Fix by adding a Step 3f in `recalculate_auras` that scans for dict-format `grants_immunity` sources and sets `aura_damage_immune` on qualifying targets, checked in `apply_damage_to_creature`.
+Example: Almalexia (`grants_immunity: {"scope": "all_friendly", "condition": "exalted", "immunity": "damage"}` — exalted friendlies should be immune to damage)
+How to spot: User reports a card's "Friendly [condition] creatures are immune to [X]" not working. Check if `grants_immunity` is a dict and whether `recalculate_auras` handles that format.
+
+## Missing effect source on item on_play trigger
+Effect ops that read from a `source` field (e.g., `copy_keywords_to_friendly`) default to `"self"` when no source is specified. For items, `"self"` resolves to the item card, not the equipped creature. If the effect should read state from the equipped creature (e.g., copying its keywords), the effect must specify `"source": "event_target"` — otherwise the source card has no relevant state and the effect silently does nothing.
+Example: Mentor's Ring
+How to spot: User reports an item's on-play effect doing nothing despite the trigger firing. Check if the effect uses an op that reads from a source card (e.g., `copy_keywords_to_friendly`) and whether `"source"` is specified in the effect dict. If missing, it defaults to the item card instead of the equipped creature.

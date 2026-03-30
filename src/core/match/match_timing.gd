@@ -2941,6 +2941,7 @@ static func recalculate_auras(match_state: Dictionary) -> void:
 				card["aura_power_bonus"] = 0
 				card["aura_health_bonus"] = 0
 				card["aura_keywords"] = []
+				card["aura_damage_immune"] = false
 
 	# Step 2: Collect aura sources (lane creatures + support cards), skip silenced
 	var aura_sources: Array = []
@@ -3105,6 +3106,32 @@ static func recalculate_auras(match_state: Dictionary) -> void:
 				elif EvergreenRules.has_raw_status(card, EvergreenRules.STATUS_SHACKLED) and int(card.get("shackle_expires_on_turn", 0)) == -1:
 					EvergreenRules.remove_status(card, EvergreenRules.STATUS_SHACKLED)
 					card.erase("shackle_expires_on_turn")
+
+	# Step 3f: Apply dict-format grants_immunity aura effects (e.g., Almalexia: exalted creatures immune to damage)
+	for lane in lanes:
+		var gi_player_slots: Dictionary = lane.get("player_slots", {})
+		for player_id in gi_player_slots.keys():
+			for card in gi_player_slots[player_id]:
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				var gi = card.get("grants_immunity", {})
+				if typeof(gi) != TYPE_DICTIONARY:
+					continue
+				if EvergreenRules.has_raw_status(card, EvergreenRules.STATUS_SILENCED):
+					continue
+				var gi_scope := str(gi.get("scope", ""))
+				var gi_condition := str(gi.get("condition", ""))
+				var gi_immunity := str(gi.get("immunity", ""))
+				if gi_scope != "all_friendly" or gi_immunity != "damage":
+					continue
+				var gi_controller := str(card.get("controller_player_id", ""))
+				for gi_lane in lanes:
+					for gi_target in gi_lane.get("player_slots", {}).get(gi_controller, []):
+						if typeof(gi_target) != TYPE_DICTIONARY:
+							continue
+						if gi_condition == "exalted" and not EvergreenRules.has_status(gi_target, EvergreenRules.STATUS_EXALTED):
+							continue
+						gi_target["aura_damage_immune"] = true
 
 	# Step 4: Recalculate player magicka auras from lane creatures
 	for player in match_state.get("players", []):
@@ -5889,21 +5916,34 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						if typeof(ability) != TYPE_DICTIONARY:
 							continue
 						if str(ability.get("family", "")) == FAMILY_SUMMON:
-							var tsa_loc := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
-							var tsa_fake_event := {
-								"event_type": EVENT_CREATURE_SUMMONED,
-								"source_instance_id": str(card.get("instance_id", "")),
-								"source_controller_player_id": str(card.get("controller_player_id", "")),
-								"player_id": str(card.get("controller_player_id", "")),
-								"lane_id": str(tsa_loc.get("lane_id", "")),
-								"lane_index": int(tsa_loc.get("lane_index", -1)),
-							}
-							var tsa_trigger: Dictionary = ability.duplicate(true)
-							tsa_trigger["source_instance_id"] = str(card.get("instance_id", ""))
-							tsa_trigger["controller_player_id"] = str(card.get("controller_player_id", ""))
-							tsa_trigger["lane_index"] = int(tsa_loc.get("lane_index", -1))
-							var tsa_resolution := {"effects": tsa_trigger.get("effects", [])}
-							generated_events.append_array(_apply_effects(match_state, tsa_trigger, tsa_fake_event, tsa_resolution))
+							var tsa_tm := str(ability.get("target_mode", ""))
+							if not tsa_tm.is_empty():
+								var tsa_card_id := str(card.get("instance_id", ""))
+								var tsa_valid := get_valid_targets_for_mode(match_state, tsa_card_id, tsa_tm, ability)
+								if not tsa_valid.is_empty():
+									var tsa_pending: Array = match_state.get("pending_summon_effect_targets", [])
+									tsa_pending.append({
+										"player_id": str(card.get("controller_player_id", "")),
+										"source_instance_id": tsa_card_id,
+										"mandatory": false,
+										"allowed_families": [FAMILY_SUMMON],
+									})
+							else:
+								var tsa_loc := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
+								var tsa_fake_event := {
+									"event_type": EVENT_CREATURE_SUMMONED,
+									"source_instance_id": str(card.get("instance_id", "")),
+									"source_controller_player_id": str(card.get("controller_player_id", "")),
+									"player_id": str(card.get("controller_player_id", "")),
+									"lane_id": str(tsa_loc.get("lane_id", "")),
+									"lane_index": int(tsa_loc.get("lane_index", -1)),
+								}
+								var tsa_trigger: Dictionary = ability.duplicate(true)
+								tsa_trigger["source_instance_id"] = str(card.get("instance_id", ""))
+								tsa_trigger["controller_player_id"] = str(card.get("controller_player_id", ""))
+								tsa_trigger["lane_index"] = int(tsa_loc.get("lane_index", -1))
+								var tsa_resolution := {"effects": tsa_trigger.get("effects", [])}
+								generated_events.append_array(_apply_effects(match_state, tsa_trigger, tsa_fake_event, tsa_resolution))
 							break
 			"grant_immunity":
 				var gi_type := str(effect.get("immunity_type", ""))
@@ -6985,17 +7025,30 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 								continue
 							rsr_slay_descs.append(rsr_grant)
 					for rsr_idx in range(rsr_slay_descs.size()):
-						var rsr_synth_trigger := {
-							"trigger_id": "%s_repeat_slay_%d" % [rsr_killer_id, rsr_idx],
-							"trigger_index": rsr_idx,
-							"source_instance_id": rsr_killer_id,
-							"owner_player_id": str(rsr_killer.get("owner_player_id", "")),
-							"controller_player_id": rsr_controller,
-							"source_zone": "lane",
-							"descriptor": rsr_slay_descs[rsr_idx].duplicate(true),
-						}
-						var rsr_resolution := _build_trigger_resolution(match_state, rsr_synth_trigger, event)
-						generated_events.append_array(_apply_effects(match_state, rsr_synth_trigger, event, rsr_resolution))
+						var rsr_desc: Dictionary = rsr_slay_descs[rsr_idx]
+						var rsr_tm := str(rsr_desc.get("target_mode", ""))
+						if not rsr_tm.is_empty():
+							var rsr_valid := get_valid_targets_for_mode(match_state, rsr_killer_id, rsr_tm, rsr_desc)
+							if not rsr_valid.is_empty():
+								var rsr_pending: Array = match_state.get("pending_summon_effect_targets", [])
+								rsr_pending.append({
+									"player_id": rsr_controller,
+									"source_instance_id": rsr_killer_id,
+									"mandatory": false,
+									"allowed_families": [FAMILY_SLAY],
+								})
+						else:
+							var rsr_synth_trigger := {
+								"trigger_id": "%s_repeat_slay_%d" % [rsr_killer_id, rsr_idx],
+								"trigger_index": rsr_idx,
+								"source_instance_id": rsr_killer_id,
+								"owner_player_id": str(rsr_killer.get("owner_player_id", "")),
+								"controller_player_id": rsr_controller,
+								"source_zone": "lane",
+								"descriptor": rsr_desc.duplicate(true),
+							}
+							var rsr_resolution := _build_trigger_resolution(match_state, rsr_synth_trigger, event)
+							generated_events.append_array(_apply_effects(match_state, rsr_synth_trigger, event, rsr_resolution))
 			"trigger_all_friendly_summons":
 				var tafs_controller_id := str(trigger.get("controller_player_id", ""))
 				var tafs_creatures := _player_lane_creatures(match_state, tafs_controller_id)
@@ -8319,6 +8372,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var pla_learned: Array = pla_source.get("_learned_actions", [])
 					if typeof(pla_learned) == TYPE_ARRAY:
 						var pla_controller := str(trigger.get("controller_player_id", ""))
+						var pla_source_id := str(trigger.get("source_instance_id", ""))
 						for pla_action in pla_learned:
 							if typeof(pla_action) != TYPE_DICTIONARY:
 								continue
@@ -8327,9 +8381,22 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 								continue
 							for pla_ab in pla_abilities:
 								if typeof(pla_ab) == TYPE_DICTIONARY and str(pla_ab.get("family", "")) == FAMILY_ON_PLAY:
+									var pla_tm := str(pla_ab.get("target_mode", ""))
 									var pla_trigger := trigger.duplicate(true)
 									pla_trigger["descriptor"] = pla_ab
-									generated_events.append_array(_apply_effects(match_state, pla_trigger, event, {}))
+									if not pla_tm.is_empty():
+										# Auto-resolve random valid target for learned actions
+										var pla_valid := get_valid_targets_for_mode(match_state, pla_source_id, pla_tm, pla_ab)
+										if not pla_valid.is_empty():
+											var pla_pick_idx := _deterministic_index(match_state, pla_source_id + "_learned_" + str(pla_action.get("name", "")), pla_valid.size())
+											var pla_pick: Dictionary = pla_valid[pla_pick_idx]
+											if pla_pick.has("instance_id"):
+												pla_trigger["_chosen_target_id"] = str(pla_pick.get("instance_id", ""))
+											elif pla_pick.has("player_id"):
+												pla_trigger["_chosen_target_player_id"] = str(pla_pick.get("player_id", ""))
+											generated_events.append_array(_apply_effects(match_state, pla_trigger, event, {}))
+									else:
+										generated_events.append_array(_apply_effects(match_state, pla_trigger, event, {}))
 			_:
 				var resolved_effect := effect
 				if effect.has("amount_source") and not str(effect.get("amount_source", "")).is_empty():
