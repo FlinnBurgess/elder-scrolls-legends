@@ -8,6 +8,10 @@
     { "id": "naryus_challenges_03", "name": "Unstoppable Rage", "type": "kill", "file": "naryus_challenges_03.json" },
     { "id": "naryus_challenges_04", "name": "Hatchery Meddler", "type": "kill", "file": "naryus_challenges_04.json" },
     { "id": "naryus_challenges_05", "name": "Trespasser's Bane", "type": "kill", "file": "naryus_challenges_05.json" },
-    { "id": "naryus_challenges_06", "name": "Trial of Flame", "type": "kill", "file": "naryus_challenges_06.json" }
+    { "id": "naryus_challenges_06", "name": "Trial of Flame", "type": "kill", "file": "naryus_challenges_06.json" },
+    { "id": "naryus_challenges_07", "name": "Green-Touched Spriggan", "type": "kill", "file": "naryus_challenges_07.json" },
+    { "id": "naryus_challenges_08", "name": "Voice of Balance", "type": "survive", "file": "naryus_challenges_08.json" },
+    { "id": "naryus_challenges_09", "name": "Ulfric's Uprising", "type": "kill", "file": "naryus_challenges_09.json" },
+    { "id": "naryus_challenges_10", "name": "Morag Tong Aspirant", "type": "kill", "file": "naryus_challenges_10.json" }
   ]
 }

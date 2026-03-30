@@ -15,7 +15,9 @@ A description of the puzzle to create, or just invoke the skill to start the int
 
 ### Step 1 — Determine the Pack
 
-Check `data/puzzle_packs/` for existing pack directories. Each pack has an `index.json`:
+Check `data/puzzle_packs/` for existing pack directories. Read the pack's `index.json` to see existing puzzles — **check for duplicate names** before creating. If a puzzle with the same name already exists, skip it and note that to the user.
+
+Each pack has an `index.json`:
 
 ```json
 {
@@ -69,6 +71,7 @@ Ask the user for the following. Accept card names (resolve to card_ids via `card
 
 **Lane configuration:**
 - Always use a 4/4 split with field/shadow lane types
+- Users may say "left lane" (= field) or "right lane" (= shadow) — map accordingly
 
 For any field the user doesn't specify, use the defaults listed above. Empty arrays for unmentioned card lists.
 
@@ -157,6 +160,7 @@ Tell the user:
 
 ## Notes
 
+- **Batch creation**: When the user provides multiple puzzles at once, process them all in sequence — resolve all card IDs, create all JSON files, then register them all in the index in one edit. Skip any that already exist by name.
 - Puzzle IDs should be `<pack_id>_<nn>` (e.g. `starter_01`, `starter_02`)
 - Use the puzzle config format directly (same as puzzle builder), NOT the test match format
 - The puzzle codec `PZ:` prefix is only for shareable codes — pack puzzles store raw JSON configs

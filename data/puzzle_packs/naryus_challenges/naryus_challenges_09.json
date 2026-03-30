@@ -1,0 +1,48 @@
+{
+  "name": "Ulfric's Uprising",
+  "type": "kill",
+  "lanes": [
+    { "lane_type": "field", "width": 4 },
+    { "lane_type": "shadow", "width": 4 }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 20,
+    "current_magicka": 20,
+    "has_ring": false,
+    "hand": [
+      "hom_wil_hlaalu_oathman",
+      "dual_ayrenn",
+      "fhc_int_doppelganger",
+      "fhc_neu_ulfrics_uprising",
+      "hos_agi_shadowgreen_elder"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "neu_enraged_mudcrab",
+      "neu_enraged_mudcrab",
+      "neu_enraged_mudcrab",
+      "neu_enraged_mudcrab"
+    ],
+    "shadow_creatures": []
+  },
+  "enemy": {
+    "health": 73,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp"
+    ],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [],
+    "shadow_creatures": []
+  }
+}

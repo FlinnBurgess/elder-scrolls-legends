@@ -1,0 +1,52 @@
+{
+  "name": "Morag Tong Aspirant",
+  "type": "kill",
+  "lanes": [
+    { "lane_type": "field", "width": 4 },
+    { "lane_type": "shadow", "width": 4 }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 20,
+    "current_magicka": 20,
+    "has_ring": false,
+    "hand": [
+      "wil_bruma_profiteer",
+      "wil_bruma_profiteer",
+      "wil_bruma_profiteer",
+      "hos_dual_archers_gambit",
+      "db_str_quicksilver_crossbow"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "mc_dual_protector_of_the_mane",
+      "hom_agi_morag_tong_aspirant"
+    ],
+    "shadow_creatures": [
+      "hom_agi_morag_tong_aspirant"
+    ]
+  },
+  "enemy": {
+    "health": 19,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp"
+    ],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "agi_mournhold_guardian"
+    ],
+    "shadow_creatures": [
+      "agi_mournhold_guardian"
+    ]
+  }
+}

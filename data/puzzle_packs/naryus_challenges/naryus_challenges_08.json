@@ -1,0 +1,55 @@
+{
+  "name": "Voice of Balance",
+  "type": "survive",
+  "lanes": [
+    { "lane_type": "field", "width": 4 },
+    { "lane_type": "shadow", "width": 4 }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 20,
+    "current_magicka": 20,
+    "has_ring": false,
+    "hand": [
+      "mhc_neu_close_call",
+      "wil_legion_shield",
+      "hom_agi_cornerclub_gambler",
+      "hom_wil_prison_ship",
+      "int_mace_of_encumbrance",
+      "fhc_neu_voice_of_balance",
+      "fhc_neu_voice_of_balance",
+      "hos_wil_imperial_camp",
+      "int_fire_storm"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [],
+    "shadow_creatures": []
+  },
+  "enemy": {
+    "health": 100,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp"
+    ],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "hos_int_vigilant_of_stendarr",
+      "hos_int_vigilant_of_stendarr"
+    ],
+    "shadow_creatures": [
+      "cwc_neu_awakened_imperfect",
+      "cwc_neu_awakened_imperfect",
+      "cwc_neu_awakened_imperfect",
+      "cwc_neu_awakened_imperfect"
+    ]
+  }
+}
