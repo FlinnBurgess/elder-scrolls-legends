@@ -5871,7 +5871,13 @@ func _selected_action_consumes_card_click(target_card: Dictionary) -> bool:
 		SELECTION_MODE_SUPPORT:
 			return _selected_support_uses_card_targets(selected_card) and target_zone == MatchMutations.ZONE_LANE
 		SELECTION_MODE_ATTACK:
-			return target_zone == MatchMutations.ZONE_LANE and str(target_card.get("controller_player_id", "")) != str(selected_card.get("controller_player_id", ""))
+			if target_zone != MatchMutations.ZONE_LANE:
+				return false
+			var is_enemy := str(target_card.get("controller_player_id", "")) != str(selected_card.get("controller_player_id", ""))
+			if is_enemy:
+				return true
+			var atk_cond: Dictionary = selected_card.get("attack_condition", {})
+			return bool(atk_cond.get("can_attack_friendly", false))
 	return false
 
 

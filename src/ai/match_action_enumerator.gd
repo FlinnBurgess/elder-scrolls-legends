@@ -524,7 +524,14 @@ static func _enumerate_attacks(match_state: Dictionary, player_id: String) -> Ar
 	var actions: Array = []
 	for card in _lane_cards_for_player(match_state, player_id):
 		var attacker_instance_id := str(card.get("instance_id", ""))
-		for target_card in _enemy_lane_cards(match_state, player_id, str(card.get("lane_id", ""))):
+		var atk_targets: Array = []
+		atk_targets.append_array(_enemy_lane_cards(match_state, player_id, str(card.get("lane_id", ""))))
+		var atk_cond: Dictionary = card.get("attack_condition", {})
+		if bool(atk_cond.get("can_attack_friendly", false)):
+			for friendly_card in _lane_cards_for_player(match_state, player_id):
+				if str(friendly_card.get("instance_id", "")) != attacker_instance_id and str(friendly_card.get("lane_id", "")) == str(card.get("lane_id", "")):
+					atk_targets.append(friendly_card)
+		for target_card in atk_targets:
 			var creature_target := {"type": MatchCombat.TARGET_TYPE_CREATURE, "instance_id": str(target_card.get("instance_id", ""))}
 			var attack_creature := _build_descriptor(KIND_ATTACK, match_state, player_id, card, {
 				"target": creature_target,
