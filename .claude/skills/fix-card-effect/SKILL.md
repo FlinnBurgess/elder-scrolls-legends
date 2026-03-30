@@ -2,7 +2,6 @@
 name: fix-card-effect
 description: Investigate and fix a card whose in-game effect is not working as described.
 model: opus
-effort: high
 ---
 
 # Fix Card Effect
