@@ -4456,8 +4456,8 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 										"lane_id": str(card_location.get("lane_id", "")),
 										"source_zone": ZONE_LANE,
 									})
-						# Action Breakthrough: overflow damage to opponent
-						if is_action_damage and not bool(damage_result.get("ward_removed", false)):
+						# Breakthrough: overflow damage to opponent
+						if not bool(damage_result.get("ward_removed", false)):
 							var dd_source_card := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 							if not dd_source_card.is_empty() and EvergreenRules.has_keyword(dd_source_card, EvergreenRules.KEYWORD_BREAKTHROUGH):
 								var dd_overflow := maxi(0, damage_amount - dd_remaining_before)
@@ -9095,6 +9095,19 @@ static func _resolve_count_multiplier(match_state: Dictionary, trigger: Dictiona
 						for card in slots:
 							if typeof(card) == TYPE_DICTIONARY:
 								count += 1
+		"friendly_subtype_count":
+			var fsc_subtype := str(effect.get("count_subtype", ""))
+			if not fsc_subtype.is_empty():
+				for lane in match_state.get("lanes", []):
+					var slots = lane.get("player_slots", {}).get(controller_player_id, [])
+					for card in slots:
+						if typeof(card) != TYPE_DICTIONARY:
+							continue
+						if exclude_self and str(card.get("instance_id", "")) == self_instance_id:
+							continue
+						var subtypes = card.get("subtypes", [])
+						if typeof(subtypes) == TYPE_ARRAY and subtypes.has(fsc_subtype):
+							count += 1
 		"friendly_deaths_in_lane_this_turn":
 			var trigger_lane_index := int(trigger.get("lane_index", -1))
 			if trigger_lane_index < 0:
