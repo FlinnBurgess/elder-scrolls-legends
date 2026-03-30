@@ -113,24 +113,30 @@ func _build_puzzle_pack_sections() -> void:
 	var dir := DirAccess.open(packs_dir)
 	if dir == null:
 		return
+	var folders: Array[String] = []
 	dir.list_dir_begin()
 	var folder := dir.get_next()
 	while not folder.is_empty():
 		if dir.current_is_dir() and not folder.begins_with("."):
-			_build_pack_section(packs_dir.path_join(folder))
+			folders.append(folder)
 		folder = dir.get_next()
 	dir.list_dir_end()
+	var pack_entries: Array[Dictionary] = []
+	for f in folders:
+		var index_path := packs_dir.path_join(f).path_join("index.json")
+		var file := FileAccess.open(index_path, FileAccess.READ)
+		if file == null:
+			continue
+		var parsed = JSON.parse_string(file.get_as_text())
+		if typeof(parsed) != TYPE_DICTIONARY:
+			continue
+		pack_entries.append({"path": packs_dir.path_join(f), "order": int(parsed.get("order", 999)), "parsed": parsed})
+	pack_entries.sort_custom(func(a, b): return a["order"] < b["order"])
+	for entry in pack_entries:
+		_build_pack_section_from_data(entry["path"], entry["parsed"])
 
 
-func _build_pack_section(pack_path: String) -> void:
-	var index_path := pack_path.path_join("index.json")
-	var file := FileAccess.open(index_path, FileAccess.READ)
-	if file == null:
-		return
-	var parsed = JSON.parse_string(file.get_as_text())
-	if typeof(parsed) != TYPE_DICTIONARY:
-		return
-
+func _build_pack_section_from_data(pack_path: String, parsed: Dictionary) -> void:
 	var pack_name := str(parsed.get("display_name", "Puzzle Pack"))
 	var puzzles: Array = parsed.get("puzzles", [])
 	if puzzles.is_empty():
@@ -176,7 +182,7 @@ func _build_pack_section(pack_path: String) -> void:
 
 		var code := PuzzleCodecScript.encode(config)
 
-		var solved := PuzzlePersistenceScript.is_solved(puzzle_id)
+		var solved := PuzzlePersistenceScript.is_pack_solved(puzzle_id)
 		var btn := Button.new()
 		btn.text = puzzle_name
 		btn.size_flags_horizontal = SIZE_EXPAND_FILL

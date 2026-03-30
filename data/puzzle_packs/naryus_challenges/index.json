@@ -1,0 +1,8 @@
+{
+  "pack_id": "naryus_challenges",
+  "display_name": "Naryu's Challenges",
+  "order": 2,
+  "puzzles": [
+    { "id": "naryus_challenges_01", "name": "Orc Clan Shaman", "type": "kill", "file": "naryus_challenges_01.json" }
+  ]
+}

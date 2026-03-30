@@ -138,19 +138,14 @@ Add the puzzle entry to the pack's `index.json` `puzzles` array:
 { "id": "<puzzle_id>", "name": "<Puzzle Name>", "type": "<kill|survive>", "file": "<puzzle_id>.json" }
 ```
 
-### Step 6 — Load the Pack in the Puzzle Select Screen
+### Step 6 — Verify Pack Loading (already implemented)
 
-Check if `src/ui/puzzle/puzzle_select_screen.gd` already loads packs from `data/puzzle_packs/`. If not, add the loading logic:
+Pack loading is already wired up in `puzzle_select_screen.gd` via `_build_puzzle_pack_sections()`. No changes needed — new packs are auto-discovered from `data/puzzle_packs/` subdirectories.
 
-1. In `_build_ui`, after building the custom puzzles section, scan `data/puzzle_packs/` for subdirectories
-2. For each pack, read its `index.json` and build a collapsible section (like custom puzzles)
-3. Each puzzle entry gets a Play button that decodes the JSON config and emits `puzzle_selected`
-
-The pack loading code should:
-- Read `data/puzzle_packs/<pack_id>/index.json` for the pack metadata
-- For each puzzle in the index, read `data/puzzle_packs/<pack_id>/<file>` to get the config
-- Encode the config using `PuzzleCodecScript.encode()` to create a puzzle entry compatible with the existing `puzzle_selected` signal
-- Show a solved indicator if the puzzle has been completed
+**Solved tracking note:** Pack puzzles use separate persistence from custom puzzles:
+- `PuzzlePersistence.is_pack_solved(id)` / `mark_pack_solved(id)` — uses a `"pack_solved"` dict in the save file
+- `PuzzlePersistence.is_solved(id)` / `mark_solved(id)` — only for custom puzzles (uses the `"puzzles"` array)
+- `match_screen.gd` calls both `mark_solved` and `mark_pack_solved` on puzzle win, so both systems stay in sync
 
 ### Step 7 — Summarize
 

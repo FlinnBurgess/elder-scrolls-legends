@@ -7395,6 +7395,8 @@ func _refresh_match_end_overlay() -> void:
 		const PuzzlePersistence = preload("res://src/puzzle/puzzle_persistence.gd")
 		if not PuzzlePersistence.is_solved(_puzzle_id):
 			PuzzlePersistence.mark_solved(_puzzle_id)
+		if not PuzzlePersistence.is_pack_solved(_puzzle_id):
+			PuzzlePersistence.mark_pack_solved(_puzzle_id)
 	_apply_panel_style(_match_end_overlay, Color(0.04, 0.05, 0.07, 0.78), Color(0.88, 0.74, 0.44, 0.96) if local_won else Color(0.9, 0.42, 0.42, 0.96), 2, 18)
 	if _match_end_title_label != null:
 		if _puzzle_mode:

@@ -1,0 +1,31 @@
+{
+  "name": "Orc Clan Shaman",
+  "type": "kill",
+  "lanes": [
+    { "lane_type": "field", "width": 4 },
+    { "lane_type": "shadow", "width": 4 }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 12,
+    "current_magicka": 12,
+    "has_ring": false,
+    "hand": ["dual_militant_chieftain", "hos_str_ulfrics_zealot", "str_bangkorai_butcher", "mhc_str_stoneshard_orc"],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": ["str_fortress_watchman", "str_fortress_watchman", "str_orc_clan_shaman"],
+    "shadow_creatures": []
+  },
+  "enemy": {
+    "health": 21,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": ["str_fiery_imp", "str_fiery_imp", "str_fiery_imp", "str_fiery_imp", "str_fiery_imp"],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [],
+    "shadow_creatures": ["db_wil_marked_man"]
+  }
+}

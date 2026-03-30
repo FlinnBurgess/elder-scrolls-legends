@@ -1,6 +1,7 @@
 {
   "pack_id": "caius_training",
   "display_name": "Caius' Training",
+  "order": 1,
   "puzzles": [
     { "id": "caius_training_01", "name": "Redoran Initiation", "type": "kill", "file": "caius_training_01.json" },
     { "id": "caius_training_02", "name": "Dagoth Initiation", "type": "kill", "file": "caius_training_02.json" },

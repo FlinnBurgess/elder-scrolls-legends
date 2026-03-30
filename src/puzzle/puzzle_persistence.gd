@@ -91,6 +91,20 @@ static func list_puzzles() -> Array:
 	return result
 
 
+static func mark_pack_solved(puzzle_id: String) -> void:
+	var data := load_data()
+	var pack_solved: Dictionary = data.get("pack_solved", {})
+	pack_solved[puzzle_id] = true
+	data["pack_solved"] = pack_solved
+	save_data(data)
+
+
+static func is_pack_solved(puzzle_id: String) -> bool:
+	var data := load_data()
+	var pack_solved: Dictionary = data.get("pack_solved", {})
+	return bool(pack_solved.get(puzzle_id, false))
+
+
 static func _generate_id() -> String:
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
