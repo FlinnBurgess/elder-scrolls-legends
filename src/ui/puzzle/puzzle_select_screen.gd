@@ -148,11 +148,13 @@ func _build_pack_section(pack_path: String) -> void:
 	_apply_button_style(header_btn, Color(0.14, 0.15, 0.2), Color(0.35, 0.4, 0.55))
 	section.add_child(header_btn)
 
-	var body := VBoxContainer.new()
-	body.add_theme_constant_override("separation", 6)
-	section.add_child(body)
+	var grid := GridContainer.new()
+	grid.columns = 5
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	section.add_child(grid)
 
-	header_btn.pressed.connect(func(): body.visible = not body.visible)
+	header_btn.pressed.connect(func(): grid.visible = not grid.visible)
 
 	for entry in puzzles:
 		if typeof(entry) != TYPE_DICTIONARY:
@@ -174,31 +176,20 @@ func _build_pack_section(pack_path: String) -> void:
 
 		var code := PuzzleCodecScript.encode(config)
 
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 16)
-		row.custom_minimum_size = Vector2(0, 52)
+		var solved := PuzzlePersistenceScript.is_solved(puzzle_id)
+		var btn := Button.new()
+		btn.text = puzzle_name
+		btn.size_flags_horizontal = SIZE_EXPAND_FILL
+		btn.custom_minimum_size = Vector2(0, 52)
+		btn.add_theme_font_size_override("font_size", 20)
+		if solved:
+			_apply_button_style(btn, Color(0.1, 0.16, 0.1), Color(0.35, 0.6, 0.35))
+		else:
+			_apply_button_style(btn, Color(0.12, 0.13, 0.18), Color(0.3, 0.32, 0.4))
+		var puzzle_entry := {"id": puzzle_id, "name": puzzle_name, "code": code, "solved": solved}
+		btn.pressed.connect(func(): _on_puzzle_clicked(puzzle_entry))
 
-		# Solved indicator
-		var indicator := Label.new()
-		indicator.text = "+" if PuzzlePersistenceScript.is_solved(puzzle_id) else " "
-		indicator.add_theme_font_size_override("font_size", 24)
-		indicator.add_theme_color_override("font_color", Color(0.5, 0.9, 0.5) if PuzzlePersistenceScript.is_solved(puzzle_id) else Color(0.3, 0.3, 0.3))
-		indicator.custom_minimum_size = Vector2(30, 0)
-		row.add_child(indicator)
-
-		# Name button
-		var name_btn := Button.new()
-		name_btn.text = puzzle_name
-		name_btn.size_flags_horizontal = SIZE_EXPAND_FILL
-		name_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		name_btn.custom_minimum_size = Vector2(0, 52)
-		name_btn.add_theme_font_size_override("font_size", 24)
-		_apply_button_style(name_btn, Color(0.12, 0.13, 0.18), Color(0.3, 0.32, 0.4))
-		var puzzle_entry := {"id": puzzle_id, "name": puzzle_name, "code": code, "solved": PuzzlePersistenceScript.is_solved(puzzle_id)}
-		name_btn.pressed.connect(func(): _on_puzzle_clicked(puzzle_entry))
-		row.add_child(name_btn)
-
-		body.add_child(row)
+		grid.add_child(btn)
 
 
 func _build_custom_puzzles_section() -> void:
