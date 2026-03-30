@@ -513,6 +513,10 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 		card["self_cost_reduction"] = definition["self_cost_reduction"].duplicate(true)
 	if definition.has("passive_abilities"):
 		card["passive_abilities"] = definition["passive_abilities"].duplicate(true)
+	if definition.has("attack_condition"):
+		card["attack_condition"] = definition["attack_condition"].duplicate(true)
+	if definition.has("cant_attack_player"):
+		card["cant_attack_player"] = bool(definition["cant_attack_player"])
 	if definition.has("_empower_target_bonus"):
 		card["_empower_target_bonus"] = int(definition["_empower_target_bonus"])
 	var innate_statuses: Array = definition.get("innate_statuses", [])
