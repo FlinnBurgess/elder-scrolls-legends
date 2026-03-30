@@ -1,0 +1,31 @@
+{
+  "name": "Unstoppable Rage",
+  "type": "kill",
+  "lanes": [
+    { "lane_type": "field", "width": 4 },
+    { "lane_type": "shadow", "width": 4 }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 14,
+    "current_magicka": 14,
+    "has_ring": false,
+    "hand": ["end_night_predator", "int_fire_storm", "end_deadly_draugr", "hom_wil_gavel_of_the_ordinator", "db_str_unstoppable_rage"],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": ["wil_tusked_bristleback", "wil_tusked_bristleback"],
+    "shadow_creatures": []
+  },
+  "enemy": {
+    "health": 12,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": ["str_fiery_imp", "str_fiery_imp", "str_fiery_imp", "str_fiery_imp", "str_fiery_imp"],
+    "discard": [],
+    "supports": [],
+    "field_creatures": ["wil_hive_defender", "wil_hive_defender", "db_end_dark_guardian", "db_end_dark_guardian"],
+    "shadow_creatures": []
+  }
+}

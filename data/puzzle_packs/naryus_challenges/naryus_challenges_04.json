@@ -1,0 +1,31 @@
+{
+  "name": "Hatchery Meddler",
+  "type": "kill",
+  "lanes": [
+    { "lane_type": "field", "width": 4 },
+    { "lane_type": "shadow", "width": 4 }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 13,
+    "current_magicka": 13,
+    "has_ring": false,
+    "hand": ["hom_int_hatchery_meddler", "hos_int_dark_rebirth", "hos_int_dark_rebirth", "end_imperial_armor"],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": ["int_flame_atronach"],
+    "shadow_creatures": ["int_flame_atronach"]
+  },
+  "enemy": {
+    "health": 11,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": ["str_fiery_imp", "str_fiery_imp", "str_fiery_imp", "str_fiery_imp", "str_fiery_imp"],
+    "discard": [],
+    "supports": [],
+    "field_creatures": ["neu_portcullis"],
+    "shadow_creatures": ["wil_senchetiger"]
+  }
+}

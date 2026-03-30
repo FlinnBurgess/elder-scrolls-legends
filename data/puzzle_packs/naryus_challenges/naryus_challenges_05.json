@@ -1,0 +1,31 @@
+{
+  "name": "Trespasser's Bane",
+  "type": "kill",
+  "lanes": [
+    { "lane_type": "field", "width": 4 },
+    { "lane_type": "shadow", "width": 4 }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 10,
+    "current_magicka": 10,
+    "has_ring": false,
+    "hand": ["hom_end_trespassers_bane", "hom_int_mages_guild_recruit", "neu_forsworn_guide", "mhc_agi_swindlers_market", "agi_giant_bat"],
+    "deck": [],
+    "discard": [],
+    "supports": [],
+    "field_creatures": ["hos_wil_grisly_gourmet"],
+    "shadow_creatures": []
+  },
+  "enemy": {
+    "health": 2,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": ["str_fiery_imp", "str_fiery_imp", "str_fiery_imp", "str_fiery_imp", "str_fiery_imp"],
+    "discard": [],
+    "supports": [],
+    "field_creatures": ["hom_wil_shrine_guardian"],
+    "shadow_creatures": []
+  }
+}

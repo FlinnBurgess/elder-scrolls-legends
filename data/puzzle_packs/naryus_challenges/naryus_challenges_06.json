@@ -1,0 +1,53 @@
+{
+  "name": "Trial of Flame",
+  "type": "kill",
+  "lanes": [
+    { "lane_type": "field", "width": 4 },
+    { "lane_type": "shadow", "width": 4 }
+  ],
+  "player": {
+    "health": 1,
+    "max_magicka": 100,
+    "current_magicka": 100,
+    "has_ring": false,
+    "hand": [
+      "str_wood_orc_headhunter",
+      "str_wood_orc_headhunter",
+      "cwc_str_trial_of_flame",
+      "cwc_str_grappling_hook",
+      "str_battlerage_orc"
+    ],
+    "deck": [],
+    "discard": [],
+    "supports": [
+      "str_skirmishers_elixir",
+      "str_skirmishers_elixir",
+      "str_skirmishers_elixir"
+    ],
+    "field_creatures": [],
+    "shadow_creatures": []
+  },
+  "enemy": {
+    "health": 13,
+    "max_magicka": 3,
+    "current_magicka": 3,
+    "hand": [],
+    "deck": [
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp"
+    ],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "hom_wil_shrine_guardian",
+      "hom_wil_shrine_guardian",
+      "hom_wil_shrine_guardian"
+    ],
+    "shadow_creatures": [
+      "wil_imperial_legionnaire"
+    ]
+  }
+}
