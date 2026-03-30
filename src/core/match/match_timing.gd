@@ -880,6 +880,7 @@ static func resolve_pending_discard_choice(match_state: Dictionary, player_id: S
 	if _overflow_card_to_discard(discard_player, picked_card, player_id, ZONE_DISCARD, generated_events):
 		choices.remove_at(choice_index)
 		return {"is_valid": true, "errors": [], "events": generated_events}
+	MatchMutations.restore_definition_state(picked_card)
 	picked_card["zone"] = ZONE_HAND
 	discard_player[ZONE_HAND].append(picked_card)
 	var buff_power := int(choice.get("buff_power", 0))
@@ -5124,6 +5125,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						discard_pile.remove_at(pick_idx)
 						if _overflow_card_to_discard(discard_player, picked_discard_card, player_id, ZONE_DISCARD, generated_events):
 							continue
+						MatchMutations.restore_definition_state(picked_discard_card)
 						picked_discard_card["zone"] = ZONE_HAND
 						discard_player[ZONE_HAND].append(picked_discard_card)
 						generated_events.append({
@@ -5161,6 +5163,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 								pick_idx -= 1
 						var actual_item: Dictionary = equip_discard[pick_idx]
 						equip_discard.remove_at(pick_idx)
+						MatchMutations.restore_definition_state(actual_item)
 						var attach_result := MatchMutations.attach_item_to_creature(match_state, player_id, actual_item, str(equip_self.get("instance_id", "")), {"source_zone": ZONE_DISCARD})
 						if bool(attach_result.get("is_valid", false)):
 							generated_events.append_array(attach_result.get("events", []))
@@ -5258,6 +5261,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var srd_picked: Dictionary = srd_discard[srd_pick]
 					srd_discard.remove_at(srd_pick)
 					MatchMutations.reset_transient_state(srd_picked)
+					MatchMutations.restore_definition_state(srd_picked)
 					var srd_lane_id := ""
 					var srd_lane_index := int(trigger.get("lane_index", -1))
 					var srd_lanes: Array = match_state.get("lanes", [])
@@ -5607,6 +5611,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				if sfd_card.is_empty() or sfd_idx < 0:
 					continue
 				sfd_discard.remove_at(sfd_idx)
+				MatchMutations.restore_definition_state(sfd_card)
 				var sfd_source_loc := MatchMutations.find_card_location(match_state, sfd_source_id)
 				var sfd_lane_id := str(sfd_source_loc.get("lane_id", ""))
 				if sfd_lane_id.is_empty():
@@ -5815,13 +5820,27 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							if EvergreenRules.has_status(card, EvergreenRules.STATUS_EXALTED):
 								continue
 							EvergreenRules.add_status(card, EvergreenRules.STATUS_EXALTED)
-							var teaf_loc := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
-							var teaf_trigger: Dictionary = ability.duplicate(true)
-							teaf_trigger["source_instance_id"] = str(card.get("instance_id", ""))
-							teaf_trigger["controller_player_id"] = teaf_controller
-							teaf_trigger["lane_index"] = int(teaf_loc.get("lane_index", -1))
-							teaf_trigger["descriptor"] = ability.duplicate(true)
-							generated_events.append_array(_apply_effects(match_state, teaf_trigger, event, {"effects": teaf_trigger.get("effects", [])}))
+							var teaf_tm := str(ability.get("target_mode", ""))
+							if not teaf_tm.is_empty():
+								# Targeted exalt — queue pending target selection
+								var teaf_card_id := str(card.get("instance_id", ""))
+								var teaf_valid := get_valid_targets_for_mode(match_state, teaf_card_id, teaf_tm, ability)
+								if not teaf_valid.is_empty():
+									var teaf_pending: Array = match_state.get("pending_summon_effect_targets", [])
+									teaf_pending.append({
+										"player_id": teaf_controller,
+										"source_instance_id": teaf_card_id,
+										"mandatory": false,
+										"allowed_families": [FAMILY_SUMMON],
+									})
+							else:
+								var teaf_loc := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
+								var teaf_trigger: Dictionary = ability.duplicate(true)
+								teaf_trigger["source_instance_id"] = str(card.get("instance_id", ""))
+								teaf_trigger["controller_player_id"] = teaf_controller
+								teaf_trigger["lane_index"] = int(teaf_loc.get("lane_index", -1))
+								teaf_trigger["descriptor"] = ability.duplicate(true)
+								generated_events.append_array(_apply_effects(match_state, teaf_trigger, event, {"effects": teaf_trigger.get("effects", [])}))
 							generated_events.append({"event_type": "exalt_triggered", "instance_id": str(card.get("instance_id", "")), "reason": reason})
 							break
 			"unsummon_end_of_turn":
@@ -5986,6 +6005,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							dacfd_to_draw.append(card)
 					for card in dacfd_to_draw:
 						dacfd_discard.erase(card)
+						MatchMutations.restore_definition_state(card)
 						card["zone"] = ZONE_HAND
 						dacfd_hand.append(card)
 						generated_events.append({"event_type": "card_drawn", "player_id": dacfd_controller, "instance_id": str(card.get("instance_id", "")), "source": "draw_all_creatures_from_discard", "reason": reason})
@@ -6409,6 +6429,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							var sfd_idx := _deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_steal_discard", sfd_candidates.size())
 							var sfd_stolen: Dictionary = sfd_candidates[sfd_idx]
 							sfd_discard.erase(sfd_stolen)
+							MatchMutations.restore_definition_state(sfd_stolen)
 							sfd_stolen["zone"] = ZONE_HAND
 							sfd_stolen["controller_player_id"] = sfd_controller_id
 							sfd_stolen["owner_player_id"] = sfd_controller_id
@@ -6559,6 +6580,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						var sfdh_lane_id := _resolve_summon_lane_id(match_state, trigger, event, effect, sfdh_controller_id)
 						if not sfdh_lane_id.is_empty():
 							sfdh_discard.erase(sfdh_best)
+							MatchMutations.restore_definition_state(sfdh_best)
 							sfdh_best.erase("zone")
 							var sfdh_result := MatchMutations.summon_card_to_lane(match_state, sfdh_controller_id, sfdh_best, sfdh_lane_id, {"source_zone": ZONE_DISCARD})
 							if bool(sfdh_result.get("is_valid", false)):
@@ -6579,6 +6601,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						var sfod_idx := _deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_summon_opp_discard", sfod_candidates.size())
 						var sfod_target: Dictionary = sfod_candidates[sfod_idx]
 						sfod_discard.erase(sfod_target)
+						MatchMutations.restore_definition_state(sfod_target)
 						sfod_target.erase("zone")
 						sfod_target["controller_player_id"] = sfod_controller_id
 						sfod_target["owner_player_id"] = sfod_controller_id
@@ -7133,6 +7156,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						var sifod_idx := _deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_steal_item", sifod_items.size())
 						var sifod_stolen: Dictionary = sifod_items[sifod_idx]
 						sifod_discard.erase(sifod_stolen)
+						MatchMutations.restore_definition_state(sifod_stolen)
 						# Equip to the source creature
 						var sifod_source_id := str(trigger.get("source_instance_id", ""))
 						sifod_stolen["controller_player_id"] = sifod_controller_id
@@ -7154,6 +7178,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							safdbn_matches.append(safdbn_card)
 					for safdbn_card in safdbn_matches:
 						safdbn_discard.erase(safdbn_card)
+						MatchMutations.restore_definition_state(safdbn_card)
 						safdbn_card.erase("zone")
 						var safdbn_lane_id := _resolve_summon_lane_id(match_state, trigger, event, effect, safdbn_controller_id)
 						if not safdbn_lane_id.is_empty():
@@ -7663,6 +7688,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							ecfd_items.append(ecfd_card)
 					for ecfd_item in ecfd_items:
 						ecfd_discard.erase(ecfd_item)
+						MatchMutations.restore_definition_state(ecfd_item)
 						ecfd_item.erase("zone")
 						var ecfd_equip := MatchMutations.attach_item_to_creature(match_state, ecfd_controller_id, ecfd_item, ecfd_host_id, {"reason": reason})
 						generated_events.append_array(ecfd_equip.get("events", []))
