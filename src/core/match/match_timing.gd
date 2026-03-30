@@ -1306,9 +1306,10 @@ static func resolve_pending_secondary_target(match_state: Dictionary, player_id:
 		var dealt := int(result.get("applied", 0))
 		events.append({"event_type": "damage_resolved", "source_instance_id": source_id, "source_controller_player_id": str(source.get("controller_player_id", "")), "target_instance_id": target_instance_id, "target_type": "creature", "amount": dealt, "damage_kind": "ability"})
 		if EvergreenRules.is_creature_destroyed(defender, source_has_lethal and dealt > 0):
+			var def_loc := MatchMutations.find_card_location(match_state, target_instance_id)
 			var moved := MatchMutations.discard_card(match_state, target_instance_id)
 			if bool(moved.get("is_valid", false)):
-				events.append({"event_type": "creature_destroyed", "instance_id": target_instance_id, "reason": "deal_damage_from_creature"})
+				events.append({"event_type": "creature_destroyed", "instance_id": target_instance_id, "source_instance_id": target_instance_id, "owner_player_id": str(defender.get("owner_player_id", "")), "controller_player_id": str(defender.get("controller_player_id", "")), "destroyed_by_instance_id": source_id, "lane_id": str(def_loc.get("lane_id", "")), "source_zone": ZONE_LANE})
 	var timing_result := publish_events(match_state, events)
 	return {"is_valid": true, "errors": [], "events": timing_result.get("processed_events", [])}
 
