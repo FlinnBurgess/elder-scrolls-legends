@@ -189,3 +189,8 @@ How to spot: User reports a card's "Friendly [condition] creatures are immune to
 Effect ops that read from a `source` field (e.g., `copy_keywords_to_friendly`) default to `"self"` when no source is specified. For items, `"self"` resolves to the item card, not the equipped creature. If the effect should read state from the equipped creature (e.g., copying its keywords), the effect must specify `"source": "event_target"` — otherwise the source card has no relevant state and the effect silently does nothing.
 Example: Mentor's Ring
 How to spot: User reports an item's on-play effect doing nothing despite the trigger firing. Check if the effect uses an op that reads from a source card (e.g., `copy_keywords_to_friendly`) and whether `"source"` is specified in the effect dict. If missing, it defaults to the item card instead of the equipped creature.
+
+## Lane-targeting action_target_mode enters creature targeting mode
+`_action_needs_explicit_target` returns `true` for any non-empty `action_target_mode`, including lane-based modes like `choose_lane`. This sends the card into creature targeting (arrow) mode, but the `_on_lane_pressed` handler blocks lane plays when `_action_needs_explicit_target` is true. The card gets stuck — can't target a creature (wrong mode) and can't target a lane (blocked). Fix by excluding `choose_lane` from `_action_needs_explicit_target` so the card uses the detach-to-lane flow.
+Example: Trial of Flame (`action_target_mode: "choose_lane"`)
+How to spot: User reports a "Choose a lane" action entering creature targeting mode or being unplayable. Check if the card's `action_target_mode` is a lane-based mode that `_action_needs_explicit_target` doesn't exclude.

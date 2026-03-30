@@ -5936,7 +5936,8 @@ func _is_card_target_valid_for_selected(target_instance_id: String) -> bool:
 
 
 func _action_needs_explicit_target(card: Dictionary) -> bool:
-	if not str(card.get("action_target_mode", "")).is_empty():
+	var atm := str(card.get("action_target_mode", ""))
+	if not atm.is_empty() and atm != "choose_lane":
 		return true
 	for trigger in card.get("triggered_abilities", []):
 		if typeof(trigger) != TYPE_DICTIONARY:

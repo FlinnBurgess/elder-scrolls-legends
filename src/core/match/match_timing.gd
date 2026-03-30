@@ -4613,6 +4613,36 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							"turn_number": int(match_state.get("turn_number", 0)),
 						})
 						match_state["pending_eot_returns"] = pending
+			"destroy_all_except_strongest_in_lane":
+				var daesl_lane_id := str(trigger.get("_chosen_lane_id", event.get("lane_id", "")))
+				var daesl_source_id := str(trigger.get("source_instance_id", ""))
+				for lane in match_state.get("lanes", []):
+					if str(lane.get("lane_id", "")) != daesl_lane_id:
+						continue
+					var player_slots: Dictionary = lane.get("player_slots", {})
+					for pid in player_slots.keys():
+						var slots: Array = player_slots[pid]
+						if slots.size() <= 1:
+							continue
+						var strongest_idx := 0
+						var strongest_power := EvergreenRules.get_power(slots[0]) if typeof(slots[0]) == TYPE_DICTIONARY else -1
+						for i in range(1, slots.size()):
+							if typeof(slots[i]) != TYPE_DICTIONARY:
+								continue
+							var p := EvergreenRules.get_power(slots[i])
+							if p > strongest_power:
+								strongest_power = p
+								strongest_idx = i
+						for slot_idx in range(slots.size() - 1, -1, -1):
+							if slot_idx == strongest_idx:
+								continue
+							var card = slots[slot_idx]
+							if typeof(card) != TYPE_DICTIONARY:
+								continue
+							var cpid := str(card.get("controller_player_id", ""))
+							var moved := MatchMutations.discard_card(match_state, str(card.get("instance_id", "")))
+							if bool(moved.get("is_valid", false)):
+								generated_events.append({"event_type": "creature_destroyed", "instance_id": str(card.get("instance_id", "")), "source_instance_id": str(card.get("instance_id", "")), "owner_player_id": str(card.get("owner_player_id", "")), "controller_player_id": cpid, "destroyed_by_instance_id": daesl_source_id, "lane_id": daesl_lane_id, "source_zone": ZONE_LANE})
 			"unsummon":
 				var unsummon_cost_reduction := int(effect.get("cost_reduction", 0))
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
