@@ -2142,6 +2142,7 @@ static func _get_opponent(match_state: Dictionary, player_id: String) -> Diction
 
 
 static func _has_friendly_with_subtype(match_state: Dictionary, player_id: String, subtype: String, exclude_instance_id: String) -> bool:
+	var group: Array = SUBTYPE_GROUPS.get(subtype, [])
 	for lane in match_state.get("lanes", []):
 		var player_slots: Dictionary = lane.get("player_slots", {})
 		var slots: Array = player_slots.get(player_id, [])
@@ -2150,7 +2151,13 @@ static func _has_friendly_with_subtype(match_state: Dictionary, player_id: Strin
 				continue
 			if str(card.get("instance_id", "")) == exclude_instance_id:
 				continue
-			if _card_has_string(card, "subtypes", subtype):
+			if not group.is_empty():
+				var card_subtypes = card.get("subtypes", [])
+				if typeof(card_subtypes) == TYPE_ARRAY:
+					for st in card_subtypes:
+						if group.has(st):
+							return true
+			elif _card_has_string(card, "subtypes", subtype):
 				return true
 	return false
 

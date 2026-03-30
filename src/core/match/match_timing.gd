@@ -897,6 +897,28 @@ static func resolve_pending_discard_choice(match_state: Dictionary, player_id: S
 		"target_zone": ZONE_HAND,
 		"reason": str(choice.get("reason", "discard_choice")),
 	})
+	if bool(choice.get("draw_all_matching_name", false)):
+		var damn_name := str(picked_card.get("name", ""))
+		var damn_matches: Array = []
+		for damn_i in range(discard_pile.size() - 1, -1, -1):
+			var damn_card = discard_pile[damn_i]
+			if typeof(damn_card) == TYPE_DICTIONARY and str(damn_card.get("name", "")) == damn_name:
+				damn_matches.append(damn_i)
+		for damn_idx in damn_matches:
+			var damn_extra: Dictionary = discard_pile[damn_idx]
+			discard_pile.remove_at(damn_idx)
+			MatchMutations.restore_definition_state(damn_extra)
+			damn_extra["zone"] = ZONE_HAND
+			discard_player[ZONE_HAND].append(damn_extra)
+			generated_events.append({
+				"event_type": "card_drawn",
+				"player_id": player_id,
+				"source_instance_id": str(choice.get("source_instance_id", "")),
+				"drawn_instance_id": str(damn_extra.get("instance_id", "")),
+				"source_zone": ZONE_DISCARD,
+				"target_zone": ZONE_HAND,
+				"reason": str(choice.get("reason", "discard_choice")),
+			})
 	choices.remove_at(choice_index)
 	var timing_result := publish_events(match_state, generated_events)
 	return {
@@ -1952,6 +1974,7 @@ static func resolve_consume_selection(match_state: Dictionary, player_id: String
 		"power": EvergreenRules.get_power(consumed_card),
 		"health": EvergreenRules.get_health(consumed_card),
 		"subtypes": consumed_card.get("subtypes", []),
+		"keywords": consumed_card.get("keywords", []).duplicate(),
 	}
 	# Consume (banish) the selected card — power_gain/health_gain = 0 since effects handle bonuses
 	var consume_result := MatchMutations.consume_card(match_state, player_id, source_id, chosen_instance_id, {
@@ -4386,6 +4409,28 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				var dd_empower_bonus := int(effect.get("empower_bonus", 0))
 				if dd_empower_bonus > 0:
 					damage_amount += dd_empower_bonus * _get_empower_amount(match_state, str(trigger.get("controller_player_id", "")))
+				var dd_bonus_data: Dictionary = effect.get("bonus_per_friendly_subtype", {})
+				if not dd_bonus_data.is_empty():
+					var dd_bonus_subtype := str(dd_bonus_data.get("subtype", ""))
+					var dd_bonus_amount := int(dd_bonus_data.get("amount", 0))
+					var dd_bonus_group: Array = ExtendedMechanicPacks.SUBTYPE_GROUPS.get(dd_bonus_subtype, [])
+					var dd_bonus_controller := str(trigger.get("controller_player_id", ""))
+					var dd_bonus_count := 0
+					for dd_lane in match_state.get("lanes", []):
+						for dd_card in dd_lane.get("player_slots", {}).get(dd_bonus_controller, []):
+							if typeof(dd_card) != TYPE_DICTIONARY:
+								continue
+							var dd_card_st = dd_card.get("subtypes", [])
+							if typeof(dd_card_st) != TYPE_ARRAY:
+								continue
+							if not dd_bonus_group.is_empty():
+								for dd_st in dd_card_st:
+									if dd_bonus_group.has(dd_st):
+										dd_bonus_count += 1
+										break
+							elif dd_card_st.has(dd_bonus_subtype):
+								dd_bonus_count += 1
+					damage_amount += dd_bonus_count * dd_bonus_amount
 				var dd_source_key := str(effect.get("damage_source", effect.get("source", "")))
 				var damage_source_id := ""
 				if dd_source_key == "host" or dd_source_key == "wielder":
@@ -4482,6 +4527,8 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 			"draw_cards":
 				for player_id in _resolve_player_targets(match_state, trigger, event, effect):
 						var draw_count := int(effect.get("count", 1)) * _resolve_count_multiplier(match_state, trigger, event, effect)
+						if effect.has("count_if_sacrificed") and bool(event.get("is_sacrifice", false)):
+							draw_count = int(effect.get("count_if_sacrificed", draw_count)) * _resolve_count_multiplier(match_state, trigger, event, effect)
 						var draw_result := draw_cards(match_state, player_id, draw_count, {
 							"reason": reason,
 							"source_instance_id": str(trigger.get("source_instance_id", "")),
@@ -5013,6 +5060,30 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						sfe_template["health"] = int(sfe_template.get("health", 0)) + sfe_stat_bonus
 						sfe_template["base_power"] = int(sfe_template.get("base_power", 0)) + sfe_stat_bonus
 						sfe_template["base_health"] = int(sfe_template.get("base_health", 0)) + sfe_stat_bonus
+					var sfe_dynamic_stats := str(effect.get("dynamic_stats", ""))
+					if sfe_dynamic_stats == "infestation_count":
+						var sfe_dyn_player := _get_player_state(match_state, str(trigger.get("controller_player_id", "")))
+						var sfe_dyn_count := int(sfe_dyn_player.get("_infestation_count", 0)) + 1
+						sfe_dyn_player["_infestation_count"] = sfe_dyn_count
+						sfe_template = summon_template.duplicate(true)
+						sfe_template["power"] = sfe_dyn_count
+						sfe_template["health"] = sfe_dyn_count
+						sfe_template["base_power"] = sfe_dyn_count
+						sfe_template["base_health"] = sfe_dyn_count
+					var sfe_upgrade_subtype := str(effect.get("upgrade_if_consumed_subtype", ""))
+					if not sfe_upgrade_subtype.is_empty():
+						var sfe_consumed: Dictionary = trigger.get("_consumed_card_info", {})
+						var sfe_consumed_subtypes = sfe_consumed.get("subtypes", [])
+						if typeof(sfe_consumed_subtypes) == TYPE_ARRAY and sfe_consumed_subtypes.has(sfe_upgrade_subtype):
+							var sfe_upgrade: Dictionary = effect.get("upgrade_template", {})
+							if not sfe_upgrade.is_empty():
+								sfe_template = sfe_upgrade
+					if bool(effect.get("copy_keywords_from_consumed", false)):
+						var sfe_consumed_kw: Dictionary = trigger.get("_consumed_card_info", {})
+						var sfe_kw_list = sfe_consumed_kw.get("keywords", [])
+						if typeof(sfe_kw_list) == TYPE_ARRAY and not sfe_kw_list.is_empty():
+							sfe_template = sfe_template.duplicate(true) if sfe_template == summon_template else sfe_template
+							sfe_template["keywords"] = sfe_kw_list.duplicate()
 					var sfe_count := _resolve_count_multiplier(match_state, trigger, event, effect)
 					for player_id in summon_players:
 						for s_lane_id in summon_lane_ids:
@@ -5028,6 +5099,9 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 								generated_events.append(_build_summon_event(summon_result["card"], player_id, s_lane_id, int(summon_result.get("slot_index", -1)), reason))
 								if bool(summon_result.get("granted_cover", false)):
 									generated_events.append({"event_type": "status_granted", "source_instance_id": str(summon_result["card"].get("instance_id", "")), "target_instance_id": str(summon_result["card"].get("instance_id", "")), "status_id": "cover"})
+								if bool(effect.get("silenced", false)):
+									var silence_result := MatchMutations.silence_card(summon_result["card"], {"reason": reason}, match_state)
+									generated_events.append_array(silence_result.get("events", []))
 								_check_summon_abilities(match_state, summon_result["card"])
 			"fill_lane_with":
 				var fill_controller_id := str(trigger.get("controller_player_id", ""))
@@ -5194,6 +5268,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							"candidate_instance_ids": candidate_instance_ids,
 							"buff_power": int(effect.get("buff_power", 0)),
 							"buff_health": int(effect.get("buff_health", 0)),
+							"draw_all_matching_name": bool(effect.get("draw_all_matching_name", false)),
 							"reason": reason,
 						})
 					else:
@@ -6699,6 +6774,15 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							if bool(sfdh_result.get("is_valid", false)):
 								generated_events.append_array(sfdh_result.get("events", []))
 								generated_events.append(_build_summon_event(sfdh_result["card"], sfdh_controller_id, sfdh_lane_id, int(sfdh_result.get("slot_index", -1)), reason))
+								var sfdh_grant_kw := str(effect.get("grant_keyword", ""))
+								if not sfdh_grant_kw.is_empty():
+									EvergreenRules.ensure_card_state(sfdh_result["card"])
+									var sfdh_gk: Array = sfdh_result["card"].get("granted_keywords", [])
+									if not sfdh_gk.has(sfdh_grant_kw):
+										sfdh_gk.append(sfdh_grant_kw)
+										sfdh_result["card"]["granted_keywords"] = sfdh_gk
+								if bool(effect.get("return_to_deck_end_of_turn", false)):
+									sfdh_result["card"]["_return_to_deck_end_of_turn"] = true
 								_check_summon_abilities(match_state, sfdh_result["card"])
 			"summon_from_opponent_discard":
 				var sfod_controller_id := str(trigger.get("controller_player_id", ""))
@@ -7169,14 +7253,45 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 			"transform_in_hand":
 				var tih_controller_id := str(trigger.get("controller_player_id", ""))
 				var tih_template: Dictionary = effect.get("card_template", {})
-				if not tih_template.is_empty():
+				var tih_random_subtype := str(effect.get("random_subtype", ""))
+				if not tih_random_subtype.is_empty():
+					var tih_group: Array = ExtendedMechanicPacks.SUBTYPE_GROUPS.get(tih_random_subtype, [])
+					var tih_seeds: Array = ExtendedMechanicPacks.get_catalog_seeds()
+					var tih_rand_candidates: Array = []
+					for tih_seed in tih_seeds:
+						if not bool(tih_seed.get("collectible", true)):
+							continue
+						if str(tih_seed.get("card_type", "")) != CARD_TYPE_CREATURE:
+							continue
+						var tih_st = tih_seed.get("subtypes", [])
+						if typeof(tih_st) != TYPE_ARRAY:
+							continue
+						if not tih_group.is_empty():
+							var tih_match := false
+							for tih_s in tih_st:
+								if tih_group.has(tih_s):
+									tih_match = true
+									break
+							if not tih_match:
+								continue
+						elif not tih_st.has(tih_random_subtype):
+							continue
+						tih_rand_candidates.append(tih_seed)
+					if not tih_rand_candidates.is_empty():
+						for card in _resolve_card_targets(match_state, trigger, event, effect):
+							if str(card.get("zone", "")) == ZONE_HAND:
+								var tih_idx := _deterministic_index(match_state, str(card.get("instance_id", "")) + "_transform_random_subtype", tih_rand_candidates.size())
+								var tih_result := MatchMutations.transform_card(match_state, str(card.get("instance_id", "")), tih_rand_candidates[tih_idx], {"reason": reason})
+								generated_events.append_array(tih_result.get("events", []))
+				elif not tih_template.is_empty():
 					for card in _resolve_card_targets(match_state, trigger, event, effect):
 						if str(card.get("zone", "")) == ZONE_HAND:
 							var tih_result := MatchMutations.transform_card(match_state, str(card.get("instance_id", "")), tih_template, {"reason": reason})
 							generated_events.append_array(tih_result.get("events", []))
 			"transform_in_hand_to_random":
 				var tihr_controller_id := str(trigger.get("controller_player_id", ""))
-				var tihr_filter_type := str(effect.get("filter_card_type", ""))
+				var tihr_filter_dict: Dictionary = effect.get("filter", {}) if typeof(effect.get("filter", null)) == TYPE_DICTIONARY else {}
+				var tihr_filter_type := str(effect.get("filter_card_type", tihr_filter_dict.get("card_type", "")))
 				var tihr_seeds: Array = ExtendedMechanicPacks.get_catalog_seeds()
 				var tihr_candidates: Array = []
 				for tihr_seed in tihr_seeds:
@@ -7185,6 +7300,12 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					if not tihr_filter_type.is_empty() and str(tihr_seed.get("card_type", "")) != tihr_filter_type:
 						continue
 					tihr_candidates.append(tihr_seed)
+				var tihr_keep_ability := bool(effect.get("keep_ability", false))
+				var tihr_source_abilities: Array = []
+				if tihr_keep_ability:
+					var tihr_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+					if not tihr_source.is_empty():
+						tihr_source_abilities = tihr_source.get("triggered_abilities", []).duplicate(true)
 				if not tihr_candidates.is_empty():
 					for card in _resolve_card_targets(match_state, trigger, event, effect):
 						if str(card.get("zone", "")) == ZONE_HAND:
@@ -7192,6 +7313,13 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							var tihr_template: Dictionary = tihr_candidates[tihr_idx]
 							var tihr_result := MatchMutations.transform_card(match_state, str(card.get("instance_id", "")), tihr_template, {"reason": reason})
 							generated_events.append_array(tihr_result.get("events", []))
+							if tihr_keep_ability and not tihr_source_abilities.is_empty():
+								var tihr_card := _find_card_anywhere(match_state, str(card.get("instance_id", "")))
+								if not tihr_card.is_empty():
+									var tihr_existing: Array = tihr_card.get("triggered_abilities", [])
+									for tihr_ab in tihr_source_abilities:
+										tihr_existing.append(tihr_ab)
+									tihr_card["triggered_abilities"] = tihr_existing
 			"transform_hand":
 				var th_controller_id := str(trigger.get("controller_player_id", ""))
 				var th_player := _get_player_state(match_state, th_controller_id)
@@ -7799,7 +7927,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					if not diwhi_host_id.is_empty():
 						var diwhi_host := _find_card_anywhere(match_state, diwhi_host_id)
 						var diwhi_items: Array = diwhi_host.get("attached_items", [])
-						if diwhi_items.size() > 1:  # This item + at least one other
+						if diwhi_items.size() >= int(effect.get("min_items", 2)):
 							var diwhi_controller := str(trigger.get("controller_player_id", ""))
 							var diwhi_draw := draw_cards(match_state, diwhi_controller, 1, {"reason": reason, "source_instance_id": diwhi_source_id})
 							generated_events.append_array(diwhi_draw.get("events", []))
@@ -8507,10 +8635,21 @@ static func _resolve_card_targets(match_state: Dictionary, trigger: Dictionary, 
 	var filter_subtype := str(effect.get("target_filter_subtype", ""))
 	var filter_subtypes_arr = effect.get("target_filter_subtypes", [])
 	if not filter_subtype.is_empty():
+		var fs_group: Array = ExtendedMechanicPacks.SUBTYPE_GROUPS.get(filter_subtype, [])
 		var filtered: Array = []
 		for card in targets:
 			var subtypes: Array = card.get("subtypes", [])
-			if typeof(subtypes) == TYPE_ARRAY and subtypes.has(filter_subtype):
+			if typeof(subtypes) != TYPE_ARRAY:
+				continue
+			if not fs_group.is_empty():
+				var fs_match := false
+				for st in subtypes:
+					if fs_group.has(st):
+						fs_match = true
+						break
+				if fs_match:
+					filtered.append(card)
+			elif subtypes.has(filter_subtype):
 				filtered.append(card)
 		targets = filtered
 	elif typeof(filter_subtypes_arr) == TYPE_ARRAY and not filter_subtypes_arr.is_empty():
@@ -10326,6 +10465,31 @@ static func process_end_of_turn_returns(match_state: Dictionary, turn_number: in
 		match_state["pending_end_of_turn_discards"] = []
 		if not discard_events.is_empty():
 			publish_events(match_state, discard_events)
+	# Return-to-deck creatures scheduled via _return_to_deck_end_of_turn flag
+	var rtd_cards_to_return: Array = []
+	for rtd_lane in match_state.get("lanes", []):
+		for rtd_pid in rtd_lane.get("player_slots", {}).keys():
+			for rtd_card in rtd_lane.get("player_slots", {}).get(rtd_pid, []):
+				if typeof(rtd_card) == TYPE_DICTIONARY and bool(rtd_card.get("_return_to_deck_end_of_turn", false)):
+					rtd_cards_to_return.append({"instance_id": str(rtd_card.get("instance_id", "")), "player_id": rtd_pid})
+	if not rtd_cards_to_return.is_empty():
+		var rtd_events: Array = []
+		for rtd_entry in rtd_cards_to_return:
+			var rtd_loc := MatchMutations.find_card_location(match_state, rtd_entry["instance_id"])
+			if not bool(rtd_loc.get("is_valid", false)):
+				continue
+			var rtd_card: Dictionary = rtd_loc["card"]
+			var rtd_lane_slots: Array = rtd_loc.get("player_slots", [])
+			rtd_lane_slots.erase(rtd_card)
+			rtd_card.erase("_return_to_deck_end_of_turn")
+			rtd_card["zone"] = ZONE_DECK
+			MatchMutations.restore_definition_state(rtd_card)
+			var rtd_player := _get_player_state(match_state, rtd_entry["player_id"])
+			if not rtd_player.is_empty():
+				rtd_player.get(ZONE_DECK, []).append(rtd_card)
+				rtd_events.append({"event_type": "card_moved", "instance_id": rtd_entry["instance_id"], "source_zone": "lane", "target_zone": ZONE_DECK, "reason": "return_to_deck_end_of_turn"})
+		if not rtd_events.is_empty():
+			publish_events(match_state, rtd_events)
 
 
 static func _event_subject_instance_id(event: Dictionary) -> String:
