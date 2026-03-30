@@ -639,6 +639,7 @@ static func _apply_lane_entry(match_state: Dictionary, controller_player_id: Str
 	card["slot_index"] = validation["slot_index"]
 	if not bool(options.get("preserve_entered_lane_on_turn", false)) or not card.has("entered_lane_on_turn"):
 		card["entered_lane_on_turn"] = int(match_state.get("turn_number", 0))
+		card["has_attacked_this_turn"] = false
 	_sync_attached_item_controllers(card)
 	player_slots.insert(validation["slot_index"], card)
 	_reindex_player_slots(player_slots)
@@ -744,6 +745,23 @@ static func reset_transient_state(card: Dictionary) -> void:
 	card.erase("temporary_stat_bonuses")
 	card.erase("temporary_keywords")
 	card.erase("_consumed_equip_keywords")
+
+
+static func restore_definition_state(card: Dictionary) -> void:
+	var def_id := str(card.get("definition_id", ""))
+	if def_id.is_empty():
+		return
+	for seed in CardCatalog._card_seeds():
+		if typeof(seed) == TYPE_DICTIONARY and str(seed.get("card_id", "")) == def_id:
+			card["keywords"] = seed.get("keywords", []).duplicate(true)
+			var seed_abilities: Array = seed.get("triggered_abilities", [])
+			card["triggered_abilities"] = seed_abilities.duplicate(true)
+			var seed_aura = seed.get("aura", null)
+			if seed_aura != null:
+				card["aura"] = seed_aura.duplicate(true)
+			elif card.has("aura"):
+				card.erase("aura")
+			break
 
 
 static func apply_first_turn_hand_cost(match_state: Dictionary, card: Dictionary, player_id: String) -> void:

@@ -4390,6 +4390,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						var protector_loc := MatchMutations.find_card_location(match_state, redirect_id)
 						if bool(protector_loc.get("is_valid", false)) and str(protector_loc.get("zone", "")) == "lane":
 							card = protector_loc["card"]
+					var dd_remaining_before := EvergreenRules.get_remaining_health(card)
 					var damage_result := EvergreenRules.apply_damage_to_creature(card, damage_amount)
 					if bool(damage_result.get("ward_removed", false)):
 						generated_events.append({
@@ -4427,6 +4428,29 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 										"lane_id": str(card_location.get("lane_id", "")),
 										"source_zone": ZONE_LANE,
 									})
+						# Action Breakthrough: overflow damage to opponent
+						if is_action_damage and not bool(damage_result.get("ward_removed", false)):
+							var dd_source_card := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+							if not dd_source_card.is_empty() and EvergreenRules.has_keyword(dd_source_card, EvergreenRules.KEYWORD_BREAKTHROUGH):
+								var dd_overflow := maxi(0, damage_amount - dd_remaining_before)
+								if dd_overflow > 0:
+									var dd_opponent := str(card.get("controller_player_id", ""))
+									var dd_bt_result := apply_player_damage(match_state, dd_opponent, dd_overflow, {
+										"reason": "breakthrough",
+										"source_instance_id": str(trigger.get("source_instance_id", "")),
+										"source_controller_player_id": str(trigger.get("controller_player_id", "")),
+									})
+									var dd_bt_applied := int(dd_bt_result.get("applied_damage", 0))
+									if dd_bt_applied > 0:
+										generated_events.append({
+											"event_type": "damage_resolved",
+											"source_instance_id": str(trigger.get("source_instance_id", "")),
+											"target_type": "player",
+											"target_player_id": dd_opponent,
+											"amount": dd_bt_applied,
+											"reason": "breakthrough",
+										})
+										generated_events.append_array(dd_bt_result.get("events", []))
 			"draw_cards":
 				for player_id in _resolve_player_targets(match_state, trigger, event, effect):
 						var draw_count := int(effect.get("count", 1)) * _resolve_count_multiplier(match_state, trigger, event, effect)
@@ -5528,6 +5552,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							sdctd_to_move.append(card)
 					for card in sdctd_to_move:
 						sdctd_discard.erase(card)
+						MatchMutations.restore_definition_state(card)
 						EvergreenRules.apply_stat_bonus(card, sdctd_power, sdctd_health, reason)
 						card["zone"] = ZONE_DECK
 						var insert_pos := _deterministic_index(match_state, str(card.get("instance_id", "")) + "_sdctd", sdctd_deck.size() + 1)
