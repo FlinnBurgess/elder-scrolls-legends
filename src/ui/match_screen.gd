@@ -636,6 +636,26 @@ func start_puzzle_match(puzzle_state: Dictionary, puzzle_config: Dictionary = {}
 	for p in puzzle_state.get("players", []):
 		if typeof(p) == TYPE_DICTIONARY:
 			ExtendedMechanicPacks.ensure_player_state(p)
+	# Emit card_drawn events for each card in each player's starting hand so
+	# draw-triggered abilities (e.g. Treasure Hunt) fire on the initial hand.
+	for p in puzzle_state.get("players", []):
+		if typeof(p) != TYPE_DICTIONARY:
+			continue
+		var pid := str(p.get("player_id", ""))
+		for hand_card in p.get("hand", []):
+			if typeof(hand_card) != TYPE_DICTIONARY:
+				continue
+			MatchTiming.publish_events(puzzle_state, [{
+				"event_type": MatchTiming.EVENT_CARD_DRAWN,
+				"player_id": pid,
+				"source_instance_id": "",
+				"source_controller_player_id": pid,
+				"drawn_instance_id": str(hand_card.get("instance_id", "")),
+				"source_zone": "deck",
+				"target_zone": "hand",
+				"reason": "puzzle_starting_hand",
+				"timing_window": "after",
+			}])
 	MatchTiming.publish_events(puzzle_state, [{
 		"event_type": MatchTiming.EVENT_TURN_STARTED,
 		"player_id": str(puzzle_state.get("active_player_id", "")),
