@@ -8701,6 +8701,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							pbc_player["health"] = int(pbc_player.get("health", 0)) - pbc_creature_power
 							generated_events.append({
 								"event_type": EVENT_DAMAGE_RESOLVED,
+								"source_instance_id": str(card.get("instance_id", "")),
 								"target_player_id": pbc_controller_id,
 								"target_type": "player",
 								"amount": pbc_creature_power,
