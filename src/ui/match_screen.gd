@@ -8597,6 +8597,14 @@ func _check_pending_turn_trigger_target() -> void:
 func _check_betray_mode(action_instance_id: String, action_card: Dictionary) -> void:
 	if not ExtendedMechanicPacks.action_has_betray(_match_state, _active_player_id(), action_card):
 		return
+	# Re-fetch the card from discard to pick up shout upgrades that occurred during resolution
+	for _p in _match_state.get("players", []):
+		if str(_p.get("player_id", "")) == _active_player_id():
+			for discard_card in _p.get("discard", []):
+				if typeof(discard_card) == TYPE_DICTIONARY and str(discard_card.get("instance_id", "")) == action_instance_id:
+					action_card = discard_card
+					break
+			break
 	var candidates := ExtendedMechanicPacks.get_betray_sacrifice_candidates(_match_state, _active_player_id())
 	if candidates.is_empty():
 		return
