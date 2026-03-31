@@ -2841,12 +2841,88 @@ static func append_match_win_if_needed(match_state: Dictionary, loser_player_id:
 		return
 	if not str(match_state.get("winner_player_id", "")).is_empty():
 		return
+	# Check for on_player_health_zero triggers on support cards before declaring a winner
+	_resolve_health_zero_triggers(match_state, loser_player_id, events)
+	if int(losing_player.get("health", 0)) > 0:
+		return
 	match_state["winner_player_id"] = winner_player_id
 	events.append({
 		"event_type": "match_won",
 		"winner_player_id": winner_player_id,
 		"loser_player_id": loser_player_id,
 	})
+
+
+static func _resolve_health_zero_triggers(match_state: Dictionary, player_id: String, events: Array) -> void:
+	var player := _get_player_state(match_state, player_id)
+	if player.is_empty():
+		return
+	var supports: Array = player.get("support", [])
+	for i in range(supports.size() - 1, -1, -1):
+		var card = supports[i]
+		if typeof(card) != TYPE_DICTIONARY:
+			continue
+		var triggers = card.get("triggered_abilities", [])
+		if typeof(triggers) != TYPE_ARRAY:
+			continue
+		for trigger in triggers:
+			if typeof(trigger) != TYPE_DICTIONARY:
+				continue
+			if str(trigger.get("family", "")) != FAMILY_ON_PLAYER_HEALTH_ZERO:
+				continue
+			var instance_id := str(card.get("instance_id", ""))
+			var source_controller := str(card.get("controller_player_id", player_id))
+			for effect in trigger.get("effects", []):
+				if typeof(effect) != TYPE_DICTIONARY:
+					continue
+				var op := str(effect.get("op", ""))
+				match op:
+					"destroy_creature":
+						if str(effect.get("target", "")) == "self":
+							MatchMutations.discard_card(match_state, instance_id)
+							events.append({
+								"event_type": EVENT_CREATURE_DESTROYED,
+								"instance_id": instance_id,
+								"source_instance_id": instance_id,
+								"controller_player_id": source_controller,
+								"reason": "sacrifice",
+								"source_zone": "support",
+							})
+					"set_health":
+						if str(effect.get("target_player", "")) == "controller":
+							var amount := int(effect.get("amount", 0))
+							var old_health := int(player.get("health", 0))
+							player["health"] = amount
+							events.append({
+								"event_type": "stats_modified",
+								"source_instance_id": instance_id,
+								"reason": FAMILY_ON_PLAYER_HEALTH_ZERO,
+							})
+							if amount > old_health:
+								events.append({
+									"event_type": "player_healed",
+									"source_instance_id": instance_id,
+									"target_player_id": str(player.get("player_id", "")),
+									"amount": amount - old_health,
+								})
+					"restore_rune":
+						if str(effect.get("target_player", "")) == "controller":
+							var rr_thresholds: Array = player.get("rune_thresholds", [])
+							var rr_default := [25, 20, 15, 10, 5]
+							var rr_count := int(effect.get("count", 1))
+							for _ri in range(rr_count):
+								if rr_thresholds.size() >= 5:
+									break
+								for rr_val in rr_default:
+									if not rr_thresholds.has(rr_val):
+										rr_thresholds.append(rr_val)
+										rr_thresholds.sort()
+										rr_thresholds.reverse()
+										events.append({"event_type": "rune_restored", "source_instance_id": instance_id, "player_id": player_id, "threshold": rr_val})
+										break
+			# Only one on_player_health_zero trigger should fire per check
+			if int(player.get("health", 0)) > 0:
+				return
 
 
 static func publish_events(match_state: Dictionary, events: Array, context: Dictionary = {}) -> Dictionary:
@@ -4214,6 +4290,8 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						base_power = EvergreenRules.get_remaining_health(ms_source)
 				elif ms_power_source == "event_power_gained":
 					base_power = int(event.get("power_bonus", event.get("amount", 0)))
+				elif ms_power_source == "damage_amount":
+					base_power = int(event.get("amount", 0))
 				var ms_health_source := str(effect.get("health_source", ""))
 				if ms_health_source == "self_power" or bool(effect.get("health_from_self_power", false)):
 					var ms_source_h := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
@@ -6382,6 +6460,13 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					else:
 						var move_result := MatchMutations.move_card_to_zone(match_state, str(source_card.get("instance_id", "")), ZONE_HAND, {"reason": reason})
 						generated_events.append_array(move_result.get("events", []))
+						generated_events.append({
+							"event_type": EVENT_CARD_DRAWN,
+							"player_id": rth_owner_id,
+							"source_instance_id": str(trigger.get("source_instance_id", "")),
+							"drawn_instance_id": str(source_card.get("instance_id", "")),
+							"reason": reason,
+						})
 			"generate_card_to_deck":
 				var gen_template: Dictionary = effect.get("card_template", {})
 				if not gen_template.is_empty():
@@ -10392,8 +10477,6 @@ static func _append_replay_entry(match_state: Dictionary, entry: Dictionary) -> 
 
 static func process_end_of_turn_returns(match_state: Dictionary, turn_number: int) -> void:
 	var pending: Array = match_state.get("pending_eot_returns", [])
-	if pending.is_empty():
-		return
 	var remaining: Array = []
 	var events: Array = []
 	for entry in pending:
@@ -10436,9 +10519,9 @@ static func process_end_of_turn_returns(match_state: Dictionary, turn_number: in
 	# Destroy creatures marked with _destroy_at_end_of_turn
 	var destroy_events: Array = []
 	for lane in match_state.get("lanes", []):
-		for player_slots in lane.get("player_slots", []):
+		for player_slots in lane.get("player_slots", {}).values():
 			var cards_to_destroy: Array = []
-			for card in player_slots.get("cards", []):
+			for card in player_slots:
 				if typeof(card) == TYPE_DICTIONARY and card.has("_destroy_at_end_of_turn") and int(card.get("_destroy_at_end_of_turn", -1)) == turn_number:
 					cards_to_destroy.append(card)
 			for card in cards_to_destroy:

@@ -24,6 +24,7 @@ func _run_all_tests() -> bool:
 		_test_shadow_lane_grants_cover_except_for_guard() and
 		_test_lane_capacity_and_slot_validation() and
 		_test_move_between_lanes_updates_slots_and_shadow_cover() and
+		_test_move_between_lanes_preserves_attack_readiness() and
 		_test_sacrifice_summon_into_full_lane() and
 		_test_sacrifice_summon_preserves_slot_position() and
 		_test_sacrifice_summon_publishes_correct_events() and
@@ -203,6 +204,24 @@ func _test_move_between_lanes_updates_slots_and_shadow_cover() -> bool:
 		_assert(shadow_slots[0]["lane_id"] == "shadow" and shadow_slots[0]["slot_index"] == 0, "Moved creature should track its new lane position.") and
 		_assert(_has_status(shadow_slots[0], "cover"), "Moving into shadow should apply Cover status.")
 	)
+
+
+func _test_move_between_lanes_preserves_attack_readiness() -> bool:
+	var match_state := _build_match()
+	var player: Dictionary = match_state["players"][0]
+	var player_id: String = player["player_id"]
+	var creature := _append_creature_to_hand(player, "move_attacker")
+	var summon_result := LaneRules.summon_from_hand(match_state, player_id, creature["instance_id"], "field")
+	if not _assert(summon_result["is_valid"], "Fixture should summon creature into field."):
+		return false
+	# Simulate creature having been on the board since a previous turn
+	creature["entered_lane_on_turn"] = int(match_state.get("turn_number", 0)) - 1
+	var move_result := LaneRules.move_creature(match_state, player_id, creature["instance_id"], "shadow")
+	if not _assert(move_result["is_valid"], "Cross-lane move should succeed."):
+		return false
+	var enemy_id: String = match_state["players"][1]["player_id"]
+	var target := {"type": "player", "player_id": enemy_id}
+	return _assert(MatchCombat.can_attack(match_state, player_id, creature["instance_id"], target), "Creature moved between lanes should still be able to attack.")
 
 
 func _test_sacrifice_summon_into_full_lane() -> bool:

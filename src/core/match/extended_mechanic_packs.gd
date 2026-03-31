@@ -802,12 +802,15 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			return {"handled": true, "events": [{"event_type": "player_ward_granted", "player_id": gpw_controller_id, "source_instance_id": str(trigger.get("source_instance_id", ""))}]}
 		"reduce_next_card_cost":
 			var rncc_controller_id := str(trigger.get("controller_player_id", ""))
-			var rncc_player: Dictionary = _get_player_state(match_state, rncc_controller_id)
-			if rncc_player.is_empty():
-				return {"handled": true, "events": []}
 			var rncc_amount := int(effect.get("amount", 0))
-			rncc_player["next_card_cost_reduction"] = int(rncc_player.get("next_card_cost_reduction", 0)) + rncc_amount
-			return {"handled": true, "events": [{"event_type": "cost_reduction_applied", "player_id": rncc_controller_id, "amount": rncc_amount, "source_instance_id": str(trigger.get("source_instance_id", ""))}]}
+			var rncc_drawn_id := str(event.get("drawn_instance_id", ""))
+			var rncc_drawn_card := _find_card_anywhere(match_state, rncc_drawn_id)
+			if rncc_drawn_card.is_empty():
+				return {"handled": true, "events": []}
+			if not rncc_drawn_card.has("_base_cost"):
+				rncc_drawn_card["_base_cost"] = int(rncc_drawn_card.get("cost", 0))
+			rncc_drawn_card["cost"] = maxi(0, int(rncc_drawn_card.get("cost", 0)) - rncc_amount)
+			return {"handled": true, "events": [{"event_type": "cost_reduction_applied", "player_id": rncc_controller_id, "amount": rncc_amount, "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": rncc_drawn_id}]}
 		"escalating_damage":
 			var esc_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 			if esc_source.is_empty():

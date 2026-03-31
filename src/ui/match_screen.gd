@@ -5028,17 +5028,22 @@ func _build_lane_status_badges(_card: Dictionary, _instance_id: String) -> HBoxC
 
 
 func _lane_readiness_badge_text(card: Dictionary) -> String:
+	var cid := str(card.get("instance_id", "?"))
 	if str(card.get("controller_player_id", "")) != _active_player_id():
+		print("[READINESS] %s -> WAITING (not active player)" % cid)
 		return "WAITING"
 	if bool(card.get("cannot_attack", false)) or EvergreenRules.has_status(card, EvergreenRules.STATUS_SHACKLED):
+		print("[READINESS] %s -> WAITING (cannot_attack=%s shackled=%s)" % [cid, card.get("cannot_attack", false), EvergreenRules.has_status(card, EvergreenRules.STATUS_SHACKLED)])
 		return "WAITING"
 	if bool(card.get("has_attacked_this_turn", false)):
 		var extra := int(card.get("extra_attacks_remaining", 0))
-		print("[READINESS] %s has_attacked=true extra_attacks_remaining=%d" % [card.get("instance_id", "?"), extra])
+		print("[READINESS] %s has_attacked=true extra_attacks_remaining=%d" % [cid, extra])
 		if extra <= 0:
 			return "WAITING"
 	if _entered_lane_this_turn(card) and not EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_CHARGE):
+		print("[READINESS] %s -> WAITING (summoning sick: entered_lane_on_turn=%s turn_number=%s)" % [cid, card.get("entered_lane_on_turn", -1), _match_state.get("turn_number", 0)])
 		return "WAITING"
+	print("[READINESS] %s -> READY" % cid)
 	return "READY"
 
 

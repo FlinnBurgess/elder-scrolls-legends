@@ -354,6 +354,8 @@ static func _build_lanes_with_creatures(
 				if typeof(creature) == TYPE_DICTIONARY:
 					creature["lane_id"] = lane_id
 					creature["slot_index"] = slot_index
+					if not creature.has("entered_lane_on_turn"):
+						creature["entered_lane_on_turn"] = 0
 		lanes.append({
 			"lane_id": lane_id,
 			"lane_type": lane_record.get("id", lane_id),

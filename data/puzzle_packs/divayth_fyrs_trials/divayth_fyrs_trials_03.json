@@ -2,48 +2,48 @@
   "name": "Leafwater Blessing",
   "type": "kill",
   "lanes": [
-    {
-      "lane_type": "field",
-      "width": 4
-    },
-    {
-      "lane_type": "shadow",
-      "width": 4
-    }
+	{
+	  "lane_type": "field",
+	  "width": 4
+	},
+	{
+	  "lane_type": "shadow",
+	  "width": 4
+	}
   ],
   "player": {
-    "health": 1,
-    "max_magicka": 26,
-    "current_magicka": 26,
-    "has_ring": false,
-    "hand": [
-      "agi_leafwater_blessing",
-      "agi_leafwater_blessing",
-      "hos_end_soul_tear",
-      "hos_agi_thieves_guild_fence",
-      "int_brilliant_experiment",
+	"health": 1,
+	"max_magicka": 26,
+	"current_magicka": 26,
+	"has_ring": false,
+	"hand": [
+	  "agi_leafwater_blessing",
+	  "agi_leafwater_blessing",
+	  "hos_end_soul_tear",
+	  "hos_agi_thieves_guild_fence",
+	  "int_brilliant_experiment",
       "int_lightning_bolt"
-    ],
-    "deck": [],
-    "discard": [],
-    "supports": [
-      "mhc_agi_swindlers_market",
+	],
+	"deck": [],
+	"discard": [],
+	"supports": [
+	  "mhc_agi_swindlers_market",
       "cwc_wil_the_mechanical_heart"
-    ],
-    "field_creatures": [
+	],
+	"field_creatures": [
       "str_rampaging_minotaur"
-    ],
-    "shadow_creatures": []
+	],
+	"shadow_creatures": []
   },
   "enemy": {
-    "health": 16,
-    "max_magicka": 3,
-    "current_magicka": 3,
-    "hand": [],
-    "deck": [],
-    "discard": [],
-    "supports": [],
-    "field_creatures": [],
-    "shadow_creatures": []
+	"health": 16,
+	"max_magicka": 3,
+	"current_magicka": 3,
+	"hand": [],
+	"deck": ["hos_end_soul_tear", "hos_end_soul_tear", "hos_end_soul_tear", "hos_end_soul_tear"],
+	"discard": [],
+	"supports": [],
+	"field_creatures": [],
+	"shadow_creatures": []
   }
 }
