@@ -3692,6 +3692,8 @@ static func _trigger_matches_event(match_state: Dictionary, trigger: Dictionary,
 	var family := str(descriptor.get("family", ""))
 	var family_spec: Dictionary = FAMILY_SPECS.get(family, {})
 	var expected_event_type := str(descriptor.get("event_type", family_spec.get("event_type", "")))
+	if family == FAMILY_ITEM_DETACHED and event_type == "attached_item_detached":
+		GameLogger.trc("Timing", "item_detach_match", "src:%s,evt_src:%s,zone:%s,expected_evt:%s" % [str(trigger.get("source_instance_id", "")), str(event.get("source_instance_id", "")), str(trigger.get("source_zone", "")), expected_event_type])
 	if event_type != expected_event_type:
 		# pilfer_is_slay: slay triggers also fire on pilfer events
 		if family == FAMILY_SLAY and event_type == EVENT_DAMAGE_RESOLVED and str(event.get("target_type", "")) == "player" and int(event.get("amount", 0)) > 0:
@@ -3702,7 +3704,11 @@ static func _trigger_matches_event(match_state: Dictionary, trigger: Dictionary,
 					return _matches_conditions(match_state, trigger, descriptor, family_spec, event)
 		return false
 	if not _matches_trigger_role(match_state, trigger, descriptor, family_spec, event):
+		if family == FAMILY_ITEM_DETACHED:
+			GameLogger.trc("Timing", "item_detach_role_fail", "src:%s,evt_src:%s" % [str(trigger.get("source_instance_id", "")), str(event.get("source_instance_id", ""))])
 		return false
+	if family == FAMILY_ITEM_DETACHED:
+		GameLogger.trc("Timing", "item_detach_role_pass", "src:%s" % str(trigger.get("source_instance_id", "")))
 	return _matches_conditions(match_state, trigger, descriptor, family_spec, event)
 
 
@@ -4802,6 +4808,9 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							var cpid := str(card.get("controller_player_id", ""))
 							var moved := MatchMutations.discard_card(match_state, str(card.get("instance_id", "")))
 							if bool(moved.get("is_valid", false)):
+								for dc_evt in moved.get("events", []):
+									if typeof(dc_evt) == TYPE_DICTIONARY and str(dc_evt.get("event_type", "")) == "attached_item_detached":
+										generated_events.append(dc_evt)
 								generated_events.append({"event_type": "creature_destroyed", "instance_id": str(card.get("instance_id", "")), "source_instance_id": str(card.get("instance_id", "")), "owner_player_id": str(card.get("owner_player_id", "")), "controller_player_id": cpid, "destroyed_by_instance_id": daesl_source_id, "lane_id": daesl_lane_id, "source_zone": ZONE_LANE})
 			"unsummon":
 				var unsummon_cost_reduction := int(effect.get("cost_reduction", 0))
@@ -4893,6 +4902,9 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							var def_controller := str(defender.get("controller_player_id", ""))
 							var def_moved := MatchMutations.discard_card(match_state, str(defender.get("instance_id", "")))
 							if bool(def_moved.get("is_valid", false)):
+								for dc_evt in def_moved.get("events", []):
+									if typeof(dc_evt) == TYPE_DICTIONARY and str(dc_evt.get("event_type", "")) == "attached_item_detached":
+										generated_events.append(dc_evt)
 								generated_events.append({"event_type": "creature_destroyed", "instance_id": str(defender.get("instance_id", "")), "source_instance_id": str(defender.get("instance_id", "")), "owner_player_id": str(defender.get("owner_player_id", "")), "controller_player_id": def_controller, "destroyed_by_instance_id": battle_source_id, "lane_id": str(def_loc.get("lane_id", "")), "source_zone": ZONE_LANE})
 					if attacker_destroyed:
 						var atk_loc := MatchMutations.find_card_location(match_state, battle_source_id)
@@ -4900,6 +4912,9 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							var atk_controller := str(battle_source.get("controller_player_id", ""))
 							var atk_moved := MatchMutations.discard_card(match_state, battle_source_id)
 							if bool(atk_moved.get("is_valid", false)):
+								for dc_evt in atk_moved.get("events", []):
+									if typeof(dc_evt) == TYPE_DICTIONARY and str(dc_evt.get("event_type", "")) == "attached_item_detached":
+										generated_events.append(dc_evt)
 								generated_events.append({"event_type": "creature_destroyed", "instance_id": battle_source_id, "source_instance_id": battle_source_id, "owner_player_id": str(battle_source.get("owner_player_id", "")), "controller_player_id": atk_controller, "destroyed_by_instance_id": str(defender.get("instance_id", "")), "lane_id": str(atk_loc.get("lane_id", "")), "source_zone": ZONE_LANE, "is_retaliation_kill": true})
 			"destroy_creature":
 				var destroy_source_id := str(trigger.get("source_instance_id", ""))
@@ -4917,6 +4932,9 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var controller_pid := str(card.get("controller_player_id", ""))
 					var moved := MatchMutations.discard_card(match_state, str(card.get("instance_id", "")))
 					if bool(moved.get("is_valid", false)):
+						for dc_evt in moved.get("events", []):
+							if typeof(dc_evt) == TYPE_DICTIONARY and str(dc_evt.get("event_type", "")) == "attached_item_detached":
+								generated_events.append(dc_evt)
 						generated_events.append({
 							"event_type": "creature_destroyed",
 							"instance_id": str(card.get("instance_id", "")),
@@ -5934,7 +5952,9 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				var ei_template: Dictionary = ei_template_raw if typeof(ei_template_raw) == TYPE_DICTIONARY else {}
 				if ei_template.is_empty():
 					continue
-				for card in _resolve_card_targets(match_state, trigger, event, effect):
+				var ei_targets := _resolve_card_targets(match_state, trigger, event, effect)
+				GameLogger.trc("Timing", "equip_gen_item", "targets:%d,filter_def:%s,target_type:%s" % [ei_targets.size(), str(effect.get("target_filter_definition_id", "")), str(effect.get("target", ""))])
+				for card in ei_targets:
 					var ei_controller := str(card.get("controller_player_id", trigger.get("controller_player_id", "")))
 					var ei_item := MatchMutations.build_generated_card(match_state, ei_controller, ei_template)
 					var ei_result := MatchMutations.attach_item_to_creature(match_state, ei_controller, ei_item, str(card.get("instance_id", "")), {"source_zone": MatchMutations.ZONE_GENERATED})
@@ -8742,7 +8762,12 @@ static func _resolve_card_targets(match_state: Dictionary, trigger: Dictionary, 
 	# copies_in_hand_and_deck needs effect context, handled here instead of _resolve_card_targets_by_name
 	if target == "copies_in_hand_and_deck":
 		return _resolve_copies_in_hand_and_deck(match_state, trigger, effect)
-	var targets := _resolve_card_targets_by_name(match_state, trigger, event, target)
+	# For random_* targets with filters, resolve the full set first so filters apply before random pick
+	var _rct_is_random := target.begins_with("random_") and _effect_has_target_filters(effect)
+	var resolve_target := target
+	if _rct_is_random:
+		resolve_target = target.replace("random_", "all_")
+	var targets := _resolve_card_targets_by_name(match_state, trigger, event, resolve_target)
 	# friendly_by_name: filter by card name from the effect dict
 	if target == "friendly_by_name":
 		var fbn_name := str(effect.get("name", ""))
@@ -8828,7 +8853,20 @@ static func _resolve_card_targets(match_state: Dictionary, trigger: Dictionary, 
 			if EvergreenRules.has_status(card, EvergreenRules.STATUS_WOUNDED):
 				filtered.append(card)
 		targets = filtered
+	# For random_* targets with filters: pick one random from the filtered set
+	if _rct_is_random and targets.size() > 1:
+		targets = [targets[randi() % targets.size()]]
 	return targets
+
+
+static func _effect_has_target_filters(effect: Dictionary) -> bool:
+	return (not str(effect.get("target_filter_subtype", "")).is_empty()
+		or not str(effect.get("target_filter_definition_id", "")).is_empty()
+		or not str(effect.get("target_filter_keyword", effect.get("filter_keyword", ""))).is_empty()
+		or not str(effect.get("target_filter_attribute", "")).is_empty()
+		or int(effect.get("target_filter_max_power", -1)) >= 0
+		or bool(effect.get("target_filter_wounded", false))
+		or (typeof(effect.get("target_filter_subtypes", [])) == TYPE_ARRAY and not effect.get("target_filter_subtypes", []).is_empty()))
 
 
 static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dictionary, event: Dictionary, target: String) -> Array:

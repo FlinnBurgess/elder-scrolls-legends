@@ -646,6 +646,9 @@ static func _destroy_creature(match_state: Dictionary, lookup: Dictionary, destr
 	var moved := MatchMutations.discard_card(match_state, str(card["card"].get("instance_id", "")))
 	if not bool(moved.get("is_valid", false)):
 		return
+	for dc_evt in moved.get("events", []):
+		if typeof(dc_evt) == TYPE_DICTIONARY and str(dc_evt.get("event_type", "")) == "attached_item_detached":
+			events.append(dc_evt)
 	var destroyed_card: Dictionary = moved["card"]
 	# Clean up cost locks tied to this creature
 	var destroyed_instance_id := str(destroyed_card.get("instance_id", ""))

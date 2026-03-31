@@ -200,6 +200,11 @@ Card has rules text with a conditional summon effect that checks for card types 
 Example: Voice of Balance ("Summon: +4/+4 and Guard if you have an action, item, and support in your discard pile or in play" — had `keywords: ["guard"]` as base keyword and no `triggered_abilities`)
 How to spot: User reports a conditional summon buff not triggering. Check if the card's `rules_text` mentions checking for card types "in your discard pile or in play" and whether it has `triggered_abilities` with the `required_card_types_in_discard_or_play` condition. Also check if conditional keywords are incorrectly listed in the base `keywords` array.
 
+## Item missing last_gasp via item_detached trigger
+Item has "Last Gasp" in its rules text but uses a `last_gasp` or `on_death` trigger family, which checks `match_role: "subject"` against the dying creature's instance_id — not the item's. Since items are a separate entity attached to the creature, their instance_id never matches the event subject. Fix by using `FAMILY_ITEM_DETACHED` (`"family": "item_detached"`) which fires on the `attached_item_detached` event with `match_role: "source"` (matching the item's instance_id). Add `"required_detach_reason": "host_left_play"` to only fire on creature death (not silence/transform). Existing example: Heirloom Greatsword correctly uses `item_detached`.
+Example: Stolen Pants ("Last Gasp: Give Sheepish Dunmer his pants" — was missing the trigger entirely)
+How to spot: User reports an item's Last Gasp effect never firing. Check if the item uses `last_gasp` family (won't match) or is missing the trigger altogether. Items should use `item_detached` family.
+
 ## Lane-targeting action_target_mode enters creature targeting mode
 `_action_needs_explicit_target` returns `true` for any non-empty `action_target_mode`, including lane-based modes like `choose_lane`. This sends the card into creature targeting (arrow) mode, but the `_on_lane_pressed` handler blocks lane plays when `_action_needs_explicit_target` is true. The card gets stuck — can't target a creature (wrong mode) and can't target a lane (blocked). Fix by excluding `choose_lane` from `_action_needs_explicit_target` so the card uses the detach-to-lane flow.
 Example: Trial of Flame (`action_target_mode: "choose_lane"`)

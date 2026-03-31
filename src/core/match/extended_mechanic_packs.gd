@@ -419,6 +419,36 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 	var excl_lane := str(descriptor.get("excluded_event_lane_id", ""))
 	if not excl_lane.is_empty() and str(event.get("lane_id", "")) == excl_lane:
 		return false
+	# Required equipped item definition (e.g. check if creature has a specific item)
+	var req_equipped_def := str(descriptor.get("required_equipped_item_definition", ""))
+	if not req_equipped_def.is_empty():
+		var reid_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+		if reid_source.is_empty():
+			return false
+		var reid_found := false
+		for item in reid_source.get("attached_items", []):
+			if typeof(item) == TYPE_DICTIONARY and str(item.get("definition_id", "")) == req_equipped_def:
+				reid_found = true
+				break
+		if not reid_found:
+			return false
+	# Required NO equipped item definition (e.g. Sheepish Dunmer keeps cover while pantsless)
+	var req_no_equipped_def := str(descriptor.get("required_no_equipped_item_definition", ""))
+	if not req_no_equipped_def.is_empty():
+		var rneid_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+		var rneid_found := false
+		for item in rneid_source.get("attached_items", []):
+			if typeof(item) == TYPE_DICTIONARY and str(item.get("definition_id", "")) == req_no_equipped_def:
+				rneid_found = true
+				break
+		if rneid_found:
+			return false
+	# Required detach reason (e.g. item_detached only on creature death, not silence)
+	var req_detach_reason := str(descriptor.get("required_detach_reason", ""))
+	if not req_detach_reason.is_empty():
+		GameLogger.trc("ExtMech", "detach_reason_check", "req:%s,actual:%s" % [req_detach_reason, str(event.get("reason", ""))])
+		if str(event.get("reason", "")) != req_detach_reason:
+			return false
 	return true
 
 

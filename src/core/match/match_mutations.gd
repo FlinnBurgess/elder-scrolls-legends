@@ -262,12 +262,14 @@ static func move_card_to_zone(match_state: Dictionary, instance_id: String, zone
 	var player_lookup := _find_player(match_state.get("players", []), target_player_id)
 	if not bool(player_lookup.get("is_valid", false)):
 		return player_lookup
+	var item_detach_events: Array = []
 	if str(location.get("zone", "")) == ZONE_LANE and str(card.get("card_type", "")) == CARD_TYPE_CREATURE:
 		# Snapshot drain before items are detached and state is reset,
 		# so last gasp / death triggers can still check for drain.
 		if zone_name == ZONE_DISCARD and EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_DRAIN):
 			card["_had_drain_at_death"] = true
-		_move_attached_items_to_owner_discard(match_state, card, {"reason": str(options.get("reason", "host_left_play"))})
+		var detach_result := _move_attached_items_to_owner_discard(match_state, card, {"reason": str(options.get("reason", "host_left_play"))})
+		item_detach_events = detach_result.get("events", [])
 	_detach_card(match_state, location)
 	var target_cards: Array = player_lookup["player"][zone_name]
 	var insert_index := int(options.get("insert_index", -1))
@@ -294,7 +296,7 @@ static func move_card_to_zone(match_state: Dictionary, instance_id: String, zone
 		"source_zone": str(location.get("zone", "")),
 		"target_zone": zone_name,
 		"player_id": target_player_id,
-		"events": [_build_move_event(card, str(location.get("zone", "")), zone_name, target_player_id)],
+		"events": item_detach_events + [_build_move_event(card, str(location.get("zone", "")), zone_name, target_player_id)],
 	}
 
 
