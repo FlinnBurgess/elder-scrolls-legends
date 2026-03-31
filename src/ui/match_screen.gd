@@ -5893,10 +5893,12 @@ func _try_resolve_selected_player_target(player_id: String) -> bool:
 		var action_state: Dictionary = _match_state.duplicate(true)
 		var controller_id := str(selected_card.get("controller_player_id", ""))
 		var validation: Dictionary
+		GameLogger.suppress()
 		if _is_pending_prophecy_card(selected_card):
 			validation = MatchTiming.play_pending_prophecy(action_state, controller_id, _selected_instance_id, {"target_player_id": player_id})
 		else:
 			validation = MatchTiming.play_action_from_hand(action_state, controller_id, _selected_instance_id, {"target_player_id": player_id})
+		GameLogger.unsuppress()
 		if bool(validation.get("is_valid", false)):
 			_reset_invalid_feedback()
 			if _check_exalt_action(selected_card, {"target_player_id": player_id}, _is_pending_prophecy_card(selected_card)):
@@ -5966,10 +5968,16 @@ func _validate_selected_lane_play(lane_id: String, player_id: String, slot_index
 		return {"is_valid": false, "message": "Select a creature that can be summoned into %s." % _lane_name(lane_id)}
 	if _selected_action_mode(card) == SELECTION_MODE_ACTION:
 		var action_state: Dictionary = _match_state.duplicate(true)
-		return MatchTiming.play_action_from_hand(action_state, _active_player_id(), _selected_instance_id, {"lane_id": lane_id})
+		GameLogger.suppress()
+		var action_validation := MatchTiming.play_action_from_hand(action_state, _active_player_id(), _selected_instance_id, {"lane_id": lane_id})
+		GameLogger.unsuppress()
+		return action_validation
 	if _is_pending_prophecy_card(card):
 		var prophecy_state: Dictionary = _match_state.duplicate(true)
-		return MatchTiming.play_pending_prophecy(prophecy_state, str(card.get("controller_player_id", "")), _selected_instance_id, {"lane_id": lane_id, "slot_index": slot_index})
+		GameLogger.suppress()
+		var prophecy_validation := MatchTiming.play_pending_prophecy(prophecy_state, str(card.get("controller_player_id", "")), _selected_instance_id, {"lane_id": lane_id, "slot_index": slot_index})
+		GameLogger.unsuppress()
+		return prophecy_validation
 	return LaneRules.validate_summon_from_hand(_match_state, _active_player_id(), _selected_instance_id, lane_id, {"slot_index": slot_index})
 
 
@@ -5978,6 +5986,13 @@ func _is_card_target_valid_for_selected(target_instance_id: String) -> bool:
 	var mode := _selected_action_mode(selected_card)
 	if mode == SELECTION_MODE_NONE:
 		return false
+	GameLogger.suppress()
+	var result := _is_card_target_valid_for_selected_inner(selected_card, mode, target_instance_id)
+	GameLogger.unsuppress()
+	return result
+
+
+func _is_card_target_valid_for_selected_inner(selected_card: Dictionary, mode: String, target_instance_id: String) -> bool:
 	match mode:
 		SELECTION_MODE_ITEM:
 			var item_state: Dictionary = _match_state.duplicate(true)
@@ -6344,11 +6359,16 @@ func _validate_selected_support_play(player_id: String) -> Dictionary:
 		return {"is_valid": false, "message": "Select a support card from hand to place it here."}
 	if not _selected_card_wants_support_row(card, player_id):
 		return {"is_valid": false, "message": "%s can only be placed into %s's support row." % [_card_name(card), _player_name(target_player_id)]}
+	GameLogger.suppress()
+	var support_validation: Dictionary
 	if _is_pending_prophecy_card(card):
 		var prophecy_state: Dictionary = _match_state.duplicate(true)
-		return MatchTiming.play_pending_prophecy(prophecy_state, str(card.get("controller_player_id", "")), _selected_instance_id)
-	var support_state: Dictionary = _match_state.duplicate(true)
-	return PersistentCardRules.play_support_from_hand(support_state, str(card.get("controller_player_id", "")), _selected_instance_id)
+		support_validation = MatchTiming.play_pending_prophecy(prophecy_state, str(card.get("controller_player_id", "")), _selected_instance_id)
+	else:
+		var support_state: Dictionary = _match_state.duplicate(true)
+		support_validation = PersistentCardRules.play_support_from_hand(support_state, str(card.get("controller_player_id", "")), _selected_instance_id)
+	GameLogger.unsuppress()
+	return support_validation
 
 
 func _finalize_engine_result(result: Dictionary, success_message: String, clear_selection_on_success := true) -> Dictionary:

@@ -67,7 +67,10 @@ func _run_all_tests() -> bool:
 		_test_recall_and_resummon_preserves_state_triggers_summon() and
 		_test_trial_of_flame_destroy_all_except_strongest() and
 		_test_vivec_cannot_lose_expires_on_exalted_death() and
-		_test_vivec_cannot_lose_expires_on_silence()
+		_test_vivec_cannot_lose_expires_on_silence() and
+		_test_stampede_sentinel_blocks_action_damage_to_player() and
+		_test_stampede_sentinel_does_not_block_combat_damage_to_player() and
+		_test_battle_self_single_destruction()
 	)
 
 
@@ -2668,3 +2671,84 @@ func _test_vivec_cannot_lose_expires_on_silence() -> bool:
 	var events: Array = [{"event_type": "card_silenced", "source_instance_id": str(exalted.get("instance_id", ""))}]
 	MatchTiming.publish_events(match_state, events)
 	return _assert(str(match_state.get("winner_player_id", "")) == oid, "Vivec: player should lose after only exalted creature is silenced at 0 HP.")
+
+
+func _test_stampede_sentinel_blocks_action_damage_to_player() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Opponent has Stampede Sentinel (grants_immunity: action_damage, support_damage)
+	ScenarioFixtures.summon_creature(opponent, match_state, "stampede_sentinel", "field", 7, 7, [], -1, {
+		"grants_immunity": ["action_damage", "support_damage"],
+	})
+	var health_before := int(opponent.get("health", 0))
+	# Player plays an action that deals 5 damage to opponent
+	var bolt := ScenarioFixtures.add_hand_card(player, "lightning_bolt", {
+		"card_type": "action", "cost": 0,
+		"action_target_mode": "auto",
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "damage", "amount": 5, "target_player": "opponent"}]}],
+	})
+	var result := MatchTiming.play_action_from_hand(match_state, pid, str(bolt.get("instance_id", "")))
+	if not _assert(bool(result.get("is_valid", false)), "Stampede Sentinel: action should be playable."):
+		return false
+	var health_after := int(opponent.get("health", 0))
+	return _assert(health_after == health_before, "Stampede Sentinel: action damage to player should be blocked (health: %d -> %d)." % [health_before, health_after])
+
+
+func _test_stampede_sentinel_does_not_block_combat_damage_to_player() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Opponent has Stampede Sentinel
+	ScenarioFixtures.summon_creature(opponent, match_state, "stampede_sentinel", "field", 7, 7, [], -1, {
+		"grants_immunity": ["action_damage", "support_damage"],
+	})
+	# Player has an attacker with charge
+	var attacker := ScenarioFixtures.summon_creature(player, match_state, "charger", "field", 3, 3, [EvergreenRules.KEYWORD_CHARGE])
+	ScenarioFixtures.ready_for_attack(attacker, match_state)
+	var health_before := int(opponent.get("health", 0))
+	var attack_result := MatchCombat.resolve_attack(match_state, pid, str(attacker.get("instance_id", "")), {"type": "player", "player_id": oid})
+	if not _assert(bool(attack_result.get("is_valid", false)), "Stampede Sentinel: combat attack should be valid."):
+		return false
+	var health_after := int(opponent.get("health", 0))
+	return _assert(health_after == health_before - 3, "Stampede Sentinel: combat damage should NOT be blocked (health: %d -> %d, expected %d)." % [health_before, health_after, health_before - 3])
+
+
+func _test_battle_self_single_destruction() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Summon a 5/5 creature to battle itself
+	var target := ScenarioFixtures.summon_creature(player, match_state, "target", "field", 5, 5)
+	var target_id := str(target.get("instance_id", ""))
+	# Play an action with battle_self
+	var drive_mad := ScenarioFixtures.add_hand_card(player, "drive_mad", {
+		"card_type": "action", "cost": 0,
+		"action_target_mode": "any_creature",
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "effects": [{"op": "battle_creature", "target": "event_target", "battle_self": true}]}],
+	})
+	var result := MatchTiming.play_action_from_hand(match_state, pid, str(drive_mad.get("instance_id", "")), {"target_instance_id": target_id})
+	if not _assert(bool(result.get("is_valid", false)), "Battle self: action should be playable."):
+		return false
+	# Creature should be destroyed (in discard)
+	var loc := MatchMutations.find_card_location(match_state, target_id)
+	if not _assert(str(loc.get("zone", "")) == "discard", "Battle self: creature should be in discard after battling itself."):
+		return false
+	# Should only appear once in the discard pile
+	var discard: Array = player.get("discard", [])
+	var count := 0
+	for c in discard:
+		if typeof(c) == TYPE_DICTIONARY and str(c.get("instance_id", "")) == target_id:
+			count += 1
+	if not _assert(count == 1, "Battle self: creature should appear exactly once in discard (found %d)." % count):
+		return false
+	# Count creature_destroyed events — should be exactly 1
+	var destroy_events := 0
+	for evt in result.get("events", []):
+		if typeof(evt) == TYPE_DICTIONARY and str(evt.get("event_type", "")) == "creature_destroyed" and str(evt.get("instance_id", "")) == target_id:
+			destroy_events += 1
+	return _assert(destroy_events == 1, "Battle self: should emit exactly 1 creature_destroyed event (found %d)." % destroy_events)

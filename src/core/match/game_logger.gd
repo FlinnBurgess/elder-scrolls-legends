@@ -12,10 +12,21 @@ const OP_EFFECT_IDS := ["damage", "heal", "draw", "silence", "destroy", "unsummo
 static var _file: FileAccess = null
 static var _active_match_state: Dictionary = {}
 static var _missing_effect_cards: Array = []
+static var _suppress_count: int = 0
 
 
 static func trc(node: String, method: String, vars_str: String) -> void:
+	if _suppress_count > 0:
+		return
 	print("[TRC]|%s|%s|%s|%s" % [Engine.get_physics_frames(), node, method, vars_str])
+
+
+static func suppress() -> void:
+	_suppress_count += 1
+
+
+static func unsuppress() -> void:
+	_suppress_count = maxi(0, _suppress_count - 1)
 
 
 static func start_match(match_state: Dictionary) -> void:

@@ -2213,6 +2213,18 @@ static func apply_player_damage(match_state: Dictionary, player_id: String, amou
 		player["has_ward"] = false
 		result["events"] = [{"event_type": "player_ward_removed", "player_id": player_id, "absorbed_damage": amount, "source_instance_id": str(context.get("source_instance_id", ""))}]
 		return result
+	# Grants-immunity: action_damage / support_damage — check if a friendly creature shields the player
+	var apd_source_id := str(context.get("source_instance_id", ""))
+	if not apd_source_id.is_empty():
+		var apd_source := _find_card_anywhere(match_state, apd_source_id)
+		var apd_source_type := str(apd_source.get("card_type", ""))
+		var apd_immunity_key := ""
+		if apd_source_type == "action":
+			apd_immunity_key = "action_damage"
+		elif apd_source_type == "support":
+			apd_immunity_key = "support_damage"
+		if not apd_immunity_key.is_empty() and _player_has_grants_immunity(match_state, player_id, apd_immunity_key):
+			return result
 	var previous_health := int(player.get("health", 0))
 	var new_health := previous_health - amount
 	player["health"] = new_health
@@ -4910,8 +4922,12 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var pt_id := str(trigger.get("_primary_target_id", ""))
 					if not pt_id.is_empty():
 						battle_source_id = pt_id
+				var battle_self := bool(effect.get("battle_self", false))
 				var battle_source := _find_card_anywhere(match_state, battle_source_id)
 				for defender in _resolve_card_targets(match_state, trigger, event, effect):
+					if battle_self:
+						battle_source = defender
+						battle_source_id = str(defender.get("instance_id", ""))
 					if battle_source.is_empty():
 						break
 					var attacker_power := maxi(0, EvergreenRules.get_power(battle_source))
@@ -4968,7 +4984,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 									if typeof(dc_evt) == TYPE_DICTIONARY and str(dc_evt.get("event_type", "")) == "attached_item_detached":
 										generated_events.append(dc_evt)
 								generated_events.append({"event_type": "creature_destroyed", "instance_id": str(defender.get("instance_id", "")), "source_instance_id": str(defender.get("instance_id", "")), "owner_player_id": str(defender.get("owner_player_id", "")), "controller_player_id": def_controller, "destroyed_by_instance_id": battle_source_id, "lane_id": str(def_loc.get("lane_id", "")), "source_zone": ZONE_LANE})
-					if attacker_destroyed:
+					if attacker_destroyed and not battle_self:
 						var atk_loc := MatchMutations.find_card_location(match_state, battle_source_id)
 						if bool(atk_loc.get("is_valid", false)):
 							var atk_controller := str(battle_source.get("controller_player_id", ""))
@@ -5236,6 +5252,8 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 							})
 							if not bool(summon_existing.get("is_valid", false)):
 								continue
+							# Transfer ownership so the card goes to the new controller's discard when destroyed
+							summon_existing["card"]["owner_player_id"] = summon_players[0]
 							generated_events.append_array(summon_existing.get("events", []))
 							generated_events.append(_build_summon_event(summon_existing["card"], summon_players[0], s_lane_id, int(summon_existing.get("slot_index", -1)), reason))
 							if bool(summon_existing.get("granted_cover", false)):
@@ -10393,6 +10411,17 @@ static func _get_heal_multiplier(match_state: Dictionary, player_id: String) -> 
 					if typeof(p) == TYPE_DICTIONARY and str(p.get("type", "")) == "double_health_gain":
 						multiplier *= 2
 	return multiplier
+
+
+static func _player_has_grants_immunity(match_state: Dictionary, player_id: String, immunity_key: String) -> bool:
+	for lane in match_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(player_id, []):
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			var immunities = card.get("grants_immunity", [])
+			if typeof(immunities) == TYPE_ARRAY and immunities.has(immunity_key):
+				return true
+	return false
 
 
 static func _get_max_magicka_cap(match_state: Dictionary) -> int:
