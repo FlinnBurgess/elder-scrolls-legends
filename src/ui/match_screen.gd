@@ -656,6 +656,27 @@ func start_puzzle_match(puzzle_state: Dictionary, puzzle_config: Dictionary = {}
 				"reason": "puzzle_starting_hand",
 				"timing_window": "after",
 			}])
+	# Emit creature_summoned events for all pre-placed lane creatures so that
+	# summon effects fire and lane effects (e.g. shadow lane cover) are applied.
+	for lane in puzzle_state.get("lanes", []):
+		var lane_id := str(lane.get("lane_id", ""))
+		var player_slots: Dictionary = lane.get("player_slots", {})
+		for pid in player_slots:
+			var slots: Array = player_slots[pid]
+			for slot_idx in range(slots.size()):
+				var creature = slots[slot_idx]
+				if typeof(creature) != TYPE_DICTIONARY:
+					continue
+				MatchTiming.publish_events(puzzle_state, [{
+					"event_type": MatchTiming.EVENT_CREATURE_SUMMONED,
+					"playing_player_id": str(pid),
+					"player_id": str(pid),
+					"source_instance_id": str(creature.get("instance_id", "")),
+					"source_controller_player_id": str(pid),
+					"lane_id": lane_id,
+					"slot_index": slot_idx,
+					"reason": "puzzle_starting_board",
+				}])
 	MatchTiming.publish_events(puzzle_state, [{
 		"event_type": MatchTiming.EVENT_TURN_STARTED,
 		"player_id": str(puzzle_state.get("active_player_id", "")),

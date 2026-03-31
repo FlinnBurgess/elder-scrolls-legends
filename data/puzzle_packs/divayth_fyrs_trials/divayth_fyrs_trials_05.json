@@ -2,52 +2,52 @@
   "name": "Shadowmere",
   "type": "kill",
   "lanes": [
-    {
-      "lane_type": "field",
-      "width": 4
-    },
-    {
-      "lane_type": "shadow",
-      "width": 4
-    }
+	{
+	  "lane_type": "field",
+	  "width": 4
+	},
+	{
+	  "lane_type": "shadow",
+	  "width": 4
+	}
   ],
   "player": {
-    "health": 1,
-    "max_magicka": 14,
-    "current_magicka": 14,
-    "has_ring": false,
-    "hand": [
-      "cwc_agi_back_alley_rogue",
-      "int_mentors_ring",
+	"health": 1,
+	"max_magicka": 14,
+	"current_magicka": 14,
+	"has_ring": false,
+	"hand": [
+	  "cwc_agi_back_alley_rogue",
+	  "int_mentors_ring",
       "db_neu_shadowmere"
-    ],
-    "deck": [],
-    "discard": [],
-    "supports": [
+	],
+	"deck": [],
+	"discard": [],
+	"supports": [
       "neu_orb_of_vaermina"
-    ],
-    "field_creatures": [],
-    "shadow_creatures": []
+	],
+	"field_creatures": [],
+	"shadow_creatures": []
   },
   "enemy": {
-    "health": 16,
-    "max_magicka": 3,
-    "current_magicka": 3,
-    "hand": [],
-    "deck": [],
-    "discard": [],
-    "supports": [],
-    "field_creatures": [
-      "int_elusive_schemer",
-      "end_watch_commander",
-      "end_watch_commander",
+	"health": 16,
+	"max_magicka": 3,
+	"current_magicka": 3,
+	"hand": [],
+	"deck": ["db_neu_shadowmere"],
+	"discard": [],
+	"supports": [],
+	"field_creatures": [
+	  "int_elusive_schemer",
+	  "end_watch_commander",
+	  "end_watch_commander",
       "end_watch_commander"
-    ],
-    "shadow_creatures": [
-      "wil_summerset_shieldmage",
-      "wil_summerset_shieldmage",
-      "agi_varanis_courier",
+	],
+	"shadow_creatures": [
+	  "wil_summerset_shieldmage",
+	  "wil_summerset_shieldmage",
+	  "agi_varanis_courier",
       "db_neu_gristlehide_dreugh"
-    ]
+	]
   }
 }
