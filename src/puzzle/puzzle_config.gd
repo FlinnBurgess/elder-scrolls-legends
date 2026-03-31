@@ -44,7 +44,7 @@ static func build_puzzle_match_state(config: Dictionary) -> Dictionary:
 	_reassign_instance_ids("player_2", e_hand_ids, e_deck_ids, e_field, e_shadow, e_discard_ids)
 
 	var p_runes := _runes_for_health(p_health)
-	var e_runes := _runes_for_health(e_health)
+	var e_runes := []  # Puzzles: enemy starts with no runes remaining
 
 	var p1 := _build_player("player_1", p_health, p_max_magicka, p_cur_magicka,
 		p_runes, has_ring, 3 if has_ring else 0, p_hand_ids, p_deck_ids, p_discard_ids)

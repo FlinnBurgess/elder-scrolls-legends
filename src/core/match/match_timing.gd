@@ -6623,6 +6623,16 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var ssid_template: Dictionary = effect.get("card_template", {})
 					if not ssid_template.is_empty():
 						MatchMutations.change_card(ssid_source, ssid_template)
+					var ssid_power_bonus := int(effect.get("stat_bonus_power", 0))
+					var ssid_health_bonus := int(effect.get("stat_bonus_health", 0))
+					var ssid_cost_increase := int(effect.get("cost_increase", 0))
+					if ssid_power_bonus != 0:
+						ssid_source["power_bonus"] = int(ssid_source.get("power_bonus", 0)) + ssid_power_bonus
+					if ssid_health_bonus != 0:
+						ssid_source["health_bonus"] = int(ssid_source.get("health_bonus", 0)) + ssid_health_bonus
+					if ssid_cost_increase != 0:
+						ssid_source["cost"] = int(ssid_source.get("cost", 0)) + ssid_cost_increase
+					EvergreenRules.sync_derived_state(ssid_source)
 					var ssid_move := MatchMutations.move_card_to_zone(match_state, ssid_source_id, ZONE_DECK, {"reason": reason})
 					generated_events.append_array(ssid_move.get("events", []))
 					var ssid_player := _get_player_state(match_state, ssid_controller)
