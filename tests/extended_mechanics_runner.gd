@@ -65,7 +65,9 @@ func _run_all_tests() -> bool:
 		_test_unstoppable_rage_deal_damage_to_lane() and
 		_test_dark_rebirth_sacrifice_and_resummon() and
 		_test_recall_and_resummon_preserves_state_triggers_summon() and
-		_test_trial_of_flame_destroy_all_except_strongest()
+		_test_trial_of_flame_destroy_all_except_strongest() and
+		_test_vivec_cannot_lose_expires_on_exalted_death() and
+		_test_vivec_cannot_lose_expires_on_silence()
 	)
 
 
@@ -2617,3 +2619,52 @@ func _test_trial_of_flame_destroy_all_except_strongest() -> bool:
 	if not _assert(str(ow1_loc.get("zone", "")) == "discard", "Trial of Flame: opponent's weaker creature should be destroyed."):
 		return false
 	return _assert(str(ow2_loc.get("zone", "")) == "discard", "Trial of Flame: opponent's second weaker creature should be destroyed.")
+
+
+func _test_vivec_cannot_lose_expires_on_exalted_death() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Summon Vivec with cannot_lose passive
+	ScenarioFixtures.summon_creature(player, match_state, "vivec", "field", 5, 5, [], -1, {
+		"passive_abilities": [{"type": "cannot_lose", "condition": "has_exalted_creature"}],
+	})
+	# Summon an exalted creature
+	var exalted := ScenarioFixtures.summon_creature(player, match_state, "exalted_creature", "field", 3, 3)
+	EvergreenRules.add_status(exalted, EvergreenRules.STATUS_EXALTED)
+	var exalted_id := str(exalted.get("instance_id", ""))
+	# Set player health to 0 — cannot_lose should prevent loss
+	player["health"] = 0
+	player["rune_thresholds"] = []
+	if not _assert(str(match_state.get("winner_player_id", "")).is_empty(), "Vivec: no winner yet while exalted creature lives."):
+		return false
+	# Destroy the exalted creature
+	MatchMutations.discard_card(match_state, exalted_id)
+	var events: Array = [{"event_type": "creature_destroyed", "instance_id": exalted_id, "controller_player_id": pid}]
+	MatchTiming.publish_events(match_state, events)
+	return _assert(str(match_state.get("winner_player_id", "")) == oid, "Vivec: player should lose after exalted creature is destroyed at 0 HP.")
+
+
+func _test_vivec_cannot_lose_expires_on_silence() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Summon Vivec with cannot_lose passive
+	ScenarioFixtures.summon_creature(player, match_state, "vivec", "field", 5, 5, [], -1, {
+		"passive_abilities": [{"type": "cannot_lose", "condition": "has_exalted_creature"}],
+	})
+	# Summon an exalted creature
+	var exalted := ScenarioFixtures.summon_creature(player, match_state, "exalted_creature", "field", 3, 3)
+	EvergreenRules.add_status(exalted, EvergreenRules.STATUS_EXALTED)
+	# Set player health to 0
+	player["health"] = 0
+	player["rune_thresholds"] = []
+	# Silence the exalted creature — exalted status is suppressed
+	MatchMutations.silence_card(exalted, {}, match_state)
+	var events: Array = [{"event_type": "card_silenced", "source_instance_id": str(exalted.get("instance_id", ""))}]
+	MatchTiming.publish_events(match_state, events)
+	return _assert(str(match_state.get("winner_player_id", "")) == oid, "Vivec: player should lose after only exalted creature is silenced at 0 HP.")

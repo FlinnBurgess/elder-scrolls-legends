@@ -19,9 +19,17 @@ run/main_scene="res://scenes/bootstrap/bootstrap.tscn"
 config/features=PackedStringArray("4.6")
 config/icon="res://icon.svg"
 
+[autoload]
+
+PeekRuntimeHelper="*res://addons/godot_mcp/peek_runtime_helper.gd"
+
 [display]
 
 window/size/mode=2
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot_mcp/plugin.cfg")
 
 [network]
 

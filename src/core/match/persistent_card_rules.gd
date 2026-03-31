@@ -195,6 +195,9 @@ static func play_item_from_hand(match_state: Dictionary, player_id: String, inst
 	MatchTiming._check_consume_abilities(match_state, attach_result["card"])
 	# Check for on_play targeted abilities (e.g., Mace of Encumbrance shackle)
 	_check_item_on_play_target_mode(match_state, attach_result["card"])
+	# Process deferred item target checks (e.g., copies from Gardener of Swords)
+	# so they queue AFTER the original item's targeting.
+	_flush_deferred_item_target_checks(match_state)
 	return {"is_valid": true, "errors": [], "card": attach_result["card"], "host": attach_result["host"], "events": timing_result.get("processed_events", []), "trigger_resolutions": timing_result.get("trigger_resolutions", [])}
 
 
@@ -670,6 +673,16 @@ static func _check_item_on_play_target_mode(match_state: Dictionary, item_card: 
 		"mandatory": true,
 		"allowed_families": ["on_play"],
 	})
+
+
+static func _flush_deferred_item_target_checks(match_state: Dictionary) -> void:
+	var deferred: Array = match_state.get("_deferred_item_target_checks", [])
+	if deferred.is_empty():
+		return
+	match_state["_deferred_item_target_checks"] = []
+	for item_card in deferred:
+		if typeof(item_card) == TYPE_DICTIONARY:
+			_check_item_on_play_target_mode(match_state, item_card)
 
 
 static func _invalid_result(message: String) -> Dictionary:

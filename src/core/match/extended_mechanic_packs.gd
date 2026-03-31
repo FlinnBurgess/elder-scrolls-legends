@@ -1435,12 +1435,24 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			return {"handled": true, "events": grsh_events}
 		"win_game_if_all_attributes":
 			var wgiaa_controller := str(trigger.get("controller_player_id", ""))
+			var wgiaa_seed_lookup: Dictionary = {}
+			for wgiaa_seed in CardCatalog._card_seeds():
+				if typeof(wgiaa_seed) == TYPE_DICTIONARY:
+					wgiaa_seed_lookup[str(wgiaa_seed.get("card_id", ""))] = wgiaa_seed
 			var wgiaa_found: Dictionary = {}
 			for lane in match_state.get("lanes", []):
 				for card in lane.get("player_slots", {}).get(wgiaa_controller, []):
 					if typeof(card) == TYPE_DICTIONARY:
-						for attr in card.get("attributes", []):
+						var wgiaa_def_id := str(card.get("definition_id", ""))
+						var wgiaa_seed: Dictionary = wgiaa_seed_lookup.get(wgiaa_def_id, {})
+						for attr in wgiaa_seed.get("attributes", []):
 							wgiaa_found[str(attr)] = true
+						for wgiaa_item in card.get("attached_items", []):
+							if typeof(wgiaa_item) == TYPE_DICTIONARY:
+								var wgiaa_item_def := str(wgiaa_item.get("definition_id", ""))
+								var wgiaa_item_seed: Dictionary = wgiaa_seed_lookup.get(wgiaa_item_def, {})
+								for attr in wgiaa_item_seed.get("attributes", []):
+									wgiaa_found[str(attr)] = true
 			var wgiaa_all := wgiaa_found.has("strength") and wgiaa_found.has("intelligence") and wgiaa_found.has("willpower") and wgiaa_found.has("agility") and wgiaa_found.has("endurance")
 			if wgiaa_all:
 				match_state["winner_player_id"] = wgiaa_controller
@@ -2397,6 +2409,22 @@ static func apply_hand_selection_effect(match_state: Dictionary, player_id: Stri
 				sbc_deck.insert(sbc_insert, sbc_copy)
 			sbc_events.append({"event_type": "copies_shuffled_to_deck", "player_id": player_id, "source_instance_id": source_instance_id, "chosen_instance_id": str(chosen_card.get("instance_id", "")), "count": sbc_count, "power_bonus": sbc_power, "health_bonus": sbc_health})
 			return sbc_events
+		"discard":
+			var disc_player := _get_player_state(match_state, player_id)
+			if disc_player.is_empty():
+				return []
+			var disc_hand: Array = disc_player.get("hand", [])
+			var disc_idx := -1
+			for i in range(disc_hand.size()):
+				if typeof(disc_hand[i]) == TYPE_DICTIONARY and str(disc_hand[i].get("instance_id", "")) == str(chosen_card.get("instance_id", "")):
+					disc_idx = i
+					break
+			if disc_idx >= 0:
+				var disc_removed: Dictionary = disc_hand[disc_idx]
+				disc_hand.remove_at(disc_idx)
+				disc_removed["zone"] = "discard"
+				disc_player.get("discard", []).append(disc_removed)
+			return [{"event_type": "card_discarded", "player_id": player_id, "source_instance_id": source_instance_id, "discarded_instance_id": str(chosen_card.get("instance_id", "")), "source": "hand_selection", "reason": "hand_selection_discard"}]
 		"trade_for_opponent_deck":
 			var tfo_opponent := ""
 			for player in match_state.get("players", []):

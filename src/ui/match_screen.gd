@@ -111,6 +111,7 @@ var _detached_card_state := {}
 var _insertion_preview := {}
 var _targeting_arrow_state := {}
 var _targeting_arrow: Line2D
+var _host_arrow_instance_id := ""
 var _pending_summon_target := {}
 var _pending_secondary_target_state := {}
 var _pending_end_turn := false
@@ -8159,6 +8160,9 @@ func _update_targeting_arrow(mouse_pos: Vector2) -> void:
 	var origin: Vector2 = _targeting_arrow_state.get("origin", Vector2.ZERO)
 	var arrow_instance_id: String = str(_targeting_arrow_state.get("instance_id", ""))
 	var arrow_button: Button = _card_buttons.get(arrow_instance_id)
+	# For attached items (no own button), track the host creature's button instead.
+	if arrow_button == null and not _host_arrow_instance_id.is_empty():
+		arrow_button = _card_buttons.get(_host_arrow_instance_id)
 	if arrow_button != null and is_instance_valid(arrow_button):
 		var card_size: Vector2 = arrow_button.get_meta("card_size", arrow_button.size)
 		origin = arrow_button.global_position + Vector2(card_size.x * 0.5, 0.0)
@@ -8201,17 +8205,16 @@ func _enter_targeting_mode(instance_id: String) -> void:
 		arrow_origin = card_pos + Vector2(card_size.x * 0.5, 0.0)
 	else:
 		# Card has no visible button (e.g. an item just equipped to a creature).
-		# Use the host creature's button position as the arrow origin.
+		# Store the host creature's instance_id so _update_targeting_arrow can
+		# dynamically track the host button (global_position isn't valid on the
+		# same frame buttons are created, so we can't read it here).
 		var location := MatchMutations.find_card_location(_match_state, instance_id)
-		var host_button: Button = null
 		if str(location.get("zone", "")) == MatchMutations.ZONE_ATTACHED_ITEM:
 			var host_card: Dictionary = location.get("host_card", {})
-			host_button = _card_buttons.get(str(host_card.get("instance_id", "")))
-		if host_button != null:
-			var host_pos := host_button.global_position
-			var host_size: Vector2 = host_button.get_meta("card_size", host_button.size)
-			arrow_origin = host_pos + Vector2(host_size.x * 0.5, 0.0)
-		else:
+			var host_id := str(host_card.get("instance_id", ""))
+			if not host_id.is_empty():
+				_host_arrow_instance_id = host_id
+		if _host_arrow_instance_id.is_empty():
 			var viewport_size := get_viewport_rect().size
 			arrow_origin = Vector2(viewport_size.x * 0.5, viewport_size.y * 0.5)
 	_targeting_arrow = _create_targeting_arrow()
@@ -8268,6 +8271,7 @@ func _cancel_targeting_mode_silent() -> void:
 		_targeting_arrow.queue_free()
 	_targeting_arrow = null
 	_targeting_arrow_state = {}
+	_host_arrow_instance_id = ""
 
 
 # --- Summon target choice ---

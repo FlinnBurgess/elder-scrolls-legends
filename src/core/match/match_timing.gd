@@ -2845,6 +2845,9 @@ static func append_match_win_if_needed(match_state: Dictionary, loser_player_id:
 	_resolve_health_zero_triggers(match_state, loser_player_id, events)
 	if int(losing_player.get("health", 0)) > 0:
 		return
+	# Check for "cannot_lose" passive (e.g. Vivec) — skip win declaration if condition is met
+	if _has_cannot_lose_passive(match_state, loser_player_id):
+		return
 	match_state["winner_player_id"] = winner_player_id
 	events.append({
 		"event_type": "match_won",
@@ -2925,6 +2928,50 @@ static func _resolve_health_zero_triggers(match_state: Dictionary, player_id: St
 				return
 
 
+static func _has_cannot_lose_passive(match_state: Dictionary, player_id: String) -> bool:
+	# Scan all friendly lane creatures and supports for a "cannot_lose" passive whose condition is met.
+	for lane in match_state.get("lanes", []):
+		var slots = lane.get("player_slots", {}).get(player_id, [])
+		for card in slots:
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			var passives = card.get("passive_abilities", [])
+			if typeof(passives) != TYPE_ARRAY:
+				continue
+			for p in passives:
+				if typeof(p) != TYPE_DICTIONARY or str(p.get("type", "")) != "cannot_lose":
+					continue
+				var condition := str(p.get("condition", ""))
+				if condition == "has_exalted_creature":
+					if _has_friendly_exalted_creature(match_state, player_id):
+						return true
+				elif condition.is_empty():
+					return true
+	return false
+
+
+static func _has_friendly_exalted_creature(match_state: Dictionary, player_id: String) -> bool:
+	for lane in match_state.get("lanes", []):
+		var slots = lane.get("player_slots", {}).get(player_id, [])
+		for card in slots:
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			if EvergreenRules.has_status(card, EvergreenRules.STATUS_EXALTED):
+				return true
+	return false
+
+
+static func _recheck_cannot_lose(match_state: Dictionary, player_id: String, events: Array) -> void:
+	if player_id.is_empty() or not str(match_state.get("winner_player_id", "")).is_empty():
+		return
+	var player := _get_player_state(match_state, player_id)
+	if player.is_empty() or int(player.get("health", 0)) > 0:
+		return
+	if not _has_cannot_lose_passive(match_state, player_id):
+		var winner := _get_opposing_player_id(match_state.get("players", []), player_id)
+		append_match_win_if_needed(match_state, player_id, winner, events)
+
+
 static func publish_events(match_state: Dictionary, events: Array, context: Dictionary = {}) -> Dictionary:
 	ensure_match_state(match_state)
 	var queue: Array = match_state["pending_event_queue"]
@@ -2958,6 +3005,14 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 				var rs_controller := str(rs_card.get("_resummon_controller", rs_card.get("controller_player_id", "")))
 				var rs_lane_id := str(event.get("lane_id", ""))
 				queue.append(_normalize_event(match_state, {"event_type": "resummon_pending", "definition_id": str(rs_card.get("definition_id", "")), "name": str(rs_card.get("name", "")), "controller_player_id": rs_controller, "lane_id": rs_lane_id, "cost": int(rs_card.get("cost", 0)), "rules_text": str(rs_card.get("rules_text", ""))}, {}))
+			# Re-check loss condition: if an exalted creature dies, a "cannot_lose" passive
+			# may no longer be satisfied, so the controller at 0 HP should now lose.
+			_recheck_cannot_lose(match_state, str(event.get("controller_player_id", "")), processed_events)
+		# Silence can suppress exalted status, invalidating "cannot_lose" condition
+		if str(event.get("event_type", "")) == "card_silenced":
+			var cs_card := _find_card_anywhere(match_state, str(event.get("source_instance_id", "")))
+			if not cs_card.is_empty():
+				_recheck_cannot_lose(match_state, str(cs_card.get("controller_player_id", "")), processed_events)
 		# Process pending resummons
 		if str(event.get("event_type", "")) == "resummon_pending":
 			var rs_template := {"definition_id": str(event.get("definition_id", "")), "name": str(event.get("name", "")), "card_type": "creature", "power": 1, "health": 1, "base_power": 1, "base_health": 1, "cost": int(event.get("cost", 0)), "rules_text": str(event.get("rules_text", ""))}
@@ -5965,6 +6020,42 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						generated_events.append_array(rar_summon.get("events", []))
 						generated_events.append(_build_summon_event(rar_summon["card"], rar_controller, rar_dest_lane, int(rar_summon.get("slot_index", -1)), "recall_and_resummon"))
 						_check_summon_abilities(match_state, rar_summon["card"])
+			"equip_copy_of_item":
+				# Copy the item that was just equipped (from the card_equipped event) onto the target(s).
+				# Used by Gardener of Swords: "When you equip an item to another creature, equip a copy to Gardener."
+				var ecoi_item_id := str(event.get("source_instance_id", ""))
+				var ecoi_equip_target := str(event.get("target_instance_id", ""))
+				var ecoi_targets := _resolve_card_targets(match_state, trigger, event, effect)
+				if ecoi_item_id.is_empty():
+					continue
+				# Find the original item to get its definition_id for building a copy
+				var ecoi_location := MatchMutations.find_card_location(match_state, ecoi_item_id)
+				var ecoi_item: Dictionary = ecoi_location.get("card", {}) if bool(ecoi_location.get("is_valid", false)) else {}
+				if ecoi_item.is_empty():
+					continue
+				var ecoi_def_id := str(ecoi_item.get("definition_id", ""))
+				if ecoi_def_id.is_empty():
+					continue
+				for card in ecoi_targets:
+					# Skip if this target is the creature that was already equipped (the "another creature" clause)
+					if str(card.get("instance_id", "")) == ecoi_equip_target:
+						continue
+					var ecoi_controller := str(card.get("controller_player_id", trigger.get("controller_player_id", "")))
+					var ecoi_template := {"definition_id": ecoi_def_id}
+					# Copy stat bonuses and keywords from the original item
+					for key in ["name", "card_type", "cost", "equip_power_bonus", "equip_health_bonus", "equip_keywords", "keywords", "rules_text", "subtypes", "attributes", "art_path"]:
+						if ecoi_item.has(key):
+							ecoi_template[key] = ecoi_item[key]
+					var ecoi_copy := MatchMutations.build_generated_card(match_state, ecoi_controller, ecoi_template)
+					var ecoi_result := MatchMutations.attach_item_to_creature(match_state, ecoi_controller, ecoi_copy, str(card.get("instance_id", "")), {"source_zone": MatchMutations.ZONE_GENERATED})
+					if bool(ecoi_result.get("is_valid", false)):
+						generated_events.append_array(ecoi_result.get("events", []))
+						generated_events.append({"event_type": "item_equipped", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "item_instance_id": str(ecoi_copy.get("instance_id", "")), "reason": reason})
+						# Defer the copied item's on_play target mode check so it queues AFTER
+						# the original item's check (preserving correct targeting order).
+						var deferred: Array = match_state.get("_deferred_item_target_checks", [])
+						deferred.append(ecoi_copy)
+						match_state["_deferred_item_target_checks"] = deferred
 			"equip_item", "equip_generated_item":
 				var ei_template_raw = effect.get("card_template", {})
 				var ei_template: Dictionary = ei_template_raw if typeof(ei_template_raw) == TYPE_DICTIONARY else {}
@@ -7390,6 +7481,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						"lane_id": tafs_lane_id,
 						"reason": "trigger_all_friendly_summons",
 					})
+					_check_summon_abilities(match_state, card)
 			"sacrifice_and_summon_from_deck":
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					var sasd_controller_id := str(card.get("controller_player_id", ""))
