@@ -4901,7 +4901,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
 					if _is_immune_to_effect(match_state, card, "silence"):
 						continue
-					var silence_result := MatchMutations.silence_card(card, {"reason": reason})
+					var silence_result := MatchMutations.silence_card(card, {"reason": reason}, match_state)
 					generated_events.append_array(silence_result.get("events", []))
 			"shackle":
 				for card in _resolve_card_targets(match_state, trigger, event, effect):
@@ -5529,6 +5529,20 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						MatchMutations.restore_definition_state(actual_item)
 						var attach_result := MatchMutations.attach_item_to_creature(match_state, player_id, actual_item, str(equip_self.get("instance_id", "")), {"source_zone": ZONE_DISCARD})
 						if bool(attach_result.get("is_valid", false)):
+							generated_events.append({
+								"event_type": EVENT_CARD_PLAYED,
+								"playing_player_id": player_id,
+								"player_id": player_id,
+								"source_instance_id": str(actual_item.get("instance_id", "")),
+								"source_controller_player_id": player_id,
+								"source_zone": ZONE_DISCARD,
+								"target_zone": "attached_item",
+								"target_instance_id": str(equip_self.get("instance_id", "")),
+								"card_type": CARD_TYPE_ITEM,
+								"played_cost": int(actual_item.get("cost", 0)),
+								"played_for_free": true,
+								"reason": "equip_from_discard",
+							})
 							generated_events.append_array(attach_result.get("events", []))
 							equipped += 1
 			"shuffle_hand_to_deck_and_draw":
@@ -6351,6 +6365,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 								tsa_trigger["source_instance_id"] = str(card.get("instance_id", ""))
 								tsa_trigger["controller_player_id"] = str(card.get("controller_player_id", ""))
 								tsa_trigger["lane_index"] = int(tsa_loc.get("lane_index", -1))
+								tsa_trigger["descriptor"] = ability.duplicate(true)
 								var tsa_resolution := {"effects": tsa_trigger.get("effects", [])}
 								generated_events.append_array(_apply_effects(match_state, tsa_trigger, tsa_fake_event, tsa_resolution))
 							break
