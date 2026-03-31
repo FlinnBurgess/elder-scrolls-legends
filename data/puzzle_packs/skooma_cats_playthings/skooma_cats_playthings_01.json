@@ -2,46 +2,46 @@
   "name": "Prey",
   "type": "kill",
   "lanes": [
-    {
-      "lane_type": "field",
-      "width": 4
-    },
-    {
-      "lane_type": "shadow",
-      "width": 4
-    }
+	{
+	  "lane_type": "field",
+	  "width": 4
+	},
+	{
+	  "lane_type": "shadow",
+	  "width": 4
+	}
   ],
   "player": {
-    "health": 1,
-    "max_magicka": 18,
-    "current_magicka": 18,
-    "has_ring": false,
-    "hand": [
-      "iom_agi_preying_elytra",
-      "str_morkul_gatekeeper",
-      "hos_str_duel_atop_the_world",
+	"health": 1,
+	"max_magicka": 18,
+	"current_magicka": 18,
+	"has_ring": false,
+	"hand": [
+	  "iom_agi_preying_elytra",
+	  "str_morkul_gatekeeper",
+	  "hos_str_duel_atop_the_world",
       "hom_str_fighters_guild_steward"
-    ],
-    "deck": [],
-    "discard": [],
-    "supports": [],
-    "field_creatures": [
+	],
+	"deck": ["hom_end_vvardvark", "hom_end_vvardvark", "hom_end_vvardvark", "hom_end_vvardvark", "hom_end_vvardvark", "hom_end_vvardvark"],
+	"discard": [],
+	"supports": [],
+	"field_creatures": [
       "cwc_int_arcanaeum_librarian"
-    ],
-    "shadow_creatures": []
+	],
+	"shadow_creatures": []
   },
   "enemy": {
-    "health": 4,
-    "max_magicka": 3,
-    "current_magicka": 3,
-    "hand": [],
-    "deck": [],
-    "discard": [],
-    "supports": [],
-    "field_creatures": [
-      "end_deadly_draugr",
+	"health": 4,
+	"max_magicka": 3,
+	"current_magicka": 3,
+	"hand": [],
+	"deck": [],
+	"discard": [],
+	"supports": [],
+	"field_creatures": [
+	  "end_deadly_draugr",
       "neu_portcullis"
-    ],
-    "shadow_creatures": []
+	],
+	"shadow_creatures": []
   }
 }

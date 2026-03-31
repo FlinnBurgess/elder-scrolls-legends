@@ -656,7 +656,7 @@ static func resolve_targeted_effect(match_state: Dictionary, source_instance_id:
 		var primary_events: Array = []
 		var primary_resolutions: Array = []
 		var effects: Array = matching_ability.get("effects", [])
-		if not effects.is_empty():
+		if effects.size() > 1:
 			var primary_effect: Dictionary = effects[0].duplicate(true) if typeof(effects[0]) == TYPE_DICTIONARY else {}
 			var src_loc := MatchMutations.find_card_location(match_state, source_instance_id)
 			var primary_trigger := {
@@ -710,7 +710,8 @@ static func resolve_targeted_effect(match_state: Dictionary, source_instance_id:
 		"_chosen_target_player_id": chosen_player_id if not chosen_player_id.is_empty() else "",
 	}
 	# Inject primary target if this is a secondary target resolution —
-	# only fire the secondary effect (primary was already fired on first pick)
+	# for multi-effect abilities, trim to secondary effects only (primary was fired on first pick);
+	# for single-effect abilities, keep all effects (primary was skipped on first pick)
 	var primary_id = source_card.get("_primary_target_id", "")
 	if typeof(primary_id) == TYPE_STRING and not primary_id.is_empty():
 		trigger["_primary_target_id"] = primary_id
@@ -6124,7 +6125,8 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						var patched := trigger.duplicate(true)
 						patched["source_instance_id"] = str(attacker.get("instance_id", ""))
 						patched["_chosen_target_id"] = str(best_enemy.get("instance_id", ""))
-						generated_events.append_array(_apply_effects(match_state, patched, event, {"effects": [{"op": "battle_creature", "target": "chosen_target"}]}))
+						patched["descriptor"] = {"effects": [{"op": "battle_creature", "target": "chosen_target"}]}
+						generated_events.append_array(_apply_effects(match_state, patched, event, {}))
 			"battle_random_enemy":
 				for attacker in _resolve_card_targets(match_state, trigger, event, effect):
 					var bre_controller := str(attacker.get("controller_player_id", ""))
@@ -6141,7 +6143,8 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						var patched := trigger.duplicate(true)
 						patched["source_instance_id"] = str(attacker.get("instance_id", ""))
 						patched["_chosen_target_id"] = str(pick.get("instance_id", ""))
-						generated_events.append_array(_apply_effects(match_state, patched, event, {"effects": [{"op": "battle_creature", "target": "chosen_target"}]}))
+						patched["descriptor"] = {"effects": [{"op": "battle_creature", "target": "chosen_target"}]}
+						generated_events.append_array(_apply_effects(match_state, patched, event, {}))
 			"conditional_double_stat":
 				var cds_stat := str(effect.get("stat", "both"))
 				var cds_required_attr := str(effect.get("required_friendly_attribute", ""))
