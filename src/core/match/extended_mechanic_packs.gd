@@ -925,6 +925,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				return {"handled": true, "events": []}
 			var srfd_events: Array = srfd_result.get("events", []).duplicate()
 			srfd_events.append(_timing_rules()._build_summon_event(srfd_result["card"], srfd_controller_id, srfd_lane_id, int(srfd_result.get("slot_index", -1)), "summon_from_deck"))
+			_timing_rules()._check_summon_abilities(match_state, srfd_result["card"])
 			return {"handled": true, "events": srfd_events}
 		"summon_random_by_target_cost":
 			var srbtc_exact_cost := int(effect.get("target_cost", -1))

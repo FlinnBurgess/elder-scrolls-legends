@@ -2140,6 +2140,12 @@ static func resolve_pending_deck_selection(match_state: Dictionary, player_id: S
 				"card_type": "support",
 				"reason": str(then_context.get("reason", "deck_selection")),
 			})
+		"draw_card_to_hand":
+			deck.remove_at(chosen_idx)
+			chosen_card["zone"] = ZONE_HAND
+			var dch_hand: Array = player.get(ZONE_HAND, [])
+			dch_hand.append(chosen_card)
+			generated_events.append({"event_type": "card_drawn", "player_id": player_id, "instance_id": str(chosen_card.get("instance_id", "")), "source": "draw_from_deck_filtered", "reason": str(then_context.get("reason", "deck_selection"))})
 		"summon_creature_from_deck":
 			deck.remove_at(chosen_idx)
 			chosen_card.erase("zone")
@@ -6393,13 +6399,27 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 						if dfdf_match:
 							dfdf_candidates.append(di)
 					if not dfdf_candidates.is_empty():
-						var pick_idx: int = dfdf_candidates[_deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_dfdf", dfdf_candidates.size())]
-						var drawn: Dictionary = dfdf_deck[pick_idx]
-						dfdf_deck.remove_at(pick_idx)
-						drawn["zone"] = ZONE_HAND
-						var dfdf_hand: Array = dfdf_player.get(ZONE_HAND, [])
-						dfdf_hand.append(drawn)
-						generated_events.append({"event_type": "card_drawn", "player_id": player_id, "instance_id": str(drawn.get("instance_id", "")), "source": "draw_from_deck_filtered", "reason": reason})
+						var dfdf_is_player_choice := bool(effect.get("player_choice", false))
+						if dfdf_is_player_choice:
+							var dfdf_candidate_ids: Array = []
+							for dfdf_ci in dfdf_candidates:
+								dfdf_candidate_ids.append(str(dfdf_deck[dfdf_ci].get("instance_id", "")))
+							match_state["pending_deck_selections"].append({
+								"player_id": player_id,
+								"source_instance_id": str(trigger.get("source_instance_id", "")),
+								"candidate_instance_ids": dfdf_candidate_ids,
+								"then_op": "draw_card_to_hand",
+								"then_context": {"reason": reason},
+								"prompt": "Choose a card to draw.",
+							})
+						else:
+							var pick_idx: int = dfdf_candidates[_deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_dfdf", dfdf_candidates.size())]
+							var drawn: Dictionary = dfdf_deck[pick_idx]
+							dfdf_deck.remove_at(pick_idx)
+							drawn["zone"] = ZONE_HAND
+							var dfdf_hand: Array = dfdf_player.get(ZONE_HAND, [])
+							dfdf_hand.append(drawn)
+							generated_events.append({"event_type": "card_drawn", "player_id": player_id, "instance_id": str(drawn.get("instance_id", "")), "source": "draw_from_deck_filtered", "reason": reason})
 			"draw_specific_from_deck":
 				var dsfd_source_id := str(trigger.get("source_instance_id", ""))
 				var dsfd_controller := str(trigger.get("controller_player_id", ""))

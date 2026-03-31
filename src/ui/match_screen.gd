@@ -117,6 +117,7 @@ var _pending_secondary_target_state := {}
 var _pending_end_turn := false
 var _pending_end_turn_player_id := ""
 var _pending_betray := {}
+var _deferred_betray := {}
 var _betray_skip_button: Button = null
 var _betray_prompt_label: Label = null
 var _pending_sacrifice_summon := {}
@@ -8338,9 +8339,11 @@ func _resolve_summon_target_card(target_instance_id: String) -> void:
 	elif is_effect_summon:
 		var result := MatchTiming.resolve_pending_summon_effect_target(_match_state, _local_player_id(), {"target_instance_id": target_instance_id})
 		_finalize_engine_result(result, "Targeted %s." % _card_name(_card_from_instance_id(target_instance_id)))
+		_check_deferred_betray()
 	else:
 		var result := MatchTiming.resolve_targeted_effect(_match_state, source_id, {"target_instance_id": target_instance_id})
 		_finalize_engine_result(result, "Targeted %s." % _card_name(_card_from_instance_id(target_instance_id)))
+		_check_deferred_betray()
 
 
 func _resolve_summon_target_player(player_id: String) -> void:
@@ -8366,9 +8369,11 @@ func _resolve_summon_target_player(player_id: String) -> void:
 	elif is_effect_summon:
 		var result := MatchTiming.resolve_pending_summon_effect_target(_match_state, _local_player_id(), {"target_player_id": player_id})
 		_finalize_engine_result(result, "Targeted %s." % _player_name(player_id))
+		_check_deferred_betray()
 	else:
 		var result := MatchTiming.resolve_targeted_effect(_match_state, source_id, {"target_player_id": player_id})
 		_finalize_engine_result(result, "Targeted %s." % _player_name(player_id))
+		_check_deferred_betray()
 
 
 func _is_pending_summon_mandatory() -> bool:
@@ -8398,6 +8403,7 @@ func _cancel_summon_target_mode() -> void:
 	_refresh_ui()
 	if is_turn_trigger:
 		_check_pending_turn_trigger_target()
+	_check_deferred_betray()
 
 
 func _check_pending_secondary_target() -> void:
@@ -8597,6 +8603,10 @@ func _check_pending_turn_trigger_target() -> void:
 func _check_betray_mode(action_instance_id: String, action_card: Dictionary) -> void:
 	if not ExtendedMechanicPacks.action_has_betray(_match_state, _active_player_id(), action_card):
 		return
+	# Defer betray until pending summon effect targets are resolved
+	if not _pending_summon_target.is_empty() or MatchTiming.has_pending_summon_effect_target(_match_state, _local_player_id()):
+		_deferred_betray = {"action_instance_id": action_instance_id, "action_card": action_card.duplicate(true)}
+		return
 	# Re-fetch the card from discard to pick up shout upgrades that occurred during resolution
 	for _p in _match_state.get("players", []):
 		if str(_p.get("player_id", "")) == _active_player_id():
@@ -8628,6 +8638,16 @@ func _check_betray_mode(action_instance_id: String, action_card: Dictionary) -> 
 	var card_name := str(action_card.get("name", ""))
 	_status_message = "Sacrifice a creature to play %s again." % card_name
 	_refresh_ui()
+
+
+func _check_deferred_betray() -> void:
+	if _deferred_betray.is_empty():
+		return
+	if not _pending_summon_target.is_empty() or MatchTiming.has_pending_summon_effect_target(_match_state, _local_player_id()):
+		return
+	var deferred := _deferred_betray
+	_deferred_betray = {}
+	_check_betray_mode(str(deferred.get("action_instance_id", "")), deferred.get("action_card", {}))
 
 
 func _action_has_event_lane_targets(action_card: Dictionary) -> bool:
