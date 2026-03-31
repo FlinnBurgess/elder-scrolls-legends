@@ -64,6 +64,7 @@ func _run_all_tests() -> bool:
 		_test_guess_opponent_card_varies_per_instance() and
 		_test_unstoppable_rage_deal_damage_to_lane() and
 		_test_dark_rebirth_sacrifice_and_resummon() and
+		_test_recall_and_resummon_preserves_state_triggers_summon() and
 		_test_trial_of_flame_destroy_all_except_strongest()
 	)
 
@@ -2530,6 +2531,52 @@ func _test_dark_rebirth_sacrifice_and_resummon() -> bool:
 		_assert(EvergreenRules.get_power(copy) == 3, "Dark Rebirth: copy should have original base power (3).") and
 		_assert(EvergreenRules.get_health(copy) == 3, "Dark Rebirth: copy should have original base health (3).")
 	)
+
+
+func _test_recall_and_resummon_preserves_state_triggers_summon() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Summon a creature with a summon ability (draw a card) in field lane
+	var target := ScenarioFixtures.summon_creature(player, match_state, "recall_target", "field", 2, 3, [], -1, {
+		"definition_id": "test_recall_creature",
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_SUMMON, "effects": [{"op": "draw", "target": "friendly_player", "count": 1}]}],
+	})
+	var target_id := str(target.get("instance_id", ""))
+	if not _assert(not target.is_empty(), "Recall test: target creature should be summoned."):
+		return false
+	# Apply a stat buff to verify state preservation
+	EvergreenRules.apply_stat_bonus(target, 3, 2)
+	var power_before: int = EvergreenRules.get_power(target)
+	var health_before: int = EvergreenRules.get_health(target)
+	# Seed a card so the summon draw has something to draw
+	ScenarioFixtures.set_deck_cards(player, [ScenarioFixtures.make_card(pid, "draw_fodder", {"card_type": "action", "cost": 0})])
+	var hand_before: int = player.get("hand", []).size()
+	# Play recall_and_resummon targeting the creature
+	var action := ScenarioFixtures.add_hand_card(player, "recall_action", {
+		"card_type": "action", "cost": 0,
+		"action_target_mode": "friendly_creature",
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "effects": [{"op": "recall_and_resummon", "target": "event_target"}]}],
+	})
+	var result := MatchTiming.play_action_from_hand(match_state, pid, str(action.get("instance_id", "")), {"target_instance_id": target_id})
+	if not _assert(bool(result.get("is_valid", false)), "Recall and resummon action should be playable."):
+		return false
+	# Creature should now be in shadow lane (opposite of field)
+	var loc := MatchMutations.find_card_location(match_state, target_id)
+	if not _assert(str(loc.get("lane_id", "")) == "shadow", "Recall: creature should be in opposite lane (shadow)."):
+		return false
+	# Same instance — not a copy
+	if not _assert(str(loc.get("zone", "")) == "lane", "Recall: creature should still be on the board."):
+		return false
+	# Stat buffs preserved
+	if not _assert(EvergreenRules.get_power(target) == power_before, "Recall: power buff should be preserved (%d)." % power_before):
+		return false
+	if not _assert(EvergreenRules.get_health(target) == health_before, "Recall: health buff should be preserved (%d)." % health_before):
+		return false
+	# Summon ability should have triggered (drew a card)
+	var hand_after: int = player.get("hand", []).size()
+	# hand_before includes the action card we added, which was consumed, so net is: hand_before - 1 (action played) + 1 (drawn) = hand_before
+	return _assert(hand_after == hand_before, "Recall: summon ability should trigger, drawing a card (hand: %d -> %d, expected %d)." % [hand_before, hand_after, hand_before])
 
 
 func _test_trial_of_flame_destroy_all_except_strongest() -> bool:

@@ -5947,6 +5947,24 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 								generated_events.append_array(sar_summon.get("events", []))
 								generated_events.append(_build_summon_event(sar_summon["card"], sar_controller, sar_lane_id, int(sar_summon.get("slot_index", -1)), "sacrifice_and_resummon"))
 								_check_summon_abilities(match_state, sar_summon["card"])
+			"recall_and_resummon":
+				for card in _resolve_card_targets(match_state, trigger, event, effect):
+					var rar_controller := str(card.get("controller_player_id", ""))
+					var rar_loc := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
+					var rar_current_lane := str(rar_loc.get("lane_id", ""))
+					var rar_dest_lane := ""
+					for lane in match_state.get("lanes", []):
+						var lid := str(lane.get("lane_id", ""))
+						if lid != rar_current_lane and not lid.is_empty():
+							rar_dest_lane = lid
+							break
+					if rar_dest_lane.is_empty():
+						continue
+					var rar_summon := MatchMutations.summon_card_to_lane(match_state, rar_controller, str(card.get("instance_id", "")), rar_dest_lane, {"source_zone": MatchMutations.ZONE_LANE})
+					if bool(rar_summon.get("is_valid", false)):
+						generated_events.append_array(rar_summon.get("events", []))
+						generated_events.append(_build_summon_event(rar_summon["card"], rar_controller, rar_dest_lane, int(rar_summon.get("slot_index", -1)), "recall_and_resummon"))
+						_check_summon_abilities(match_state, rar_summon["card"])
 			"equip_item", "equip_generated_item":
 				var ei_template_raw = effect.get("card_template", {})
 				var ei_template: Dictionary = ei_template_raw if typeof(ei_template_raw) == TYPE_DICTIONARY else {}
