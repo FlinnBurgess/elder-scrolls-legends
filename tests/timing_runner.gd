@@ -23,6 +23,7 @@ func _run_all_tests() -> bool:
 		_test_on_play_summon_and_expertise_share_deterministic_order() and
 		_test_pilfer_and_veteran_trigger_from_damage_windows() and
 		_test_slay_on_death_and_last_gasp_follow_death_window_order() and
+		_test_slay_fires_when_both_creatures_die() and
 		_test_pilfer_does_not_fire_on_summon() and
 		_test_end_of_turn_target_mode_does_not_fire_on_summon()
 	)
@@ -194,6 +195,41 @@ func _test_slay_on_death_and_last_gasp_follow_death_window_order() -> bool:
 		_assert(_families_from_resolutions(result.get("trigger_resolutions", [])) == [MatchTiming.FAMILY_SLAY, MatchTiming.FAMILY_ON_DEATH, MatchTiming.FAMILY_LAST_GASP], "Slay should resolve before the defender's death triggers, which should keep trigger declaration order.") and
 		_assert(slayer["power_bonus"] == 1, "Slay effect should apply to the surviving attacker.") and
 		_assert(log_events.size() == 2, "Death-trigger log effects should emit replay-visible events.")
+	)
+
+
+func _test_slay_fires_when_both_creatures_die() -> bool:
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var slayer := _summon_creature(active_player, match_state, "slayer", "field", 3, 3, [], 0, {
+		"triggered_abilities": [
+			{
+				"family": MatchTiming.FAMILY_SLAY,
+				"required_zone": "lane",
+				"effects": [{"op": "damage", "target_player": "opponent", "amount": 1}],
+			},
+			{
+				"family": MatchTiming.FAMILY_LAST_GASP,
+				"effects": [{"op": "damage", "target_player": "opponent", "amount": 1}],
+			}
+		]
+	})
+	var victim := _summon_creature(opponent, match_state, "victim", "field", 3, 3, [], 0)
+	_target_ready_for_attack(slayer, match_state)
+	_target_ready_for_attack(victim, match_state)
+	var hp_before := int(opponent.get("health", 20))
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], slayer["instance_id"], {
+		"type": "creature",
+		"instance_id": victim["instance_id"],
+	})
+	var hp_after := int(opponent.get("health", 20))
+	var families := _families_from_resolutions(result.get("trigger_resolutions", []))
+	return (
+		_assert(result["is_valid"], "Mutual-kill combat should resolve.") and
+		_assert(families.has(MatchTiming.FAMILY_SLAY), "Slay should trigger even when the attacker also dies.") and
+		_assert(families.has(MatchTiming.FAMILY_LAST_GASP), "Last gasp should trigger when the attacker dies.") and
+		_assert(hp_before - hp_after == 2, "Opponent should take 2 damage: 1 from slay + 1 from last gasp (got %d)." % [hp_before - hp_after])
 	)
 
 

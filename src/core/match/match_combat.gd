@@ -283,7 +283,27 @@ static func _resolve_creature_attack(match_state: Dictionary, validation: Dictio
 	total_drain += _resolve_drain(match_state, defender, applied_to_attacker, events)
 	# Publish damage events before destruction so on_damage triggers fire while
 	# creatures are still in lane (e.g. Pointy Wall of Spikes reflect damage).
+	# Mark creatures that will die from combat damage as pending so the aura
+	# death check inside publish_events doesn't destroy them prematurely
+	# (aura deaths lack destroyed_by_instance_id, breaking slay triggers).
+	var pre_combat_pending: Array = []
+	if defender_destroyed:
+		pre_combat_pending.append(str(defender_damage_target.get("instance_id", "")))
+	if attacker_destroyed:
+		pre_combat_pending.append(str(attacker_damage_target.get("instance_id", "")))
+	if not pre_combat_pending.is_empty():
+		var existing_pending: Array = match_state.get("_combat_pending_deaths", [])
+		existing_pending.append_array(pre_combat_pending)
+		match_state["_combat_pending_deaths"] = existing_pending
 	var pre_destroy_timing := MatchTiming.publish_events(match_state, events)
+	if not pre_combat_pending.is_empty():
+		var remaining_pending: Array = match_state.get("_combat_pending_deaths", [])
+		for pid in pre_combat_pending:
+			var idx := remaining_pending.find(pid)
+			if idx >= 0:
+				remaining_pending.remove_at(idx)
+		if remaining_pending.is_empty():
+			match_state.erase("_combat_pending_deaths")
 	events.clear()
 
 	# Re-check destruction — trigger effects may have killed or healed creatures.
