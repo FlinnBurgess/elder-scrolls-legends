@@ -3301,5 +3301,8 @@ static func get_all_valid_targets(match_state: Dictionary, source_instance_id: S
 static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: Dictionary, resolution: Dictionary) -> Array:
 	return MatchEffectApplication._apply_effects(match_state, trigger, event, resolution)
 
+static func _build_summon_event(card: Dictionary, player_id: String, lane_id: String, slot_index: int, reason: String) -> Dictionary:
+	return MatchSummonTiming._build_summon_event(card, player_id, lane_id, slot_index, reason)
+
 static func _build_trigger_resolution(match_state: Dictionary, trigger: Dictionary, event: Dictionary) -> Dictionary:
 	return MatchTriggers._build_trigger_resolution(match_state, trigger, event)
