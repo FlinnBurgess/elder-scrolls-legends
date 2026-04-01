@@ -15,7 +15,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	root.size = TEST_VIEWPORT_SIZE
-	var screen := MatchScreen.new()
+	var screen = MatchScreen.new()
 	screen.size = TEST_VIEWPORT_SIZE
 	root.add_child(screen)
 	await process_frame
@@ -67,17 +67,17 @@ func _run_all_tests(screen: MatchScreen) -> bool:
 func _test_layout_hierarchy(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Layout hierarchy scenario should load."):
 		return false
-	var match_layout := screen.find_child("MatchLayout", true, false) as Control
-	var match_content := screen.find_child("MatchContent", true, false) as Control
-	var board_column := screen.find_child("BoardColumn", true, false)
-	var battlefield := screen.find_child("BattlefieldPanel", true, false)
-	var opponent_band := screen.find_child("OpponentBand", true, false)
-	var player_band := screen.find_child("PlayerBand", true, false)
-	var opponent_avatar := screen.find_child("player_2_avatar_component", true, false) as PlayerAvatarComponent
-	var player_avatar := screen.find_child("player_1_avatar_component", true, false) as PlayerAvatarComponent
-	var field_lane_panel := screen.find_child("field_lane_panel", true, false) as Control
-	var shadow_lane_panel := screen.find_child("shadow_lane_panel", true, false) as Control
-	var field_player_row := screen.find_child("field_player_1_lane_row", true, false) as HBoxContainer
+	var match_layout = screen.find_child("MatchLayout", true, false) as Control
+	var match_content = screen.find_child("MatchContent", true, false) as Control
+	var board_column = screen.find_child("BoardColumn", true, false)
+	var battlefield = screen.find_child("BattlefieldPanel", true, false)
+	var opponent_band = screen.find_child("OpponentBand", true, false)
+	var player_band = screen.find_child("PlayerBand", true, false)
+	var opponent_avatar = screen.find_child("player_2_avatar_component", true, false) as PlayerAvatarComponent
+	var player_avatar = screen.find_child("player_1_avatar_component", true, false) as PlayerAvatarComponent
+	var field_lane_panel = screen.find_child("field_lane_panel", true, false) as Control
+	var shadow_lane_panel = screen.find_child("shadow_lane_panel", true, false) as Control
+	var field_player_row = screen.find_child("field_player_1_lane_row", true, false) as HBoxContainer
 	return (
 		_assert(match_layout != null, "Expected a named match layout root.") and
 		_assert(match_layout is MarginContainer and match_content != null, "Expected the refreshed layout to use a padded margin shell.") and
@@ -105,16 +105,16 @@ func _test_layout_hierarchy(screen: MatchScreen) -> bool:
 func _test_board_presentation_regressions(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should load for board regression verification."):
 		return false
-	var player_band := screen.find_child("PlayerBand", true, false) as Control
-	var battlefield := screen.find_child("BattlefieldPanel", true, false) as Control
-	var turn_banner_overlay := screen.find_child("TurnBannerOverlay", true, false) as Control
-	var turn_banner_row := turn_banner_overlay.get_child(0) as Control if turn_banner_overlay != null and turn_banner_overlay.get_child_count() > 0 else null
+	var player_band = screen.find_child("PlayerBand", true, false) as Control
+	var battlefield = screen.find_child("BattlefieldPanel", true, false) as Control
+	var turn_banner_overlay = screen.find_child("TurnBannerOverlay", true, false) as Control
+	var turn_banner_row = turn_banner_overlay.get_child(0) as Control if turn_banner_overlay != null and turn_banner_overlay.get_child_count() > 0 else null
 	# Use night_watch (non-ready, covered) to verify clip_contents, since ready
 	# creatures disable clipping for the floating shadow effect.
-	var clip_card := screen.find_child("lane_player_2_night_watch_card", true, false) as Button
-	var lane_card := screen.find_child("lane_player_1_vanguard_card", true, false) as Button
-	var lane_content := lane_card.get_meta("content_root", null) as Control if lane_card != null else null
-	var lane_display := lane_card.get_meta("card_display_component", null) as Control if lane_card != null else null
+	var clip_card = screen.find_child("lane_player_2_night_watch_card", true, false) as Button
+	var lane_card = screen.find_child("lane_player_1_vanguard_card", true, false) as Button
+	var lane_content = lane_card.get_meta("content_root", null) as Control if lane_card != null else null
+	var lane_display = lane_card.get_meta("card_display_component", null) as Control if lane_card != null else null
 	return (
 		_assert(turn_banner_overlay != null and turn_banner_overlay.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Turn banner overlay should stay mouse-transparent over the battlefield.") and
 		_assert(turn_banner_row != null and turn_banner_row.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Turn banner row should not intercept board clicks while the banner is visible.") and
@@ -127,17 +127,17 @@ func _test_board_presentation_regressions(screen: MatchScreen) -> bool:
 
 
 func _test_avatar_band_containment(screen: MatchScreen) -> bool:
-	var compact_size := Vector2i(1600, 900)
+	var compact_size = Vector2i(1600, 900)
 	root.size = compact_size
 	screen.size = compact_size
 	await _await_frames(2)
-	var result := false
+	var result = false
 	if _assert(screen.load_scenario("local_match"), "Local match scenario should load for avatar containment verification."):
 		await _await_frames(2)
-		var opponent_avatar_overlay := screen.find_child("OpponentAvatarOverlay", true, false) as Control
-		var player_avatar_overlay := screen.find_child("PlayerAvatarOverlay", true, false) as Control
-		var opponent_avatar := screen.find_child("player_2_avatar_component", true, false) as PlayerAvatarComponent
-		var player_avatar := screen.find_child("player_1_avatar_component", true, false) as PlayerAvatarComponent
+		var opponent_avatar_overlay = screen.find_child("OpponentAvatarOverlay", true, false) as Control
+		var player_avatar_overlay = screen.find_child("PlayerAvatarOverlay", true, false) as Control
+		var opponent_avatar = screen.find_child("player_2_avatar_component", true, false) as PlayerAvatarComponent
+		var player_avatar = screen.find_child("player_1_avatar_component", true, false) as PlayerAvatarComponent
 		result = (
 			_assert(opponent_avatar_overlay != null and player_avatar_overlay != null, "Expected both avatar overlays during avatar containment verification.") and
 			_assert(opponent_avatar != null and player_avatar != null, "Expected both avatar components during avatar containment verification.") and
@@ -156,20 +156,20 @@ func _test_avatar_band_containment(screen: MatchScreen) -> bool:
 func _test_placeholder_layout_stability(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should reload for placeholder verification."):
 		return false
-	var active_player := _active_player(screen.get_match_state())
-	var summon_card := _find_hand_card(active_player, "Field Guardian")
-	var select_ok := screen.select_card(str(summon_card.get("instance_id", "")))
+	var active_player = _active_player(screen.get_match_state())
+	var summon_card = _find_hand_card(active_player, "Field Guardian")
+	var select_ok = screen.select_card(str(summon_card.get("instance_id", "")))
 	screen.clear_selection()
 	if not _assert(screen.load_scenario("support_lab"), "Support lab should load for empty-hand placeholder verification."):
 		return false
-	var support_player := _active_player(screen.get_match_state())
-	var support_card := _find_hand_card(support_player, "Battle Drum")
+	var support_player = _active_player(screen.get_match_state())
+	var support_card = _find_hand_card(support_player, "Battle Drum")
 	if not _assert(not support_card.is_empty(), "Support lab should expose a selectable support card during placeholder verification."):
 		return false
-	var hand_empty := _find_label_with_text(screen, "Hand empty")
-	var select_support_ok := screen.select_card(str(support_card.get("instance_id", "")))
+	var hand_empty = _find_label_with_text(screen, "Hand empty")
+	var select_support_ok = screen.select_card(str(support_card.get("instance_id", "")))
 	screen.clear_selection()
-	var hand_empty_after := _find_label_with_text(screen, "Hand empty")
+	var hand_empty_after = _find_label_with_text(screen, "Hand empty")
 	return (
 		_assert(select_ok, "Selecting a normal card should still work during placeholder verification.") and
 		_assert(_placeholder_has_width_protection(hand_empty), "Empty-hand placeholders should reserve horizontal width.") and
@@ -181,18 +181,18 @@ func _test_placeholder_layout_stability(screen: MatchScreen) -> bool:
 func _test_player_surface_presentation(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should load for player-surface verification."):
 		return false
-	var match_state := screen.get_match_state()
-	var opponent_state := _player_state(match_state, "player_2")
-	var player_state := _player_state(match_state, "player_1")
-	var opponent_avatar := screen.find_child("player_2_avatar_component", true, false) as PlayerAvatarComponent
-	var player_avatar := screen.find_child("player_1_avatar_component", true, false) as PlayerAvatarComponent
-	var opponent_magicka_component := screen.find_child("player_2_magicka_component", true, false) as PlayerMagickaComponent
-	var player_magicka_component := screen.find_child("player_1_magicka_component", true, false) as PlayerMagickaComponent
-	var old_player_magicka_label := screen.find_child("player_1_magicka_label", true, false)
-	var old_player_magicka_bar := screen.find_child("player_1_magicka_bar", true, false)
-	var player_ring_label := screen.find_child("player_1_ring_label", true, false) as Label
-	var player_deck_button := screen.find_child("player_1_deck_button", true, false) as Button
-	var player_discard_button := screen.find_child("player_1_discard_button", true, false) as Button
+	var match_state = screen.get_match_state()
+	var opponent_state = _player_state(match_state, "player_2")
+	var player_state = _player_state(match_state, "player_1")
+	var opponent_avatar = screen.find_child("player_2_avatar_component", true, false) as PlayerAvatarComponent
+	var player_avatar = screen.find_child("player_1_avatar_component", true, false) as PlayerAvatarComponent
+	var opponent_magicka_component = screen.find_child("player_2_magicka_component", true, false) as PlayerMagickaComponent
+	var player_magicka_component = screen.find_child("player_1_magicka_component", true, false) as PlayerMagickaComponent
+	var old_player_magicka_label = screen.find_child("player_1_magicka_label", true, false)
+	var old_player_magicka_bar = screen.find_child("player_1_magicka_bar", true, false)
+	var player_ring_label = screen.find_child("player_1_ring_label", true, false) as Label
+	var player_deck_button = screen.find_child("player_1_deck_button", true, false) as Button
+	var player_discard_button = screen.find_child("player_1_discard_button", true, false) as Button
 	if not _assert(player_discard_button != null, "Expected a visible discard pile surface for the local player."):
 		return false
 	player_discard_button.emit_signal("pressed")
@@ -219,27 +219,27 @@ func _test_player_surface_presentation(screen: MatchScreen) -> bool:
 func _test_card_frame_presentation(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should load for card-frame verification."):
 		return false
-	var local_hand_row := screen.find_child("player_1_hand_row", true, false) as Control
-	var opponent_hand_row := screen.find_child("player_2_hand_row", true, false) as Control
-	var field_guardian_button := screen.find_child("hand_player_1_field_guardian_card", true, false) as Button
-	var shadow_raider_button := screen.find_child("hand_player_1_shadow_raider_card", true, false) as Button
-	var steel_sword_button := screen.find_child("hand_player_1_steel_sword_card", true, false) as Button
-	var grand_colossus_button := screen.find_child("hand_player_1_grand_colossus_card", true, false) as Button
-	var field_guardian_display := field_guardian_button.get_meta("card_display_component", null) as Control if field_guardian_button != null else null
-	var shadow_raider_display := shadow_raider_button.get_meta("card_display_component", null) as Control if shadow_raider_button != null else null
-	var field_guardian_art := field_guardian_display.find_child("ArtTexture", true, false) as TextureRect if field_guardian_display != null else null
-	var field_guardian_rarity := field_guardian_display.find_child("RarityLabel", true, false) as Label if field_guardian_display != null else null
-	var field_guardian_rules := field_guardian_display.find_child("RulesLabel", true, false) as RichTextLabel if field_guardian_display != null else null
-	var field_guardian_power := field_guardian_display.find_child("AttackLabel", true, false) as Label if field_guardian_display != null else null
-	var field_guardian_health := field_guardian_display.find_child("HealthLabel", true, false) as Label if field_guardian_display != null else null
-	var shadow_raider_power := shadow_raider_display.find_child("AttackLabel", true, false) as Label if shadow_raider_display != null else null
-	var hidden_opponent_button := screen.find_child("hand_player_2_skeletal_sentry_card", true, false) as Button
-	var hidden_card_back := screen.find_child("player_2_skeletal_sentry_card_back", true, false) as PanelContainer
+	var local_hand_row = screen.find_child("player_1_hand_row", true, false) as Control
+	var opponent_hand_row = screen.find_child("player_2_hand_row", true, false) as Control
+	var field_guardian_button = screen.find_child("hand_player_1_field_guardian_card", true, false) as Button
+	var shadow_raider_button = screen.find_child("hand_player_1_shadow_raider_card", true, false) as Button
+	var steel_sword_button = screen.find_child("hand_player_1_steel_sword_card", true, false) as Button
+	var grand_colossus_button = screen.find_child("hand_player_1_grand_colossus_card", true, false) as Button
+	var field_guardian_display = field_guardian_button.get_meta("card_display_component", null) as Control if field_guardian_button != null else null
+	var shadow_raider_display = shadow_raider_button.get_meta("card_display_component", null) as Control if shadow_raider_button != null else null
+	var field_guardian_art = field_guardian_display.find_child("ArtTexture", true, false) as TextureRect if field_guardian_display != null else null
+	var field_guardian_rarity = field_guardian_display.find_child("RarityLabel", true, false) as Label if field_guardian_display != null else null
+	var field_guardian_rules = field_guardian_display.find_child("RulesLabel", true, false) as RichTextLabel if field_guardian_display != null else null
+	var field_guardian_power = field_guardian_display.find_child("AttackLabel", true, false) as Label if field_guardian_display != null else null
+	var field_guardian_health = field_guardian_display.find_child("HealthLabel", true, false) as Label if field_guardian_display != null else null
+	var shadow_raider_power = shadow_raider_display.find_child("AttackLabel", true, false) as Label if shadow_raider_display != null else null
+	var hidden_opponent_button = screen.find_child("hand_player_2_skeletal_sentry_card", true, false) as Button
+	var hidden_card_back = screen.find_child("player_2_skeletal_sentry_card_back", true, false) as PanelContainer
 	if not _assert(field_guardian_button != null and shadow_raider_button != null and steel_sword_button != null, "Expected named local hand card frames for the fan layout."):
 		return false
 	field_guardian_button.emit_signal("mouse_entered")
-	var hover_scale := field_guardian_button.scale.x
-	var hover_z := field_guardian_button.z_index
+	var hover_scale = field_guardian_button.scale.x
+	var hover_z = field_guardian_button.z_index
 	field_guardian_button.emit_signal("mouse_exited")
 	return (
 		_assert(local_hand_row != null and opponent_hand_row != null, "Expected named hand surfaces for both players.") and
@@ -266,36 +266,36 @@ func _test_match_card_display_modes(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should load for card-display integration verification."):
 		return false
 	await _await_frames(2)
-	var lane_card := screen.find_child("lane_player_1_vanguard_card", true, false) as Button
-	var lane_display := lane_card.get_meta("card_display_component", null) as Control if lane_card != null else null
-	var lane_instance_id := str(lane_card.get_meta("instance_id", "")) if lane_card != null else ""
-	var hand_card := screen.find_child("hand_player_1_field_guardian_card", true, false) as Button
-	var hand_display := hand_card.get_meta("card_display_component", null) as Control if hand_card != null else null
+	var lane_card = screen.find_child("lane_player_1_vanguard_card", true, false) as Button
+	var lane_display = lane_card.get_meta("card_display_component", null) as Control if lane_card != null else null
+	var lane_instance_id = str(lane_card.get_meta("instance_id", "")) if lane_card != null else ""
+	var hand_card = screen.find_child("hand_player_1_field_guardian_card", true, false) as Button
+	var hand_display = hand_card.get_meta("card_display_component", null) as Control if hand_card != null else null
 	if not _assert(lane_card != null and lane_display != null and hand_display != null, "Expected live hand and lane card buttons to expose shared card-display components."):
 		return false
-	var preview_before := _find_node_by_name_prefix(screen, "lane_hover_preview_")
-	var hand_mode := _card_display_mode(hand_display)
-	var lane_mode := _card_display_mode(lane_display)
+	var preview_before = _find_node_by_name_prefix(screen, "lane_hover_preview_")
+	var hand_mode = _card_display_mode(hand_display)
+	var lane_mode = _card_display_mode(lane_display)
 	lane_card.emit_signal("mouse_entered")
 	await _await_frames(2)
-	var preview_immediate := _find_node_by_name_prefix(screen, "lane_hover_preview_")
+	var preview_immediate = _find_node_by_name_prefix(screen, "lane_hover_preview_")
 	await create_timer(1.1).timeout
 	await _await_frames(2)
-	var preview_after_delay := _find_node_by_name_prefix(screen, "lane_hover_preview_") as Control
+	var preview_after_delay = _find_node_by_name_prefix(screen, "lane_hover_preview_") as Control
 	var preview_component = preview_after_delay.get_child(0) if preview_after_delay != null and preview_after_delay.get_child_count() > 0 else preview_after_delay
-	var preview_mode_matches := preview_component != null and (_card_display_mode(preview_component) == CardDisplayComponent.PRESENTATION_FULL)
-	var preview_ignores_mouse := preview_after_delay != null and preview_after_delay.mouse_filter == Control.MOUSE_FILTER_IGNORE
-	var preview_overlays := false
+	var preview_mode_matches = preview_component != null and (_card_display_mode(preview_component) == CardDisplayComponent.PRESENTATION_FULL)
+	var preview_ignores_mouse = preview_after_delay != null and preview_after_delay.mouse_filter == Control.MOUSE_FILTER_IGNORE
+	var preview_overlays = false
 	if preview_after_delay != null:
-		var preview_center := preview_after_delay.get_global_rect().get_center()
-		var card_center := lane_card.get_global_rect().get_center()
+		var preview_center = preview_after_delay.get_global_rect().get_center()
+		var card_center = lane_card.get_global_rect().get_center()
 		preview_overlays = absf(preview_center.x - card_center.x) < preview_after_delay.size.x * 0.5 and absf(preview_center.y - card_center.y) < preview_after_delay.size.y * 0.5
 	lane_card.emit_signal("mouse_exited")
 	await _await_frames(2)
-	var preview_after_exit := _find_node_by_name_prefix(screen, "lane_hover_preview_")
-	var attacker_click_ok := _click_control(lane_card)
+	var preview_after_exit = _find_node_by_name_prefix(screen, "lane_hover_preview_")
+	var attacker_click_ok = _click_control(lane_card)
 	await process_frame
-	var attack_state_after_hover := screen.get_interaction_state()
+	var attack_state_after_hover = screen.get_interaction_state()
 	return (
 		_assert(hand_mode == CardDisplayComponent.PRESENTATION_FULL, "Visible non-board cards should keep the full card display mode in match UI.") and
 		_assert(lane_mode == CardDisplayComponent.PRESENTATION_CREATURE_BOARD_MINIMAL, "Lane creatures should use creature-board minimal rendering in match UI.") and
@@ -314,38 +314,38 @@ func _test_match_card_display_modes(screen: MatchScreen) -> bool:
 func _test_turn_state_presentation(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should load for turn-state verification."):
 		return false
-	var turn_banner_panel := screen.find_child("TurnBannerPanel", true, false) as Control
-	var turn_banner_label := screen.find_child("TurnBannerLabel", true, false) as Label
-	var end_turn_button := _find_button_with_text(screen, "End Turn")
-	var player_band := screen.find_child("PlayerBand", true, false) as Control
-	var initial_state := screen.get_interaction_state()
-	var initial_banner_visible := turn_banner_panel.visible if turn_banner_panel != null else false
-	var initial_banner_text := turn_banner_label.text if turn_banner_label != null else ""
-	var initial_end_turn_disabled := end_turn_button.disabled if end_turn_button != null else true
-	var initial_border_width := _button_border_width(end_turn_button, "disabled" if initial_end_turn_disabled else "normal")
-	var initial_brightness := _button_background_brightness(end_turn_button, "disabled" if initial_end_turn_disabled else "normal")
+	var turn_banner_panel = screen.find_child("TurnBannerPanel", true, false) as Control
+	var turn_banner_label = screen.find_child("TurnBannerLabel", true, false) as Label
+	var end_turn_button = _find_button_with_text(screen, "End Turn")
+	var player_band = screen.find_child("PlayerBand", true, false) as Control
+	var initial_state = screen.get_interaction_state()
+	var initial_banner_visible = turn_banner_panel.visible if turn_banner_panel != null else false
+	var initial_banner_text = turn_banner_label.text if turn_banner_label != null else ""
+	var initial_end_turn_disabled = end_turn_button.disabled if end_turn_button != null else true
+	var initial_border_width = _button_border_width(end_turn_button, "disabled" if initial_end_turn_disabled else "normal")
+	var initial_brightness = _button_background_brightness(end_turn_button, "disabled" if initial_end_turn_disabled else "normal")
 	if not _assert(screen.end_turn_action(), "Advancing the scenario turn should succeed for turn-state verification."):
 		return false
-	var next_state := screen.get_interaction_state()
-	var next_banner_visible := turn_banner_panel.visible if turn_banner_panel != null else false
-	var next_banner_text := turn_banner_label.text if turn_banner_label != null else ""
-	var next_end_turn_disabled := end_turn_button.disabled if end_turn_button != null else true
-	var next_border_width := _button_border_width(end_turn_button, "disabled" if next_end_turn_disabled else "normal")
-	var next_brightness := _button_background_brightness(end_turn_button, "disabled" if next_end_turn_disabled else "normal")
-	var next_hand_button := screen.find_child("hand_player_1_field_guardian_card", true, false) as Button
-	var ready_banner_visible := initial_banner_visible if bool(initial_state.get("local_turn", false)) else next_banner_visible
-	var ready_banner_text := initial_banner_text if bool(initial_state.get("local_turn", false)) else next_banner_text
-	var ready_end_turn_disabled := initial_end_turn_disabled if bool(initial_state.get("local_turn", false)) else next_end_turn_disabled
-	var ready_border_width := initial_border_width if bool(initial_state.get("local_turn", false)) else next_border_width
-	var ready_brightness := initial_brightness if bool(initial_state.get("local_turn", false)) else next_brightness
-	var ready_state := initial_state if bool(initial_state.get("local_turn", false)) else next_state
-	var locked_banner_visible := initial_banner_visible if not bool(initial_state.get("local_turn", false)) else next_banner_visible
-	var locked_banner_text := initial_banner_text if not bool(initial_state.get("local_turn", false)) else next_banner_text
-	var locked_end_turn_disabled := initial_end_turn_disabled if not bool(initial_state.get("local_turn", false)) else next_end_turn_disabled
-	var locked_border_width := initial_border_width if not bool(initial_state.get("local_turn", false)) else next_border_width
-	var locked_brightness := initial_brightness if not bool(initial_state.get("local_turn", false)) else next_brightness
-	var locked_state := initial_state if not bool(initial_state.get("local_turn", false)) else next_state
-	var locked_hand_button := next_hand_button
+	var next_state = screen.get_interaction_state()
+	var next_banner_visible = turn_banner_panel.visible if turn_banner_panel != null else false
+	var next_banner_text = turn_banner_label.text if turn_banner_label != null else ""
+	var next_end_turn_disabled = end_turn_button.disabled if end_turn_button != null else true
+	var next_border_width = _button_border_width(end_turn_button, "disabled" if next_end_turn_disabled else "normal")
+	var next_brightness = _button_background_brightness(end_turn_button, "disabled" if next_end_turn_disabled else "normal")
+	var next_hand_button = screen.find_child("hand_player_1_field_guardian_card", true, false) as Button
+	var ready_banner_visible = initial_banner_visible if bool(initial_state.get("local_turn", false)) else next_banner_visible
+	var ready_banner_text = initial_banner_text if bool(initial_state.get("local_turn", false)) else next_banner_text
+	var ready_end_turn_disabled = initial_end_turn_disabled if bool(initial_state.get("local_turn", false)) else next_end_turn_disabled
+	var ready_border_width = initial_border_width if bool(initial_state.get("local_turn", false)) else next_border_width
+	var ready_brightness = initial_brightness if bool(initial_state.get("local_turn", false)) else next_brightness
+	var ready_state = initial_state if bool(initial_state.get("local_turn", false)) else next_state
+	var locked_banner_visible = initial_banner_visible if not bool(initial_state.get("local_turn", false)) else next_banner_visible
+	var locked_banner_text = initial_banner_text if not bool(initial_state.get("local_turn", false)) else next_banner_text
+	var locked_end_turn_disabled = initial_end_turn_disabled if not bool(initial_state.get("local_turn", false)) else next_end_turn_disabled
+	var locked_border_width = initial_border_width if not bool(initial_state.get("local_turn", false)) else next_border_width
+	var locked_brightness = initial_brightness if not bool(initial_state.get("local_turn", false)) else next_brightness
+	var locked_state = initial_state if not bool(initial_state.get("local_turn", false)) else next_state
+	var locked_hand_button = next_hand_button
 	if not bool(initial_state.get("local_turn", false)):
 		locked_hand_button = screen.find_child("hand_player_1_field_guardian_card", true, false) as Button
 	return (
@@ -368,12 +368,12 @@ func _test_turn_state_presentation(screen: MatchScreen) -> bool:
 func _test_local_match_flow(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should load."):
 		return false
-	var active_player := _active_player(screen.get_match_state())
-	var summon_card := _find_hand_card(active_player, "Field Guardian")
+	var active_player = _active_player(screen.get_match_state())
+	var summon_card = _find_hand_card(active_player, "Field Guardian")
 	if not _assert(not summon_card.is_empty(), "Expected a summonable creature in the opening hand."):
 		return false
-	var select_ok := screen.select_card(str(summon_card.get("instance_id", "")))
-	var summon_result := screen.play_selected_to_lane("shadow", 0)
+	var select_ok = screen.select_card(str(summon_card.get("instance_id", "")))
+	var summon_result = screen.play_selected_to_lane("shadow", 0)
 	return (
 		_assert(select_ok, "Selecting a hand creature should succeed.") and
 		_assert(bool(summon_result.get("is_valid", false)), "Creature summon through the match UI should succeed.") and
@@ -385,17 +385,17 @@ func _test_local_match_flow(screen: MatchScreen) -> bool:
 func _test_unaffordable_creature_play_is_blocked(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should load for unaffordable summon verification."):
 		return false
-	var active_player := _active_player(screen.get_match_state())
-	var expensive_card := _find_hand_card(active_player, "Grand Colossus")
+	var active_player = _active_player(screen.get_match_state())
+	var expensive_card = _find_hand_card(active_player, "Grand Colossus")
 	if not _assert(not expensive_card.is_empty(), "Expected an expensive creature in hand for affordability verification."):
 		return false
-	var expensive_id := str(expensive_card.get("instance_id", ""))
-	var magicka_before := int(active_player.get("current_magicka", 0))
-	var temporary_before := int(active_player.get("temporary_magicka", 0))
-	var select_ok := screen.select_card(expensive_id)
-	var interaction_state := screen.get_interaction_state()
-	var summon_result := screen.play_selected_to_lane("field", 1)
-	var active_after := _active_player(screen.get_match_state())
+	var expensive_id = str(expensive_card.get("instance_id", ""))
+	var magicka_before = int(active_player.get("current_magicka", 0))
+	var temporary_before = int(active_player.get("temporary_magicka", 0))
+	var select_ok = screen.select_card(expensive_id)
+	var interaction_state = screen.get_interaction_state()
+	var summon_result = screen.play_selected_to_lane("field", 1)
+	var active_after = _active_player(screen.get_match_state())
 	return (
 		_assert(select_ok, "Selecting an unaffordable creature should still succeed for inspection/feedback.") and
 		_assert(interaction_state.get("selection_mode", "") == "summon", "Unaffordable creatures should still present summon interaction mode.") and
@@ -411,35 +411,35 @@ func _test_unaffordable_creature_play_is_blocked(screen: MatchScreen) -> bool:
 func _test_play_interaction_highlighting(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should load for interaction highlighting."):
 		return false
-	var active_player := _active_player(screen.get_match_state())
-	var summon_card := _find_hand_card(active_player, "Field Guardian")
-	var summon_id := str(summon_card.get("instance_id", ""))
-	var select_ok := screen.select_card(summon_id)
-	var interaction_state := screen.get_interaction_state()
-	var field_guardian_button := screen.find_child("hand_player_1_field_guardian_card", true, false) as Button
-	var opponent_slot_button := screen.find_child("field_player_2_slot_1", true, false) as Button
+	var active_player = _active_player(screen.get_match_state())
+	var summon_card = _find_hand_card(active_player, "Field Guardian")
+	var summon_id = str(summon_card.get("instance_id", ""))
+	var select_ok = screen.select_card(summon_id)
+	var interaction_state = screen.get_interaction_state()
+	var field_guardian_button = screen.find_child("hand_player_1_field_guardian_card", true, false) as Button
+	var opponent_slot_button = screen.find_child("field_player_2_slot_1", true, false) as Button
 	if opponent_slot_button != null:
 		opponent_slot_button.emit_signal("pressed")
-	var invalid_state := screen.get_interaction_state()
-	var invalid_slot_message := screen.get_status_message()
+	var invalid_state = screen.get_interaction_state()
+	var invalid_slot_message = screen.get_status_message()
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should reload for detach verification."):
 		return false
 	active_player = _active_player(screen.get_match_state())
 	summon_card = _find_hand_card(active_player, "Field Guardian")
 	summon_id = str(summon_card.get("instance_id", ""))
-	var detach_ok := screen.detach_hand_card(summon_id)
-	var detach_state := screen.get_interaction_state()
-	var detached_button := screen.find_child("hand_player_1_field_guardian_card", true, false) as Button
-	var detached_button_hidden := detached_button != null and not detached_button.visible
+	var detach_ok = screen.detach_hand_card(summon_id)
+	var detach_state = screen.get_interaction_state()
+	var detached_button = screen.find_child("hand_player_1_field_guardian_card", true, false) as Button
+	var detached_button_hidden = detached_button != null and not detached_button.visible
 	screen.clear_selection()
-	var after_cancel_state := screen.get_interaction_state()
+	var after_cancel_state = screen.get_interaction_state()
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should reload for detach play verification."):
 		return false
 	active_player = _active_player(screen.get_match_state())
 	summon_card = _find_hand_card(active_player, "Field Guardian")
 	summon_id = str(summon_card.get("instance_id", ""))
-	var detach_play_ok := screen.detach_hand_card(summon_id)
-	var play_result := screen.play_selected_to_lane("shadow", 0)
+	var detach_play_ok = screen.detach_hand_card(summon_id)
+	var play_result = screen.play_selected_to_lane("shadow", 0)
 	return (
 		_assert(select_ok, "Selecting a hand creature should expose interaction highlights.") and
 		_assert(field_guardian_button != null and field_guardian_button.scale.x > 1.0, "Selected local hand cards should remain visually lifted for readability.") and
@@ -462,19 +462,19 @@ func _test_support_row_click_placement(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("support_lab"), "Support lab should load for support play verification."):
 		return false
 	await _await_frames(2)
-	var active_player := _active_player(screen.get_match_state())
-	var support_card := _find_hand_card(active_player, "Battle Drum")
+	var active_player = _active_player(screen.get_match_state())
+	var support_card = _find_hand_card(active_player, "Battle Drum")
 	if not _assert(not support_card.is_empty(), "Support lab should expose a hand support for play verification."):
 		return false
-	var support_id := str(support_card.get("instance_id", ""))
-	var select_ok := screen.select_card(support_id)
+	var support_id = str(support_card.get("instance_id", ""))
+	var select_ok = screen.select_card(support_id)
 	await process_frame
-	var interaction_state := screen.get_interaction_state()
-	var play_result := screen.play_or_activate_selected()
+	var interaction_state = screen.get_interaction_state()
+	var play_result = screen.play_or_activate_selected()
 	await process_frame
-	var match_state := screen.get_match_state()
-	var played_support := screen.find_child("support_%s_card" % support_id, true, false) as Button
-	var played_support_display := played_support.get_meta("card_display_component", null) as Control if played_support != null else null
+	var match_state = screen.get_match_state()
+	var played_support = screen.find_child("support_%s_card" % support_id, true, false) as Button
+	var played_support_display = played_support.get_meta("card_display_component", null) as Control if played_support != null else null
 	return (
 		_assert(select_ok, "Selecting the support-lab support should succeed.") and
 		_assert(interaction_state.get("selection_mode", "") == "support", "Hand support selection should enter support interaction mode.") and
@@ -491,16 +491,16 @@ func _test_live_lane_click_delivery(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should load for live board-click verification."):
 		return false
 	await _await_frames(3)
-	var attacker := _find_lane_card(screen.get_match_state(), "Vanguard Captain")
-	var defender := _find_lane_card(screen.get_match_state(), "Bone Guard")
-	var attacker_card := screen.find_child("lane_player_1_vanguard_card", true, false) as Button
-	var attacker_click_ok := _click_control(attacker_card)
+	var attacker = _find_lane_card(screen.get_match_state(), "Vanguard Captain")
+	var defender = _find_lane_card(screen.get_match_state(), "Bone Guard")
+	var attacker_card = screen.find_child("lane_player_1_vanguard_card", true, false) as Button
+	var attacker_click_ok = _click_control(attacker_card)
 	await process_frame
-	var attack_state := screen.get_interaction_state()
-	var defender_card := screen.find_child("lane_player_2_bone_guard_card", true, false) as Button
-	var defender_click_ok := _click_control(defender_card)
+	var attack_state = screen.get_interaction_state()
+	var defender_card = screen.find_child("lane_player_2_bone_guard_card", true, false) as Button
+	var defender_click_ok = _click_control(defender_card)
 	await process_frame
-	var match_state := screen.get_match_state()
+	var match_state = screen.get_match_state()
 	return (
 		_assert(not attacker.is_empty(), "Live click verification requires a ready local attacker in the scenario.") and
 		_assert(not defender.is_empty(), "Live click verification requires a legal enemy defender in the scenario.") and
@@ -516,35 +516,35 @@ func _test_live_lane_click_delivery(screen: MatchScreen) -> bool:
 func _test_target_highlighting(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should load for target highlighting."):
 		return false
-	var active_player := _active_player(screen.get_match_state())
-	var item_card := _find_hand_card(active_player, "Steel Sword")
-	var item_id := str(item_card.get("instance_id", ""))
-	var item_select_ok := screen.select_card(item_id)
-	var item_state := screen.get_interaction_state()
-	var vanguard := _find_lane_card(screen.get_match_state(), "Vanguard Captain")
-	var bone_guard := _find_lane_card(screen.get_match_state(), "Bone Guard")
-	var invalid_item_slot := screen.find_child("field_player_1_slot_1", true, false) as Button
+	var active_player = _active_player(screen.get_match_state())
+	var item_card = _find_hand_card(active_player, "Steel Sword")
+	var item_id = str(item_card.get("instance_id", ""))
+	var item_select_ok = screen.select_card(item_id)
+	var item_state = screen.get_interaction_state()
+	var vanguard = _find_lane_card(screen.get_match_state(), "Vanguard Captain")
+	var bone_guard = _find_lane_card(screen.get_match_state(), "Bone Guard")
+	var invalid_item_slot = screen.find_child("field_player_1_slot_1", true, false) as Button
 	if invalid_item_slot != null:
 		invalid_item_slot.emit_signal("pressed")
-	var invalid_item_state := screen.get_interaction_state()
-	var invalid_item_message := screen.get_status_message()
+	var invalid_item_state = screen.get_interaction_state()
+	var invalid_item_message = screen.get_status_message()
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should reload for attack highlighting."):
 		return false
-	var attacker := _find_lane_card(screen.get_match_state(), "Vanguard Captain")
-	var attacker_card := screen.find_child("lane_player_1_vanguard_card", true, false) as Button
-	var attacker_select_ok := attacker_card != null
+	var attacker = _find_lane_card(screen.get_match_state(), "Vanguard Captain")
+	var attacker_card = screen.find_child("lane_player_1_vanguard_card", true, false) as Button
+	var attacker_select_ok = attacker_card != null
 	if attacker_card != null:
 		attacker_card.emit_signal("pressed")
-	var attack_state := screen.get_interaction_state()
-	var attack_bone_guard := _find_lane_card(screen.get_match_state(), "Bone Guard")
-	var opponent_avatar := screen.find_child("player_2_avatar_component", true, false) as Control
+	var attack_state = screen.get_interaction_state()
+	var attack_bone_guard = _find_lane_card(screen.get_match_state(), "Bone Guard")
+	var opponent_avatar = screen.find_child("player_2_avatar_component", true, false) as Control
 	if opponent_avatar != null:
-		var click_event := InputEventMouseButton.new()
+		var click_event = InputEventMouseButton.new()
 		click_event.pressed = true
 		click_event.button_index = MOUSE_BUTTON_LEFT
 		opponent_avatar.gui_input.emit(click_event)
-	var invalid_attack_state := screen.get_interaction_state()
-	var invalid_attack_message := screen.get_status_message()
+	var invalid_attack_state = screen.get_interaction_state()
+	var invalid_attack_message = screen.get_status_message()
 	return (
 		_assert(item_select_ok, "Selecting the sandbox item should succeed.") and
 		_assert(item_state.get("selection_mode", "") == "item", "Item selection should enter item targeting mode.") and
@@ -565,30 +565,30 @@ func _test_target_highlighting(screen: MatchScreen) -> bool:
 func _test_combat_feedback(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should load for combat feedback verification."):
 		return false
-	var active_player := _active_player(screen.get_match_state())
-	var summon_card := _find_hand_card(active_player, "Field Guardian")
-	var summon_id := str(summon_card.get("instance_id", ""))
+	var active_player = _active_player(screen.get_match_state())
+	var summon_card = _find_hand_card(active_player, "Field Guardian")
+	var summon_id = str(summon_card.get("instance_id", ""))
 	if not _assert(screen.select_card(str(summon_card.get("instance_id", ""))), "Field Guardian should be selectable for readiness feedback verification."):
 		return false
-	var summon_result := screen.play_selected_to_lane("shadow", 0)
-	var summoned_card := screen.find_child("lane_%s_card" % summon_id, true, false) as Button
-	var summoned_content := summoned_card.get_meta("content_root", null) as Control if summoned_card != null else null
-	var summoned_badges := _find_direct_child_by_name_prefix(summoned_content, "%s_combat_badges" % summon_id)
-	var attacker := _find_lane_card(screen.get_match_state(), "Vanguard Captain")
-	var defender := _find_lane_card(screen.get_match_state(), "Bone Guard")
-	var attacker_card := screen.find_child("lane_player_1_vanguard_card", true, false) as Button
-	var defender_card := screen.find_child("lane_player_2_bone_guard_card", true, false) as Button
+	var summon_result = screen.play_selected_to_lane("shadow", 0)
+	var summoned_card = screen.find_child("lane_%s_card" % summon_id, true, false) as Button
+	var summoned_content = summoned_card.get_meta("content_root", null) as Control if summoned_card != null else null
+	var summoned_badges = _find_direct_child_by_name_prefix(summoned_content, "%s_combat_badges" % summon_id)
+	var attacker = _find_lane_card(screen.get_match_state(), "Vanguard Captain")
+	var defender = _find_lane_card(screen.get_match_state(), "Bone Guard")
+	var attacker_card = screen.find_child("lane_player_1_vanguard_card", true, false) as Button
+	var defender_card = screen.find_child("lane_player_2_bone_guard_card", true, false) as Button
 	if not _assert(attacker_card != null, "Combat feedback verification requires the visible local attacker button."):
 		return false
 	attacker_card.emit_signal("pressed")
-	var attack_state := screen.get_interaction_state()
+	var attack_state = screen.get_interaction_state()
 	if not _assert(defender_card != null, "Combat feedback verification requires the visible defender button."):
 		return false
 	defender_card.emit_signal("pressed")
-	var feedback_state := screen.get_feedback_state()
-	var attack_banner := _find_node_by_name_prefix(screen, "feedback_attack_")
-	var damage_popup := _find_node_by_name_prefix(screen, "feedback_damage_")
-	var removal_toast := _find_node_by_name_prefix(screen, "feedback_removal_")
+	var feedback_state = screen.get_feedback_state()
+	var attack_banner = _find_node_by_name_prefix(screen, "feedback_attack_")
+	var damage_popup = _find_node_by_name_prefix(screen, "feedback_damage_")
+	var removal_toast = _find_node_by_name_prefix(screen, "feedback_removal_")
 	return (
 		_assert(bool(summon_result.get("is_valid", false)), "Summoning the readiness test creature should succeed.") and
 		_assert(summoned_card != null and (summoned_badges == null or (_badge_row_contains_text(summoned_badges, "WAITING") and _badge_row_contains_text(summoned_badges, "GUARD"))), "Freshly summoned shadow-lane creatures should keep the earlier WAITING/GUARD chip row on the minimal card face when the creature has Guard.") and
@@ -607,13 +607,13 @@ func _test_combat_feedback(screen: MatchScreen) -> bool:
 func _test_ring_and_help_affordances(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should reload for ring verification."):
 		return false
-	var active_player := _active_player(screen.get_match_state())
-	var charges_before := int(active_player.get("ring_of_magicka_charges", 0))
-	var ring_ok := screen.use_ring()
-	var active_after := _active_player(screen.get_match_state())
-	var charges_after := int(active_after.get("ring_of_magicka_charges", 0))
-	var player_ring_label := screen.find_child("player_1_ring_label", true, false) as Label
-	var player_magicka_component := screen.find_child("player_1_magicka_component", true, false) as PlayerMagickaComponent
+	var active_player = _active_player(screen.get_match_state())
+	var charges_before = int(active_player.get("ring_of_magicka_charges", 0))
+	var ring_ok = screen.use_ring()
+	var active_after = _active_player(screen.get_match_state())
+	var charges_after = int(active_after.get("ring_of_magicka_charges", 0))
+	var player_ring_label = screen.find_child("player_1_ring_label", true, false) as Label
+	var player_magicka_component = screen.find_child("player_1_magicka_component", true, false) as PlayerMagickaComponent
 	return (
 		_assert(ring_ok, "Active local player should be able to use the Ring of Magicka.") and
 		_assert(charges_after == charges_before - 1, "Ring usage should spend exactly one charge.") and
@@ -627,14 +627,14 @@ func _test_ring_and_help_affordances(screen: MatchScreen) -> bool:
 func _test_prophecy_prompt_flow(screen: MatchScreen) -> bool:
 	if not _assert(screen.load_scenario("prophecy_lab"), "Prophecy scenario should load." ):
 		return false
-	var pending_ids := screen.get_pending_prophecy_ids()
+	var pending_ids = screen.get_pending_prophecy_ids()
 	if not _assert(pending_ids.size() == 1, "Expected exactly one pending Prophecy card."):
 		return false
-	var prophecy_id := str(pending_ids[0])
-	var select_ok := screen.select_card(prophecy_id)
-	var play_result := screen.play_selected_to_lane("field", 0)
-	var active_prophecy_ids := screen.get_pending_prophecy_ids()
-	var responding_player_id := "player_2"
+	var prophecy_id = str(pending_ids[0])
+	var select_ok = screen.select_card(prophecy_id)
+	var play_result = screen.play_selected_to_lane("field", 0)
+	var active_prophecy_ids = screen.get_pending_prophecy_ids()
+	var responding_player_id = "player_2"
 	return (
 		_assert(select_ok, "Selecting the pending Prophecy card should succeed.") and
 		_assert(bool(play_result.get("is_valid", false)), "Playing the pending Prophecy creature through the UI should succeed.") and
@@ -648,25 +648,25 @@ func _test_feedback_presentation_wave(screen: MatchScreen) -> bool:
 		return false
 	if not _assert(screen.end_turn_action(), "Ending the opening turn should surface the normal draw presentation."):
 		return false
-	var normal_feedback := screen.get_feedback_state()
+	var normal_feedback = screen.get_feedback_state()
 	var normal_draws: Array = normal_feedback.get("draws", [])
-	var normal_draw_player_id := str(normal_draws[0].get("player_id", "")) if normal_draws.size() > 0 else ""
-	var affected_hand_row := screen.find_child("%s_hand_row" % normal_draw_player_id, true, false) as Control
-	var draw_toast := _find_direct_child_by_name_prefix(affected_hand_row, "feedback_draw_toast_")
-	var draw_popup := _find_node_by_name_prefix(screen, "feedback_draw_popup_")
-	var has_normal_draw_feedback_surface := draw_popup != null or draw_toast != null
+	var normal_draw_player_id = str(normal_draws[0].get("player_id", "")) if normal_draws.size() > 0 else ""
+	var affected_hand_row = screen.find_child("%s_hand_row" % normal_draw_player_id, true, false) as Control
+	var draw_toast = _find_direct_child_by_name_prefix(affected_hand_row, "feedback_draw_toast_")
+	var draw_popup = _find_node_by_name_prefix(screen, "feedback_draw_popup_")
+	var has_normal_draw_feedback_surface = draw_popup != null or draw_toast != null
 	if not _assert(screen.load_scenario("local_match"), "Local match scenario should reload for explicit rune-break feedback verification."):
 		return false
-	var opponent_avatar := screen.find_child("player_2_avatar_component", true, false) as PlayerAvatarComponent
-	var baseline_rune_signature := _avatar_rune_size_signature(opponent_avatar)
+	var opponent_avatar = screen.find_child("player_2_avatar_component", true, false) as PlayerAvatarComponent
+	var baseline_rune_signature = _avatar_rune_size_signature(opponent_avatar)
 	var rune_result: Dictionary = MatchTiming.apply_player_damage(screen.get_match_state(), "player_2", 5, {"reason": "ui_test"})
 	screen._record_feedback_from_events(rune_result.get("events", []))
 	screen.clear_selection()
-	var rune_feedback := screen.get_feedback_state()
-	var rune_toast := _find_node_by_name_prefix(screen, "feedback_rune_toast_")
-	var rune_banner := _find_node_by_name_prefix(screen, "feedback_rune_banner_")
-	var has_rune_feedback_surface := rune_toast != null and rune_banner != null
-	var active_rune_signature := _avatar_rune_size_signature(opponent_avatar)
+	var rune_feedback = screen.get_feedback_state()
+	var rune_toast = _find_node_by_name_prefix(screen, "feedback_rune_toast_")
+	var rune_banner = _find_node_by_name_prefix(screen, "feedback_rune_banner_")
+	var has_rune_feedback_surface = rune_toast != null and rune_banner != null
+	var active_rune_signature = _avatar_rune_size_signature(opponent_avatar)
 	for feedback in screen._rune_feedbacks:
 		if typeof(feedback) == TYPE_DICTIONARY:
 			feedback["expires_at_ms"] = 0
@@ -675,35 +675,35 @@ func _test_feedback_presentation_wave(screen: MatchScreen) -> bool:
 			feedback["expires_at_ms"] = 0
 	screen.clear_selection()
 	await _await_frames(2)
-	var post_cycle_rune_signature := _avatar_rune_size_signature(opponent_avatar)
-	var expired_rune_banner := _find_node_by_name_prefix(screen, "feedback_rune_banner_")
+	var post_cycle_rune_signature = _avatar_rune_size_signature(opponent_avatar)
+	var expired_rune_banner = _find_node_by_name_prefix(screen, "feedback_rune_banner_")
 	if not _assert(screen.load_scenario("prophecy_lab"), "Prophecy scenario should reload for rune-break presentation verification."):
 		return false
-	var prophecy_ids := screen.get_pending_prophecy_ids()
+	var prophecy_ids = screen.get_pending_prophecy_ids()
 	if not _assert(prophecy_ids.size() == 1, "Prophecy presentation scenario should expose a single pending Prophecy card."):
 		return false
-	var prophecy_id := str(prophecy_ids[0])
-	var prophecy_overlay := screen.find_child("prophecy_local_vbox", true, false) as Control
+	var prophecy_id = str(prophecy_ids[0])
+	var prophecy_overlay = screen.find_child("prophecy_local_vbox", true, false) as Control
 	if prophecy_overlay == null:
 		prophecy_overlay = screen.find_child("prophecy_enemy_card_back", true, false) as Control
-	var prophecy_badge := screen.find_child("%s_prophecy_window" % prophecy_id, true, false)
-	var prophecy_free_badge := screen.find_child("%s_prophecy_free" % prophecy_id, true, false)
-	var prophecy_card_banner := _find_node_by_name_prefix(screen, "feedback_hand_prophecy_")
-	var overlay := screen.find_child("MatchEndOverlay", true, false) as Control
-	var overlay_title := screen.find_child("MatchEndTitle", true, false) as Label
-	var overlay_detail := screen.find_child("MatchEndDetailLabel", true, false) as Label
-	var end_turn_button := _find_button_with_text(screen, "End Turn")
-	var match_state := screen.get_match_state()
+	var prophecy_badge = screen.find_child("%s_prophecy_window" % prophecy_id, true, false)
+	var prophecy_free_badge = screen.find_child("%s_prophecy_free" % prophecy_id, true, false)
+	var prophecy_card_banner = _find_node_by_name_prefix(screen, "feedback_hand_prophecy_")
+	var overlay = screen.find_child("MatchEndOverlay", true, false) as Control
+	var overlay_title = screen.find_child("MatchEndTitle", true, false) as Label
+	var overlay_detail = screen.find_child("MatchEndDetailLabel", true, false) as Label
+	var end_turn_button = _find_button_with_text(screen, "End Turn")
+	var match_state = screen.get_match_state()
 	match_state["winner_player_id"] = "player_1"
 	match_state["phase"] = "complete"
 	screen.clear_selection()
-	var victory_visible := overlay != null and overlay.visible
-	var victory_title := overlay_title.text if overlay_title != null else ""
-	var victory_detail := overlay_detail.text if overlay_detail != null else ""
-	var victory_end_turn_disabled := end_turn_button != null and end_turn_button.disabled
+	var victory_visible = overlay != null and overlay.visible
+	var victory_title = overlay_title.text if overlay_title != null else ""
+	var victory_detail = overlay_detail.text if overlay_detail != null else ""
+	var victory_end_turn_disabled = end_turn_button != null and end_turn_button.disabled
 	match_state["winner_player_id"] = "player_2"
 	screen.clear_selection()
-	var defeat_title := overlay_title.text if overlay_title != null else ""
+	var defeat_title = overlay_title.text if overlay_title != null else ""
 	return (
 		_assert(normal_feedback.get("draws", []).size() >= 1, "Ending a turn should now register a visible draw feedback payload.") and
 		_assert(has_normal_draw_feedback_surface, "Normal draws should surface visible player-surface feedback instead of updating silently.") and
@@ -770,7 +770,7 @@ func _badge_row_contains_text(parent: Node, text: String) -> bool:
 
 
 func _active_player(match_state: Dictionary) -> Dictionary:
-	var active_player_id := str(match_state.get("active_player_id", ""))
+	var active_player_id = str(match_state.get("active_player_id", ""))
 	for player in match_state.get("players", []):
 		if str(player.get("player_id", "")) == active_player_id:
 			return player
@@ -793,25 +793,25 @@ func _expected_rune_states(player: Dictionary) -> Array:
 
 
 func _expected_magicka_text(player: Dictionary) -> String:
-	var current := maxi(0, int(player.get("current_magicka", 0)))
-	var temporary := maxi(0, int(player.get("temporary_magicka", 0)))
-	var max_magicka := maxi(0, int(player.get("max_magicka", 0)))
+	var current = maxi(0, int(player.get("current_magicka", 0)))
+	var temporary = maxi(0, int(player.get("temporary_magicka", 0)))
+	var max_magicka = maxi(0, int(player.get("max_magicka", 0)))
 	return "%d/%d" % [current + temporary, max_magicka]
 
 
 func _expected_magicka_states(player: Dictionary) -> Array:
 	var states: Array = []
-	var raw_current := int(player.get("current_magicka", 0))
-	var raw_max := int(player.get("max_magicka", 0))
-	var raw_temp := int(player.get("temporary_magicka", 0))
-	var turns := int(player.get("turns_started", 0))
-	var bonus := maxi(0, raw_max - mini(turns, PlayerMagickaComponent.DEFAULT_SEGMENTS))
-	var segment_count := maxi(PlayerMagickaComponent.DEFAULT_SEGMENTS + bonus, maxi(raw_max, raw_current + raw_temp))
-	var current := maxi(0, mini(segment_count, raw_current))
-	var max_magicka := maxi(0, mini(segment_count, raw_max))
-	var temporary := maxi(0, mini(segment_count - current, raw_temp))
+	var raw_current = int(player.get("current_magicka", 0))
+	var raw_max = int(player.get("max_magicka", 0))
+	var raw_temp = int(player.get("temporary_magicka", 0))
+	var turns = int(player.get("turns_started", 0))
+	var bonus = maxi(0, raw_max - mini(turns, PlayerMagickaComponent.DEFAULT_SEGMENTS))
+	var segment_count = maxi(PlayerMagickaComponent.DEFAULT_SEGMENTS + bonus, maxi(raw_max, raw_current + raw_temp))
+	var current = maxi(0, mini(segment_count, raw_current))
+	var max_magicka = maxi(0, mini(segment_count, raw_max))
+	var temporary = maxi(0, mini(segment_count - current, raw_temp))
 	for slot_index in range(segment_count):
-		var state := PlayerMagickaComponent.STATE_LOCKED
+		var state = PlayerMagickaComponent.STATE_LOCKED
 		if slot_index < current:
 			state = PlayerMagickaComponent.STATE_REMAINING
 		elif slot_index < current + temporary:
@@ -846,7 +846,7 @@ func _find_label_with_text(node: Node, text: String) -> Label:
 	if node is Label and (node as Label).text == text:
 		return node as Label
 	for child in node.get_children():
-		var found_label := _find_label_with_text(child, text)
+		var found_label = _find_label_with_text(child, text)
 		if found_label != null:
 			return found_label
 	return null
@@ -866,7 +866,7 @@ func _find_button_with_text(node: Node, text: String) -> Button:
 	if node is Button and (node as Button).text == text:
 		return node as Button
 	for child in node.get_children():
-		var found_button := _find_button_with_text(child, text)
+		var found_button = _find_button_with_text(child, text)
 		if found_button != null:
 			return found_button
 	return null
@@ -878,7 +878,7 @@ func _find_first_label(node: Node) -> Label:
 	if node is Label:
 		return node as Label
 	for child in node.get_children():
-		var found_label := _find_first_label(child)
+		var found_label = _find_first_label(child)
 		if found_label != null:
 			return found_label
 	return null
@@ -887,10 +887,10 @@ func _find_first_label(node: Node) -> Label:
 func _panel_has_padding(panel: Control, min_padding: int) -> bool:
 	if panel == null or panel.get_child_count() == 0:
 		return false
-	var child := panel.get_child(0)
+	var child = panel.get_child(0)
 	if not (child is MarginContainer):
 		return false
-	var margin := child as MarginContainer
+	var margin = child as MarginContainer
 	return (
 		margin.get_theme_constant("margin_left") >= min_padding and
 		margin.get_theme_constant("margin_top") >= min_padding and
@@ -902,9 +902,9 @@ func _panel_has_padding(panel: Control, min_padding: int) -> bool:
 func _panel_background_brightness(panel: Control) -> float:
 	if panel == null:
 		return 999.0
-	var style := panel.get_theme_stylebox("panel")
+	var style = panel.get_theme_stylebox("panel")
 	if style is StyleBoxFlat:
-		var color := (style as StyleBoxFlat).bg_color
+		var color = (style as StyleBoxFlat).bg_color
 		return color.r + color.g + color.b
 	return 999.0
 
@@ -912,9 +912,9 @@ func _panel_background_brightness(panel: Control) -> float:
 func _button_background_brightness(button: Button, style_name: String) -> float:
 	if button == null:
 		return 999.0
-	var style := button.get_theme_stylebox(style_name)
+	var style = button.get_theme_stylebox(style_name)
 	if style is StyleBoxFlat:
-		var color := (style as StyleBoxFlat).bg_color
+		var color = (style as StyleBoxFlat).bg_color
 		return color.r + color.g + color.b
 	return 999.0
 
@@ -922,7 +922,7 @@ func _button_background_brightness(button: Button, style_name: String) -> float:
 func _button_border_width(button: Button, style_name: String) -> int:
 	if button == null:
 		return -1
-	var style := button.get_theme_stylebox(style_name)
+	var style = button.get_theme_stylebox(style_name)
 	if style is StyleBoxFlat:
 		return int((style as StyleBoxFlat).border_width_top)
 	return -1
@@ -960,13 +960,13 @@ func _avatar_layout_controls(component: PlayerAvatarComponent) -> Array:
 func _avatar_orientation_signature(component: PlayerAvatarComponent) -> Array:
 	if component == null:
 		return []
-	var medallion := component.find_child("MedallionOuter", true, false) as Control
-	var badge := component.find_child("HealthBadge", true, false) as Control
+	var medallion = component.find_child("MedallionOuter", true, false) as Control
+	var badge = component.find_child("HealthBadge", true, false) as Control
 	if medallion == null or badge == null:
 		return []
 	var signature: Array = [badge.position.x - medallion.position.x]
 	for threshold in DISPLAY_RUNE_THRESHOLDS:
-		var rune := component.get_rune_anchor(threshold)
+		var rune = component.get_rune_anchor(threshold)
 		if rune == null:
 			return []
 		signature.append((rune as Control).position.x - medallion.position.x)
@@ -978,7 +978,7 @@ func _avatar_rune_size_signature(component: PlayerAvatarComponent) -> Array:
 		return []
 	var signature: Array = []
 	for threshold in DISPLAY_RUNE_THRESHOLDS:
-		var rune := component.get_rune_anchor(threshold)
+		var rune = component.get_rune_anchor(threshold)
 		if rune == null:
 			return []
 		signature.append_array([
@@ -991,8 +991,8 @@ func _avatar_rune_size_signature(component: PlayerAvatarComponent) -> Array:
 func _avatar_badge_is_on_left(component: PlayerAvatarComponent) -> bool:
 	if component == null:
 		return false
-	var medallion := component.find_child("MedallionOuter", true, false) as Control
-	var badge := component.find_child("HealthBadge", true, false) as Control
+	var medallion = component.find_child("MedallionOuter", true, false) as Control
+	var badge = component.find_child("HealthBadge", true, false) as Control
 	if medallion == null or badge == null:
 		return false
 	return badge.get_global_rect().get_center().x < medallion.get_global_rect().get_center().x
@@ -1001,19 +1001,19 @@ func _avatar_badge_is_on_left(component: PlayerAvatarComponent) -> bool:
 func _avatar_runes_deplete_right_to_left(component: PlayerAvatarComponent) -> bool:
 	if component == null:
 		return false
-	var previous_center_x := INF
+	var previous_center_x = INF
 	for threshold in DISPLAY_RUNE_THRESHOLDS:
-		var rune := component.get_rune_anchor(threshold)
+		var rune = component.get_rune_anchor(threshold)
 		if rune == null:
 			return false
-		var center_x := (rune as Control).get_global_rect().get_center().x
+		var center_x = (rune as Control).get_global_rect().get_center().x
 		if center_x >= previous_center_x:
 			return false
 		previous_center_x = center_x
 	return true
 
 
-func _float_arrays_match(left: Array, right: Array, tolerance := 1.0) -> bool:
+func _float_arrays_match(left: Array, right: Array, tolerance = 1.0) -> bool:
 	if left.size() != right.size():
 		return false
 	for index in range(left.size()):
@@ -1031,7 +1031,7 @@ func _control_fits_inside(container: Control, target: Control) -> bool:
 func _controls_fit_inside(container: Control, controls: Array) -> bool:
 	if container == null:
 		return false
-	var container_rect := container.get_global_rect().grow(0.5)
+	var container_rect = container.get_global_rect().grow(0.5)
 	for control in controls:
 		if not (control is Control):
 			return false
@@ -1043,18 +1043,18 @@ func _controls_fit_inside(container: Control, controls: Array) -> bool:
 func _click_control(control: Control) -> bool:
 	if control == null:
 		return false
-	var center := control.get_global_rect().position + control.get_global_rect().size * 0.5
-	var motion := InputEventMouseMotion.new()
+	var center = control.get_global_rect().position + control.get_global_rect().size * 0.5
+	var motion = InputEventMouseMotion.new()
 	motion.position = center
 	motion.global_position = center
 	root.push_input(motion)
-	var press := InputEventMouseButton.new()
+	var press = InputEventMouseButton.new()
 	press.button_index = MOUSE_BUTTON_LEFT
 	press.pressed = true
 	press.position = center
 	press.global_position = center
 	root.push_input(press)
-	var release := InputEventMouseButton.new()
+	var release = InputEventMouseButton.new()
 	release.button_index = MOUSE_BUTTON_LEFT
 	release.pressed = false
 	release.position = center

@@ -1,7 +1,7 @@
 class_name MatchScreenHistory
 extends RefCounted
 
-const CardDisplayComponent = preload("res://src/ui/card_display_component.gd")
+const CardDisplayComponent = preload("res://src/ui/components/CardDisplayComponent.gd")
 
 var _screen  # MatchScreen reference
 var entries: Array = []
@@ -9,6 +9,20 @@ var last_event_count: int = 0
 var card_snapshots: Dictionary = {}
 var container: HBoxContainer
 var popover_state := {}
+
+
+const PRESET_FULL_RECT = Control.PRESET_FULL_RECT
+const PRESET_TOP_LEFT = Control.PRESET_TOP_LEFT
+const PRESET_TOP_RIGHT = Control.PRESET_TOP_RIGHT
+const PRESET_BOTTOM_LEFT = Control.PRESET_BOTTOM_LEFT
+const PRESET_BOTTOM_RIGHT = Control.PRESET_BOTTOM_RIGHT
+const PRESET_CENTER_TOP = Control.PRESET_CENTER_TOP
+const PRESET_CENTER_BOTTOM = Control.PRESET_CENTER_BOTTOM
+const PRESET_CENTER = Control.PRESET_CENTER
+const SIZE_EXPAND_FILL = Control.SIZE_EXPAND_FILL
+const SIZE_SHRINK_CENTER = Control.SIZE_SHRINK_CENTER
+const SIZE_SHRINK_END = Control.SIZE_SHRINK_END
+const SIZE_FILL = Control.SIZE_FILL
 
 func _init(screen) -> void:
 	_screen = screen
@@ -25,7 +39,7 @@ func _reset_match_history() -> void:
 func _scan_and_refresh_match_history() -> void:
 	# Defer scanning while the player is selecting a target for a summon effect,
 	# action, or item so the history entry includes the resolved target(s).
-	if not _screen._pending_summon_target.is_empty() or not _screen._targeting_arrow_state.is_empty():
+	if not _screen._targeting._pending_summon_target.is_empty() or not _screen._targeting._targeting_arrow_state.is_empty():
 		return
 	var event_log: Array = _screen._match_state.get("event_log", [])
 	if event_log.size() <= last_event_count:
@@ -283,7 +297,7 @@ func _snapshot_card_for_history(instance_id: String) -> Dictionary:
 	if instance_id.is_empty():
 		return {}
 	# Try to find the card in current match state
-	var location := MatchMutations.find_card_location(_screen._match_state, instance_id)
+	var location = _screen.MatchMutations.find_card_location(_screen._match_state, instance_id)
 	if bool(location.get("is_valid", false)):
 		var card: Dictionary = location["card"]
 		var snapshot := card.duplicate(true)
@@ -297,7 +311,7 @@ func _snapshot_card_for_history(instance_id: String) -> Dictionary:
 
 func _add_history_entry(entry: Dictionary) -> void:
 	entries.append(entry)
-	if entries.size() > MATCH_HISTORY_MAX_ENTRIES:
+	if entries.size() > _screen.MATCH_HISTORY_MAX_ENTRIES:
 		entries.pop_front()
 
 
@@ -313,14 +327,14 @@ func _refresh_match_history_row() -> void:
 
 
 func _build_match_history_icon(entry: Dictionary, entry_index: int) -> Button:
-	var is_local := str(entry.get("player_id", "")) == _screen._local_player_id()
-	var border_color := MATCH_HISTORY_PLAYER_BORDER_COLOR if is_local else MATCH_HISTORY_OPPONENT_BORDER_COLOR
+	var is_local: bool = str(entry.get("player_id", "")) == _screen._local_player_id()
+	var border_color = _screen.MATCH_HISTORY_PLAYER_BORDER_COLOR if is_local else _screen.MATCH_HISTORY_OPPONENT_BORDER_COLOR
 	var fill := Color(0.1, 0.1, 0.12, 0.96)
 
 	var button := Button.new()
-	button.custom_minimum_size = MATCH_HISTORY_ICON_SIZE
+	button.custom_minimum_size = _screen.MATCH_HISTORY_ICON_SIZE
 	button.clip_contents = true
-	_screen._apply_button_style(button, fill, border_color, Color.WHITE, MATCH_HISTORY_ICON_BORDER_WIDTH, 6)
+	_screen._apply_button_style(button, fill, border_color, Color.WHITE, _screen.MATCH_HISTORY_ICON_BORDER_WIDTH, 6)
 	button.pressed.connect(_on_match_history_icon_pressed.bind(entry_index))
 	button.mouse_entered.connect(_on_match_history_mouse_entered.bind(entry, entry_index))
 	button.mouse_exited.connect(_on_match_history_mouse_exited)
@@ -330,10 +344,10 @@ func _build_match_history_icon(entry: Dictionary, entry_index: int) -> Button:
 		var tex_rect := TextureRect.new()
 		tex_rect.texture = _resolve_history_art_texture(source_card)
 		tex_rect.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		tex_rect.offset_left = MATCH_HISTORY_ICON_BORDER_WIDTH
-		tex_rect.offset_top = MATCH_HISTORY_ICON_BORDER_WIDTH
-		tex_rect.offset_right = -MATCH_HISTORY_ICON_BORDER_WIDTH
-		tex_rect.offset_bottom = -MATCH_HISTORY_ICON_BORDER_WIDTH
+		tex_rect.offset_left = _screen.MATCH_HISTORY_ICON_BORDER_WIDTH
+		tex_rect.offset_top = _screen.MATCH_HISTORY_ICON_BORDER_WIDTH
+		tex_rect.offset_right = -_screen.MATCH_HISTORY_ICON_BORDER_WIDTH
+		tex_rect.offset_bottom = -_screen.MATCH_HISTORY_ICON_BORDER_WIDTH
 		tex_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		tex_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		tex_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -481,8 +495,8 @@ func _show_match_history_popover(entry_index: int) -> void:
 	_screen.add_child(overlay)
 	popover_state = {"overlay": overlay, "entry_index": entry_index}
 	var source_card_name := str(source_card.get("name", "unknown"))
-	_screen._screen._error_report_hovered_type = "match_history"
-	_screen._screen._error_report_hovered_context = "Match History Entry #%d (%s)" % [entry_index + 1, source_card_name]
+	_screen._error_report_hovered_type = "match_history"
+	_screen._error_report_hovered_context = "Match History Entry #%d (%s)" % [entry_index + 1, source_card_name]
 
 
 func _build_history_popover_card_section(card: Dictionary, player_id: String, destroyed: bool) -> VBoxContainer:
@@ -513,10 +527,10 @@ func _build_history_popover_card_section(card: Dictionary, player_id: String, de
 		wrapper_style.corner_radius_bottom_right = 6
 		card_wrapper.add_theme_stylebox_override("panel", wrapper_style)
 
-		var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+		var component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
 		component.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+		component.apply_card(card, _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
 		card_wrapper.add_child(component)
 
 		if destroyed:
@@ -695,9 +709,8 @@ func _recent_presentation_events_from_history() -> Array:
 		var event_type := str(event.get("event_type", ""))
 		if event_type == "turn_started" and not recent.is_empty():
 			break
-		if event_type == MatchTiming.EVENT_RUNE_BROKEN or event_type == MatchTiming.EVENT_CARD_DRAWN or event_type == MatchTiming.EVENT_PROPHECY_WINDOW_OPENED or event_type == "match_won":
+		if event_type == _screen.MatchTiming.EVENT_RUNE_BROKEN or event_type == _screen.MatchTiming.EVENT_CARD_DRAWN or event_type == _screen.MatchTiming.EVENT_PROPHECY_WINDOW_OPENED or event_type == "match_won":
 			recent.push_front(event)
 			if recent.size() >= 8:
 				break
 	return recent
-

@@ -13,21 +13,21 @@ func _init(screen) -> void:
 
 
 func _check_betray_mode(action_instance_id: String, action_card: Dictionary) -> void:
-	if not ExtendedMechanicPacks.action_has_betray(_screen._match_state, _active_player_id(), action_card):
+	if not _screen.ExtendedMechanicPacks.action_has_betray(_screen._match_state, _screen._active_player_id(), action_card):
 		return
 	# Defer betray until pending summon effect targets are resolved
-	if not _screen._pending_summon_target.is_empty() or MatchTiming.has_pending_summon_effect_target(_screen._match_state, _local_player_id()):
+	if not _screen._targeting._pending_summon_target.is_empty() or _screen.MatchTiming.has_pending_summon_effect_target(_screen._match_state, _screen._local_player_id()):
 		_deferred_betray = {"action_instance_id": action_instance_id, "action_card": action_card.duplicate(true)}
 		return
 	# Re-fetch the card from discard to pick up shout upgrades that occurred during resolution
 	for _p in _screen._match_state.get("players", []):
-		if str(_p.get("player_id", "")) == _active_player_id():
+		if str(_p.get("player_id", "")) == _screen._active_player_id():
 			for discard_card in _p.get("discard", []):
 				if typeof(discard_card) == TYPE_DICTIONARY and str(discard_card.get("instance_id", "")) == action_instance_id:
 					action_card = discard_card
 					break
 			break
-	var candidates := ExtendedMechanicPacks.get_betray_sacrifice_candidates(_screen._match_state, _active_player_id())
+	var candidates = _screen.ExtendedMechanicPacks.get_betray_sacrifice_candidates(_screen._match_state, _screen._active_player_id())
 	if candidates.is_empty():
 		return
 	var is_targeted := not str(action_card.get("action_target_mode", "")).is_empty()
@@ -35,7 +35,7 @@ func _check_betray_mode(action_instance_id: String, action_card: Dictionary) -> 
 	if is_targeted:
 		var any_valid := false
 		for candidate in candidates:
-			if ExtendedMechanicPacks.betray_replay_has_valid_target(_screen._match_state, _active_player_id(), action_card, str(candidate.get("instance_id", ""))):
+			if _screen.ExtendedMechanicPacks.betray_replay_has_valid_target(_screen._match_state, _screen._active_player_id(), action_card, str(candidate.get("instance_id", ""))):
 				any_valid = true
 				break
 		if not any_valid:
@@ -49,13 +49,13 @@ func _check_betray_mode(action_instance_id: String, action_card: Dictionary) -> 
 	_show_betray_skip_button()
 	var card_name := str(action_card.get("name", ""))
 	_screen._status_message = "Sacrifice a creature to play %s again." % card_name
-	_refresh_ui()
+	_screen._refresh_ui()
 
 
 func _check_deferred_betray() -> void:
 	if _deferred_betray.is_empty():
 		return
-	if not _screen._pending_summon_target.is_empty() or MatchTiming.has_pending_summon_effect_target(_screen._match_state, _local_player_id()):
+	if not _screen._targeting._pending_summon_target.is_empty() or _screen.MatchTiming.has_pending_summon_effect_target(_screen._match_state, _screen._local_player_id()):
 		return
 	var deferred := _deferred_betray
 	_deferred_betray = {}
@@ -79,12 +79,12 @@ func _action_has_event_lane_targets(action_card: Dictionary) -> bool:
 	return false
 
 
-var _screen._summon_skip_button: Button = null
+var _summon_skip_button: Button = null
 
 
 func _show_betray_skip_button() -> void:
 	_dismiss_betray_skip_button()
-	var viewport_size := get_viewport_rect().size
+	var viewport_size = _screen.get_viewport_rect().size
 	# Prompt label
 	_screen._betray_prompt_label = Label.new()
 	_screen._betray_prompt_label.text = "Choose a creature to betray"
@@ -94,7 +94,7 @@ func _show_betray_skip_button() -> void:
 	_screen._betray_prompt_label.z_index = 600
 	_screen._betray_prompt_label.size = Vector2(300, 30)
 	_screen._betray_prompt_label.position = Vector2(viewport_size.x * 0.5 - 150, viewport_size.y * 0.5 + 10)
-	add_child(_screen._betray_prompt_label)
+	_screen.add_child(_screen._betray_prompt_label)
 	# Skip button
 	_screen._betray_skip_button = Button.new()
 	_screen._betray_skip_button.text = "Skip Betray"
@@ -110,9 +110,9 @@ func _show_betray_skip_button() -> void:
 	_screen._betray_skip_button.add_theme_stylebox_override("pressed", style)
 	_screen._betray_skip_button.add_theme_color_override("font_color", Color(0.9, 0.88, 0.92, 1.0))
 	_screen._betray_skip_button.add_theme_font_size_override("font_size", 18)
-	_screen._betray_skip_button.pressed.connect(_cancel_betray_mode)
+	_screen._betray_skip_button.pressed.connect(_screen._cancel_betray_mode)
 	_screen._betray_skip_button.z_index = 600
-	add_child(_screen._betray_skip_button)
+	_screen.add_child(_screen._betray_skip_button)
 	_screen._betray_skip_button.position = Vector2(viewport_size.x * 0.5 - 80, viewport_size.y * 0.5 + 50)
 
 
@@ -126,94 +126,94 @@ func _dismiss_betray_skip_button() -> void:
 
 
 func _resolve_betray_sacrifice(sacrifice_instance_id: String) -> void:
-	var candidates := ExtendedMechanicPacks.get_betray_sacrifice_candidates(_screen._match_state, _active_player_id())
+	var candidates = _screen.ExtendedMechanicPacks.get_betray_sacrifice_candidates(_screen._match_state, _screen._active_player_id())
 	var is_valid_candidate := false
 	for c in candidates:
 		if str(c.get("instance_id", "")) == sacrifice_instance_id:
 			is_valid_candidate = true
 			break
 	if not is_valid_candidate:
-		_report_invalid_interaction("Not a valid sacrifice target.", {"instance_ids": [sacrifice_instance_id]})
+		_screen._report_invalid_interaction("Not a valid sacrifice target.", {"instance_ids": [sacrifice_instance_id]})
 		return
 	var is_targeted: bool = bool(_pending_betray.get("is_targeted", false))
 	if is_targeted:
 		var action_card: Dictionary = _pending_betray.get("action_card", {})
-		if not ExtendedMechanicPacks.betray_replay_has_valid_target(_screen._match_state, _active_player_id(), action_card, sacrifice_instance_id):
-			_report_invalid_interaction("No valid replay targets if this creature is sacrificed.", {"instance_ids": [sacrifice_instance_id]})
+		if not _screen.ExtendedMechanicPacks.betray_replay_has_valid_target(_screen._match_state, _screen._active_player_id(), action_card, sacrifice_instance_id):
+			_screen._report_invalid_interaction("No valid replay targets if this creature is sacrificed.", {"instance_ids": [sacrifice_instance_id]})
 			return
 	_dismiss_betray_skip_button()
 	if is_targeted:
 		_pending_betray["sacrifice_instance_id"] = sacrifice_instance_id
 		# Enter targeting mode for replay, arrow from player avatar
 		var avatar: Control = null
-		var section: Dictionary = _screen._player_sections.get(_active_player_id(), {})
+		var section: Dictionary = _screen._player_sections.get(_screen._active_player_id(), {})
 		if section.has("avatar_component"):
 			avatar = section.get("avatar_component") as Control
-		_cancel_targeting_mode_silent()
-		_screen._targeting_arrow = _create_targeting_arrow()
+		_screen._cancel_targeting_mode_silent()
+		_screen._targeting_arrow = _screen._create_targeting_arrow()
 		var arrow_origin := Vector2.ZERO
 		if avatar != null:
 			arrow_origin = avatar.global_position + Vector2(avatar.size.x * 0.5, avatar.size.y * 0.5)
 		else:
-			var viewport_size := get_viewport_rect().size
+			var viewport_size = _screen.get_viewport_rect().size
 			arrow_origin = Vector2(viewport_size.x * 0.5, viewport_size.y * 0.85)
-		_screen._targeting_arrow_state = {
+		_screen._targeting._targeting_arrow_state = {
 			"instance_id": str(_pending_betray.get("action_instance_id", "")),
 			"origin": arrow_origin,
 			"button": null,
 		}
 		var card_name := str(_pending_betray.get("action_card", {}).get("name", ""))
 		_screen._status_message = "Choose a target for %s." % card_name
-		_refresh_ui()
+		_screen._refresh_ui()
 	elif bool(_pending_betray.get("is_lane_targeted", false)):
 		_pending_betray["sacrifice_instance_id"] = sacrifice_instance_id
 		var card_name := str(_pending_betray.get("action_card", {}).get("name", ""))
 		_screen._status_message = "Choose a lane for %s." % card_name
-		_refresh_ui()
+		_screen._refresh_ui()
 	else:
 		var action_instance_id := str(_pending_betray.get("action_instance_id", ""))
-		var result := MatchTiming.execute_betray_replay(_screen._match_state, _active_player_id(), action_instance_id, sacrifice_instance_id, {})
+		var result = _screen.MatchTiming.execute_betray_replay(_screen._match_state, _screen._active_player_id(), action_instance_id, sacrifice_instance_id, {})
 		_pending_betray = {}
-		_finalize_engine_result(result, "Betray replay resolved.")
+		_screen._finalize_engine_result(result, "Betray replay resolved.")
 
 
 func _resolve_betray_replay_target_card(target_instance_id: String) -> void:
 	var action_instance_id := str(_pending_betray.get("action_instance_id", ""))
 	var sacrifice_id := str(_pending_betray.get("sacrifice_instance_id", ""))
 	var replay_options := {"target_instance_id": target_instance_id}
-	var result := MatchTiming.execute_betray_replay(_screen._match_state, _active_player_id(), action_instance_id, sacrifice_id, replay_options)
+	var result = _screen.MatchTiming.execute_betray_replay(_screen._match_state, _screen._active_player_id(), action_instance_id, sacrifice_id, replay_options)
 	_pending_betray = {}
-	_cancel_targeting_mode_silent()
-	_finalize_engine_result(result, "Betray replay resolved.")
+	_screen._cancel_targeting_mode_silent()
+	_screen._finalize_engine_result(result, "Betray replay resolved.")
 
 
 func _resolve_betray_replay_target_player(player_id: String) -> void:
 	var action_instance_id := str(_pending_betray.get("action_instance_id", ""))
 	var sacrifice_id := str(_pending_betray.get("sacrifice_instance_id", ""))
 	var replay_options := {"target_player_id": player_id}
-	var result := MatchTiming.execute_betray_replay(_screen._match_state, _active_player_id(), action_instance_id, sacrifice_id, replay_options)
+	var result = _screen.MatchTiming.execute_betray_replay(_screen._match_state, _screen._active_player_id(), action_instance_id, sacrifice_id, replay_options)
 	_pending_betray = {}
-	_cancel_targeting_mode_silent()
-	_finalize_engine_result(result, "Betray replay resolved.")
+	_screen._cancel_targeting_mode_silent()
+	_screen._finalize_engine_result(result, "Betray replay resolved.")
 
 
 func _resolve_betray_replay_lane(lane_id: String) -> void:
 	var action_instance_id := str(_pending_betray.get("action_instance_id", ""))
 	var sacrifice_id := str(_pending_betray.get("sacrifice_instance_id", ""))
 	var replay_options := {"lane_id": lane_id}
-	var result := MatchTiming.execute_betray_replay(_screen._match_state, _active_player_id(), action_instance_id, sacrifice_id, replay_options)
+	var result = _screen.MatchTiming.execute_betray_replay(_screen._match_state, _screen._active_player_id(), action_instance_id, sacrifice_id, replay_options)
 	_pending_betray = {}
-	_finalize_engine_result(result, "Betray replay resolved.")
+	_screen._finalize_engine_result(result, "Betray replay resolved.")
 
 
 func _lane_is_full_with_friendly(lane_id: String, player_id: String) -> bool:
-	var slots := _lane_slots(lane_id, player_id)
-	var slot_capacity := _lane_slot_capacity(lane_id)
+	var slots = _screen._lane_slots(lane_id, player_id)
+	var slot_capacity = _screen._lane_slot_capacity(lane_id)
 	return slots.size() >= slot_capacity and slots.size() > 0
 
 
 func _find_nearest_friendly_creature_in_lane(lane_id: String, player_id: String, mouse_pos: Vector2) -> String:
-	var row_key := _lane_row_key(lane_id, player_id)
+	var row_key = _screen._lane_row_key(lane_id, player_id)
 	var row: HBoxContainer = _screen._lane_row_containers.get(row_key)
 	if row == null or not is_instance_valid(row):
 		return ""
@@ -227,10 +227,10 @@ func _find_nearest_friendly_creature_in_lane(lane_id: String, player_id: String,
 		var instance_id: String = child.get_meta("instance_id", "")
 		if instance_id.is_empty():
 			continue
-		var c := _card_from_instance_id(instance_id)
+		var c = _screen._card_from_instance_id(instance_id)
 		if c.is_empty():
 			continue
-		if str(c.get("controller_player_id", "")) != _active_player_id():
+		if str(c.get("controller_player_id", "")) != _screen._active_player_id():
 			continue
 		if str(c.get("card_type", "")) != "creature":
 			continue
@@ -247,8 +247,8 @@ func _apply_sacrifice_hover(instance_id: String) -> void:
 	_sacrifice_hover_target_id = instance_id
 	var button: Button = _screen._card_buttons.get(instance_id)
 	if button != null and is_instance_valid(button):
-		_apply_betray_target_glow(button, "lane")
-	var target_card := _card_from_instance_id(instance_id)
+		_screen._apply_betray_target_glow(button, "lane")
+	var target_card = _screen._card_from_instance_id(instance_id)
 	_sacrifice_hover_label = PanelContainer.new()
 	var bg_style := StyleBoxFlat.new()
 	bg_style.bg_color = Color(0.0, 0.0, 0.0, 0.85)
@@ -258,28 +258,28 @@ func _apply_sacrifice_hover(instance_id: String) -> void:
 	_sacrifice_hover_label.z_index = 501
 	_sacrifice_hover_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var label := Label.new()
-	label.text = "Sacrifice %s" % _card_name(target_card)
+	label.text = "Sacrifice %s" % _screen._card_name(target_card)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.add_theme_color_override("font_color", Color(0.95, 0.35, 0.25, 1.0))
 	label.add_theme_font_size_override("font_size", 16)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_sacrifice_hover_label.add_child(label)
-	add_child(_sacrifice_hover_label)
+	_screen.add_child(_sacrifice_hover_label)
 	_update_sacrifice_hover_label_position()
 
 
 func _update_sacrifice_hover_from_mouse(mouse_pos: Vector2) -> void:
-	if _screen._detached_card_state.is_empty():
+	if _screen._hand._detached_card_state.is_empty():
 		_clear_sacrifice_hover()
 		return
-	var card := _selected_card()
-	if card.is_empty() or _selected_action_mode(card) != SELECTION_MODE_SUMMON:
+	var card = _screen._selected_card()
+	if card.is_empty() or _screen._selected_action_mode(card) != _screen.SELECTION_MODE_SUMMON:
 		_clear_sacrifice_hover()
 		return
-	var target_player := _target_lane_player_id()
-	for lane in _lane_entries():
+	var target_player = _screen._target_lane_player_id()
+	for lane in _screen._lane_entries():
 		var lane_id := str(lane.get("id", ""))
-		var row_key := _lane_row_key(lane_id, target_player)
+		var row_key = _screen._lane_row_key(lane_id, target_player)
 		var row_panel: PanelContainer = _screen._lane_row_panels.get(row_key)
 		if row_panel == null or not is_instance_valid(row_panel):
 			continue
@@ -301,7 +301,7 @@ func _update_sacrifice_hover_from_mouse(mouse_pos: Vector2) -> void:
 func _update_sacrifice_hover_label_position() -> void:
 	if _sacrifice_hover_label == null or not is_instance_valid(_sacrifice_hover_label):
 		return
-	var preview: Control = _screen._detached_card_state.get("preview")
+	var preview: Control = _screen._hand._detached_card_state.get("preview")
 	if preview == null or not is_instance_valid(preview):
 		return
 	var label_size := _sacrifice_hover_label.size
@@ -327,11 +327,11 @@ func _clear_sacrifice_hover() -> void:
 
 func _resolve_sacrifice_hover() -> void:
 	var sacrifice_id := _sacrifice_hover_target_id
-	var detached_id := str(_screen._detached_card_state.get("instance_id", ""))
-	var location := MatchMutations.find_card_location(_screen._match_state, sacrifice_id)
+	var detached_id := str(_screen._hand._detached_card_state.get("instance_id", ""))
+	var location = _screen.MatchMutations.find_card_location(_screen._match_state, sacrifice_id)
 	var lane_id := str(location.get("lane_id", ""))
 	_clear_sacrifice_hover()
-	_cancel_detached_card_silent()
+	_screen._cancel_detached_card_silent()
 	_pending_sacrifice_summon = {"card_instance_id": detached_id, "lane_id": lane_id}
 	_resolve_sacrifice_summon(sacrifice_id)
 
@@ -339,24 +339,24 @@ func _resolve_sacrifice_hover() -> void:
 func _resolve_sacrifice_summon(sacrifice_instance_id: String) -> void:
 	var lane_id := str(_pending_sacrifice_summon.get("lane_id", ""))
 	var card_instance_id := str(_pending_sacrifice_summon.get("card_instance_id", ""))
-	var sacrifice_location := MatchMutations.find_card_location(_screen._match_state, sacrifice_instance_id)
+	var sacrifice_location = _screen.MatchMutations.find_card_location(_screen._match_state, sacrifice_instance_id)
 	var sacrifice_card: Dictionary = sacrifice_location.get("card", {})
 	if sacrifice_card.is_empty():
-		_report_invalid_interaction("Not a valid sacrifice target.", {"instance_ids": [sacrifice_instance_id]})
+		_screen._report_invalid_interaction("Not a valid sacrifice target.", {"instance_ids": [sacrifice_instance_id]})
 		return
-	if str(sacrifice_card.get("controller_player_id", "")) != _active_player_id():
-		_report_invalid_interaction("Not a valid sacrifice target.", {"instance_ids": [sacrifice_instance_id]})
+	if str(sacrifice_card.get("controller_player_id", "")) != _screen._active_player_id():
+		_screen._report_invalid_interaction("Not a valid sacrifice target.", {"instance_ids": [sacrifice_instance_id]})
 		return
 	if str(sacrifice_location.get("lane_id", "")) != lane_id:
-		_report_invalid_interaction("Sacrifice target must be in the same lane.", {"instance_ids": [sacrifice_instance_id]})
+		_screen._report_invalid_interaction("Sacrifice target must be in the same lane.", {"instance_ids": [sacrifice_instance_id]})
 		return
 	var saved_instance_id := card_instance_id
-	var summoned_card := _card_from_instance_id(card_instance_id)
-	var sacrifice_name := _card_name(sacrifice_card)
-	var summoned_name := _card_name(summoned_card)
-	var result := LaneRules.summon_with_sacrifice(_screen._match_state, _active_player_id(), card_instance_id, lane_id, sacrifice_instance_id)
+	var summoned_card = _screen._card_from_instance_id(card_instance_id)
+	var sacrifice_name = _screen._card_name(sacrifice_card)
+	var summoned_name = _screen._card_name(summoned_card)
+	var result = _screen.LaneRules.summon_with_sacrifice(_screen._match_state, _screen._active_player_id(), card_instance_id, lane_id, sacrifice_instance_id)
 	_pending_sacrifice_summon = {}
-	var finalized := _finalize_engine_result(result, "Sacrificed %s to play %s." % [sacrifice_name, summoned_name])
+	var finalized = _screen._finalize_engine_result(result, "Sacrificed %s to play %s." % [sacrifice_name, summoned_name])
 	if bool(finalized.get("is_valid", false)):
-		_check_summon_target_mode(saved_instance_id)
+		_screen._check_summon_target_mode(saved_instance_id)
 

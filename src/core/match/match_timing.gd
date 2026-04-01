@@ -3304,5 +3304,11 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 static func _build_summon_event(card: Dictionary, player_id: String, lane_id: String, slot_index: int, reason: String) -> Dictionary:
 	return MatchSummonTiming._build_summon_event(card, player_id, lane_id, slot_index, reason)
 
+static func _resolve_card_targets(match_state: Dictionary, trigger: Dictionary, event: Dictionary, effect: Dictionary) -> Array:
+	return MatchTargeting._resolve_card_targets(match_state, trigger, event, effect)
+
+static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dictionary, event: Dictionary, target: String) -> Array:
+	return MatchTargeting._resolve_card_targets_by_name(match_state, trigger, event, target)
+
 static func _build_trigger_resolution(match_state: Dictionary, trigger: Dictionary, event: Dictionary) -> Dictionary:
 	return MatchTriggers._build_trigger_resolution(match_state, trigger, event)

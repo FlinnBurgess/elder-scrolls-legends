@@ -17,20 +17,34 @@ var _player_choice_overlay_state := {}
 var _deck_selection_overlay_state := {}
 var _pending_exalt := {}
 
+
+const PRESET_FULL_RECT = Control.PRESET_FULL_RECT
+const PRESET_TOP_LEFT = Control.PRESET_TOP_LEFT
+const PRESET_TOP_RIGHT = Control.PRESET_TOP_RIGHT
+const PRESET_BOTTOM_LEFT = Control.PRESET_BOTTOM_LEFT
+const PRESET_BOTTOM_RIGHT = Control.PRESET_BOTTOM_RIGHT
+const PRESET_CENTER_TOP = Control.PRESET_CENTER_TOP
+const PRESET_CENTER_BOTTOM = Control.PRESET_CENTER_BOTTOM
+const PRESET_CENTER = Control.PRESET_CENTER
+const SIZE_EXPAND_FILL = Control.SIZE_EXPAND_FILL
+const SIZE_SHRINK_CENTER = Control.SIZE_SHRINK_CENTER
+const SIZE_SHRINK_END = Control.SIZE_SHRINK_END
+const SIZE_FILL = Control.SIZE_FILL
+
 func _init(screen) -> void:
 	_screen = screen
 
 
 func _refresh_prophecy_overlay() -> void:
-	var has_prophecy := MatchTiming.has_pending_prophecy(_screen._match_state)
+	var has_prophecy = _screen.MatchTiming.has_pending_prophecy(_screen._match_state)
 	var overlay_active := not _prophecy_overlay_state.is_empty()
 	if has_prophecy and not overlay_active:
-		var windows := MatchTiming.get_pending_prophecies(_screen._match_state)
+		var windows = _screen.MatchTiming.get_pending_prophecies(_screen._match_state)
 		if not windows.is_empty():
 			var window: Dictionary = windows[0]
 			var instance_id := str(window.get("instance_id", ""))
 			var player_id := str(window.get("player_id", ""))
-			if player_id == _local_player_id():
+			if player_id == _screen._local_player_id():
 				_show_local_prophecy_overlay(instance_id)
 			else:
 				_show_enemy_prophecy_overlay(instance_id)
@@ -42,12 +56,12 @@ func _refresh_prophecy_overlay() -> void:
 
 func _show_local_prophecy_overlay(instance_id: String) -> void:
 	_dismiss_prophecy_overlay()
-	var card := _card_from_instance_id(instance_id)
+	var card = _screen._card_from_instance_id(instance_id)
 	if card.is_empty():
 		return
-	var card_size := _hand_card_display_size()
-	var viewport_size := get_viewport_rect().size
-	var hand_top_y := viewport_size.y - card_size.y * 0.35
+	var card_size = _screen._hand_card_display_size()
+	var viewport_size = _screen.get_viewport_rect().size
+	var hand_top_y: float = viewport_size.y - card_size.y * 0.35
 
 	var vbox := VBoxContainer.new()
 	vbox.name = "prophecy_local_vbox"
@@ -59,10 +73,10 @@ func _show_local_prophecy_overlay(instance_id: String) -> void:
 	card_wrapper.name = "prophecy_card_wrapper"
 	card_wrapper.custom_minimum_size = card_size
 	card_wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+	var component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
 	component.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+	component.apply_card(card, _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
 	card_wrapper.add_child(component)
 	vbox.add_child(card_wrapper)
 
@@ -75,37 +89,37 @@ func _show_local_prophecy_overlay(instance_id: String) -> void:
 	play_button.text = "Play"
 	play_button.custom_minimum_size = Vector2(card_size.x * 0.45, 46)
 	play_button.add_theme_font_size_override("font_size", 17)
-	_apply_button_style(play_button, Color(0.21, 0.12, 0.29, 0.99), Color(0.92, 0.72, 0.98, 1.0), Color(0.99, 0.96, 1.0, 1.0), 2, 10)
-	play_button.pressed.connect(_on_prophecy_play_pressed.bind(instance_id))
+	_screen._apply_button_style(play_button, Color(0.21, 0.12, 0.29, 0.99), Color(0.92, 0.72, 0.98, 1.0), Color(0.99, 0.96, 1.0, 1.0), 2, 10)
+	play_button.pressed.connect(_screen._on_prophecy_play_pressed.bind(instance_id))
 	button_row.add_child(play_button)
 
-	var local_id := _local_player_id()
+	var local_id = _screen._local_player_id()
 	var local_player := {}
 	for p in _screen._match_state.get("players", []):
 		if str(p.get("player_id", "")) == local_id:
 			local_player = p
 			break
-	var hand_full: bool = local_player.get("hand", []).size() > MatchTiming.MAX_HAND_SIZE
+	var hand_full: bool = local_player.get("hand", []).size() > _screen.MatchTiming.MAX_HAND_SIZE
 
 	var keep_button := Button.new()
 	keep_button.text = "Discard" if hand_full else "Keep"
 	keep_button.custom_minimum_size = Vector2(card_size.x * 0.45, 46)
 	keep_button.add_theme_font_size_override("font_size", 17)
-	_apply_button_style(keep_button, Color(0.22, 0.11, 0.14, 0.98), Color(0.78, 0.45, 0.47, 0.96), Color(0.99, 0.95, 0.95, 1.0), 1, 10)
-	keep_button.pressed.connect(_on_prophecy_keep_pressed.bind(instance_id))
+	_screen._apply_button_style(keep_button, Color(0.22, 0.11, 0.14, 0.98), Color(0.78, 0.45, 0.47, 0.96), Color(0.99, 0.95, 0.95, 1.0), 1, 10)
+	keep_button.pressed.connect(_screen._on_prophecy_keep_pressed.bind(instance_id))
 	button_row.add_child(keep_button)
 
 	vbox.add_child(button_row)
 
-	var total_height := card_size.y + 12.0 + 46.0
-	var top_y := hand_top_y - total_height - 16.0
+	var total_height: float = card_size.y + 12.0 + 46.0
+	var top_y: float = hand_top_y - total_height - 16.0
 	vbox.position = Vector2((viewport_size.x - card_size.x) * 0.5, top_y)
 	vbox.size = Vector2(card_size.x, total_height)
 
 	_screen._prophecy_card_overlay.add_child(vbox)
 	_prophecy_overlay_state = {
 		"instance_id": instance_id,
-		"player_id": _local_player_id(),
+		"player_id": _screen._local_player_id(),
 		"is_local": true,
 		"vbox": vbox,
 		"card_wrapper": card_wrapper,
@@ -117,17 +131,17 @@ func _show_local_prophecy_overlay(instance_id: String) -> void:
 
 func _show_enemy_prophecy_overlay(instance_id: String) -> void:
 	_dismiss_prophecy_overlay()
-	var card_size := _hand_card_display_size()
-	var viewport_size := get_viewport_rect().size
+	var card_size = _screen._hand_card_display_size()
+	var viewport_size = _screen.get_viewport_rect().size
 
 	var card_back := PanelContainer.new()
 	card_back.name = "prophecy_enemy_card_back"
 	card_back.custom_minimum_size = card_size
 	card_back.size = card_size
-	_apply_panel_style(card_back, Color(0.35, 0.22, 0.12, 0.98), Color(0.57, 0.44, 0.27, 0.92), 2, 0)
+	_screen._apply_panel_style(card_back, Color(0.35, 0.22, 0.12, 0.98), Color(0.57, 0.44, 0.27, 0.92), 2, 0)
 
-	var pos_x := (viewport_size.x - card_size.x) * 0.5
-	var pos_y := viewport_size.y * 0.10 + 12.0
+	var pos_x: float = (viewport_size.x - card_size.x) * 0.5
+	var pos_y: float = viewport_size.y * 0.10 + 12.0
 	card_back.position = Vector2(pos_x, pos_y)
 
 	_screen._prophecy_card_overlay.add_child(card_back)
@@ -161,23 +175,23 @@ func _has_active_prophecy_overlay(instance_id: String) -> bool:
 func decline_prophecy(instance_id: String) -> Dictionary:
 	var player_id := _pending_prophecy_player_id(instance_id)
 	if player_id.is_empty():
-		return _invalid_ui_result("No pending Prophecy exists for %s." % instance_id)
-	var card := _card_from_instance_id(instance_id)
-	var result := MatchTiming.decline_pending_prophecy(_screen._match_state, player_id, instance_id)
-	return _finalize_engine_result(result, "Declined %s." % _card_name(card), false)
+		return _screen._invalid_ui_result("No pending Prophecy exists for %s." % instance_id)
+	var card = _screen._card_from_instance_id(instance_id)
+	var result = _screen.MatchTiming.decline_pending_prophecy(_screen._match_state, player_id, instance_id)
+	return _screen._finalize_engine_result(result, "Declined %s." % _screen._card_name(card), false)
 
 
 func _is_pending_prophecy_card(card: Dictionary) -> bool:
 	if card.is_empty():
 		return false
-	for window in MatchTiming.get_pending_prophecies(_screen._match_state, str(card.get("controller_player_id", ""))):
+	for window in _screen.MatchTiming.get_pending_prophecies(_screen._match_state, str(card.get("controller_player_id", ""))):
 		if str(window.get("instance_id", "")) == str(card.get("instance_id", "")):
 			return true
 	return false
 
 
 func _pending_prophecy_player_id(instance_id: String) -> String:
-	for window in MatchTiming.get_pending_prophecies(_screen._match_state):
+	for window in _screen.MatchTiming.get_pending_prophecies(_screen._match_state):
 		if str(window.get("instance_id", "")) == instance_id:
 			return str(window.get("player_id", ""))
 	return ""
@@ -186,7 +200,7 @@ func _pending_prophecy_player_id(instance_id: String) -> String:
 func _show_mulligan_overlay() -> void:
 	_dismiss_mulligan_overlay()
 	_mulligan_marked_ids = []
-	var local_id := _local_player_id()
+	var local_id = _screen._local_player_id()
 	var player := {}
 	for p in _screen._match_state.get("players", []):
 		if str(p.get("player_id", "")) == local_id:
@@ -245,7 +259,7 @@ func _show_mulligan_overlay() -> void:
 	card_row.mouse_filter = Control.MOUSE_FILTER_PASS
 	vbox.add_child(card_row)
 
-	var card_size := _hand_card_display_size()
+	var card_size = _screen._hand_card_display_size()
 	var card_buttons_map := {}
 	var x_labels_map := {}
 	_screen._mulligan_instance_id_order = []
@@ -262,10 +276,10 @@ func _show_mulligan_overlay() -> void:
 		card_button.add_theme_stylebox_override("pressed", empty_style)
 		card_button.add_theme_stylebox_override("focus", empty_style)
 
-		var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+		var component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
 		component.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+		component.apply_card(card, _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
 		card_button.add_child(component)
 
 		var x_label := Label.new()
@@ -291,11 +305,11 @@ func _show_mulligan_overlay() -> void:
 	continue_button.text = "Continue"
 	continue_button.custom_minimum_size = Vector2(180, 50)
 	continue_button.add_theme_font_size_override("font_size", 20)
-	_apply_button_style(continue_button, Color(0.28, 0.22, 0.08, 0.98), Color(0.78, 0.65, 0.22, 0.96), Color(0.98, 0.93, 0.82, 1.0), 2, 10)
+	_screen._apply_button_style(continue_button, Color(0.28, 0.22, 0.08, 0.98), Color(0.78, 0.65, 0.22, 0.96), Color(0.98, 0.93, 0.82, 1.0), 2, 10)
 	continue_button.pressed.connect(_on_mulligan_confirm_pressed)
 	vbox.add_child(continue_button)
 
-	add_child(overlay)
+	_screen.add_child(overlay)
 	_mulligan_overlay_state = {
 		"overlay": overlay,
 		"card_buttons": card_buttons_map,
@@ -337,34 +351,34 @@ func _dismiss_mulligan_overlay() -> void:
 
 
 func _finalize_mulligan(discard_instance_ids: Array) -> void:
-	MatchBootstrap.apply_mulligan(_screen._match_state, _local_player_id(), discard_instance_ids)
-	_hydrate_match_cards(_screen._match_state, _mulligan_card_by_id)
+	_screen.MatchBootstrap.apply_mulligan(_screen._match_state, _screen._local_player_id(), discard_instance_ids)
+	_screen._hydrate_match_cards(_screen._match_state, _mulligan_card_by_id)
 	# Re-apply augments after hydration so stat bonuses aren't overwritten
 	if not _screen._adventure_augments.is_empty():
-		_apply_adventure_augments(_screen._match_state, PLAYER_ORDER[1])
-	GameLogger.start_match(_screen._match_state)
-	MatchTurnLoop.begin_first_turn(_screen._match_state)
-	_screen._ai_enabled = true
-	if not _is_local_player_turn():
-		_schedule_local_match_ai_step(2000)
+		_screen._apply_adventure_augments(_screen._match_state, _screen.PLAYER_ORDER[1])
+	_screen.GameLogger.start_match(_screen._match_state)
+	_screen.MatchTurnLoop.begin_first_turn(_screen._match_state)
+	_screen._ai_system._ai_enabled = true
+	if not _screen._is_local_player_turn():
+		_screen._schedule_local_match_ai_step(2000)
 	_mulligan_card_by_id = {}
-	var scenario_events := _screen._history._recent_presentation_events_from_history()
-	_record_feedback_from_events(scenario_events)
+	var scenario_events = _screen._history._recent_presentation_events_from_history()
+	_screen._record_feedback_from_events(scenario_events)
 	_screen._status_message = "Match started."
-	_refresh_ui()
+	_screen._refresh_ui()
 	if _screen._arena_mode:
-		match_state_changed.emit(_screen._match_state.duplicate(true))
+		_screen.match_state_changed.emit(_screen._match_state.duplicate(true))
 
 
 func _show_discard_viewer(player_id: String) -> void:
 	_dismiss_discard_viewer()
-	var player := _player_state(player_id)
+	var player = _screen._player_state(player_id)
 	if player.is_empty():
 		return
 	var discard_pile: Array = player.get("discard", [])
 	if discard_pile.is_empty():
-		_screen._status_message = "%s's discard pile is empty." % _player_name(player_id)
-		_refresh_ui()
+		_screen._status_message = "%s's discard pile is empty." % _screen._player_name(player_id)
+		_screen._refresh_ui()
 		return
 
 	var overlay := Control.new()
@@ -395,7 +409,7 @@ func _show_discard_viewer(player_id: String) -> void:
 	margin.add_child(vbox)
 
 	var title_label := Label.new()
-	title_label.text = "%s's Discard Pile (%d)" % [_player_name(player_id), discard_pile.size()]
+	title_label.text = "%s's Discard Pile (%d)" % [_screen._player_name(player_id), discard_pile.size()]
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_label.add_theme_font_size_override("font_size", 24)
 	title_label.add_theme_color_override("font_color", Color(0.92, 0.88, 0.78, 1.0))
@@ -406,9 +420,9 @@ func _show_discard_viewer(player_id: String) -> void:
 	scroll.mouse_filter = Control.MOUSE_FILTER_PASS
 	vbox.add_child(scroll)
 
-	var card_size := CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+	var card_size = _screen.CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
 	var grid := GridContainer.new()
-	grid.columns = maxi(1, int(get_viewport_rect().size.x - 120) / int(card_size.x + 10))
+	grid.columns = maxi(1, int(_screen.get_viewport_rect().size.x - 120) / int(card_size.x + 10))
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
 	grid.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -428,10 +442,10 @@ func _show_discard_viewer(player_id: String) -> void:
 		wrapper_style.corner_radius_bottom_right = 6
 		card_wrapper.add_theme_stylebox_override("panel", wrapper_style)
 
-		var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+		var component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
 		component.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+		component.apply_card(card, _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
 		card_wrapper.add_child(component)
 		grid.add_child(card_wrapper)
 
@@ -439,14 +453,14 @@ func _show_discard_viewer(player_id: String) -> void:
 	close_button.text = "Close"
 	close_button.custom_minimum_size = Vector2(160, 44)
 	close_button.add_theme_font_size_override("font_size", 18)
-	_apply_button_style(close_button, Color(0.2, 0.12, 0.16, 0.98), Color(0.58, 0.32, 0.39, 0.94), Color(0.97, 0.92, 0.94, 1.0), 1, 10)
+	_screen._apply_button_style(close_button, Color(0.2, 0.12, 0.16, 0.98), Color(0.58, 0.32, 0.39, 0.94), Color(0.97, 0.92, 0.94, 1.0), 1, 10)
 	close_button.pressed.connect(_dismiss_discard_viewer)
 	close_button.size_flags_horizontal = SIZE_SHRINK_CENTER
 	vbox.add_child(close_button)
 
-	add_child(overlay)
+	_screen.add_child(overlay)
 	_discard_viewer_state = {"overlay": overlay}
-	_screen._status_message = "Viewing %s's discard pile." % _player_name(player_id)
+	_screen._status_message = "Viewing %s's discard pile." % _screen._player_name(player_id)
 
 
 func _dismiss_discard_viewer() -> void:
@@ -459,7 +473,7 @@ func _dismiss_discard_viewer() -> void:
 
 
 func _has_local_pending_discard_choice() -> bool:
-	return MatchTiming.has_pending_discard_choice(_screen._match_state, _local_player_id())
+	return _screen.MatchTiming.has_pending_discard_choice(_screen._match_state, _screen._local_player_id())
 
 
 func _refresh_discard_choice_overlay() -> void:
@@ -474,17 +488,17 @@ func _refresh_discard_choice_overlay() -> void:
 func _show_discard_choice_overlay() -> void:
 	_dismiss_discard_choice_overlay()
 	_dismiss_discard_viewer()
-	var local_id := _local_player_id()
-	var choice := MatchTiming.get_pending_discard_choice(_screen._match_state, local_id)
+	var local_id = _screen._local_player_id()
+	var choice = _screen.MatchTiming.get_pending_discard_choice(_screen._match_state, local_id)
 	if choice.is_empty():
 		return
 	var candidate_ids: Array = choice.get("candidate_instance_ids", [])
 	if candidate_ids.is_empty():
-		MatchTiming.decline_pending_discard_choice(_screen._match_state, local_id)
-		_refresh_ui()
+		_screen.MatchTiming.decline_pending_discard_choice(_screen._match_state, local_id)
+		_screen._refresh_ui()
 		return
 
-	var player := _player_state(local_id)
+	var player = _screen._player_state(local_id)
 	if player.is_empty():
 		return
 	var discard_pile: Array = player.get("discard", [])
@@ -537,9 +551,9 @@ func _show_discard_choice_overlay() -> void:
 	scroll.mouse_filter = Control.MOUSE_FILTER_PASS
 	vbox.add_child(scroll)
 
-	var card_size := CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+	var card_size = _screen.CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
 	var grid := GridContainer.new()
-	grid.columns = maxi(1, int(get_viewport_rect().size.x - 120) / int(card_size.x + 10))
+	grid.columns = maxi(1, int(_screen.get_viewport_rect().size.x - 120) / int(card_size.x + 10))
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
 	grid.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -563,16 +577,16 @@ func _show_discard_choice_overlay() -> void:
 		card_button.add_theme_stylebox_override("pressed", empty_style)
 		card_button.add_theme_stylebox_override("focus", empty_style)
 
-		var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+		var component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
 		component.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+		component.apply_card(card, _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
 		card_button.add_child(component)
 
 		card_button.pressed.connect(_on_discard_choice_selected.bind(instance_id))
 		grid.add_child(card_button)
 
-	add_child(overlay)
+	_screen.add_child(overlay)
 	_discard_choice_overlay_state = {"overlay": overlay}
 	_screen._status_message = title_text
 
@@ -580,16 +594,16 @@ func _show_discard_choice_overlay() -> void:
 func _on_discard_choice_selected(instance_id: String) -> void:
 	if _discard_choice_overlay_state.is_empty():
 		return
-	var local_id := _local_player_id()
-	var result := MatchTiming.resolve_pending_discard_choice(_screen._match_state, local_id, instance_id)
+	var local_id = _screen._local_player_id()
+	var result = _screen.MatchTiming.resolve_pending_discard_choice(_screen._match_state, local_id, instance_id)
 	_dismiss_discard_choice_overlay()
 	if bool(result.get("is_valid", false)):
 		var card_name := str(result.get("card", {}).get("name", instance_id))
-		_record_feedback_from_events(_copy_array(result.get("events", [])))
+		_screen._record_feedback_from_events(_screen._copy_array(result.get("events", [])))
 		_screen._status_message = "Drew %s from discard pile." % card_name
 	else:
 		_screen._status_message = str(result.get("errors", ["Failed to resolve discard choice."])[0])
-	_refresh_ui()
+	_screen._refresh_ui()
 
 
 func _dismiss_discard_choice_overlay() -> void:
@@ -604,11 +618,10 @@ func _dismiss_discard_choice_overlay() -> void:
 # --- Deck selection overlay ---
 
 
-var _deck_selection_overlay_state := {}
 
 
 func _has_local_pending_deck_selection() -> bool:
-	return MatchTiming.has_pending_deck_selection(_screen._match_state, _local_player_id())
+	return _screen.MatchTiming.has_pending_deck_selection(_screen._match_state, _screen._local_player_id())
 
 
 func _refresh_deck_selection_overlay() -> void:
@@ -617,23 +630,23 @@ func _refresh_deck_selection_overlay() -> void:
 	if has_selection and not overlay_active:
 		_show_deck_selection_overlay()
 	elif not has_selection and overlay_active:
-		_dismiss_deck_selection_overlay()
+		_screen._dismiss_deck_selection_overlay()
 
 
 func _show_deck_selection_overlay() -> void:
-	_dismiss_deck_selection_overlay()
+	_screen._dismiss_deck_selection_overlay()
 	_dismiss_discard_viewer()
-	var local_id := _local_player_id()
-	var selection := MatchTiming.get_pending_deck_selection(_screen._match_state, local_id)
+	var local_id = _screen._local_player_id()
+	var selection = _screen.MatchTiming.get_pending_deck_selection(_screen._match_state, local_id)
 	if selection.is_empty():
 		return
 	var candidate_ids: Array = selection.get("candidate_instance_ids", [])
 	if candidate_ids.is_empty():
-		MatchTiming.decline_pending_deck_selection(_screen._match_state, local_id)
-		_refresh_ui()
+		_screen.MatchTiming.decline_pending_deck_selection(_screen._match_state, local_id)
+		_screen._refresh_ui()
 		return
 
-	var player := _player_state(local_id)
+	var player = _screen._player_state(local_id)
 	if player.is_empty():
 		return
 	var deck_pile: Array = player.get("deck", [])
@@ -682,9 +695,9 @@ func _show_deck_selection_overlay() -> void:
 	scroll.mouse_filter = Control.MOUSE_FILTER_PASS
 	vbox.add_child(scroll)
 
-	var card_size := CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+	var card_size = _screen.CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
 	var grid := GridContainer.new()
-	grid.columns = maxi(1, int(get_viewport_rect().size.x - 120) / int(card_size.x + 10))
+	grid.columns = maxi(1, int(_screen.get_viewport_rect().size.x - 120) / int(card_size.x + 10))
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
 	grid.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -708,10 +721,10 @@ func _show_deck_selection_overlay() -> void:
 		card_button.add_theme_stylebox_override("pressed", empty_style)
 		card_button.add_theme_stylebox_override("focus", empty_style)
 
-		var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+		var component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
 		component.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+		component.apply_card(card, _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
 		card_button.add_child(component)
 
 		card_button.pressed.connect(_on_deck_selection_chosen.bind(instance_id))
@@ -725,7 +738,7 @@ func _show_deck_selection_overlay() -> void:
 	skip_button.pressed.connect(_on_deck_selection_declined)
 	vbox.add_child(skip_button)
 
-	add_child(overlay)
+	_screen.add_child(overlay)
 	_deck_selection_overlay_state = {"overlay": overlay}
 	_screen._status_message = prompt_text
 
@@ -733,30 +746,30 @@ func _show_deck_selection_overlay() -> void:
 func _on_deck_selection_chosen(instance_id: String) -> void:
 	if _deck_selection_overlay_state.is_empty():
 		return
-	var local_id := _local_player_id()
-	var result := MatchTiming.resolve_pending_deck_selection(_screen._match_state, local_id, instance_id)
-	_dismiss_deck_selection_overlay()
+	var local_id = _screen._local_player_id()
+	var result = _screen.MatchTiming.resolve_pending_deck_selection(_screen._match_state, local_id, instance_id)
+	_screen._dismiss_deck_selection_overlay()
 	if bool(result.get("is_valid", false)):
 		var card_name := str(result.get("card", {}).get("name", instance_id))
-		_record_feedback_from_events(_copy_array(result.get("events", [])))
+		_screen._record_feedback_from_events(_screen._copy_array(result.get("events", [])))
 		_screen._status_message = "Selected %s from deck." % card_name
 	else:
 		_screen._status_message = str(result.get("errors", ["Failed to resolve deck selection."])[0])
-	_refresh_ui()
+	_screen._refresh_ui()
 
 
 func _on_deck_selection_declined() -> void:
 	if _deck_selection_overlay_state.is_empty():
 		return
-	var local_id := _local_player_id()
-	MatchTiming.decline_pending_deck_selection(_screen._match_state, local_id)
-	_dismiss_deck_selection_overlay()
+	var local_id = _screen._local_player_id()
+	_screen.MatchTiming.decline_pending_deck_selection(_screen._match_state, local_id)
+	_screen._dismiss_deck_selection_overlay()
 	_screen._status_message = "Selection declined."
-	_refresh_ui()
+	_screen._refresh_ui()
 
 
 func _refresh_consume_selection_overlay() -> void:
-	var has_selection := _has_local_pending_consume_selection()
+	var has_selection = _screen._has_local_pending_consume_selection()
 	var overlay_active := not _consume_selection_overlay_state.is_empty()
 	if has_selection and not overlay_active:
 		_show_consume_selection_overlay()
@@ -767,17 +780,17 @@ func _refresh_consume_selection_overlay() -> void:
 func _show_consume_selection_overlay() -> void:
 	_dismiss_consume_selection_overlay()
 	_dismiss_discard_viewer()
-	var local_id := _local_player_id()
-	var selection := MatchTiming.get_pending_consume_selection(_screen._match_state, local_id)
+	var local_id = _screen._local_player_id()
+	var selection = _screen.MatchTiming.get_pending_consume_selection(_screen._match_state, local_id)
 	if selection.is_empty():
 		return
 	var candidate_ids: Array = selection.get("candidate_instance_ids", [])
 	if candidate_ids.is_empty():
-		MatchTiming.decline_consume_selection(_screen._match_state, local_id)
-		_refresh_ui()
+		_screen.MatchTiming.decline_consume_selection(_screen._match_state, local_id)
+		_screen._refresh_ui()
 		return
 
-	var player := _player_state(local_id)
+	var player = _screen._player_state(local_id)
 	if player.is_empty():
 		return
 	var discard_pile: Array = player.get("discard", [])
@@ -825,9 +838,9 @@ func _show_consume_selection_overlay() -> void:
 	scroll.mouse_filter = Control.MOUSE_FILTER_PASS
 	vbox.add_child(scroll)
 
-	var card_size := CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+	var card_size = _screen.CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
 	var grid := GridContainer.new()
-	grid.columns = maxi(1, int(get_viewport_rect().size.x - 120) / int(card_size.x + 10))
+	grid.columns = maxi(1, int(_screen.get_viewport_rect().size.x - 120) / int(card_size.x + 10))
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
 	grid.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -851,13 +864,13 @@ func _show_consume_selection_overlay() -> void:
 		card_button.add_theme_stylebox_override("pressed", empty_style)
 		card_button.add_theme_stylebox_override("focus", empty_style)
 
-		var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+		var component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
 		component.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+		component.apply_card(card, _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
 		card_button.add_child(component)
 
-		card_button.pressed.connect(_on_consume_selection_chosen.bind(instance_id))
+		card_button.pressed.connect(_screen._on_consume_selection_chosen.bind(instance_id))
 		grid.add_child(card_button)
 
 	# Add skip button
@@ -865,10 +878,10 @@ func _show_consume_selection_overlay() -> void:
 	skip_button.text = "Skip (Escape)"
 	skip_button.custom_minimum_size = Vector2(160, 40)
 	skip_button.size_flags_horizontal = SIZE_SHRINK_CENTER
-	skip_button.pressed.connect(_on_consume_selection_declined)
+	skip_button.pressed.connect(_screen._on_consume_selection_declined)
 	vbox.add_child(skip_button)
 
-	add_child(overlay)
+	_screen.add_child(overlay)
 	_consume_selection_overlay_state = {"overlay": overlay}
 	_screen._status_message = "Choose a creature to Consume"
 
@@ -885,11 +898,10 @@ func _dismiss_consume_selection_overlay() -> void:
 # --- Player choice overlay ---
 
 
-var _player_choice_overlay_state := {}
 
 
 func _refresh_player_choice_overlay() -> void:
-	var has_choice := _has_local_pending_player_choice()
+	var has_choice = _screen._has_local_pending_player_choice()
 	var overlay_active := not _player_choice_overlay_state.is_empty()
 	if has_choice and not overlay_active:
 		_show_player_choice_overlay()
@@ -899,7 +911,7 @@ func _refresh_player_choice_overlay() -> void:
 
 func _show_player_choice_overlay() -> void:
 	_dismiss_player_choice_overlay()
-	var choice := MatchTiming.get_pending_player_choice(_screen._match_state, _local_player_id())
+	var choice = _screen.MatchTiming.get_pending_player_choice(_screen._match_state, _screen._local_player_id())
 	if choice.is_empty():
 		return
 	var prompt := str(choice.get("prompt", "Choose one:"))
@@ -952,14 +964,14 @@ func _show_player_choice_overlay() -> void:
 
 		if mode == "card" and option.has("card"):
 			var card_button := Button.new()
-			card_button.custom_minimum_size = CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
-			var card_display = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+			card_button.custom_minimum_size = _screen.CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+			var card_display = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
 			card_display.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			card_button.add_child(card_display)
-			card_display.apply_card(option["card"], CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
-			_apply_button_style(card_button, Color(0.12, 0.13, 0.17, 0.95), Color(0.4, 0.38, 0.5, 0.8), Color.WHITE)
+			card_display.apply_card(option["card"], _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+			_screen._apply_button_style(card_button, Color(0.12, 0.13, 0.17, 0.95), Color(0.4, 0.38, 0.5, 0.8), Color.WHITE)
 			var idx := oi
-			card_button.pressed.connect(func(): _on_player_choice_selected(idx))
+			card_button.pressed.connect(func(): _screen._on_player_choice_selected(idx))
 			hbox.add_child(card_button)
 		else:
 			var btn := Button.new()
@@ -983,12 +995,12 @@ func _show_player_choice_overlay() -> void:
 				desc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 				btn_vbox.add_child(desc_label)
 			btn.add_child(btn_vbox)
-			_apply_button_style(btn, Color(0.15, 0.14, 0.2, 0.95), Color(0.5, 0.45, 0.55, 0.8), Color.WHITE)
+			_screen._apply_button_style(btn, Color(0.15, 0.14, 0.2, 0.95), Color(0.5, 0.45, 0.55, 0.8), Color.WHITE)
 			var idx := oi
-			btn.pressed.connect(func(): _on_player_choice_selected(idx))
+			btn.pressed.connect(func(): _screen._on_player_choice_selected(idx))
 			hbox.add_child(btn)
 
-	add_child(overlay)
+	_screen.add_child(overlay)
 	_player_choice_overlay_state = {"overlay": overlay}
 
 
@@ -1005,14 +1017,14 @@ func _dismiss_player_choice_overlay() -> void:
 
 
 func _enter_hand_selection_mode() -> void:
-	var local_id := _local_player_id()
-	var selection := MatchTiming.get_pending_hand_selection(_screen._match_state, local_id)
+	var local_id = _screen._local_player_id()
+	var selection = _screen.MatchTiming.get_pending_hand_selection(_screen._match_state, local_id)
 	if selection.is_empty():
 		return
 	var candidate_ids: Array = selection.get("candidate_instance_ids", [])
 	if candidate_ids.is_empty():
-		MatchTiming.decline_pending_hand_selection(_screen._match_state, local_id)
-		_refresh_ui()
+		_screen.MatchTiming.decline_pending_hand_selection(_screen._match_state, local_id)
+		_screen._refresh_ui()
 		return
 	_hand_selection_state = {
 		"candidate_ids": candidate_ids,
@@ -1030,43 +1042,43 @@ func _exit_hand_selection_mode() -> void:
 func _resolve_hand_selection(instance_id: String) -> void:
 	if _hand_selection_state.is_empty():
 		return
-	var local_id := _local_player_id()
-	var result := MatchTiming.resolve_pending_hand_selection(_screen._match_state, local_id, instance_id)
+	var local_id = _screen._local_player_id()
+	var result = _screen.MatchTiming.resolve_pending_hand_selection(_screen._match_state, local_id, instance_id)
 	_exit_hand_selection_mode()
 	if bool(result.get("is_valid", false)):
 		var card_name := str(result.get("card", {}).get("name", instance_id))
-		_record_feedback_from_events(_copy_array(result.get("events", [])))
+		_screen._record_feedback_from_events(_screen._copy_array(result.get("events", [])))
 		_screen._status_message = "Selected %s." % card_name
 	else:
 		_screen._status_message = str(result.get("errors", ["Failed to resolve hand selection."])[0])
-	_refresh_ui()
+	_screen._refresh_ui()
 
 
 func _cancel_hand_selection() -> void:
-	var local_id := _local_player_id()
-	MatchTiming.decline_pending_hand_selection(_screen._match_state, local_id)
+	var local_id = _screen._local_player_id()
+	_screen.MatchTiming.decline_pending_hand_selection(_screen._match_state, local_id)
 	_exit_hand_selection_mode()
 	_screen._status_message = "Selection declined."
-	_refresh_ui()
+	_screen._refresh_ui()
 
 
 func _refresh_top_deck_choice_state() -> void:
-	var has_choice := MatchTiming.has_pending_top_deck_choice(_screen._match_state, _local_player_id())
+	var has_choice = _screen.MatchTiming.has_pending_top_deck_choice(_screen._match_state, _screen._local_player_id())
 	var state_active := not _top_deck_choice_state.is_empty()
 	if has_choice and not state_active:
-		_enter_top_deck_choice_mode()
+		_screen._enter_top_deck_choice_mode()
 	elif not has_choice and state_active:
-		_exit_top_deck_choice_mode()
+		_screen._exit_top_deck_choice_mode()
 
 
 func _can_player_afford_exalt(card: Dictionary) -> bool:
-	var extra := _card_exalt_extra_cost(card)
+	var extra = _screen._card_exalt_extra_cost(card)
 	if extra == 0:
 		return false
-	var player_id := _active_player_id()
-	var player := _player_state(player_id)
+	var player_id = _screen._active_player_id()
+	var player = _screen._player_state(player_id)
 	var available := maxi(0, int(player.get("current_magicka", 0)) + int(player.get("temporary_magicka", 0)))
-	var base_cost := PersistentCardRules.get_effective_play_cost(_screen._match_state, player_id, card)
+	var base_cost = _screen.PersistentCardRules.get_effective_play_cost(_screen._match_state, player_id, card)
 	return available >= base_cost + extra
 
 
@@ -1117,7 +1129,7 @@ func _show_exalt_prompt(anchor_pos: Vector2, exalt_cost: int) -> void:
 	skip_btn.pressed.connect(_resolve_exalt.bind(false))
 	container.add_child(skip_btn)
 
-	add_child(container)
+	_screen.add_child(container)
 	# Position: centered above anchor point
 	container.size = container.get_minimum_size()
 	container.position = Vector2(anchor_pos.x - container.size.x * 0.5, anchor_pos.y - container.size.y - 8)
@@ -1139,7 +1151,7 @@ func _check_exalt_creature(card: Dictionary, lane_id: String, slot_index: int, i
 	Otherwise returns false (caller should proceed normally)."""
 	if not _can_player_afford_exalt(card):
 		return false
-	var exalt_cost := _card_exalt_extra_cost(card)
+	var exalt_cost = _screen._card_exalt_extra_cost(card)
 	_pending_exalt = {
 		"card_type": "creature",
 		"instance_id": _screen._selected_instance_id,
@@ -1151,8 +1163,8 @@ func _check_exalt_creature(card: Dictionary, lane_id: String, slot_index: int, i
 	}
 	var anchor := _get_exalt_anchor_for_detached_card()
 	_show_exalt_prompt(anchor, exalt_cost)
-	_screen._status_message = "Exalt %s?" % _card_name(card)
-	_refresh_ui()
+	_screen._status_message = "Exalt %s?" % _screen._card_name(card)
+	_screen._refresh_ui()
 	return true
 
 
@@ -1162,7 +1174,7 @@ func _check_exalt_action(card: Dictionary, options: Dictionary, is_prophecy: boo
 	Otherwise returns false (caller should proceed normally)."""
 	if not _can_player_afford_exalt(card):
 		return false
-	var exalt_cost := _card_exalt_extra_cost(card)
+	var exalt_cost = _screen._card_exalt_extra_cost(card)
 	_pending_exalt = {
 		"card_type": "action",
 		"instance_id": _screen._selected_instance_id,
@@ -1173,14 +1185,14 @@ func _check_exalt_action(card: Dictionary, options: Dictionary, is_prophecy: boo
 	}
 	# For actions: if detached card exists, anchor above it; otherwise create centered preview
 	var anchor: Vector2
-	if not _screen._detached_card_state.is_empty():
+	if not _screen._hand._detached_card_state.is_empty():
 		anchor = _get_exalt_anchor_for_detached_card()
 	else:
-		_cancel_targeting_mode_silent()
+		_screen._cancel_targeting_mode_silent()
 		anchor = _create_centered_exalt_card_preview(card)
 	_show_exalt_prompt(anchor, exalt_cost)
-	_screen._status_message = "Exalt %s?" % _card_name(card)
-	_refresh_ui()
+	_screen._status_message = "Exalt %s?" % _screen._card_name(card)
+	_screen._refresh_ui()
 	return true
 
 
@@ -1188,7 +1200,7 @@ func _resolve_exalt(exalted: bool) -> void:
 	var pending := _pending_exalt
 	_pending_exalt = {}
 	_dismiss_exalt_prompt()
-	_cancel_detached_card_silent()
+	_screen._cancel_detached_card_silent()
 
 	var instance_id := str(pending.get("instance_id", ""))
 	var card: Dictionary = pending.get("card", {})
@@ -1204,41 +1216,41 @@ func _resolve_exalt(exalted: bool) -> void:
 		var lane_id := str(pending.get("lane_id", ""))
 		var result: Dictionary
 		if is_prophecy:
-			result = MatchTiming.play_pending_prophecy(_screen._match_state, str(card.get("controller_player_id", "")), instance_id, options.merged({"lane_id": lane_id}, true))
+			result = _screen.MatchTiming.play_pending_prophecy(_screen._match_state, str(card.get("controller_player_id", "")), instance_id, options.merged({"lane_id": lane_id}, true))
 		else:
-			result = LaneRules.summon_from_hand(_screen._match_state, _active_player_id(), instance_id, lane_id, options)
-		var finalized := _finalize_engine_result(result, "Played %s into %s." % [_card_name(card), _lane_name(lane_id)])
+			result = _screen.LaneRules.summon_from_hand(_screen._match_state, _screen._active_player_id(), instance_id, lane_id, options)
+		var finalized = _screen._finalize_engine_result(result, "Played %s into %s." % [_screen._card_name(card), _screen._lane_name(lane_id)])
 		if bool(finalized.get("is_valid", false)):
-			_check_summon_target_mode(instance_id)
+			_screen._check_summon_target_mode(instance_id)
 	elif str(pending.get("card_type", "")) == "action":
 		var options: Dictionary = pending.get("action_options", {}).duplicate(true)
 		if exalted:
 			options["exalt"] = true
 		var result: Dictionary
 		if is_prophecy:
-			result = MatchTiming.play_pending_prophecy(_screen._match_state, str(card.get("controller_player_id", "")), instance_id, options)
+			result = _screen.MatchTiming.play_pending_prophecy(_screen._match_state, str(card.get("controller_player_id", "")), instance_id, options)
 		else:
-			result = MatchTiming.play_action_from_hand(_screen._match_state, _active_player_id(), instance_id, options)
-		var finalized := _finalize_engine_result(result, "Played %s." % _card_name(card))
+			result = _screen.MatchTiming.play_action_from_hand(_screen._match_state, _screen._active_player_id(), instance_id, options)
+		var finalized = _screen._finalize_engine_result(result, "Played %s." % _screen._card_name(card))
 		if bool(finalized.get("is_valid", false)):
-			_check_betray_mode(instance_id, card)
+			_screen._check_betray_mode(instance_id, card)
 
 
 func _create_centered_exalt_card_preview(card: Dictionary) -> Vector2:
 	"""Creates a card display centered on the board for action exalt prompts.
 	Returns the top-center position for button anchoring."""
-	var viewport_size := get_viewport_rect().size
-	var base_size := CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+	var viewport_size = _screen.get_viewport_rect().size
+	var base_size = _screen.CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
 	var wrapper := Control.new()
 	wrapper.name = "ExaltCardPreview"
 	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	wrapper.z_index = 600
 	wrapper.size = base_size
 	wrapper.custom_minimum_size = base_size
-	var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+	var component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
 	component.setup_card(card, "compact", true)
 	wrapper.add_child(component)
-	add_child(wrapper)
+	_screen.add_child(wrapper)
 	wrapper.position = Vector2(viewport_size.x * 0.5 - base_size.x * 0.5, viewport_size.y * 0.5 - base_size.y * 0.5)
 	_screen._exalt_card_preview = wrapper
 	return Vector2(viewport_size.x * 0.5, wrapper.position.y)
@@ -1246,10 +1258,9 @@ func _create_centered_exalt_card_preview(card: Dictionary) -> Vector2:
 
 func _get_exalt_anchor_for_detached_card() -> Vector2:
 	"""Returns the top-center of the detached card preview for button anchoring."""
-	var preview: Control = _screen._detached_card_state.get("preview")
+	var preview: Control = _screen._hand._detached_card_state.get("preview")
 	if preview != null and is_instance_valid(preview):
 		return Vector2(preview.global_position.x + preview.size.x * 0.5, preview.global_position.y)
 	# Fallback: center of screen
-	var viewport_size := get_viewport_rect().size
+	var viewport_size = _screen.get_viewport_rect().size
 	return Vector2(viewport_size.x * 0.5, viewport_size.y * 0.5 - 80)
-
