@@ -12,7 +12,7 @@
 	}
   ],
   "player": {
-	"health": 16,
+	"health": 18,
 	"max_magicka": 27,
 	"current_magicka": 27,
 	"has_ring": false,
@@ -23,7 +23,7 @@
 	  "mhc_neu_close_call",
 	  "hos_end_east_empire_crafter",
 	  "iom_str_trouble_seeker",
-      "int_fire_storm"
+	  "int_fire_storm"
 	],
 	"deck": [],
 	"discard": [],
@@ -37,7 +37,7 @@
 	]
   },
   "enemy": {
-	"health": 17,
+	"health": 19,
 	"max_magicka": 3,
 	"current_magicka": 3,
 	"hand": [],

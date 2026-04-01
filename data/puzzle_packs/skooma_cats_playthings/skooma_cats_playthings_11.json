@@ -2,51 +2,51 @@
   "name": "Keep the Gate",
   "type": "survive",
   "lanes": [
-    {
-      "lane_type": "field",
-      "width": 4
-    },
-    {
-      "lane_type": "shadow",
-      "width": 4
-    }
+	{
+	  "lane_type": "field",
+	  "width": 4
+	},
+	{
+	  "lane_type": "shadow",
+	  "width": 4
+	}
   ],
   "player": {
-    "health": 1,
-    "max_magicka": 7,
-    "current_magicka": 7,
-    "has_ring": false,
-    "hand": [
-      "agi_dune_smuggler",
-      "neu_elixir_of_conflict",
-      "db_str_fell_the_mighty",
+	"health": 1,
+	"max_magicka": 7,
+	"current_magicka": 7,
+	"has_ring": false,
+	"hand": [
+	  "agi_dune_smuggler",
+	  "neu_elixir_of_conflict",
+	  "db_str_fell_the_mighty",
       "hos_agi_move_in_shadows"
-    ],
-    "deck": [],
-    "discard": [],
-    "supports": [],
-    "field_creatures": [
-      "iom_end_the_gatekeeper",
+	],
+	"deck": [],
+	"discard": [],
+	"supports": [],
+	"field_creatures": [
+	  "iom_end_the_gatekeeper",
       "end_deadly_draugr"
-    ],
-    "shadow_creatures": [
+	],
+	"shadow_creatures": [
       "end_deadly_draugr"
-    ]
+	]
   },
   "enemy": {
-    "health": 100,
-    "max_magicka": 3,
-    "current_magicka": 3,
-    "hand": [],
-    "deck": [],
-    "discard": [],
-    "supports": [],
-    "field_creatures": [
-      "str_vigilant_giant",
-      "str_vigilant_giant",
-      "end_iron_atronach",
+	"health": 100,
+	"max_magicka": 3,
+	"current_magicka": 3,
+	"hand": [],
+	"deck": ["neu_vvardvark", "neu_vvardvark", "neu_vvardvark"],
+	"discard": [],
+	"supports": [],
+	"field_creatures": [
+	  "str_vigilant_giant",
+	  "str_vigilant_giant",
+	  "end_iron_atronach",
       "end_iron_atronach"
-    ],
-    "shadow_creatures": []
+	],
+	"shadow_creatures": []
   }
 }
