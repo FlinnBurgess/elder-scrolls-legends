@@ -61,6 +61,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 	match op:
 		"sacrifice":
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
+				trigger["_destroyed_creature_power"] = EvergreenRules.get_power(card)
 				var sacrifice_result := MatchMutations.sacrifice_card(match_state, str(card.get("controller_player_id", "")), str(card.get("instance_id", "")))
 				generated_events.append_array(sacrifice_result.get("events", []))
 		"sacrifice_and_resummon":

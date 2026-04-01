@@ -49,7 +49,7 @@ const RULE_TAG_PROPHECY := "prophecy"
 const WINDOW_AFTER := "after"
 const WINDOW_IMMEDIATE := "immediate"
 const MAX_HAND_SIZE := 10
-const RANDOM_KEYWORD_POOL := ["breakthrough", "charge", "drain", "guard", "lethal", "regenerate", "ward"]
+const RANDOM_KEYWORD_POOL := ["breakthrough", "charge", "drain", "guard", "lethal", "regenerate", "ward", "rally"]
 
 static func _MT():
 	return load("res://src/core/match/match_timing.gd")
