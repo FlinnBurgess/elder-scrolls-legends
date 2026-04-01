@@ -31,6 +31,9 @@ const PLAYER_MAGICKA_SCENE := preload("res://scenes/ui/components/PlayerMagickaC
 const ErrorReportWriterClass = preload("res://src/core/error_report_writer.gd")
 const ErrorReportPopoverClass = preload("res://src/ui/components/error_report_popover.gd")
 const BoonRules = preload("res://src/adventure/boon_rules.gd")
+const MatchScreenOverlaysClass = preload("res://src/ui/match_screen_overlays.gd")
+const MatchScreenBetrayClass = preload("res://src/ui/match_screen_betray.gd")
+const MatchScreenTargetingClass = preload("res://src/ui/match_screen_targeting.gd")
 const ActiveBoonsOverlay = preload("res://src/ui/match/active_boons_overlay.gd")
 const MatchScreenHistoryClass = preload("res://src/ui/match_screen_history.gd")
 
@@ -78,6 +81,9 @@ const HELP_TEXT := {
 	"ring_of_magicka": "The second player may spend one Ring charge per turn for +1 magicka that turn.",
 }
 
+var _overlays: RefCounted  # MatchScreenOverlays
+var _betray: RefCounted  # MatchScreenBetray
+var _targeting: RefCounted  # MatchScreenTargeting
 var _history: RefCounted  # MatchScreenHistory
 var _match_state: Dictionary = {}
 var _selected_instance_id := ""
@@ -111,36 +117,16 @@ var _lane_slot_buttons := {}
 var _invalid_feedback := {}
 var _detached_card_state := {}
 var _insertion_preview := {}
-var _targeting_arrow_state := {}
 var _targeting_arrow: Line2D
 var _host_arrow_instance_id := ""
-var _pending_summon_target := {}
-var _pending_secondary_target_state := {}
 var _pending_end_turn := false
 var _pending_end_turn_player_id := ""
-var _pending_betray := {}
-var _deferred_betray := {}
 var _betray_skip_button: Button = null
 var _betray_prompt_label: Label = null
-var _pending_sacrifice_summon := {}
-var _sacrifice_hover_target_id: String = ""
-var _sacrifice_hover_label: PanelContainer = null
-var _pending_exalt := {}
 var _exalt_button_container: Control = null
 var _exalt_card_preview: Control = null
-var _prophecy_overlay_state := {}
-var _spell_reveal_state := {}
-var _deck_reveal_state := {}
 var _prophecy_card_overlay: Control
-var _mulligan_overlay_state := {}
-var _mulligan_marked_ids: Array = []
-var _mulligan_card_by_id: Dictionary = {}
 var _mulligan_instance_id_order: Array = []
-var _discard_viewer_state := {}
-var _discard_choice_overlay_state := {}
-var _consume_selection_overlay_state := {}
-var _hand_selection_state := {}
-var _top_deck_choice_state := {}
 var _top_deck_choice_panel: Control = null
 var _attack_feedbacks: Array = []
 var _damage_feedbacks: Array = []
@@ -183,8 +169,6 @@ var _puzzle_id := ""
 var _adventure_boons: Array = []
 var _adventure_augments: Dictionary = {}  # card_id -> Array of augment dicts
 var _pause_overlay: PanelContainer
-var _attack_arrow_state := {}
-var _support_arrow_state := {}
 
 # Error report hover tracking
 var _error_report_hovered_type := ""
@@ -205,6 +189,9 @@ var _ai_options: Dictionary = {}
 
 
 func _ready() -> void:
+	_overlays = MatchScreenOverlaysClass.new(self)
+	_betray = MatchScreenBetrayClass.new(self)
+	_targeting = MatchScreenTargetingClass.new(self)
 	_history = MatchScreenHistoryClass.new(self)
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	set_process(true)
@@ -217,11 +204,11 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
-	if _mulligan_overlay_state.is_empty():
+	if _overlays._mulligan_overlay_state.is_empty():
 		return
 	var key_event := event as InputEventKey
 	if key_event.keycode == KEY_ENTER or key_event.keycode == KEY_KP_ENTER:
-		_on_mulligan_confirm_pressed()
+		_overlays._on_mulligan_confirm_pressed()
 		get_viewport().set_input_as_handled()
 		return
 	var key_index := -1
@@ -230,20 +217,20 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_2: key_index = 1
 		KEY_3: key_index = 2
 	if key_index >= 0 and key_index < _mulligan_instance_id_order.size():
-		_on_mulligan_card_toggled(_mulligan_instance_id_order[key_index])
+		_overlays._on_mulligan_card_toggled(_mulligan_instance_id_order[key_index])
 		get_viewport().set_input_as_handled()
 
 
 func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int = -1, first_player_index: int = -1, ai_options: Dictionary = {}) -> bool:
 	_cancel_detached_card_silent()
-	_dismiss_mulligan_overlay()
-	_dismiss_prophecy_overlay()
-	_dismiss_discard_viewer()
-	_dismiss_discard_choice_overlay()
-	_dismiss_consume_selection_overlay()
+	_overlays._dismiss_mulligan_overlay()
+	_overlays._dismiss_prophecy_overlay()
+	_overlays._dismiss_discard_viewer()
+	_overlays._dismiss_discard_choice_overlay()
+	_overlays._dismiss_consume_selection_overlay()
 	_dismiss_deck_selection_overlay()
-	_dismiss_player_choice_overlay()
-	_exit_hand_selection_mode()
+	_overlays._dismiss_player_choice_overlay()
+	_overlays._exit_hand_selection_mode()
 	_exit_top_deck_choice_mode()
 	_dismiss_spell_reveal()
 	_reset_invalid_feedback()
@@ -287,7 +274,7 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int 
 	# how aggressively/defensively the AI plays and how precise its decisions are.
 	_ai_options = _build_ai_play_profile(ai_options, card_by_id)
 	_match_state["ai_options"] = _ai_options
-	_mulligan_card_by_id = card_by_id
+	_overlays._mulligan_card_by_id = card_by_id
 	_ai_enabled = false
 	_scenario_id = LOCAL_MATCH_AI_SCENARIO_ID
 	_selected_instance_id = ""
@@ -297,20 +284,20 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int 
 	_clear_pile_selection()
 	_status_message = "Choose cards to replace."
 	_refresh_ui()
-	_show_mulligan_overlay()
+	_overlays._show_mulligan_overlay()
 	return true
 
 
 func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_config: Dictionary, seed: int = -1, first_player_index: int = -1, ai_options: Dictionary = {}) -> bool:
 	_cancel_detached_card_silent()
-	_dismiss_mulligan_overlay()
-	_dismiss_prophecy_overlay()
-	_dismiss_discard_viewer()
-	_dismiss_discard_choice_overlay()
-	_dismiss_consume_selection_overlay()
+	_overlays._dismiss_mulligan_overlay()
+	_overlays._dismiss_prophecy_overlay()
+	_overlays._dismiss_discard_viewer()
+	_overlays._dismiss_discard_choice_overlay()
+	_overlays._dismiss_consume_selection_overlay()
 	_dismiss_deck_selection_overlay()
-	_dismiss_player_choice_overlay()
-	_exit_hand_selection_mode()
+	_overlays._dismiss_player_choice_overlay()
+	_overlays._exit_hand_selection_mode()
 	_exit_top_deck_choice_mode()
 	_dismiss_spell_reveal()
 	_reset_invalid_feedback()
@@ -389,7 +376,7 @@ func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_confi
 	_match_state = match_state
 	_ai_options = _build_ai_play_profile(ai_options, card_by_id)
 	_match_state["ai_options"] = _ai_options
-	_mulligan_card_by_id = card_by_id
+	_overlays._mulligan_card_by_id = card_by_id
 	_ai_enabled = false
 	_scenario_id = LOCAL_MATCH_AI_SCENARIO_ID
 	_selected_instance_id = ""
@@ -399,7 +386,7 @@ func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_confi
 	_clear_pile_selection()
 	_status_message = "Choose cards to replace."
 	_refresh_ui()
-	_show_mulligan_overlay()
+	_overlays._show_mulligan_overlay()
 	return true
 
 
@@ -553,14 +540,14 @@ static func _hydrate_all_zones(match_state: Dictionary, card_by_id: Dictionary) 
 
 func start_test_match(test_state: Dictionary) -> void:
 	_cancel_detached_card_silent()
-	_dismiss_mulligan_overlay()
-	_dismiss_prophecy_overlay()
-	_dismiss_discard_viewer()
-	_dismiss_discard_choice_overlay()
-	_dismiss_consume_selection_overlay()
+	_overlays._dismiss_mulligan_overlay()
+	_overlays._dismiss_prophecy_overlay()
+	_overlays._dismiss_discard_viewer()
+	_overlays._dismiss_discard_choice_overlay()
+	_overlays._dismiss_consume_selection_overlay()
 	_dismiss_deck_selection_overlay()
-	_dismiss_player_choice_overlay()
-	_exit_hand_selection_mode()
+	_overlays._dismiss_player_choice_overlay()
+	_overlays._exit_hand_selection_mode()
 	_exit_top_deck_choice_mode()
 	_dismiss_spell_reveal()
 	_reset_invalid_feedback()
@@ -580,7 +567,7 @@ func start_test_match(test_state: Dictionary) -> void:
 	_floating_card_ids.clear()
 	_turn_banner_until_ms = 0
 	_clear_pile_selection()
-	_mulligan_card_by_id = {}
+	_overlays._mulligan_card_by_id = {}
 	_ai_enabled = true
 	# Fire initial turn-start triggers for the active player (wax/wane, start_of_turn, etc.)
 	var active_id := str(test_state.get("active_player_id", ""))
@@ -600,14 +587,14 @@ func start_test_match(test_state: Dictionary) -> void:
 func start_puzzle_match(puzzle_state: Dictionary, puzzle_config: Dictionary = {},
 		puzzle_id: String = "", ai_options: Dictionary = {}) -> void:
 	_cancel_detached_card_silent()
-	_dismiss_mulligan_overlay()
-	_dismiss_prophecy_overlay()
-	_dismiss_discard_viewer()
-	_dismiss_discard_choice_overlay()
-	_dismiss_consume_selection_overlay()
+	_overlays._dismiss_mulligan_overlay()
+	_overlays._dismiss_prophecy_overlay()
+	_overlays._dismiss_discard_viewer()
+	_overlays._dismiss_discard_choice_overlay()
+	_overlays._dismiss_consume_selection_overlay()
 	_dismiss_deck_selection_overlay()
-	_dismiss_player_choice_overlay()
-	_exit_hand_selection_mode()
+	_overlays._dismiss_player_choice_overlay()
+	_overlays._exit_hand_selection_mode()
 	_exit_top_deck_choice_mode()
 	_dismiss_spell_reveal()
 	_reset_invalid_feedback()
@@ -627,7 +614,7 @@ func start_puzzle_match(puzzle_state: Dictionary, puzzle_config: Dictionary = {}
 	_floating_card_ids.clear()
 	_turn_banner_until_ms = 0
 	_clear_pile_selection()
-	_mulligan_card_by_id = {}
+	_overlays._mulligan_card_by_id = {}
 	_ai_enabled = true
 	_puzzle_mode = true
 	_puzzle_type = str(puzzle_state.get("puzzle_type", "kill"))
@@ -756,14 +743,14 @@ func _show_puzzle_objective_popup() -> void:
 
 func resume_from_state(saved_state: Dictionary) -> void:
 	_cancel_detached_card_silent()
-	_dismiss_mulligan_overlay()
-	_dismiss_prophecy_overlay()
-	_dismiss_discard_viewer()
-	_dismiss_discard_choice_overlay()
-	_dismiss_consume_selection_overlay()
+	_overlays._dismiss_mulligan_overlay()
+	_overlays._dismiss_prophecy_overlay()
+	_overlays._dismiss_discard_viewer()
+	_overlays._dismiss_discard_choice_overlay()
+	_overlays._dismiss_consume_selection_overlay()
 	_dismiss_deck_selection_overlay()
-	_dismiss_player_choice_overlay()
-	_exit_hand_selection_mode()
+	_overlays._dismiss_player_choice_overlay()
+	_overlays._exit_hand_selection_mode()
 	_exit_top_deck_choice_mode()
 	_dismiss_spell_reveal()
 	_reset_invalid_feedback()
@@ -793,13 +780,13 @@ func resume_from_state(saved_state: Dictionary) -> void:
 		return_to_main_menu_requested.emit()
 		return
 	if phase == "mulligan":
-		_mulligan_card_by_id = card_by_id
+		_overlays._mulligan_card_by_id = card_by_id
 		_ai_enabled = false
 		_status_message = "Choose cards to replace."
 		_refresh_ui()
-		_show_mulligan_overlay()
+		_overlays._show_mulligan_overlay()
 	else:
-		_mulligan_card_by_id = {}
+		_overlays._mulligan_card_by_id = {}
 		_ai_enabled = true
 		_status_message = "Match resumed."
 		_refresh_ui()
@@ -903,14 +890,14 @@ func is_card_detached() -> bool:
 
 func load_scenario(scenario_id: String) -> bool:
 	_cancel_detached_card_silent()
-	_dismiss_mulligan_overlay()
-	_dismiss_prophecy_overlay()
-	_dismiss_discard_viewer()
-	_dismiss_discard_choice_overlay()
-	_dismiss_consume_selection_overlay()
+	_overlays._dismiss_mulligan_overlay()
+	_overlays._dismiss_prophecy_overlay()
+	_overlays._dismiss_discard_viewer()
+	_overlays._dismiss_discard_choice_overlay()
+	_overlays._dismiss_consume_selection_overlay()
 	_dismiss_deck_selection_overlay()
-	_dismiss_player_choice_overlay()
-	_exit_hand_selection_mode()
+	_overlays._dismiss_player_choice_overlay()
+	_overlays._exit_hand_selection_mode()
 	_exit_top_deck_choice_mode()
 	_dismiss_spell_reveal()
 	_reset_invalid_feedback()
@@ -941,11 +928,11 @@ func load_scenario(scenario_id: String) -> bool:
 
 
 func _process_local_match_ai_turn() -> void:
-	if not _mulligan_overlay_state.is_empty():
+	if not _overlays._mulligan_overlay_state.is_empty():
 		return
-	if not _spell_reveal_state.is_empty():
+	if not _overlays._spell_reveal_state.is_empty():
 		return
-	if not _deck_reveal_state.is_empty():
+	if not _overlays._deck_reveal_state.is_empty():
 		return
 	if not _is_local_match_ai_enabled() or _has_match_winner():
 		_reset_local_match_ai_queue()
@@ -1036,7 +1023,7 @@ func _execute_local_match_ai_step() -> Dictionary:
 			_status_message = "Puzzle Complete!"
 			_refresh_ui()
 			return {"did_execute": true, "yield_reason": "match_complete", "action": action.duplicate(true), "result": result.duplicate(true)}
-	if not _prophecy_overlay_state.is_empty() and not bool(_prophecy_overlay_state.get("is_local", true)):
+	if not _overlays._prophecy_overlay_state.is_empty() and not bool(_overlays._prophecy_overlay_state.get("is_local", true)):
 		_animate_enemy_prophecy_resolution(action, result)
 	else:
 		var is_enemy := str(action.get("kind", "")) != "" and str(action.get("player_id", "")) != _local_player_id()
@@ -1214,23 +1201,23 @@ func play_selected_to_lane(lane_id: String, slot_index := -1) -> Dictionary:
 	if not _can_resolve_selected_action(card):
 		return _invalid_ui_result(_status_message)
 	if _selected_action_mode(card) == SELECTION_MODE_ACTION:
-		_play_action_to_lane(lane_id)
+		_targeting._play_action_to_lane(lane_id)
 		return {"is_valid": true}
 	# Check for exalt prompt before committing the play
-	if _check_exalt_creature(card, lane_id, slot_index, _is_pending_prophecy_card(card)):
+	if _overlays._check_exalt_creature(card, lane_id, slot_index, _overlays._is_pending_prophecy_card(card)):
 		return {"is_valid": true}
 	var saved_instance_id := _selected_instance_id
 	var options := {}
 	if slot_index >= 0:
 		options["slot_index"] = slot_index
 	var result := {}
-	if _is_pending_prophecy_card(card):
+	if _overlays._is_pending_prophecy_card(card):
 		result = MatchTiming.play_pending_prophecy(_match_state, str(card.get("controller_player_id", "")), _selected_instance_id, options.merged({"lane_id": lane_id}, true))
 	else:
 		result = LaneRules.summon_from_hand(_match_state, _active_player_id(), _selected_instance_id, lane_id, options)
 	var finalized := _finalize_engine_result(result, "Played %s into %s." % [_card_name(card), _lane_name(lane_id)])
 	if bool(finalized.get("is_valid", false)):
-		_check_summon_target_mode(saved_instance_id)
+		_targeting._check_summon_target_mode(saved_instance_id)
 	return finalized
 
 
@@ -1239,14 +1226,14 @@ func _try_play_hovered_hand_card_to_lane(lane_index: int) -> void:
 	if instance_id.is_empty() or not _is_local_hand_card(instance_id):
 		return
 	# Don't interfere with other active interaction modes
-	if not _pending_summon_target.is_empty() or not _targeting_arrow_state.is_empty() or not _detached_card_state.is_empty():
+	if not _targeting._pending_summon_target.is_empty() or not _targeting._targeting_arrow_state.is_empty() or not _detached_card_state.is_empty():
 		return
 	var card := _card_from_instance_id(instance_id)
 	if card.is_empty():
 		return
 	var mode := _selected_action_mode(card)
 	# Only creatures and non-targeted actions can be played directly to a lane
-	if mode != SELECTION_MODE_SUMMON and not (mode == SELECTION_MODE_ACTION and not _action_needs_explicit_target(card)):
+	if mode != SELECTION_MODE_SUMMON and not (mode == SELECTION_MODE_ACTION and not _targeting._action_needs_explicit_target(card)):
 		return
 	var lane_list := _lane_entries()
 	if lane_index < 0 or lane_index >= lane_list.size():
@@ -1275,7 +1262,7 @@ func play_or_activate_selected() -> Dictionary:
 	var is_action_play := false
 	var location := MatchMutations.find_card_location(_match_state, _selected_instance_id)
 	var result := {}
-	if _is_pending_prophecy_card(card):
+	if _overlays._is_pending_prophecy_card(card):
 		result = MatchTiming.play_pending_prophecy(_match_state, str(card.get("controller_player_id", "")), _selected_instance_id)
 	elif bool(location.get("is_valid", false)) and str(location.get("zone", "")) == MatchMutations.ZONE_HAND:
 		match str(card.get("card_type", "")):
@@ -1286,9 +1273,9 @@ func play_or_activate_selected() -> Dictionary:
 			"item":
 				return _invalid_ui_result("Select a friendly creature to equip this item.")
 			"action":
-				if _action_needs_explicit_target(card):
+				if _targeting._action_needs_explicit_target(card):
 					return _invalid_ui_result("Select a target for this action.")
-				if _check_exalt_action(card, {}, _is_pending_prophecy_card(card)):
+				if _overlays._check_exalt_action(card, {}, _overlays._is_pending_prophecy_card(card)):
 					return {"is_valid": true}
 				result = MatchTiming.play_action_from_hand(_match_state, _active_player_id(), _selected_instance_id)
 				is_action_play = true
@@ -1304,69 +1291,8 @@ func play_or_activate_selected() -> Dictionary:
 		return _invalid_ui_result("Selected card has no direct action. Choose a lane or target instead.")
 	var finalized := _finalize_engine_result(result, "Resolved %s." % _card_name(card))
 	if is_action_play and bool(finalized.get("is_valid", false)):
-		_check_betray_mode(saved_instance_id, saved_card)
+		_betray._check_betray_mode(saved_instance_id, saved_card)
 	return finalized
-
-
-func target_selected_card(target_instance_id: String) -> Dictionary:
-	var selected_card := _selected_card()
-	if selected_card.is_empty():
-		return _invalid_ui_result("Select a card first.")
-	if not _can_resolve_selected_action(selected_card):
-		return _invalid_ui_result(_status_message)
-	var target_location := MatchMutations.find_card_location(_match_state, target_instance_id)
-	if not bool(target_location.get("is_valid", false)):
-		return _invalid_ui_result("Target %s is not on the board." % target_instance_id)
-	var target_card: Dictionary = target_location.get("card", {})
-	var selected_location := MatchMutations.find_card_location(_match_state, _selected_instance_id)
-	var saved_item_id := ""
-	var saved_action_id := ""
-	var saved_action_card := {}
-	var result := {}
-	if bool(selected_location.get("is_valid", false)) and str(selected_location.get("zone", "")) == MatchMutations.ZONE_HAND and str(selected_card.get("card_type", "")) == "item":
-		saved_item_id = _selected_instance_id
-		if _is_pending_prophecy_card(selected_card):
-			result = MatchTiming.play_pending_prophecy(_match_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"target_instance_id": target_instance_id})
-		else:
-			result = PersistentCardRules.play_item_from_hand(_match_state, _active_player_id(), _selected_instance_id, {"target_instance_id": target_instance_id})
-	elif bool(selected_location.get("is_valid", false)) and str(selected_location.get("zone", "")) == MatchMutations.ZONE_HAND and str(selected_card.get("card_type", "")) == "action":
-		saved_action_id = _selected_instance_id
-		saved_action_card = selected_card.duplicate(true)
-		if _check_exalt_action(selected_card, {"target_instance_id": target_instance_id}, _is_pending_prophecy_card(selected_card)):
-			return {"is_valid": true}
-		if _is_pending_prophecy_card(selected_card):
-			result = MatchTiming.play_pending_prophecy(_match_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"target_instance_id": target_instance_id})
-		else:
-			result = MatchTiming.play_action_from_hand(_match_state, _active_player_id(), _selected_instance_id, {"target_instance_id": target_instance_id})
-	elif bool(selected_location.get("is_valid", false)) and str(selected_location.get("zone", "")) == MatchMutations.ZONE_SUPPORT:
-		result = PersistentCardRules.activate_support(_match_state, _active_player_id(), _selected_instance_id, {"target_instance_id": target_instance_id})
-	elif bool(selected_location.get("is_valid", false)) and str(selected_location.get("zone", "")) == MatchMutations.ZONE_LANE:
-		result = MatchCombat.resolve_attack(_match_state, _active_player_id(), _selected_instance_id, {"type": "creature", "instance_id": target_instance_id})
-	else:
-		return _invalid_ui_result("Current selection does not use card targets.")
-	var finalized := _finalize_engine_result(result, "Resolved %s onto %s." % [_card_name(selected_card), _card_name(target_card)])
-	if bool(finalized.get("is_valid", false)) and not saved_action_id.is_empty():
-		_check_betray_mode(saved_action_id, saved_action_card)
-	return finalized
-
-
-func attack_selected_player(player_id: String) -> Dictionary:
-	var selected_card := _selected_card()
-	if selected_card.is_empty():
-		return _invalid_ui_result("Select an attacking creature first.")
-	if not _can_resolve_selected_action(selected_card):
-		return _invalid_ui_result(_status_message)
-	var result := MatchCombat.resolve_attack(_match_state, _active_player_id(), _selected_instance_id, {"type": "player", "player_id": player_id})
-	return _finalize_engine_result(result, "%s attacked %s." % [_card_name(selected_card), _player_name(player_id)])
-
-
-func decline_prophecy(instance_id: String) -> Dictionary:
-	var player_id := _pending_prophecy_player_id(instance_id)
-	if player_id.is_empty():
-		return _invalid_ui_result("No pending Prophecy exists for %s." % instance_id)
-	var card := _card_from_instance_id(instance_id)
-	var result := MatchTiming.decline_pending_prophecy(_match_state, player_id, instance_id)
-	return _finalize_engine_result(result, "Declined %s." % _card_name(card), false)
 
 
 func use_ring() -> bool:
@@ -1389,7 +1315,7 @@ func use_ring() -> bool:
 
 
 func end_turn_action() -> bool:
-	if not _pending_exalt.is_empty():
+	if not _overlays._pending_exalt.is_empty():
 		return false
 	if MatchTiming.has_pending_prophecy(_match_state):
 		_status_message = "Resolve the open Prophecy window before ending the turn."
@@ -2157,7 +2083,7 @@ func _apply_surface_button_style(button: Button, surface: String, hidden := fals
 				if bool(card.get("activation_used_this_turn", false)):
 					fill = fill.darkened(0.3)
 					border = border.darkened(0.2)
-		if surface == "hand" and _is_pending_prophecy_card(card):
+		if surface == "hand" and _overlays._is_pending_prophecy_card(card):
 			fill = fill.lerp(Color(0.24, 0.12, 0.31, 0.99), 0.72)
 			border = Color(0.93, 0.73, 0.98, 1.0)
 			font_color = Color(1.0, 0.96, 1.0, 1.0)
@@ -2298,13 +2224,13 @@ func _refresh_ui() -> void:
 	_card_buttons = {}
 	_lane_slot_buttons = {}
 	_refresh_turn_presentation()
-	_refresh_prophecy_overlay()
-	_refresh_discard_choice_overlay()
-	_refresh_consume_selection_overlay()
-	_refresh_deck_selection_overlay()
-	_refresh_player_choice_overlay()
-	_refresh_hand_selection_state()
-	_refresh_top_deck_choice_state()
+	_overlays._refresh_prophecy_overlay()
+	_overlays._refresh_discard_choice_overlay()
+	_overlays._refresh_consume_selection_overlay()
+	_overlays._refresh_deck_selection_overlay()
+	_overlays._refresh_player_choice_overlay()
+	_refresh_overlays._hand_selection_state()
+	_overlays._refresh_overlays._top_deck_choice_state()
 	_refresh_player_sections()
 	_refresh_lanes()
 	_apply_match_layout_scale()
@@ -2317,18 +2243,18 @@ func _refresh_ui() -> void:
 		var detached_button: Button = _card_buttons.get(detached_id)
 		if detached_button != null:
 			detached_button.visible = false
-		elif not _has_active_prophecy_overlay(detached_id):
+		elif not _overlays._has_active_prophecy_overlay(detached_id):
 			_cancel_detached_card_silent()
-	if not _targeting_arrow_state.is_empty():
-		var arrow_id: String = str(_targeting_arrow_state.get("instance_id", ""))
+	if not _targeting._targeting_arrow_state.is_empty():
+		var arrow_id: String = str(_targeting._targeting_arrow_state.get("instance_id", ""))
 		var arrow_button: Button = _card_buttons.get(arrow_id)
-		var summon_source_id := str(_pending_summon_target.get("source_instance_id", ""))
+		var summon_source_id := str(_targeting._pending_summon_target.get("source_instance_id", ""))
 		var is_pending_summon_source := arrow_id == summon_source_id and not summon_source_id.is_empty()
 		if arrow_button != null:
 			if not is_pending_summon_source:
 				arrow_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		elif not is_pending_summon_source and not _has_active_prophecy_overlay(arrow_id):
-			_cancel_targeting_mode_silent()
+		elif not is_pending_summon_source and not _overlays._has_active_prophecy_overlay(arrow_id):
+			_targeting._cancel_targeting_mode_silent()
 	_pending_layout_scale_frames = 2
 	_process_overdraw_queue()
 
@@ -2406,7 +2332,7 @@ func _refresh_player_sections() -> void:
 		_clear_children(hand_row)
 		var hand_public := _is_hand_public(player_id)
 		for card in player.get("hand", []):
-			if _has_active_prophecy_overlay(str(card.get("instance_id", ""))):
+			if _overlays._has_active_prophecy_overlay(str(card.get("instance_id", ""))):
 				continue
 			hand_row.add_child(_build_card_button(card, hand_public, "hand"))
 		if hand_row.get_child_count() == 0:
@@ -2420,10 +2346,10 @@ func _refresh_player_sections() -> void:
 func _refresh_lanes() -> void:
 	_clear_insertion_preview(false)
 	# Reset sacrifice hover since lane buttons are being rebuilt
-	_sacrifice_hover_target_id = ""
-	if _sacrifice_hover_label != null and is_instance_valid(_sacrifice_hover_label):
-		_sacrifice_hover_label.queue_free()
-	_sacrifice_hover_label = null
+	_betray._sacrifice_hover_target_id = ""
+	if _betray._sacrifice_hover_label != null and is_instance_valid(_betray._sacrifice_hover_label):
+		_betray._sacrifice_hover_label.queue_free()
+	_betray._sacrifice_hover_label = null
 	for lane in _lane_entries():
 		var lane_id := str(lane.get("id", ""))
 		var lane_panel: PanelContainer = _lane_panels.get(lane_id)
@@ -2456,722 +2382,13 @@ func _refresh_lanes() -> void:
 					row.add_child(_build_card_button(card, true, "lane"))
 
 
-func _refresh_prophecy_overlay() -> void:
-	var has_prophecy := MatchTiming.has_pending_prophecy(_match_state)
-	var overlay_active := not _prophecy_overlay_state.is_empty()
-	if has_prophecy and not overlay_active:
-		var windows := MatchTiming.get_pending_prophecies(_match_state)
-		if not windows.is_empty():
-			var window: Dictionary = windows[0]
-			var instance_id := str(window.get("instance_id", ""))
-			var player_id := str(window.get("player_id", ""))
-			if player_id == _local_player_id():
-				_show_local_prophecy_overlay(instance_id)
-			else:
-				_show_enemy_prophecy_overlay(instance_id)
-	elif not has_prophecy and overlay_active:
-		var phase: String = str(_prophecy_overlay_state.get("phase", ""))
-		if phase != "animating":
-			_dismiss_prophecy_overlay()
-
-
-func _show_local_prophecy_overlay(instance_id: String) -> void:
-	_dismiss_prophecy_overlay()
-	var card := _card_from_instance_id(instance_id)
-	if card.is_empty():
-		return
-	var card_size := _hand_card_display_size()
-	var viewport_size := get_viewport_rect().size
-	var hand_top_y := viewport_size.y - card_size.y * 0.35
-
-	var vbox := VBoxContainer.new()
-	vbox.name = "prophecy_local_vbox"
-	vbox.mouse_filter = Control.MOUSE_FILTER_PASS
-	vbox.add_theme_constant_override("separation", 12)
-	vbox.alignment = BoxContainer.ALIGNMENT_END
-
-	var card_wrapper := Control.new()
-	card_wrapper.name = "prophecy_card_wrapper"
-	card_wrapper.custom_minimum_size = card_size
-	card_wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
-	component.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
-	card_wrapper.add_child(component)
-	vbox.add_child(card_wrapper)
-
-	var button_row := HBoxContainer.new()
-	button_row.name = "prophecy_button_row"
-	button_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	button_row.add_theme_constant_override("separation", 16)
-
-	var play_button := Button.new()
-	play_button.text = "Play"
-	play_button.custom_minimum_size = Vector2(card_size.x * 0.45, 46)
-	play_button.add_theme_font_size_override("font_size", 17)
-	_apply_button_style(play_button, Color(0.21, 0.12, 0.29, 0.99), Color(0.92, 0.72, 0.98, 1.0), Color(0.99, 0.96, 1.0, 1.0), 2, 10)
-	play_button.pressed.connect(_on_prophecy_play_pressed.bind(instance_id))
-	button_row.add_child(play_button)
-
-	var local_id := _local_player_id()
-	var local_player := {}
-	for p in _match_state.get("players", []):
-		if str(p.get("player_id", "")) == local_id:
-			local_player = p
-			break
-	var hand_full: bool = local_player.get("hand", []).size() > MatchTiming.MAX_HAND_SIZE
-
-	var keep_button := Button.new()
-	keep_button.text = "Discard" if hand_full else "Keep"
-	keep_button.custom_minimum_size = Vector2(card_size.x * 0.45, 46)
-	keep_button.add_theme_font_size_override("font_size", 17)
-	_apply_button_style(keep_button, Color(0.22, 0.11, 0.14, 0.98), Color(0.78, 0.45, 0.47, 0.96), Color(0.99, 0.95, 0.95, 1.0), 1, 10)
-	keep_button.pressed.connect(_on_prophecy_keep_pressed.bind(instance_id))
-	button_row.add_child(keep_button)
-
-	vbox.add_child(button_row)
-
-	var total_height := card_size.y + 12.0 + 46.0
-	var top_y := hand_top_y - total_height - 16.0
-	vbox.position = Vector2((viewport_size.x - card_size.x) * 0.5, top_y)
-	vbox.size = Vector2(card_size.x, total_height)
-
-	_prophecy_card_overlay.add_child(vbox)
-	_prophecy_overlay_state = {
-		"instance_id": instance_id,
-		"player_id": _local_player_id(),
-		"is_local": true,
-		"vbox": vbox,
-		"card_wrapper": card_wrapper,
-		"component": component,
-		"phase": "active",
-	}
-	_selected_instance_id = instance_id
-
-
-func _show_enemy_prophecy_overlay(instance_id: String) -> void:
-	_dismiss_prophecy_overlay()
-	var card_size := _hand_card_display_size()
-	var viewport_size := get_viewport_rect().size
-
-	var card_back := PanelContainer.new()
-	card_back.name = "prophecy_enemy_card_back"
-	card_back.custom_minimum_size = card_size
-	card_back.size = card_size
-	_apply_panel_style(card_back, Color(0.35, 0.22, 0.12, 0.98), Color(0.57, 0.44, 0.27, 0.92), 2, 0)
-
-	var pos_x := (viewport_size.x - card_size.x) * 0.5
-	var pos_y := viewport_size.y * 0.10 + 12.0
-	card_back.position = Vector2(pos_x, pos_y)
-
-	_prophecy_card_overlay.add_child(card_back)
-	_prophecy_overlay_state = {
-		"instance_id": instance_id,
-		"player_id": _pending_prophecy_player_id(instance_id),
-		"is_local": false,
-		"card_back": card_back,
-		"phase": "active",
-	}
-
-
-func _dismiss_prophecy_overlay() -> void:
-	if _prophecy_overlay_state.is_empty():
-		return
-	var vbox: Control = _prophecy_overlay_state.get("vbox")
-	if vbox != null and is_instance_valid(vbox):
-		vbox.queue_free()
-	var card_back: Control = _prophecy_overlay_state.get("card_back")
-	if card_back != null and is_instance_valid(card_back):
-		card_back.queue_free()
-	_prophecy_overlay_state = {}
-
-
-func _has_active_prophecy_overlay(instance_id: String) -> bool:
-	if _prophecy_overlay_state.is_empty():
-		return false
-	return str(_prophecy_overlay_state.get("instance_id", "")) == instance_id
-
-
-func _show_mulligan_overlay() -> void:
-	_dismiss_mulligan_overlay()
-	_mulligan_marked_ids = []
-	var local_id := _local_player_id()
-	var player := {}
-	for p in _match_state.get("players", []):
-		if str(p.get("player_id", "")) == local_id:
-			player = p
-			break
-	var hand: Array = player.get("hand", [])
-	if hand.is_empty():
-		_finalize_mulligan([])
-		return
-
-	var overlay := Control.new()
-	overlay.name = "MulliganOverlay"
-	overlay.z_index = 460
-	overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	var bg := ColorRect.new()
-	bg.name = "MulliganBackground"
-	bg.color = Color(0.04, 0.05, 0.07, 0.82)
-	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	bg.mouse_filter = Control.MOUSE_FILTER_STOP
-	overlay.add_child(bg)
-
-	var center := CenterContainer.new()
-	center.name = "MulliganCenter"
-	center.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_PASS
-	overlay.add_child(center)
-
-	var vbox := VBoxContainer.new()
-	vbox.name = "MulliganVBox"
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", 20)
-	vbox.mouse_filter = Control.MOUSE_FILTER_PASS
-	center.add_child(vbox)
-
-	var going_first := not bool(player.get("has_ring_of_magicka", false))
-	var turn_order_label := Label.new()
-	turn_order_label.text = "You are playing first" if going_first else "You are playing second"
-	turn_order_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	turn_order_label.add_theme_font_size_override("font_size", 20)
-	turn_order_label.add_theme_color_override("font_color", Color(0.72, 0.68, 0.58, 0.9))
-	vbox.add_child(turn_order_label)
-
-	var title_label := Label.new()
-	title_label.text = "Choose cards to replace"
-	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_label.add_theme_font_size_override("font_size", 26)
-	title_label.add_theme_color_override("font_color", Color(0.92, 0.88, 0.78, 1.0))
-	vbox.add_child(title_label)
-
-	var card_row := HBoxContainer.new()
-	card_row.name = "MulliganCardRow"
-	card_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	card_row.add_theme_constant_override("separation", 16)
-	card_row.mouse_filter = Control.MOUSE_FILTER_PASS
-	vbox.add_child(card_row)
-
-	var card_size := _hand_card_display_size()
-	var card_buttons_map := {}
-	var x_labels_map := {}
-	_mulligan_instance_id_order = []
-
-	for card in hand:
-		var instance_id := str(card.get("instance_id", ""))
-		var card_button := Button.new()
-		card_button.name = "MulliganCard_%s" % instance_id
-		card_button.custom_minimum_size = card_size
-		card_button.mouse_filter = Control.MOUSE_FILTER_STOP
-		var empty_style := StyleBoxEmpty.new()
-		card_button.add_theme_stylebox_override("normal", empty_style)
-		card_button.add_theme_stylebox_override("hover", empty_style)
-		card_button.add_theme_stylebox_override("pressed", empty_style)
-		card_button.add_theme_stylebox_override("focus", empty_style)
-
-		var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
-		component.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
-		card_button.add_child(component)
-
-		var x_label := Label.new()
-		x_label.name = "XMark"
-		x_label.text = "X"
-		x_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		x_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		x_label.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		x_label.add_theme_font_size_override("font_size", 48)
-		x_label.add_theme_color_override("font_color", Color(0.95, 0.25, 0.2, 0.92))
-		x_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		x_label.visible = false
-		card_button.add_child(x_label)
-
-		card_button.pressed.connect(_on_mulligan_card_toggled.bind(instance_id))
-		card_row.add_child(card_button)
-		card_buttons_map[instance_id] = card_button
-		x_labels_map[instance_id] = x_label
-		_mulligan_instance_id_order.append(instance_id)
-
-	var continue_button := Button.new()
-	continue_button.name = "MulliganContinue"
-	continue_button.text = "Continue"
-	continue_button.custom_minimum_size = Vector2(180, 50)
-	continue_button.add_theme_font_size_override("font_size", 20)
-	_apply_button_style(continue_button, Color(0.28, 0.22, 0.08, 0.98), Color(0.78, 0.65, 0.22, 0.96), Color(0.98, 0.93, 0.82, 1.0), 2, 10)
-	continue_button.pressed.connect(_on_mulligan_confirm_pressed)
-	vbox.add_child(continue_button)
-
-	add_child(overlay)
-	_mulligan_overlay_state = {
-		"overlay": overlay,
-		"card_buttons": card_buttons_map,
-		"x_labels": x_labels_map,
-	}
-
-
-func _on_mulligan_card_toggled(instance_id: String) -> void:
-	if _mulligan_overlay_state.is_empty():
-		return
-	var idx := _mulligan_marked_ids.find(instance_id)
-	if idx >= 0:
-		_mulligan_marked_ids.remove_at(idx)
-	else:
-		_mulligan_marked_ids.append(instance_id)
-	var x_labels: Dictionary = _mulligan_overlay_state.get("x_labels", {})
-	var x_label: Label = x_labels.get(instance_id)
-	if x_label != null:
-		x_label.visible = _mulligan_marked_ids.has(instance_id)
-
-
-func _on_mulligan_confirm_pressed() -> void:
-	if _mulligan_overlay_state.is_empty():
-		return
-	var discard_ids := _mulligan_marked_ids.duplicate()
-	_dismiss_mulligan_overlay()
-	_finalize_mulligan(discard_ids)
-
-
-func _dismiss_mulligan_overlay() -> void:
-	if _mulligan_overlay_state.is_empty():
-		return
-	var overlay: Control = _mulligan_overlay_state.get("overlay")
-	if overlay != null and is_instance_valid(overlay):
-		overlay.queue_free()
-	_mulligan_overlay_state = {}
-	_mulligan_marked_ids = []
-	_mulligan_instance_id_order = []
-
-
-func _finalize_mulligan(discard_instance_ids: Array) -> void:
-	MatchBootstrap.apply_mulligan(_match_state, _local_player_id(), discard_instance_ids)
-	_hydrate_match_cards(_match_state, _mulligan_card_by_id)
-	# Re-apply augments after hydration so stat bonuses aren't overwritten
-	if not _adventure_augments.is_empty():
-		_apply_adventure_augments(_match_state, PLAYER_ORDER[1])
-	GameLogger.start_match(_match_state)
-	MatchTurnLoop.begin_first_turn(_match_state)
-	_ai_enabled = true
-	if not _is_local_player_turn():
-		_schedule_local_match_ai_step(2000)
-	_mulligan_card_by_id = {}
-	var scenario_events := _history._recent_presentation_events_from_history()
-	_record_feedback_from_events(scenario_events)
-	_status_message = "Match started."
-	_refresh_ui()
-	if _arena_mode:
-		match_state_changed.emit(_match_state.duplicate(true))
-
-
-func _show_discard_viewer(player_id: String) -> void:
-	_dismiss_discard_viewer()
-	var player := _player_state(player_id)
-	if player.is_empty():
-		return
-	var discard_pile: Array = player.get("discard", [])
-	if discard_pile.is_empty():
-		_status_message = "%s's discard pile is empty." % _player_name(player_id)
-		_refresh_ui()
-		return
-
-	var overlay := Control.new()
-	overlay.name = "DiscardViewerOverlay"
-	overlay.z_index = 460
-	overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	var bg := ColorRect.new()
-	bg.color = Color(0.04, 0.05, 0.07, 0.85)
-	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	bg.mouse_filter = Control.MOUSE_FILTER_STOP
-	overlay.add_child(bg)
-
-	var margin := MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 40)
-	margin.add_theme_constant_override("margin_right", 40)
-	margin.add_theme_constant_override("margin_top", 30)
-	margin.add_theme_constant_override("margin_bottom", 30)
-	margin.mouse_filter = Control.MOUSE_FILTER_PASS
-	overlay.add_child(margin)
-
-	var vbox := VBoxContainer.new()
-	vbox.alignment = BoxContainer.ALIGNMENT_BEGIN
-	vbox.add_theme_constant_override("separation", 14)
-	vbox.mouse_filter = Control.MOUSE_FILTER_PASS
-	margin.add_child(vbox)
-
-	var title_label := Label.new()
-	title_label.text = "%s's Discard Pile (%d)" % [_player_name(player_id), discard_pile.size()]
-	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_label.add_theme_font_size_override("font_size", 24)
-	title_label.add_theme_color_override("font_color", Color(0.92, 0.88, 0.78, 1.0))
-	vbox.add_child(title_label)
-
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = SIZE_EXPAND_FILL
-	scroll.mouse_filter = Control.MOUSE_FILTER_PASS
-	vbox.add_child(scroll)
-
-	var card_size := CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
-	var grid := GridContainer.new()
-	grid.columns = maxi(1, int(get_viewport_rect().size.x - 120) / int(card_size.x + 10))
-	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 10)
-	grid.size_flags_horizontal = SIZE_EXPAND_FILL
-	grid.mouse_filter = Control.MOUSE_FILTER_PASS
-	scroll.add_child(grid)
-
-	for card in discard_pile:
-		if typeof(card) != TYPE_DICTIONARY:
-			continue
-		var card_wrapper := PanelContainer.new()
-		card_wrapper.custom_minimum_size = card_size
-		var wrapper_style := StyleBoxFlat.new()
-		wrapper_style.bg_color = Color(0.12, 0.11, 0.14, 0.95)
-		wrapper_style.corner_radius_top_left = 6
-		wrapper_style.corner_radius_top_right = 6
-		wrapper_style.corner_radius_bottom_left = 6
-		wrapper_style.corner_radius_bottom_right = 6
-		card_wrapper.add_theme_stylebox_override("panel", wrapper_style)
-
-		var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
-		component.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
-		card_wrapper.add_child(component)
-		grid.add_child(card_wrapper)
-
-	var close_button := Button.new()
-	close_button.text = "Close"
-	close_button.custom_minimum_size = Vector2(160, 44)
-	close_button.add_theme_font_size_override("font_size", 18)
-	_apply_button_style(close_button, Color(0.2, 0.12, 0.16, 0.98), Color(0.58, 0.32, 0.39, 0.94), Color(0.97, 0.92, 0.94, 1.0), 1, 10)
-	close_button.pressed.connect(_dismiss_discard_viewer)
-	close_button.size_flags_horizontal = SIZE_SHRINK_CENTER
-	vbox.add_child(close_button)
-
-	add_child(overlay)
-	_discard_viewer_state = {"overlay": overlay}
-	_status_message = "Viewing %s's discard pile." % _player_name(player_id)
-
-
-func _dismiss_discard_viewer() -> void:
-	if _discard_viewer_state.is_empty():
-		return
-	var overlay: Control = _discard_viewer_state.get("overlay")
-	if overlay != null and is_instance_valid(overlay):
-		overlay.queue_free()
-	_discard_viewer_state = {}
-
-
-func _has_local_pending_discard_choice() -> bool:
-	return MatchTiming.has_pending_discard_choice(_match_state, _local_player_id())
-
-
-func _refresh_discard_choice_overlay() -> void:
-	var has_choice := _has_local_pending_discard_choice()
-	var overlay_active := not _discard_choice_overlay_state.is_empty()
-	if has_choice and not overlay_active:
-		_show_discard_choice_overlay()
-	elif not has_choice and overlay_active:
-		_dismiss_discard_choice_overlay()
-
-
-func _show_discard_choice_overlay() -> void:
-	_dismiss_discard_choice_overlay()
-	_dismiss_discard_viewer()
-	var local_id := _local_player_id()
-	var choice := MatchTiming.get_pending_discard_choice(_match_state, local_id)
-	if choice.is_empty():
-		return
-	var candidate_ids: Array = choice.get("candidate_instance_ids", [])
-	if candidate_ids.is_empty():
-		MatchTiming.decline_pending_discard_choice(_match_state, local_id)
-		_refresh_ui()
-		return
-
-	var player := _player_state(local_id)
-	if player.is_empty():
-		return
-	var discard_pile: Array = player.get("discard", [])
-	var candidate_cards: Array = []
-	for card in discard_pile:
-		if typeof(card) == TYPE_DICTIONARY and candidate_ids.has(str(card.get("instance_id", ""))):
-			candidate_cards.append(card)
-
-	var overlay := Control.new()
-	overlay.name = "DiscardChoiceOverlay"
-	overlay.z_index = 470
-	overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	var bg := ColorRect.new()
-	bg.color = Color(0.04, 0.05, 0.07, 0.88)
-	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	bg.mouse_filter = Control.MOUSE_FILTER_STOP
-	overlay.add_child(bg)
-
-	var margin := MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 40)
-	margin.add_theme_constant_override("margin_right", 40)
-	margin.add_theme_constant_override("margin_top", 30)
-	margin.add_theme_constant_override("margin_bottom", 30)
-	margin.mouse_filter = Control.MOUSE_FILTER_PASS
-	overlay.add_child(margin)
-
-	var vbox := VBoxContainer.new()
-	vbox.alignment = BoxContainer.ALIGNMENT_BEGIN
-	vbox.add_theme_constant_override("separation", 14)
-	vbox.mouse_filter = Control.MOUSE_FILTER_PASS
-	margin.add_child(vbox)
-
-	var buff_power := int(choice.get("buff_power", 0))
-	var buff_health := int(choice.get("buff_health", 0))
-	var title_text := "Choose a creature from your discard pile"
-	if buff_power > 0 or buff_health > 0:
-		title_text += " (+%d/+%d)" % [buff_power, buff_health]
-	var title_label := Label.new()
-	title_label.text = title_text
-	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_label.add_theme_font_size_override("font_size", 24)
-	title_label.add_theme_color_override("font_color", Color(0.95, 0.9, 0.72, 1.0))
-	vbox.add_child(title_label)
-
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = SIZE_EXPAND_FILL
-	scroll.mouse_filter = Control.MOUSE_FILTER_PASS
-	vbox.add_child(scroll)
-
-	var card_size := CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
-	var grid := GridContainer.new()
-	grid.columns = maxi(1, int(get_viewport_rect().size.x - 120) / int(card_size.x + 10))
-	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 10)
-	grid.size_flags_horizontal = SIZE_EXPAND_FILL
-	grid.mouse_filter = Control.MOUSE_FILTER_PASS
-	scroll.add_child(grid)
-
-	for card in candidate_cards:
-		var instance_id := str(card.get("instance_id", ""))
-		var card_button := Button.new()
-		card_button.name = "DiscardChoice_%s" % instance_id
-		card_button.custom_minimum_size = card_size
-		var empty_style := StyleBoxEmpty.new()
-		card_button.add_theme_stylebox_override("normal", empty_style)
-		var hover_style := StyleBoxFlat.new()
-		hover_style.bg_color = Color(0.3, 0.25, 0.1, 0.6)
-		hover_style.corner_radius_top_left = 6
-		hover_style.corner_radius_top_right = 6
-		hover_style.corner_radius_bottom_left = 6
-		hover_style.corner_radius_bottom_right = 6
-		card_button.add_theme_stylebox_override("hover", hover_style)
-		card_button.add_theme_stylebox_override("pressed", empty_style)
-		card_button.add_theme_stylebox_override("focus", empty_style)
-
-		var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
-		component.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
-		card_button.add_child(component)
-
-		card_button.pressed.connect(_on_discard_choice_selected.bind(instance_id))
-		grid.add_child(card_button)
-
-	add_child(overlay)
-	_discard_choice_overlay_state = {"overlay": overlay}
-	_status_message = title_text
-
-
-func _on_discard_choice_selected(instance_id: String) -> void:
-	if _discard_choice_overlay_state.is_empty():
-		return
-	var local_id := _local_player_id()
-	var result := MatchTiming.resolve_pending_discard_choice(_match_state, local_id, instance_id)
-	_dismiss_discard_choice_overlay()
-	if bool(result.get("is_valid", false)):
-		var card_name := str(result.get("card", {}).get("name", instance_id))
-		_record_feedback_from_events(_copy_array(result.get("events", [])))
-		_status_message = "Drew %s from discard pile." % card_name
-	else:
-		_status_message = str(result.get("errors", ["Failed to resolve discard choice."])[0])
-	_refresh_ui()
-
-
-func _dismiss_discard_choice_overlay() -> void:
-	if _discard_choice_overlay_state.is_empty():
-		return
-	var overlay: Control = _discard_choice_overlay_state.get("overlay")
-	if overlay != null and is_instance_valid(overlay):
-		overlay.queue_free()
-	_discard_choice_overlay_state = {}
-
-
-# --- Deck selection overlay ---
-
-
-var _deck_selection_overlay_state := {}
-
-
-func _has_local_pending_deck_selection() -> bool:
-	return MatchTiming.has_pending_deck_selection(_match_state, _local_player_id())
-
-
-func _refresh_deck_selection_overlay() -> void:
-	var has_selection := _has_local_pending_deck_selection()
-	var overlay_active := not _deck_selection_overlay_state.is_empty()
-	if has_selection and not overlay_active:
-		_show_deck_selection_overlay()
-	elif not has_selection and overlay_active:
-		_dismiss_deck_selection_overlay()
-
-
-func _show_deck_selection_overlay() -> void:
-	_dismiss_deck_selection_overlay()
-	_dismiss_discard_viewer()
-	var local_id := _local_player_id()
-	var selection := MatchTiming.get_pending_deck_selection(_match_state, local_id)
-	if selection.is_empty():
-		return
-	var candidate_ids: Array = selection.get("candidate_instance_ids", [])
-	if candidate_ids.is_empty():
-		MatchTiming.decline_pending_deck_selection(_match_state, local_id)
-		_refresh_ui()
-		return
-
-	var player := _player_state(local_id)
-	if player.is_empty():
-		return
-	var deck_pile: Array = player.get("deck", [])
-	var candidate_cards: Array = []
-	for card in deck_pile:
-		if typeof(card) == TYPE_DICTIONARY and candidate_ids.has(str(card.get("instance_id", ""))):
-			candidate_cards.append(card)
-
-	var overlay := Control.new()
-	overlay.name = "DeckSelectionOverlay"
-	overlay.z_index = 470
-	overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	var bg := ColorRect.new()
-	bg.color = Color(0.04, 0.07, 0.1, 0.88)
-	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	bg.mouse_filter = Control.MOUSE_FILTER_STOP
-	overlay.add_child(bg)
-
-	var margin := MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 40)
-	margin.add_theme_constant_override("margin_right", 40)
-	margin.add_theme_constant_override("margin_top", 30)
-	margin.add_theme_constant_override("margin_bottom", 30)
-	margin.mouse_filter = Control.MOUSE_FILTER_PASS
-	overlay.add_child(margin)
-
-	var vbox := VBoxContainer.new()
-	vbox.alignment = BoxContainer.ALIGNMENT_BEGIN
-	vbox.add_theme_constant_override("separation", 14)
-	vbox.mouse_filter = Control.MOUSE_FILTER_PASS
-	margin.add_child(vbox)
-
-	var prompt_text := str(selection.get("prompt", "Choose a card from your deck."))
-	var title_label := Label.new()
-	title_label.text = prompt_text
-	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_label.add_theme_font_size_override("font_size", 24)
-	title_label.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0, 1.0))
-	vbox.add_child(title_label)
-
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = SIZE_EXPAND_FILL
-	scroll.mouse_filter = Control.MOUSE_FILTER_PASS
-	vbox.add_child(scroll)
-
-	var card_size := CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
-	var grid := GridContainer.new()
-	grid.columns = maxi(1, int(get_viewport_rect().size.x - 120) / int(card_size.x + 10))
-	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 10)
-	grid.size_flags_horizontal = SIZE_EXPAND_FILL
-	grid.mouse_filter = Control.MOUSE_FILTER_PASS
-	scroll.add_child(grid)
-
-	for card in candidate_cards:
-		var instance_id := str(card.get("instance_id", ""))
-		var card_button := Button.new()
-		card_button.name = "DeckChoice_%s" % instance_id
-		card_button.custom_minimum_size = card_size
-		var empty_style := StyleBoxEmpty.new()
-		card_button.add_theme_stylebox_override("normal", empty_style)
-		var hover_style := StyleBoxFlat.new()
-		hover_style.bg_color = Color(0.15, 0.3, 0.5, 0.6)
-		hover_style.corner_radius_top_left = 6
-		hover_style.corner_radius_top_right = 6
-		hover_style.corner_radius_bottom_left = 6
-		hover_style.corner_radius_bottom_right = 6
-		card_button.add_theme_stylebox_override("hover", hover_style)
-		card_button.add_theme_stylebox_override("pressed", empty_style)
-		card_button.add_theme_stylebox_override("focus", empty_style)
-
-		var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
-		component.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
-		card_button.add_child(component)
-
-		card_button.pressed.connect(_on_deck_selection_chosen.bind(instance_id))
-		grid.add_child(card_button)
-
-	# Add skip button
-	var skip_button := Button.new()
-	skip_button.text = "Skip (Escape)"
-	skip_button.custom_minimum_size = Vector2(160, 40)
-	skip_button.size_flags_horizontal = SIZE_SHRINK_CENTER
-	skip_button.pressed.connect(_on_deck_selection_declined)
-	vbox.add_child(skip_button)
-
-	add_child(overlay)
-	_deck_selection_overlay_state = {"overlay": overlay}
-	_status_message = prompt_text
-
-
-func _on_deck_selection_chosen(instance_id: String) -> void:
-	if _deck_selection_overlay_state.is_empty():
-		return
-	var local_id := _local_player_id()
-	var result := MatchTiming.resolve_pending_deck_selection(_match_state, local_id, instance_id)
-	_dismiss_deck_selection_overlay()
-	if bool(result.get("is_valid", false)):
-		var card_name := str(result.get("card", {}).get("name", instance_id))
-		_record_feedback_from_events(_copy_array(result.get("events", [])))
-		_status_message = "Selected %s from deck." % card_name
-	else:
-		_status_message = str(result.get("errors", ["Failed to resolve deck selection."])[0])
-	_refresh_ui()
-
-
-func _on_deck_selection_declined() -> void:
-	if _deck_selection_overlay_state.is_empty():
-		return
-	var local_id := _local_player_id()
-	MatchTiming.decline_pending_deck_selection(_match_state, local_id)
-	_dismiss_deck_selection_overlay()
-	_status_message = "Selection declined."
-	_refresh_ui()
-
-
 func _dismiss_deck_selection_overlay() -> void:
-	if _deck_selection_overlay_state.is_empty():
+	if _overlays._deck_selection_overlay_state.is_empty():
 		return
-	var overlay: Control = _deck_selection_overlay_state.get("overlay")
+	var overlay: Control = _overlays._deck_selection_overlay_state.get("overlay")
 	if overlay != null and is_instance_valid(overlay):
 		overlay.queue_free()
-	_deck_selection_overlay_state = {}
+	_overlays._deck_selection_overlay_state = {}
 
 
 # --- Consume selection overlay ---
@@ -3181,135 +2398,17 @@ func _has_local_pending_consume_selection() -> bool:
 	return MatchTiming.has_pending_consume_selection(_match_state, _local_player_id())
 
 
-func _refresh_consume_selection_overlay() -> void:
-	var has_selection := _has_local_pending_consume_selection()
-	var overlay_active := not _consume_selection_overlay_state.is_empty()
-	if has_selection and not overlay_active:
-		_show_consume_selection_overlay()
-	elif not has_selection and overlay_active:
-		_dismiss_consume_selection_overlay()
-
-
-func _show_consume_selection_overlay() -> void:
-	_dismiss_consume_selection_overlay()
-	_dismiss_discard_viewer()
-	var local_id := _local_player_id()
-	var selection := MatchTiming.get_pending_consume_selection(_match_state, local_id)
-	if selection.is_empty():
-		return
-	var candidate_ids: Array = selection.get("candidate_instance_ids", [])
-	if candidate_ids.is_empty():
-		MatchTiming.decline_consume_selection(_match_state, local_id)
-		_refresh_ui()
-		return
-
-	var player := _player_state(local_id)
-	if player.is_empty():
-		return
-	var discard_pile: Array = player.get("discard", [])
-	var candidate_cards: Array = []
-	for card in discard_pile:
-		if typeof(card) == TYPE_DICTIONARY and candidate_ids.has(str(card.get("instance_id", ""))):
-			candidate_cards.append(card)
-
-	var overlay := Control.new()
-	overlay.name = "ConsumeSelectionOverlay"
-	overlay.z_index = 470
-	overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	var bg := ColorRect.new()
-	bg.color = Color(0.07, 0.03, 0.1, 0.88)
-	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	bg.mouse_filter = Control.MOUSE_FILTER_STOP
-	overlay.add_child(bg)
-
-	var margin := MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 40)
-	margin.add_theme_constant_override("margin_right", 40)
-	margin.add_theme_constant_override("margin_top", 30)
-	margin.add_theme_constant_override("margin_bottom", 30)
-	margin.mouse_filter = Control.MOUSE_FILTER_PASS
-	overlay.add_child(margin)
-
-	var vbox := VBoxContainer.new()
-	vbox.alignment = BoxContainer.ALIGNMENT_BEGIN
-	vbox.add_theme_constant_override("separation", 14)
-	vbox.mouse_filter = Control.MOUSE_FILTER_PASS
-	margin.add_child(vbox)
-
-	var title_label := Label.new()
-	title_label.text = "Choose a creature to Consume"
-	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_label.add_theme_font_size_override("font_size", 24)
-	title_label.add_theme_color_override("font_color", Color(0.8, 0.6, 0.95, 1.0))
-	vbox.add_child(title_label)
-
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = SIZE_EXPAND_FILL
-	scroll.mouse_filter = Control.MOUSE_FILTER_PASS
-	vbox.add_child(scroll)
-
-	var card_size := CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
-	var grid := GridContainer.new()
-	grid.columns = maxi(1, int(get_viewport_rect().size.x - 120) / int(card_size.x + 10))
-	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 10)
-	grid.size_flags_horizontal = SIZE_EXPAND_FILL
-	grid.mouse_filter = Control.MOUSE_FILTER_PASS
-	scroll.add_child(grid)
-
-	for card in candidate_cards:
-		var instance_id := str(card.get("instance_id", ""))
-		var card_button := Button.new()
-		card_button.name = "ConsumeChoice_%s" % instance_id
-		card_button.custom_minimum_size = card_size
-		var empty_style := StyleBoxEmpty.new()
-		card_button.add_theme_stylebox_override("normal", empty_style)
-		var hover_style := StyleBoxFlat.new()
-		hover_style.bg_color = Color(0.4, 0.2, 0.5, 0.6)
-		hover_style.corner_radius_top_left = 6
-		hover_style.corner_radius_top_right = 6
-		hover_style.corner_radius_bottom_left = 6
-		hover_style.corner_radius_bottom_right = 6
-		card_button.add_theme_stylebox_override("hover", hover_style)
-		card_button.add_theme_stylebox_override("pressed", empty_style)
-		card_button.add_theme_stylebox_override("focus", empty_style)
-
-		var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
-		component.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
-		card_button.add_child(component)
-
-		card_button.pressed.connect(_on_consume_selection_chosen.bind(instance_id))
-		grid.add_child(card_button)
-
-	# Add skip button
-	var skip_button := Button.new()
-	skip_button.text = "Skip (Escape)"
-	skip_button.custom_minimum_size = Vector2(160, 40)
-	skip_button.size_flags_horizontal = SIZE_SHRINK_CENTER
-	skip_button.pressed.connect(_on_consume_selection_declined)
-	vbox.add_child(skip_button)
-
-	add_child(overlay)
-	_consume_selection_overlay_state = {"overlay": overlay}
-	_status_message = "Choose a creature to Consume"
-
-
 func _on_consume_selection_chosen(instance_id: String) -> void:
-	if _consume_selection_overlay_state.is_empty():
+	if _overlays._consume_selection_overlay_state.is_empty():
 		return
 	var local_id := _local_player_id()
 	var result := MatchTiming.resolve_consume_selection(_match_state, local_id, instance_id)
-	_dismiss_consume_selection_overlay()
+	_overlays._dismiss_consume_selection_overlay()
 	if bool(result.get("is_valid", false)):
 		_record_feedback_from_events(_copy_array(result.get("events", [])))
 		_status_message = "Creature consumed."
 		# Check if consume chained into target mode selection
-		_check_pending_summon_effect_target()
+		_targeting._check_pending_summon_effect_target()
 		_check_pending_forced_play()
 	else:
 		_status_message = str(result.get("errors", ["Failed to resolve consume selection."])[0])
@@ -3317,227 +2416,41 @@ func _on_consume_selection_chosen(instance_id: String) -> void:
 
 
 func _on_consume_selection_declined() -> void:
-	if _consume_selection_overlay_state.is_empty():
+	if _overlays._consume_selection_overlay_state.is_empty():
 		return
 	var local_id := _local_player_id()
 	MatchTiming.decline_consume_selection(_match_state, local_id)
-	_dismiss_consume_selection_overlay()
+	_overlays._dismiss_consume_selection_overlay()
 	_status_message = "Consume declined."
 	_refresh_ui()
-
-
-func _dismiss_consume_selection_overlay() -> void:
-	if _consume_selection_overlay_state.is_empty():
-		return
-	var overlay: Control = _consume_selection_overlay_state.get("overlay")
-	if overlay != null and is_instance_valid(overlay):
-		overlay.queue_free()
-	_consume_selection_overlay_state = {}
-
-
-# --- Player choice overlay ---
-
-
-var _player_choice_overlay_state := {}
 
 
 func _has_local_pending_player_choice() -> bool:
 	return MatchTiming.has_pending_player_choice(_match_state, _local_player_id())
 
 
-func _refresh_player_choice_overlay() -> void:
-	var has_choice := _has_local_pending_player_choice()
-	var overlay_active := not _player_choice_overlay_state.is_empty()
-	if has_choice and not overlay_active:
-		_show_player_choice_overlay()
-	elif not has_choice and overlay_active:
-		_dismiss_player_choice_overlay()
-
-
-func _show_player_choice_overlay() -> void:
-	_dismiss_player_choice_overlay()
-	var choice := MatchTiming.get_pending_player_choice(_match_state, _local_player_id())
-	if choice.is_empty():
-		return
-	var prompt := str(choice.get("prompt", "Choose one:"))
-	var mode := str(choice.get("mode", "text"))
-	var options: Array = choice.get("options", [])
-	if options.is_empty():
-		return
-
-	var overlay := Control.new()
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.z_index = 480
-
-	var bg := ColorRect.new()
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0.04, 0.05, 0.07, 0.88)
-	bg.mouse_filter = Control.MOUSE_FILTER_STOP
-	overlay.add_child(bg)
-
-	var margin := MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 60)
-	margin.add_theme_constant_override("margin_right", 60)
-	margin.add_theme_constant_override("margin_top", 40)
-	margin.add_theme_constant_override("margin_bottom", 40)
-	overlay.add_child(margin)
-
-	var vbox := VBoxContainer.new()
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", 20)
-	margin.add_child(vbox)
-
-	var title := Label.new()
-	title.text = prompt
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 24)
-	title.add_theme_color_override("font_color", Color(0.95, 0.9, 0.72, 1.0))
-	vbox.add_child(title)
-
-	var hbox := HBoxContainer.new()
-	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	hbox.add_theme_constant_override("separation", 20)
-	vbox.add_child(hbox)
-
-	for oi in range(options.size()):
-		var raw_option = options[oi]
-		var option: Dictionary = raw_option if typeof(raw_option) == TYPE_DICTIONARY else {}
-		var label := str(raw_option) if typeof(raw_option) == TYPE_STRING else str(option.get("label", "Option %d" % (oi + 1)))
-		var description := str(option.get("description", ""))
-
-		if mode == "card" and option.has("card"):
-			var card_button := Button.new()
-			card_button.custom_minimum_size = CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
-			var card_display = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
-			card_display.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			card_button.add_child(card_display)
-			card_display.apply_card(option["card"], CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
-			_apply_button_style(card_button, Color(0.12, 0.13, 0.17, 0.95), Color(0.4, 0.38, 0.5, 0.8), Color.WHITE)
-			var idx := oi
-			card_button.pressed.connect(func(): _on_player_choice_selected(idx))
-			hbox.add_child(card_button)
-		else:
-			var btn := Button.new()
-			btn.custom_minimum_size = Vector2(180, 80)
-			var btn_vbox := VBoxContainer.new()
-			btn_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-			btn_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			var btn_label := Label.new()
-			btn_label.text = label
-			btn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			btn_label.add_theme_font_size_override("font_size", 18)
-			btn_label.add_theme_color_override("font_color", Color(0.95, 0.92, 0.82, 1.0))
-			btn_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			btn_vbox.add_child(btn_label)
-			if not description.is_empty():
-				var desc_label := Label.new()
-				desc_label.text = description
-				desc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-				desc_label.add_theme_font_size_override("font_size", 13)
-				desc_label.add_theme_color_override("font_color", Color(0.75, 0.72, 0.65, 0.9))
-				desc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				btn_vbox.add_child(desc_label)
-			btn.add_child(btn_vbox)
-			_apply_button_style(btn, Color(0.15, 0.14, 0.2, 0.95), Color(0.5, 0.45, 0.55, 0.8), Color.WHITE)
-			var idx := oi
-			btn.pressed.connect(func(): _on_player_choice_selected(idx))
-			hbox.add_child(btn)
-
-	add_child(overlay)
-	_player_choice_overlay_state = {"overlay": overlay}
-
-
 func _on_player_choice_selected(index: int) -> void:
-	if _player_choice_overlay_state.is_empty():
+	if _overlays._player_choice_overlay_state.is_empty():
 		return
 	var local_id := _local_player_id()
-	_dismiss_player_choice_overlay()
+	_overlays._dismiss_player_choice_overlay()
 	var result := MatchTiming.resolve_pending_player_choice(_match_state, local_id, index)
 	if bool(result.get("is_valid", false)):
 		_record_feedback_from_events(_copy_array(result.get("events", [])))
 		_refresh_ui()
 
 
-func _dismiss_player_choice_overlay() -> void:
-	if _player_choice_overlay_state.is_empty():
-		return
-	var overlay: Control = _player_choice_overlay_state.get("overlay")
-	if overlay != null and is_instance_valid(overlay):
-		overlay.queue_free()
-	_player_choice_overlay_state = {}
-
-
-# --- Hand selection mechanic ---
-
-
 func _has_local_pending_hand_selection() -> bool:
 	return MatchTiming.has_pending_hand_selection(_match_state, _local_player_id())
 
 
-func _refresh_hand_selection_state() -> void:
+func _refresh_overlays._hand_selection_state() -> void:
 	var has_selection := _has_local_pending_hand_selection()
-	var state_active := not _hand_selection_state.is_empty()
+	var state_active := not _overlays._hand_selection_state.is_empty()
 	if has_selection and not state_active:
-		_enter_hand_selection_mode()
+		_overlays._enter_hand_selection_mode()
 	elif not has_selection and state_active:
-		_exit_hand_selection_mode()
-
-
-func _enter_hand_selection_mode() -> void:
-	var local_id := _local_player_id()
-	var selection := MatchTiming.get_pending_hand_selection(_match_state, local_id)
-	if selection.is_empty():
-		return
-	var candidate_ids: Array = selection.get("candidate_instance_ids", [])
-	if candidate_ids.is_empty():
-		MatchTiming.decline_pending_hand_selection(_match_state, local_id)
-		_refresh_ui()
-		return
-	_hand_selection_state = {
-		"candidate_ids": candidate_ids,
-		"source_instance_id": str(selection.get("source_instance_id", "")),
-		"prompt": str(selection.get("prompt", "Choose a card from your hand.")),
-	}
-	_selected_instance_id = ""
-	_status_message = str(_hand_selection_state.get("prompt", ""))
-
-
-func _exit_hand_selection_mode() -> void:
-	_hand_selection_state = {}
-
-
-func _resolve_hand_selection(instance_id: String) -> void:
-	if _hand_selection_state.is_empty():
-		return
-	var local_id := _local_player_id()
-	var result := MatchTiming.resolve_pending_hand_selection(_match_state, local_id, instance_id)
-	_exit_hand_selection_mode()
-	if bool(result.get("is_valid", false)):
-		var card_name := str(result.get("card", {}).get("name", instance_id))
-		_record_feedback_from_events(_copy_array(result.get("events", [])))
-		_status_message = "Selected %s." % card_name
-	else:
-		_status_message = str(result.get("errors", ["Failed to resolve hand selection."])[0])
-	_refresh_ui()
-
-
-func _cancel_hand_selection() -> void:
-	var local_id := _local_player_id()
-	MatchTiming.decline_pending_hand_selection(_match_state, local_id)
-	_exit_hand_selection_mode()
-	_status_message = "Selection declined."
-	_refresh_ui()
-
-
-func _refresh_top_deck_choice_state() -> void:
-	var has_choice := MatchTiming.has_pending_top_deck_choice(_match_state, _local_player_id())
-	var state_active := not _top_deck_choice_state.is_empty()
-	if has_choice and not state_active:
-		_enter_top_deck_choice_mode()
-	elif not has_choice and state_active:
-		_exit_top_deck_choice_mode()
+		_overlays._exit_hand_selection_mode()
 
 
 func _enter_top_deck_choice_mode() -> void:
@@ -3548,7 +2461,7 @@ func _enter_top_deck_choice_mode() -> void:
 	var multi_cards: Array = choice.get("cards", [])
 	if typeof(multi_cards) == TYPE_ARRAY and multi_cards.size() > 1:
 		# Multi-card mode (look_draw_discard / look_give_draw)
-		_top_deck_choice_state = {
+		_overlays._top_deck_choice_state = {
 			"multi_card": true,
 			"cards": multi_cards,
 			"mode": str(choice.get("mode", "")),
@@ -3558,7 +2471,7 @@ func _enter_top_deck_choice_mode() -> void:
 		_show_multi_card_choice_panel(multi_cards, str(choice.get("prompt", "Choose a card.")))
 		return
 	var revealed_card: Dictionary = choice.get("revealed_card", {})
-	_top_deck_choice_state = {
+	_overlays._top_deck_choice_state = {
 		"revealed_card": revealed_card,
 		"source_instance_id": str(choice.get("source_instance_id", "")),
 	}
@@ -3567,7 +2480,7 @@ func _enter_top_deck_choice_mode() -> void:
 
 
 func _exit_top_deck_choice_mode() -> void:
-	_top_deck_choice_state = {}
+	_overlays._top_deck_choice_state = {}
 	_dismiss_top_deck_choice_panel()
 
 
@@ -3656,7 +2569,7 @@ func _dismiss_top_deck_choice_panel() -> void:
 
 
 func _resolve_top_deck_choice(discard: bool) -> void:
-	if _top_deck_choice_state.is_empty():
+	if _overlays._top_deck_choice_state.is_empty():
 		return
 	var local_id := _local_player_id()
 	var result := MatchTiming.resolve_pending_top_deck_choice(_match_state, local_id, discard)
@@ -3739,9 +2652,9 @@ func _show_multi_card_choice_panel(cards: Array, prompt_text: String) -> void:
 
 
 func _on_multi_card_choice_selected(chosen_index: int) -> void:
-	if _top_deck_choice_state.is_empty():
+	if _overlays._top_deck_choice_state.is_empty():
 		return
-	var mode := str(_top_deck_choice_state.get("mode", ""))
+	var mode := str(_overlays._top_deck_choice_state.get("mode", ""))
 	var local_id := _local_player_id()
 	var result := MatchTiming.resolve_pending_top_deck_multi_choice(_match_state, local_id, chosen_index)
 	_exit_top_deck_choice_mode()
@@ -3760,17 +2673,17 @@ func _on_multi_card_choice_selected(chosen_index: int) -> void:
 
 
 func _animate_enemy_prophecy_resolution(action: Dictionary, _result: Dictionary) -> void:
-	var card_back: PanelContainer = _prophecy_overlay_state.get("card_back")
+	var card_back: PanelContainer = _overlays._prophecy_overlay_state.get("card_back")
 	if card_back == null or not is_instance_valid(card_back):
-		_dismiss_prophecy_overlay()
+		_overlays._dismiss_prophecy_overlay()
 		_refresh_ui()
 		return
 	var action_kind := str(action.get("kind", ""))
 	var is_play := action_kind == MatchActionEnumerator.KIND_SUMMON_CREATURE or action_kind == MatchActionEnumerator.KIND_PLAY_ACTION or action_kind == MatchActionEnumerator.KIND_PLAY_ITEM
-	_prophecy_overlay_state["phase"] = "animating"
+	_overlays._prophecy_overlay_state["phase"] = "animating"
 	if is_play:
 		# Flip animation: scale X to 0, swap to card face, scale back
-		var instance_id := str(_prophecy_overlay_state.get("instance_id", ""))
+		var instance_id := str(_overlays._prophecy_overlay_state.get("instance_id", ""))
 		var card := _card_from_instance_id(instance_id)
 		card_back.pivot_offset = Vector2(card_back.size.x * 0.5, card_back.size.y * 0.5)
 		var tween := create_tween()
@@ -3789,7 +2702,7 @@ func _animate_enemy_prophecy_resolution(action: Dictionary, _result: Dictionary)
 		tween.tween_property(card_back, "scale:x", 1.0, 0.2)
 		tween.tween_interval(0.4)
 		tween.tween_callback(func():
-			_dismiss_prophecy_overlay()
+			_overlays._dismiss_prophecy_overlay()
 			_refresh_ui()
 		)
 	else:
@@ -3801,26 +2714,26 @@ func _animate_enemy_prophecy_resolution(action: Dictionary, _result: Dictionary)
 		tween.tween_property(card_back, "scale", Vector2(0.6, 0.6), 0.3).set_ease(Tween.EASE_IN)
 		tween.set_parallel(false)
 		tween.tween_callback(func():
-			_dismiss_prophecy_overlay()
+			_overlays._dismiss_prophecy_overlay()
 			_refresh_ui()
 		)
 
 
 func _dismiss_spell_reveal() -> void:
-	var card_back: Control = _spell_reveal_state.get("card_back")
+	var card_back: Control = _overlays._spell_reveal_state.get("card_back")
 	if card_back != null and is_instance_valid(card_back):
 		card_back.queue_free()
-	var arrow: Line2D = _spell_reveal_state.get("arrow")
+	var arrow: Line2D = _overlays._spell_reveal_state.get("arrow")
 	if arrow != null and is_instance_valid(arrow):
 		arrow.queue_free()
-	_spell_reveal_state = {}
+	_overlays._spell_reveal_state = {}
 
 
 func _dismiss_attack_arrow() -> void:
-	var arrow: Line2D = _attack_arrow_state.get("arrow")
+	var arrow: Line2D = _targeting._attack_arrow_state.get("arrow")
 	if arrow != null and is_instance_valid(arrow):
 		arrow.queue_free()
-	_attack_arrow_state = {}
+	_targeting._attack_arrow_state = {}
 
 
 func _animate_enemy_attack_arrow(action: Dictionary, _result: Dictionary) -> void:
@@ -3865,7 +2778,7 @@ func _animate_enemy_attack_arrow(action: Dictionary, _result: Dictionary) -> voi
 	arrow.z_index = 500
 	arrow.antialiased = true
 	_prophecy_card_overlay.add_child(arrow)
-	_attack_arrow_state = {"arrow": arrow}
+	_targeting._attack_arrow_state = {"arrow": arrow}
 
 	var tween := create_tween()
 	tween.tween_method(func(progress: float):
@@ -3884,10 +2797,10 @@ static func _has_support_activation_target(action: Dictionary) -> bool:
 
 
 func _dismiss_support_arrow() -> void:
-	var arrow: Line2D = _support_arrow_state.get("arrow")
+	var arrow: Line2D = _targeting._support_arrow_state.get("arrow")
 	if arrow != null and is_instance_valid(arrow):
 		arrow.queue_free()
-	_support_arrow_state = {}
+	_targeting._support_arrow_state = {}
 
 
 func _animate_enemy_support_activation_arrow(action: Dictionary, _result: Dictionary) -> void:
@@ -3930,7 +2843,7 @@ func _animate_enemy_support_activation_arrow(action: Dictionary, _result: Dictio
 	arrow.z_index = 500
 	arrow.antialiased = true
 	_prophecy_card_overlay.add_child(arrow)
-	_support_arrow_state = {"arrow": arrow}
+	_targeting._support_arrow_state = {"arrow": arrow}
 
 	var tween := create_tween()
 	tween.tween_method(func(progress: float):
@@ -3944,10 +2857,10 @@ func _animate_enemy_support_activation_arrow(action: Dictionary, _result: Dictio
 
 
 func _dismiss_deck_reveal() -> void:
-	var panel: Control = _deck_reveal_state.get("panel")
+	var panel: Control = _overlays._deck_reveal_state.get("panel")
 	if panel != null and is_instance_valid(panel):
 		panel.queue_free()
-	_deck_reveal_state = {}
+	_overlays._deck_reveal_state = {}
 
 
 func _animate_deck_card_reveal(revealed_card: Dictionary) -> void:
@@ -3965,7 +2878,7 @@ func _animate_deck_card_reveal(revealed_card: Dictionary) -> void:
 	card_back.position = Vector2(pos_x, pos_y)
 
 	_prophecy_card_overlay.add_child(card_back)
-	_deck_reveal_state = {
+	_overlays._deck_reveal_state = {
 		"panel": card_back,
 		"phase": "animating",
 	}
@@ -4010,7 +2923,7 @@ func _animate_enemy_spell_reveal(action: Dictionary, _result: Dictionary) -> voi
 	card_back.position = Vector2(pos_x, pos_y)
 
 	_prophecy_card_overlay.add_child(card_back)
-	_spell_reveal_state = {
+	_overlays._spell_reveal_state = {
 		"card_back": card_back,
 		"phase": "animating",
 	}
@@ -4042,7 +2955,7 @@ func _animate_enemy_spell_reveal(action: Dictionary, _result: Dictionary) -> voi
 				arrow.default_color = Color(1.0, 0.85, 0.3, 0.95)
 				arrow.z_index = 500
 				_prophecy_card_overlay.add_child(arrow)
-				_spell_reveal_state["arrow"] = arrow
+				_overlays._spell_reveal_state["arrow"] = arrow
 				var arrow_start := card_back.global_position + Vector2(card_size.x * 0.5, card_size.y)
 				var target_card_size: Vector2 = button.get_meta("card_size", button.size)
 				var arrow_end := button.global_position + Vector2(target_card_size.x * 0.5, 0.0)
@@ -4084,7 +2997,7 @@ func _animate_enemy_item_reveal(action: Dictionary, _result: Dictionary) -> void
 	card_back.position = Vector2(pos_x, pos_y)
 
 	_prophecy_card_overlay.add_child(card_back)
-	_spell_reveal_state = {
+	_overlays._spell_reveal_state = {
 		"card_back": card_back,
 		"phase": "animating",
 	}
@@ -4113,7 +3026,7 @@ func _animate_enemy_item_reveal(action: Dictionary, _result: Dictionary) -> void
 				arrow.default_color = Color(1.0, 0.85, 0.3, 0.95)
 				arrow.z_index = 500
 				_prophecy_card_overlay.add_child(arrow)
-				_spell_reveal_state["arrow"] = arrow
+				_overlays._spell_reveal_state["arrow"] = arrow
 				var arrow_start := card_back.global_position + Vector2(card_size.x * 0.5, card_size.y)
 				var target_card_size: Vector2 = button.get_meta("card_size", button.size)
 				var arrow_end := button.global_position + Vector2(target_card_size.x * 0.5, 0.0)
@@ -4160,7 +3073,7 @@ func _animate_enemy_creature_summon_reveal(action: Dictionary, _result: Dictiona
 	card_back.position = Vector2(pos_x, pos_y)
 
 	_prophecy_card_overlay.add_child(card_back)
-	_spell_reveal_state = {
+	_overlays._spell_reveal_state = {
 		"card_back": card_back,
 		"phase": "animating",
 	}
@@ -4189,7 +3102,7 @@ func _animate_enemy_creature_summon_reveal(action: Dictionary, _result: Dictiona
 				arrow.default_color = Color(1.0, 0.85, 0.3, 0.95)
 				arrow.z_index = 500
 				_prophecy_card_overlay.add_child(arrow)
-				_spell_reveal_state["arrow"] = arrow
+				_overlays._spell_reveal_state["arrow"] = arrow
 				var arrow_start := card_back.global_position + Vector2(card_size.x * 0.5, card_size.y)
 				var target_card_size: Vector2 = button.get_meta("card_size", button.size)
 				var arrow_end := button.global_position + Vector2(target_card_size.x * 0.5, 0.0)
@@ -4231,7 +3144,7 @@ func _animate_enemy_creature_play(action: Dictionary, _result: Dictionary) -> vo
 	card_back.position = Vector2(start_x, start_y)
 
 	_prophecy_card_overlay.add_child(card_back)
-	_spell_reveal_state = {
+	_overlays._spell_reveal_state = {
 		"card_back": card_back,
 		"phase": "animating",
 	}
@@ -4303,7 +3216,7 @@ func _refresh_end_turn_button() -> void:
 func _build_card_button(card: Dictionary, public_view: bool, surface := "default") -> Button:
 	var button := Button.new()
 	var instance_id := str(card.get("instance_id", ""))
-	var hidden := not public_view and not _is_pending_prophecy_card(card)
+	var hidden := not public_view and not _overlays._is_pending_prophecy_card(card)
 	var selected := instance_id == _selected_instance_id
 	var muted := _should_mute_card(card, public_view, surface)
 	var interaction_state := _card_interaction_state(card, surface)
@@ -4531,8 +3444,8 @@ func _apply_local_hand_hover_state(button: Button, hovered: bool) -> void:
 	var target_scale := Vector2.ONE
 	var target_z := hand_index
 	# Hand selection mode: eligible cards are raised and clickable, ineligible are dimmed
-	var hand_selection_active := not _hand_selection_state.is_empty()
-	var hand_selection_eligible := hand_selection_active and (_hand_selection_state.get("candidate_ids", []) as Array).has(str(button.get_meta("instance_id", "")))
+	var hand_selection_active := not _overlays._hand_selection_state.is_empty()
+	var hand_selection_eligible := hand_selection_active and (_overlays._hand_selection_state.get("candidate_ids", []) as Array).has(str(button.get_meta("instance_id", "")))
 	var hand_selection_ineligible := hand_selection_active and not hand_selection_eligible
 	# When any card is selected (placement mode), non-selected hand cards ignore mouse
 	# so they don't block clicks on the board/support surface beneath them
@@ -4841,7 +3754,7 @@ func _clear_support_card_hover_preview() -> void:
 
 
 func _populate_card_button_content(button: Button, card: Dictionary, public_view: bool, surface: String) -> void:
-	var hidden := not public_view and not _is_pending_prophecy_card(card)
+	var hidden := not public_view and not _overlays._is_pending_prophecy_card(card)
 	var instance_id := str(card.get("instance_id", ""))
 	var content_root := Control.new()
 	content_root.name = "%s_content_root" % instance_id
@@ -5262,7 +4175,7 @@ func _printed_health(card: Dictionary) -> int:
 
 
 func _should_mute_card(card: Dictionary, public_view: bool, surface: String) -> bool:
-	if surface != "hand" or not public_view or _is_pending_prophecy_card(card):
+	if surface != "hand" or not public_view or _overlays._is_pending_prophecy_card(card):
 		return false
 	if str(card.get("controller_player_id", "")) != PLAYER_ORDER[1]:
 		return false
@@ -5280,7 +4193,7 @@ func _should_dim_card_for_turn(card: Dictionary, surface: String, interaction_st
 		return false
 	if str(card.get("controller_player_id", "")) != _local_player_id():
 		return false
-	if _is_pending_prophecy_card(card):
+	if _overlays._is_pending_prophecy_card(card):
 		return false
 	if interaction_state == "valid":
 		return false
@@ -5361,15 +4274,15 @@ func _on_end_turn_pressed() -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		var mouse_pos := (event as InputEventMouseMotion).position
-		if not _detached_card_state.is_empty() and _pending_exalt.is_empty():
+		if not _detached_card_state.is_empty() and _overlays._pending_exalt.is_empty():
 			var preview: Control = _detached_card_state.get("preview")
 			if preview != null and is_instance_valid(preview):
 				preview.position = mouse_pos + Vector2(-preview.size.x * 0.5, -preview.size.y * 0.62)
 			_update_insertion_preview_from_mouse(mouse_pos)
-			_update_sacrifice_hover_from_mouse(mouse_pos)
-			_update_sacrifice_hover_label_position()
-		if not _targeting_arrow_state.is_empty():
-			_update_targeting_arrow(mouse_pos)
+			_betray._update_sacrifice_hover_from_mouse(mouse_pos)
+			_betray._update_betray._sacrifice_hover_label_position()
+		if not _targeting._targeting_arrow_state.is_empty():
+			_targeting._update_targeting_arrow(mouse_pos)
 	elif event is InputEventKey:
 		var key_event := event as InputEventKey
 		if key_event.pressed and not key_event.echo and key_event.unicode == 34:
@@ -5386,11 +4299,11 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 			return
 		if key_event.pressed and not key_event.echo and key_event.keycode == KEY_ESCAPE:
-			if not _pending_exalt.is_empty():
-				_resolve_exalt(false)
+			if not _overlays._pending_exalt.is_empty():
+				_overlays._resolve_exalt(false)
 				get_viewport().set_input_as_handled()
 				return
-			if not _pending_betray.is_empty():
+			if not _betray._pending_betray.is_empty():
 				_cancel_betray_mode()
 				get_viewport().set_input_as_handled()
 				return
@@ -5398,7 +4311,7 @@ func _input(event: InputEvent) -> void:
 				_toggle_pause_menu()
 				get_viewport().set_input_as_handled()
 				return
-		if not _pending_exalt.is_empty():
+		if not _overlays._pending_exalt.is_empty():
 			get_viewport().set_input_as_handled()
 			return
 		if key_event.pressed and not key_event.echo:
@@ -5415,7 +4328,7 @@ func _input(event: InputEvent) -> void:
 				if use_ring():
 					get_viewport().set_input_as_handled()
 					return
-		if key_event.pressed and not key_event.echo and _hovered_hand_instance_id != "" and _hand_selection_state.is_empty():
+		if key_event.pressed and not key_event.echo and _hovered_hand_instance_id != "" and _overlays._hand_selection_state.is_empty():
 			var lane_index := -1
 			if key_event.keycode == KEY_1:
 				lane_index = 0
@@ -5431,23 +4344,23 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton:
 		var button_event := event as InputEventMouseButton
 		if button_event.button_index == MOUSE_BUTTON_RIGHT and button_event.pressed:
-			if not _pending_exalt.is_empty():
-				_resolve_exalt(false)
+			if not _overlays._pending_exalt.is_empty():
+				_overlays._resolve_exalt(false)
 				get_viewport().set_input_as_handled()
-			elif not _hand_selection_state.is_empty():
-				_cancel_hand_selection()
+			elif not _overlays._hand_selection_state.is_empty():
+				_overlays._cancel_hand_selection()
 				get_viewport().set_input_as_handled()
-			elif not _pending_betray.is_empty():
+			elif not _betray._pending_betray.is_empty():
 				_cancel_betray_mode()
 				get_viewport().set_input_as_handled()
-			elif not _pending_secondary_target_state.is_empty():
+			elif not _targeting._pending_secondary_target_state.is_empty():
 				# Secondary targets (e.g. Archer's Gambit damage) are mandatory
 				get_viewport().set_input_as_handled()
-			elif not _pending_summon_target.is_empty():
-				if not _is_pending_summon_mandatory():
-					_cancel_summon_target_mode()
+			elif not _targeting._pending_summon_target.is_empty():
+				if not _targeting._is_pending_summon_mandatory():
+					_targeting._cancel_summon_target_mode()
 				get_viewport().set_input_as_handled()
-			elif not _targeting_arrow_state.is_empty():
+			elif not _targeting._targeting_arrow_state.is_empty():
 				_cancel_targeting_mode()
 				get_viewport().set_input_as_handled()
 			elif not _detached_card_state.is_empty():
@@ -5475,45 +4388,45 @@ func _on_lane_card_gui_input(event: InputEvent, instance_id: String) -> void:
 	_selected_instance_id = instance_id
 	if _is_player_target_valid_for_selected(enemy_player_id):
 		_reset_invalid_feedback()
-		attack_selected_player(enemy_player_id)
+		_targeting.attack_selected_player(enemy_player_id)
 	else:
 		_report_invalid_interaction("Cannot attack face right now.", {"player_ids": [enemy_player_id]})
 	get_viewport().set_input_as_handled()
 
 
 func _on_card_pressed(instance_id: String) -> void:
-	if not _pending_exalt.is_empty():
+	if not _overlays._pending_exalt.is_empty():
 		return
-	if not _hand_selection_state.is_empty():
-		var candidates: Array = _hand_selection_state.get("candidate_ids", [])
+	if not _overlays._hand_selection_state.is_empty():
+		var candidates: Array = _overlays._hand_selection_state.get("candidate_ids", [])
 		if candidates.has(instance_id):
-			_resolve_hand_selection(instance_id)
+			_overlays._resolve_hand_selection(instance_id)
 		else:
 			_report_invalid_interaction("Not a valid selection.", {"instance_ids": [instance_id]})
 		return
-	if not _pending_betray.is_empty():
-		if _pending_betray.has("sacrifice_instance_id"):
+	if not _betray._pending_betray.is_empty():
+		if _betray._pending_betray.has("sacrifice_instance_id"):
 			# Betray replay targeting phase — resolve replay target card
-			_resolve_betray_replay_target_card(instance_id)
+			_betray._resolve_betray_replay_target_card(instance_id)
 			return
 		else:
 			# Betray sacrifice selection phase — resolve sacrifice
-			_resolve_betray_sacrifice(instance_id)
+			_betray._resolve_betray_sacrifice(instance_id)
 			return
-	if not _pending_secondary_target_state.is_empty():
-		_resolve_secondary_target_card(instance_id)
+	if not _targeting._pending_secondary_target_state.is_empty():
+		_targeting._resolve_secondary_target_card(instance_id)
 		return
-	if not _pending_summon_target.is_empty():
-		_resolve_summon_target_card(instance_id)
+	if not _targeting._pending_summon_target.is_empty():
+		_targeting._resolve_summon_target_card(instance_id)
 		return
-	if not _targeting_arrow_state.is_empty():
+	if not _targeting._targeting_arrow_state.is_empty():
 		if _try_resolve_selected_card_target(instance_id):
 			return
 		# Allow switching to another card that can target
 		var switch_card := _card_from_instance_id(instance_id)
 		var switch_mode := _selected_action_mode(switch_card)
-		var switch_wants_targeting := switch_mode == SELECTION_MODE_ITEM or switch_mode == SELECTION_MODE_ATTACK or (switch_mode == SELECTION_MODE_SUPPORT and _selected_support_uses_card_targets(switch_card))
-		if not switch_wants_targeting and switch_mode == SELECTION_MODE_ACTION and _action_needs_explicit_target(switch_card):
+		var switch_wants_targeting := switch_mode == SELECTION_MODE_ITEM or switch_mode == SELECTION_MODE_ATTACK or (switch_mode == SELECTION_MODE_SUPPORT and _targeting._selected_support_uses_card_targets(switch_card))
+		if not switch_wants_targeting and switch_mode == SELECTION_MODE_ACTION and _targeting._action_needs_explicit_target(switch_card):
 			switch_wants_targeting = true
 		if switch_wants_targeting:
 			_enter_targeting_mode(instance_id)
@@ -5521,8 +4434,8 @@ func _on_card_pressed(instance_id: String) -> void:
 		_report_invalid_interaction("Not a valid target.", {"instance_ids": [instance_id]})
 		return
 	if not _detached_card_state.is_empty():
-		if _sacrifice_hover_target_id != "" and instance_id == _sacrifice_hover_target_id:
-			_resolve_sacrifice_hover()
+		if _betray._sacrifice_hover_target_id != "" and instance_id == _betray._sacrifice_hover_target_id:
+			_betray._resolve_sacrifice_hover()
 			return
 		var target_card := _card_from_instance_id(instance_id)
 		if _try_resolve_selected_support_row_card(target_card):
@@ -5538,7 +4451,7 @@ func _on_card_pressed(instance_id: String) -> void:
 			_enter_targeting_mode(instance_id)
 			return
 		elif mode == SELECTION_MODE_ACTION:
-			if _action_needs_explicit_target(card):
+			if _targeting._action_needs_explicit_target(card):
 				_enter_targeting_mode(instance_id)
 			else:
 				_detach_hand_card(instance_id)
@@ -5554,11 +4467,11 @@ func _on_card_pressed(instance_id: String) -> void:
 	# Board cards that can target (attackers, supports with card targets) enter targeting mode
 	var board_card := _card_from_instance_id(instance_id)
 	var board_mode := _selected_action_mode(board_card)
-	if board_mode == SELECTION_MODE_ATTACK or (board_mode == SELECTION_MODE_SUPPORT and _selected_support_uses_card_targets(board_card)):
+	if board_mode == SELECTION_MODE_ATTACK or (board_mode == SELECTION_MODE_SUPPORT and _targeting._selected_support_uses_card_targets(board_card)):
 		_enter_targeting_mode(instance_id)
 		return
 	# Supports without card targets activate immediately on click
-	if board_mode == SELECTION_MODE_SUPPORT and not _selected_support_uses_card_targets(board_card):
+	if board_mode == SELECTION_MODE_SUPPORT and not _targeting._selected_support_uses_card_targets(board_card):
 		_selected_instance_id = instance_id
 		var result := play_or_activate_selected()
 		if not bool(result.get("is_valid", false)):
@@ -5579,25 +4492,25 @@ func _on_lane_row_gui_input(event: InputEvent, lane_id: String, player_id: Strin
 	if button_event.button_index != MOUSE_BUTTON_LEFT:
 		return
 	# Betray lane selection: if waiting for a lane for betray replay, resolve it
-	if not _pending_betray.is_empty() and bool(_pending_betray.get("is_lane_targeted", false)) and not str(_pending_betray.get("sacrifice_instance_id", "")).is_empty():
-		_resolve_betray_replay_lane(lane_id)
+	if not _betray._pending_betray.is_empty() and bool(_betray._pending_betray.get("is_lane_targeted", false)) and not str(_betray._pending_betray.get("sacrifice_instance_id", "")).is_empty():
+		_betray._resolve_betray_replay_lane(lane_id)
 		accept_event()
 		return
 	var card := _selected_card()
 	if card.is_empty():
 		return
-	if not _targeting_arrow_state.is_empty() and _selected_action_mode(card) == SELECTION_MODE_ACTION:
-		if _action_needs_explicit_target(card):
+	if not _targeting._targeting_arrow_state.is_empty() and _selected_action_mode(card) == SELECTION_MODE_ACTION:
+		if _targeting._action_needs_explicit_target(card):
 			_report_invalid_interaction("Choose a valid target for this action.", {})
 			accept_event()
 			return
-		_play_action_to_lane(lane_id)
+		_targeting._play_action_to_lane(lane_id)
 		accept_event()
 		return
 	# Mobilize: item in targeting mode can be played to a lane (summon Recruit + equip)
-	if not _targeting_arrow_state.is_empty() and _selected_action_mode(card) == SELECTION_MODE_ITEM:
+	if not _targeting._targeting_arrow_state.is_empty() and _selected_action_mode(card) == SELECTION_MODE_ITEM:
 		if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_MOBILIZE):
-			_play_mobilize_item_to_lane(lane_id)
+			_targeting._play_mobilize_item_to_lane(lane_id)
 			accept_event()
 			return
 	if not _selected_support_row_target_player_id(card).is_empty():
@@ -5606,7 +4519,7 @@ func _on_lane_row_gui_input(event: InputEvent, lane_id: String, player_id: Strin
 		return
 	if _selected_card_wants_lane(card, _target_lane_player_id()):
 		if _selected_action_mode(card) == SELECTION_MODE_ACTION:
-			_play_action_to_lane(lane_id)
+			_targeting._play_action_to_lane(lane_id)
 			accept_event()
 			return
 		var slot_index := _get_insertion_index_or_default(lane_id, _target_lane_player_id())
@@ -5633,18 +4546,18 @@ func _on_lane_panel_gui_input(event: InputEvent, lane_id: String) -> void:
 	var card := _selected_card()
 	if card.is_empty():
 		return
-	if not _targeting_arrow_state.is_empty() and _selected_action_mode(card) == SELECTION_MODE_ACTION:
-		if _action_needs_explicit_target(card):
+	if not _targeting._targeting_arrow_state.is_empty() and _selected_action_mode(card) == SELECTION_MODE_ACTION:
+		if _targeting._action_needs_explicit_target(card):
 			_report_invalid_interaction("Choose a valid target for this action.", {})
 			accept_event()
 			return
-		_play_action_to_lane(lane_id)
+		_targeting._play_action_to_lane(lane_id)
 		accept_event()
 		return
 	# Mobilize: item in targeting mode can be played to a lane (summon Recruit + equip)
-	if not _targeting_arrow_state.is_empty() and _selected_action_mode(card) == SELECTION_MODE_ITEM:
+	if not _targeting._targeting_arrow_state.is_empty() and _selected_action_mode(card) == SELECTION_MODE_ITEM:
 		if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_MOBILIZE):
-			_play_mobilize_item_to_lane(lane_id)
+			_targeting._play_mobilize_item_to_lane(lane_id)
 			accept_event()
 			return
 	if not _selected_support_row_target_player_id(card).is_empty():
@@ -5654,7 +4567,7 @@ func _on_lane_panel_gui_input(event: InputEvent, lane_id: String) -> void:
 	var target_player := _target_lane_player_id()
 	if _selected_card_wants_lane(card, target_player):
 		if _selected_action_mode(card) == SELECTION_MODE_ACTION:
-			_play_action_to_lane(lane_id)
+			_targeting._play_action_to_lane(lane_id)
 			accept_event()
 			return
 		var slot_index := _get_insertion_index_or_default(lane_id, target_player)
@@ -5668,18 +4581,18 @@ func _on_lane_panel_gui_input(event: InputEvent, lane_id: String) -> void:
 					"lane_ids": [lane_id],
 				})
 				accept_event()
-		elif _selected_action_mode(card) == SELECTION_MODE_SUMMON and _lane_is_full_with_friendly(lane_id, target_player):
-			if not _detached_card_state.is_empty() and _sacrifice_hover_target_id != "":
-				_resolve_sacrifice_hover()
+		elif _selected_action_mode(card) == SELECTION_MODE_SUMMON and _betray._lane_is_full_with_friendly(lane_id, target_player):
+			if not _detached_card_state.is_empty() and _betray._sacrifice_hover_target_id != "":
+				_betray._resolve_sacrifice_hover()
 			accept_event()
 
 
 func _on_lane_pressed(lane_id: String) -> void:
-	if not _pending_exalt.is_empty():
+	if not _overlays._pending_exalt.is_empty():
 		return
 	var card := _selected_card()
-	if not _targeting_arrow_state.is_empty() and _selected_action_mode(card) == SELECTION_MODE_ACTION:
-		_play_action_to_lane(lane_id)
+	if not _targeting._targeting_arrow_state.is_empty() and _selected_action_mode(card) == SELECTION_MODE_ACTION:
+		_targeting._play_action_to_lane(lane_id)
 		return
 	var target_player := _target_lane_player_id()
 	if not _selected_support_row_target_player_id(card).is_empty():
@@ -5687,7 +4600,7 @@ func _on_lane_pressed(lane_id: String) -> void:
 		return
 	if _selected_card_wants_lane(card, target_player):
 		if _selected_action_mode(card) == SELECTION_MODE_ACTION:
-			_play_action_to_lane(lane_id)
+			_targeting._play_action_to_lane(lane_id)
 			return
 		var slot_index := _get_insertion_index_or_default(lane_id, target_player)
 		if slot_index >= 0:
@@ -5722,16 +4635,16 @@ func _on_avatar_gui_input(event: InputEvent, player_id: String) -> void:
 
 
 func _on_player_pressed(player_id: String) -> void:
-	if not _pending_exalt.is_empty():
+	if not _overlays._pending_exalt.is_empty():
 		return
-	if not _pending_betray.is_empty() and _pending_betray.has("sacrifice_instance_id"):
-		_resolve_betray_replay_target_player(player_id)
+	if not _betray._pending_betray.is_empty() and _betray._pending_betray.has("sacrifice_instance_id"):
+		_betray._resolve_betray_replay_target_player(player_id)
 		return
-	if not _pending_secondary_target_state.is_empty():
-		_resolve_secondary_target_player(player_id)
+	if not _targeting._pending_secondary_target_state.is_empty():
+		_targeting._resolve_secondary_target_player(player_id)
 		return
-	if not _pending_summon_target.is_empty():
-		_resolve_summon_target_player(player_id)
+	if not _targeting._pending_summon_target.is_empty():
+		_targeting._resolve_summon_target_player(player_id)
 		return
 	if _try_resolve_selected_player_target(player_id):
 		return
@@ -5746,7 +4659,7 @@ func _on_pile_pressed(player_id: String, zone: String) -> void:
 	_selected_pile_player_id = player_id
 	_selected_pile_zone = zone
 	if zone == MatchMutations.ZONE_DISCARD:
-		_show_discard_viewer(player_id)
+		_overlays._show_discard_viewer(player_id)
 	else:
 		_status_message = "Inspecting %s's %s." % [_player_name(player_id), _identifier_to_name(zone)]
 		_refresh_ui()
@@ -5775,7 +4688,7 @@ func _on_prophecy_play_pressed(instance_id: String) -> void:
 		SELECTION_MODE_ITEM:
 			_enter_prophecy_targeting_mode(instance_id)
 		SELECTION_MODE_ACTION:
-			if _action_needs_explicit_target(card):
+			if _targeting._action_needs_explicit_target(card):
 				_enter_prophecy_targeting_mode(instance_id)
 			else:
 				_detach_prophecy_card(instance_id)
@@ -5786,8 +4699,8 @@ func _on_prophecy_play_pressed(instance_id: String) -> void:
 
 
 func _on_prophecy_keep_pressed(instance_id: String) -> void:
-	_dismiss_prophecy_overlay()
-	decline_prophecy(instance_id)
+	_overlays._dismiss_prophecy_overlay()
+	_overlays.decline_prophecy(instance_id)
 
 
 func _load_registries() -> void:
@@ -5812,9 +4725,9 @@ func _selected_card() -> Dictionary:
 func _selected_action_mode(card: Dictionary) -> String:
 	if card.is_empty():
 		return SELECTION_MODE_NONE
-	if MatchTiming.has_pending_prophecy(_match_state) and not _is_pending_prophecy_card(card):
+	if MatchTiming.has_pending_prophecy(_match_state) and not _overlays._is_pending_prophecy_card(card):
 		return SELECTION_MODE_NONE
-	if _is_pending_prophecy_card(card):
+	if _overlays._is_pending_prophecy_card(card):
 		var prophecy_type := str(card.get("card_type", ""))
 		if prophecy_type == "creature":
 			return SELECTION_MODE_SUMMON
@@ -5858,7 +4771,7 @@ func _try_resolve_selected_card_target(target_instance_id: String) -> bool:
 		return false
 	if _is_card_target_valid_for_selected(target_instance_id):
 		_reset_invalid_feedback()
-		target_selected_card(target_instance_id)
+		_targeting.target_selected_card(target_instance_id)
 	else:
 		_report_invalid_interaction("%s can't target %s right now." % [_card_name(selected_card), _card_name(target_card)], {"instance_ids": [target_instance_id]})
 	return true
@@ -5872,7 +4785,7 @@ func _try_resolve_selected_player_target(player_id: String) -> bool:
 	if mode == SELECTION_MODE_SUMMON:
 		_report_invalid_interaction("Select a lane slot to summon this creature.", {"player_ids": [player_id]})
 		return true
-	if mode == SELECTION_MODE_ACTION and not _targeting_arrow_state.is_empty():
+	if mode == SELECTION_MODE_ACTION and not _targeting._targeting_arrow_state.is_empty():
 		var atm := str(selected_card.get("action_target_mode", ""))
 		if not atm.is_empty() and atm.find("player") == -1:
 			_report_invalid_interaction("%s can only target creatures." % _card_name(selected_card), {"player_ids": [player_id]})
@@ -5883,23 +4796,23 @@ func _try_resolve_selected_player_target(player_id: String) -> bool:
 		var controller_id := str(selected_card.get("controller_player_id", ""))
 		var validation: Dictionary
 		GameLogger.suppress()
-		if _is_pending_prophecy_card(selected_card):
+		if _overlays._is_pending_prophecy_card(selected_card):
 			validation = MatchTiming.play_pending_prophecy(action_state, controller_id, _selected_instance_id, {"target_player_id": player_id})
 		else:
 			validation = MatchTiming.play_action_from_hand(action_state, controller_id, _selected_instance_id, {"target_player_id": player_id})
 		GameLogger.unsuppress()
 		if bool(validation.get("is_valid", false)):
 			_reset_invalid_feedback()
-			if _check_exalt_action(selected_card, {"target_player_id": player_id}, _is_pending_prophecy_card(selected_card)):
+			if _overlays._check_exalt_action(selected_card, {"target_player_id": player_id}, _overlays._is_pending_prophecy_card(selected_card)):
 				return true
 			var result: Dictionary
-			if _is_pending_prophecy_card(selected_card):
+			if _overlays._is_pending_prophecy_card(selected_card):
 				result = MatchTiming.play_pending_prophecy(_match_state, controller_id, _selected_instance_id, {"target_player_id": player_id})
 			else:
 				result = MatchTiming.play_action_from_hand(_match_state, _active_player_id(), _selected_instance_id, {"target_player_id": player_id})
 			var finalized := _finalize_engine_result(result, "%s targeted %s." % [_card_name(selected_card), _player_name(player_id)])
 			if bool(finalized.get("is_valid", false)):
-				_check_betray_mode(saved_action_id, saved_action_card)
+				_betray._check_betray_mode(saved_action_id, saved_action_card)
 		else:
 			_report_invalid_interaction("%s can't target %s right now." % [_card_name(selected_card), _player_name(player_id)], {"player_ids": [player_id]})
 		return true
@@ -5907,7 +4820,7 @@ func _try_resolve_selected_player_target(player_id: String) -> bool:
 		return false
 	if _is_player_target_valid_for_selected(player_id):
 		_reset_invalid_feedback()
-		attack_selected_player(player_id)
+		_targeting.attack_selected_player(player_id)
 	else:
 		_report_invalid_interaction("%s can't attack %s right now." % [_card_name(selected_card), _player_name(player_id)], {"player_ids": [player_id]})
 	return true
@@ -5928,7 +4841,7 @@ func _selected_action_consumes_card_click(target_card: Dictionary) -> bool:
 		SELECTION_MODE_ACTION:
 			return target_zone == MatchMutations.ZONE_LANE
 		SELECTION_MODE_SUPPORT:
-			return _selected_support_uses_card_targets(selected_card) and target_zone == MatchMutations.ZONE_LANE
+			return _targeting._selected_support_uses_card_targets(selected_card) and target_zone == MatchMutations.ZONE_LANE
 		SELECTION_MODE_ATTACK:
 			if target_zone != MatchMutations.ZONE_LANE:
 				return false
@@ -5946,7 +4859,7 @@ func _selected_card_wants_lane(card: Dictionary, player_id: String) -> bool:
 	var mode := _selected_action_mode(card)
 	if mode == SELECTION_MODE_SUMMON:
 		return true
-	if mode == SELECTION_MODE_ACTION and not _detached_card_state.is_empty() and not _action_needs_explicit_target(card):
+	if mode == SELECTION_MODE_ACTION and not _detached_card_state.is_empty() and not _targeting._action_needs_explicit_target(card):
 		return true
 	return false
 
@@ -5961,7 +4874,7 @@ func _validate_selected_lane_play(lane_id: String, player_id: String, slot_index
 		var action_validation := MatchTiming.play_action_from_hand(action_state, _active_player_id(), _selected_instance_id, {"lane_id": lane_id})
 		GameLogger.unsuppress()
 		return action_validation
-	if _is_pending_prophecy_card(card):
+	if _overlays._is_pending_prophecy_card(card):
 		var prophecy_state: Dictionary = _match_state.duplicate(true)
 		GameLogger.suppress()
 		var prophecy_validation := MatchTiming.play_pending_prophecy(prophecy_state, str(card.get("controller_player_id", "")), _selected_instance_id, {"lane_id": lane_id, "slot_index": slot_index})
@@ -5987,20 +4900,20 @@ func _is_card_target_valid_for_selected_inner(selected_card: Dictionary, mode: S
 			var item_state: Dictionary = _match_state.duplicate(true)
 			return bool(PersistentCardRules.play_item_from_hand(item_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"target_instance_id": target_instance_id}).get("is_valid", false))
 		SELECTION_MODE_ACTION:
-			if not _action_target_mode_allows(selected_card, target_instance_id):
+			if not _targeting._action_target_mode_allows(selected_card, target_instance_id):
 				return false
 			var action_state: Dictionary = _match_state.duplicate(true)
-			if _is_pending_prophecy_card(selected_card):
+			if _overlays._is_pending_prophecy_card(selected_card):
 				return bool(MatchTiming.play_pending_prophecy(action_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"target_instance_id": target_instance_id}).get("is_valid", false))
 			return bool(MatchTiming.play_action_from_hand(action_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"target_instance_id": target_instance_id}).get("is_valid", false))
 		SELECTION_MODE_SUPPORT:
-			if not _selected_support_uses_card_targets(selected_card):
+			if not _targeting._selected_support_uses_card_targets(selected_card):
 				return false
 			var location := MatchMutations.find_card_location(_match_state, target_instance_id)
 			if not (bool(location.get("is_valid", false)) and str(location.get("zone", "")) == MatchMutations.ZONE_LANE):
 				return false
 			# Validate against target_mode if present (e.g. friendly_creature)
-			var support_tm := _get_activate_target_mode(selected_card)
+			var support_tm := _targeting._get_activate_target_mode(selected_card)
 			if not support_tm.is_empty():
 				var valid_targets := MatchTiming.get_valid_targets_for_mode(_match_state, _selected_instance_id, support_tm)
 				for vt in valid_targets:
@@ -6011,102 +4924,6 @@ func _is_card_target_valid_for_selected_inner(selected_card: Dictionary, mode: S
 		SELECTION_MODE_ATTACK:
 			return bool(MatchCombat.validate_attack(_match_state, str(selected_card.get("controller_player_id", "")), _selected_instance_id, {"type": "creature", "instance_id": target_instance_id}).get("is_valid", false))
 	return false
-
-
-func _action_needs_explicit_target(card: Dictionary) -> bool:
-	var atm := str(card.get("action_target_mode", ""))
-	if not atm.is_empty() and atm != "choose_lane":
-		return true
-	for trigger in card.get("triggered_abilities", []):
-		if typeof(trigger) != TYPE_DICTIONARY:
-			continue
-		var tm := str(trigger.get("target_mode", ""))
-		if not tm.is_empty() and tm != "creature_in_hand" and tm != "two_creatures" and tm != "three_creatures":
-			if not str(trigger.get("secondary_target_mode", "")).is_empty():
-				continue  # Dual-target actions go through pending system
-			return true
-		for effect in trigger.get("effects", []):
-			if typeof(effect) != TYPE_DICTIONARY:
-				continue
-			var target := str(effect.get("target", ""))
-			var source_target := str(effect.get("source_target", ""))
-			var consumer_target := str(effect.get("consumer_target", ""))
-			if target == "event_target" or source_target == "event_target" or consumer_target == "event_target":
-				return true
-			if str(effect.get("target_player", "")) == "target_player":
-				return true
-	return false
-
-
-func _action_target_mode_allows(action_card: Dictionary, target_instance_id: String) -> bool:
-	var atm := str(action_card.get("action_target_mode", ""))
-	if atm.is_empty():
-		return true  # No restriction
-	var controller_id := str(action_card.get("controller_player_id", ""))
-	var target_card := _card_from_instance_id(target_instance_id)
-	if target_card.is_empty():
-		return false
-	# action_immune: opponent's actions cannot target this creature
-	if str(target_card.get("controller_player_id", "")) != controller_id and EvergreenRules.has_raw_status(target_card, "action_immune"):
-		return false
-	var target_controller := str(target_card.get("controller_player_id", ""))
-	var mode_allowed := true
-	match atm:
-		"friendly_creature", "another_friendly_creature":
-			mode_allowed = target_controller == controller_id
-		"enemy_creature":
-			mode_allowed = target_controller != controller_id
-		"wounded_enemy_creature":
-			mode_allowed = target_controller != controller_id and EvergreenRules.has_status(target_card, EvergreenRules.STATUS_WOUNDED)
-		"wounded_creature":
-			mode_allowed = EvergreenRules.has_status(target_card, EvergreenRules.STATUS_WOUNDED)
-		"any_creature", "another_creature":
-			mode_allowed = true
-		"enemy_support_or_neutral_creature":
-			if target_controller == controller_id:
-				mode_allowed = false
-			else:
-				var attrs: Array = target_card.get("attributes", [])
-				mode_allowed = typeof(attrs) == TYPE_ARRAY and attrs.has("neutral")
-		"enemy_creature_or_support":
-			mode_allowed = target_controller != controller_id
-		"choose_lane":
-			mode_allowed = true  # Lane targeting handled by _on_lane_pressed
-		"creature_1_power_or_less":
-			mode_allowed = EvergreenRules.get_power(target_card) <= 1
-		"creature_4_power_or_less":
-			mode_allowed = EvergreenRules.get_power(target_card) <= 4
-		"creature_4_power_or_more":
-			mode_allowed = EvergreenRules.get_power(target_card) >= 4
-		"creature_with_0_power":
-			mode_allowed = EvergreenRules.get_power(target_card) == 0
-		"enemy_creature_3_power_or_less":
-			mode_allowed = target_controller != controller_id and EvergreenRules.get_power(target_card) <= 3
-		"enemy_creature_and_friendly_creature":
-			mode_allowed = true
-		"friendly_creature_then_enemy_creature":
-			mode_allowed = true
-		"any_creature_or_player":
-			mode_allowed = true
-	if not mode_allowed:
-		return false
-	# Check triggered_abilities for additional conditions
-	for trigger in action_card.get("triggered_abilities", []):
-		if typeof(trigger) != TYPE_DICTIONARY:
-			continue
-		if bool(trigger.get("required_friendly_higher_power", false)):
-			var target_power := EvergreenRules.get_power(target_card)
-			var has_higher := false
-			for lane in _match_state.get("lanes", []):
-				for card in lane.get("player_slots", {}).get(controller_id, []):
-					if typeof(card) == TYPE_DICTIONARY and EvergreenRules.get_power(card) > target_power:
-						has_higher = true
-						break
-				if has_higher:
-					break
-			if not has_higher:
-				return false
-	return true
 
 
 func _is_player_target_valid_for_selected(player_id: String) -> bool:
@@ -6153,7 +4970,7 @@ func _valid_lane_ids() -> Array:
 		for lane in _lane_entries():
 			ids.append(str(lane.get("id", "")))
 		return ids
-	if _selected_action_mode(card) == SELECTION_MODE_ACTION and not _detached_card_state.is_empty() and not _action_needs_explicit_target(card):
+	if _selected_action_mode(card) == SELECTION_MODE_ACTION and not _detached_card_state.is_empty() and not _targeting._action_needs_explicit_target(card):
 		for lane in _lane_entries():
 			ids.append(str(lane.get("id", "")))
 		return ids
@@ -6166,8 +4983,8 @@ func _valid_lane_ids() -> Array:
 
 func _valid_card_target_ids() -> Array:
 	var ids: Array = []
-	if not _pending_summon_target.is_empty():
-		var source_id := str(_pending_summon_target.get("source_instance_id", ""))
+	if not _targeting._pending_summon_target.is_empty():
+		var source_id := str(_targeting._pending_summon_target.get("source_instance_id", ""))
 		for target_info in MatchTiming.get_all_valid_targets(_match_state, source_id):
 			var tid := str(target_info.get("instance_id", ""))
 			if not tid.is_empty():
@@ -6185,16 +5002,16 @@ func _valid_card_target_ids() -> Array:
 
 func _valid_player_target_ids() -> Array:
 	var ids: Array = []
-	if not _pending_betray.is_empty() and _pending_betray.has("sacrifice_instance_id"):
-		var action_card: Dictionary = _pending_betray.get("action_card", {})
+	if not _betray._pending_betray.is_empty() and _betray._pending_betray.has("sacrifice_instance_id"):
+		var action_card: Dictionary = _betray._pending_betray.get("action_card", {})
 		var atm := str(action_card.get("action_target_mode", ""))
 		if atm == "creature_or_player" or atm.is_empty():
 			for player in _match_state.get("players", []):
 				if typeof(player) == TYPE_DICTIONARY:
 					ids.append(str(player.get("player_id", "")))
 		return ids
-	if not _pending_summon_target.is_empty():
-		var source_id := str(_pending_summon_target.get("source_instance_id", ""))
+	if not _targeting._pending_summon_target.is_empty():
+		var source_id := str(_targeting._pending_summon_target.get("source_instance_id", ""))
 		for target_info in MatchTiming.get_all_valid_targets(_match_state, source_id):
 			var pid := str(target_info.get("player_id", ""))
 			if not pid.is_empty():
@@ -6212,27 +5029,27 @@ func _card_interaction_state(card: Dictionary, surface: String) -> String:
 	var instance_id := str(card.get("instance_id", ""))
 	if _copy_array(_invalid_feedback.get("instance_ids", [])).has(instance_id):
 		return "invalid"
-	if not _pending_betray.is_empty() and surface == "lane":
-		if _pending_betray.has("sacrifice_instance_id"):
+	if not _betray._pending_betray.is_empty() and surface == "lane":
+		if _betray._pending_betray.has("sacrifice_instance_id"):
 			# Replay targeting phase — highlight valid replay targets
-			var action_card: Dictionary = _pending_betray.get("action_card", {})
-			var sacrifice_id := str(_pending_betray.get("sacrifice_instance_id", ""))
+			var action_card: Dictionary = _betray._pending_betray.get("action_card", {})
+			var sacrifice_id := str(_betray._pending_betray.get("sacrifice_instance_id", ""))
 			if instance_id != sacrifice_id and ExtendedMechanicPacks._card_matches_target_mode(str(action_card.get("action_target_mode", "")), card, _active_player_id(), _match_state, action_card):
 				return "valid"
 			return "invalid"
 		else:
 			# Sacrifice selection phase — highlight friendly creatures
 			if str(card.get("controller_player_id", "")) == _active_player_id() and str(card.get("card_type", "")) == "creature":
-				var is_targeted: bool = bool(_pending_betray.get("is_targeted", false))
+				var is_targeted: bool = bool(_betray._pending_betray.get("is_targeted", false))
 				if is_targeted:
-					var action_card: Dictionary = _pending_betray.get("action_card", {})
+					var action_card: Dictionary = _betray._pending_betray.get("action_card", {})
 					if ExtendedMechanicPacks.betray_replay_has_valid_target(_match_state, _active_player_id(), action_card, instance_id):
 						return "valid_betray"
 				else:
 					return "valid_betray"
 			return "invalid"
-	if not _pending_summon_target.is_empty() and surface == "lane":
-		var source_id := str(_pending_summon_target.get("source_instance_id", ""))
+	if not _targeting._pending_summon_target.is_empty() and surface == "lane":
+		var source_id := str(_targeting._pending_summon_target.get("source_instance_id", ""))
 		var valid_targets := MatchTiming.get_all_valid_targets(_match_state, source_id)
 		for t in valid_targets:
 			if str(t.get("instance_id", "")) == instance_id:
@@ -6241,13 +5058,13 @@ func _card_interaction_state(card: Dictionary, surface: String) -> String:
 	var mode := _selected_action_mode(_selected_card())
 	if mode == SELECTION_MODE_ITEM and surface == "lane":
 		return "valid" if _is_card_target_valid_for_selected(instance_id) else "invalid"
-	if mode == SELECTION_MODE_SUPPORT and surface == "lane" and _selected_support_uses_card_targets(_selected_card()):
+	if mode == SELECTION_MODE_SUPPORT and surface == "lane" and _targeting._selected_support_uses_card_targets(_selected_card()):
 		return "valid" if _is_card_target_valid_for_selected(instance_id) else "invalid"
 	if mode == SELECTION_MODE_ATTACK and surface == "lane":
 		var selected_card := _selected_card()
 		if not selected_card.is_empty() and str(card.get("controller_player_id", "")) != str(selected_card.get("controller_player_id", "")):
 			return "valid" if _is_card_target_valid_for_selected(instance_id) else "invalid"
-	if mode == SELECTION_MODE_ACTION and surface == "lane" and not _targeting_arrow_state.is_empty():
+	if mode == SELECTION_MODE_ACTION and surface == "lane" and not _targeting._targeting_arrow_state.is_empty():
 		return "valid" if _is_card_target_valid_for_selected(instance_id) else "invalid"
 	return "default"
 
@@ -6257,7 +5074,7 @@ func _lane_panel_interaction_state(lane_id: String) -> String:
 		return "invalid"
 	var card := _selected_card()
 	var mode := _selected_action_mode(card)
-	var wants_lane := mode == SELECTION_MODE_SUMMON or (mode == SELECTION_MODE_ACTION and not _detached_card_state.is_empty() and not _action_needs_explicit_target(card))
+	var wants_lane := mode == SELECTION_MODE_SUMMON or (mode == SELECTION_MODE_ACTION and not _detached_card_state.is_empty() and not _targeting._action_needs_explicit_target(card))
 	if not wants_lane:
 		return "default"
 	return "valid" if _valid_lane_ids().has(lane_id) else "invalid"
@@ -6266,7 +5083,7 @@ func _lane_panel_interaction_state(lane_id: String) -> String:
 func _lane_row_interaction_state(lane_id: String, player_id: String) -> String:
 	var card := _selected_card()
 	var mode := _selected_action_mode(card)
-	var wants_lane := mode == SELECTION_MODE_SUMMON or (mode == SELECTION_MODE_ACTION and not _detached_card_state.is_empty() and not _action_needs_explicit_target(card))
+	var wants_lane := mode == SELECTION_MODE_SUMMON or (mode == SELECTION_MODE_ACTION and not _detached_card_state.is_empty() and not _targeting._action_needs_explicit_target(card))
 	if not wants_lane:
 		return "default"
 	if player_id != _target_lane_player_id():
@@ -6278,10 +5095,10 @@ func _can_resolve_selected_action(card: Dictionary) -> bool:
 	if card.is_empty():
 		_status_message = "Select a card first."
 		return false
-	if MatchTiming.has_pending_prophecy(_match_state) and not _is_pending_prophecy_card(card):
+	if MatchTiming.has_pending_prophecy(_match_state) and not _overlays._is_pending_prophecy_card(card):
 		_status_message = "Resolve the pending Prophecy before taking other actions."
 		return false
-	if _is_pending_prophecy_card(card):
+	if _overlays._is_pending_prophecy_card(card):
 		return true
 	var controller_player_id := str(card.get("controller_player_id", ""))
 	if controller_player_id != _active_player_id():
@@ -6293,7 +5110,7 @@ func _can_resolve_selected_action(card: Dictionary) -> bool:
 func _selected_support_row_target_player_id(card: Dictionary) -> String:
 	if card.is_empty() or str(card.get("card_type", "")) != "support":
 		return ""
-	if _is_pending_prophecy_card(card):
+	if _overlays._is_pending_prophecy_card(card):
 		return str(card.get("controller_player_id", ""))
 	var location := MatchMutations.find_card_location(_match_state, str(card.get("instance_id", "")))
 	if not bool(location.get("is_valid", false)):
@@ -6305,39 +5122,6 @@ func _selected_card_wants_support_row(card: Dictionary, player_id: String) -> bo
 	return not player_id.is_empty() and _selected_support_row_target_player_id(card) == player_id
 
 
-func _selected_support_uses_card_targets(card: Dictionary) -> bool:
-	if card.is_empty() or _selected_action_mode(card) != SELECTION_MODE_SUPPORT or _is_pending_prophecy_card(card):
-		return false
-	var location := MatchMutations.find_card_location(_match_state, str(card.get("instance_id", "")))
-	if not (bool(location.get("is_valid", false)) and str(location.get("zone", "")) == MatchMutations.ZONE_SUPPORT):
-		return false
-	for trigger in card.get("triggered_abilities", []):
-		if typeof(trigger) != TYPE_DICTIONARY or str(trigger.get("family", "")) != "activate":
-			continue
-		var tm := str(trigger.get("target_mode", ""))
-		if not tm.is_empty() and tm != "creature_in_hand" and tm != "choose_lane_and_owner":
-			return true
-		for effect in trigger.get("effects", []):
-			if typeof(effect) != TYPE_DICTIONARY:
-				continue
-			var target := str(effect.get("target", ""))
-			var source_target := str(effect.get("source_target", ""))
-			var consumer_target := str(effect.get("consumer_target", ""))
-			if target == "event_target" or source_target == "event_target" or consumer_target == "event_target":
-				return true
-	return false
-
-
-func _get_activate_target_mode(card: Dictionary) -> String:
-	for trigger in card.get("triggered_abilities", []):
-		if typeof(trigger) != TYPE_DICTIONARY or str(trigger.get("family", "")) != "activate":
-			continue
-		var tm := str(trigger.get("target_mode", ""))
-		if not tm.is_empty():
-			return tm
-	return ""
-
-
 func _validate_selected_support_play(player_id: String) -> Dictionary:
 	var card := _selected_card()
 	var target_player_id := _selected_support_row_target_player_id(card)
@@ -6347,7 +5131,7 @@ func _validate_selected_support_play(player_id: String) -> Dictionary:
 		return {"is_valid": false, "message": "%s can only be placed into %s's support row." % [_card_name(card), _player_name(target_player_id)]}
 	GameLogger.suppress()
 	var support_validation: Dictionary
-	if _is_pending_prophecy_card(card):
+	if _overlays._is_pending_prophecy_card(card):
 		var prophecy_state: Dictionary = _match_state.duplicate(true)
 		support_validation = MatchTiming.play_pending_prophecy(prophecy_state, str(card.get("controller_player_id", "")), _selected_instance_id)
 	else:
@@ -6360,8 +5144,8 @@ func _validate_selected_support_play(player_id: String) -> Dictionary:
 func _finalize_engine_result(result: Dictionary, success_message: String, clear_selection_on_success := true) -> Dictionary:
 	if bool(result.get("is_valid", false)):
 		_cancel_detached_card_silent()
-		_cancel_targeting_mode_silent()
-		_dismiss_prophecy_overlay()
+		_targeting._cancel_targeting_mode_silent()
+		_overlays._dismiss_prophecy_overlay()
 		_reset_invalid_feedback()
 		if clear_selection_on_success:
 			_selected_instance_id = ""
@@ -6373,8 +5157,8 @@ func _finalize_engine_result(result: Dictionary, success_message: String, clear_
 		_status_message = str(result.get("errors", ["Action failed."])[0])
 	_refresh_ui()
 	if bool(result.get("is_valid", false)):
-		_check_pending_secondary_target()
-		_check_pending_summon_effect_target()
+		_targeting._check_pending_secondary_target()
+		_targeting._check_pending_summon_effect_target()
 		_check_pending_forced_play()
 	return result
 
@@ -7186,7 +5970,7 @@ func _should_reveal_drawn_card(player_id: String, card: Dictionary) -> bool:
 		return false
 	if _is_hand_public(player_id):
 		return true
-	return _is_pending_prophecy_card(card)
+	return _overlays._is_pending_prophecy_card(card)
 
 
 func _active_draw_feedback_for_instance(instance_id: String) -> Dictionary:
@@ -7349,7 +6133,7 @@ func _is_local_prophecy_interrupt_open() -> bool:
 
 
 func _local_player_has_pending_interrupt() -> bool:
-	return _is_local_prophecy_interrupt_open() or not _pending_summon_target.is_empty() or not _pending_secondary_target_state.is_empty() or _has_local_pending_discard_choice() or _has_local_pending_consume_selection() or _has_local_pending_deck_selection() or not _hand_selection_state.is_empty() or MatchTiming.has_pending_summon_effect_target(_match_state, _local_player_id()) or MatchTiming.has_pending_forced_play(_match_state, _local_player_id())
+	return _is_local_prophecy_interrupt_open() or not _targeting._pending_summon_target.is_empty() or not _targeting._pending_secondary_target_state.is_empty() or _overlays._has_local_pending_discard_choice() or _has_local_pending_consume_selection() or _overlays._has_local_pending_deck_selection() or not _overlays._hand_selection_state.is_empty() or MatchTiming.has_pending_summon_effect_target(_match_state, _local_player_id()) or MatchTiming.has_pending_forced_play(_match_state, _local_player_id())
 
 
 func _is_local_match_ai_enabled() -> bool:
@@ -7388,7 +6172,7 @@ func _ai_controls_current_decision_window() -> bool:
 
 
 func _target_lane_player_id() -> String:
-	if _is_pending_prophecy_card(_selected_card()):
+	if _overlays._is_pending_prophecy_card(_selected_card()):
 		return str(_selected_card().get("controller_player_id", ""))
 	return _active_player_id()
 
@@ -7749,25 +6533,9 @@ func _is_hand_public(player_id: String) -> bool:
 	return player_id == PLAYER_ORDER[1]
 
 
-func _is_pending_prophecy_card(card: Dictionary) -> bool:
-	if card.is_empty():
-		return false
-	for window in MatchTiming.get_pending_prophecies(_match_state, str(card.get("controller_player_id", ""))):
-		if str(window.get("instance_id", "")) == str(card.get("instance_id", "")):
-			return true
-	return false
-
-
-func _pending_prophecy_player_id(instance_id: String) -> String:
-	for window in MatchTiming.get_pending_prophecies(_match_state):
-		if str(window.get("instance_id", "")) == instance_id:
-			return str(window.get("player_id", ""))
-	return ""
-
-
 func _selection_prompt(card: Dictionary) -> String:
 	var location := MatchMutations.find_card_location(_match_state, str(card.get("instance_id", "")))
-	if _is_pending_prophecy_card(card):
+	if _overlays._is_pending_prophecy_card(card):
 		var pid := str(card.get("controller_player_id", ""))
 		var pl := {}
 		for p in _match_state.get("players", []):
@@ -7808,7 +6576,7 @@ func _card_name(card: Dictionary) -> String:
 
 
 func _card_button_text(card: Dictionary, public_view: bool) -> String:
-	if not public_view and not _is_pending_prophecy_card(card):
+	if not public_view and not _overlays._is_pending_prophecy_card(card):
 		return "Hidden Card"
 	var lines: Array = []
 	var prefix := "▶ " if str(card.get("instance_id", "")) == _selected_instance_id else ""
@@ -7823,7 +6591,7 @@ func _card_button_text(card: Dictionary, public_view: bool) -> String:
 
 
 func _card_tooltip(card: Dictionary, public_view: bool) -> String:
-	if not public_view and not _is_pending_prophecy_card(card):
+	if not public_view and not _overlays._is_pending_prophecy_card(card):
 		return "Opponent hand card. Full details are hidden until it becomes public."
 	return _card_inspector_text(card)
 
@@ -7976,7 +6744,7 @@ func _detach_prophecy_card(instance_id: String) -> void:
 		"card_data": card.duplicate(true),
 	}
 	# Hide the prophecy overlay while dragging — it rebuilds on cancel via _refresh_ui
-	var vbox: Control = _prophecy_overlay_state.get("vbox")
+	var vbox: Control = _overlays._prophecy_overlay_state.get("vbox")
 	if vbox != null and is_instance_valid(vbox):
 		vbox.visible = false
 	_status_message = "Click a friendly lane slot to summon %s." % _card_name(card)
@@ -7984,11 +6752,11 @@ func _detach_prophecy_card(instance_id: String) -> void:
 
 
 func _enter_prophecy_targeting_mode(instance_id: String) -> void:
-	_cancel_targeting_mode_silent()
+	_targeting._cancel_targeting_mode_silent()
 	_selected_instance_id = instance_id
 	var card := _card_from_instance_id(instance_id)
 	# Use the prophecy card wrapper position as arrow origin
-	var card_wrapper: Control = _prophecy_overlay_state.get("card_wrapper")
+	var card_wrapper: Control = _overlays._prophecy_overlay_state.get("card_wrapper")
 	var arrow_origin := Vector2.ZERO
 	if card_wrapper != null and is_instance_valid(card_wrapper):
 		var card_size := card_wrapper.size
@@ -7997,7 +6765,7 @@ func _enter_prophecy_targeting_mode(instance_id: String) -> void:
 		var viewport_size := get_viewport_rect().size
 		arrow_origin = Vector2(viewport_size.x * 0.5, viewport_size.y * 0.5)
 	_targeting_arrow = _create_targeting_arrow()
-	_targeting_arrow_state = {
+	_targeting._targeting_arrow_state = {
 		"instance_id": instance_id,
 		"origin": arrow_origin,
 		"button": null,
@@ -8008,7 +6776,7 @@ func _enter_prophecy_targeting_mode(instance_id: String) -> void:
 
 func _cancel_detached_card() -> void:
 	_clear_insertion_preview()
-	_clear_sacrifice_hover()
+	_betray._clear_sacrifice_hover()
 	var preview: Control = _detached_card_state.get("preview")
 	if preview != null and is_instance_valid(preview):
 		preview.queue_free()
@@ -8019,7 +6787,7 @@ func _cancel_detached_card() -> void:
 
 func _cancel_detached_card_silent() -> void:
 	_clear_insertion_preview()
-	_clear_sacrifice_hover()
+	_betray._clear_sacrifice_hover()
 	var preview: Control = _detached_card_state.get("preview")
 	if preview != null and is_instance_valid(preview):
 		preview.queue_free()
@@ -8137,47 +6905,8 @@ func _create_targeting_arrow() -> Line2D:
 	return arrow
 
 
-func _update_targeting_arrow(mouse_pos: Vector2) -> void:
-	if _targeting_arrow == null or not is_instance_valid(_targeting_arrow):
-		return
-	# Dynamically compute origin from the card button's current position so the
-	# arrow tracks the card through tween animations and layout changes.
-	var origin: Vector2 = _targeting_arrow_state.get("origin", Vector2.ZERO)
-	var arrow_instance_id: String = str(_targeting_arrow_state.get("instance_id", ""))
-	var arrow_button: Button = _card_buttons.get(arrow_instance_id)
-	# For attached items (no own button), track the host creature's button instead.
-	if arrow_button == null and not _host_arrow_instance_id.is_empty():
-		arrow_button = _card_buttons.get(_host_arrow_instance_id)
-	if arrow_button != null and is_instance_valid(arrow_button):
-		var card_size: Vector2 = arrow_button.get_meta("card_size", arrow_button.size)
-		origin = arrow_button.global_position + Vector2(card_size.x * 0.5, 0.0)
-	var start := origin
-	var end_point := mouse_pos
-	var mid := (start + end_point) * 0.5
-	var diff := end_point - start
-	var perp := Vector2(-diff.y, diff.x).normalized()
-	var control := mid + perp * diff.length() * 0.25
-	var points := PackedVector2Array()
-	var segments := 20
-	for i in range(segments + 1):
-		var t := float(i) / float(segments)
-		var p := (1.0 - t) * (1.0 - t) * start + 2.0 * (1.0 - t) * t * control + t * t * end_point
-		points.append(p)
-	# Arrowhead
-	var tip := points[points.size() - 1]
-	var prev := points[points.size() - 2]
-	var arrow_dir := (tip - prev).normalized()
-	var arrow_perp := Vector2(-arrow_dir.y, arrow_dir.x)
-	var arrow_size := 14.0
-	points.append(tip - arrow_dir * arrow_size + arrow_perp * arrow_size * 0.5)
-	points.append(tip)
-	points.append(tip - arrow_dir * arrow_size - arrow_perp * arrow_size * 0.5)
-	points.append(tip)
-	_targeting_arrow.points = points
-
-
 func _enter_targeting_mode(instance_id: String) -> void:
-	_cancel_targeting_mode_silent()
+	_targeting._cancel_targeting_mode_silent()
 	select_card(instance_id)
 	var button: Button = _card_buttons.get(instance_id)
 	var arrow_origin := Vector2.ZERO
@@ -8203,250 +6932,19 @@ func _enter_targeting_mode(instance_id: String) -> void:
 			var viewport_size := get_viewport_rect().size
 			arrow_origin = Vector2(viewport_size.x * 0.5, viewport_size.y * 0.5)
 	_targeting_arrow = _create_targeting_arrow()
-	_targeting_arrow_state = {
+	_targeting._targeting_arrow_state = {
 		"instance_id": instance_id,
 		"origin": arrow_origin,
 		"button": button,
 	}
 
 
-func _play_mobilize_item_to_lane(lane_id: String) -> void:
-	var card := _selected_card()
-	if card.is_empty():
-		return
-	var saved_instance_id := _selected_instance_id
-	_cancel_targeting_mode()
-	var result := PersistentCardRules.play_item_from_hand(_match_state, _active_player_id(), saved_instance_id, {"lane_id": lane_id})
-	var finalized := _finalize_engine_result(result, "Mobilized %s." % _card_name(card))
-	if not bool(finalized.get("is_valid", false)):
-		_report_invalid_interaction(str(finalized.get("message", "Cannot Mobilize here.")), {"lane_ids": [lane_id]})
-
-
-func _play_action_to_lane(lane_id: String) -> void:
-	var card := _selected_card()
-	if card.is_empty():
-		return
-	# Check for exalt prompt before committing the play
-	if _check_exalt_action(card, {"lane_id": lane_id}, _is_pending_prophecy_card(card)):
-		return
-	var saved_instance_id := _selected_instance_id
-	var saved_card := card.duplicate(true)
-	var options := {"lane_id": lane_id}
-	var result := {}
-	if _is_pending_prophecy_card(card):
-		result = MatchTiming.play_pending_prophecy(_match_state, str(card.get("controller_player_id", "")), _selected_instance_id, options)
-	else:
-		result = MatchTiming.play_action_from_hand(_match_state, _active_player_id(), _selected_instance_id, options)
-	var finalized := _finalize_engine_result(result, "Played %s." % _card_name(card))
-	if bool(finalized.get("is_valid", false)):
-		_check_betray_mode(saved_instance_id, saved_card)
-
-
 func _cancel_targeting_mode() -> void:
 	if _targeting_arrow != null and is_instance_valid(_targeting_arrow):
 		_targeting_arrow.queue_free()
 	_targeting_arrow = null
-	_targeting_arrow_state = {}
+	_targeting._targeting_arrow_state = {}
 	_selected_instance_id = ""
-	_refresh_ui()
-
-
-func _cancel_targeting_mode_silent() -> void:
-	if _targeting_arrow != null and is_instance_valid(_targeting_arrow):
-		_targeting_arrow.queue_free()
-	_targeting_arrow = null
-	_targeting_arrow_state = {}
-	_host_arrow_instance_id = ""
-
-
-# --- Summon target choice ---
-
-
-func _check_summon_target_mode(source_instance_id: String) -> void:
-	var card := _card_from_instance_id(source_instance_id)
-	if card.is_empty():
-		return
-	var abilities := MatchTiming.get_target_mode_abilities(card)
-	# Filter to summon/on_play families and wax/wane (phase-gated).
-	# Exclude consume: true abilities — those are handled by pending_consume_selections.
-	var active_phases := _get_wax_wane_phases_for_card(card)
-	abilities = abilities.filter(func(ab):
-		if bool(ab.get("consume", false)):
-			return false
-		if not MatchTiming._summon_ability_conditions_met(_match_state, card, ab):
-			return false
-		var family := str(ab.get("family", ""))
-		if family == MatchTiming.FAMILY_SUMMON or family == MatchTiming.FAMILY_ON_PLAY:
-			return true
-		if family == MatchTiming.FAMILY_WAX:
-			return active_phases.has("wax")
-		if family == MatchTiming.FAMILY_WANE:
-			return active_phases.has("wane")
-		return false
-	)
-	if abilities.is_empty():
-		return
-	var valid_targets := MatchTiming.get_all_valid_targets(_match_state, source_instance_id)
-	if valid_targets.is_empty():
-		return  # Fizzle silently — no valid targets
-	_pending_summon_target = {
-		"source_instance_id": source_instance_id,
-	}
-	_selected_instance_id = source_instance_id
-	_enter_targeting_mode(source_instance_id)
-	_status_message = _summon_target_prompt(card, abilities)
-	if not _is_pending_summon_mandatory():
-		_show_summon_skip_button()
-	_refresh_ui()
-
-
-func _resolve_summon_target_card(target_instance_id: String) -> void:
-	var source_id := str(_pending_summon_target.get("source_instance_id", ""))
-	var valid_targets := MatchTiming.get_all_valid_targets(_match_state, source_id)
-	var is_valid := false
-	for t in valid_targets:
-		if str(t.get("instance_id", "")) == target_instance_id:
-			is_valid = true
-			break
-	if not is_valid:
-		_report_invalid_interaction("Not a valid target.", {"instance_ids": [target_instance_id]})
-		return
-	var is_effect_summon := bool(_pending_summon_target.get("is_effect_summon", false))
-	var is_turn_trigger := bool(_pending_summon_target.get("is_turn_trigger", false))
-	_pending_summon_target = {}
-	_dismiss_summon_skip_button()
-	_cancel_targeting_mode_silent()
-	if is_turn_trigger:
-		var result := MatchTiming.resolve_pending_turn_trigger_target(_match_state, _local_player_id(), {"instance_id": target_instance_id})
-		_finalize_engine_result(result, "Targeted %s." % _card_name(_card_from_instance_id(target_instance_id)))
-		_check_pending_turn_trigger_target()
-	elif is_effect_summon:
-		var result := MatchTiming.resolve_pending_summon_effect_target(_match_state, _local_player_id(), {"target_instance_id": target_instance_id})
-		_finalize_engine_result(result, "Targeted %s." % _card_name(_card_from_instance_id(target_instance_id)))
-		_check_deferred_betray()
-	else:
-		var result := MatchTiming.resolve_targeted_effect(_match_state, source_id, {"target_instance_id": target_instance_id})
-		_finalize_engine_result(result, "Targeted %s." % _card_name(_card_from_instance_id(target_instance_id)))
-		_check_deferred_betray()
-
-
-func _resolve_summon_target_player(player_id: String) -> void:
-	var source_id := str(_pending_summon_target.get("source_instance_id", ""))
-	var valid_targets := MatchTiming.get_all_valid_targets(_match_state, source_id)
-	var is_valid := false
-	for t in valid_targets:
-		if str(t.get("player_id", "")) == player_id:
-			is_valid = true
-			break
-	if not is_valid:
-		_report_invalid_interaction("Not a valid target.", {"player_ids": [player_id]})
-		return
-	var is_effect_summon := bool(_pending_summon_target.get("is_effect_summon", false))
-	var is_turn_trigger := bool(_pending_summon_target.get("is_turn_trigger", false))
-	_pending_summon_target = {}
-	_dismiss_summon_skip_button()
-	_cancel_targeting_mode_silent()
-	if is_turn_trigger:
-		var result := MatchTiming.resolve_pending_turn_trigger_target(_match_state, _local_player_id(), {"player_id": player_id})
-		_finalize_engine_result(result, "Targeted %s." % _player_name(player_id))
-		_check_pending_turn_trigger_target()
-	elif is_effect_summon:
-		var result := MatchTiming.resolve_pending_summon_effect_target(_match_state, _local_player_id(), {"target_player_id": player_id})
-		_finalize_engine_result(result, "Targeted %s." % _player_name(player_id))
-		_check_deferred_betray()
-	else:
-		var result := MatchTiming.resolve_targeted_effect(_match_state, source_id, {"target_player_id": player_id})
-		_finalize_engine_result(result, "Targeted %s." % _player_name(player_id))
-		_check_deferred_betray()
-
-
-func _is_pending_summon_mandatory() -> bool:
-	var source_id := str(_pending_summon_target.get("source_instance_id", ""))
-	if source_id.is_empty():
-		return false
-	if bool(_pending_summon_target.get("is_effect_summon", false)):
-		var pending := MatchTiming.get_pending_summon_effect_target(_match_state, _local_player_id())
-		return bool(pending.get("mandatory", false))
-	var card := _card_from_instance_id(source_id)
-	for ability in MatchTiming.get_target_mode_abilities(card):
-		if bool(ability.get("mandatory", false)):
-			return true
-	return false
-
-
-func _cancel_summon_target_mode() -> void:
-	var is_turn_trigger := bool(_pending_summon_target.get("is_turn_trigger", false))
-	if is_turn_trigger:
-		MatchTiming.decline_pending_turn_trigger_target(_match_state, _local_player_id())
-	elif bool(_pending_summon_target.get("is_effect_summon", false)):
-		MatchTiming.decline_pending_summon_effect_target(_match_state, _local_player_id())
-	_pending_summon_target = {}
-	_dismiss_summon_skip_button()
-	_cancel_targeting_mode()
-	_status_message = "Effect declined."
-	_refresh_ui()
-	if is_turn_trigger:
-		_check_pending_turn_trigger_target()
-	_check_deferred_betray()
-
-
-func _check_pending_secondary_target() -> void:
-	var local_id := _local_player_id()
-	if not MatchTiming.has_pending_secondary_target(_match_state, local_id):
-		return
-	if not _pending_secondary_target_state.is_empty():
-		return
-	if not _pending_summon_target.is_empty():
-		return
-	var pending := MatchTiming.get_pending_secondary_target(_match_state, local_id)
-	var source_id := str(pending.get("source_instance_id", ""))
-	_pending_secondary_target_state = pending.duplicate(true)
-	_selected_instance_id = source_id
-	_enter_targeting_mode(source_id)
-	_status_message = "Choose a target for damage."
-	_refresh_ui()
-
-
-func _resolve_secondary_target_card(target_instance_id: String) -> void:
-	_pending_secondary_target_state = {}
-	_cancel_targeting_mode_silent()
-	var result := MatchTiming.resolve_pending_secondary_target(_match_state, _local_player_id(), target_instance_id)
-	_finalize_engine_result(result, "Dealt damage to %s." % _card_name(_card_from_instance_id(target_instance_id)))
-
-
-func _resolve_secondary_target_player(player_id: String) -> void:
-	_pending_secondary_target_state = {}
-	_cancel_targeting_mode_silent()
-	var result := MatchTiming.resolve_pending_secondary_target_player(_match_state, _local_player_id(), player_id)
-	_finalize_engine_result(result, "Dealt damage to %s." % _player_name(player_id))
-
-
-func _check_pending_summon_effect_target() -> void:
-	var local_id := _local_player_id()
-	if not MatchTiming.has_pending_summon_effect_target(_match_state, local_id):
-		return
-	if not _pending_summon_target.is_empty():
-		return
-	var pending := MatchTiming.get_pending_summon_effect_target(_match_state, local_id)
-	var source_id := str(pending.get("source_instance_id", ""))
-	var card := _card_from_instance_id(source_id)
-	if card.is_empty():
-		MatchTiming.decline_pending_summon_effect_target(_match_state, local_id)
-		return
-	var valid_targets := MatchTiming.get_all_valid_targets(_match_state, source_id)
-	if valid_targets.is_empty():
-		MatchTiming.decline_pending_summon_effect_target(_match_state, local_id)
-		return
-	_pending_summon_target = {
-		"source_instance_id": source_id,
-		"is_effect_summon": true,
-	}
-	_selected_instance_id = source_id
-	_enter_targeting_mode(source_id)
-	var abilities := MatchTiming.get_target_mode_abilities(card)
-	_status_message = _summon_target_prompt(card, abilities)
-	if not _is_pending_summon_mandatory():
-		_show_summon_skip_button()
 	_refresh_ui()
 
 
@@ -8527,9 +7025,9 @@ func _check_pending_forced_play() -> void:
 	if not MatchTiming.has_pending_forced_play(_match_state, local_id):
 		return
 	# Don't interrupt other active interactions
-	if not _pending_summon_target.is_empty() or not _selected_instance_id.is_empty():
+	if not _targeting._pending_summon_target.is_empty() or not _selected_instance_id.is_empty():
 		return
-	if not _detached_card_state.is_empty() or not _targeting_arrow_state.is_empty():
+	if not _detached_card_state.is_empty() or not _targeting._targeting_arrow_state.is_empty():
 		return
 	var pending := MatchTiming.get_pending_forced_play(_match_state, local_id)
 	var instance_id := str(pending.get("instance_id", ""))
@@ -8550,7 +7048,7 @@ func _check_pending_turn_trigger_target() -> void:
 		if _pending_end_turn:
 			_complete_end_turn(_pending_end_turn_player_id)
 		return
-	if not _pending_summon_target.is_empty():
+	if not _targeting._pending_summon_target.is_empty():
 		return
 	var pending := MatchTiming.get_pending_turn_trigger_target(_match_state, local_id)
 	var source_id := str(pending.get("source_instance_id", ""))
@@ -8565,7 +7063,7 @@ func _check_pending_turn_trigger_target() -> void:
 		MatchTiming.decline_pending_turn_trigger_target(_match_state, local_id)
 		_check_pending_turn_trigger_target()  # Check for more
 		return
-	_pending_summon_target = {
+	_targeting._pending_summon_target = {
 		"source_instance_id": source_id,
 		"is_turn_trigger": true,
 	}
@@ -8577,159 +7075,17 @@ func _check_pending_turn_trigger_target() -> void:
 	else:
 		var phase_name := "Wax" if family == "wax" else "Wane"
 		_status_message = "%s — %s: Choose a target." % [str(card.get("name", "Creature")), phase_name]
-	_show_summon_skip_button()
+	_targeting._show_summon_skip_button()
 	_refresh_ui()
 
 
 # --- Betray choice ---
 
 
-func _check_betray_mode(action_instance_id: String, action_card: Dictionary) -> void:
-	if not ExtendedMechanicPacks.action_has_betray(_match_state, _active_player_id(), action_card):
-		return
-	# Defer betray until pending summon effect targets are resolved
-	if not _pending_summon_target.is_empty() or MatchTiming.has_pending_summon_effect_target(_match_state, _local_player_id()):
-		_deferred_betray = {"action_instance_id": action_instance_id, "action_card": action_card.duplicate(true)}
-		return
-	# Re-fetch the card from discard to pick up shout upgrades that occurred during resolution
-	for _p in _match_state.get("players", []):
-		if str(_p.get("player_id", "")) == _active_player_id():
-			for discard_card in _p.get("discard", []):
-				if typeof(discard_card) == TYPE_DICTIONARY and str(discard_card.get("instance_id", "")) == action_instance_id:
-					action_card = discard_card
-					break
-			break
-	var candidates := ExtendedMechanicPacks.get_betray_sacrifice_candidates(_match_state, _active_player_id())
-	if candidates.is_empty():
-		return
-	var is_targeted := not str(action_card.get("action_target_mode", "")).is_empty()
-	var is_lane_targeted := _action_has_event_lane_targets(action_card)
-	if is_targeted:
-		var any_valid := false
-		for candidate in candidates:
-			if ExtendedMechanicPacks.betray_replay_has_valid_target(_match_state, _active_player_id(), action_card, str(candidate.get("instance_id", ""))):
-				any_valid = true
-				break
-		if not any_valid:
-			return
-	_pending_betray = {
-		"action_instance_id": action_instance_id,
-		"action_card": action_card,
-		"is_targeted": is_targeted,
-		"is_lane_targeted": is_lane_targeted,
-	}
-	_show_betray_skip_button()
-	var card_name := str(action_card.get("name", ""))
-	_status_message = "Sacrifice a creature to play %s again." % card_name
-	_refresh_ui()
-
-
-func _check_deferred_betray() -> void:
-	if _deferred_betray.is_empty():
-		return
-	if not _pending_summon_target.is_empty() or MatchTiming.has_pending_summon_effect_target(_match_state, _local_player_id()):
-		return
-	var deferred := _deferred_betray
-	_deferred_betray = {}
-	_check_betray_mode(str(deferred.get("action_instance_id", "")), deferred.get("action_card", {}))
-
-
-func _action_has_event_lane_targets(action_card: Dictionary) -> bool:
-	for trigger in action_card.get("triggered_abilities", []):
-		if typeof(trigger) != TYPE_DICTIONARY:
-			continue
-		if str(trigger.get("family", "")) != "on_play":
-			continue
-		for effect in trigger.get("effects", []):
-			if typeof(effect) != TYPE_DICTIONARY:
-				continue
-			var target_str := str(effect.get("target", ""))
-			if target_str.ends_with("_in_event_lane"):
-				return true
-			if str(effect.get("lane", "")) == "chosen":
-				return true
-	return false
-
-
-var _summon_skip_button: Button = null
-
-
-func _show_summon_skip_button() -> void:
-	_dismiss_summon_skip_button()
-	var viewport_size := get_viewport_rect().size
-	_summon_skip_button = Button.new()
-	_summon_skip_button.text = "Skip"
-	_summon_skip_button.custom_minimum_size = Vector2(120, 44)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.25, 0.22, 0.28, 0.92)
-	style.border_color = Color(0.6, 0.55, 0.65, 0.8)
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(6)
-	style.set_content_margin_all(8)
-	_summon_skip_button.add_theme_stylebox_override("normal", style)
-	_summon_skip_button.add_theme_stylebox_override("hover", style)
-	_summon_skip_button.add_theme_stylebox_override("pressed", style)
-	_summon_skip_button.add_theme_color_override("font_color", Color(0.9, 0.88, 0.92, 1.0))
-	_summon_skip_button.add_theme_font_size_override("font_size", 16)
-	_summon_skip_button.pressed.connect(_cancel_summon_target_mode)
-	_summon_skip_button.z_index = 600
-	add_child(_summon_skip_button)
-	_summon_skip_button.position = Vector2(viewport_size.x * 0.5 - 60, viewport_size.y * 0.5 + 40)
-
-
-func _dismiss_summon_skip_button() -> void:
-	if _summon_skip_button != null and is_instance_valid(_summon_skip_button):
-		_summon_skip_button.queue_free()
-	_summon_skip_button = null
-
-
-func _show_betray_skip_button() -> void:
-	_dismiss_betray_skip_button()
-	var viewport_size := get_viewport_rect().size
-	# Prompt label
-	_betray_prompt_label = Label.new()
-	_betray_prompt_label.text = "Choose a creature to betray"
-	_betray_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_betray_prompt_label.add_theme_color_override("font_color", Color(0.95, 0.35, 0.25, 1.0))
-	_betray_prompt_label.add_theme_font_size_override("font_size", 20)
-	_betray_prompt_label.z_index = 600
-	_betray_prompt_label.size = Vector2(300, 30)
-	_betray_prompt_label.position = Vector2(viewport_size.x * 0.5 - 150, viewport_size.y * 0.5 + 10)
-	add_child(_betray_prompt_label)
-	# Skip button
-	_betray_skip_button = Button.new()
-	_betray_skip_button.text = "Skip Betray"
-	_betray_skip_button.custom_minimum_size = Vector2(160, 50)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.25, 0.22, 0.28, 0.92)
-	style.border_color = Color(0.6, 0.55, 0.65, 0.8)
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(6)
-	style.set_content_margin_all(10)
-	_betray_skip_button.add_theme_stylebox_override("normal", style)
-	_betray_skip_button.add_theme_stylebox_override("hover", style)
-	_betray_skip_button.add_theme_stylebox_override("pressed", style)
-	_betray_skip_button.add_theme_color_override("font_color", Color(0.9, 0.88, 0.92, 1.0))
-	_betray_skip_button.add_theme_font_size_override("font_size", 18)
-	_betray_skip_button.pressed.connect(_cancel_betray_mode)
-	_betray_skip_button.z_index = 600
-	add_child(_betray_skip_button)
-	_betray_skip_button.position = Vector2(viewport_size.x * 0.5 - 80, viewport_size.y * 0.5 + 50)
-
-
-func _dismiss_betray_skip_button() -> void:
-	if _betray_prompt_label != null and is_instance_valid(_betray_prompt_label):
-		_betray_prompt_label.queue_free()
-	_betray_prompt_label = null
-	if _betray_skip_button != null and is_instance_valid(_betray_skip_button):
-		_betray_skip_button.queue_free()
-	_betray_skip_button = null
-
-
 func _cancel_betray_mode() -> void:
-	_pending_betray = {}
-	_dismiss_betray_skip_button()
-	_cancel_targeting_mode_silent()
+	_betray._pending_betray = {}
+	_betray._dismiss_betray_skip_button()
+	_targeting._cancel_targeting_mode_silent()
 	_status_message = "Betray declined."
 	_refresh_ui()
 
@@ -8750,455 +7106,6 @@ static func _card_exalt_extra_cost(card: Dictionary) -> int:
 	return 0
 
 
-func _can_player_afford_exalt(card: Dictionary) -> bool:
-	var extra := _card_exalt_extra_cost(card)
-	if extra == 0:
-		return false
-	var player_id := _active_player_id()
-	var player := _player_state(player_id)
-	var available := maxi(0, int(player.get("current_magicka", 0)) + int(player.get("temporary_magicka", 0)))
-	var base_cost := PersistentCardRules.get_effective_play_cost(_match_state, player_id, card)
-	return available >= base_cost + extra
-
-
-func _show_exalt_prompt(anchor_pos: Vector2, exalt_cost: int) -> void:
-	_dismiss_exalt_prompt()
-	var container := HBoxContainer.new()
-	container.name = "ExaltPromptButtons"
-	container.z_index = 700
-	container.set("theme_override_constants/separation", 12)
-
-	# Exalt button — gold/amber
-	var exalt_btn := Button.new()
-	exalt_btn.text = "Exalt (%d)" % exalt_cost
-	exalt_btn.custom_minimum_size = Vector2(140, 44)
-	var exalt_style := StyleBoxFlat.new()
-	exalt_style.bg_color = Color(0.6, 0.45, 0.1, 0.95)
-	exalt_style.border_color = Color(0.85, 0.7, 0.2, 0.9)
-	exalt_style.set_border_width_all(2)
-	exalt_style.set_corner_radius_all(6)
-	exalt_style.set_content_margin_all(12)
-	exalt_btn.add_theme_stylebox_override("normal", exalt_style)
-	var exalt_hover := exalt_style.duplicate()
-	exalt_hover.bg_color = Color(0.7, 0.55, 0.15, 0.95)
-	exalt_btn.add_theme_stylebox_override("hover", exalt_hover)
-	exalt_btn.add_theme_stylebox_override("pressed", exalt_style)
-	exalt_btn.add_theme_color_override("font_color", Color(1.0, 0.95, 0.8, 1.0))
-	exalt_btn.add_theme_font_size_override("font_size", 18)
-	exalt_btn.pressed.connect(_resolve_exalt.bind(true))
-	container.add_child(exalt_btn)
-
-	# Skip button — muted
-	var skip_btn := Button.new()
-	skip_btn.text = "Skip"
-	skip_btn.custom_minimum_size = Vector2(100, 44)
-	var skip_style := StyleBoxFlat.new()
-	skip_style.bg_color = Color(0.25, 0.22, 0.28, 0.92)
-	skip_style.border_color = Color(0.6, 0.55, 0.65, 0.8)
-	skip_style.set_border_width_all(2)
-	skip_style.set_corner_radius_all(6)
-	skip_style.set_content_margin_all(12)
-	skip_btn.add_theme_stylebox_override("normal", skip_style)
-	var skip_hover := skip_style.duplicate()
-	skip_hover.bg_color = Color(0.35, 0.32, 0.38, 0.92)
-	skip_btn.add_theme_stylebox_override("hover", skip_hover)
-	skip_btn.add_theme_stylebox_override("pressed", skip_style)
-	skip_btn.add_theme_color_override("font_color", Color(0.9, 0.88, 0.92, 1.0))
-	skip_btn.add_theme_font_size_override("font_size", 18)
-	skip_btn.pressed.connect(_resolve_exalt.bind(false))
-	container.add_child(skip_btn)
-
-	add_child(container)
-	# Position: centered above anchor point
-	container.size = container.get_minimum_size()
-	container.position = Vector2(anchor_pos.x - container.size.x * 0.5, anchor_pos.y - container.size.y - 8)
-	_exalt_button_container = container
-
-
-func _dismiss_exalt_prompt() -> void:
-	if _exalt_button_container != null and is_instance_valid(_exalt_button_container):
-		_exalt_button_container.queue_free()
-	_exalt_button_container = null
-	if _exalt_card_preview != null and is_instance_valid(_exalt_card_preview):
-		_exalt_card_preview.queue_free()
-	_exalt_card_preview = null
-
-
-func _create_centered_exalt_card_preview(card: Dictionary) -> Vector2:
-	"""Creates a card display centered on the board for action exalt prompts.
-	Returns the top-center position for button anchoring."""
-	var viewport_size := get_viewport_rect().size
-	var base_size := CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
-	var wrapper := Control.new()
-	wrapper.name = "ExaltCardPreview"
-	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wrapper.z_index = 600
-	wrapper.size = base_size
-	wrapper.custom_minimum_size = base_size
-	var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
-	component.setup_card(card, "compact", true)
-	wrapper.add_child(component)
-	add_child(wrapper)
-	wrapper.position = Vector2(viewport_size.x * 0.5 - base_size.x * 0.5, viewport_size.y * 0.5 - base_size.y * 0.5)
-	_exalt_card_preview = wrapper
-	return Vector2(viewport_size.x * 0.5, wrapper.position.y)
-
-
-func _get_exalt_anchor_for_detached_card() -> Vector2:
-	"""Returns the top-center of the detached card preview for button anchoring."""
-	var preview: Control = _detached_card_state.get("preview")
-	if preview != null and is_instance_valid(preview):
-		return Vector2(preview.global_position.x + preview.size.x * 0.5, preview.global_position.y)
-	# Fallback: center of screen
-	var viewport_size := get_viewport_rect().size
-	return Vector2(viewport_size.x * 0.5, viewport_size.y * 0.5 - 80)
-
-
-func _check_exalt_creature(card: Dictionary, lane_id: String, slot_index: int, is_prophecy: bool) -> bool:
-	"""Checks if a creature has exalt and the player can afford it.
-	If so, shows the exalt prompt and returns true (play deferred).
-	Otherwise returns false (caller should proceed normally)."""
-	if not _can_player_afford_exalt(card):
-		return false
-	var exalt_cost := _card_exalt_extra_cost(card)
-	_pending_exalt = {
-		"card_type": "creature",
-		"instance_id": _selected_instance_id,
-		"card": card.duplicate(true),
-		"exalt_cost": exalt_cost,
-		"lane_id": lane_id,
-		"slot_index": slot_index,
-		"is_prophecy": is_prophecy,
-	}
-	var anchor := _get_exalt_anchor_for_detached_card()
-	_show_exalt_prompt(anchor, exalt_cost)
-	_status_message = "Exalt %s?" % _card_name(card)
-	_refresh_ui()
-	return true
-
-
-func _check_exalt_action(card: Dictionary, options: Dictionary, is_prophecy: bool) -> bool:
-	"""Checks if an action has exalt and the player can afford it.
-	If so, shows the exalt prompt and returns true (play deferred).
-	Otherwise returns false (caller should proceed normally)."""
-	if not _can_player_afford_exalt(card):
-		return false
-	var exalt_cost := _card_exalt_extra_cost(card)
-	_pending_exalt = {
-		"card_type": "action",
-		"instance_id": _selected_instance_id,
-		"card": card.duplicate(true),
-		"exalt_cost": exalt_cost,
-		"action_options": options.duplicate(true),
-		"is_prophecy": is_prophecy,
-	}
-	# For actions: if detached card exists, anchor above it; otherwise create centered preview
-	var anchor: Vector2
-	if not _detached_card_state.is_empty():
-		anchor = _get_exalt_anchor_for_detached_card()
-	else:
-		_cancel_targeting_mode_silent()
-		anchor = _create_centered_exalt_card_preview(card)
-	_show_exalt_prompt(anchor, exalt_cost)
-	_status_message = "Exalt %s?" % _card_name(card)
-	_refresh_ui()
-	return true
-
-
-func _resolve_exalt(exalted: bool) -> void:
-	var pending := _pending_exalt
-	_pending_exalt = {}
-	_dismiss_exalt_prompt()
-	_cancel_detached_card_silent()
-
-	var instance_id := str(pending.get("instance_id", ""))
-	var card: Dictionary = pending.get("card", {})
-	var is_prophecy := bool(pending.get("is_prophecy", false))
-
-	if str(pending.get("card_type", "")) == "creature":
-		var options := {}
-		var slot_index := int(pending.get("slot_index", -1))
-		if slot_index >= 0:
-			options["slot_index"] = slot_index
-		if exalted:
-			options["exalt"] = true
-		var lane_id := str(pending.get("lane_id", ""))
-		var result: Dictionary
-		if is_prophecy:
-			result = MatchTiming.play_pending_prophecy(_match_state, str(card.get("controller_player_id", "")), instance_id, options.merged({"lane_id": lane_id}, true))
-		else:
-			result = LaneRules.summon_from_hand(_match_state, _active_player_id(), instance_id, lane_id, options)
-		var finalized := _finalize_engine_result(result, "Played %s into %s." % [_card_name(card), _lane_name(lane_id)])
-		if bool(finalized.get("is_valid", false)):
-			_check_summon_target_mode(instance_id)
-	elif str(pending.get("card_type", "")) == "action":
-		var options: Dictionary = pending.get("action_options", {}).duplicate(true)
-		if exalted:
-			options["exalt"] = true
-		var result: Dictionary
-		if is_prophecy:
-			result = MatchTiming.play_pending_prophecy(_match_state, str(card.get("controller_player_id", "")), instance_id, options)
-		else:
-			result = MatchTiming.play_action_from_hand(_match_state, _active_player_id(), instance_id, options)
-		var finalized := _finalize_engine_result(result, "Played %s." % _card_name(card))
-		if bool(finalized.get("is_valid", false)):
-			_check_betray_mode(instance_id, card)
-
-
-func _resolve_betray_sacrifice(sacrifice_instance_id: String) -> void:
-	var candidates := ExtendedMechanicPacks.get_betray_sacrifice_candidates(_match_state, _active_player_id())
-	var is_valid_candidate := false
-	for c in candidates:
-		if str(c.get("instance_id", "")) == sacrifice_instance_id:
-			is_valid_candidate = true
-			break
-	if not is_valid_candidate:
-		_report_invalid_interaction("Not a valid sacrifice target.", {"instance_ids": [sacrifice_instance_id]})
-		return
-	var is_targeted: bool = bool(_pending_betray.get("is_targeted", false))
-	if is_targeted:
-		var action_card: Dictionary = _pending_betray.get("action_card", {})
-		if not ExtendedMechanicPacks.betray_replay_has_valid_target(_match_state, _active_player_id(), action_card, sacrifice_instance_id):
-			_report_invalid_interaction("No valid replay targets if this creature is sacrificed.", {"instance_ids": [sacrifice_instance_id]})
-			return
-	_dismiss_betray_skip_button()
-	if is_targeted:
-		_pending_betray["sacrifice_instance_id"] = sacrifice_instance_id
-		# Enter targeting mode for replay, arrow from player avatar
-		var avatar: Control = null
-		var section: Dictionary = _player_sections.get(_active_player_id(), {})
-		if section.has("avatar_component"):
-			avatar = section.get("avatar_component") as Control
-		_cancel_targeting_mode_silent()
-		_targeting_arrow = _create_targeting_arrow()
-		var arrow_origin := Vector2.ZERO
-		if avatar != null:
-			arrow_origin = avatar.global_position + Vector2(avatar.size.x * 0.5, avatar.size.y * 0.5)
-		else:
-			var viewport_size := get_viewport_rect().size
-			arrow_origin = Vector2(viewport_size.x * 0.5, viewport_size.y * 0.85)
-		_targeting_arrow_state = {
-			"instance_id": str(_pending_betray.get("action_instance_id", "")),
-			"origin": arrow_origin,
-			"button": null,
-		}
-		var card_name := str(_pending_betray.get("action_card", {}).get("name", ""))
-		_status_message = "Choose a target for %s." % card_name
-		_refresh_ui()
-	elif bool(_pending_betray.get("is_lane_targeted", false)):
-		_pending_betray["sacrifice_instance_id"] = sacrifice_instance_id
-		var card_name := str(_pending_betray.get("action_card", {}).get("name", ""))
-		_status_message = "Choose a lane for %s." % card_name
-		_refresh_ui()
-	else:
-		var action_instance_id := str(_pending_betray.get("action_instance_id", ""))
-		var result := MatchTiming.execute_betray_replay(_match_state, _active_player_id(), action_instance_id, sacrifice_instance_id, {})
-		_pending_betray = {}
-		_finalize_engine_result(result, "Betray replay resolved.")
-
-
-func _resolve_betray_replay_target_card(target_instance_id: String) -> void:
-	var action_instance_id := str(_pending_betray.get("action_instance_id", ""))
-	var sacrifice_id := str(_pending_betray.get("sacrifice_instance_id", ""))
-	var replay_options := {"target_instance_id": target_instance_id}
-	var result := MatchTiming.execute_betray_replay(_match_state, _active_player_id(), action_instance_id, sacrifice_id, replay_options)
-	_pending_betray = {}
-	_cancel_targeting_mode_silent()
-	_finalize_engine_result(result, "Betray replay resolved.")
-
-
-func _resolve_betray_replay_target_player(player_id: String) -> void:
-	var action_instance_id := str(_pending_betray.get("action_instance_id", ""))
-	var sacrifice_id := str(_pending_betray.get("sacrifice_instance_id", ""))
-	var replay_options := {"target_player_id": player_id}
-	var result := MatchTiming.execute_betray_replay(_match_state, _active_player_id(), action_instance_id, sacrifice_id, replay_options)
-	_pending_betray = {}
-	_cancel_targeting_mode_silent()
-	_finalize_engine_result(result, "Betray replay resolved.")
-
-
-func _resolve_betray_replay_lane(lane_id: String) -> void:
-	var action_instance_id := str(_pending_betray.get("action_instance_id", ""))
-	var sacrifice_id := str(_pending_betray.get("sacrifice_instance_id", ""))
-	var replay_options := {"lane_id": lane_id}
-	var result := MatchTiming.execute_betray_replay(_match_state, _active_player_id(), action_instance_id, sacrifice_id, replay_options)
-	_pending_betray = {}
-	_finalize_engine_result(result, "Betray replay resolved.")
-
-
-func _lane_is_full_with_friendly(lane_id: String, player_id: String) -> bool:
-	var slots := _lane_slots(lane_id, player_id)
-	var slot_capacity := _lane_slot_capacity(lane_id)
-	return slots.size() >= slot_capacity and slots.size() > 0
-
-
-func _update_sacrifice_hover_from_mouse(mouse_pos: Vector2) -> void:
-	if _detached_card_state.is_empty():
-		_clear_sacrifice_hover()
-		return
-	var card := _selected_card()
-	if card.is_empty() or _selected_action_mode(card) != SELECTION_MODE_SUMMON:
-		_clear_sacrifice_hover()
-		return
-	var target_player := _target_lane_player_id()
-	for lane in _lane_entries():
-		var lane_id := str(lane.get("id", ""))
-		var row_key := _lane_row_key(lane_id, target_player)
-		var row_panel: PanelContainer = _lane_row_panels.get(row_key)
-		if row_panel == null or not is_instance_valid(row_panel):
-			continue
-		if not Rect2(row_panel.global_position, row_panel.size).has_point(mouse_pos):
-			continue
-		if not _lane_is_full_with_friendly(lane_id, target_player):
-			_clear_sacrifice_hover()
-			return
-		var nearest_id := _find_nearest_friendly_creature_in_lane(lane_id, target_player, mouse_pos)
-		if nearest_id != "" and nearest_id != _sacrifice_hover_target_id:
-			_clear_sacrifice_hover()
-			_apply_sacrifice_hover(nearest_id)
-		elif nearest_id == "":
-			_clear_sacrifice_hover()
-		return
-	_clear_sacrifice_hover()
-
-
-func _find_nearest_friendly_creature_in_lane(lane_id: String, player_id: String, mouse_pos: Vector2) -> String:
-	var row_key := _lane_row_key(lane_id, player_id)
-	var row: HBoxContainer = _lane_row_containers.get(row_key)
-	if row == null or not is_instance_valid(row):
-		return ""
-	var best_id := ""
-	var best_dist := INF
-	for child in row.get_children():
-		if not (child is Button):
-			continue
-		if child.has_meta("is_insertion_spacer"):
-			continue
-		var instance_id: String = child.get_meta("instance_id", "")
-		if instance_id.is_empty():
-			continue
-		var c := _card_from_instance_id(instance_id)
-		if c.is_empty():
-			continue
-		if str(c.get("controller_player_id", "")) != _active_player_id():
-			continue
-		if str(c.get("card_type", "")) != "creature":
-			continue
-		var ctrl := child as Control
-		var center_x: float = ctrl.global_position.x + ctrl.size.x * 0.5
-		var dist: float = absf(mouse_pos.x - center_x)
-		if dist < best_dist:
-			best_dist = dist
-			best_id = instance_id
-	return best_id
-
-
-func _apply_sacrifice_hover(instance_id: String) -> void:
-	_sacrifice_hover_target_id = instance_id
-	var button: Button = _card_buttons.get(instance_id)
-	if button != null and is_instance_valid(button):
-		_apply_betray_target_glow(button, "lane")
-	var target_card := _card_from_instance_id(instance_id)
-	_sacrifice_hover_label = PanelContainer.new()
-	var bg_style := StyleBoxFlat.new()
-	bg_style.bg_color = Color(0.0, 0.0, 0.0, 0.85)
-	bg_style.set_corner_radius_all(4)
-	bg_style.set_content_margin_all(6)
-	_sacrifice_hover_label.add_theme_stylebox_override("panel", bg_style)
-	_sacrifice_hover_label.z_index = 501
-	_sacrifice_hover_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var label := Label.new()
-	label.text = "Sacrifice %s" % _card_name(target_card)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_color_override("font_color", Color(0.95, 0.35, 0.25, 1.0))
-	label.add_theme_font_size_override("font_size", 16)
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_sacrifice_hover_label.add_child(label)
-	add_child(_sacrifice_hover_label)
-	_update_sacrifice_hover_label_position()
-
-
-func _update_sacrifice_hover_label_position() -> void:
-	if _sacrifice_hover_label == null or not is_instance_valid(_sacrifice_hover_label):
-		return
-	var preview: Control = _detached_card_state.get("preview")
-	if preview == null or not is_instance_valid(preview):
-		return
-	var label_size := _sacrifice_hover_label.size
-	_sacrifice_hover_label.position = Vector2(
-		preview.position.x + preview.size.x * 0.5 - label_size.x * 0.5,
-		preview.position.y + preview.size.y + 4.0
-	)
-
-
-func _clear_sacrifice_hover() -> void:
-	if _sacrifice_hover_target_id.is_empty():
-		return
-	var button: Button = _card_buttons.get(_sacrifice_hover_target_id)
-	if button != null and is_instance_valid(button):
-		var glow := button.find_child("valid_target_glow", false, false)
-		if glow != null:
-			glow.queue_free()
-	_sacrifice_hover_target_id = ""
-	if _sacrifice_hover_label != null and is_instance_valid(_sacrifice_hover_label):
-		_sacrifice_hover_label.queue_free()
-	_sacrifice_hover_label = null
-
-
-func _resolve_sacrifice_hover() -> void:
-	var sacrifice_id := _sacrifice_hover_target_id
-	var detached_id := str(_detached_card_state.get("instance_id", ""))
-	var location := MatchMutations.find_card_location(_match_state, sacrifice_id)
-	var lane_id := str(location.get("lane_id", ""))
-	_clear_sacrifice_hover()
-	_cancel_detached_card_silent()
-	_pending_sacrifice_summon = {"card_instance_id": detached_id, "lane_id": lane_id}
-	_resolve_sacrifice_summon(sacrifice_id)
-
-
-func _resolve_sacrifice_summon(sacrifice_instance_id: String) -> void:
-	var lane_id := str(_pending_sacrifice_summon.get("lane_id", ""))
-	var card_instance_id := str(_pending_sacrifice_summon.get("card_instance_id", ""))
-	var sacrifice_location := MatchMutations.find_card_location(_match_state, sacrifice_instance_id)
-	var sacrifice_card: Dictionary = sacrifice_location.get("card", {})
-	if sacrifice_card.is_empty():
-		_report_invalid_interaction("Not a valid sacrifice target.", {"instance_ids": [sacrifice_instance_id]})
-		return
-	if str(sacrifice_card.get("controller_player_id", "")) != _active_player_id():
-		_report_invalid_interaction("Not a valid sacrifice target.", {"instance_ids": [sacrifice_instance_id]})
-		return
-	if str(sacrifice_location.get("lane_id", "")) != lane_id:
-		_report_invalid_interaction("Sacrifice target must be in the same lane.", {"instance_ids": [sacrifice_instance_id]})
-		return
-	var saved_instance_id := card_instance_id
-	var summoned_card := _card_from_instance_id(card_instance_id)
-	var sacrifice_name := _card_name(sacrifice_card)
-	var summoned_name := _card_name(summoned_card)
-	var result := LaneRules.summon_with_sacrifice(_match_state, _active_player_id(), card_instance_id, lane_id, sacrifice_instance_id)
-	_pending_sacrifice_summon = {}
-	var finalized := _finalize_engine_result(result, "Sacrificed %s to play %s." % [sacrifice_name, summoned_name])
-	if bool(finalized.get("is_valid", false)):
-		_check_summon_target_mode(saved_instance_id)
-
-
-func _summon_target_prompt(card: Dictionary, abilities: Array) -> String:
-	var card_name := str(card.get("name", ""))
-	var modes: Array = []
-	for ability in abilities:
-		modes.append(str(ability.get("target_mode", "")))
-	if modes.has("creature_or_player"):
-		return "%s: Choose a target." % card_name
-	if modes.has("enemy_creature") or modes.has("enemy_creature_in_lane"):
-		return "%s: Choose an enemy creature." % card_name
-	if modes.has("friendly_creature") or modes.has("another_friendly_creature"):
-		return "%s: Choose a friendly creature." % card_name
-	if modes.has("enemy_support"):
-		if modes.size() > 1:
-			return "%s: Choose a creature or enemy support." % card_name
-		return "%s: Choose an enemy support." % card_name
-	return "%s: Choose a target." % card_name
-
-
 func _queue_free_weak(node_ref: WeakRef) -> void:
 	var node = node_ref.get_ref()
 	if node != null and is_instance_valid(node):
@@ -9217,7 +7124,7 @@ func _try_resolve_detached_card_via_lane(target_instance_id: String) -> void:
 	var target_player := _target_lane_player_id()
 	if _selected_card_wants_lane(selected_card, target_player):
 		if _selected_action_mode(selected_card) == SELECTION_MODE_ACTION:
-			_play_action_to_lane(lane_id)
+			_targeting._play_action_to_lane(lane_id)
 			return
 		var slot_index := _get_insertion_index_or_default(lane_id, target_player)
 		if slot_index >= 0:
@@ -9246,7 +7153,7 @@ func _play_selected_to_support_row(player_id: String) -> Dictionary:
 	if not bool(validation.get("is_valid", false)):
 		return _report_invalid_interaction(str(validation.get("errors", [validation.get("message", "Cannot place this support there.")])[0]))
 	var result := {}
-	if _is_pending_prophecy_card(card):
+	if _overlays._is_pending_prophecy_card(card):
 		result = MatchTiming.play_pending_prophecy(_match_state, str(card.get("controller_player_id", "")), _selected_instance_id)
 		return _finalize_engine_result(result, "Played %s into %s's support row." % [_card_name(card), _player_name(player_id)])
 	result = PersistentCardRules.play_support_from_hand(_match_state, str(card.get("controller_player_id", "")), _selected_instance_id)
