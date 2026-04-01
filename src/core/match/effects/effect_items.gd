@@ -182,7 +182,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var rait_all_items: Array = []
 				for rait_friendly in MatchTimingHelpers._player_lane_creatures(match_state, rait_controller_id):
 					if str(rait_friendly.get("instance_id", "")) == str(card.get("instance_id", "")):
-						return
+						continue
 					for rait_item in rait_friendly.get("attached_items", []):
 						rait_all_items.append({"item": rait_item, "host": rait_friendly})
 				for rait_entry in rait_all_items:

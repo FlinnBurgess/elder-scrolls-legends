@@ -643,6 +643,12 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 		var res_subtypes = res_host.get("subtypes", [])
 		if typeof(res_subtypes) != TYPE_ARRAY or not res_subtypes.has(res_subtype):
 			return false
+	# 22b. required_equipper_name — the equipping creature has the required name
+	var res_name := str(descriptor.get("required_equipper_name", ""))
+	if not res_name.is_empty():
+		var rn_host := MatchTimingHelpers._find_card_anywhere(match_state, str(event.get("target_instance_id", "")))
+		if rn_host.is_empty() or str(rn_host.get("name", "")) != res_name:
+			return false
 	var required_damage_kind := str(descriptor.get("damage_kind", family_spec.get("damage_kind", "")))
 	if not required_damage_kind.is_empty() and str(event.get("damage_kind", "")) != required_damage_kind:
 		return false
