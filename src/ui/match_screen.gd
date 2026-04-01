@@ -2859,5 +2859,5 @@ func _on_support_card_mouse_entered(button: Button, instance_id: String):
 func _on_support_card_mouse_exited(instance_id: String):
 	_hover._on_support_card_mouse_exited(instance_id)
 
-func _start_lane_card_bob(button: Button, instance_id: String):
-	_card_display._start_lane_card_bob(button, instance_id)
+func _start_lane_card_bob(button: Button, content_root: Control, shadow: ColorRect):
+	_card_display._start_lane_card_bob(button, content_root, shadow)
