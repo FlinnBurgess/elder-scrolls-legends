@@ -194,8 +194,8 @@ func _on_puzzle_return_to_select(match_screen: Control) -> void:
 		_puzzle_screen.visible = true
 		_active_screen = _puzzle_screen
 		# Refresh the list in case completion status changed
-		if _puzzle_screen.has_method("_refresh_custom_puzzles"):
-			_puzzle_screen._refresh_custom_puzzles()
+		if _puzzle_screen.has_method("refresh"):
+			_puzzle_screen.refresh()
 	else:
 		_show_main_menu()
 

@@ -74,10 +74,10 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				for dd_lane in match_state.get("lanes", []):
 					for dd_card in dd_lane.get("player_slots", {}).get(dd_bonus_controller, []):
 						if typeof(dd_card) != TYPE_DICTIONARY:
-							return
+							continue
 						var dd_card_st = dd_card.get("subtypes", [])
 						if typeof(dd_card_st) != TYPE_ARRAY:
-							return
+							continue
 						if not dd_bonus_group.is_empty():
 							for dd_st in dd_card_st:
 								if dd_bonus_group.has(dd_st):
@@ -106,12 +106,20 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					patched_trigger["_chosen_target_player_id"] = chosen_player
 					var custom_result := ExtendedMechanicPacks.apply_custom_effect(match_state, patched_trigger, event, {"op": "damage", "amount": damage_amount, "target_player": "chosen_target_player"})
 					generated_events.append_array(custom_result.get("events", []))
+			var dd_source_creature := MatchTimingHelpers._find_card_anywhere(match_state, damage_source_id)
+			var dd_has_lethal := not dd_source_creature.is_empty() and EvergreenRules.has_keyword(dd_source_creature, EvergreenRules.KEYWORD_LETHAL)
+			var dd_has_drain := not dd_source_creature.is_empty() and EvergreenRules.has_keyword(dd_source_creature, EvergreenRules.KEYWORD_DRAIN)
+			if dd_has_drain:
+				var dd_drain_pid := str(trigger.get("controller_player_id", ""))
+				if dd_drain_pid != str(match_state.get("active_player_id", "")):
+					if not EvergreenRules._has_passive(dd_source_creature, "drain_on_both_turns"):
+						dd_has_drain = false
 			var is_action_damage := str(event.get("card_type", "")) == "action"
 			for card in deal_damage_targets:
 				if damage_amount <= 0:
-					return
+					continue
 				if is_action_damage and MatchTimingHelpers._is_immune_to_effect(match_state, card, "action_damage"):
-					return
+					continue
 				# Damage redirect: if creature is protected, redirect damage to protector
 				var redirect_id := str(card.get("_protected_by", ""))
 				if not redirect_id.is_empty():
@@ -135,7 +143,20 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					"amount": applied,
 					"reason": reason,
 				})
-				if EvergreenRules.is_creature_destroyed(card, false):
+				if dd_has_drain and applied > 0 and not bool(damage_result.get("ward_removed", false)):
+					var dd_drain_controller := str(trigger.get("controller_player_id", ""))
+					var dd_drain_player := MatchTimingHelpers._get_player_state(match_state, dd_drain_controller)
+					if not dd_drain_player.is_empty():
+						var dd_heal := applied * MatchTimingHelpers._get_heal_multiplier(match_state, dd_drain_controller)
+						dd_drain_player["health"] = int(dd_drain_player.get("health", 0)) + dd_heal
+						generated_events.append({
+							"event_type": "player_healed",
+							"target_player_id": dd_drain_controller,
+							"source_instance_id": damage_source_id,
+							"amount": dd_heal,
+							"reason": EvergreenRules.KEYWORD_DRAIN,
+						})
+				if EvergreenRules.is_creature_destroyed(card, dd_has_lethal and applied > 0):
 					var card_location := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
 					if bool(card_location.get("is_valid", false)):
 						var controller_pid := str(card.get("controller_player_id", ""))
@@ -196,19 +217,28 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				if ddtl_lane_id.is_empty():
 					return
 				generated_events.append({"event_type": "lane_aoe_damage", "source_instance_id": ddtl_source_id, "lane_id": ddtl_lane_id, "amount": ddtl_power})
+				var ddtl_has_lethal := EvergreenRules.has_keyword(ddtl_source, EvergreenRules.KEYWORD_LETHAL)
+				var ddtl_has_drain := EvergreenRules.has_keyword(ddtl_source, EvergreenRules.KEYWORD_DRAIN)
+				if ddtl_has_drain:
+					var ddtl_drain_pid := str(trigger.get("controller_player_id", ""))
+					if ddtl_drain_pid != str(match_state.get("active_player_id", "")):
+						if not EvergreenRules._has_passive(ddtl_source, "drain_on_both_turns"):
+							ddtl_has_drain = false
+				var ddtl_drain_total := 0
 				var ddtl_targets: Array = []
 				for ddtl_lane in match_state.get("lanes", []):
 					if str(ddtl_lane.get("lane_id", "")) != ddtl_lane_id:
-						return
+						continue
 					for ddtl_pid in ddtl_lane.get("player_slots", {}).keys():
 						for ddtl_card in ddtl_lane.get("player_slots", {})[ddtl_pid]:
 							if typeof(ddtl_card) != TYPE_DICTIONARY:
-								return
+								continue
 							if str(ddtl_card.get("instance_id", "")) == ddtl_source_id:
-								return
+								continue
 							ddtl_targets.append(ddtl_card)
 				for ddtl_card in ddtl_targets:
 					var ddtl_dmg_result := EvergreenRules.apply_damage_to_creature(ddtl_card, ddtl_power)
+					var ddtl_applied := ddtl_power if not bool(ddtl_dmg_result.get("ward_removed", false)) else 0
 					generated_events.append({
 						"event_type": EVENT_DAMAGE_RESOLVED,
 						"source_instance_id": ddtl_source_id,
@@ -217,7 +247,9 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						"damage_kind": "ability",
 						"ward_removed": bool(ddtl_dmg_result.get("ward_removed", false)),
 					})
-					if EvergreenRules.get_remaining_health(ddtl_card) <= 0:
+					if ddtl_has_drain and ddtl_applied > 0:
+						ddtl_drain_total += ddtl_applied
+					if EvergreenRules.is_creature_destroyed(ddtl_card, ddtl_has_lethal and ddtl_applied > 0):
 						var ddtl_destroy := MatchMutations.discard_card(match_state, str(ddtl_card.get("instance_id", "")), {"reason": "deal_damage_to_lane"})
 						generated_events.append({
 							"event_type": EVENT_CREATURE_DESTROYED,
@@ -227,6 +259,19 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 							"lane_id": ddtl_lane_id,
 						})
 						generated_events.append_array(ddtl_destroy.get("events", []))
+				if ddtl_has_drain and ddtl_drain_total > 0:
+					var ddtl_drain_controller := str(trigger.get("controller_player_id", ""))
+					var ddtl_drain_player := MatchTimingHelpers._get_player_state(match_state, ddtl_drain_controller)
+					if not ddtl_drain_player.is_empty():
+						var ddtl_heal := ddtl_drain_total * MatchTimingHelpers._get_heal_multiplier(match_state, ddtl_drain_controller)
+						ddtl_drain_player["health"] = int(ddtl_drain_player.get("health", 0)) + ddtl_heal
+						generated_events.append({
+							"event_type": "player_healed",
+							"target_player_id": ddtl_drain_controller,
+							"source_instance_id": ddtl_source_id,
+							"amount": ddtl_heal,
+							"reason": EvergreenRules.KEYWORD_DRAIN,
+						})
 		"deal_damage_from_creature":
 			var ddfc_amount := int(effect.get("amount", 1))
 			var ddfc_source_target := str(effect.get("source", "event_target"))
@@ -269,7 +314,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			var ddah_controller_id := str(trigger.get("controller_player_id", ""))
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				if ddah_amount <= 0:
-					return
+					continue
 				var ddah_result := EvergreenRules.apply_damage_to_creature(card, ddah_amount)
 				generated_events.append({
 					"event_type": EVENT_DAMAGE_RESOLVED,
@@ -336,9 +381,9 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var applied_to_defender := int(defender_damage_result.get("applied", 0))
 				var applied_to_attacker := int(attacker_damage_result.get("applied", 0))
 				if applied_to_defender > 0:
-					generated_events.append({"event_type": "damage_resolved", "source_instance_id": battle_source_id, "source_controller_player_id": str(battle_source.get("controller_player_id", "")), "target_instance_id": str(defender.get("instance_id", "")), "target_type": "creature", "amount": applied_to_defender, "damage_kind": "combat", "reason": reason})
+					generated_events.append({"event_type": "damage_resolved", "source_instance_id": battle_source_id, "source_controller_player_id": str(battle_source.get("controller_player_id", "")), "target_instance_id": str(defender.get("instance_id", "")), "target_type": "creature", "amount": applied_to_defender, "damage_kind": "combat", "is_battle": true, "reason": reason})
 				if applied_to_attacker > 0:
-					generated_events.append({"event_type": "damage_resolved", "source_instance_id": str(defender.get("instance_id", "")), "source_controller_player_id": str(defender.get("controller_player_id", "")), "target_instance_id": battle_source_id, "target_type": "creature", "amount": applied_to_attacker, "damage_kind": "combat", "reason": reason})
+					generated_events.append({"event_type": "damage_resolved", "source_instance_id": str(defender.get("instance_id", "")), "source_controller_player_id": str(defender.get("controller_player_id", "")), "target_instance_id": battle_source_id, "target_type": "creature", "amount": applied_to_attacker, "damage_kind": "combat", "is_battle": true, "reason": reason})
 				var defender_has_lethal := EvergreenRules.has_keyword(defender, EvergreenRules.KEYWORD_LETHAL)
 				var attacker_has_lethal := EvergreenRules.has_keyword(battle_source, EvergreenRules.KEYWORD_LETHAL)
 				var defender_destroyed := EvergreenRules.is_creature_destroyed(defender, applied_to_defender > 0 and attacker_has_lethal)
@@ -391,7 +436,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var best_power := -1
 				for pid in match_state["lanes"][bse_lane_idx].get("player_slots", {}).keys():
 					if pid == bse_controller:
-						return
+						continue
 					for card in match_state["lanes"][bse_lane_idx]["player_slots"][pid]:
 						if typeof(card) == TYPE_DICTIONARY:
 							var p := EvergreenRules.get_power(card)
@@ -411,7 +456,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				for lane in match_state.get("lanes", []):
 					for pid in lane.get("player_slots", {}).keys():
 						if pid == bre_controller:
-							return
+							continue
 						for card in lane["player_slots"][pid]:
 							if typeof(card) == TYPE_DICTIONARY:
 								enemies.append(card)
@@ -464,10 +509,10 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					dc_max_power += dc_empower_bonus * MatchTimingHelpers._get_empower_amount(match_state, str(trigger.get("controller_player_id", "")))
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				if dc_max_power >= 0 and EvergreenRules.get_power(card) > dc_max_power:
-					return
+					continue
 				var card_location := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
 				if not bool(card_location.get("is_valid", false)):
-					return
+					continue
 				var controller_pid := str(card.get("controller_player_id", ""))
 				var moved := MatchMutations.discard_card(match_state, str(card.get("instance_id", "")))
 				if bool(moved.get("is_valid", false)):
@@ -515,14 +560,14 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			var daesl_to_destroy: Array = []
 			for lane in match_state.get("lanes", []):
 				if str(lane.get("lane_id", "")) != daesl_lane_id:
-					return
+					continue
 				for daesl_pid in lane.get("player_slots", {}).keys():
 					var daesl_side: Array = []
 					for daesl_card in lane.get("player_slots", {})[daesl_pid]:
 						if typeof(daesl_card) == TYPE_DICTIONARY:
 							daesl_side.append(daesl_card)
 					if daesl_side.size() <= 1:
-						return
+						continue
 					var daesl_max_power := -1
 					for daesl_card in daesl_side:
 						var p := EvergreenRules.get_power(daesl_card)
@@ -545,17 +590,17 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				for pid in player_slots.keys():
 					var slots: Array = player_slots[pid]
 					if slots.size() <= 1:
-						return
+						continue
 					var survivor_idx := MatchEffectParams._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_survivor_" + str(pid) + "_" + lane_id, slots.size())
 					for slot_idx in range(slots.size() - 1, -1, -1):
 						if slot_idx == survivor_idx:
-							return
+							continue
 						var card = slots[slot_idx]
 						if typeof(card) != TYPE_DICTIONARY:
-							return
+							continue
 						var card_loc := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
 						if not bool(card_loc.get("is_valid", false)):
-							return
+							continue
 						var cpid := str(card.get("controller_player_id", ""))
 						var moved := MatchMutations.discard_card(match_state, str(card.get("instance_id", "")))
 						if bool(moved.get("is_valid", false)):

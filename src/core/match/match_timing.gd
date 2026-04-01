@@ -153,7 +153,7 @@ const FAMILY_SPECS := {
 	FAMILY_PLOT: {"event_type": EVENT_TURN_ENDING, "window": WINDOW_AFTER, "match_role": "controller"},
 	FAMILY_RUNE_BREAK: {"event_type": EVENT_RUNE_BROKEN, "window": WINDOW_INTERRUPT, "match_role": "controller"},
 	FAMILY_ON_FRIENDLY_DEATH: {"event_type": EVENT_CREATURE_DESTROYED, "window": WINDOW_AFTER, "match_role": "controller"},
-	FAMILY_ON_ATTACK: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "source", "damage_kind": "combat", "exclude_retaliation": true},
+	FAMILY_ON_ATTACK: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "source", "damage_kind": "combat", "exclude_retaliation": true, "exclude_battle": true},
 	FAMILY_ON_EQUIP: {"event_type": EVENT_CARD_EQUIPPED, "window": WINDOW_AFTER, "match_role": "target"},
 	FAMILY_AFTER_ACTION_PLAYED: {"event_type": EVENT_CARD_PLAYED, "window": WINDOW_AFTER, "match_role": "controller", "required_played_card_type": "action"},
 	FAMILY_ON_WARD_BROKEN: {"event_type": "ward_removed", "window": WINDOW_AFTER, "match_role": "target"},

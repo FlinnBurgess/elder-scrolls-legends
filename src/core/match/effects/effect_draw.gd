@@ -86,7 +86,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 							if typeof(drawn_card) == TYPE_DICTIONARY:
 								var card_cost := int(drawn_card.get("cost", 0))
 								if cost_threshold > 0 and card_cost < cost_threshold:
-									return
+									continue
 								drawn_card["_base_cost"] = card_cost
 								drawn_card["cost"] = maxi(0, card_cost - reduce_amount)
 					elif effect.has("if_action_set_cost"):
@@ -118,23 +118,23 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				for deck_index in range(deck.size()):
 					var deck_card = deck[deck_index]
 					if typeof(deck_card) != TYPE_DICTIONARY:
-						return
+						continue
 					if filter_max_cost >= 0 and int(deck_card.get("cost", 0)) > filter_max_cost:
-						return
+						continue
 					if not filter_card_type.is_empty() and str(deck_card.get("card_type", "")) != filter_card_type:
-						return
+						continue
 					if not filter_subtype.is_empty():
 						var subtypes = deck_card.get("subtypes", [])
 						if typeof(subtypes) != TYPE_ARRAY or not subtypes.has(filter_subtype):
-							return
+							continue
 					if not filter_rules_tag.is_empty():
 						var deck_card_tags = deck_card.get("rules_tags", [])
 						if typeof(deck_card_tags) != TYPE_ARRAY or not deck_card_tags.has(filter_rules_tag):
-							return
+							continue
 					if not filter_name.is_empty() and str(deck_card.get("name", "")) != filter_name:
-						return
+						continue
 					if filter_cost_equals_source_power and int(deck_card.get("cost", 0)) != source_power:
-						return
+						continue
 					candidates.append(deck_index)
 				if candidates.is_empty():
 					return
@@ -189,20 +189,20 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				for d_index in range(discard_pile.size()):
 					var d_card = discard_pile[d_index]
 					if typeof(d_card) != TYPE_DICTIONARY:
-						return
+						continue
 					# Exclude the trigger source from candidates (e.g., creature that died while slaying)
 					if str(d_card.get("instance_id", "")) == dfdf_source_id:
-						return
+						continue
 					if not discard_filter_card_type.is_empty() and str(d_card.get("card_type", "")) != discard_filter_card_type:
-						return
+						continue
 					if not discard_filter_card_type_in.is_empty() and not discard_filter_card_type_in.has(str(d_card.get("card_type", ""))):
-						return
+						continue
 					if not discard_filter_subtype.is_empty():
 						var d_subtypes = d_card.get("subtypes", [])
 						if typeof(d_subtypes) != TYPE_ARRAY or not d_subtypes.has(discard_filter_subtype):
-							return
+							continue
 					if not discard_filter_name.is_empty() and str(d_card.get("definition_id", "")) != discard_filter_name:
-						return
+						continue
 					discard_candidates.append(d_index)
 					candidate_instance_ids.append(str(d_card.get("instance_id", "")))
 				if discard_candidates.is_empty():
@@ -247,7 +247,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				for di in range(dfdf_deck.size()):
 					var card: Dictionary = dfdf_deck[di]
 					if typeof(card) != TYPE_DICTIONARY:
-						return
+						continue
 					var dfdf_match := true
 					if dfdf_filter.has("card_type") and str(card.get("card_type", "")) != str(dfdf_filter["card_type"]):
 						dfdf_match = false
@@ -364,19 +364,19 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					for doth_target in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 						var doth_abilities = doth_target.get("triggered_abilities", [])
 						if typeof(doth_abilities) != TYPE_ARRAY:
-							return
+							continue
 						for doth_idx in range(doth_abilities.size()):
 							var doth_desc = doth_abilities[doth_idx]
 							if typeof(doth_desc) != TYPE_DICTIONARY:
-								return
+								continue
 							if str(doth_desc.get("family", "")) != "treasure_hunt":
-								return
+								continue
 							var doth_spent_key := "_th_%d_spent" % doth_idx
 							if bool(doth_target.get(doth_spent_key, false)):
-								return
+								continue
 							var doth_hunt_types = doth_desc.get("hunt_types", [])
 							if typeof(doth_hunt_types) != TYPE_ARRAY or doth_hunt_types.is_empty():
-								return
+								continue
 							var doth_is_multi: bool = doth_hunt_types.size() > 1 and not doth_hunt_types.has("any") and int(doth_desc.get("hunt_count", 0)) == 0
 							if doth_is_multi:
 								var doth_found_key := "_th_%d_found" % doth_idx

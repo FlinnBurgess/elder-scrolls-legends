@@ -21,7 +21,11 @@ func _ready() -> void:
 
 
 func refresh() -> void:
-	_refresh_custom_puzzles()
+	# Clear all sections and rebuild so pack solved status updates
+	for child in _custom_list_container.get_children():
+		child.queue_free()
+	_build_puzzle_pack_sections()
+	_build_custom_puzzles_section()
 
 
 func _build_ui() -> void:

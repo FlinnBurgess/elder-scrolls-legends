@@ -649,6 +649,9 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 	if bool(descriptor.get("exclude_retaliation", family_spec.get("exclude_retaliation", false))):
 		if bool(event.get("is_retaliation", false)):
 			return false
+	if bool(descriptor.get("exclude_battle", family_spec.get("exclude_battle", false))):
+		if bool(event.get("is_battle", false)):
+			return false
 	if bool(descriptor.get("require_retaliation", family_spec.get("require_retaliation", false))):
 		if not bool(event.get("is_retaliation", false)):
 			return false
