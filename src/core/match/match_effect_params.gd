@@ -73,6 +73,8 @@ static func _resolve_amount(trigger: Dictionary, effect: Dictionary, match_state
 		var gate := ExtendedMechanicPacks._find_player_gate(match_state, controller_id)
 		return int(gate.get("gate_level", 0))
 	if amount_source == "destroyed_creature_power":
+		if trigger.has("_destroyed_creature_power"):
+			return int(trigger.get("_destroyed_creature_power", 0))
 		var destroyed_id := str(event.get("target_instance_id", ""))
 		var destroyed_card := Helpers._find_card_anywhere(match_state, destroyed_id)
 		if not destroyed_card.is_empty():

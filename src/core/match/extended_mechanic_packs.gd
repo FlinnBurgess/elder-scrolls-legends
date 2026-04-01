@@ -560,7 +560,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			var heal_player := _get_player_state(match_state, heal_player_id)
 			if heal_player.is_empty():
 				return {"handled": true, "events": []}
-			var heal_amount := int(effect.get("amount", 0))
+			var heal_amount := int(effect.get("amount", 0)) * _count_source_multiplier(match_state, trigger, effect)
 			if heal_amount <= 0:
 				return {"handled": true, "events": []}
 			heal_player["health"] = int(heal_player.get("health", 0)) + heal_amount

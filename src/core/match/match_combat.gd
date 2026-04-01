@@ -97,9 +97,13 @@ static func resolve_attack(match_state: Dictionary, player_id: String, attacker_
 
 	var creature_result := _resolve_creature_attack(match_state, validation, attacker, events)
 	var creature_timing_result := MatchTiming.publish_events(match_state, events)
-	# Merge phase1 (inline-published defender death) and phase2 (attacker death + remaining) results
+	# Merge pre-destroy (damage triggers), phase1 (defender death), and phase2 (attacker death + remaining) results
 	var all_events: Array = []
 	var all_triggers: Array = []
+	if creature_result.has("_pre_destroy_timing"):
+		all_events.append_array(creature_result["_pre_destroy_timing"].get("processed_events", []))
+		all_triggers.append_array(creature_result["_pre_destroy_timing"].get("trigger_resolutions", []))
+		creature_result.erase("_pre_destroy_timing")
 	if creature_result.has("_phase1_timing"):
 		all_events.append_array(creature_result["_phase1_timing"].get("processed_events", []))
 		all_triggers.append_array(creature_result["_phase1_timing"].get("trigger_resolutions", []))
@@ -277,6 +281,21 @@ static func _resolve_creature_attack(match_state: Dictionary, validation: Dictio
 
 	var total_drain := _resolve_drain(match_state, attacker, applied_to_defender, events)
 	total_drain += _resolve_drain(match_state, defender, applied_to_attacker, events)
+	# Publish damage events before destruction so on_damage triggers fire while
+	# creatures are still in lane (e.g. Pointy Wall of Spikes reflect damage).
+	var pre_destroy_timing := MatchTiming.publish_events(match_state, events)
+	events.clear()
+
+	# Re-check destruction — trigger effects may have killed or healed creatures.
+	# If a creature is no longer on the board, it was already destroyed during
+	# publish_events (e.g. aura recalculation), so preserve the destroyed flag.
+	var def_still_on_board := _find_creature_on_board(match_state.get("lanes", []), str(defender_damage_target.get("instance_id", "")))
+	if bool(def_still_on_board.get("is_valid", false)):
+		defender_destroyed = EvergreenRules.is_creature_destroyed(def_still_on_board["card"], applied_to_defender > 0 and EvergreenRules.has_keyword(attacker, EvergreenRules.KEYWORD_LETHAL))
+	var atk_still_on_board := _find_creature_on_board(match_state.get("lanes", []), str(attacker_damage_target.get("instance_id", "")))
+	if bool(atk_still_on_board.get("is_valid", false)):
+		attacker_destroyed = EvergreenRules.is_creature_destroyed(atk_still_on_board["card"], applied_to_attacker > 0 and EvergreenRules.has_keyword(defender, EvergreenRules.KEYWORD_LETHAL))
+
 	# When both creatures die simultaneously, publish the defender's death events inline
 	# before discarding the attacker/protector. This ensures slay effects on the defender's
 	# killer resolve while the attacker/protector is still in the lane — preventing slay
@@ -285,9 +304,8 @@ static func _resolve_creature_attack(match_state: Dictionary, validation: Dictio
 	if defender_destroyed and attacker_destroyed:
 		var phase1_events: Array = events.duplicate()
 		events.clear()
-		var def_destroy_lookup: Dictionary = validation["defender_lookup"] if defender_damage_target == defender else _find_creature_on_board(match_state.get("lanes", []), str(defender_damage_target.get("instance_id", "")))
-		if bool(def_destroy_lookup.get("is_valid", false)):
-			_destroy_creature(match_state, def_destroy_lookup, str(attacker.get("instance_id", "")), phase1_events)
+		if bool(def_still_on_board.get("is_valid", false)):
+			_destroy_creature(match_state, def_still_on_board, str(attacker.get("instance_id", "")), phase1_events)
 		# Mark the attacker as pending combat death so publish_events' aura
 		# recalculation doesn't prematurely destroy it before phase 2.
 		var atk_id := str(attacker_damage_target.get("instance_id", ""))
@@ -301,13 +319,11 @@ static func _resolve_creature_attack(match_state: Dictionary, validation: Dictio
 			_destroy_creature(match_state, atk_destroy_lookup, str(defender.get("instance_id", "")), events, true)
 	else:
 		if defender_destroyed:
-			var def_destroy_lookup: Dictionary = validation["defender_lookup"] if defender_damage_target == defender else _find_creature_on_board(match_state.get("lanes", []), str(defender_damage_target.get("instance_id", "")))
-			if bool(def_destroy_lookup.get("is_valid", false)):
-				_destroy_creature(match_state, def_destroy_lookup, str(attacker.get("instance_id", "")), events)
+			if bool(def_still_on_board.get("is_valid", false)):
+				_destroy_creature(match_state, def_still_on_board, str(attacker.get("instance_id", "")), events)
 		if attacker_destroyed:
-			var atk_destroy_lookup: Dictionary = _find_creature_on_board(match_state.get("lanes", []), str(attacker_damage_target.get("instance_id", "")))
-			if atk_destroy_lookup["is_valid"]:
-				_destroy_creature(match_state, atk_destroy_lookup, str(defender.get("instance_id", "")), events, true)
+			if bool(atk_still_on_board.get("is_valid", false)):
+				_destroy_creature(match_state, atk_still_on_board, str(defender.get("instance_id", "")), events, true)
 
 	var result := {
 		"is_valid": true,
@@ -321,6 +337,8 @@ static func _resolve_creature_attack(match_state: Dictionary, validation: Dictio
 		"breakthrough_damage": breakthrough_damage,
 		"drain_heal": total_drain,
 	}
+	if not pre_destroy_timing.is_empty():
+		result["_pre_destroy_timing"] = pre_destroy_timing
 	if not phase1_timing.is_empty():
 		result["_phase1_timing"] = phase1_timing
 	events.append({

@@ -110,7 +110,7 @@ func _show_betray_skip_button() -> void:
 	_screen._betray_skip_button.add_theme_stylebox_override("pressed", style)
 	_screen._betray_skip_button.add_theme_color_override("font_color", Color(0.9, 0.88, 0.92, 1.0))
 	_screen._betray_skip_button.add_theme_font_size_override("font_size", 18)
-	_screen._betray_skip_button.pressed.connect(_screen._cancel_betray_mode)
+	_screen._betray_skip_button.pressed.connect(_screen._selection._cancel_betray_mode)
 	_screen._betray_skip_button.z_index = 600
 	_screen.add_child(_screen._betray_skip_button)
 	_screen._betray_skip_button.position = Vector2(viewport_size.x * 0.5 - 80, viewport_size.y * 0.5 + 50)
@@ -359,4 +359,3 @@ func _resolve_sacrifice_summon(sacrifice_instance_id: String) -> void:
 	var finalized = _screen._finalize_engine_result(result, "Sacrificed %s to play %s." % [sacrifice_name, summoned_name])
 	if bool(finalized.get("is_valid", false)):
 		_screen._check_summon_target_mode(saved_instance_id)
-

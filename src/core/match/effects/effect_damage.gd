@@ -514,8 +514,10 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				if not bool(card_location.get("is_valid", false)):
 					continue
 				var controller_pid := str(card.get("controller_player_id", ""))
+				var dc_power_snapshot := EvergreenRules.get_power(card)
 				var moved := MatchMutations.discard_card(match_state, str(card.get("instance_id", "")))
 				if bool(moved.get("is_valid", false)):
+					trigger["_destroyed_creature_power"] = dc_power_snapshot
 					for dc_evt in moved.get("events", []):
 						if typeof(dc_evt) == TYPE_DICTIONARY and str(dc_evt.get("event_type", "")) == "attached_item_detached":
 							generated_events.append(dc_evt)
@@ -528,6 +530,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						"destroyed_by_instance_id": destroy_source_id,
 						"lane_id": str(card_location.get("lane_id", "")),
 						"source_zone": ZONE_LANE,
+						"destroyed_creature_power": dc_power_snapshot,
 					})
 		"delayed_destroy":
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
