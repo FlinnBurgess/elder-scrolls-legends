@@ -431,9 +431,9 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				if typeof(d_card) == TYPE_DICTIONARY and str(d_card.get("card_type", "")) == "creature":
 					if sfd_max_cost >= 0:
 						if int(d_card.get("cost", 0)) > sfd_max_cost:
-							return
+							continue
 					elif EvergreenRules.get_power(d_card) >= sfd_source_power:
-						return
+						continue
 					sfd_candidates.append(di)
 					sfd_candidate_ids.append(str(d_card.get("instance_id", "")))
 			if sfd_candidates.is_empty():
@@ -467,6 +467,15 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			if sfd_lane_id.is_empty():
 				sfd_lane_id = str(event.get("lane_id", "field"))
 			var sfd_summon := MatchMutations.summon_card_to_lane(match_state, sfd_controller, sfd_card, sfd_lane_id, {"source_zone": ZONE_DISCARD})
+			if not bool(sfd_summon.get("is_valid", false)):
+				# Lane full — try other lanes
+				for sfd_lane in match_state.get("lanes", []):
+					var sfd_alt_lane := str(sfd_lane.get("lane_id", ""))
+					if sfd_alt_lane != sfd_lane_id and not sfd_alt_lane.is_empty():
+						sfd_summon = MatchMutations.summon_card_to_lane(match_state, sfd_controller, sfd_card, sfd_alt_lane, {"source_zone": ZONE_DISCARD})
+						if bool(sfd_summon.get("is_valid", false)):
+							sfd_lane_id = sfd_alt_lane
+							break
 			if bool(sfd_summon.get("is_valid", false)):
 				generated_events.append_array(sfd_summon.get("events", []))
 				generated_events.append(MatchSummonTiming._build_summon_event(sfd_summon["card"], sfd_controller, sfd_lane_id, int(sfd_summon.get("slot_index", -1)), "summon_from_discard"))

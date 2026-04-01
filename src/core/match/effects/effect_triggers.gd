@@ -92,7 +92,9 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						"ability_family": str(gta_ability.get("family", "")),
 					})
 		"copy_summon_ability":
-			# Copy a friendly creature's summon triggers and re-fire them
+			# Copy a creature's summon triggers and re-fire them as the copier's own
+			var csa_source_id := str(trigger.get("source_instance_id", ""))
+			var csa_controller_id := str(trigger.get("controller_player_id", ""))
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				var csa_triggers = card.get("triggered_abilities", [])
 				if typeof(csa_triggers) != TYPE_ARRAY:
@@ -101,17 +103,42 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					if typeof(csa_trigger) != TYPE_DICTIONARY:
 						return
 					if str(csa_trigger.get("family", "")) == FAMILY_SUMMON:
-						var csa_location := MatchMutations.find_card_location(match_state, str(trigger.get("source_instance_id", "")))
-						generated_events.append({
-							"event_type": EVENT_CREATURE_SUMMONED,
-							"player_id": str(trigger.get("controller_player_id", "")),
-							"playing_player_id": str(trigger.get("controller_player_id", "")),
-							"source_instance_id": str(trigger.get("source_instance_id", "")),
-							"source_controller_player_id": str(trigger.get("controller_player_id", "")),
-							"lane_id": str(csa_location.get("lane_id", "")),
-							"reason": "copy_summon_ability",
-							"_copied_summon_descriptor": csa_trigger,
-						})
+						var csa_tm := str(csa_trigger.get("target_mode", ""))
+						if not csa_tm.is_empty():
+							# Target-mode ability: grant copied ability to source and create pending selection
+							var csa_valid := MatchTargeting.get_valid_targets_for_mode(match_state, csa_source_id, csa_tm, csa_trigger)
+							if not csa_valid.is_empty():
+								var csa_source_card := MatchTimingHelpers._find_card_anywhere(match_state, csa_source_id)
+								if not csa_source_card.is_empty():
+									var csa_copied: Dictionary = csa_trigger.duplicate(true)
+									csa_copied["_is_copied_summon"] = true
+									var src_abilities: Array = csa_source_card.get("triggered_abilities", [])
+									src_abilities.append(csa_copied)
+									var csa_pending: Array = match_state.get("pending_summon_effect_targets", [])
+									csa_pending.append({
+										"player_id": csa_controller_id,
+										"source_instance_id": csa_source_id,
+										"mandatory": false,
+										"allowed_families": [FAMILY_SUMMON],
+									})
+						else:
+							# No target_mode: fire effects directly as the copier
+							var csa_location := MatchMutations.find_card_location(match_state, csa_source_id)
+							var csa_fake_event := {
+								"event_type": EVENT_CREATURE_SUMMONED,
+								"source_instance_id": csa_source_id,
+								"source_controller_player_id": csa_controller_id,
+								"player_id": csa_controller_id,
+								"lane_id": str(csa_location.get("lane_id", "")),
+								"lane_index": int(csa_location.get("lane_index", -1)),
+							}
+							var csa_synth_trigger: Dictionary = csa_trigger.duplicate(true)
+							csa_synth_trigger["source_instance_id"] = csa_source_id
+							csa_synth_trigger["controller_player_id"] = csa_controller_id
+							csa_synth_trigger["lane_index"] = int(csa_location.get("lane_index", -1))
+							csa_synth_trigger["descriptor"] = csa_trigger.duplicate(true)
+							var csa_resolution := {"effects": csa_synth_trigger.get("effects", [])}
+							generated_events.append_array(_MT()._apply_effects(match_state, csa_synth_trigger, csa_fake_event, csa_resolution))
 						break
 		"trigger_summon_ability":
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):

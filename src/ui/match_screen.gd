@@ -1087,17 +1087,18 @@ func end_turn_action() -> bool:
 
 func _complete_end_turn(player_id: String) -> void:
 	_pending_end_turn = false
-	# Kill puzzle: if the player ends their turn without killing the enemy, they lose
+	MatchTurnLoop.end_turn(_match_state, player_id)
+	var timing_result: Dictionary = _match_state.get("last_timing_result", {})
+	_animations._record_feedback_from_events(_copy_array(timing_result.get("processed_events", [])))
+	_selected_instance_id = ""
+	# Kill puzzle: check after end_turn so end-of-turn effects (e.g. expertise)
+	# resolve before the puzzle win/loss assessment
 	if _puzzle_mode and _puzzle_type == "kill" and player_id == _local_player_id():
 		if str(_match_state.get("winner_player_id", "")).is_empty():
 			_match_state["winner_player_id"] = _enemy_player_id()
 			_status_message = "Puzzle Failed"
 			_refresh._refresh_ui()
 			return
-	MatchTurnLoop.end_turn(_match_state, player_id)
-	var timing_result: Dictionary = _match_state.get("last_timing_result", {})
-	_animations._record_feedback_from_events(_copy_array(timing_result.get("processed_events", [])))
-	_selected_instance_id = ""
 	_status_message = "Ended %s's turn." % _player_name(player_id)
 	# Survive puzzle: if the enemy's turn just ended and it's now the player's turn,
 	# and the player is still alive, they win

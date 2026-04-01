@@ -143,7 +143,7 @@ const FAMILY_SPECS := {
 	FAMILY_ON_PLAY: {"event_type": EVENT_CARD_PLAYED, "window": WINDOW_AFTER, "match_role": "source"},
 	FAMILY_ACTIVATE: {"event_type": EVENT_SUPPORT_ACTIVATED, "window": WINDOW_AFTER, "match_role": "source"},
 	FAMILY_SUMMON: {"event_type": EVENT_CREATURE_SUMMONED, "window": WINDOW_AFTER, "match_role": "source"},
-	FAMILY_ON_DAMAGE: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "either"},
+	FAMILY_ON_DAMAGE: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "target"},
 	FAMILY_ON_DEATH: {"event_type": EVENT_CREATURE_DESTROYED, "window": WINDOW_AFTER, "match_role": "subject"},
 	FAMILY_LAST_GASP: {"event_type": EVENT_CREATURE_DESTROYED, "window": WINDOW_AFTER, "match_role": "subject"},
 	FAMILY_SLAY: {"event_type": EVENT_CREATURE_DESTROYED, "window": WINDOW_AFTER, "match_role": "killer"},
@@ -560,6 +560,36 @@ static func resolve_pending_discard_choice(match_state: Dictionary, player_id: S
 		choices.remove_at(choice_index)
 		return {"is_valid": true, "errors": [], "events": generated_events}
 	MatchMutations.restore_definition_state(picked_card)
+	var then_op := str(choice.get("then_op", ""))
+	if then_op == "summon_from_discard" or then_op == "discard_and_summon_from_discard":
+		# Summon to source's lane, falling back to other lanes if full
+		var sfd_source_id := str(choice.get("source_instance_id", ""))
+		var sfd_source_loc := MatchMutations.find_card_location(match_state, sfd_source_id)
+		var sfd_lane_id := str(sfd_source_loc.get("lane_id", ""))
+		if sfd_lane_id.is_empty():
+			sfd_lane_id = "field"
+		var sfd_summon := MatchMutations.summon_card_to_lane(match_state, player_id, picked_card, sfd_lane_id, {"source_zone": ZONE_DISCARD})
+		if not bool(sfd_summon.get("is_valid", false)):
+			for sfd_lane in match_state.get("lanes", []):
+				var sfd_alt := str(sfd_lane.get("lane_id", ""))
+				if sfd_alt != sfd_lane_id and not sfd_alt.is_empty():
+					sfd_summon = MatchMutations.summon_card_to_lane(match_state, player_id, picked_card, sfd_alt, {"source_zone": ZONE_DISCARD})
+					if bool(sfd_summon.get("is_valid", false)):
+						sfd_lane_id = sfd_alt
+						break
+		if bool(sfd_summon.get("is_valid", false)):
+			generated_events.append_array(sfd_summon.get("events", []))
+			generated_events.append(MatchSummonTiming._build_summon_event(sfd_summon["card"], player_id, sfd_lane_id, int(sfd_summon.get("slot_index", -1)), "summon_from_discard"))
+			_check_summon_abilities(match_state, sfd_summon["card"])
+		choices.remove_at(choice_index)
+		var timing_result := publish_events(match_state, generated_events)
+		return {
+			"is_valid": true,
+			"errors": [],
+			"card": picked_card,
+			"events": timing_result.get("processed_events", []),
+			"trigger_resolutions": timing_result.get("trigger_resolutions", []),
+		}
 	picked_card["zone"] = ZONE_HAND
 	discard_player[ZONE_HAND].append(picked_card)
 	var buff_power := int(choice.get("buff_power", 0))
@@ -1259,8 +1289,9 @@ static func queue_turn_trigger_targets(match_state: Dictionary, player_id: Strin
 						"target_mode": str(descriptor.get("target_mode", "")),
 						"family": dual_family,
 					})
-	# Also queue end_of_turn triggers with target_mode
+	# Also queue end_of_turn and expertise triggers with target_mode
 	_queue_end_of_turn_trigger_targets(match_state, player_id)
+	_queue_expertise_trigger_targets(match_state, player_id)
 
 
 static func _queue_end_of_turn_trigger_targets(match_state: Dictionary, player_id: String) -> void:
@@ -1307,6 +1338,53 @@ static func _queue_end_of_turn_trigger_targets(match_state: Dictionary, player_i
 					"trigger_index": trigger_index,
 					"target_mode": str(descriptor.get("target_mode", "")),
 					"family": family,
+				})
+
+
+static func _queue_expertise_trigger_targets(match_state: Dictionary, player_id: String) -> void:
+	# Expertise requires noncreature_plays_this_turn > 0
+	var player := MatchTimingHelpers._get_player_state(match_state, player_id)
+	if player.is_empty():
+		return
+	if int(player.get("noncreature_plays_this_turn", 0)) <= 0:
+		return
+	for lane in match_state.get("lanes", []):
+		var slots: Array = lane.get("player_slots", {}).get(player_id, [])
+		for slot_index in range(slots.size()):
+			var card = slots[slot_index]
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			var abilities = card.get("triggered_abilities", [])
+			if typeof(abilities) != TYPE_ARRAY:
+				continue
+			for trigger_index in range(abilities.size()):
+				var descriptor = abilities[trigger_index]
+				if typeof(descriptor) != TYPE_DICTIONARY:
+					continue
+				if str(descriptor.get("family", "")) != FAMILY_EXPERTISE:
+					continue
+				if str(descriptor.get("target_mode", "")).is_empty():
+					continue
+				if not bool(descriptor.get("enabled", true)):
+					continue
+				if descriptor.has("required_zone") and str(descriptor.get("required_zone", "")) != ZONE_LANE:
+					continue
+				var instance_id := str(card.get("instance_id", ""))
+				var controller_id := str(card.get("controller_player_id", player_id))
+				var synthetic_trigger := {"controller_player_id": controller_id, "source_instance_id": instance_id}
+				var synthetic_event := {"player_id": player_id, "source_controller_player_id": player_id}
+				if not ExtendedMechanicPacks.matches_additional_conditions(match_state, synthetic_trigger, descriptor, synthetic_event):
+					continue
+				var valid := MatchTargeting.get_valid_targets_for_mode(match_state, instance_id, str(descriptor.get("target_mode", "")), descriptor)
+				if valid.is_empty():
+					continue
+				var pending_arr: Array = match_state.get("pending_turn_trigger_targets", [])
+				pending_arr.append({
+					"player_id": controller_id,
+					"source_instance_id": instance_id,
+					"trigger_index": trigger_index,
+					"target_mode": str(descriptor.get("target_mode", "")),
+					"family": FAMILY_EXPERTISE,
 				})
 
 

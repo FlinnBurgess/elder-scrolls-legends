@@ -601,6 +601,7 @@ func _on_discard_choice_selected(instance_id: String) -> void:
 		var card_name := str(result.get("card", {}).get("name", instance_id))
 		_screen._record_feedback_from_events(_screen._copy_array(result.get("events", [])))
 		_screen._status_message = "Drew %s from discard pile." % card_name
+		_screen._targeting._check_pending_summon_effect_target()
 	else:
 		_screen._status_message = str(result.get("errors", ["Failed to resolve discard choice."])[0])
 	_screen._refresh_ui()

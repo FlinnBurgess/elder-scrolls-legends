@@ -2,48 +2,48 @@
   "name": "Mobilized for War",
   "type": "kill",
   "lanes": [
-    {
-      "lane_type": "field",
-      "width": 4
-    },
-    {
-      "lane_type": "shadow",
-      "width": 4
-    }
+	{
+	  "lane_type": "field",
+	  "width": 4
+	},
+	{
+	  "lane_type": "shadow",
+	  "width": 4
+	}
   ],
   "player": {
-    "health": 1,
-    "max_magicka": 16,
-    "current_magicka": 16,
-    "has_ring": false,
-    "hand": [
-      "str_improvised_weapon",
-      "str_improvised_weapon",
-      "aw_str_salvage",
-      "aw_int_sparksmith",
-      "aw_int_telekinesis",
+	"health": 1,
+	"max_magicka": 16,
+	"current_magicka": 16,
+	"has_ring": false,
+	"hand": [
+	  "str_improvised_weapon",
+	  "str_improvised_weapon",
+	  "aw_str_salvage",
+	  "aw_int_sparksmith",
+	  "aw_int_telekinesis",
       "aw_int_staff_of_ice"
-    ],
-    "deck": [],
-    "discard": [],
-    "supports": [],
-    "field_creatures": [
-      "aw_int_emerics_warlord",
+	],
+	"deck": [],
+	"discard": [],
+	"supports": [],
+	"field_creatures": [
+	  "aw_int_emerics_warlord",
       "aw_neu_recruit"
-    ],
-    "shadow_creatures": []
+	],
+	"shadow_creatures": []
   },
   "enemy": {
-    "health": 18,
-    "max_magicka": 3,
-    "current_magicka": 3,
-    "hand": [],
-    "deck": [],
-    "discard": [],
-    "supports": [],
-    "field_creatures": [
+	"health": 18,
+	"max_magicka": 3,
+	"current_magicka": 3,
+	"hand": [],
+	"deck": [],
+	"discard": [],
+	"supports": [],
+	"field_creatures": [
       "end_colovian_trooper"
-    ],
-    "shadow_creatures": []
+	],
+	"shadow_creatures": []
   }
 }

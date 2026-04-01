@@ -2,49 +2,49 @@
   "name": "Expert Opinion",
   "type": "kill",
   "lanes": [
-    {
-      "lane_type": "field",
-      "width": 4
-    },
-    {
-      "lane_type": "shadow",
-      "width": 4
-    }
+	{
+	  "lane_type": "field",
+	  "width": 4
+	},
+	{
+	  "lane_type": "shadow",
+	  "width": 4
+	}
   ],
   "player": {
-    "health": 1,
-    "max_magicka": 11,
-    "current_magicka": 11,
-    "has_ring": false,
-    "hand": [
-      "neu_elixir_of_conflict",
-      "aw_str_fighters_guild_berserker",
-      "aw_wil_guildsworn_oathman",
+	"health": 1,
+	"max_magicka": 11,
+	"current_magicka": 11,
+	"has_ring": false,
+	"hand": [
+	  "neu_elixir_of_conflict",
+	  "aw_str_fighters_guild_berserker",
+	  "aw_wil_guildsworn_oathman",
       "cwc_wil_mecinars_will"
-    ],
-    "deck": [],
-    "discard": [],
-    "supports": [],
-    "field_creatures": [
-      "aw_str_guildsworn_bloodluster",
+	],
+	"deck": [],
+	"discard": [],
+	"supports": [],
+	"field_creatures": [
+	  "aw_str_guildsworn_bloodluster",
       "aw_wil_renowned_instructor"
-    ],
-    "shadow_creatures": []
+	],
+	"shadow_creatures": []
   },
   "enemy": {
-    "health": 8,
-    "max_magicka": 3,
-    "current_magicka": 3,
-    "hand": [],
-    "deck": [],
-    "discard": [],
-    "supports": [],
-    "field_creatures": [
-      "str_vigilant_giant",
-      "hom_int_clockwork_city_pilgrim",
-      "iom_int_pointy_wall_of_spikes",
+	"health": 8,
+	"max_magicka": 3,
+	"current_magicka": 3,
+	"hand": [],
+	"deck": ["hom_end_vvardvark","hom_end_vvardvark","hom_end_vvardvark"],
+	"discard": [],
+	"supports": [],
+	"field_creatures": [
+	  "str_vigilant_giant",
+	  "hom_int_clockwork_city_pilgrim",
+	  "iom_int_pointy_wall_of_spikes",
       "end_doomcrag_vampire"
-    ],
-    "shadow_creatures": []
+	],
+	"shadow_creatures": []
   }
 }

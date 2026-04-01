@@ -213,11 +213,11 @@ static func _append_card_triggers(registry: Array, card, zone_name: String, cont
 		if not str(descriptor.get("target_mode", "")).is_empty():
 			var tm_family := str(descriptor.get("family", ""))
 			var tm_mode := str(descriptor.get("target_mode", ""))
-			# summon/wax/wane/end_of_turn/slay triggers with target_mode are resolved via pending systems;
+			# summon/wax/wane/end_of_turn/expertise/slay triggers with target_mode are resolved via pending systems;
 			# on_play with multi-target modes (two_creatures, three_creatures) also use pending;
 			# activate/on_play inject targets from the event; all other families auto-resolve
 			# a random valid target in _trigger_matches_event().
-			if tm_family == FAMILY_SUMMON or tm_family == FAMILY_WAX or tm_family == FAMILY_WANE or tm_family == FAMILY_END_OF_TURN or tm_family == FAMILY_SLAY:
+			if tm_family == FAMILY_SUMMON or tm_family == FAMILY_WAX or tm_family == FAMILY_WANE or tm_family == FAMILY_END_OF_TURN or tm_family == FAMILY_EXPERTISE or tm_family == FAMILY_SLAY:
 				continue
 			if tm_family == FAMILY_ON_PLAY and (tm_mode == "two_creatures" or tm_mode == "three_creatures"):
 				continue

@@ -706,7 +706,7 @@ func _check_pending_turn_trigger_target() -> void:
 	_screen._selected_instance_id = source_id
 	_enter_targeting_mode(source_id)
 	var family := str(pending.get("family", ""))
-	if family == "end_of_turn":
+	if family == "end_of_turn" or family == "expertise":
 		_screen._status_message = "%s: Choose a target." % str(card.get("name", "Creature"))
 	else:
 		var phase_name := "Wax" if family == "wax" else "Wane"
