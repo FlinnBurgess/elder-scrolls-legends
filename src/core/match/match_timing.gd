@@ -2828,7 +2828,35 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 		# Queue player-targeted slay triggers (e.g. Mulaamnir) after the event's
 		# non-targeted slay triggers have already resolved.
 		_check_slay_target_mode(match_state, event)
-	MatchAuras.recalculate_auras(match_state)
+	var aura_kw_events := MatchAuras.recalculate_auras(match_state)
+	for raw_aura_kw_event in aura_kw_events:
+		queue.append(MatchTimingHelpers._normalize_event(match_state, raw_aura_kw_event, {}))
+	while not queue.is_empty():
+		var aura_kw_event: Dictionary = queue.pop_front()
+		processed_events.append(aura_kw_event)
+		MatchTimingHelpers._append_event_log(match_state, aura_kw_event)
+		GameLogger.log_event(match_state, aura_kw_event)
+		ExtendedMechanicPacks.observe_event(match_state, aura_kw_event)
+		MatchTimingHelpers._append_replay_entry(match_state, {
+			"entry_type": "event_processed",
+			"event_id": str(aura_kw_event.get("event_id", "")),
+			"event_type": str(aura_kw_event.get("event_type", "")),
+			"timing_window": str(aura_kw_event.get("timing_window", WINDOW_AFTER)),
+		})
+		for trigger in MatchTriggers._find_matching_triggers(match_state, aura_kw_event):
+			var resolution := MatchTriggers._build_trigger_resolution(match_state, trigger, aura_kw_event)
+			trigger_resolutions.append(resolution)
+			GameLogger.log_trigger_resolution(match_state, resolution, trigger)
+			MatchTriggers._mark_once_trigger_if_needed(match_state, trigger)
+			MatchTimingHelpers._append_replay_entry(match_state, resolution)
+			for generated_event in MatchEffectApplication._apply_effects(match_state, trigger, aura_kw_event, resolution):
+				queue.append(MatchTimingHelpers._normalize_event(match_state, generated_event, {
+					"parent_event_id": str(aura_kw_event.get("event_id", "")),
+					"produced_by_resolution_id": str(resolution.get("resolution_id", "")),
+				}))
+		_check_slay_target_mode(match_state, aura_kw_event)
+	if not aura_kw_events.is_empty():
+		MatchAuras.recalculate_auras(match_state)
 	# After auras recalculate, check for creatures that should die due to lost aura health
 	var combat_pending: Array = match_state.get("_combat_pending_deaths", [])
 	var aura_death_events: Array = []

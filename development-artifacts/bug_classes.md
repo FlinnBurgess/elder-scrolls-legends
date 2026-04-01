@@ -209,3 +209,8 @@ How to spot: User reports an item's Last Gasp effect never firing. Check if the 
 `_action_needs_explicit_target` returns `true` for any non-empty `action_target_mode`, including lane-based modes like `choose_lane`. This sends the card into creature targeting (arrow) mode, but the `_on_lane_pressed` handler blocks lane plays when `_action_needs_explicit_target` is true. The card gets stuck — can't target a creature (wrong mode) and can't target a lane (blocked). Fix by excluding `choose_lane` from `_action_needs_explicit_target` so the card uses the detach-to-lane flow.
 Example: Trial of Flame (`action_target_mode: "choose_lane"`)
 How to spot: User reports a "Choose a lane" action entering creature targeting mode or being unplayable. Check if the card's `action_target_mode` is a lane-based mode that `_action_needs_explicit_target` doesn't exclude.
+
+## Steal fails silently when same lane is full
+`steal_card` in `match_mutations.gd` only attempted to place the stolen creature in the same lane it was already in (under the new controller). If the stealer's side of that lane was full, `move_card_between_lanes` returned invalid and the steal silently did nothing — it never tried alternate lanes. Fix by falling back to other lanes when the same lane is full, and only failing if all lanes are full.
+Example: Euraxia Tharn (steal with full same-lane)
+How to spot: User reports stealing a creature "does nothing" when the stealer's side of that lane is full but the other lane has space. The steal op fires (log shows it) but the creature doesn't move.

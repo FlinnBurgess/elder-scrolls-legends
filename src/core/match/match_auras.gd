@@ -7,14 +7,17 @@ const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const MatchTimingHelpers = preload("res://src/core/match/match_timing_helpers.gd")
 
 
-static func recalculate_auras(match_state: Dictionary) -> void:
-	# Step 1: Clear all aura bonuses on lane creatures
+static func recalculate_auras(match_state: Dictionary) -> Array:
+	# Step 1: Clear all aura bonuses on lane creatures, snapshot previous aura keywords
+	var _prev_aura_keywords: Dictionary = {}  # instance_id -> Array of keywords
 	for lane in match_state.get("lanes", []):
 		var player_slots_by_id: Dictionary = lane.get("player_slots", {})
 		for player_id in player_slots_by_id.keys():
 			for card in player_slots_by_id[player_id]:
 				if typeof(card) != TYPE_DICTIONARY:
 					continue
+				var iid := str(card.get("instance_id", ""))
+				_prev_aura_keywords[iid] = card.get("aura_keywords", []).duplicate()
 				card["aura_power_bonus"] = 0
 				card["aura_health_bonus"] = 0
 				card["aura_keywords"] = []
@@ -230,6 +233,27 @@ static func recalculate_auras(match_state: Dictionary) -> void:
 			player["max_magicka"] = maxi(0, int(player.get("max_magicka", 0)) + delta)
 			player["current_magicka"] = mini(int(player.get("current_magicka", 0)), int(player["max_magicka"]))
 			player["aura_max_magicka_bonus"] = new_bonus
+
+	# Step 5: Emit keyword_granted events for newly gained aura keywords
+	var aura_keyword_events: Array = []
+	for lane in lanes:
+		var player_slots_by_id: Dictionary = lane.get("player_slots", {})
+		for player_id in player_slots_by_id.keys():
+			for card in player_slots_by_id[player_id]:
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				var iid := str(card.get("instance_id", ""))
+				var prev: Array = _prev_aura_keywords.get(iid, [])
+				for kw in card.get("aura_keywords", []):
+					if not prev.has(kw):
+						aura_keyword_events.append({
+							"event_type": "keyword_granted",
+							"source_instance_id": iid,
+							"target_instance_id": iid,
+							"keyword_id": str(kw),
+							"reason": "aura",
+						})
+	return aura_keyword_events
 
 
 static func _evaluate_aura_condition(match_state: Dictionary, source_card: Dictionary, player_id: String, lane_index: int, condition) -> bool:

@@ -187,6 +187,15 @@ static func get_valid_targets_for_mode(match_state: Dictionary, source_instance_
 		"enemy_creature_and_friendly_creature":
 			# Return all creatures — UI handles the two-step pick
 			targets = MatchTimingHelpers._all_lane_creatures(match_state)
+		"friendly_creature_other_lane_from_primary":
+			var primary_id_fcolp := str(source_card.get("_primary_target_id", ""))
+			if not primary_id_fcolp.is_empty():
+				var primary_card_fcolp := MatchTimingHelpers._find_card_anywhere(match_state, primary_id_fcolp)
+				if not primary_card_fcolp.is_empty():
+					var primary_lane_idx := MatchTimingHelpers._get_card_lane_index(match_state, primary_id_fcolp)
+					for li in range(match_state.get("lanes", []).size()):
+						if li != primary_lane_idx:
+							targets.append_array(MatchTimingHelpers._lane_creatures_for_player(match_state, li, controller_id))
 	# Apply additional filters from trigger descriptor
 	var max_power := int(trigger.get("target_filter_max_power", -1))
 	if max_power >= 0:
@@ -473,6 +482,10 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 					targets.append(ls_card)
 		"last_stolen":
 			var lst_id := str(event.get("target_instance_id", event.get("stolen_instance_id", "")))
+			if lst_id.is_empty():
+				var lst_source := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+				if not lst_source.is_empty():
+					lst_id = str(lst_source.get("_stolen_instance_id", ""))
 			if not lst_id.is_empty():
 				var lst_card := MatchTimingHelpers._find_card_anywhere(match_state, lst_id)
 				if not lst_card.is_empty():
@@ -486,11 +499,18 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 					if not aim_card.is_empty():
 						targets.append(aim_card)
 		"moved_creatures":
-			var mc_id := str(event.get("source_instance_id", event.get("moved_instance_id", "")))
-			if not mc_id.is_empty():
-				var mc_card := MatchTimingHelpers._find_card_anywhere(match_state, mc_id)
-				if not mc_card.is_empty():
-					targets.append(mc_card)
+			var mc_ids: Array = trigger.get("_moved_creature_ids", [])
+			if not mc_ids.is_empty():
+				for mc_id in mc_ids:
+					var mc_card := MatchTimingHelpers._find_card_anywhere(match_state, str(mc_id))
+					if not mc_card.is_empty():
+						targets.append(mc_card)
+			else:
+				var mc_id := str(event.get("source_instance_id", event.get("moved_instance_id", "")))
+				if not mc_id.is_empty():
+					var mc_card := MatchTimingHelpers._find_card_anywhere(match_state, mc_id)
+					if not mc_card.is_empty():
+						targets.append(mc_card)
 		"consuming_creature":
 			var consumer_id := str(event.get("source_instance_id", ""))
 			if not consumer_id.is_empty():

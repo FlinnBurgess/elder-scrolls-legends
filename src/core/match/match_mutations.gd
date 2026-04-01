@@ -178,17 +178,18 @@ static func validate_lane_entry(match_state: Dictionary, player_id: String, card
 			if typeof(slot_card) == TYPE_DICTIONARY and pending_deaths.has(str(slot_card.get("instance_id", ""))):
 				pending_death_count += 1
 	var effective_slot_count := player_slots.size() - pending_death_count
+	var ignore_capacity := bool(options.get("ignore_capacity", false))
 	var requested_slot := int(options.get("slot_index", -1))
 	var slot_index := requested_slot
 	if requested_slot == -1:
-		if effective_slot_count < slot_capacity:
+		if ignore_capacity or effective_slot_count < slot_capacity:
 			slot_index = player_slots.size()
 		else:
 			return _invalid_result("Lane %s is full for %s." % [lane_id, player_id])
 	else:
 		if requested_slot < 0 or requested_slot > player_slots.size():
 			return _invalid_result("Requested slot %d is out of range for lane %s." % [requested_slot, lane_id])
-		if effective_slot_count >= slot_capacity:
+		if not ignore_capacity and effective_slot_count >= slot_capacity:
 			return _invalid_result("Lane %s is full for %s." % [lane_id, player_id])
 	# Sewer lane restriction: creatures with more than 2 health cannot be played here
 	var lane_type := str(lane.get("lane_type", lane_id))
@@ -437,12 +438,23 @@ static func steal_card(match_state: Dictionary, controller_player_id: String, in
 		return location
 	var current_zone := str(location.get("zone", ""))
 	if current_zone == ZONE_LANE:
-		var result := move_card_between_lanes(match_state, str(location.get("player_id", "")), instance_id, str(location.get("lane_id", "")), {
+		var source_lane_id := str(location.get("lane_id", ""))
+		var move_options := {
 			"slot_index": -1,
 			"apply_shadow_cover": false,
 			"preserve_entered_lane_on_turn": true,
 			"override_controller_player_id": controller_player_id,
-		})
+		}
+		# Try same lane first, then fall back to other lanes
+		var result := move_card_between_lanes(match_state, str(location.get("player_id", "")), instance_id, source_lane_id, move_options)
+		if not bool(result.get("is_valid", false)):
+			for lane in match_state.get("lanes", []):
+				var alt_lane_id := str(lane.get("lane_id", ""))
+				if alt_lane_id == source_lane_id:
+					continue
+				result = move_card_between_lanes(match_state, str(location.get("player_id", "")), instance_id, alt_lane_id, move_options)
+				if bool(result.get("is_valid", false)):
+					break
 		if bool(result.get("is_valid", false)):
 			result["card"]["controller_player_id"] = controller_player_id
 			result["events"].append({

@@ -83,10 +83,17 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 							break
 				if dest_lane_id.is_empty():
 					return
-				var move_result := MatchMutations.move_card_between_lanes(match_state, str(card.get("controller_player_id", "")), str(card.get("instance_id", "")), dest_lane_id, {
+				var move_opts := {
 					"slot_index": int(effect.get("slot_index", -1)),
 					"preserve_entered_lane_on_turn": true,
-				})
+				}
+				if bool(effect.get("ignore_capacity", false)):
+					move_opts["ignore_capacity"] = true
+				var move_result := MatchMutations.move_card_between_lanes(match_state, str(card.get("controller_player_id", "")), str(card.get("instance_id", "")), dest_lane_id, move_opts)
+				if bool(move_result.get("is_valid", false)):
+					var moved_ids: Array = trigger.get("_moved_creature_ids", [])
+					moved_ids.append(str(card.get("instance_id", "")))
+					trigger["_moved_creature_ids"] = moved_ids
 				generated_events.append_array(move_result.get("events", []))
 				if bool(move_result.get("granted_cover", false)):
 					generated_events.append({
@@ -185,6 +192,9 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				})
 				generated_events.append_array(steal_result.get("events", []))
 				if bool(steal_result.get("is_valid", false)):
+					var steal_source := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+					if not steal_source.is_empty():
+						steal_source["_stolen_instance_id"] = str(card.get("instance_id", ""))
 					var steal_kw := str(effect.get("grant_keyword", ""))
 					if not steal_kw.is_empty():
 						EvergreenRules.ensure_card_state(card)
