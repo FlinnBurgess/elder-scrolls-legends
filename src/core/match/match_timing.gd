@@ -1150,6 +1150,11 @@ static func _resolve_multi_target_selection(match_state: Dictionary, source_card
 		var resolution := MatchTriggers._build_trigger_resolution(match_state, trigger, event)
 		events = MatchEffectApplication._apply_effects(match_state, trigger, event, resolution)
 		resolutions.append(resolution)
+		var timing_result := publish_events(match_state, events, {
+			"parent_event_id": "multi_target_%s_%d" % [instance_id, current_index],
+		})
+		events = events + timing_result.get("processed_events", [])
+		resolutions = resolutions + timing_result.get("trigger_resolutions", [])
 	current_index += 1
 	source_card["_multi_target_index"] = current_index
 	if current_index < needed:

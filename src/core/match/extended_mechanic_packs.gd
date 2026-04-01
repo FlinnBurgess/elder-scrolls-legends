@@ -125,15 +125,21 @@ static func observe_event(match_state: Dictionary, event: Dictionary) -> void:
 			invade_player["invades_this_turn"] = int(invade_player.get("invades_this_turn", 0)) + 1
 		return
 	if event_type == EVENT_DAMAGE_RESOLVED and str(event.get("target_type", "")) == "player":
-		var source_player := _get_player_state(match_state, str(event.get("source_controller_player_id", "")))
 		var target_player_id := str(event.get("target_player_id", ""))
-		if source_player.is_empty() or target_player_id.is_empty() or str(source_player.get("player_id", "")) == target_player_id:
+		if target_player_id.is_empty():
 			return
-		ensure_player_state(source_player)
-		source_player["empower_count_this_turn"] = int(source_player.get("empower_count_this_turn", 0)) + 1
+		# Empower counts for the opponent of whoever took face damage, regardless of source
+		var empower_player := _get_opponent(match_state, target_player_id)
+		if empower_player.is_empty():
+			return
+		ensure_player_state(empower_player)
+		empower_player["empower_count_this_turn"] = int(empower_player.get("empower_count_this_turn", 0)) + 1
 		# Track pilfer/drain for cost reduction (The Ultimate Heist)
 		# Counts all friendly-to-enemy player damage (same scope as FAMILY_ON_FRIENDLY_PILFER_OR_DRAIN)
-		source_player["pilfer_or_drain_count_this_turn"] = int(source_player.get("pilfer_or_drain_count_this_turn", 0)) + 1
+		var source_player := _get_player_state(match_state, str(event.get("source_controller_player_id", "")))
+		if not source_player.is_empty() and str(source_player.get("player_id", "")) != target_player_id:
+			ensure_player_state(source_player)
+			source_player["pilfer_or_drain_count_this_turn"] = int(source_player.get("pilfer_or_drain_count_this_turn", 0)) + 1
 
 
 static func apply_pre_play_options(card: Dictionary, options: Dictionary) -> void:
