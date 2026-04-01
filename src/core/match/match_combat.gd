@@ -276,6 +276,7 @@ static func _resolve_creature_attack(match_state: Dictionary, validation: Dictio
 			_set_winner_if_needed(match_state, str(validation.get("defending_player_id", "")), str(attacker.get("controller_player_id", "")), events)
 
 	var total_drain := _resolve_drain(match_state, attacker, applied_to_defender, events)
+	total_drain += _resolve_drain(match_state, defender, applied_to_attacker, events)
 	# When both creatures die simultaneously, publish the defender's death events inline
 	# before discarding the attacker/protector. This ensures slay effects on the defender's
 	# killer resolve while the attacker/protector is still in the lane — preventing slay
