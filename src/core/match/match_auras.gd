@@ -130,7 +130,7 @@ static func recalculate_auras(match_state: Dictionary) -> Array:
 						for gktk_target in gktk_lane.get("player_slots", {}).get(gktk_controller, []):
 							if typeof(gktk_target) != TYPE_DICTIONARY:
 								continue
-							if EvergreenRules.has_keyword(gktk_target, gktk_req_kw):
+							if EvergreenRules.has_keyword(gktk_target, gktk_req_kw) or _has_triggered_ability_family(gktk_target, gktk_req_kw):
 								var gktk_existing: Array = gktk_target.get("aura_keywords", [])
 								if not gktk_existing.has(gktk_grant_kw):
 									gktk_existing.append(gktk_grant_kw)
@@ -254,6 +254,16 @@ static func recalculate_auras(match_state: Dictionary) -> Array:
 							"reason": "aura",
 						})
 	return aura_keyword_events
+
+
+static func _has_triggered_ability_family(card: Dictionary, family: String) -> bool:
+	var abilities = card.get("triggered_abilities", [])
+	if typeof(abilities) != TYPE_ARRAY:
+		return false
+	for ab in abilities:
+		if typeof(ab) == TYPE_DICTIONARY and str(ab.get("family", "")) == family:
+			return true
+	return false
 
 
 static func _evaluate_aura_condition(match_state: Dictionary, source_card: Dictionary, player_id: String, lane_index: int, condition) -> bool:
