@@ -183,17 +183,17 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			for lane in match_state.get("lanes", []):
 				for card in lane.get("player_slots", {}).get(tflg_controller_id, []):
 					if typeof(card) != TYPE_DICTIONARY:
-						return
+						continue
 					if str(card.get("instance_id", "")) == tflg_self_id:
-						return
+						continue
 					var raw_triggers = card.get("triggered_abilities", [])
 					if typeof(raw_triggers) != TYPE_ARRAY:
-						return
+						continue
 					for raw_trigger in raw_triggers:
 						if typeof(raw_trigger) != TYPE_DICTIONARY:
-							return
+							continue
 						if str(raw_trigger.get("family", "")) != FAMILY_LAST_GASP:
-							return
+							continue
 						var fake_trigger := {
 							"trigger_id": str(card.get("instance_id", "")) + "_retrigger_lg",
 							"source_instance_id": str(card.get("instance_id", "")),
@@ -211,18 +211,18 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			for lane in match_state.get("lanes", []):
 				for card in lane.get("player_slots", {}).get(teaf_controller, []):
 					if typeof(card) != TYPE_DICTIONARY:
-						return
+						continue
 					var teaf_abilities: Array = card.get("triggered_abilities", [])
 					for ability in teaf_abilities:
 						if typeof(ability) != TYPE_DICTIONARY:
-							return
+							continue
 						if str(ability.get("family", "")) != FAMILY_SUMMON:
-							return
+							continue
 						var teaf_exalt_cost := int(ability.get("exalt_cost", 0))
 						if teaf_exalt_cost <= 0:
-							return
+							continue
 						if EvergreenRules.has_status(card, EvergreenRules.STATUS_EXALTED):
-							return
+							continue
 						EvergreenRules.add_status(card, EvergreenRules.STATUS_EXALTED)
 						var teaf_tm := str(ability.get("target_mode", ""))
 						if not teaf_tm.is_empty():

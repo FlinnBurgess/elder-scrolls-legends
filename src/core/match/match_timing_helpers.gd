@@ -489,4 +489,3 @@ static func _event_target_instance_id(event: Dictionary) -> String:
 
 static func _is_prophecy_card(card: Dictionary) -> bool:
 	return _dictionary_has_string(card.get("rules_tags", []), RULE_TAG_PROPHECY) or _dictionary_has_string(card.get("keywords", []), RULE_TAG_PROPHECY)
-
