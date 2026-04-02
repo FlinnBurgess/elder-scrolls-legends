@@ -1,0 +1,67 @@
+{
+  "name": "Phalanx Exemplar — Prophecy Rune Trigger",
+  "description": "Test Phalanx Exemplar's ability to generate Septim Guardsmen when opponent draws Prophecy from rune breaks",
+  "board_profile": "standard_versus",
+  "turn_number": 1,
+  "first_player": "player_1",
+  "player_1": {
+    "health": 30,
+    "max_magicka": 12,
+    "current_magicka": 12,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [
+      "cwc_wil_phalanx_exemplar",
+      "db_end_dark_guardian",
+      "joo_str_xivilai_warlord",
+      "db_str_underworld_vigilante",
+      "moe_str_pouncing_senche"
+    ],
+    "deck": [
+      "cwc_wil_phalanx_exemplar",
+      "str_whiterun_trooper",
+      "end_young_mammoth",
+      "int_elusive_schemer"
+    ],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      { "definition_id": "cwc_wil_phalanx_exemplar", "can_attack": true, "turns_in_play": 1 }
+    ],
+    "shadow_creatures": []
+  },
+  "player_2": {
+    "health": 30,
+    "max_magicka": 2,
+    "current_magicka": 2,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": ["str_fiery_imp"],
+    "deck": [
+      "aw_int_soul_wraith",
+      "joo_end_city_guard",
+      "db_str_protector_of_the_innocent",
+      "moe_str_fear_totem",
+      "moe_wil_be_at_peace",
+      "joo_str_flaming_breath",
+      "aw_end_hush",
+      "moe_end_arise",
+      "joo_wil_xivkyn_channeler",
+      "joo_agi_bitterfish_witch",
+      "aw_int_soul_wraith",
+      "joo_end_city_guard",
+      "db_str_protector_of_the_innocent",
+      "moe_str_fear_totem",
+      "moe_end_arise"
+    ],
+    "discard": [],
+    "field_creatures": [
+      "str_fiery_imp"
+    ],
+    "shadow_creatures": [
+      "str_fiery_imp"
+    ]
+  }
+}

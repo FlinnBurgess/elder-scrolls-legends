@@ -215,6 +215,11 @@ How to spot: User reports a "Choose a lane" action entering creature targeting m
 Example: Euraxia Tharn (steal with full same-lane)
 How to spot: User reports stealing a creature "does nothing" when the stealer's side of that lane is full but the other lane has space. The steal op fires (log shows it) but the creature doesn't move.
 
+## Innate status stored as bare field instead of innate_statuses array
+Card has a status-like field (e.g., `"permanent_shackle": true`) as a bare key on the seed dictionary, but the engine reads `innate_statuses` (an array of status IDs) to apply statuses at lane entry via `_apply_innate_statuses`. The bare field is ignored and the status is never applied.
+Example: Vigilant Ancestor (`"permanent_shackle": true` instead of `"innate_statuses": ["permanent_shackle"]`)
+How to spot: User reports a creature missing an innate status (shackle, ignore guard, etc.). Check if the card uses a bare field instead of the `innate_statuses` array.
+
 ## "Another" random target includes self
 Card rules text says "another random friendly creature" but the effect uses `target: "random_friendly"` which includes self. Should use `target: "random_other_friendly"` to exclude the source card.
 Example: Reachman Shaman, Blackrose Herbalist

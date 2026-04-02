@@ -345,6 +345,13 @@ static func resolve_targeted_effect(match_state: Dictionary, source_instance_id:
 			if allowed_families.has(str(ab.get("family", ""))):
 				filtered_abilities.append(ab)
 		abilities = filtered_abilities
+	# Filter out exalt-gated abilities if the source card is not exalted
+	if not EvergreenRules.has_raw_status(source_card, EvergreenRules.STATUS_EXALTED):
+		var non_exalt_abilities: Array = []
+		for ab in abilities:
+			if int(ab.get("exalt_cost", 0)) <= 0:
+				non_exalt_abilities.append(ab)
+		abilities = non_exalt_abilities
 	if abilities.is_empty():
 		return {"is_valid": false, "errors": ["No target_mode abilities on card."], "events": [], "trigger_resolutions": []}
 	# Determine which ability matches the chosen target
