@@ -86,7 +86,7 @@ var _rules_panel: PanelContainer
 var _rules_label: RichTextLabel
 var _rarity_marker: PanelContainer
 var _rarity_label: Label
-var _cost_badge: PanelContainer
+var _cost_badge: TextureRect
 var _cost_label: Label
 var _attack_badge: TextureRect
 var _attack_label: Label
@@ -360,11 +360,17 @@ func _build_internal_nodes() -> void:
 	_rarity_label = _build_centered_label("RarityLabel", 9)
 	_rarity_marker.add_child(_rarity_label)
 
-	_cost_badge = PanelContainer.new()
+	_cost_badge = TextureRect.new()
 	_cost_badge.name = "CostBadge"
+	var _cost_icon_img := Image.load_from_file("res://assets/images/cards/magicka-icon.png")
+	_cost_badge.texture = ImageTexture.create_from_image(_cost_icon_img)
+	_cost_badge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_cost_badge.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_content_root.add_child(_cost_badge)
 	_cost_label = _build_centered_label("CostLabel", 16)
-	_cost_badge.add_child(_cost_label)
+	_cost_label.add_theme_constant_override("outline_size", 3)
+	_cost_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_content_root.add_child(_cost_label)
 
 	_attack_badge = TextureRect.new()
 	_attack_badge.name = "AttackBadge"
@@ -526,8 +532,8 @@ func _refresh_styles() -> void:
 	_apply_panel_style(_rules_panel, Color.TRANSPARENT, Color.TRANSPARENT, 0, 0)
 	# Rarity gem – small diamond, filled with rarity color
 	_apply_panel_style(_rarity_marker, _rarity_color(_card_data).darkened(0.3), Color.BLACK, _scaled_border_width(2, scale), _scaled_int(2, scale))
-	# Cost badge – dark circle
-	_apply_panel_style(_cost_badge, Color(0.12, 0.14, 0.18, 0.99), Color(0.72, 0.84, 0.98, 1.0), _scaled_border_width(2, scale), _scaled_int(17, scale))
+	# Cost badge – magicka icon texture
+	_cost_badge.modulate = Color.WHITE
 	# Attack badge – texture icon; green tint for lethal
 	var has_lethal := _is_creature(_card_data) and EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_LETHAL)
 	_attack_badge.modulate = Color(0.4, 1.0, 0.5, 1.0) if has_lethal else Color.WHITE
@@ -551,7 +557,7 @@ func _refresh_styles() -> void:
 	if _card_data.has("_effective_cost"):
 		_cost_label.add_theme_color_override("font_color", COLOR_STAT_BUFF)
 	else:
-		_cost_label.add_theme_color_override("font_color", Color(0.96, 0.98, 1.0, 1.0))
+		_cost_label.add_theme_color_override("font_color", Color.BLACK)
 	_attack_label.add_theme_color_override("font_color", _stat_color(_card_data, "power"))
 	_health_label.add_theme_color_override("font_color", _stat_color(_card_data, "health"))
 
@@ -567,6 +573,7 @@ func _refresh_visibility() -> void:
 	_rules_panel.visible = full
 	_rarity_marker.visible = full
 	_cost_badge.visible = full
+	_cost_label.visible = full
 	_attack_badge.visible = is_creature and (full or creature_minimal)
 	_health_badge.visible = is_creature and (full or creature_minimal)
 	_ward_overlay.visible = _interactive and is_creature and EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_WARD)
@@ -602,10 +609,13 @@ func _layout_full(inner_rect: Rect2) -> void:
 	var content_padding := 6.0 * scale
 	var content_width := maxf(inner_rect.size.x - content_padding * 2.0, 0.0)
 
-	# Cost badge – circular, top-left overlapping the frame
-	var cost_size := Vector2.ONE * (34.0 * scale)
+	# Cost badge – magicka icon, top-left overlapping the frame
+	var cost_side := 42.0 * scale
+	var cost_size := Vector2(cost_side, cost_side)
 	_cost_badge.size = cost_size
-	_cost_badge.position = _outer_frame.position + Vector2(-4.0 * scale, -4.0 * scale)
+	_cost_badge.position = _outer_frame.position + Vector2(-8.0 * scale, -8.0 * scale)
+	_cost_label.size = cost_size
+	_cost_label.position = _cost_badge.position
 
 	# Art frame – dominates the card (~58% of inner height)
 	var art_top := inner_rect.position.y + content_padding
@@ -691,6 +701,8 @@ func _layout_creature_board_minimal(inner_rect: Rect2) -> void:
 	_rarity_marker.size = Vector2.ZERO
 	_cost_badge.position = Vector2.ZERO
 	_cost_badge.size = Vector2.ZERO
+	_cost_label.position = Vector2.ZERO
+	_cost_label.size = Vector2.ZERO
 
 
 func _layout_support_board_minimal(inner_rect: Rect2) -> void:
@@ -713,6 +725,8 @@ func _layout_support_board_minimal(inner_rect: Rect2) -> void:
 	_rarity_marker.size = Vector2.ZERO
 	_cost_badge.position = Vector2.ZERO
 	_cost_badge.size = Vector2.ZERO
+	_cost_label.position = Vector2.ZERO
+	_cost_label.size = Vector2.ZERO
 	_attack_badge.position = Vector2.ZERO
 	_attack_badge.size = Vector2.ZERO
 	_health_badge.position = Vector2.ZERO
@@ -1240,7 +1254,7 @@ func _apply_font_sizes(scale: float) -> void:
 	_rules_label.add_theme_font_size_override("normal_font_size", _scaled_int(18, scale))
 	_rules_label.add_theme_font_size_override("bold_font_size", _scaled_int(18, scale))
 	_rarity_label.add_theme_font_size_override("font_size", _scaled_int(9, scale))
-	_cost_label.add_theme_font_size_override("font_size", _scaled_int(16, scale))
+	_cost_label.add_theme_font_size_override("font_size", _scaled_int(20, scale))
 	_attack_label.add_theme_font_size_override("font_size", _scaled_int(22, scale))
 	_health_label.add_theme_font_size_override("font_size", _scaled_int(22, scale))
 
@@ -1299,7 +1313,7 @@ func _apply_panel_style(panel: PanelContainer, fill: Color, border: Color, borde
 func _refresh_corner_radii() -> void:
 	_set_panel_corner_radius(_outer_frame, 0)
 	_set_panel_corner_radius(_inner_frame, 0)
-	for panel in [_rules_panel, _rarity_marker, _cost_badge]:
+	for panel in [_rules_panel, _rarity_marker]:
 		_set_panel_corner_radius(panel, _panel_radius(panel, 8))
 
 
