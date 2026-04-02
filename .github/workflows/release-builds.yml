@@ -1,0 +1,98 @@
+name: Build and Attach Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to attach builds to (e.g. v1.0.0). Leave empty to just build artifacts without attaching."
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: "4.6"
+  PROJECT_NAME: "ElderScrollsLegends"
+
+jobs:
+  export:
+    strategy:
+      matrix:
+        include:
+          - platform: Windows
+            export_name: Windows
+            artifact_name: ElderScrollsLegends-Windows
+            build_path: build/windows
+            runner: ubuntu-latest
+          - platform: Linux
+            export_name: Linux
+            artifact_name: ElderScrollsLegends-Linux
+            build_path: build/linux
+            runner: ubuntu-latest
+          - platform: macOS
+            export_name: macOS
+            artifact_name: ElderScrollsLegends-macOS
+            build_path: build/macos
+            runner: ubuntu-latest
+
+    runs-on: ${{ matrix.runner }}
+    name: Export ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.6.0-stable
+          use-dotnet: false
+          include-templates: true
+
+      - name: Import project
+        run: |
+          godot --headless --import 2>&1 || true
+        timeout-minutes: 5
+
+      - name: Create build directory
+        run: mkdir -p ${{ matrix.build_path }}
+
+      - name: Export ${{ matrix.platform }}
+        run: |
+          godot --headless --export-release "${{ matrix.export_name }}" 2>&1
+        timeout-minutes: 10
+
+      - name: Zip build
+        run: |
+          cd ${{ matrix.build_path }}
+          zip -r ${{ github.workspace }}/${{ matrix.artifact_name }}.zip .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_name }}.zip
+          retention-days: 30
+
+  attach-to-release:
+    needs: export
+    runs-on: ubuntu-latest
+    if: inputs.tag != ''
+    name: Attach to Release
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Attach builds to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          for zip in artifacts/*/*.zip; do
+            echo "Uploading $zip..."
+            gh release upload "${{ inputs.tag }}" "$zip" --clobber
+          done

@@ -9,3 +9,4 @@ data/wiki_scrape/
 
 .vexp/
 reports/
+build/
