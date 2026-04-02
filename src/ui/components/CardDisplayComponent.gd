@@ -53,6 +53,16 @@ const ATTRIBUTE_TINTS := {
 	"endurance": Color(0.58, 0.46, 0.72, 1.0),
 }
 
+const ATTRIBUTE_ICON_PATHS := {
+	"strength": "res://assets/images/attributes/strength-small.png",
+	"intelligence": "res://assets/images/attributes/intelligence-small.png",
+	"willpower": "res://assets/images/attributes/willpower-small.png",
+	"agility": "res://assets/images/attributes/agility-small.png",
+	"endurance": "res://assets/images/attributes/endurance-small.png",
+	"neutral": "res://assets/images/attributes/neutral-small.png",
+}
+const ATTRIBUTE_ICON_SIZE := 22
+
 const PIP_SIZE := 8.0
 const PIP_SPACING := 6.0
 const PIP_COLOR_ACTIVE := Color(0.95, 0.88, 0.6, 1.0)
@@ -95,6 +105,7 @@ var _health_label: Label
 var _ward_overlay: ColorRect
 var _shackle_overlay: TextureRect
 var _lethal_particles: GPUParticles2D
+var _attribute_icons_container: VBoxContainer
 var _keyword_icons_container: HBoxContainer
 var _augment_badge_container: VBoxContainer
 var _quantity_badge: Label
@@ -372,6 +383,13 @@ func _build_internal_nodes() -> void:
 	_cost_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	_content_root.add_child(_cost_label)
 
+	_attribute_icons_container = VBoxContainer.new()
+	_attribute_icons_container.name = "AttributeIcons"
+	_attribute_icons_container.add_theme_constant_override("separation", 2)
+	_attribute_icons_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_attribute_icons_container.visible = false
+	_content_root.add_child(_attribute_icons_container)
+
 	_attack_badge = TextureRect.new()
 	_attack_badge.name = "AttackBadge"
 	var _attack_icon_img := Image.load_from_file("res://assets/images/cards/attack-icon.png")
@@ -505,6 +523,7 @@ func _refresh_content() -> void:
 		_health_label.text = ""
 	_refresh_keyword_icons()
 	_refresh_augment_badges()
+	_refresh_attribute_icons()
 
 
 func _refresh_styles() -> void:
@@ -574,6 +593,7 @@ func _refresh_visibility() -> void:
 	_rarity_marker.visible = full
 	_cost_badge.visible = full
 	_cost_label.visible = full
+	# Attribute icons visibility is managed by _refresh_attribute_icons based on card data
 	_attack_badge.visible = is_creature and (full or creature_minimal)
 	_health_badge.visible = is_creature and (full or creature_minimal)
 	_ward_overlay.visible = _interactive and is_creature and EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_WARD)
@@ -653,6 +673,7 @@ func _layout_full(inner_rect: Rect2) -> void:
 	_layout_ward_overlay()
 	_keyword_icons_container.visible = false
 	_layout_augment_badges()
+	_layout_attribute_icons()
 
 	# Rules panel – bottom portion of card below art, with gap for stat badges
 	var rules_y := _art_frame.position.y + _art_frame.size.y + 4.0 * scale
@@ -703,6 +724,7 @@ func _layout_creature_board_minimal(inner_rect: Rect2) -> void:
 	_cost_badge.size = Vector2.ZERO
 	_cost_label.position = Vector2.ZERO
 	_cost_label.size = Vector2.ZERO
+	_attribute_icons_container.visible = false
 
 
 func _layout_support_board_minimal(inner_rect: Rect2) -> void:
@@ -727,6 +749,7 @@ func _layout_support_board_minimal(inner_rect: Rect2) -> void:
 	_cost_badge.size = Vector2.ZERO
 	_cost_label.position = Vector2.ZERO
 	_cost_label.size = Vector2.ZERO
+	_attribute_icons_container.visible = false
 	_attack_badge.position = Vector2.ZERO
 	_attack_badge.size = Vector2.ZERO
 	_health_badge.position = Vector2.ZERO
@@ -908,6 +931,52 @@ func _layout_augment_badges() -> void:
 	var badge_width := _art_frame.size.x * 0.45
 	_augment_badge_container.position = Vector2(badge_x - badge_width, badge_y)
 	_augment_badge_container.size = Vector2(badge_width, _art_frame.size.y * 0.5)
+
+
+func _refresh_attribute_icons() -> void:
+	if _attribute_icons_container == null:
+		return
+	for child in _attribute_icons_container.get_children():
+		_attribute_icons_container.remove_child(child)
+		child.free()
+	if _presentation_mode != PRESENTATION_FULL:
+		_attribute_icons_container.visible = false
+		return
+	var attributes: Array = _card_data.get("attributes", [])
+	if attributes.is_empty():
+		attributes = ["neutral"]
+	_attribute_icons_container.visible = true
+	for attribute in attributes:
+		var key := str(attribute)
+		var path: String = ATTRIBUTE_ICON_PATHS.get(key, "")
+		if path.is_empty():
+			continue
+		var img := Image.load_from_file(path)
+		if img == null:
+			continue
+		var tex := ImageTexture.create_from_image(img)
+		var icon := TextureRect.new()
+		icon.texture = tex
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.custom_minimum_size = Vector2(ATTRIBUTE_ICON_SIZE, ATTRIBUTE_ICON_SIZE)
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_attribute_icons_container.add_child(icon)
+
+
+func _layout_attribute_icons() -> void:
+	if _attribute_icons_container == null or not _attribute_icons_container.visible:
+		return
+	var scale := _layout_scale(PRESENTATION_FULL)
+	var icon_side := ATTRIBUTE_ICON_SIZE * scale
+	var icon_count := _attribute_icons_container.get_child_count()
+	for child in _attribute_icons_container.get_children():
+		child.custom_minimum_size = Vector2(icon_side, icon_side)
+	var total_height := icon_side * icon_count + 2.0 * maxf(icon_count - 1, 0)
+	_attribute_icons_container.size = Vector2(icon_side, total_height)
+	# Center horizontally under the cost badge
+	var center_x := _cost_badge.position.x + _cost_badge.size.x * 0.5
+	_attribute_icons_container.position = Vector2(center_x - icon_side * 0.5 - 10.0, _cost_badge.position.y + _cost_badge.size.y + 2.0 * scale)
 
 
 func _layout_ward_overlay() -> void:
