@@ -948,10 +948,9 @@ func _refresh_attribute_icons() -> void:
 		var path: String = ATTRIBUTE_ICON_PATHS.get(key, "")
 		if path.is_empty():
 			continue
-		var img := Image.load_from_file(path)
-		if img == null:
+		var tex := _load_texture_from_path(path)
+		if tex == null:
 			continue
-		var tex := ImageTexture.create_from_image(img)
 		var icon := TextureRect.new()
 		icon.texture = tex
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
