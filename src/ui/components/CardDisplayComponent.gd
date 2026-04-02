@@ -763,16 +763,16 @@ func _layout_stat_badges(inner_rect: Rect2, art_rect: Rect2, scale: float, esl_s
 		# Attack: icon texture, Health: circle (no rotation, high corner radius)
 		var badge_center_y := art_rect.position.y + art_rect.size.y * 0.75
 		var badge_inset := -6.0 * scale
-		# Attack icon (no rotation — the texture is already the right shape)
+		# Attack icon — overlaps left card edge
 		_attack_badge.rotation_degrees = 0.0
 		_attack_badge.position = Vector2(
-			art_rect.position.x + badge_inset - 20.0 * scale,
+			inner_rect.position.x - attack_size.x * 0.35,
 			badge_center_y - attack_size.y * 0.5
 		)
-		# Health icon — shifted right to mirror attack
+		# Health icon — overlaps right card edge
 		_health_badge.rotation_degrees = 0.0
 		_health_badge.position = Vector2(
-			art_rect.position.x + art_rect.size.x + 20.0 * scale - health_size.x,
+			inner_rect.position.x + inner_rect.size.x - health_size.x * 0.65,
 			badge_center_y - health_size.y * 0.5
 		)
 		# Attack label centered over icon
@@ -796,10 +796,10 @@ func _layout_stat_badges(inner_rect: Rect2, art_rect: Rect2, scale: float, esl_s
 		_health_badge.pivot_offset = health_rect_size * 0.5
 		var badge_top := art_rect.position.y + art_rect.size.y - attack_rect_size.y - badge_margin
 		badge_top = clampf(badge_top, art_rect.position.y, maxf(art_rect.position.y + art_rect.size.y - attack_rect_size.y, art_rect.position.y))
-		_attack_badge.position = Vector2(art_rect.position.x + badge_margin - 20.0 * scale, badge_top)
+		_attack_badge.position = Vector2(inner_rect.position.x - attack_rect_size.x * 0.35, badge_top)
 		var health_top := art_rect.position.y + art_rect.size.y - health_rect_size.y - badge_margin
 		health_top = clampf(health_top, art_rect.position.y, maxf(art_rect.position.y + art_rect.size.y - health_rect_size.y, art_rect.position.y))
-		_health_badge.position = Vector2(art_rect.position.x + art_rect.size.x - health_rect_size.x - badge_margin + 20.0 * scale, health_top)
+		_health_badge.position = Vector2(inner_rect.position.x + inner_rect.size.x - health_rect_size.x * 0.65, health_top)
 		_attack_label.size = attack_rect_size
 		_attack_label.position = _attack_badge.position + Vector2(0.0, 1.0 * scale)
 		_attack_label.rotation_degrees = 0.0
