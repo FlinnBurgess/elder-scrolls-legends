@@ -34,6 +34,8 @@ var _current_puzzle_config: Dictionary = {}
 
 
 func _ready() -> void:
+	var window_size := DisplayServer.window_get_size()
+	print("Window resolution: %dx%d" % [window_size.x, window_size.y])
 	if OS.has_feature("dedicated_server"):
 		print("Bootstrap scene ready (headless).")
 		return
