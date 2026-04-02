@@ -9,6 +9,8 @@ var _ai_waiting_for_turn_banner := false
 var _local_match_ai_action_count := 0
 var _ai_enabled := false
 var _ai_options: Dictionary = {}
+var _spell_reveal_started_ms: int = -1
+const SPELL_REVEAL_TIMEOUT_MS := 5000
 
 func _init(screen) -> void:
 	_screen = screen
@@ -18,7 +20,16 @@ func _process_local_match_ai_turn() -> void:
 	if not _screen._overlays._mulligan_overlay_state.is_empty():
 		return
 	if not _screen._overlays._spell_reveal_state.is_empty():
+		var now_ms := Time.get_ticks_msec()
+		if _spell_reveal_started_ms < 0:
+			_spell_reveal_started_ms = now_ms
+		elif now_ms - _spell_reveal_started_ms > SPELL_REVEAL_TIMEOUT_MS:
+			print("[AI] Force-dismissing stuck spell reveal after %d ms" % (now_ms - _spell_reveal_started_ms))
+			_screen._feedback._dismiss_spell_reveal()
+			_screen._refresh_ui()
+			_spell_reveal_started_ms = -1
 		return
+	_spell_reveal_started_ms = -1
 	if not _screen._overlays._deck_reveal_state.is_empty():
 		return
 	if not _is_local_match_ai_enabled() or _screen._has_match_winner():
