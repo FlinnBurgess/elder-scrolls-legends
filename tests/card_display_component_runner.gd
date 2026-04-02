@@ -96,10 +96,10 @@ func _run() -> void:
 	if not _assert(rarity_marker != null and absf(rarity_marker.get_global_rect().get_center().x - component.get_global_rect().get_center().x) <= 8.0 and rarity_marker.position.y + rarity_marker.size.y * 0.5 >= component.size.y * 0.85, "Rarity marker should be horizontally centered at the bottom edge of the full card."):
 		quit(1)
 		return
-	if not _assert(attack_badge != null and absf(attack_badge.rotation_degrees - 45.0) < 1.0, "Full mode attack badge should be diamond-shaped (rotated 45 degrees)."):
+	if not _assert(attack_badge != null and attack_badge is TextureRect and attack_badge.texture != null, "Full mode attack badge should be a TextureRect with the attack icon."):
 		quit(1)
 		return
-	if not _assert(health_badge != null and is_zero_approx(health_badge.rotation_degrees), "Full mode health badge should be circular (no rotation)."):
+	if not _assert(health_badge != null and health_badge is TextureRect and health_badge.texture != null, "Full mode health badge should be a TextureRect with the defense icon."):
 		quit(1)
 		return
 	if not _assert(attack_label != null and attack_label.text == "4" and _color_matches(attack_label.get_theme_color("font_color"), COLOR_STAT_BUFF), "Buffed attack values should render in green."):
@@ -150,7 +150,7 @@ func _run() -> void:
 	if not _assert(component.find_child("AttackBadge", true, false).visible and component.find_child("HealthBadge", true, false).visible, "Creature board-minimal mode should retain the creature stat badges."):
 		quit(1)
 		return
-	if not _assert(attack_badge != null and health_badge != null and absf(attack_badge.rotation_degrees - 45.0) < 1.0 and is_zero_approx(health_badge.rotation_degrees), "Creature board-minimal stat badges should use diamond attack and circular health presentation."):
+	if not _assert(attack_badge != null and health_badge != null and attack_badge is TextureRect and health_badge is TextureRect, "Creature board-minimal stat badges should use attack and defense icon textures."):
 		quit(1)
 		return
 

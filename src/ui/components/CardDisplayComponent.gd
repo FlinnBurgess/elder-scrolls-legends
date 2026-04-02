@@ -88,9 +88,9 @@ var _rarity_marker: PanelContainer
 var _rarity_label: Label
 var _cost_badge: PanelContainer
 var _cost_label: Label
-var _attack_badge: PanelContainer
+var _attack_badge: TextureRect
 var _attack_label: Label
-var _health_badge: PanelContainer
+var _health_badge: TextureRect
 var _health_label: Label
 var _ward_overlay: ColorRect
 var _shackle_overlay: TextureRect
@@ -366,8 +366,12 @@ func _build_internal_nodes() -> void:
 	_cost_label = _build_centered_label("CostLabel", 16)
 	_cost_badge.add_child(_cost_label)
 
-	_attack_badge = PanelContainer.new()
+	_attack_badge = TextureRect.new()
 	_attack_badge.name = "AttackBadge"
+	var _attack_icon_img := Image.load_from_file("res://assets/images/cards/attack-icon.png")
+	_attack_badge.texture = ImageTexture.create_from_image(_attack_icon_img)
+	_attack_badge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_attack_badge.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_content_root.add_child(_attack_badge)
 	_attack_label = _build_centered_label("AttackLabel", 18)
 	var bold_font := SystemFont.new()
@@ -402,14 +406,18 @@ func _build_internal_nodes() -> void:
 	_lethal_particles.process_material = lethal_mat
 	_content_root.add_child(_lethal_particles)
 
-	_health_badge = PanelContainer.new()
+	_health_badge = TextureRect.new()
 	_health_badge.name = "HealthBadge"
+	var _health_icon_img := Image.load_from_file("res://assets/images/cards/defense-icon.png")
+	_health_badge.texture = ImageTexture.create_from_image(_health_icon_img)
+	_health_badge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_health_badge.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_content_root.add_child(_health_badge)
 	_health_label = _build_centered_label("HealthLabel", 18)
 	var bold_font_h := SystemFont.new()
 	bold_font_h.font_weight = 700
 	_health_label.add_theme_font_override("font", bold_font_h)
-	_health_badge.add_child(_health_label)
+	_content_root.add_child(_health_label)
 
 	_keyword_icons_container = HBoxContainer.new()
 	_keyword_icons_container.name = "KeywordIcons"
@@ -520,13 +528,11 @@ func _refresh_styles() -> void:
 	_apply_panel_style(_rarity_marker, _rarity_color(_card_data).darkened(0.3), Color.BLACK, _scaled_border_width(2, scale), _scaled_int(2, scale))
 	# Cost badge – dark circle
 	_apply_panel_style(_cost_badge, Color(0.12, 0.14, 0.18, 0.99), Color(0.72, 0.84, 0.98, 1.0), _scaled_border_width(2, scale), _scaled_int(17, scale))
-	# Attack badge – diamond shape (square corners); green border for lethal
+	# Attack badge – texture icon; green tint for lethal
 	var has_lethal := _is_creature(_card_data) and EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_LETHAL)
-	var attack_border := Color(0.2, 0.9, 0.3, 1.0) if has_lethal else Color(0.72, 0.62, 0.42, 0.96)
-	var attack_border_width := _scaled_border_width(3, scale) if has_lethal else _scaled_border_width(2, scale)
-	_apply_panel_style(_attack_badge, Color(0.08, 0.06, 0.04, 0.98), attack_border, attack_border_width, 0)
-	# Health badge – circular (corner radius = half the badge side)
-	_apply_panel_style(_health_badge, Color(0.08, 0.06, 0.04, 0.98), Color(0.72, 0.62, 0.42, 0.96), _scaled_border_width(2, scale), _scaled_int(15, scale))
+	_attack_badge.modulate = Color(0.4, 1.0, 0.5, 1.0) if has_lethal else Color.WHITE
+	# Health badge – texture icon
+	_health_badge.modulate = Color.WHITE
 	# Guard: thick dark brown top border on outer frame
 	if EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_GUARD):
 		var outer_style := _outer_frame.get_theme_stylebox("panel") as StyleBoxFlat
@@ -744,58 +750,61 @@ func _resolve_art_texture(card: Dictionary) -> Texture2D:
 
 
 func _layout_stat_badges(inner_rect: Rect2, art_rect: Rect2, scale: float, esl_style := false) -> void:
-	var badge_side := maxf(40.0 * scale, 40.0)
-	var health_side := maxf(54.0 * scale, 54.0)
-	var badge_size := Vector2(badge_side, badge_side)
-	var health_size := Vector2(health_side, health_side)
+	var badge_side := maxf(40.0 * scale, 40.0) * 1.95
+	var health_side := maxf(54.0 * scale, 54.0) * 1.265
+	var attack_size := Vector2(badge_side, badge_side * 1.6)
+	var health_size := Vector2(health_side, health_side * 1.2)
 	var badge_margin := 6.0 * scale
-	_attack_badge.size = badge_size
+	_attack_badge.size = attack_size
 	_health_badge.size = health_size
-	_attack_badge.pivot_offset = badge_size * 0.5
+	_attack_badge.pivot_offset = attack_size * 0.5
 	_health_badge.pivot_offset = health_size * 0.5
 	if esl_style:
-		# Attack: diamond (rotated 45°), Health: circle (no rotation, high corner radius)
+		# Attack: icon texture, Health: circle (no rotation, high corner radius)
 		var badge_center_y := art_rect.position.y + art_rect.size.y * 0.75
 		var badge_inset := -6.0 * scale
-		# Attack diamond
-		_attack_badge.rotation_degrees = 45.0
+		# Attack icon (no rotation — the texture is already the right shape)
+		_attack_badge.rotation_degrees = 0.0
 		_attack_badge.position = Vector2(
-			art_rect.position.x + badge_inset,
-			badge_center_y - badge_side
+			art_rect.position.x + badge_inset - 20.0 * scale,
+			badge_center_y - attack_size.y * 0.5
 		)
-		# Health circle — no rotation, shifted down slightly
+		# Health icon — shifted right to mirror attack
 		_health_badge.rotation_degrees = 0.0
 		_health_badge.position = Vector2(
-			art_rect.position.x + art_rect.size.x + 14.0 * scale - health_side,
-			badge_center_y - health_side * 0.9
+			art_rect.position.x + art_rect.size.x + 20.0 * scale - health_size.x,
+			badge_center_y - health_size.y * 0.5
 		)
-		# Attack label positioned over the badge center (not a child, so no inherited rotation)
-		var attack_center := _attack_badge.position + _attack_badge.pivot_offset
-		_attack_label.size = badge_size
-		_attack_label.position = attack_center - badge_size * 0.5
+		# Attack label centered over icon
+		_attack_label.size = attack_size
+		_attack_label.position = _attack_badge.position + Vector2(0.0, 1.0 * scale)
 		_attack_label.rotation_degrees = 0.0
-		# Health label stays upright
-		_health_label.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		_health_label.pivot_offset = health_size * 0.5
+		# Health label centered over icon, nudged up-right to sit in shield center
+		_health_label.size = health_size
+		_health_label.position = _health_badge.position + Vector2(2.0 * scale, -2.0 * scale)
 		_health_label.rotation_degrees = 0.0
 	else:
-		# Flat rectangular badges inset on art
+		# Board-minimal: icons sized to fit compactly
 		_attack_badge.rotation_degrees = 0.0
 		_health_badge.rotation_degrees = 0.0
-		var rect_size := Vector2(maxf(28.0 * scale, 28.0), maxf(24.0 * scale, 24.0))
-		_attack_badge.size = rect_size
-		_health_badge.size = rect_size
-		_attack_badge.pivot_offset = rect_size * 0.5
-		_health_badge.pivot_offset = rect_size * 0.5
-		var badge_top := art_rect.position.y + art_rect.size.y - rect_size.y - badge_margin
-		badge_top = clampf(badge_top, art_rect.position.y, maxf(art_rect.position.y + art_rect.size.y - rect_size.y, art_rect.position.y))
-		_attack_badge.position = Vector2(art_rect.position.x + badge_margin, badge_top)
-		_health_badge.position = Vector2(art_rect.position.x + art_rect.size.x - rect_size.x - badge_margin, badge_top)
-		_attack_label.size = rect_size
-		_attack_label.position = _attack_badge.position
+		var rect_w := maxf(28.0 * scale, 28.0) * 1.95
+		var attack_rect_size := Vector2(rect_w, rect_w * 1.6)
+		var health_rect_size := Vector2(rect_w * 0.6, rect_w * 0.6 * 1.2)
+		_attack_badge.size = attack_rect_size
+		_health_badge.size = health_rect_size
+		_attack_badge.pivot_offset = attack_rect_size * 0.5
+		_health_badge.pivot_offset = health_rect_size * 0.5
+		var badge_top := art_rect.position.y + art_rect.size.y - attack_rect_size.y - badge_margin
+		badge_top = clampf(badge_top, art_rect.position.y, maxf(art_rect.position.y + art_rect.size.y - attack_rect_size.y, art_rect.position.y))
+		_attack_badge.position = Vector2(art_rect.position.x + badge_margin - 20.0 * scale, badge_top)
+		var health_top := art_rect.position.y + art_rect.size.y - health_rect_size.y - badge_margin
+		health_top = clampf(health_top, art_rect.position.y, maxf(art_rect.position.y + art_rect.size.y - health_rect_size.y, art_rect.position.y))
+		_health_badge.position = Vector2(art_rect.position.x + art_rect.size.x - health_rect_size.x - badge_margin + 20.0 * scale, health_top)
+		_attack_label.size = attack_rect_size
+		_attack_label.position = _attack_badge.position + Vector2(0.0, 1.0 * scale)
 		_attack_label.rotation_degrees = 0.0
-		_health_label.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		_health_label.pivot_offset = rect_size * 0.5
+		_health_label.size = health_rect_size
+		_health_label.position = _health_badge.position + Vector2(2.0 * scale, -2.0 * scale)
 		_health_label.rotation_degrees = 0.0
 	# Position lethal particles at the attack badge center
 	if _lethal_particles != null:
@@ -1292,10 +1301,6 @@ func _refresh_corner_radii() -> void:
 	_set_panel_corner_radius(_inner_frame, 0)
 	for panel in [_rules_panel, _rarity_marker, _cost_badge]:
 		_set_panel_corner_radius(panel, _panel_radius(panel, 8))
-	_set_panel_corner_radius(_attack_badge, 0)
-	# Health badge: keep circular — use half the badge dimension as radius
-	var health_radius := maxi(2, int(round(minf(_health_badge.size.x, _health_badge.size.y) * 0.5)))
-	_set_panel_corner_radius(_health_badge, health_radius)
 
 
 func _set_panel_corner_radius(panel: PanelContainer, corner_radius: int) -> void:
