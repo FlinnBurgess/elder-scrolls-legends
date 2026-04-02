@@ -118,7 +118,7 @@ func _test_board_presentation_regressions(screen: MatchScreen) -> bool:
 	return (
 		_assert(turn_banner_overlay != null and turn_banner_overlay.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Turn banner overlay should stay mouse-transparent over the battlefield.") and
 		_assert(turn_banner_row != null and turn_banner_row.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Turn banner row should not intercept board clicks while the banner is visible.") and
-		_assert(clip_card != null and clip_card.clip_contents, "Board cards should clip presentation content to the visible card frame.") and
+		_assert(clip_card != null and not clip_card.clip_contents, "Board cards should not clip so stat badge icons can overlap the card edge.") and
 		_assert(lane_content != null and lane_content.size.y <= lane_card.size.y, "Board card content should stay inside the visible card frame height.") and
 		_assert(lane_display != null and (_card_display_mode(lane_display) == CardDisplayComponent.PRESENTATION_CREATURE_BOARD_MINIMAL), "Lane creatures should render through the creature-board minimal card display mode.") and
 		_assert(lane_display != null and lane_display.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Visible board-card art should not absorb clicks away from the owning button.") and

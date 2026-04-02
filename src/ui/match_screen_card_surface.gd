@@ -31,7 +31,7 @@ func _build_card_button(card: Dictionary, public_view: bool, surface := "default
 	var locked := _should_dim_card_for_turn(card, surface, interaction_state)
 	button.name = "%s_%s_card" % [surface, instance_id]
 	button.custom_minimum_size = _surface_button_minimum_size(surface)
-	button.clip_contents = surface == "lane"
+	button.clip_contents = false
 	button.text = ""
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.focus_mode = Control.FOCUS_NONE
