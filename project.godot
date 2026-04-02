@@ -25,7 +25,11 @@ PeekRuntimeHelper="*res://addons/godot_mcp/peek_runtime_helper.gd"
 
 [display]
 
+window/size/viewport_width=2880
+window/size/viewport_height=1736
 window/size/mode=2
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
 
 [editor_plugins]
 
