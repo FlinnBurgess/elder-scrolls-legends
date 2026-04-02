@@ -23,7 +23,6 @@ func _refresh_ui() -> void:
 	_screen._refresh_top_deck_choice_state()
 	_refresh_player_sections()
 	_refresh_lanes()
-	_apply_match_layout_scale()
 	_refresh_end_turn_button()
 	_refresh_match_end_overlay()
 	_screen._history._scan_and_refresh_match_history()
@@ -45,32 +44,8 @@ func _refresh_ui() -> void:
 				arrow_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		elif not is_pending_summon_source and not _screen._overlays._has_active_prophecy_overlay(arrow_id):
 			_screen._targeting._cancel_targeting_mode_silent()
-	_screen._pending_layout_scale_frames = 2
 	_screen._feedback._process_overdraw_queue()
 
-
-func _apply_match_layout_scale() -> void:
-	var layout = _screen.find_child("MatchLayout", true, false) as Control
-	var content = _screen.find_child("MatchContent", true, false) as Control
-	if layout == null or content == null:
-		return
-	content.pivot_offset = Vector2.ZERO
-	content.scale = Vector2.ONE
-	var window = _screen.get_tree().root
-	var layout_size := Vector2(window.size) if window != null else Vector2.ZERO
-	if layout_size.x <= 0.0 or layout_size.y <= 0.0:
-		layout_size = _screen.size if _screen.size.x > 0.0 and _screen.size.y > 0.0 else _screen.size
-	var viewport_size = _screen.get_viewport_rect().size
-	if viewport_size.x > 0.0 and viewport_size.y > 0.0:
-		layout_size = Vector2(minf(layout_size.x, viewport_size.x), minf(layout_size.y, viewport_size.y))
-	var available: Vector2 = layout_size - Vector2(48, 44)
-	if available.x <= 0.0 or available.y <= 0.0:
-		return
-	var needed: Vector2 = content.get_combined_minimum_size()
-	if needed.x <= 0.0 or needed.y <= 0.0:
-		return
-	var scale_factor: float = min(1.0, min(available.x / needed.x, available.y / needed.y))
-	content.scale = Vector2(scale_factor, scale_factor)
 
 
 func _refresh_player_sections() -> void:

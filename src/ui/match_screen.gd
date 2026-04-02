@@ -164,7 +164,6 @@ var _last_turn_owner_id := ""
 var _turn_banner_until_ms := 0
 var _queued_ai_step_at_ms := -1
 var _paused_ai_step_delay_ms := -1
-var _pending_layout_scale_frames := 0
 var _hovered_hand_instance_id := ""
 var _hovered_pile_player_id := ""
 var _hovered_pile_zone := ""
@@ -216,7 +215,6 @@ func _ready() -> void:
 	set_process(true)
 	_load_registries()
 	_ui_builder._build_ui()
-	resized.connect(func(): _refresh._apply_match_layout_scale())
 	load_scenario(_scenario_id)
 
 
@@ -809,9 +807,6 @@ func _process(_delta: float) -> void:
 	_process_support_card_hover_preview()
 	_ai_system._process_local_match_ai_turn()
 	_selection._check_pending_forced_play()
-	if _pending_layout_scale_frames > 0:
-		_pending_layout_scale_frames -= 1
-		_refresh._apply_match_layout_scale()
 
 
 func get_available_scenarios() -> Array:
@@ -2679,9 +2674,6 @@ func _debug_dump_pile(player_id: String, zone: String) -> void:
 		print("  [%d] %s (id: %s, instance: %s, cost: %s)" % [i, card_name, card_id, iid, cost])
 	print("=== END DEBUG DUMP ===")
 
-
-func _apply_match_layout_scale() -> void:
-	_refresh._apply_match_layout_scale()
 
 func _refresh_top_deck_choice_state() -> void:
 	_overlays._refresh_top_deck_choice_state()

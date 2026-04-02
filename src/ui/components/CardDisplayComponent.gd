@@ -373,8 +373,7 @@ func _build_internal_nodes() -> void:
 
 	_cost_badge = TextureRect.new()
 	_cost_badge.name = "CostBadge"
-	var _cost_icon_img := Image.load_from_file("res://assets/images/cards/magicka-icon.png")
-	_cost_badge.texture = ImageTexture.create_from_image(_cost_icon_img)
+	_cost_badge.texture = preload("res://assets/images/cards/magicka-icon.png")
 	_cost_badge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_cost_badge.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_content_root.add_child(_cost_badge)
@@ -392,8 +391,7 @@ func _build_internal_nodes() -> void:
 
 	_attack_badge = TextureRect.new()
 	_attack_badge.name = "AttackBadge"
-	var _attack_icon_img := Image.load_from_file("res://assets/images/cards/attack-icon.png")
-	_attack_badge.texture = ImageTexture.create_from_image(_attack_icon_img)
+	_attack_badge.texture = preload("res://assets/images/cards/attack-icon.png")
 	_attack_badge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_attack_badge.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_content_root.add_child(_attack_badge)
@@ -432,8 +430,7 @@ func _build_internal_nodes() -> void:
 
 	_health_badge = TextureRect.new()
 	_health_badge.name = "HealthBadge"
-	var _health_icon_img := Image.load_from_file("res://assets/images/cards/defense-icon.png")
-	_health_badge.texture = ImageTexture.create_from_image(_health_icon_img)
+	_health_badge.texture = preload("res://assets/images/cards/defense-icon.png")
 	_health_badge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_health_badge.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_content_root.add_child(_health_badge)

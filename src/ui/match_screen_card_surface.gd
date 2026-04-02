@@ -116,7 +116,6 @@ func _on_hand_surface_resized(hand_surface: Control) -> void:
 		_layout_hand_cards(hand_surface, player_id)
 	elif hand_surface.get_child_count() > 0 and hand_surface.get_child(0) is Label:
 		_layout_hand_placeholder(hand_surface, hand_surface.get_child(0) as Label)
-	_screen._apply_match_layout_scale()
 
 
 func _layout_hand_cards(hand_surface: Control, player_id: String) -> void:
