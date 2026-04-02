@@ -5,6 +5,8 @@ const DeckPersistenceClass = preload("res://src/deck/deck_persistence.gd")
 const DeckCreationModalClass = preload("res://src/ui/deck_creation_modal.gd")
 const CardCatalog = preload("res://src/deck/card_catalog.gd")
 const DeckCodeClass = preload("res://src/deck/deck_code.gd")
+const DeckValidatorClass = preload("res://src/deck/deck_validator.gd")
+const DeckEditorScreenClass = preload("res://src/ui/deck_editor_screen.gd")
 
 signal edit_deck_requested(deck_name: String)
 signal back_pressed
@@ -118,6 +120,30 @@ func _build_deck_row(deck_name: String) -> Control:
 	name_button.add_theme_font_size_override("font_size", 16)
 	name_button.pressed.connect(_on_deck_selected.bind(deck_name))
 	row.add_child(name_button)
+
+	# Validation error indicator
+	var definition := DeckPersistenceClass.load_deck(deck_name)
+	if not definition.is_empty():
+		var validation := DeckValidatorClass.validate_deck(definition, _card_by_id)
+		var errors: Array = validation.get("errors", [])
+		if not errors.is_empty():
+			var error_btn := Button.new()
+			error_btn.text = "!"
+			error_btn.custom_minimum_size = Vector2(40, 40)
+			error_btn.add_theme_font_size_override("font_size", 18)
+			error_btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+			var error_style := StyleBoxFlat.new()
+			error_style.bg_color = Color(0.7, 0.15, 0.15, 1.0)
+			error_style.set_corner_radius_all(6)
+			error_style.set_content_margin_all(4)
+			error_btn.add_theme_stylebox_override("normal", error_style)
+			var hover_style := StyleBoxFlat.new()
+			hover_style.bg_color = Color(0.85, 0.2, 0.2, 1.0)
+			hover_style.set_corner_radius_all(6)
+			hover_style.set_content_margin_all(4)
+			error_btn.add_theme_stylebox_override("hover", hover_style)
+			error_btn.pressed.connect(_on_validation_error_pressed.bind(deck_name, errors))
+			row.add_child(error_btn)
 
 	# Export button
 	var export_button := Button.new()
@@ -351,6 +377,11 @@ func _show_import_error(message: String) -> void:
 	vbox.add_child(ok_btn)
 
 	add_child(overlay)
+
+
+func _on_validation_error_pressed(deck_name: String, errors: Array) -> void:
+	DeckEditorScreenClass.show_validation_errors_overlay(
+		self, "Validation Errors: %s" % deck_name, errors, Color(0.7, 0.3, 0.3, 1.0))
 
 
 func _clear_children(node: Node) -> void:

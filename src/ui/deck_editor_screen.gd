@@ -528,6 +528,20 @@ func _build_action_buttons() -> Control:
 	cancel_btn.pressed.connect(_on_cancel_pressed)
 	row.add_child(cancel_btn)
 
+	var validate_btn := Button.new()
+	validate_btn.text = "Validate"
+	validate_btn.custom_minimum_size = Vector2(120, 44)
+	validate_btn.add_theme_font_size_override("font_size", 15)
+	var validate_style := StyleBoxFlat.new()
+	validate_style.bg_color = Color(0.35, 0.25, 0.15, 1.0)
+	validate_style.border_color = Color(0.6, 0.45, 0.25, 1.0)
+	validate_style.set_border_width_all(1)
+	validate_style.set_corner_radius_all(6)
+	validate_style.set_content_margin_all(10)
+	validate_btn.add_theme_stylebox_override("normal", validate_style)
+	validate_btn.pressed.connect(_on_validate_pressed)
+	row.add_child(validate_btn)
+
 	var export_btn := Button.new()
 	export_btn.text = "Export Code"
 	export_btn.custom_minimum_size = Vector2(120, 44)
@@ -1229,3 +1243,80 @@ func _on_error_report_submitted(comment: String, element_type: String, element_c
 
 func _on_error_report_dismissed() -> void:
 	_error_report_popover = null
+
+
+func _on_validate_pressed() -> void:
+	var definition := get_deck_definition()
+	var validation := DeckValidator.validate_deck(definition, _card_by_id, _rules_registry)
+	var errors: Array = validation.get("errors", [])
+	if errors.is_empty():
+		_show_validation_overlay("Deck Valid", ["No issues found."], Color(0.3, 0.6, 0.3, 1.0))
+	else:
+		_show_validation_overlay("Validation Errors", errors, Color(0.7, 0.3, 0.3, 1.0))
+
+
+static func show_validation_errors_overlay(parent: Control, title_text: String, messages: Array, accent_color: Color) -> void:
+	var overlay := Control.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0, 0, 0, 0.6)
+	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.add_child(backdrop)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(450, 0)
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.12, 0.12, 0.15, 1.0)
+	panel_style.border_color = accent_color
+	panel_style.set_border_width_all(2)
+	panel_style.set_corner_radius_all(12)
+	panel_style.set_content_margin_all(24)
+	panel.add_theme_stylebox_override("panel", panel_style)
+	center.add_child(panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 12)
+	panel.add_child(vbox)
+
+	var title := Label.new()
+	title.text = title_text
+	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_color_override("font_color", accent_color)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
+
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(0, 60)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	vbox.add_child(scroll)
+
+	var msg_list := VBoxContainer.new()
+	msg_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	msg_list.add_theme_constant_override("separation", 6)
+	scroll.add_child(msg_list)
+
+	for msg_text in messages:
+		var msg_label := Label.new()
+		msg_label.text = str(msg_text)
+		msg_label.add_theme_font_size_override("font_size", 14)
+		msg_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		msg_list.add_child(msg_label)
+
+	var ok_btn := Button.new()
+	ok_btn.text = "OK"
+	ok_btn.custom_minimum_size = Vector2(100, 36)
+	ok_btn.pressed.connect(overlay.queue_free)
+	vbox.add_child(ok_btn)
+
+	parent.add_child(overlay)
+
+
+func _show_validation_overlay(title_text: String, messages: Array, accent_color: Color) -> void:
+	show_validation_errors_overlay(self, title_text, messages, accent_color)

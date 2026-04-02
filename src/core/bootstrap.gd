@@ -473,15 +473,18 @@ func _load_valid_player_deck_entries() -> Array:
 
 	var entries: Array = []
 	var deck_names := DeckPersistence.list_decks()
+	print("[DeckSelect] Found %d decks: %s" % [deck_names.size(), str(deck_names)])
 	for deck_name in deck_names:
 		var definition := DeckPersistence.load_deck(deck_name)
 		if definition.is_empty():
-			push_warning("Deck select: failed to load player deck '%s'" % deck_name)
+			print("[DeckSelect] SKIP '%s': failed to load (empty definition)" % deck_name)
 			continue
+		print("[DeckSelect] Loaded '%s': attribute_ids=%s, card_count=%d" % [deck_name, str(definition.get("attribute_ids", [])), definition.get("cards", []).size()])
 		var validation := DeckValidator.validate_deck(definition, card_by_id)
 		if not validation.get("is_valid", false):
-			push_warning("Deck select: player deck '%s' failed validation: %s" % [deck_name, str(validation.get("errors", []))])
+			print("[DeckSelect] SKIP '%s': validation failed: %s" % [deck_name, str(validation.get("errors", []))])
 			continue
+		print("[DeckSelect] PASS '%s'" % deck_name)
 		var card_ids: Array = []
 		for card_entry in definition.get("cards", []):
 			if typeof(card_entry) == TYPE_DICTIONARY:
