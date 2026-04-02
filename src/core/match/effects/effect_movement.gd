@@ -82,7 +82,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 							dest_lane_id = lid
 							break
 				if dest_lane_id.is_empty():
-					return
+					continue
 				var move_opts := {
 					"slot_index": int(effect.get("slot_index", -1)),
 					"preserve_entered_lane_on_turn": true,
@@ -388,11 +388,11 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				for hi in range(hand.size() - 1, -1, -1):
 					var h_card = hand[hi]
 					if typeof(h_card) != TYPE_DICTIONARY:
-						return
+						continue
 					if not shuffle_filter_tag.is_empty():
 						var tags = h_card.get("rules_tags", [])
 						if typeof(tags) != TYPE_ARRAY or not tags.has(shuffle_filter_tag):
-							return
+							continue
 					to_shuffle.append(h_card)
 					hand.remove_at(hi)
 				var draw_count := to_shuffle.size()

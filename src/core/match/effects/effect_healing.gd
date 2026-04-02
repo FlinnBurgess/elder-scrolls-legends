@@ -204,7 +204,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			var spcil_lane_id := str(spcil_source_loc.get("lane_id", ""))
 			for lane in match_state.get("lanes", []):
 				if str(lane.get("lane_id", "")) != spcil_lane_id:
-					return
+					continue
 				for spcil_card in lane.get("player_slots", {}).get(spcil_opponent_id, []):
 					if typeof(spcil_card) == TYPE_DICTIONARY and EvergreenRules.get_power(spcil_card) > spcil_cap:
 						spcil_card["power"] = spcil_cap

@@ -309,11 +309,11 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var rcih_filter_card_type := str(rcih_filter.get("card_type", ""))
 				for card in rcih_hand:
 					if typeof(card) != TYPE_DICTIONARY:
-						return
+						continue
 					if rcih_target == "all_creatures_in_hand" and str(card.get("card_type", "")) != "creature":
-						return
+						continue
 					if not rcih_filter_card_type.is_empty() and str(card.get("card_type", "")) != rcih_filter_card_type:
-						return
+						continue
 					var current_cost := int(card.get("cost", 0))
 					card["cost"] = maxi(0, current_cost - rcih_amount)
 				generated_events.append({"event_type": "hand_costs_reduced", "player_id": rcih_controller, "amount": rcih_amount, "reason": reason})

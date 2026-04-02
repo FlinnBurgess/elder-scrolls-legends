@@ -83,12 +83,12 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var tih_rand_candidates: Array = []
 				for tih_seed in tih_seeds:
 					if not bool(tih_seed.get("collectible", true)):
-						return
+						continue
 					if str(tih_seed.get("card_type", "")) != CARD_TYPE_CREATURE:
-						return
+						continue
 					var tih_st = tih_seed.get("subtypes", [])
 					if typeof(tih_st) != TYPE_ARRAY:
-						return
+						continue
 					if not tih_group.is_empty():
 						var tih_match := false
 						for tih_s in tih_st:
@@ -96,9 +96,9 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 								tih_match = true
 								break
 						if not tih_match:
-							return
+							continue
 					elif not tih_st.has(tih_random_subtype):
-						return
+						continue
 					tih_rand_candidates.append(tih_seed)
 				if not tih_rand_candidates.is_empty():
 					for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
@@ -119,9 +119,9 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			var tihr_candidates: Array = []
 			for tihr_seed in tihr_seeds:
 				if not bool(tihr_seed.get("collectible", true)):
-					return
+					continue
 				if not tihr_filter_type.is_empty() and str(tihr_seed.get("card_type", "")) != tihr_filter_type:
-					return
+					continue
 				tihr_candidates.append(tihr_seed)
 			var tihr_keep_ability := bool(effect.get("keep_ability", false))
 			var tihr_source_abilities: Array = []

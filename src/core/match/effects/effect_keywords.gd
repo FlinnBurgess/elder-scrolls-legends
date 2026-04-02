@@ -90,7 +90,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					if not EvergreenRules.has_keyword(card, kw):
 						candidates.append(kw)
 				if candidates.is_empty():
-					return
+					continue
 				var pick: String = str(candidates[MatchEffectParams._deterministic_index(match_state, str(card.get("instance_id", "")), candidates.size())])
 				var granted_keywords: Array = card.get("granted_keywords", [])
 				if not granted_keywords.has(pick):
@@ -206,7 +206,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var cafk_granted: Array = cafk_source.get("granted_keywords", [])
 				for card in MatchTimingHelpers._player_lane_creatures(match_state, cafk_controller_id):
 					if str(card.get("instance_id", "")) == str(cafk_source.get("instance_id", "")):
-						return
+						continue
 					for kw in card.get("keywords", []):
 						if not cafk_granted.has(str(kw)):
 							cafk_granted.append(str(kw))
@@ -221,7 +221,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var status_id := str(effect.get("status_id", ""))
 				var target_self_immunities = card.get("self_immunity", [])
 				if typeof(target_self_immunities) == TYPE_ARRAY and target_self_immunities.has(status_id):
-					return
+					continue
 				if status_id == EvergreenRules.STATUS_COVER:
 					var offset := int(effect.get("expires_on_turn_offset", 1))
 					EvergreenRules.grant_cover(card, int(match_state.get("turn_number", 0)) + offset, reason)
@@ -306,13 +306,13 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 		"silence":
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				if MatchTimingHelpers._is_immune_to_effect(match_state, card, "silence"):
-					return
+					continue
 				var silence_result := MatchMutations.silence_card(card, {"reason": reason}, match_state)
 				generated_events.append_array(silence_result.get("events", []))
 		"shackle":
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				if MatchTimingHelpers._is_immune_to_effect(match_state, card, "shackle") or EvergreenRules.has_raw_status(card, "shackle_immune"):
-					return
+					continue
 				EvergreenRules.add_status(card, EvergreenRules.STATUS_SHACKLED)
 				if bool(effect.get("persistent_while_source_alive", false)):
 					card["shackle_expires_on_turn"] = 999999

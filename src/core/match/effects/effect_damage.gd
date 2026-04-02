@@ -431,7 +431,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					if bse_lane_idx >= 0:
 						break
 				if bse_lane_idx < 0:
-					return
+					continue
 				var best_enemy: Dictionary = {}
 				var best_power := -1
 				for pid in match_state["lanes"][bse_lane_idx].get("player_slots", {}).keys():

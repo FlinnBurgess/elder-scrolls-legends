@@ -98,10 +98,10 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				var csa_triggers = card.get("triggered_abilities", [])
 				if typeof(csa_triggers) != TYPE_ARRAY:
-					return
+					continue
 				for csa_trigger in csa_triggers:
 					if typeof(csa_trigger) != TYPE_DICTIONARY:
-						return
+						continue
 					if str(csa_trigger.get("family", "")) == FAMILY_SUMMON:
 						var csa_tm := str(csa_trigger.get("target_mode", ""))
 						if not csa_tm.is_empty():
@@ -145,7 +145,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var tsa_abilities: Array = card.get("triggered_abilities", [])
 				for ability in tsa_abilities:
 					if typeof(ability) != TYPE_DICTIONARY:
-						return
+						continue
 					if str(ability.get("family", "")) == FAMILY_SUMMON:
 						var tsa_tm := str(ability.get("target_mode", ""))
 						if not tsa_tm.is_empty():
@@ -294,29 +294,29 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				for rsr_lane in match_state.get("lanes", []):
 					for rsr_card in rsr_lane.get("player_slots", {}).get(rsr_controller, []):
 						if typeof(rsr_card) != TYPE_DICTIONARY:
-							return
+							continue
 						var rsr_grants = rsr_card.get("grants_trigger", [])
 						if typeof(rsr_grants) != TYPE_ARRAY:
-							return
+							continue
 						for rsr_grant in rsr_grants:
 							if typeof(rsr_grant) != TYPE_DICTIONARY or str(rsr_grant.get("family", "")) != FAMILY_SLAY:
-								return
+								continue
 							var rsr_req_kw := str(rsr_grant.get("required_keyword", ""))
 							if not rsr_req_kw.is_empty() and not EvergreenRules.has_keyword(rsr_killer, rsr_req_kw):
-								return
+								continue
 							rsr_slay_descs.append(rsr_grant)
 				for rsr_support in MatchTimingHelpers._get_player_state(match_state, rsr_controller).get(ZONE_SUPPORT, []):
 					if typeof(rsr_support) != TYPE_DICTIONARY:
-						return
+						continue
 					var rsr_grants = rsr_support.get("grants_trigger", [])
 					if typeof(rsr_grants) != TYPE_ARRAY:
-						return
+						continue
 					for rsr_grant in rsr_grants:
 						if typeof(rsr_grant) != TYPE_DICTIONARY or str(rsr_grant.get("family", "")) != FAMILY_SLAY:
-							return
+							continue
 						var rsr_req_kw := str(rsr_grant.get("required_keyword", ""))
 						if not rsr_req_kw.is_empty() and not EvergreenRules.has_keyword(rsr_killer, rsr_req_kw):
-							return
+							continue
 						rsr_slay_descs.append(rsr_grant)
 				for rsr_idx in range(rsr_slay_descs.size()):
 					var rsr_desc: Dictionary = rsr_slay_descs[rsr_idx]

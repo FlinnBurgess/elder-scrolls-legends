@@ -68,7 +68,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			var co_effects_per_option: Array = []
 			for co_choice in co_choices:
 				if typeof(co_choice) != TYPE_DICTIONARY:
-					return
+					continue
 				co_options.append({"label": str(co_choice.get("label", "")), "description": str(co_choice.get("description", ""))})
 				co_effects_per_option.append(co_choice.get("effects", []))
 			var co_repeat := maxi(1, int(effect.get("repeat", 1)))
@@ -94,7 +94,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var ct_effects_per: Array = []
 				for ct_opt in ct_ability_options:
 					if typeof(ct_opt) != TYPE_DICTIONARY:
-						return
+						continue
 					ct_display_options.append({"label": str(ct_opt.get("label", "Ability")), "description": str(ct_opt.get("description", ""))})
 					ct_effects_per.append(ct_opt.get("effects", []))
 				match_state["pending_player_choices"].append({
@@ -250,7 +250,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var sch_candidates: Array = []
 				for sch_card in sch_player.get(ZONE_HAND, []):
 					if typeof(sch_card) != TYPE_DICTIONARY:
-						return
+						continue
 					if ExtendedMechanicPacks.card_matches_hand_selection_filter(sch_card, sch_filter):
 						sch_candidates.append(str(sch_card.get("instance_id", "")))
 				if not sch_candidates.is_empty():
@@ -372,10 +372,10 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					var pla_source_id := str(trigger.get("source_instance_id", ""))
 					for pla_action in pla_learned:
 						if typeof(pla_action) != TYPE_DICTIONARY:
-							return
+							continue
 						var pla_abilities = pla_action.get("triggered_abilities", [])
 						if typeof(pla_abilities) != TYPE_ARRAY:
-							return
+							continue
 						for pla_ab in pla_abilities:
 							if typeof(pla_ab) == TYPE_DICTIONARY and str(pla_ab.get("family", "")) == FAMILY_ON_PLAY:
 								var pla_tm := str(pla_ab.get("target_mode", ""))

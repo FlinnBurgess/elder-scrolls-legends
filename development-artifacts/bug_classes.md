@@ -214,3 +214,8 @@ How to spot: User reports a "Choose a lane" action entering creature targeting m
 `steal_card` in `match_mutations.gd` only attempted to place the stolen creature in the same lane it was already in (under the new controller). If the stealer's side of that lane was full, `move_card_between_lanes` returned invalid and the steal silently did nothing — it never tried alternate lanes. Fix by falling back to other lanes when the same lane is full, and only failing if all lanes are full.
 Example: Euraxia Tharn (steal with full same-lane)
 How to spot: User reports stealing a creature "does nothing" when the stealer's side of that lane is full but the other lane has space. The steal op fires (log shows it) but the creature doesn't move.
+
+## "Another" random target includes self
+Card rules text says "another random friendly creature" but the effect uses `target: "random_friendly"` which includes self. Should use `target: "random_other_friendly"` to exclude the source card.
+Example: Reachman Shaman, Blackrose Herbalist
+How to spot: User reports a creature buffing/healing itself when it's the only friendly creature on board, or the word "another" appears in `rules_text` but the target is `random_friendly` instead of `random_other_friendly`.

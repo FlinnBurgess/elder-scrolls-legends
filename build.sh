@@ -17,8 +17,10 @@ for preset in "Windows" "Linux" "macOS"; do
     "$GODOT" --headless --path "$PROJECT_DIR" --export-release "$preset" 2>&1
 done
 
+echo "=== Zipping builds ==="
+for platform in windows linux macos; do
+    (cd "$BUILD_DIR/$platform" && zip -r "$BUILD_DIR/ElderScrollsLegends-$platform.zip" .)
+done
+
 echo "=== Done ==="
-echo "Builds:"
-ls -lh "$BUILD_DIR/windows/"
-ls -lh "$BUILD_DIR/linux/"
-ls -lh "$BUILD_DIR/macos/"
+ls -lh "$BUILD_DIR"/*.zip

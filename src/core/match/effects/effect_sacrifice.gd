@@ -109,7 +109,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						rar_dest_lane = lid
 						break
 				if rar_dest_lane.is_empty():
-					return
+					continue
 				var rar_summon := MatchMutations.summon_card_to_lane(match_state, rar_controller, str(card.get("instance_id", "")), rar_dest_lane, {"source_zone": MatchMutations.ZONE_LANE})
 				if bool(rar_summon.get("is_valid", false)):
 					generated_events.append_array(rar_summon.get("events", []))
@@ -271,7 +271,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var cacv_candidates: Array = []
 				for cacv_card in cacv_discard:
 					if typeof(cacv_card) != TYPE_DICTIONARY or str(cacv_card.get("card_type", "")) != CARD_TYPE_CREATURE:
-						return
+						continue
 					var cacv_triggers = cacv_card.get("triggered_abilities", [])
 					if typeof(cacv_triggers) == TYPE_ARRAY:
 						for cacv_t in cacv_triggers:

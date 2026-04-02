@@ -128,7 +128,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				for check_lane in match_state.get("lanes", []):
 					var check_lid := str(check_lane.get("lane_id", ""))
 					if not summon_lane_ids.has(check_lid):
-						return
+						continue
 					var has_wounded := false
 					for card in check_lane.get("player_slots", {}).get(opp_id, []):
 						if typeof(card) == TYPE_DICTIONARY and int(card.get("damage_marked", 0)) > 0:
@@ -382,13 +382,13 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				for srd_i in range(srd_discard.size()):
 					var srd_card = srd_discard[srd_i]
 					if typeof(srd_card) != TYPE_DICTIONARY:
-						return
+						continue
 					if not srd_filter_card_type.is_empty() and str(srd_card.get("card_type", "")) != srd_filter_card_type:
-						return
+						continue
 					if not srd_filter_subtype.is_empty():
 						var srd_subtypes = srd_card.get("subtypes", [])
 						if typeof(srd_subtypes) != TYPE_ARRAY or not srd_subtypes.has(srd_filter_subtype):
-							return
+							continue
 					srd_candidates.append(srd_i)
 				if srd_candidates.is_empty():
 					return
@@ -572,12 +572,12 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var sfdc_candidates: Array = []
 				for sfdc_card in sfdc_deck:
 					if str(sfdc_card.get("card_type", "")) != sfdc_filter_type:
-						return
+						continue
 					var sfdc_cost := int(sfdc_card.get("cost", 0))
 					if sfdc_exact_cost >= 0 and sfdc_cost != sfdc_exact_cost:
-						return
+						continue
 					if sfdc_cost < sfdc_min_cost or sfdc_cost > sfdc_max_cost:
-						return
+						continue
 					sfdc_candidates.append(sfdc_card)
 				if not sfdc_candidates.is_empty():
 					var sfdc_idx := MatchEffectParams._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_deck_summon", sfdc_candidates.size())
@@ -614,19 +614,19 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var sfdf_candidates: Array = []
 				for sfdf_card in sfdf_deck:
 					if str(sfdf_card.get("card_type", "")) != sfdf_filter_type:
-						return
+						continue
 					if sfdf_exclude_unique and bool(sfdf_card.get("is_unique", false)):
-						return
+						continue
 					if sfdf_max_cost >= 0 and int(sfdf_card.get("cost", 0)) >= sfdf_max_cost:
-						return
+						continue
 					if not sfdf_filter_subtype.is_empty():
 						var sfdf_subtypes = sfdf_card.get("subtypes", [])
 						if typeof(sfdf_subtypes) != TYPE_ARRAY or not sfdf_subtypes.has(sfdf_filter_subtype):
-							return
+							continue
 					if not sfdf_filter_attribute.is_empty():
 						var sfdf_attrs = sfdf_card.get("attributes", [])
 						if typeof(sfdf_attrs) != TYPE_ARRAY or not sfdf_attrs.has(sfdf_filter_attribute):
-							return
+							continue
 					sfdf_candidates.append(sfdf_card)
 				if not sfdf_candidates.is_empty():
 					var sfdf_candidate_ids: Array = []
@@ -682,16 +682,16 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				for i in range(seufd_deck.size() - 1, -1, -1):
 					var seufd_card: Dictionary = seufd_deck[i]
 					if str(seufd_card.get("card_type", "")) != CARD_TYPE_CREATURE:
-						return
+						continue
 					var seufd_cost := int(seufd_card.get("cost", 0))
 					if seufd_max_cost >= 0 and seufd_cost > seufd_max_cost:
-						return
+						continue
 					if not seufd_filter_subtype.is_empty():
 						var seufd_subtypes = seufd_card.get("subtypes", [])
 						if typeof(seufd_subtypes) != TYPE_ARRAY or not seufd_subtypes.has(seufd_filter_subtype):
-							return
+							continue
 					if seufd_costs_seen.has(seufd_cost):
-						return
+						continue
 					seufd_costs_seen[seufd_cost] = true
 					seufd_to_summon.append(seufd_card)
 				for seufd_card in seufd_to_summon:

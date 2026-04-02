@@ -140,7 +140,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var items_to_steal: Array = card.get("attached_items", []).duplicate()
 				for item in items_to_steal:
 					if typeof(item) != TYPE_DICTIONARY:
-						return
+						continue
 					var host_items: Array = card.get("attached_items", [])
 					var idx := -1
 					for i in range(host_items.size()):
@@ -228,13 +228,13 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var bcid_filter_subtype := str(effect.get("filter_subtype", ""))
 				for card in bcid_zone:
 					if typeof(card) != TYPE_DICTIONARY:
-						return
+						continue
 					if str(card.get("card_type", "")) != bcid_filter_type:
-						return
+						continue
 					if not bcid_filter_subtype.is_empty():
 						var subtypes: Array = card.get("subtypes", [])
 						if typeof(subtypes) != TYPE_ARRAY or not subtypes.has(bcid_filter_subtype):
-							return
+							continue
 					EvergreenRules.apply_stat_bonus(card, bcid_power, bcid_health, reason)
 				generated_events.append({"event_type": "zone_buffed", "player_id": bcid_controller, "zone": bcid_zone_name, "power": bcid_power, "health": bcid_health, "reason": reason})
 		"equip_item", "equip_generated_item":

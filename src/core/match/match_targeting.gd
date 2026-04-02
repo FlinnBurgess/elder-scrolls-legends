@@ -642,6 +642,10 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 			var all_friendly := _resolve_card_targets_by_name(match_state, trigger, event, "all_friendly")
 			if not all_friendly.is_empty():
 				targets.append(all_friendly[randi() % all_friendly.size()])
+		"random_other_friendly":
+			var all_other_friendly := _resolve_card_targets_by_name(match_state, trigger, event, "all_other_friendly")
+			if not all_other_friendly.is_empty():
+				targets.append(all_other_friendly[randi() % all_other_friendly.size()])
 		"random_enemy_in_lane":
 			var all_enemies_lane := _resolve_card_targets_by_name(match_state, trigger, event, "all_enemies_in_lane")
 			if not all_enemies_lane.is_empty():

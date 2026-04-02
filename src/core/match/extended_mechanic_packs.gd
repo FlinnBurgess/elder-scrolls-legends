@@ -114,8 +114,7 @@ static func observe_event(match_state: Dictionary, event: Dictionary) -> void:
 			if not summoned_id.is_empty():
 				var summoned_card := _find_card_anywhere(match_state, summoned_id)
 				if not summoned_card.is_empty():
-					var summoned_subtypes = summoned_card.get("subtypes", [])
-					if typeof(summoned_subtypes) == TYPE_ARRAY and summoned_subtypes.has("Skeever"):
+					if str(summoned_card.get("name", "")) == "Skeever":
 						summon_player["skeevers_summoned_this_game"] = int(summon_player.get("skeevers_summoned_this_game", 0)) + 1
 		return
 	if event_type == "invade_triggered":

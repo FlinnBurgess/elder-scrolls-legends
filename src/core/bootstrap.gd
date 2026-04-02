@@ -105,6 +105,12 @@ func _show_main_menu() -> void:
 	deckbuilder_button.pressed.connect(_on_deckbuilder_pressed)
 	center.add_child(deckbuilder_button)
 
+	var quit_button := Button.new()
+	quit_button.text = "Quit"
+	quit_button.custom_minimum_size = Vector2(320, 52)
+	quit_button.pressed.connect(get_tree().quit)
+	center.add_child(quit_button)
+
 
 func _on_match_pressed() -> void:
 	GameLogger.trc("App", "screen", "to:deck_select")
