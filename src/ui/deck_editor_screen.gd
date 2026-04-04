@@ -13,6 +13,8 @@ const DeckCreationModalClass = preload("res://src/ui/deck_creation_modal.gd")
 const MagickaCurveChartClass = preload("res://src/ui/components/magicka_curve_chart.gd")
 const ErrorReportWriterClass = preload("res://src/core/error_report_writer.gd")
 const ErrorReportPopoverClass = preload("res://src/ui/components/error_report_popover.gd")
+const DeckCardListClass = preload("res://src/ui/components/deck_card_list.gd")
+const UITheme = preload("res://src/ui/ui_theme.gd")
 const CARD_ASPECT_RATIO := 384.0 / 220.0
 const ATTRIBUTE_TINTS := {
 	"strength": Color(0.84, 0.39, 0.31, 1.0),
@@ -74,8 +76,9 @@ var _left_column: VBoxContainer
 var _right_column: VBoxContainer
 var _deck_header_name_label: Label
 var _deck_header_attr_container: HBoxContainer
-var _deck_card_list_container: VBoxContainer
+var _deck_card_list: DeckCardList
 var _deck_card_list_scroll: ScrollContainer
+var _card_hover_preview_layer: Control
 var _magicka_curve_chart: Control
 var _card_count_label: Label
 var _root_split: HSplitContainer
@@ -262,13 +265,14 @@ func _load_attribute_registry_labels() -> void:
 # --- UI Construction ---
 
 func _build_ui() -> void:
-	# Outer margin so content doesn't touch screen edges
+	UITheme.add_background(self)
+
 	var outer_margin := MarginContainer.new()
 	outer_margin.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	outer_margin.add_theme_constant_override("margin_left", 16)
-	outer_margin.add_theme_constant_override("margin_right", 16)
-	outer_margin.add_theme_constant_override("margin_top", 12)
-	outer_margin.add_theme_constant_override("margin_bottom", 12)
+	outer_margin.add_theme_constant_override("margin_left", 80)
+	outer_margin.add_theme_constant_override("margin_right", 80)
+	outer_margin.add_theme_constant_override("margin_top", 50)
+	outer_margin.add_theme_constant_override("margin_bottom", 50)
 	add_child(outer_margin)
 
 	_root_split = HSplitContainer.new()
@@ -287,7 +291,8 @@ func _build_ui() -> void:
 	_left_column.add_child(_build_filter_bar())
 
 	_browser_summary_label = Label.new()
-	_browser_summary_label.add_theme_font_size_override("font_size", 14)
+	_browser_summary_label.add_theme_font_size_override("font_size", 16)
+	_browser_summary_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
 	_left_column.add_child(_browser_summary_label)
 
 	_browser_scroll = ScrollContainer.new()
@@ -318,10 +323,12 @@ func _build_ui() -> void:
 	_deck_card_list_scroll.size_flags_horizontal = SIZE_EXPAND_FILL
 	_deck_card_list_scroll.size_flags_vertical = SIZE_EXPAND_FILL
 	_right_column.add_child(_deck_card_list_scroll)
-	_deck_card_list_container = VBoxContainer.new()
-	_deck_card_list_container.size_flags_horizontal = SIZE_EXPAND_FILL
-	_deck_card_list_container.add_theme_constant_override("separation", 4)
-	_deck_card_list_scroll.add_child(_deck_card_list_container)
+	_deck_card_list = DeckCardListClass.new()
+	_deck_card_list.set_show_remove_buttons(true)
+	_deck_card_list.card_remove_pressed.connect(remove_card_from_deck)
+	_deck_card_list.row_mouse_entered.connect(func(_row: Control, entry: Dictionary): _on_deck_row_mouse_entered(entry))
+	_deck_card_list.row_mouse_exited.connect(func(_entry: Dictionary): _on_deck_row_mouse_exited())
+	_deck_card_list_scroll.add_child(_deck_card_list)
 
 	# Magicka curve chart
 	_magicka_curve_chart = MagickaCurveChartClass.new()
@@ -330,13 +337,21 @@ func _build_ui() -> void:
 
 	# Card count label
 	_card_count_label = Label.new()
-	_card_count_label.add_theme_font_size_override("font_size", 16)
+	_card_count_label.add_theme_font_size_override("font_size", 18)
+	_card_count_label.add_theme_color_override("font_color", UITheme.TEXT_SECTION)
 	_card_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_right_column.add_child(_card_count_label)
 	_refresh_card_count()
 
 	# Done / Cancel buttons
 	_right_column.add_child(_build_action_buttons())
+
+	# Card hover preview layer (overlay on top of everything)
+	_card_hover_preview_layer = Control.new()
+	_card_hover_preview_layer.name = "CardHoverPreviewLayer"
+	_card_hover_preview_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_card_hover_preview_layer.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	add_child(_card_hover_preview_layer)
 
 	_on_root_split_resized.call_deferred()
 
@@ -349,20 +364,23 @@ func _build_pagination_controls() -> Control:
 
 	_prev_page_button = Button.new()
 	_prev_page_button.text = "Previous"
-	_prev_page_button.custom_minimum_size = Vector2(100, 36)
+	_prev_page_button.custom_minimum_size = Vector2(120, 44)
+	UITheme.style_button(_prev_page_button, 18)
 	_prev_page_button.pressed.connect(_on_prev_page_pressed)
 	_pagination_container.add_child(_prev_page_button)
 
 	_page_label = Label.new()
 	_page_label.text = "Page 1 of 1"
-	_page_label.add_theme_font_size_override("font_size", 14)
+	_page_label.add_theme_font_size_override("font_size", 18)
+	_page_label.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
 	_page_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_page_label.size_flags_horizontal = SIZE_EXPAND_FILL
 	_pagination_container.add_child(_page_label)
 
 	_next_page_button = Button.new()
 	_next_page_button.text = "Next"
-	_next_page_button.custom_minimum_size = Vector2(100, 36)
+	_next_page_button.custom_minimum_size = Vector2(120, 44)
+	UITheme.style_button(_next_page_button, 18)
 	_next_page_button.pressed.connect(_on_next_page_pressed)
 	_pagination_container.add_child(_next_page_button)
 
@@ -381,9 +399,10 @@ func _build_deck_header() -> Control:
 	header_button.add_child(header_box)
 
 	_deck_header_name_label = Label.new()
-	_deck_header_name_label.add_theme_font_size_override("font_size", 24)
 	_deck_header_name_label.text = _deck_name if not _deck_name.is_empty() else "Untitled Deck"
 	_deck_header_name_label.mouse_filter = MOUSE_FILTER_IGNORE
+	UITheme.style_title(_deck_header_name_label, 24)
+	_deck_header_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	header_box.add_child(_deck_header_name_label)
 
 	_deck_header_attr_container = HBoxContainer.new()
@@ -410,102 +429,21 @@ func _refresh_deck_header_attributes() -> void:
 		var none_label := Label.new()
 		none_label.text = "No attributes"
 		none_label.add_theme_font_size_override("font_size", 15)
-		none_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 1.0))
+		none_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
 		_deck_header_attr_container.add_child(none_label)
 
 
 func _refresh_deck_card_list() -> void:
-	if _deck_card_list_container == null:
+	if _deck_card_list == null:
 		return
-	_clear_children(_deck_card_list_container)
-
-	# Collect deck cards with their data, sorted by cost then name
-	var deck_entries: Array = []
+	# Convert _deck_quantities dict to the array format DeckCardList expects
+	var deck_array: Array = []
 	for card_id in _deck_quantities:
-		var card: Dictionary = _card_by_id.get(card_id, {})
-		if card.is_empty():
-			continue
-		deck_entries.append({
-			"card_id": str(card_id),
-			"name": str(card.get("name", card_id)),
-			"cost": int(card.get("cost", 0)),
-			"quantity": int(_deck_quantities.get(card_id, 0)),
-			"attributes": card.get("attributes", []),
-		})
-	deck_entries.sort_custom(func(a, b):
-		if a["cost"] != b["cost"]:
-			return a["cost"] < b["cost"]
-		return a["name"].to_lower() < b["name"].to_lower()
-	)
-
-	for entry in deck_entries:
-		_deck_card_list_container.add_child(_build_deck_card_row(entry))
-
-	if deck_entries.is_empty():
-		var empty_label := Label.new()
-		empty_label.text = "No cards in deck"
-		empty_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 1.0))
-		_deck_card_list_container.add_child(empty_label)
-
-
-func _build_deck_card_row(entry: Dictionary) -> Control:
-	var row := HBoxContainer.new()
-	row.size_flags_horizontal = SIZE_EXPAND_FILL
-	row.custom_minimum_size = Vector2(0, 32)
-	row.add_theme_constant_override("separation", 8)
-	row.mouse_filter = Control.MOUSE_FILTER_STOP
-	row.mouse_entered.connect(_on_deck_row_mouse_entered.bind(entry))
-	row.mouse_exited.connect(_on_deck_row_mouse_exited)
-
-	# Cost badge — colored pill with cost number
-	var cost_badge := PanelContainer.new()
-	var badge_style := StyleBoxFlat.new()
-	badge_style.set_corner_radius_all(14)
-	badge_style.set_content_margin_all(0)
-	badge_style.content_margin_left = 8
-	badge_style.content_margin_right = 8
-	badge_style.content_margin_top = 4
-	badge_style.content_margin_bottom = 4
-	var cost_color := _get_card_cost_badge_color(entry.get("attributes", []))
-	badge_style.bg_color = cost_color
-	cost_badge.add_theme_stylebox_override("panel", badge_style)
-	cost_badge.custom_minimum_size = Vector2(32, 28)
-	var cost_label := Label.new()
-	cost_label.text = str(entry["cost"])
-	cost_label.add_theme_font_size_override("font_size", 14)
-	cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	cost_badge.add_child(cost_label)
-	row.add_child(cost_badge)
-
-	# Card name
-	var name_label := Label.new()
-	name_label.text = str(entry["name"])
-	name_label.size_flags_horizontal = SIZE_EXPAND_FILL
-	name_label.add_theme_font_size_override("font_size", 15)
-	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	row.add_child(name_label)
-
-	# Quantity indicator
-	var qty_label := Label.new()
-	qty_label.text = "x%d" % entry["quantity"]
-	qty_label.add_theme_font_size_override("font_size", 14)
-	qty_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 1.0))
-	row.add_child(qty_label)
-
-	# Minus button
-	var minus_btn := Button.new()
-	minus_btn.text = "-"
-	minus_btn.custom_minimum_size = Vector2(32, 28)
-	minus_btn.pressed.connect(remove_card_from_deck.bind(str(entry["card_id"])))
-	row.add_child(minus_btn)
-
-	return row
-
-
-func _get_card_cost_badge_color(attributes: Array) -> Color:
-	if attributes.size() == 1:
-		return ATTRIBUTE_TINTS.get(str(attributes[0]), NEUTRAL_COST_COLOR)
-	return NEUTRAL_COST_COLOR
+		deck_array.append({"card_id": str(card_id), "quantity": int(_deck_quantities.get(card_id, 0))})
+	if _card_hover_preview_layer != null and not _card_by_id.is_empty():
+		_deck_card_list.enable_hover_preview(_card_hover_preview_layer, _card_by_id)
+		_deck_card_list.set_relationship_context_callback(_build_relationship_context)
+	_deck_card_list.set_deck(deck_array, _card_by_id)
 
 
 func _build_action_buttons() -> Control:
@@ -516,55 +454,29 @@ func _build_action_buttons() -> Control:
 
 	var cancel_btn := Button.new()
 	cancel_btn.text = "Cancel"
-	cancel_btn.custom_minimum_size = Vector2(120, 44)
-	cancel_btn.add_theme_font_size_override("font_size", 15)
-	var cancel_style := StyleBoxFlat.new()
-	cancel_style.bg_color = Color(0.25, 0.25, 0.28, 1.0)
-	cancel_style.border_color = Color(0.5, 0.5, 0.55, 1.0)
-	cancel_style.set_border_width_all(1)
-	cancel_style.set_corner_radius_all(6)
-	cancel_style.set_content_margin_all(10)
-	cancel_btn.add_theme_stylebox_override("normal", cancel_style)
+	cancel_btn.custom_minimum_size = Vector2(140, 52)
+	UITheme.style_button(cancel_btn, 18, true)
 	cancel_btn.pressed.connect(_on_cancel_pressed)
 	row.add_child(cancel_btn)
 
 	var validate_btn := Button.new()
 	validate_btn.text = "Validate"
-	validate_btn.custom_minimum_size = Vector2(120, 44)
-	validate_btn.add_theme_font_size_override("font_size", 15)
-	var validate_style := StyleBoxFlat.new()
-	validate_style.bg_color = Color(0.35, 0.25, 0.15, 1.0)
-	validate_style.border_color = Color(0.6, 0.45, 0.25, 1.0)
-	validate_style.set_border_width_all(1)
-	validate_style.set_corner_radius_all(6)
-	validate_style.set_content_margin_all(10)
-	validate_btn.add_theme_stylebox_override("normal", validate_style)
+	validate_btn.custom_minimum_size = Vector2(140, 52)
+	UITheme.style_button_accent(validate_btn, UITheme.GOLD, 18)
 	validate_btn.pressed.connect(_on_validate_pressed)
 	row.add_child(validate_btn)
 
 	var export_btn := Button.new()
 	export_btn.text = "Export Code"
-	export_btn.custom_minimum_size = Vector2(120, 44)
-	export_btn.add_theme_font_size_override("font_size", 15)
-	var export_style := StyleBoxFlat.new()
-	export_style.bg_color = Color(0.25, 0.35, 0.55, 1.0)
-	export_style.border_color = Color(0.4, 0.5, 0.7, 1.0)
-	export_style.set_border_width_all(1)
-	export_style.set_corner_radius_all(6)
-	export_style.set_content_margin_all(10)
-	export_btn.add_theme_stylebox_override("normal", export_style)
+	export_btn.custom_minimum_size = Vector2(140, 52)
+	UITheme.style_button_accent(export_btn, Color(0.42, 0.62, 0.96, 1.0), 18)
 	export_btn.pressed.connect(_on_export_pressed.bind(export_btn))
 	row.add_child(export_btn)
 
 	var done_btn := Button.new()
 	done_btn.text = "Done"
-	done_btn.custom_minimum_size = Vector2(120, 44)
-	done_btn.add_theme_font_size_override("font_size", 15)
-	var done_style := StyleBoxFlat.new()
-	done_style.bg_color = Color(0.2, 0.5, 0.3, 1.0)
-	done_style.set_corner_radius_all(6)
-	done_style.set_content_margin_all(10)
-	done_btn.add_theme_stylebox_override("normal", done_style)
+	done_btn.custom_minimum_size = Vector2(140, 52)
+	UITheme.style_button_accent(done_btn, Color(0.4, 0.76, 0.52, 1.0), 18)
 	done_btn.pressed.connect(_on_done_pressed)
 	row.add_child(done_btn)
 
@@ -573,46 +485,81 @@ func _build_action_buttons() -> Control:
 
 func _build_filter_bar() -> Control:
 	var panel := PanelContainer.new()
-	var panel_style := StyleBoxFlat.new()
-	panel_style.bg_color = Color(0.14, 0.14, 0.17, 1.0)
-	panel_style.set_corner_radius_all(8)
-	panel_style.set_content_margin_all(12)
-	panel.add_theme_stylebox_override("panel", panel_style)
+	UITheme.style_panel(panel)
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 10)
+	box.add_theme_constant_override("separation", 12)
 	panel.add_child(box)
 
-	# Search bar
-	var search_row := HBoxContainer.new()
-	search_row.add_theme_constant_override("separation", 8)
-	box.add_child(search_row)
+	# Row 1: Search | Attributes | Cost — all inline
+	var top_row := HBoxContainer.new()
+	top_row.add_theme_constant_override("separation", 20)
+	box.add_child(top_row)
+
+	# Search group
+	var search_group := HBoxContainer.new()
+	search_group.add_theme_constant_override("separation", 8)
+	top_row.add_child(search_group)
 	var search_label := Label.new()
 	search_label.text = "Search"
-	search_label.add_theme_font_size_override("font_size", 14)
-	search_row.add_child(search_label)
+	search_label.size_flags_vertical = SIZE_SHRINK_CENTER
+	UITheme.style_section_label(search_label, 22)
+	search_group.add_child(search_label)
 	_search_input = LineEdit.new()
-	_search_input.size_flags_horizontal = SIZE_EXPAND_FILL
-	_search_input.custom_minimum_size = Vector2(0, 32)
+	_search_input.custom_minimum_size = Vector2(220, 44)
+	_search_input.add_theme_font_size_override("font_size", 22)
 	_search_input.placeholder_text = "Name, text, or id"
 	_search_input.text_changed.connect(_on_search_changed)
 	_search_input.gui_input.connect(_on_search_input_gui_input)
-	search_row.add_child(_search_input)
+	search_group.add_child(_search_input)
 
-	# Attribute toggle chips (populated dynamically based on deck attributes)
+	# Attribute chips group
+	var attr_group := HBoxContainer.new()
+	attr_group.add_theme_constant_override("separation", 8)
+	top_row.add_child(attr_group)
 	var attr_label := Label.new()
-	attr_label.text = "Attributes"
-	attr_label.add_theme_font_size_override("font_size", 14)
-	box.add_child(attr_label)
+	attr_label.text = "Attr"
+	attr_label.size_flags_vertical = SIZE_SHRINK_CENTER
+	UITheme.style_section_label(attr_label, 22)
+	attr_group.add_child(attr_label)
 	_attribute_chip_container = HBoxContainer.new()
-	_attribute_chip_container.add_theme_constant_override("separation", 6)
-	box.add_child(_attribute_chip_container)
+	_attribute_chip_container.add_theme_constant_override("separation", 4)
+	_attribute_chip_container.size_flags_vertical = SIZE_SHRINK_CENTER
+	attr_group.add_child(_attribute_chip_container)
 
-	# Separator
-	box.add_child(HSeparator.new())
+	# Cost chips group
+	var cost_group := HBoxContainer.new()
+	cost_group.add_theme_constant_override("separation", 8)
+	top_row.add_child(cost_group)
+	var cost_label := Label.new()
+	cost_label.text = "Cost"
+	cost_label.size_flags_vertical = SIZE_SHRINK_CENTER
+	UITheme.style_section_label(cost_label, 22)
+	cost_group.add_child(cost_label)
+	_cost_chip_container = HBoxContainer.new()
+	_cost_chip_container.add_theme_constant_override("separation", 4)
+	_cost_chip_container.size_flags_vertical = SIZE_SHRINK_CENTER
+	cost_group.add_child(_cost_chip_container)
+	for cost in [0, 1, 2, 3, 4, 5, 6]:
+		var chip := Button.new()
+		chip.toggle_mode = true
+		chip.text = str(cost)
+		chip.custom_minimum_size = Vector2(44, 42)
+		chip.add_theme_font_size_override("font_size", 22)
+		chip.toggled.connect(_on_cost_chip_toggled.bind(cost))
+		_cost_chip_container.add_child(chip)
+	var seven_plus := Button.new()
+	seven_plus.toggle_mode = true
+	seven_plus.text = "7+"
+	seven_plus.custom_minimum_size = Vector2(50, 42)
+	seven_plus.add_theme_font_size_override("font_size", 22)
+	seven_plus.toggled.connect(_on_cost_chip_toggled.bind(7))
+	_cost_chip_container.add_child(seven_plus)
 
-	# Dropdown filters row
+	box.add_child(UITheme.make_separator(0.0))
+
+	# Row 2: Class | Type | Keyword dropdowns
 	var dropdown_row := HBoxContainer.new()
-	dropdown_row.add_theme_constant_override("separation", 8)
+	dropdown_row.add_theme_constant_override("separation", 16)
 	box.add_child(dropdown_row)
 	_class_filter_button = _build_dropdown(dropdown_row, "Class", _class_filter_items())
 	_type_filter_button = _build_dropdown(dropdown_row, "Type", _type_filter_items())
@@ -621,44 +568,65 @@ func _build_filter_bar() -> Control:
 	_type_filter_button.item_selected.connect(_on_type_filter_selected)
 	_keyword_filter_button.item_selected.connect(_on_keyword_filter_selected)
 
-	# Separator
-	box.add_child(HSeparator.new())
-
-	# Cost toggle chips
-	var cost_label := Label.new()
-	cost_label.text = "Cost"
-	cost_label.add_theme_font_size_override("font_size", 14)
-	box.add_child(cost_label)
-	_cost_chip_container = HBoxContainer.new()
-	_cost_chip_container.add_theme_constant_override("separation", 6)
-	box.add_child(_cost_chip_container)
-	for cost in [0, 1, 2, 3, 4, 5, 6]:
-		var chip := Button.new()
-		chip.toggle_mode = true
-		chip.text = str(cost)
-		chip.custom_minimum_size = Vector2(32, 30)
-		chip.toggled.connect(_on_cost_chip_toggled.bind(cost))
-		_cost_chip_container.add_child(chip)
-	var seven_plus := Button.new()
-	seven_plus.toggle_mode = true
-	seven_plus.text = "7+"
-	seven_plus.custom_minimum_size = Vector2(32, 30)
-	seven_plus.toggled.connect(_on_cost_chip_toggled.bind(7))
-	_cost_chip_container.add_child(seven_plus)
-
 	return panel
 
 
 func _build_dropdown(parent: HBoxContainer, label_text: String, items: Array) -> OptionButton:
 	var label := Label.new()
 	label.text = label_text
-	label.add_theme_font_size_override("font_size", 14)
+	label.size_flags_vertical = SIZE_SHRINK_CENTER
+	UITheme.style_section_label(label, 22)
 	parent.add_child(label)
 	var button := OptionButton.new()
-	button.custom_minimum_size = Vector2(0, 30)
+	button.custom_minimum_size = Vector2(160, 44)
+	button.add_theme_font_size_override("font_size", 22)
+	button.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
+	button.add_theme_color_override("font_hover_color", UITheme.GOLD)
+	button.add_theme_color_override("font_pressed_color", UITheme.GOLD_BRIGHT)
+	button.add_theme_color_override("font_focus_color", UITheme.TEXT_LIGHT)
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = UITheme.BTN_BG
+	normal.border_color = UITheme.GOLD_DIM
+	normal.set_border_width_all(1)
+	normal.set_corner_radius_all(4)
+	normal.set_content_margin_all(10)
+	button.add_theme_stylebox_override("normal", normal)
+	var hover := StyleBoxFlat.new()
+	hover.bg_color = UITheme.BTN_BG_HOVER
+	hover.border_color = UITheme.GOLD
+	hover.set_border_width_all(2)
+	hover.set_corner_radius_all(4)
+	hover.set_content_margin_all(10)
+	button.add_theme_stylebox_override("hover", hover)
+	var pressed := StyleBoxFlat.new()
+	pressed.bg_color = UITheme.BTN_BG_PRESSED
+	pressed.border_color = UITheme.GOLD_BRIGHT
+	pressed.set_border_width_all(2)
+	pressed.set_corner_radius_all(4)
+	pressed.set_content_margin_all(10)
+	button.add_theme_stylebox_override("pressed", pressed)
+	button.add_theme_stylebox_override("focus", hover.duplicate())
 	for item in items:
 		button.add_item(str(item.get("label", "")))
 		button.set_item_metadata(button.item_count - 1, item.get("value", ""))
+	# Style the dropdown popup menu
+	var popup := button.get_popup()
+	popup.add_theme_font_size_override("font_size", 22)
+	popup.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
+	popup.add_theme_color_override("font_hover_color", UITheme.GOLD)
+	popup.add_theme_color_override("font_separator_color", UITheme.GOLD_DIM)
+	var popup_panel := StyleBoxFlat.new()
+	popup_panel.bg_color = UITheme.PANEL_BG
+	popup_panel.border_color = UITheme.PANEL_BORDER
+	popup_panel.set_border_width_all(2)
+	popup_panel.set_corner_radius_all(4)
+	popup_panel.set_content_margin_all(6)
+	popup.add_theme_stylebox_override("panel", popup_panel)
+	var popup_hover := StyleBoxFlat.new()
+	popup_hover.bg_color = UITheme.BTN_BG_HOVER
+	popup_hover.set_corner_radius_all(2)
+	popup_hover.set_content_margin_all(6)
+	popup.add_theme_stylebox_override("hover", popup_hover)
 	parent.add_child(button)
 	return button
 
@@ -857,7 +825,7 @@ func _refresh_card_count() -> void:
 	if count < min_cards or count > max_cards:
 		_card_count_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3, 1.0))
 	else:
-		_card_count_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+		_card_count_label.add_theme_color_override("font_color", UITheme.TEXT_SECTION)
 
 
 func _compute_cell_size() -> Vector2:
@@ -907,7 +875,8 @@ func _refresh_attribute_chips() -> void:
 		var chip := Button.new()
 		chip.toggle_mode = true
 		chip.text = _attribute_display_name(attr_id)
-		chip.custom_minimum_size = Vector2(0, 30)
+		chip.custom_minimum_size = Vector2(0, 42)
+		chip.add_theme_font_size_override("font_size", 22)
 		chip.toggled.connect(_on_attribute_chip_toggled.bind(attr_id))
 		_attribute_chip_container.add_child(chip)
 

@@ -7,6 +7,7 @@ extends VBoxContainer
 
 signal row_mouse_entered(row: Control, entry: Dictionary)
 signal row_mouse_exited(entry: Dictionary)
+signal card_remove_pressed(card_id: String)
 
 const UITheme = preload("res://src/ui/ui_theme.gd")
 const CardDisplayComponentClass = preload("res://src/ui/components/CardDisplayComponent.gd")
@@ -37,6 +38,7 @@ void fragment() {
 var _fade_shader: Shader
 var _placeholder_art: Texture2D
 var _card_database: Dictionary = {}
+var _show_remove_buttons := false
 
 # Hover preview state
 var _preview_enabled := false
@@ -51,6 +53,11 @@ var _relationship_context_callback: Callable
 func _init() -> void:
 	size_flags_horizontal = SIZE_EXPAND_FILL
 	add_theme_constant_override("separation", 4)
+
+
+## Enable a "-" remove button on each row. Emits card_remove_pressed(card_id).
+func set_show_remove_buttons(enabled: bool) -> void:
+	_show_remove_buttons = enabled
 
 
 ## Call to enable hover-to-preview. preview_layer should be a full-rect Control
@@ -215,6 +222,15 @@ func _build_row(entry: Dictionary) -> Control:
 	qty_label.add_theme_color_override("font_color", UITheme.GOLD_DIM)
 	qty_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	right_info.add_child(qty_label)
+
+	if _show_remove_buttons:
+		var card_id: String = str(entry.get("card_id", ""))
+		var minus_btn := Button.new()
+		minus_btn.text = "-"
+		minus_btn.custom_minimum_size = Vector2(32, 28)
+		minus_btn.size_flags_vertical = SIZE_SHRINK_CENTER
+		minus_btn.pressed.connect(func(): card_remove_pressed.emit(card_id))
+		right_info.add_child(minus_btn)
 
 	row.add_child(right_info)
 	return row
