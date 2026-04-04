@@ -59,59 +59,136 @@ func _show_main_menu() -> void:
 	_main_menu.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_main_menu)
 
+	# Dark background
+	var bg := ColorRect.new()
+	bg.color = Color(0.08, 0.08, 0.12, 1.0)
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_main_menu.add_child(bg)
+
+	# Subtle vignette overlay
+	var vignette := ColorRect.new()
+	vignette.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	vignette.color = Color(0, 0, 0, 0)
+	_main_menu.add_child(vignette)
+
 	var center := VBoxContainer.new()
-	center.custom_minimum_size = Vector2(320, 0)
 	center.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	center.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	center.grow_vertical = Control.GROW_DIRECTION_BOTH
-	center.add_theme_constant_override("separation", 16)
+	center.add_theme_constant_override("separation", 12)
 	_main_menu.add_child(center)
 
+	# Decorative top line
+	var top_line := ColorRect.new()
+	top_line.custom_minimum_size = Vector2(480, 2)
+	top_line.color = Color(0.72, 0.58, 0.3, 0.6)
+	top_line.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	center.add_child(top_line)
+
+	var spacer_top := Control.new()
+	spacer_top.custom_minimum_size = Vector2(0, 12)
+	center.add_child(spacer_top)
+
+	# Title
 	var title := Label.new()
-	title.text = "The Elder Scrolls: Legends"
+	title.text = "The Elder Scrolls"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_font_size_override("font_size", 56)
+	title.add_theme_color_override("font_color", Color(0.85, 0.72, 0.4, 1.0))
 	center.add_child(title)
 
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 24)
-	center.add_child(spacer)
+	# Subtitle
+	var subtitle := Label.new()
+	subtitle.text = "L E G E N D S"
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subtitle.add_theme_font_size_override("font_size", 30)
+	subtitle.add_theme_color_override("font_color", Color(0.72, 0.58, 0.3, 0.8))
+	center.add_child(subtitle)
 
-	_match_button = Button.new()
-	_match_button.text = "Match"
-	_match_button.custom_minimum_size = Vector2(320, 52)
-	_match_button.pressed.connect(_on_match_pressed)
-	center.add_child(_match_button)
+	# Decorative bottom line
+	var bottom_line := ColorRect.new()
+	bottom_line.custom_minimum_size = Vector2(480, 2)
+	bottom_line.color = Color(0.72, 0.58, 0.3, 0.6)
+	bottom_line.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	center.add_child(bottom_line)
 
-	var adventure_button := Button.new()
-	adventure_button.text = "Adventure"
-	adventure_button.custom_minimum_size = Vector2(320, 52)
-	adventure_button.pressed.connect(_on_adventure_pressed)
-	center.add_child(adventure_button)
+	var spacer_mid := Control.new()
+	spacer_mid.custom_minimum_size = Vector2(0, 40)
+	center.add_child(spacer_mid)
 
-	var arena_button := Button.new()
-	arena_button.text = "Arena"
-	arena_button.custom_minimum_size = Vector2(320, 52)
-	arena_button.pressed.connect(_on_arena_pressed)
-	center.add_child(arena_button)
+	# Menu buttons
+	var buttons_data := [
+		["Match", _on_match_pressed],
+		["Adventure", _on_adventure_pressed],
+		["Arena", _on_arena_pressed],
+		["Puzzles", _on_puzzles_pressed],
+		["Deck Builder", _on_deckbuilder_pressed],
+	]
+	for entry in buttons_data:
+		var btn := _create_menu_button(entry[0], entry[1])
+		center.add_child(btn)
+		if entry[0] == "Match":
+			_match_button = btn
 
-	var puzzles_button := Button.new()
-	puzzles_button.text = "Puzzles"
-	puzzles_button.custom_minimum_size = Vector2(320, 52)
-	puzzles_button.pressed.connect(_on_puzzles_pressed)
-	center.add_child(puzzles_button)
+	var spacer_quit := Control.new()
+	spacer_quit.custom_minimum_size = Vector2(0, 20)
+	center.add_child(spacer_quit)
 
-	var deckbuilder_button := Button.new()
-	deckbuilder_button.text = "Deck Builder"
-	deckbuilder_button.custom_minimum_size = Vector2(320, 52)
-	deckbuilder_button.pressed.connect(_on_deckbuilder_pressed)
-	center.add_child(deckbuilder_button)
-
-	var quit_button := Button.new()
-	quit_button.text = "Quit"
-	quit_button.custom_minimum_size = Vector2(320, 52)
-	quit_button.pressed.connect(get_tree().quit)
+	var quit_button := _create_menu_button("Quit", get_tree().quit, true)
 	center.add_child(quit_button)
+
+
+func _create_menu_button(label_text: String, callback: Callable, subdued := false) -> Button:
+	var btn := Button.new()
+	btn.text = label_text
+	btn.custom_minimum_size = Vector2(480, 72)
+	btn.add_theme_font_size_override("font_size", 28)
+	btn.pressed.connect(callback)
+
+	var gold := Color(0.85, 0.72, 0.4, 1.0)
+	var gold_dim := Color(0.72, 0.58, 0.3, 0.7)
+
+	if subdued:
+		btn.add_theme_color_override("font_color", Color(0.6, 0.55, 0.45, 0.8))
+		btn.add_theme_color_override("font_hover_color", Color(0.75, 0.65, 0.5, 1.0))
+	else:
+		btn.add_theme_color_override("font_color", Color(0.9, 0.85, 0.7, 1.0))
+		btn.add_theme_color_override("font_hover_color", gold)
+
+	btn.add_theme_color_override("font_pressed_color", Color(1.0, 0.9, 0.6, 1.0))
+	btn.add_theme_color_override("font_focus_color", Color(0.9, 0.85, 0.7, 1.0))
+
+	# Normal style
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color(0.12, 0.11, 0.15, 0.9)
+	normal.border_color = gold_dim
+	normal.set_border_width_all(1)
+	normal.set_corner_radius_all(4)
+	normal.set_content_margin_all(12)
+	btn.add_theme_stylebox_override("normal", normal)
+
+	# Hover style
+	var hover := StyleBoxFlat.new()
+	hover.bg_color = Color(0.18, 0.16, 0.2, 0.95)
+	hover.border_color = gold
+	hover.set_border_width_all(2)
+	hover.set_corner_radius_all(4)
+	hover.set_content_margin_all(12)
+	btn.add_theme_stylebox_override("hover", hover)
+
+	# Pressed style
+	var pressed := StyleBoxFlat.new()
+	pressed.bg_color = Color(0.22, 0.19, 0.12, 1.0)
+	pressed.border_color = Color(1.0, 0.9, 0.6, 1.0)
+	pressed.set_border_width_all(2)
+	pressed.set_corner_radius_all(4)
+	pressed.set_content_margin_all(12)
+	btn.add_theme_stylebox_override("pressed", pressed)
+
+	# Focus style (matches hover)
+	btn.add_theme_stylebox_override("focus", hover.duplicate())
+
+	return btn
 
 
 func _on_match_pressed() -> void:
