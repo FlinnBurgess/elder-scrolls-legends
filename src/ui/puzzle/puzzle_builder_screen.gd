@@ -4,6 +4,7 @@ extends Control
 signal play_requested(config: Dictionary)
 signal back_requested
 
+const UITheme = preload("res://src/ui/ui_theme.gd")
 const CardCatalog = preload("res://src/deck/card_catalog.gd")
 const PuzzleCodecScript = preload("res://src/puzzle/puzzle_codec.gd")
 const PuzzleConfigScript = preload("res://src/puzzle/puzzle_config.gd")
@@ -116,18 +117,14 @@ func _init_default_config() -> void:
 func _build_ui() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 
-	var bg := ColorRect.new()
-	bg.color = Color(0.16, 0.17, 0.21, 1.0)
-	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	bg.mouse_filter = MOUSE_FILTER_IGNORE
-	add_child(bg)
+	UITheme.add_background(self)
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 48)
-	margin.add_theme_constant_override("margin_right", 48)
-	margin.add_theme_constant_override("margin_top", 12)
-	margin.add_theme_constant_override("margin_bottom", 12)
+	margin.add_theme_constant_override("margin_left", 80)
+	margin.add_theme_constant_override("margin_right", 80)
+	margin.add_theme_constant_override("margin_top", 50)
+	margin.add_theme_constant_override("margin_bottom", 50)
 	add_child(margin)
 
 	var root := VBoxContainer.new()
@@ -138,6 +135,9 @@ func _build_ui() -> void:
 
 	# Top bar (back + name + toggle + action buttons)
 	_build_top_bar(root)
+
+	# Header separator
+	root.add_child(UITheme.make_separator(0.0))
 
 	# Enemy settings row (rebuilt in _refresh_board)
 	_enemy_settings_container = HBoxContainer.new()
@@ -169,7 +169,7 @@ func _build_ui() -> void:
 	# Status bar
 	_status_label = Label.new()
 	_status_label.add_theme_font_size_override("font_size", 18)
-	_status_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8, 0.9))
+	_status_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
 	root.add_child(_status_label)
 
 	# Import dialog
@@ -184,8 +184,8 @@ func _build_top_bar(parent: VBoxContainer) -> void:
 
 	var back_btn := Button.new()
 	back_btn.text = "Back"
-	back_btn.custom_minimum_size = Vector2(80, 44)
-	back_btn.add_theme_font_size_override("font_size", 18)
+	back_btn.custom_minimum_size = Vector2(120, 56)
+	UITheme.style_button(back_btn, 22, true)
 	back_btn.pressed.connect(func(): back_requested.emit())
 	bar.add_child(back_btn)
 
@@ -193,66 +193,106 @@ func _build_top_bar(parent: VBoxContainer) -> void:
 	_name_input = LineEdit.new()
 	_name_input.placeholder_text = "Puzzle Name"
 	_name_input.max_length = 40
-	_name_input.custom_minimum_size = Vector2(300, 44)
-	_name_input.add_theme_font_size_override("font_size", 20)
+	_name_input.custom_minimum_size = Vector2(300, 56)
+	_name_input.add_theme_font_size_override("font_size", 22)
+	_name_input.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
+	_name_input.add_theme_color_override("font_placeholder_color", UITheme.TEXT_MUTED)
 	_name_input.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var name_style := StyleBoxFlat.new()
+	name_style.bg_color = UITheme.BTN_BG
+	name_style.border_color = UITheme.GOLD_DIM
+	name_style.set_border_width_all(1)
+	name_style.set_corner_radius_all(4)
+	name_style.set_content_margin_all(12)
+	_name_input.add_theme_stylebox_override("normal", name_style)
+	var name_focus := StyleBoxFlat.new()
+	name_focus.bg_color = UITheme.BTN_BG_HOVER
+	name_focus.border_color = UITheme.GOLD
+	name_focus.set_border_width_all(2)
+	name_focus.set_corner_radius_all(4)
+	name_focus.set_content_margin_all(12)
+	_name_input.add_theme_stylebox_override("focus", name_focus)
+	_name_input.add_theme_color_override("caret_color", UITheme.GOLD)
 	_name_input.text_changed.connect(func(t): _config["name"] = t)
 	bar.add_child(_name_input)
 
-	# Kill/Survive toggle inline
+	# Kill/Survive toggle — centered with panel background
+	var toggle_spacer_left := Control.new()
+	toggle_spacer_left.size_flags_horizontal = SIZE_EXPAND_FILL
+	bar.add_child(toggle_spacer_left)
+
+	var toggle_panel := PanelContainer.new()
+	var toggle_style := StyleBoxFlat.new()
+	toggle_style.bg_color = UITheme.PANEL_BG
+	toggle_style.border_color = UITheme.PANEL_BORDER
+	toggle_style.set_border_width_all(2)
+	toggle_style.set_corner_radius_all(6)
+	toggle_style.content_margin_left = 20
+	toggle_style.content_margin_right = 20
+	toggle_style.content_margin_top = 8
+	toggle_style.content_margin_bottom = 8
+	toggle_panel.add_theme_stylebox_override("panel", toggle_style)
+	bar.add_child(toggle_panel)
+
+	var toggle_row := HBoxContainer.new()
+	#toggle_row.add_theme_constant_override("separation", 6)
+	toggle_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	toggle_panel.add_child(toggle_row)
+
 	var kill_label := Label.new()
-	kill_label.text = "Kill"
-	kill_label.add_theme_font_size_override("font_size", 20)
-	kill_label.add_theme_color_override("font_color", Color(0.95, 0.65, 0.55, 1.0))
+	kill_label.text = "KILL"
+	kill_label.add_theme_font_size_override("font_size", 26)
+	kill_label.add_theme_color_override("font_color", UITheme.GOLD_BRIGHT)
 
 	var survive_label := Label.new()
-	survive_label.text = "Survive"
-	survive_label.add_theme_font_size_override("font_size", 20)
-	survive_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6, 0.7))
+	survive_label.text = "SURVIVE"
+	survive_label.add_theme_font_size_override("font_size", 26)
+	survive_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
 
 	_type_toggle = CheckButton.new()
 	_type_toggle.text = ""
 	_type_toggle.button_pressed = false
-	_type_toggle.custom_minimum_size = Vector2(70, 36)
+	_type_toggle.custom_minimum_size = Vector2(0, 44)
+	_type_toggle.size_flags_horizontal = SIZE_SHRINK_CENTER
 	_type_toggle.toggled.connect(func(pressed):
 		_config["type"] = "survive" if pressed else "kill"
-		kill_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6, 0.7) if pressed else Color(0.95, 0.65, 0.55, 1.0))
-		survive_label.add_theme_color_override("font_color", Color(0.55, 0.85, 0.65, 1.0) if pressed else Color(0.6, 0.6, 0.6, 0.7))
+		kill_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED if pressed else UITheme.GOLD_BRIGHT)
+		survive_label.add_theme_color_override("font_color", UITheme.GOLD_BRIGHT if pressed else UITheme.TEXT_MUTED)
 	)
 
-	bar.add_child(kill_label)
-	bar.add_child(_type_toggle)
-	bar.add_child(survive_label)
+	toggle_row.add_child(kill_label)
+	toggle_row.add_child(_type_toggle)
+	toggle_row.add_child(survive_label)
 
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = SIZE_EXPAND_FILL
-	bar.add_child(spacer)
+	var toggle_spacer_right := Control.new()
+	toggle_spacer_right.size_flags_horizontal = SIZE_EXPAND_FILL
+	bar.add_child(toggle_spacer_right)
 
 	var save_btn := Button.new()
 	save_btn.text = "Save"
-	save_btn.custom_minimum_size = Vector2(100, 44)
-	save_btn.add_theme_font_size_override("font_size", 18)
+	save_btn.custom_minimum_size = Vector2(110, 56)
+	UITheme.style_button(save_btn, 20)
 	save_btn.pressed.connect(_on_save)
 	bar.add_child(save_btn)
 
 	var export_btn := Button.new()
 	export_btn.text = "Export"
-	export_btn.custom_minimum_size = Vector2(100, 44)
-	export_btn.add_theme_font_size_override("font_size", 18)
+	export_btn.custom_minimum_size = Vector2(110, 56)
+	UITheme.style_button(export_btn, 20)
 	export_btn.pressed.connect(_on_export)
 	bar.add_child(export_btn)
 
 	var import_btn := Button.new()
 	import_btn.text = "Import"
-	import_btn.custom_minimum_size = Vector2(100, 44)
-	import_btn.add_theme_font_size_override("font_size", 18)
+	import_btn.custom_minimum_size = Vector2(110, 56)
+	UITheme.style_button(import_btn, 20)
 	import_btn.pressed.connect(_show_import_dialog)
 	bar.add_child(import_btn)
 
 	var play_btn := Button.new()
 	play_btn.text = "Play"
-	play_btn.custom_minimum_size = Vector2(100, 44)
-	play_btn.add_theme_font_size_override("font_size", 18)
+	play_btn.custom_minimum_size = Vector2(110, 56)
+	UITheme.style_button(play_btn, 20)
 	play_btn.pressed.connect(_on_play)
 	bar.add_child(play_btn)
 
@@ -279,8 +319,7 @@ func _refresh_board() -> void:
 	_build_side_section("enemy", "Enemy", lane_widths)
 
 	# Separator
-	var sep := HSeparator.new()
-	sep.add_theme_constant_override("separation", 4)
+	var sep := UITheme.make_separator(0.0)
 	_board_container.add_child(sep)
 
 	# Player side (bottom half of board)
@@ -309,6 +348,8 @@ func _build_player_settings_row() -> void:
 	_ring_check.text = "Ring of Magicka"
 	_ring_check.button_pressed = bool(_config.get("player", {}).get("has_ring", false))
 	_ring_check.add_theme_font_size_override("font_size", 20)
+	_ring_check.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
+	_ring_check.add_theme_color_override("font_hover_color", UITheme.GOLD)
 	_ring_check.toggled.connect(func(v): _config["player"]["has_ring"] = v)
 	_player_settings_container.add_child(_ring_check)
 
@@ -328,7 +369,7 @@ func _build_lane_config_row(lane_widths: Array) -> void:
 
 	var l1_label := Label.new()
 	l1_label.text = "Lane 1:"
-	l1_label.add_theme_font_size_override("font_size", 20)
+	UITheme.style_section_label(l1_label, 20)
 	lane1_box.add_child(l1_label)
 
 	_left_lane_type_dropdown = OptionButton.new()
@@ -369,7 +410,7 @@ func _build_lane_config_row(lane_widths: Array) -> void:
 
 	var l2_label := Label.new()
 	l2_label.text = "Lane 2:"
-	l2_label.add_theme_font_size_override("font_size", 20)
+	UITheme.style_section_label(l2_label, 20)
 	lane2_box.add_child(l2_label)
 
 	_right_lane_type_dropdown = OptionButton.new()
@@ -384,6 +425,7 @@ func _build_lane_config_row(lane_widths: Array) -> void:
 	_right_lane_width_label = Label.new()
 	_right_lane_width_label.text = str(int(lane_widths[1]))
 	_right_lane_width_label.add_theme_font_size_override("font_size", 22)
+	_right_lane_width_label.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
 	lane2_box.add_child(_right_lane_width_label)
 
 	# Right spacer
@@ -431,39 +473,39 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 
 	var side_label := Label.new()
 	side_label.text = label_text
-	side_label.add_theme_font_size_override("font_size", 24)
 	side_label.custom_minimum_size = Vector2(100, 0)
+	UITheme.style_section_label(side_label, 24)
 	header.add_child(side_label)
 
 	var hand_btn := Button.new()
 	var hand_count: int = _get_side_cfg(side).get("hand", []).size()
 	hand_btn.text = "Hand (%d)" % hand_count
-	hand_btn.custom_minimum_size = Vector2(140, 48)
-	hand_btn.add_theme_font_size_override("font_size", 20)
+	hand_btn.custom_minimum_size = Vector2(140, 52)
+	UITheme.style_button(hand_btn, 20)
 	hand_btn.pressed.connect(func(): _open_list_editor(side, "hand"))
 	header.add_child(hand_btn)
 
 	var deck_btn := Button.new()
 	var deck_count: int = _get_side_cfg(side).get("deck", []).size()
 	deck_btn.text = "Deck (%d)" % deck_count
-	deck_btn.custom_minimum_size = Vector2(140, 48)
-	deck_btn.add_theme_font_size_override("font_size", 20)
+	deck_btn.custom_minimum_size = Vector2(140, 52)
+	UITheme.style_button(deck_btn, 20)
 	deck_btn.pressed.connect(func(): _open_list_editor(side, "deck"))
 	header.add_child(deck_btn)
 
 	var discard_btn := Button.new()
 	var discard_count: int = _get_side_cfg(side).get("discard", []).size()
 	discard_btn.text = "Discard (%d)" % discard_count
-	discard_btn.custom_minimum_size = Vector2(160, 48)
-	discard_btn.add_theme_font_size_override("font_size", 20)
+	discard_btn.custom_minimum_size = Vector2(160, 52)
+	UITheme.style_button(discard_btn, 20)
 	discard_btn.pressed.connect(func(): _open_list_editor(side, "discard"))
 	header.add_child(discard_btn)
 
 	var support_btn := Button.new()
 	var support_count: int = _get_side_cfg(side).get("supports", []).size()
 	support_btn.text = "Supports (%d)" % support_count
-	support_btn.custom_minimum_size = Vector2(170, 48)
-	support_btn.add_theme_font_size_override("font_size", 20)
+	support_btn.custom_minimum_size = Vector2(170, 52)
+	UITheme.style_button(support_btn, 20)
 	support_btn.pressed.connect(func(): _open_list_editor(side, "supports"))
 	header.add_child(support_btn)
 
@@ -482,7 +524,7 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 			var lane_sep := VSeparator.new()
 			lane_sep.add_theme_stylebox_override("separator", StyleBoxLine.new())
 			var sep_style: StyleBoxLine = lane_sep.get_theme_stylebox("separator")
-			sep_style.color = Color(0.8, 0.2, 0.2, 0.7)
+			sep_style.color = UITheme.GOLD_DIM
 			sep_style.thickness = 2
 			sep_style.vertical = true
 			lane_sep.custom_minimum_size = Vector2(2, 0)
@@ -566,17 +608,17 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 
 				var remove_btn := Button.new()
 				remove_btn.text = "X"
-				remove_btn.custom_minimum_size = Vector2(0, 28)
+				remove_btn.custom_minimum_size = Vector2(0, 32)
 				remove_btn.size_flags_horizontal = SIZE_EXPAND_FILL
-				remove_btn.add_theme_font_size_override("font_size", 14)
+				UITheme.style_button_accent(remove_btn, Color(0.8, 0.3, 0.3), 14)
 				remove_btn.pressed.connect(func(): _remove_creature(s, li, si))
 				action_row.add_child(remove_btn)
 
 				var modify_btn := Button.new()
 				modify_btn.text = "Mod"
-				modify_btn.custom_minimum_size = Vector2(0, 28)
+				modify_btn.custom_minimum_size = Vector2(0, 32)
 				modify_btn.size_flags_horizontal = SIZE_EXPAND_FILL
-				modify_btn.add_theme_font_size_override("font_size", 14)
+				UITheme.style_button(modify_btn, 14)
 				modify_btn.pressed.connect(func(): _modify_creature(s, li, si))
 				action_row.add_child(modify_btn)
 			else:
@@ -584,7 +626,7 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 				empty_btn.text = "+"
 				empty_btn.size_flags_horizontal = SIZE_EXPAND_FILL
 				empty_btn.size_flags_vertical = SIZE_EXPAND_FILL
-				empty_btn.add_theme_font_size_override("font_size", 28)
+				UITheme.style_button(empty_btn, 28, true)
 				var s := side
 				var li := lane_idx
 				var si := slot_idx
@@ -700,7 +742,7 @@ func _open_list_editor(side: String, list_key: String) -> void:
 	_active_overlay = overlay
 
 	var bg_style := StyleBoxFlat.new()
-	bg_style.bg_color = Color(0.04, 0.05, 0.07, 0.90)
+	bg_style.bg_color = Color(0, 0, 0, 0.6)
 	overlay.add_theme_stylebox_override("panel", bg_style)
 
 	var center := CenterContainer.new()
@@ -709,29 +751,18 @@ func _open_list_editor(side: String, list_key: String) -> void:
 
 	var card := PanelContainer.new()
 	card.custom_minimum_size = Vector2(600, 400)
-	var card_style := StyleBoxFlat.new()
-	card_style.bg_color = Color(0.1, 0.11, 0.16, 0.98)
-	card_style.border_color = Color(0.5, 0.5, 0.55, 0.96)
-	card_style.set_border_width_all(2)
-	card_style.set_corner_radius_all(12)
-	card.add_theme_stylebox_override("panel", card_style)
+	UITheme.style_panel(card)
 	center.add_child(card)
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 16)
-	margin.add_theme_constant_override("margin_right", 16)
-	margin.add_theme_constant_override("margin_top", 16)
-	margin.add_theme_constant_override("margin_bottom", 16)
-	card.add_child(margin)
 
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 8)
-	margin.add_child(vbox)
+	card.add_child(vbox)
 
 	var display_key := list_key.capitalize()
 	var title := Label.new()
 	title.text = "%s — %s" % [side.capitalize(), display_key]
-	title.add_theme_font_size_override("font_size", 20)
+	UITheme.style_title(title, 24)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	vbox.add_child(title)
 
 	var actual_key := list_key
@@ -757,6 +788,8 @@ func _open_list_editor(side: String, list_key: String) -> void:
 		var idx_label := Label.new()
 		idx_label.text = str(i + 1) + "."
 		idx_label.custom_minimum_size = Vector2(30, 0)
+		idx_label.add_theme_font_size_override("font_size", 18)
+		idx_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
 		entry_row.add_child(idx_label)
 
 		var card_id := str(list_data[i])
@@ -764,6 +797,8 @@ func _open_list_editor(side: String, list_key: String) -> void:
 		var name_label := Label.new()
 		name_label.text = str(card_data.get("name", card_id))
 		name_label.size_flags_horizontal = SIZE_EXPAND_FILL
+		name_label.add_theme_font_size_override("font_size", 18)
+		name_label.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
 		entry_row.add_child(name_label)
 
 		# Hover preview
@@ -781,7 +816,8 @@ func _open_list_editor(side: String, list_key: String) -> void:
 			# Reorder buttons
 			var up_btn := Button.new()
 			up_btn.text = "^"
-			up_btn.custom_minimum_size = Vector2(30, 28)
+			up_btn.custom_minimum_size = Vector2(36, 32)
+			UITheme.style_button(up_btn, 14)
 			var idx_up := i
 			up_btn.pressed.connect(func():
 				_swap_list_items(side, actual_key, idx_up, idx_up - 1)
@@ -793,7 +829,8 @@ func _open_list_editor(side: String, list_key: String) -> void:
 
 			var down_btn := Button.new()
 			down_btn.text = "v"
-			down_btn.custom_minimum_size = Vector2(30, 28)
+			down_btn.custom_minimum_size = Vector2(36, 32)
+			UITheme.style_button(down_btn, 14)
 			var idx_down := i
 			down_btn.pressed.connect(func():
 				_swap_list_items(side, actual_key, idx_down, idx_down + 1)
@@ -805,7 +842,8 @@ func _open_list_editor(side: String, list_key: String) -> void:
 
 		var remove_btn := Button.new()
 		remove_btn.text = "X"
-		remove_btn.custom_minimum_size = Vector2(30, 28)
+		remove_btn.custom_minimum_size = Vector2(36, 32)
+		UITheme.style_button_accent(remove_btn, Color(0.8, 0.3, 0.3), 14)
 		var remove_idx := i
 		remove_btn.pressed.connect(func():
 			_remove_list_item(side, actual_key, remove_idx)
@@ -817,7 +855,8 @@ func _open_list_editor(side: String, list_key: String) -> void:
 	if list_data.is_empty():
 		var empty_label := Label.new()
 		empty_label.text = "(empty)"
-		empty_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 0.7))
+		empty_label.add_theme_font_size_override("font_size", 18)
+		empty_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
 		list_vbox.add_child(empty_label)
 
 	# Button row
@@ -827,7 +866,8 @@ func _open_list_editor(side: String, list_key: String) -> void:
 
 	var add_btn := Button.new()
 	add_btn.text = "Add Card"
-	add_btn.custom_minimum_size = Vector2(100, 36)
+	add_btn.custom_minimum_size = Vector2(120, 48)
+	UITheme.style_button(add_btn, 20)
 	var filter_hint := "support" if list_key == "supports" else ""
 	add_btn.pressed.connect(func():
 		_dismiss_overlay()
@@ -843,7 +883,8 @@ func _open_list_editor(side: String, list_key: String) -> void:
 
 	var done_btn := Button.new()
 	done_btn.text = "Done"
-	done_btn.custom_minimum_size = Vector2(100, 36)
+	done_btn.custom_minimum_size = Vector2(120, 48)
+	UITheme.style_button(done_btn, 20)
 	done_btn.pressed.connect(func():
 		_dismiss_overlay()
 		_refresh_board()
@@ -967,7 +1008,7 @@ func _show_overwrite_confirm(puzzle_name: String, code: String, existing_id: Str
 	add_child(overlay)
 
 	var bg_style := StyleBoxFlat.new()
-	bg_style.bg_color = Color(0.04, 0.05, 0.07, 0.85)
+	bg_style.bg_color = Color(0, 0, 0, 0.6)
 	overlay.add_theme_stylebox_override("panel", bg_style)
 
 	var center := CenterContainer.new()
@@ -976,28 +1017,17 @@ func _show_overwrite_confirm(puzzle_name: String, code: String, existing_id: Str
 
 	var card := PanelContainer.new()
 	card.custom_minimum_size = Vector2(450, 0)
-	var card_style := StyleBoxFlat.new()
-	card_style.bg_color = Color(0.1, 0.11, 0.16, 0.98)
-	card_style.border_color = Color(0.6, 0.55, 0.3, 0.96)
-	card_style.set_border_width_all(2)
-	card_style.set_corner_radius_all(12)
-	card.add_theme_stylebox_override("panel", card_style)
+	UITheme.style_panel(card)
 	center.add_child(card)
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 20)
-	margin.add_theme_constant_override("margin_right", 20)
-	margin.add_theme_constant_override("margin_top", 20)
-	margin.add_theme_constant_override("margin_bottom", 20)
-	card.add_child(margin)
 
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 14)
-	margin.add_child(vbox)
+	card.add_child(vbox)
 
 	var msg := Label.new()
 	msg.text = "A puzzle named '%s' already exists.\nOverwrite it?" % puzzle_name
 	msg.add_theme_font_size_override("font_size", 20)
+	msg.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
 	msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(msg)
 
@@ -1008,15 +1038,15 @@ func _show_overwrite_confirm(puzzle_name: String, code: String, existing_id: Str
 
 	var cancel_btn := Button.new()
 	cancel_btn.text = "Cancel"
-	cancel_btn.custom_minimum_size = Vector2(120, 40)
-	cancel_btn.add_theme_font_size_override("font_size", 18)
+	cancel_btn.custom_minimum_size = Vector2(120, 48)
+	UITheme.style_button(cancel_btn, 20, true)
 	cancel_btn.pressed.connect(func(): overlay.queue_free())
 	btn_row.add_child(cancel_btn)
 
 	var overwrite_btn := Button.new()
 	overwrite_btn.text = "Overwrite"
-	overwrite_btn.custom_minimum_size = Vector2(120, 40)
-	overwrite_btn.add_theme_font_size_override("font_size", 18)
+	overwrite_btn.custom_minimum_size = Vector2(120, 48)
+	UITheme.style_button_accent(overwrite_btn, Color(0.8, 0.3, 0.3), 20)
 	overwrite_btn.pressed.connect(func():
 		PuzzlePersistenceScript.delete_puzzle(existing_id)
 		PuzzlePersistenceScript.add_puzzle(puzzle_name, code)
@@ -1034,7 +1064,7 @@ func _show_success_popup(message: String) -> void:
 	add_child(overlay)
 
 	var bg_style := StyleBoxFlat.new()
-	bg_style.bg_color = Color(0.04, 0.05, 0.07, 0.85)
+	bg_style.bg_color = Color(0, 0, 0, 0.6)
 	overlay.add_theme_stylebox_override("panel", bg_style)
 
 	var center := CenterContainer.new()
@@ -1043,28 +1073,17 @@ func _show_success_popup(message: String) -> void:
 
 	var card := PanelContainer.new()
 	card.custom_minimum_size = Vector2(400, 0)
-	var card_style := StyleBoxFlat.new()
-	card_style.bg_color = Color(0.1, 0.13, 0.12, 0.98)
-	card_style.border_color = Color(0.3, 0.7, 0.4, 0.96)
-	card_style.set_border_width_all(2)
-	card_style.set_corner_radius_all(12)
-	card.add_theme_stylebox_override("panel", card_style)
+	UITheme.style_panel(card)
 	center.add_child(card)
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 20)
-	margin.add_theme_constant_override("margin_right", 20)
-	margin.add_theme_constant_override("margin_top", 20)
-	margin.add_theme_constant_override("margin_bottom", 20)
-	card.add_child(margin)
 
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 14)
-	margin.add_child(vbox)
+	card.add_child(vbox)
 
 	var msg := Label.new()
 	msg.text = message
 	msg.add_theme_font_size_override("font_size", 20)
+	msg.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
 	msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(msg)
 
@@ -1074,8 +1093,8 @@ func _show_success_popup(message: String) -> void:
 
 	var ok_btn := Button.new()
 	ok_btn.text = "Okay"
-	ok_btn.custom_minimum_size = Vector2(120, 40)
-	ok_btn.add_theme_font_size_override("font_size", 18)
+	ok_btn.custom_minimum_size = Vector2(120, 48)
+	UITheme.style_button(ok_btn, 20)
 	ok_btn.pressed.connect(func(): overlay.queue_free())
 	btn_row.add_child(ok_btn)
 
@@ -1088,7 +1107,7 @@ func _show_error_popup(title_text: String, errors: Array) -> void:
 	add_child(overlay)
 
 	var bg_style := StyleBoxFlat.new()
-	bg_style.bg_color = Color(0.04, 0.05, 0.07, 0.85)
+	bg_style.bg_color = Color(0, 0, 0, 0.6)
 	overlay.add_theme_stylebox_override("panel", bg_style)
 
 	var center := CenterContainer.new()
@@ -1097,24 +1116,12 @@ func _show_error_popup(title_text: String, errors: Array) -> void:
 
 	var card := PanelContainer.new()
 	card.custom_minimum_size = Vector2(450, 0)
-	var card_style := StyleBoxFlat.new()
-	card_style.bg_color = Color(0.12, 0.1, 0.1, 0.98)
-	card_style.border_color = Color(0.8, 0.3, 0.3, 0.96)
-	card_style.set_border_width_all(2)
-	card_style.set_corner_radius_all(12)
-	card.add_theme_stylebox_override("panel", card_style)
+	UITheme.style_panel(card, Color(0.8, 0.3, 0.3, 0.5))
 	center.add_child(card)
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 20)
-	margin.add_theme_constant_override("margin_right", 20)
-	margin.add_theme_constant_override("margin_top", 20)
-	margin.add_theme_constant_override("margin_bottom", 20)
-	card.add_child(margin)
 
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 12)
-	margin.add_child(vbox)
+	card.add_child(vbox)
 
 	var title := Label.new()
 	title.text = title_text
@@ -1126,6 +1133,7 @@ func _show_error_popup(title_text: String, errors: Array) -> void:
 		var err_label := Label.new()
 		err_label.text = "• %s" % str(err)
 		err_label.add_theme_font_size_override("font_size", 18)
+		err_label.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
 		err_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		vbox.add_child(err_label)
 
@@ -1135,8 +1143,8 @@ func _show_error_popup(title_text: String, errors: Array) -> void:
 
 	var ok_btn := Button.new()
 	ok_btn.text = "OK"
-	ok_btn.custom_minimum_size = Vector2(120, 40)
-	ok_btn.add_theme_font_size_override("font_size", 18)
+	ok_btn.custom_minimum_size = Vector2(120, 48)
+	UITheme.style_button(ok_btn, 20)
 	ok_btn.pressed.connect(func(): overlay.queue_free())
 	btn_row.add_child(ok_btn)
 
@@ -1198,7 +1206,7 @@ func _build_import_dialog() -> void:
 	add_child(_import_dialog)
 
 	var bg_style := StyleBoxFlat.new()
-	bg_style.bg_color = Color(0.04, 0.05, 0.07, 0.85)
+	bg_style.bg_color = Color(0, 0, 0, 0.6)
 	_import_dialog.add_theme_stylebox_override("panel", bg_style)
 
 	var center := CenterContainer.new()
@@ -1207,28 +1215,17 @@ func _build_import_dialog() -> void:
 
 	var card := PanelContainer.new()
 	card.custom_minimum_size = Vector2(500, 280)
-	var card_style := StyleBoxFlat.new()
-	card_style.bg_color = Color(0.1, 0.11, 0.16, 0.98)
-	card_style.border_color = Color(0.5, 0.5, 0.55, 0.96)
-	card_style.set_border_width_all(2)
-	card_style.set_corner_radius_all(12)
-	card.add_theme_stylebox_override("panel", card_style)
+	UITheme.style_panel(card)
 	center.add_child(card)
-
-	var card_margin := MarginContainer.new()
-	card_margin.add_theme_constant_override("margin_left", 16)
-	card_margin.add_theme_constant_override("margin_right", 16)
-	card_margin.add_theme_constant_override("margin_top", 16)
-	card_margin.add_theme_constant_override("margin_bottom", 16)
-	card.add_child(card_margin)
 
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 10)
-	card_margin.add_child(vbox)
+	card.add_child(vbox)
 
 	var title := Label.new()
 	title.text = "Import Puzzle Code"
-	title.add_theme_font_size_override("font_size", 20)
+	UITheme.style_title(title, 24)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	vbox.add_child(title)
 
 	_import_input = TextEdit.new()
@@ -1249,13 +1246,15 @@ func _build_import_dialog() -> void:
 
 	var cancel_btn := Button.new()
 	cancel_btn.text = "Cancel"
-	cancel_btn.custom_minimum_size = Vector2(90, 36)
+	cancel_btn.custom_minimum_size = Vector2(110, 48)
+	UITheme.style_button(cancel_btn, 20, true)
 	cancel_btn.pressed.connect(func(): _import_dialog.visible = false)
 	btn_row.add_child(cancel_btn)
 
 	var ok_btn := Button.new()
 	ok_btn.text = "Import"
-	ok_btn.custom_minimum_size = Vector2(90, 36)
+	ok_btn.custom_minimum_size = Vector2(110, 48)
+	UITheme.style_button(ok_btn, 20)
 	ok_btn.pressed.connect(_on_import_confirmed)
 	btn_row.add_child(ok_btn)
 
@@ -1292,7 +1291,7 @@ func _labeled(text: String, control: Control, is_spin: bool = false) -> HBoxCont
 	row.add_theme_constant_override("separation", 10)
 	var lbl := Label.new()
 	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", 20)
+	UITheme.style_section_label(lbl, 20)
 	row.add_child(lbl)
 	row.add_child(control)
 	return row
@@ -1313,6 +1312,22 @@ func _make_magicka_input(default_text: String, on_change: Callable) -> LineEdit:
 	input.text = default_text
 	input.custom_minimum_size = Vector2(80, 46)
 	input.add_theme_font_size_override("font_size", 20)
+	input.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
+	var input_style := StyleBoxFlat.new()
+	input_style.bg_color = UITheme.BTN_BG
+	input_style.border_color = UITheme.GOLD_DIM
+	input_style.set_border_width_all(1)
+	input_style.set_corner_radius_all(4)
+	input_style.set_content_margin_all(8)
+	input.add_theme_stylebox_override("normal", input_style)
+	var input_focus := StyleBoxFlat.new()
+	input_focus.bg_color = UITheme.BTN_BG_HOVER
+	input_focus.border_color = UITheme.GOLD
+	input_focus.set_border_width_all(2)
+	input_focus.set_corner_radius_all(4)
+	input_focus.set_content_margin_all(8)
+	input.add_theme_stylebox_override("focus", input_focus)
+	input.add_theme_color_override("caret_color", UITheme.GOLD)
 	input.text_changed.connect(on_change)
 	return input
 
