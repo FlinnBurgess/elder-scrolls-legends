@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://qbm7dd0gj7ha"
+
+[deps]
+
+files=["res://src/deck/legends_cards_data.Name.translation", "res://src/deck/legends_cards_data.Type.translation", "res://src/deck/legends_cards_data.Subtype.translation", "res://src/deck/legends_cards_data.Unique.translation", "res://src/deck/legends_cards_data.Deck code ID.translation", "res://src/deck/legends_cards_data.Card Set.translation", "res://src/deck/legends_cards_data.Attribute(s).translation", "res://src/deck/legends_cards_data.Magicka Cost.translation", "res://src/deck/legends_cards_data.Power.translation", "res://src/deck/legends_cards_data.Health.translation", "res://src/deck/legends_cards_data.Rarity.translation", "res://src/deck/legends_cards_data.Availability.translation", "res://src/deck/legends_cards_data.Card Text.translation"]
+
+source_file="res://src/deck/legends_cards_data.csv"
+dest_files=["res://src/deck/legends_cards_data.Name.translation", "res://src/deck/legends_cards_data.Type.translation", "res://src/deck/legends_cards_data.Subtype.translation", "res://src/deck/legends_cards_data.Unique.translation", "res://src/deck/legends_cards_data.Deck code ID.translation", "res://src/deck/legends_cards_data.Card Set.translation", "res://src/deck/legends_cards_data.Attribute(s).translation", "res://src/deck/legends_cards_data.Magicka Cost.translation", "res://src/deck/legends_cards_data.Power.translation", "res://src/deck/legends_cards_data.Health.translation", "res://src/deck/legends_cards_data.Rarity.translation", "res://src/deck/legends_cards_data.Availability.translation", "res://src/deck/legends_cards_data.Card Text.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

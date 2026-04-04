@@ -165,6 +165,11 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 			var exalt_source := _find_card_anywhere(match_state, exalt_source_id)
 			if not exalt_source.is_empty() and not EvergreenRules.has_raw_status(exalt_source, EvergreenRules.STATUS_EXALTED):
 				return false
+		if bool(descriptor.get("skip_if_exalted", false)):
+			var sie_source_id := str(trigger.get("source_instance_id", ""))
+			var sie_source := _find_card_anywhere(match_state, sie_source_id)
+			if not sie_source.is_empty() and EvergreenRules.has_raw_status(sie_source, EvergreenRules.STATUS_EXALTED):
+				return false
 		if bool(descriptor.get("plot_bonus", false)) and int(controller.get("cards_played_this_turn", 0)) < 2:
 			return false
 		var req_summon_idx := int(descriptor.get("required_summon_index_this_turn", 0))
@@ -1072,39 +1077,40 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				dfomb_deck.insert(0, dfomb_top_card)
 				return {"handled": true, "events": [{"event_type": "card_moved_to_bottom", "player_id": dfomb_controller_id, "instance_id": str(dfomb_top_card.get("instance_id", ""))}]}
 		"vision_and_transform":
-			var vat_targets: Array = _timing_rules()._resolve_card_targets(match_state, trigger, event, effect)
-			if vat_targets.is_empty():
-				return {"handled": true, "events": []}
-			var vat_target: Dictionary = vat_targets[0]
+			var vat_controller := str(trigger.get("controller_player_id", ""))
+			var vat_source_id := str(trigger.get("source_instance_id", ""))
 			var vat_seeds: Array = CardCatalog._card_seeds()
 			var vat_creatures: Array = []
 			for seed in vat_seeds:
 				if typeof(seed) == TYPE_DICTIONARY and str(seed.get("card_type", "")) == "creature" and bool(seed.get("collectible", true)):
 					vat_creatures.append(seed)
-			if vat_creatures.size() < 2:
+			if vat_creatures.is_empty():
 				return {"handled": true, "events": []}
-			var vat_idx1: int = _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_vat1", vat_creatures.size())
-			var vat_idx2: int = _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_vat2", vat_creatures.size())
-			var vat_t1: Dictionary = vat_creatures[vat_idx1].duplicate(true)
-			vat_t1["definition_id"] = str(vat_t1.get("card_id", ""))
-			var vat_t2: Dictionary = vat_creatures[vat_idx2].duplicate(true)
-			vat_t2["definition_id"] = str(vat_t2.get("card_id", ""))
-			var vat_target_id := str(vat_target.get("instance_id", ""))
-			var vat_pending: Array = match_state.get("pending_player_choices", [])
+			var vat_idx: int = _timing_rules()._deterministic_index(match_state, vat_source_id + "_vat", vat_creatures.size())
+			var vat_template: Dictionary = vat_creatures[vat_idx].duplicate(true)
+			vat_template["definition_id"] = str(vat_template.get("card_id", ""))
+			var vat_has_creatures := false
+			for vat_lane in match_state.get("lanes", []):
+				for vat_pid in vat_lane.get("player_slots", {}).keys():
+					if not vat_lane.get("player_slots", {}).get(vat_pid, []).is_empty():
+						vat_has_creatures = true
+						break
+				if vat_has_creatures:
+					break
+			if not vat_has_creatures:
+				return {"handled": true, "events": []}
+			var vat_pending: Array = match_state.get("pending_summon_effect_targets", [])
 			vat_pending.append({
-				"player_id": str(trigger.get("controller_player_id", "")),
-				"source_instance_id": str(trigger.get("source_instance_id", "")),
-				"prompt": "Choose a creature to transform into:",
-				"mode": "card",
-				"options": [{"label": str(vat_t1.get("name", "")), "card": vat_t1}, {"label": str(vat_t2.get("name", "")), "card": vat_t2}],
-				"effects_per_option": [
-					[{"op": "transform", "target_instance_id": vat_target_id, "card_template": vat_t1}],
-					[{"op": "transform", "target_instance_id": vat_target_id, "card_template": vat_t2}],
-				],
-				"trigger": trigger.duplicate(true),
-				"event": event.duplicate(true),
+				"player_id": vat_controller,
+				"source_instance_id": vat_source_id,
+				"mandatory": true,
+				"_choice_target_mode": "any_creature",
+				"_choice_deferred_effects": [{"op": "transform", "target": "chosen_target", "card_template": vat_template}],
+				"_choice_trigger": trigger.duplicate(true),
+				"_choice_event": event.duplicate(true),
+				"vision_card": vat_template,
 			})
-			return {"handled": true, "events": [{"event_type": "player_choice_pending", "player_id": str(trigger.get("controller_player_id", ""))}]}
+			return {"handled": true, "events": [{"event_type": "summon_effect_target_pending", "player_id": vat_controller}]}
 		"guess_opponent_card":
 			var goc_controller := str(trigger.get("controller_player_id", ""))
 			var goc_opponent := ""
@@ -1248,8 +1254,19 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			ogcfh_given["controller_player_id"] = ogcfh_controller
 			ogcfh_my.get("hand", []).append(ogcfh_given)
 			return {"handled": true, "events": [{"event_type": "card_given_from_opponent", "player_id": ogcfh_controller, "from_player_id": ogcfh_opponent, "instance_id": str(ogcfh_given.get("instance_id", ""))}]}
-		"trade_hand_card_for_opponent_deck":
+		"trade_hand_card_for_opponent_hand":
 			var thcfod_controller := str(trigger.get("controller_player_id", ""))
+			var thcfod_opponent := ""
+			for player in match_state.get("players", []):
+				if str(player.get("player_id", "")) != thcfod_controller:
+					thcfod_opponent = str(player.get("player_id", ""))
+					break
+			var thcfod_opp := _get_player_state(match_state, thcfod_opponent)
+			if thcfod_opp.is_empty():
+				return {"handled": true, "events": []}
+			var thcfod_opp_hand: Array = thcfod_opp.get("hand", [])
+			if thcfod_opp_hand.is_empty():
+				return {"handled": true, "events": []}
 			var thcfod_my := _get_player_state(match_state, thcfod_controller)
 			if thcfod_my.is_empty():
 				return {"handled": true, "events": []}
@@ -1266,7 +1283,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				"source_instance_id": str(trigger.get("source_instance_id", "")),
 				"candidate_instance_ids": thcfod_candidates,
 				"prompt": "Choose a card to trade:",
-				"then_op": "trade_for_opponent_deck",
+				"then_op": "trade_for_opponent_hand",
 				"then_context": {},
 			})
 			return {"handled": true, "events": [{"event_type": "hand_selection_pending", "player_id": thcfod_controller}]}
@@ -2431,7 +2448,7 @@ static func apply_hand_selection_effect(match_state: Dictionary, player_id: Stri
 				disc_removed["zone"] = "discard"
 				disc_player.get("discard", []).append(disc_removed)
 			return [{"event_type": "card_discarded", "player_id": player_id, "source_instance_id": source_instance_id, "discarded_instance_id": str(chosen_card.get("instance_id", "")), "source": "hand_selection", "reason": "hand_selection_discard"}]
-		"trade_for_opponent_deck":
+		"trade_for_opponent_hand":
 			var tfo_opponent := ""
 			for player in match_state.get("players", []):
 				if str(player.get("player_id", "")) != player_id:
@@ -2440,8 +2457,8 @@ static func apply_hand_selection_effect(match_state: Dictionary, player_id: Stri
 			var tfo_opp := _get_player_state(match_state, tfo_opponent)
 			if tfo_opp.is_empty():
 				return []
-			var tfo_opp_deck: Array = tfo_opp.get("deck", [])
-			if tfo_opp_deck.is_empty():
+			var tfo_opp_hand: Array = tfo_opp.get("hand", [])
+			if tfo_opp_hand.is_empty():
 				return []
 			# Discard the chosen card
 			var tfo_my := _get_player_state(match_state, player_id)
@@ -2454,12 +2471,13 @@ static func apply_hand_selection_effect(match_state: Dictionary, player_id: Stri
 			if tfo_chosen_idx >= 0:
 				var tfo_removed: Dictionary = tfo_hand[tfo_chosen_idx]
 				tfo_hand.remove_at(tfo_chosen_idx)
-				tfo_removed["zone"] = "discard"
-				tfo_my.get("discard", []).append(tfo_removed)
-			# Draw random from opponent deck
-			var tfo_pick_idx: int = _timing_rules()._deterministic_index(match_state, source_instance_id + "_barter", tfo_opp_deck.size())
-			var tfo_gained: Dictionary = tfo_opp_deck[tfo_pick_idx]
-			tfo_opp_deck.remove_at(tfo_pick_idx)
+				tfo_removed["zone"] = "hand"
+				tfo_removed["controller_player_id"] = tfo_opponent
+				tfo_opp_hand.append(tfo_removed)
+			# Take random card from opponent's hand
+			var tfo_pick_idx: int = _timing_rules()._deterministic_index(match_state, source_instance_id + "_barter", tfo_opp_hand.size())
+			var tfo_gained: Dictionary = tfo_opp_hand[tfo_pick_idx]
+			tfo_opp_hand.remove_at(tfo_pick_idx)
 			tfo_gained["zone"] = "hand"
 			tfo_gained["controller_player_id"] = player_id
 			tfo_hand.append(tfo_gained)

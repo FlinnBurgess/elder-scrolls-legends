@@ -7,6 +7,7 @@ var _pending_summon_target := {}
 var _pending_secondary_target_state := {}
 var _attack_arrow_state := {}
 var _support_arrow_state := {}
+var _vision_card_overlay: Control = null
 
 func _init(screen) -> void:
 	_screen = screen
@@ -315,7 +316,12 @@ func _check_summon_target_mode(source_instance_id: String) -> void:
 
 func _resolve_summon_target_card(target_instance_id: String) -> void:
 	var source_id := str(_pending_summon_target.get("source_instance_id", ""))
-	var valid_targets = _screen.MatchTiming.get_all_valid_targets(_screen._match_state, source_id)
+	var _rst_choice_tm := str(_pending_summon_target.get("_choice_target_mode", ""))
+	var valid_targets: Array
+	if not _rst_choice_tm.is_empty():
+		valid_targets = _screen.MatchTiming.get_valid_targets_for_mode(_screen._match_state, source_id, _rst_choice_tm, {})
+	else:
+		valid_targets = _screen.MatchTiming.get_all_valid_targets(_screen._match_state, source_id)
 	var is_valid := false
 	for t in valid_targets:
 		if str(t.get("instance_id", "")) == target_instance_id:
@@ -328,6 +334,7 @@ func _resolve_summon_target_card(target_instance_id: String) -> void:
 	var is_turn_trigger := bool(_pending_summon_target.get("is_turn_trigger", false))
 	_pending_summon_target = {}
 	_dismiss_summon_skip_button()
+	_dismiss_vision_card_overlay()
 	_cancel_targeting_mode_silent()
 	if is_turn_trigger:
 		var result = _screen.MatchTiming.resolve_pending_turn_trigger_target(_screen._match_state, _screen._local_player_id(), {"instance_id": target_instance_id})
@@ -346,7 +353,12 @@ func _resolve_summon_target_card(target_instance_id: String) -> void:
 
 func _resolve_summon_target_player(player_id: String) -> void:
 	var source_id := str(_pending_summon_target.get("source_instance_id", ""))
-	var valid_targets = _screen.MatchTiming.get_all_valid_targets(_screen._match_state, source_id)
+	var _rstp_choice_tm := str(_pending_summon_target.get("_choice_target_mode", ""))
+	var valid_targets: Array
+	if not _rstp_choice_tm.is_empty():
+		valid_targets = _screen.MatchTiming.get_valid_targets_for_mode(_screen._match_state, source_id, _rstp_choice_tm, {})
+	else:
+		valid_targets = _screen.MatchTiming.get_all_valid_targets(_screen._match_state, source_id)
 	var is_valid := false
 	for t in valid_targets:
 		if str(t.get("player_id", "")) == player_id:
@@ -359,6 +371,7 @@ func _resolve_summon_target_player(player_id: String) -> void:
 	var is_turn_trigger := bool(_pending_summon_target.get("is_turn_trigger", false))
 	_pending_summon_target = {}
 	_dismiss_summon_skip_button()
+	_dismiss_vision_card_overlay()
 	_cancel_targeting_mode_silent()
 	if is_turn_trigger:
 		var result = _screen.MatchTiming.resolve_pending_turn_trigger_target(_screen._match_state, _screen._local_player_id(), {"player_id": player_id})
@@ -397,6 +410,7 @@ func _cancel_summon_target_mode() -> void:
 		_screen.MatchTiming.decline_pending_summon_effect_target(_screen._match_state, _screen._local_player_id())
 	_pending_summon_target = {}
 	_dismiss_summon_skip_button()
+	_dismiss_vision_card_overlay()
 	_screen._cancel_targeting_mode()
 	_screen._status_message = "Effect declined."
 	_screen._refresh_ui()
@@ -448,18 +462,30 @@ func _check_pending_summon_effect_target() -> void:
 	if card.is_empty():
 		_screen.MatchTiming.decline_pending_summon_effect_target(_screen._match_state, local_id)
 		return
-	var valid_targets = _screen.MatchTiming.get_all_valid_targets(_screen._match_state, source_id)
+	var choice_tm := str(pending.get("_choice_target_mode", ""))
+	var valid_targets: Array
+	if not choice_tm.is_empty():
+		valid_targets = _screen.MatchTiming.get_valid_targets_for_mode(_screen._match_state, source_id, choice_tm, {})
+	else:
+		valid_targets = _screen.MatchTiming.get_all_valid_targets(_screen._match_state, source_id)
 	if valid_targets.is_empty():
 		_screen.MatchTiming.decline_pending_summon_effect_target(_screen._match_state, local_id)
 		return
 	_pending_summon_target = {
 		"source_instance_id": source_id,
 		"is_effect_summon": true,
+		"_choice_target_mode": choice_tm,
 	}
 	_screen._selected_instance_id = source_id
 	_screen._enter_targeting_mode(source_id)
-	var abilities = _screen.MatchTiming.get_target_mode_abilities(card)
-	_screen._status_message = _summon_target_prompt(card, abilities)
+	if not choice_tm.is_empty():
+		_screen._status_message = _summon_target_prompt(card, [{"target_mode": choice_tm}])
+	else:
+		var abilities = _screen.MatchTiming.get_target_mode_abilities(card)
+		_screen._status_message = _summon_target_prompt(card, abilities)
+	var vision_data: Dictionary = pending.get("vision_card", {})
+	if not vision_data.is_empty():
+		_show_vision_card_overlay(vision_data)
 	if not _is_pending_summon_mandatory():
 		_show_summon_skip_button()
 	_screen._refresh_ui()
@@ -510,3 +536,50 @@ func _dismiss_summon_skip_button() -> void:
 	if _screen._betray._summon_skip_button != null and is_instance_valid(_screen._betray._summon_skip_button):
 		_screen._betray._summon_skip_button.queue_free()
 	_screen._betray._summon_skip_button = null
+
+
+func _show_vision_card_overlay(vision_data: Dictionary) -> void:
+	_dismiss_vision_card_overlay()
+	var overlay := Control.new()
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.z_index = 470
+
+	var vbox := VBoxContainer.new()
+	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.set_anchors_preset(Control.PRESET_CENTER)
+	vbox.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	vbox.grow_vertical = Control.GROW_DIRECTION_BOTH
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", 8)
+	overlay.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "Choose a creature to transform into:"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_color_override("font_color", Color(0.95, 0.9, 0.72, 1.0))
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_child(title)
+
+	var card_size: Vector2 = _screen.CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE * 1.8
+	var card_container := Control.new()
+	card_container.custom_minimum_size = card_size
+	card_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_child(card_container)
+
+	var card_display = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+	card_display.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card_display.custom_minimum_size = card_size
+	card_display.scale = Vector2(1.8, 1.8)
+	card_container.add_child(card_display)
+	card_display.apply_card(vision_data, _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+
+	_screen.add_child(overlay)
+	_vision_card_overlay = overlay
+
+
+func _dismiss_vision_card_overlay() -> void:
+	if _vision_card_overlay != null and is_instance_valid(_vision_card_overlay):
+		_vision_card_overlay.queue_free()
+	_vision_card_overlay = null

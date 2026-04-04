@@ -2,6 +2,7 @@ class_name GameLogger
 extends RefCounted
 
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
+const DeckCodeClass = preload("res://src/deck/deck_code.gd")
 
 const LOG_PATH := "res://game_log.txt"
 
@@ -37,20 +38,31 @@ static func start_match(match_state: Dictionary) -> void:
 		push_error("GameLogger: Failed to open log file at %s" % LOG_PATH)
 		return
 	_write("=== MATCH START ===")
+	var rng_seed: int = int(match_state.get("rng_seed", 0))
+	var catalog_result := CardCatalog.load_default()
+	var card_id_to_deck_code: Dictionary = catalog_result.get("card_id_to_deck_code", {})
 	var players: Array = match_state.get("players", [])
 	var starting_player_id := str(match_state.get("starting_player_id", ""))
+	var deck_codes: Array = []
 	for player in players:
 		var pid := str(player.get("player_id", ""))
 		var is_first := pid == starting_player_id
 		var ring_note := " (goes first)" if is_first else " (has ring)"
 		_write("Player: %s%s" % [pid, ring_note])
-		var deck: Array = player.get("deck", [])
-		var hand: Array = player.get("hand", [])
-		var card_names: Array = []
-		for card in hand + deck:
+		var all_cards: Array = player.get("hand", []) + player.get("deck", [])
+		var id_counts := {}
+		for card in all_cards:
 			if typeof(card) == TYPE_DICTIONARY:
-				card_names.append(str(card.get("name", card.get("definition_id", "?"))))
-		_write("  Deck (%d cards): %s" % [card_names.size(), ", ".join(card_names)])
+				var def_id := str(card.get("definition_id", ""))
+				if not def_id.is_empty():
+					id_counts[def_id] = id_counts.get(def_id, 0) + 1
+		var deck_def_cards: Array = []
+		for def_id in id_counts:
+			deck_def_cards.append({"card_id": def_id, "quantity": id_counts[def_id]})
+		var deck_code: String = DeckCodeClass.encode({"cards": deck_def_cards}, card_id_to_deck_code).get("code", "")
+		deck_codes.append(deck_code)
+		_write("  Deck code: %s" % deck_code)
+	print("Match started — seed:%d player:%s enemy:%s" % [rng_seed, deck_codes[1], deck_codes[0]])
 	_write("")
 
 

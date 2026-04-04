@@ -66,10 +66,16 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				return
 			var co_options: Array = []
 			var co_effects_per_option: Array = []
+			var co_has_card_data := false
 			for co_choice in co_choices:
 				if typeof(co_choice) != TYPE_DICTIONARY:
 					continue
-				co_options.append({"label": str(co_choice.get("label", "")), "description": str(co_choice.get("description", ""))})
+				var co_opt := {"label": str(co_choice.get("label", "")), "description": str(co_choice.get("description", ""))}
+				var co_card_data = co_choice.get("card", null)
+				if typeof(co_card_data) == TYPE_DICTIONARY and not co_card_data.is_empty():
+					co_opt["card"] = co_card_data
+					co_has_card_data = true
+				co_options.append(co_opt)
 				co_effects_per_option.append(co_choice.get("effects", []))
 			var co_repeat := maxi(1, int(effect.get("repeat", 1)))
 			var co_pending: Array = match_state.get("pending_player_choices", [])
@@ -78,7 +84,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					"player_id": str(trigger.get("controller_player_id", "")),
 					"source_instance_id": str(trigger.get("source_instance_id", "")),
 					"prompt": "Choose one:" if co_repeat == 1 else "Choose one (%d of %d):" % [co_i + 1, co_repeat],
-					"mode": "text",
+					"mode": "card" if co_has_card_data else "text",
 					"options": co_options.duplicate(true),
 					"effects_per_option": co_effects_per_option.duplicate(true),
 					"trigger": trigger.duplicate(true),

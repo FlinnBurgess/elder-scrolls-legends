@@ -145,7 +145,13 @@ static func enumerate_legal_actions(match_state: Dictionary, player_id: String =
 		result["has_pending_summon_effect_target"] = true
 		var source_id := str(summon_eff_target.get("source_instance_id", ""))
 		var set_actions: Array = []
-		for target_info in MatchTiming.get_all_valid_targets(match_state, source_id):
+		var _choice_tm := str(summon_eff_target.get("_choice_target_mode", ""))
+		var _set_valid_targets: Array
+		if not _choice_tm.is_empty():
+			_set_valid_targets = MatchTiming.get_valid_targets_for_mode(match_state, source_id, _choice_tm, {})
+		else:
+			_set_valid_targets = MatchTiming.get_all_valid_targets(match_state, source_id)
+		for target_info in _set_valid_targets:
 			var tid := str(target_info.get("instance_id", ""))
 			var tpid := str(target_info.get("player_id", ""))
 			var params := {}

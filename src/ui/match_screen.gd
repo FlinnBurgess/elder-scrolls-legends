@@ -1174,6 +1174,7 @@ func _on_player_choice_selected(index: int) -> void:
 	var result := MatchTiming.resolve_pending_player_choice(_match_state, local_id, index)
 	if bool(result.get("is_valid", false)):
 		_animations._record_feedback_from_events(_copy_array(result.get("events", [])))
+		_targeting._check_pending_summon_effect_target()
 		_refresh._refresh_ui()
 
 

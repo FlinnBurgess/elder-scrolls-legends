@@ -220,6 +220,11 @@ Card has a status-like field (e.g., `"permanent_shackle": true`) as a bare key o
 Example: Vigilant Ancestor (`"permanent_shackle": true` instead of `"innate_statuses": ["permanent_shackle"]`)
 How to spot: User reports a creature missing an innate status (shackle, ignore guard, etc.). Check if the card uses a bare field instead of the `innate_statuses` array.
 
+## Completely wrong effect implementation — card data doesn't match rules text
+Card's `triggered_abilities` and `rules_text` describe a completely different effect than the actual card should have — not a missing field or wrong parameter, but a fundamentally different mechanic. This happens when card data is initially authored from an incorrect source or guess rather than verified against the wiki/reference.
+Example: A Land Divided (was "Summon 4 specific creatures into a lane", should be "Fill left lane with Stormcloak Skirmishers or right lane with Colovian Troopers" — a lane-conditional fill effect)
+How to spot: User reports the card does something entirely different from what it should. Compare the card's `rules_text` and `triggered_abilities` against the wiki/reference data. The fix involves rewriting both `rules_text` and `triggered_abilities` from scratch.
+
 ## "Another" random target includes self
 Card rules text says "another random friendly creature" but the effect uses `target: "random_friendly"` which includes self. Should use `target: "random_other_friendly"` to exclude the source card.
 Example: Reachman Shaman, Blackrose Herbalist

@@ -105,6 +105,47 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 		generated_events.append_array(th_result.get("events", []))
 		if not bool(th_result.get("hunt_complete", false)):
 			return generated_events  # Hunt not complete yet, don't fire effects
+	# Deferred targeting: if no _chosen_target_id is set but effects reference chosen_* targets,
+	# split into immediate effects (apply now) and deferred effects (queue target selection).
+	var _ae_chosen_id := str(trigger.get("_chosen_target_id", ""))
+	if _ae_chosen_id.is_empty():
+		var _ae_all_effects: Array = descriptor.get("effects", [])
+		var _ae_deferred: Array = []
+		var _ae_immediate: Array = []
+		var _ae_deferred_tm := ""
+		for _ae_eff in _ae_all_effects:
+			if typeof(_ae_eff) != TYPE_DICTIONARY:
+				_ae_immediate.append(_ae_eff)
+				continue
+			var _ae_target := str(_ae_eff.get("target", ""))
+			var _ae_tm: String = str(_MT()._choice_target_to_target_mode(_ae_target))
+			if not _ae_tm.is_empty():
+				_ae_deferred.append(_ae_eff)
+				if _ae_deferred_tm.is_empty():
+					_ae_deferred_tm = _ae_tm
+			else:
+				_ae_immediate.append(_ae_eff)
+		if not _ae_deferred.is_empty():
+			# Replace the descriptor effects with only immediate effects
+			descriptor = descriptor.duplicate(true)
+			descriptor["effects"] = _ae_immediate
+			trigger = trigger.duplicate(true)
+			trigger["descriptor"] = descriptor
+			# Queue deferred effects for target selection
+			var _ae_source_id := str(trigger.get("source_instance_id", ""))
+			var _ae_controller_id := str(trigger.get("controller_player_id", ""))
+			var _ae_valid := MatchTargeting.get_valid_targets_for_mode(match_state, _ae_source_id, _ae_deferred_tm, {})
+			if not _ae_valid.is_empty():
+				var _ae_pending: Array = match_state.get("pending_summon_effect_targets", [])
+				_ae_pending.append({
+					"player_id": _ae_controller_id,
+					"source_instance_id": _ae_source_id,
+					"mandatory": true,
+					"_choice_deferred_effects": _ae_deferred,
+					"_choice_trigger": trigger.duplicate(true),
+					"_choice_event": event.duplicate(true),
+					"_choice_target_mode": _ae_deferred_tm,
+				})
 	for raw_effect in descriptor.get("effects", []):
 		if typeof(raw_effect) != TYPE_DICTIONARY:
 			continue

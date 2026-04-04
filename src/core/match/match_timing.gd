@@ -909,12 +909,44 @@ static func resolve_pending_player_choice(match_state: Dictionary, player_id: St
 	var chosen_effects: Array = effects_per_option[chosen_index]
 	trigger["_chosen_option_index"] = chosen_index
 	var events: Array = []
-	# Inject chosen effects into the trigger descriptor so _apply_effects can find them
+	# Check if any chosen effects need a player-selected target (chosen_friendly_creature, etc.)
+	var deferred_effects: Array = []
+	var immediate_effects: Array = []
+	var deferred_target_mode := ""
+	for eff in chosen_effects:
+		if typeof(eff) != TYPE_DICTIONARY:
+			immediate_effects.append(eff)
+			continue
+		var eff_target := str(eff.get("target", ""))
+		var tm := _choice_target_to_target_mode(eff_target)
+		if not tm.is_empty():
+			deferred_effects.append(eff)
+			if deferred_target_mode.is_empty():
+				deferred_target_mode = tm
+		else:
+			immediate_effects.append(eff)
+	# Apply immediate effects now
 	var patched_trigger := trigger.duplicate(true)
 	var patched_descriptor: Dictionary = patched_trigger.get("descriptor", {})
-	patched_descriptor["effects"] = chosen_effects
+	patched_descriptor["effects"] = immediate_effects if not deferred_effects.is_empty() else chosen_effects
 	patched_trigger["descriptor"] = patched_descriptor
-	events.append_array(MatchEffectApplication._apply_effects(match_state, patched_trigger, event, {}))
+	if not immediate_effects.is_empty() or deferred_effects.is_empty():
+		events.append_array(MatchEffectApplication._apply_effects(match_state, patched_trigger, event, {}))
+	# Queue deferred effects that need a target selection
+	if not deferred_effects.is_empty():
+		var source_id := str(trigger.get("source_instance_id", ""))
+		var valid_targets := MatchTargeting.get_valid_targets_for_mode(match_state, source_id, deferred_target_mode, {})
+		if not valid_targets.is_empty():
+			var pending_arr: Array = match_state.get("pending_summon_effect_targets", [])
+			pending_arr.append({
+				"player_id": player_id,
+				"source_instance_id": source_id,
+				"mandatory": true,
+				"_choice_deferred_effects": deferred_effects,
+				"_choice_trigger": patched_trigger.duplicate(true),
+				"_choice_event": event.duplicate(true),
+				"_choice_target_mode": deferred_target_mode,
+			})
 	# choose_two: re-queue a second choice with the chosen option removed
 	var remaining := int(choice.get("_choose_two_remaining", 0))
 	if remaining > 0:
@@ -942,6 +974,17 @@ static func resolve_pending_player_choice(match_state: Dictionary, player_id: St
 		"chosen_index": chosen_index,
 		"events": timing_result.get("processed_events", []),
 	}
+
+
+static func _choice_target_to_target_mode(target_name: String) -> String:
+	match target_name:
+		"chosen_friendly_creature", "chosen_friendly", "chosen_friendly_optional":
+			return "friendly_creature"
+		"chosen_enemy":
+			return "enemy_creature"
+		"chosen_target":
+			return "creature"
+	return ""
 
 
 static func _resolve_then_op(match_state: Dictionary, player_id: String, source_instance_id: String, then_op: String, chosen_value: String, then_context: Dictionary) -> Array:
@@ -1083,6 +1126,23 @@ static func resolve_pending_summon_effect_target(match_state: Dictionary, player
 		return {"is_valid": false, "errors": ["No pending summon effect target for %s." % player_id]}
 	pending.remove_at(idx)
 	var source_id := str(entry.get("source_instance_id", ""))
+	# Deferred choice path: effects from a choose_one that needed a target selection
+	var deferred_effects: Array = entry.get("_choice_deferred_effects", [])
+	if typeof(deferred_effects) == TYPE_ARRAY and not deferred_effects.is_empty():
+		var chosen_id := str(target_info.get("target_instance_id", ""))
+		var chosen_player_id := str(target_info.get("target_player_id", ""))
+		var deferred_trigger: Dictionary = entry.get("_choice_trigger", {}).duplicate(true)
+		var deferred_event: Dictionary = entry.get("_choice_event", {}).duplicate(true)
+		deferred_trigger["_chosen_target_id"] = chosen_id
+		if not chosen_player_id.is_empty():
+			deferred_trigger["_chosen_target_player_id"] = chosen_player_id
+		var desc: Dictionary = deferred_trigger.get("descriptor", {})
+		desc["effects"] = deferred_effects
+		deferred_trigger["descriptor"] = desc
+		var generated := MatchEffectApplication._apply_effects(match_state, deferred_trigger, deferred_event, {})
+		var timing_result := publish_events(match_state, generated)
+		var budget_resume := _resume_budget_summons_if_needed(match_state)
+		return {"is_valid": true, "events": timing_result.get("processed_events", []) + budget_resume.get("events", []), "trigger_resolutions": timing_result.get("trigger_resolutions", []) + budget_resume.get("trigger_resolutions", [])}
 	var resolve_options := {}
 	var entry_families: Array = entry.get("allowed_families", [])
 	if typeof(entry_families) == TYPE_ARRAY and not entry_families.is_empty():
