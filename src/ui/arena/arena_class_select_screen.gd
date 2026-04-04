@@ -8,13 +8,16 @@ const REGISTRY_PATH := "res://data/legends/registries/attribute_class_registry.j
 const ArenaRunManagerScript = preload("res://src/arena/arena_run_manager.gd")
 const UITheme = preload("res://src/ui/ui_theme.gd")
 
-const ATTRIBUTE_TINTS := {
-	"strength": Color(0.84, 0.39, 0.31, 1.0),
-	"intelligence": Color(0.42, 0.62, 0.96, 1.0),
-	"willpower": Color(0.92, 0.78, 0.38, 1.0),
-	"agility": Color(0.4, 0.76, 0.52, 1.0),
-	"endurance": Color(0.58, 0.46, 0.72, 1.0),
+const ATTRIBUTE_ICON_PATHS := {
+	"strength": "res://assets/images/attributes/strength-small.png",
+	"intelligence": "res://assets/images/attributes/intelligence-small.png",
+	"willpower": "res://assets/images/attributes/willpower-small.png",
+	"agility": "res://assets/images/attributes/agility-small.png",
+	"endurance": "res://assets/images/attributes/endurance-small.png",
+	"neutral": "res://assets/images/attributes/neutral-small.png",
 }
+
+const CLASS_CARD_WIDTH := 240
 
 var _is_built := false
 var _class_options: Array = []
@@ -114,42 +117,41 @@ func _build_ui() -> void:
 
 func _build_class_card(class_data: Dictionary) -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(220, 200)
+	panel.custom_minimum_size = Vector2(CLASS_CARD_WIDTH, 220)
 	UITheme.style_panel(panel)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 14)
+	vbox.add_theme_constant_override("separation", 16)
 	panel.add_child(vbox)
 
 	# Class name
 	var name_label := Label.new()
 	name_label.text = str(class_data.get("display_name", "Unknown"))
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_label.add_theme_font_size_override("font_size", 24)
+	name_label.add_theme_font_size_override("font_size", 26)
 	name_label.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
 	vbox.add_child(name_label)
 
-	# Attribute labels
+	# Attribute icons
 	var attr_ids: Array = class_data.get("attribute_ids", [])
 	var attr_row := HBoxContainer.new()
 	attr_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	attr_row.add_theme_constant_override("separation", 8)
+	attr_row.add_theme_constant_override("separation", 12)
 	vbox.add_child(attr_row)
 
 	for attr_id in attr_ids:
-		var attr_label := Label.new()
-		attr_label.text = str(attr_id).capitalize()
-		attr_label.add_theme_font_size_override("font_size", 16)
-		var tint: Color = ATTRIBUTE_TINTS.get(str(attr_id), Color.WHITE)
-		attr_label.add_theme_color_override("font_color", tint)
-		attr_row.add_child(attr_label)
-
-		if attr_id != attr_ids.back():
-			var sep := Label.new()
-			sep.text = "+"
-			sep.add_theme_font_size_override("font_size", 16)
-			sep.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 1.0))
-			attr_row.add_child(sep)
+		var icon_path: String = ATTRIBUTE_ICON_PATHS.get(str(attr_id), "")
+		if icon_path.is_empty():
+			continue
+		var tex: Texture2D = ResourceLoader.load(icon_path)
+		if tex == null:
+			continue
+		var icon := TextureRect.new()
+		icon.texture = tex
+		icon.custom_minimum_size = Vector2(36, 36)
+		icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		attr_row.add_child(icon)
 
 	# Spacer
 	var spacer := Control.new()
@@ -159,7 +161,7 @@ func _build_class_card(class_data: Dictionary) -> PanelContainer:
 	# Select button
 	var select_button := Button.new()
 	select_button.text = "Select"
-	select_button.custom_minimum_size = Vector2(0, 52)
+	select_button.custom_minimum_size = Vector2(0, 56)
 	UITheme.style_button(select_button, 22)
 	select_button.pressed.connect(func() -> void: class_selected.emit(attr_ids))
 	vbox.add_child(select_button)

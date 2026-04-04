@@ -10,6 +10,7 @@ const MagickaCurveChartClass = preload("res://src/ui/components/magicka_curve_ch
 const ArenaDraftEngineClass = preload("res://src/arena/arena_draft_engine.gd")
 const ErrorReportWriterClass = preload("res://src/core/error_report_writer.gd")
 const ErrorReportPopoverClass = preload("res://src/ui/components/error_report_popover.gd")
+const UITheme = preload("res://src/ui/ui_theme.gd")
 
 const CARD_ASPECT_RATIO := 384.0 / 220.0
 const ATTRIBUTE_TINTS := {
@@ -191,6 +192,8 @@ func _build_ui() -> void:
 		return
 	_is_built = true
 
+	UITheme.add_background(self)
+
 	var outer_margin := MarginContainer.new()
 	outer_margin.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	outer_margin.add_theme_constant_override("margin_left", 16)
@@ -223,8 +226,7 @@ func _build_ui() -> void:
 
 	_pick_counter_label = Label.new()
 	_pick_counter_label.text = "Pick 0 of 30"
-	_pick_counter_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_pick_counter_label.add_theme_font_size_override("font_size", 28)
+	UITheme.style_title(_pick_counter_label, 32)
 	pick_group.add_child(_pick_counter_label)
 
 	# Card options displayed in a centered horizontal row
@@ -256,9 +258,10 @@ func _build_ui() -> void:
 	# Deck header
 	var deck_header := Label.new()
 	deck_header.text = "Deck"
-	deck_header.add_theme_font_size_override("font_size", 20)
-	deck_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UITheme.style_title(deck_header, 24)
 	_right_column.add_child(deck_header)
+
+	_right_column.add_child(UITheme.make_separator(0.0))
 
 	# Deck card list
 	_deck_card_list_scroll = ScrollContainer.new()
@@ -280,8 +283,9 @@ func _build_ui() -> void:
 
 	# Card count label
 	_card_count_label = Label.new()
-	_card_count_label.add_theme_font_size_override("font_size", 16)
+	_card_count_label.add_theme_font_size_override("font_size", 18)
 	_card_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_card_count_label.add_theme_color_override("font_color", UITheme.TEXT_SECTION)
 	_right_column.add_child(_card_count_label)
 	_refresh_card_count()
 
@@ -339,7 +343,7 @@ func _refresh_options() -> void:
 		in_deck_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		if in_deck_count > 0:
 			in_deck_label.text = "%d in deck" % in_deck_count
-			in_deck_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.6, 1.0))
+			in_deck_label.add_theme_color_override("font_color", UITheme.GOLD_DIM)
 		else:
 			in_deck_label.text = ""
 		in_deck_label.add_theme_font_size_override("font_size", 16)
@@ -376,7 +380,8 @@ func _refresh_deck_card_list() -> void:
 	if deck_entries.is_empty():
 		var empty_label := Label.new()
 		empty_label.text = "No cards in deck"
-		empty_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 1.0))
+		empty_label.add_theme_font_size_override("font_size", 18)
+		empty_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
 		_deck_card_list_container.add_child(empty_label)
 
 
@@ -404,8 +409,9 @@ func _build_deck_card_row(entry: Dictionary) -> Control:
 	cost_badge.custom_minimum_size = Vector2(36, 32)
 	var cost_label := Label.new()
 	cost_label.text = str(entry["cost"])
-	cost_label.add_theme_font_size_override("font_size", 16)
+	cost_label.add_theme_font_size_override("font_size", 17)
 	cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cost_label.add_theme_color_override("font_color", Color.WHITE)
 	cost_badge.add_child(cost_label)
 	row.add_child(cost_badge)
 
@@ -413,15 +419,16 @@ func _build_deck_card_row(entry: Dictionary) -> Control:
 	var name_label := Label.new()
 	name_label.text = str(entry["name"])
 	name_label.size_flags_horizontal = SIZE_EXPAND_FILL
-	name_label.add_theme_font_size_override("font_size", 17)
+	name_label.add_theme_font_size_override("font_size", 18)
+	name_label.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
 	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	row.add_child(name_label)
 
 	# Quantity indicator
 	var qty_label := Label.new()
 	qty_label.text = "x%d" % entry["quantity"]
-	qty_label.add_theme_font_size_override("font_size", 16)
-	qty_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 1.0))
+	qty_label.add_theme_font_size_override("font_size", 17)
+	qty_label.add_theme_color_override("font_color", UITheme.GOLD_DIM)
 	row.add_child(qty_label)
 
 	return row
