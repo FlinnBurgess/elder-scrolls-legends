@@ -48,6 +48,9 @@ var _hover_pending_card_id := ""
 var _hover_pending_row: Control
 var _hover_preview_node: Control
 var _relationship_context_callback: Callable
+var _scroll_settle_timer: Timer
+var _row_controls: Array = []  # parallel arrays — row Control nodes
+var _row_entries: Array = []   # parallel arrays — entry dicts
 
 
 func _init() -> void:
@@ -71,6 +74,12 @@ func create_scroll_container() -> ScrollContainer:
 		vbar.add_theme_stylebox_override("grabber_pressed", StyleBoxEmpty.new())
 		vbar.custom_minimum_size = Vector2.ZERO
 		vbar.value_changed.connect(_on_scroll_changed)
+	if _scroll_settle_timer == null:
+		_scroll_settle_timer = Timer.new()
+		_scroll_settle_timer.one_shot = true
+		_scroll_settle_timer.wait_time = 0.2
+		_scroll_settle_timer.timeout.connect(_on_scroll_settled)
+		add_child(_scroll_settle_timer)
 	scroll.add_child(self)
 	return scroll
 
@@ -103,6 +112,8 @@ func set_deck(deck: Array, card_database: Dictionary) -> void:
 	_card_database = card_database
 	_clear_hover_preview()
 	_clear_children()
+	_row_controls.clear()
+	_row_entries.clear()
 
 	var deck_entries: Array = []
 	for entry in deck:
@@ -124,7 +135,10 @@ func set_deck(deck: Array, card_database: Dictionary) -> void:
 	)
 
 	for entry in deck_entries:
-		add_child(_build_row(entry))
+		var row := _build_row(entry)
+		_row_controls.append(row)
+		_row_entries.append(entry)
+		add_child(row)
 
 	if deck_entries.is_empty():
 		var empty_label := Label.new()
@@ -287,6 +301,22 @@ func _on_scroll_changed(_value: float) -> void:
 	if _hover_delay_timer != null:
 		_hover_delay_timer.stop()
 	_clear_hover_preview()
+	if _preview_enabled and _scroll_settle_timer != null:
+		_scroll_settle_timer.start()
+
+
+func _on_scroll_settled() -> void:
+	if not _preview_enabled:
+		return
+	# Find which row is under the cursor and re-trigger hover
+	var mouse_pos := get_global_mouse_position()
+	for i in range(_row_controls.size()):
+		var row: Control = _row_controls[i]
+		if not is_instance_valid(row):
+			continue
+		if row.get_global_rect().has_point(mouse_pos):
+			_on_row_mouse_entered(row, _row_entries[i])
+			return
 
 
 func _on_hover_delay_timeout() -> void:
@@ -418,7 +448,7 @@ func _get_placeholder_art() -> Texture2D:
 
 func _clear_children() -> void:
 	for child in get_children():
-		if child == _hover_delay_timer:
+		if child == _hover_delay_timer or child == _scroll_settle_timer:
 			continue
 		remove_child(child)
 		child.queue_free()
