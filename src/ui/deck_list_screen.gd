@@ -5,6 +5,8 @@ const DeckPersistenceClass = preload("res://src/deck/deck_persistence.gd")
 const DeckCreationModalClass = preload("res://src/ui/deck_creation_modal.gd")
 const CardCatalog = preload("res://src/deck/card_catalog.gd")
 const DeckCodeClass = preload("res://src/deck/deck_code.gd")
+const DeckValidatorClass = preload("res://src/deck/deck_validator.gd")
+const DeckEditorScreenClass = preload("res://src/ui/deck_editor_screen.gd")
 const UITheme = preload("res://src/ui/ui_theme.gd")
 
 signal edit_deck_requested(deck_name: String)
@@ -36,7 +38,7 @@ func refresh() -> void:
 	if deck_names.is_empty():
 		var empty_label := Label.new()
 		empty_label.text = "No decks yet. Create one to get started!"
-		empty_label.add_theme_font_size_override("font_size", 20)
+		empty_label.add_theme_font_size_override("font_size", 24)
 		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		empty_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
 		_deck_list_container.add_child(empty_label)
@@ -104,6 +106,10 @@ func _build_ui() -> void:
 	import_button.pressed.connect(_on_import_pressed)
 	button_row.add_child(import_button)
 
+	var sep := UITheme.make_separator(0.0)
+	sep.size_flags_horizontal = SIZE_EXPAND_FILL
+	root.add_child(sep)
+
 	# Scrollable deck list
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -112,38 +118,50 @@ func _build_ui() -> void:
 
 	_deck_list_container = VBoxContainer.new()
 	_deck_list_container.size_flags_horizontal = SIZE_EXPAND_FILL
-	_deck_list_container.add_theme_constant_override("separation", 8)
+	_deck_list_container.add_theme_constant_override("separation", 10)
 	scroll.add_child(_deck_list_container)
 
 
 func _build_deck_row(deck_name: String) -> Control:
 	var row := HBoxContainer.new()
-	row.size_flags_horizontal = SIZE_EXPAND_FILL
-	row.add_theme_constant_override("separation", 8)
+	row.size_flags_horizontal = SIZE_SHRINK_CENTER
+	row.add_theme_constant_override("separation", 12)
 
 	# Deck name button (clickable to edit)
 	var name_button := Button.new()
 	name_button.text = deck_name
-	name_button.size_flags_horizontal = SIZE_EXPAND_FILL
-	name_button.custom_minimum_size = Vector2(0, 52)
+	name_button.custom_minimum_size = Vector2(320, 60)
 	name_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	UITheme.style_button(name_button, 20)
+	UITheme.style_button(name_button, 24)
 	name_button.pressed.connect(_on_deck_selected.bind(deck_name))
 	row.add_child(name_button)
+
+	# Validation error indicator
+	var definition := DeckPersistenceClass.load_deck(deck_name)
+	if not definition.is_empty():
+		var validation := DeckValidatorClass.validate_deck(definition, _card_by_id)
+		var errors: Array = validation.get("errors", [])
+		if not errors.is_empty():
+			var error_btn := Button.new()
+			error_btn.text = "!"
+			error_btn.custom_minimum_size = Vector2(52, 60)
+			UITheme.style_button_accent(error_btn, Color(0.8, 0.25, 0.2, 1.0), 26)
+			error_btn.pressed.connect(_on_validation_error_pressed.bind(deck_name, errors))
+			row.add_child(error_btn)
 
 	# Export button
 	var export_button := Button.new()
 	export_button.text = "Export"
-	export_button.custom_minimum_size = Vector2(100, 52)
-	UITheme.style_button(export_button, 18)
+	export_button.custom_minimum_size = Vector2(120, 60)
+	UITheme.style_button(export_button, 22)
 	export_button.pressed.connect(_on_export_deck_pressed.bind(deck_name, export_button))
 	row.add_child(export_button)
 
 	# Delete button
 	var delete_button := Button.new()
 	delete_button.text = "Delete"
-	delete_button.custom_minimum_size = Vector2(100, 52)
-	UITheme.style_button_accent(delete_button, Color(0.8, 0.3, 0.3), 18)
+	delete_button.custom_minimum_size = Vector2(120, 60)
+	UITheme.style_button_accent(delete_button, Color(0.8, 0.3, 0.3), 22)
 	delete_button.pressed.connect(_on_delete_pressed.bind(deck_name))
 	row.add_child(delete_button)
 
@@ -356,6 +374,11 @@ func _show_import_error(message: String) -> void:
 	vbox.add_child(ok_btn)
 
 	add_child(overlay)
+
+
+func _on_validation_error_pressed(deck_name: String, errors: Array) -> void:
+	DeckEditorScreenClass.show_validation_errors_overlay(
+		self, "Validation Errors: %s" % deck_name, errors, Color(0.7, 0.3, 0.3, 1.0))
 
 
 func _clear_children(node: Node) -> void:

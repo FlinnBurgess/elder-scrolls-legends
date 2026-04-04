@@ -1253,34 +1253,38 @@ static func show_validation_errors_overlay(parent: Control, title_text: String, 
 	vbox.add_theme_constant_override("separation", 12)
 	panel.add_child(vbox)
 
+	var UIThemeRef = preload("res://src/ui/ui_theme.gd")
+
 	var title := Label.new()
 	title.text = title_text
-	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_font_size_override("font_size", 28)
 	title.add_theme_color_override("font_color", accent_color)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(0, 60)
+	scroll.custom_minimum_size = Vector2(0, 80)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	vbox.add_child(scroll)
 
 	var msg_list := VBoxContainer.new()
 	msg_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	msg_list.add_theme_constant_override("separation", 6)
+	msg_list.add_theme_constant_override("separation", 8)
 	scroll.add_child(msg_list)
 
 	for msg_text in messages:
 		var msg_label := Label.new()
 		msg_label.text = str(msg_text)
-		msg_label.add_theme_font_size_override("font_size", 14)
+		msg_label.add_theme_font_size_override("font_size", 22)
+		msg_label.add_theme_color_override("font_color", UIThemeRef.TEXT_LIGHT)
 		msg_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		msg_list.add_child(msg_label)
 
 	var ok_btn := Button.new()
 	ok_btn.text = "OK"
-	ok_btn.custom_minimum_size = Vector2(100, 36)
+	ok_btn.custom_minimum_size = Vector2(140, 48)
+	UIThemeRef.style_button(ok_btn, 22)
 	ok_btn.pressed.connect(overlay.queue_free)
 	vbox.add_child(ok_btn)
 
