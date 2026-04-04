@@ -137,6 +137,63 @@ static func style_panel(panel: PanelContainer, border_color := PANEL_BORDER) -> 
 	panel.add_theme_stylebox_override("panel", style)
 
 
+static func style_option_button(btn: OptionButton, font_size: int = 22) -> void:
+	btn.add_theme_font_size_override("font_size", font_size)
+	btn.add_theme_color_override("font_color", TEXT_LIGHT)
+	btn.add_theme_color_override("font_hover_color", GOLD)
+	btn.add_theme_color_override("font_pressed_color", GOLD_BRIGHT)
+	btn.add_theme_color_override("font_focus_color", TEXT_LIGHT)
+
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = BTN_BG
+	normal.border_color = GOLD_DIM
+	normal.set_border_width_all(1)
+	normal.set_corner_radius_all(4)
+	normal.set_content_margin_all(10)
+	btn.add_theme_stylebox_override("normal", normal)
+
+	var hover := StyleBoxFlat.new()
+	hover.bg_color = BTN_BG_HOVER
+	hover.border_color = GOLD
+	hover.set_border_width_all(2)
+	hover.set_corner_radius_all(4)
+	hover.set_content_margin_all(10)
+	btn.add_theme_stylebox_override("hover", hover)
+
+	var pressed := StyleBoxFlat.new()
+	pressed.bg_color = BTN_BG_PRESSED
+	pressed.border_color = GOLD_BRIGHT
+	pressed.set_border_width_all(2)
+	pressed.set_corner_radius_all(4)
+	pressed.set_content_margin_all(10)
+	btn.add_theme_stylebox_override("pressed", pressed)
+
+	btn.add_theme_stylebox_override("focus", hover.duplicate())
+
+
+static func style_spin_box(spin: SpinBox, font_size: int = 22) -> void:
+	var line_edit := spin.get_line_edit()
+	line_edit.add_theme_font_size_override("font_size", font_size)
+	line_edit.add_theme_color_override("font_color", TEXT_LIGHT)
+	line_edit.add_theme_color_override("caret_color", GOLD)
+
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = BTN_BG
+	normal.border_color = GOLD_DIM
+	normal.set_border_width_all(1)
+	normal.set_corner_radius_all(4)
+	normal.set_content_margin_all(8)
+	line_edit.add_theme_stylebox_override("normal", normal)
+
+	var focus := StyleBoxFlat.new()
+	focus.bg_color = BTN_BG_HOVER
+	focus.border_color = GOLD
+	focus.set_border_width_all(2)
+	focus.set_corner_radius_all(4)
+	focus.set_content_margin_all(8)
+	line_edit.add_theme_stylebox_override("focus", focus)
+
+
 static func make_separator(width: float = 480.0) -> ColorRect:
 	var line := ColorRect.new()
 	line.custom_minimum_size = Vector2(width, 2)

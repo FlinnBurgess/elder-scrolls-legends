@@ -347,9 +347,10 @@ func _build_player_settings_row() -> void:
 	_ring_check = CheckBox.new()
 	_ring_check.text = "Ring of Magicka"
 	_ring_check.button_pressed = bool(_config.get("player", {}).get("has_ring", false))
-	_ring_check.add_theme_font_size_override("font_size", 20)
-	_ring_check.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
-	_ring_check.add_theme_color_override("font_hover_color", UITheme.GOLD)
+	_ring_check.add_theme_font_size_override("font_size", 24)
+	_ring_check.add_theme_color_override("font_color", UITheme.GOLD)
+	_ring_check.add_theme_color_override("font_hover_color", UITheme.GOLD_BRIGHT)
+	_ring_check.add_theme_color_override("font_pressed_color", UITheme.GOLD_BRIGHT)
 	_ring_check.toggled.connect(func(v): _config["player"]["has_ring"] = v)
 	_player_settings_container.add_child(_ring_check)
 
@@ -369,11 +370,12 @@ func _build_lane_config_row(lane_widths: Array) -> void:
 
 	var l1_label := Label.new()
 	l1_label.text = "Lane 1:"
-	UITheme.style_section_label(l1_label, 20)
+	UITheme.style_section_label(l1_label, 24)
 	lane1_box.add_child(l1_label)
 
 	_left_lane_type_dropdown = OptionButton.new()
-	_left_lane_type_dropdown.custom_minimum_size = Vector2(170, 46)
+	_left_lane_type_dropdown.custom_minimum_size = Vector2(180, 48)
+	UITheme.style_option_button(_left_lane_type_dropdown, 22)
 	_populate_lane_dropdown(_left_lane_type_dropdown)
 	_select_lane_dropdown(_left_lane_type_dropdown, str(_config["lanes"][0].get("lane_type", "field")))
 	_left_lane_type_dropdown.item_selected.connect(func(idx):
@@ -385,7 +387,8 @@ func _build_lane_config_row(lane_widths: Array) -> void:
 	_left_lane_width_spin.min_value = 1
 	_left_lane_width_spin.max_value = 7
 	_left_lane_width_spin.value = int(lane_widths[0])
-	_left_lane_width_spin.custom_minimum_size = Vector2(90, 46)
+	_left_lane_width_spin.custom_minimum_size = Vector2(100, 48)
+	UITheme.style_spin_box(_left_lane_width_spin, 22)
 	_left_lane_width_spin.value_changed.connect(func(val):
 		var old_w0: int = int(_config["lanes"][0].get("width", 4))
 		var new_w0: int = int(val)
@@ -410,11 +413,12 @@ func _build_lane_config_row(lane_widths: Array) -> void:
 
 	var l2_label := Label.new()
 	l2_label.text = "Lane 2:"
-	UITheme.style_section_label(l2_label, 20)
+	UITheme.style_section_label(l2_label, 24)
 	lane2_box.add_child(l2_label)
 
 	_right_lane_type_dropdown = OptionButton.new()
-	_right_lane_type_dropdown.custom_minimum_size = Vector2(170, 46)
+	_right_lane_type_dropdown.custom_minimum_size = Vector2(180, 48)
+	UITheme.style_option_button(_right_lane_type_dropdown, 22)
 	_populate_lane_dropdown(_right_lane_type_dropdown)
 	_select_lane_dropdown(_right_lane_type_dropdown, str(_config["lanes"][1].get("lane_type", "shadow")))
 	_right_lane_type_dropdown.item_selected.connect(func(idx):
@@ -424,8 +428,8 @@ func _build_lane_config_row(lane_widths: Array) -> void:
 
 	_right_lane_width_label = Label.new()
 	_right_lane_width_label.text = str(int(lane_widths[1]))
-	_right_lane_width_label.add_theme_font_size_override("font_size", 22)
-	_right_lane_width_label.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
+	_right_lane_width_label.add_theme_font_size_override("font_size", 24)
+	_right_lane_width_label.add_theme_color_override("font_color", UITheme.GOLD)
 	lane2_box.add_child(_right_lane_width_label)
 
 	# Right spacer
@@ -462,7 +466,7 @@ func _redistribute_overflow(old_lane1_width: int, new_lane1_width: int) -> void:
 
 func _build_side_section(side: String, label_text: String, lane_widths: Array) -> void:
 	var section := VBoxContainer.new()
-	section.add_theme_constant_override("separation", 8)
+	section.add_theme_constant_override("separation", 4)
 	section.size_flags_vertical = SIZE_EXPAND_FILL
 	_board_container.add_child(section)
 
@@ -539,7 +543,7 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 		board_row.add_child(lane_frame)
 
 		var slots_row := HBoxContainer.new()
-		slots_row.add_theme_constant_override("separation", 8)
+		slots_row.add_theme_constant_override("separation", 32)
 		slots_row.size_flags_horizontal = SIZE_EXPAND_FILL
 		slots_row.size_flags_vertical = SIZE_EXPAND_FILL
 		lane_frame.add_child(slots_row)
@@ -551,6 +555,7 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 			slot_frame.add_theme_constant_override("separation", 4)
 			slot_frame.size_flags_horizontal = SIZE_EXPAND_FILL
 			slot_frame.size_flags_vertical = SIZE_EXPAND_FILL
+			slot_frame.size_flags_stretch_ratio = 0.8
 			slots_row.add_child(slot_frame)
 
 			var creature = creatures[slot_idx] if slot_idx < creatures.size() else null
@@ -607,10 +612,10 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 				var si := slot_idx
 
 				var remove_btn := Button.new()
-				remove_btn.text = "X"
+				remove_btn.text = "Remove"
 				remove_btn.custom_minimum_size = Vector2(0, 32)
 				remove_btn.size_flags_horizontal = SIZE_EXPAND_FILL
-				UITheme.style_button_accent(remove_btn, Color(0.8, 0.3, 0.3), 14)
+				UITheme.style_button_accent(remove_btn, Color(0.8, 0.3, 0.3), 12)
 				remove_btn.pressed.connect(func(): _remove_creature(s, li, si))
 				action_row.add_child(remove_btn)
 
@@ -618,7 +623,7 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 				modify_btn.text = "Mod"
 				modify_btn.custom_minimum_size = Vector2(0, 32)
 				modify_btn.size_flags_horizontal = SIZE_EXPAND_FILL
-				UITheme.style_button(modify_btn, 14)
+				UITheme.style_button(modify_btn, 12)
 				modify_btn.pressed.connect(func(): _modify_creature(s, li, si))
 				action_row.add_child(modify_btn)
 			else:
@@ -1291,7 +1296,7 @@ func _labeled(text: String, control: Control, is_spin: bool = false) -> HBoxCont
 	row.add_theme_constant_override("separation", 10)
 	var lbl := Label.new()
 	lbl.text = text
-	UITheme.style_section_label(lbl, 20)
+	UITheme.style_section_label(lbl, 24)
 	row.add_child(lbl)
 	row.add_child(control)
 	return row
@@ -1302,7 +1307,8 @@ func _make_spin(min_val: int, max_val: int, default_val: int, on_change: Callabl
 	spin.min_value = min_val
 	spin.max_value = max_val
 	spin.value = default_val
-	spin.custom_minimum_size = Vector2(100, 46)
+	spin.custom_minimum_size = Vector2(110, 48)
+	UITheme.style_spin_box(spin, 22)
 	spin.value_changed.connect(on_change)
 	return spin
 
@@ -1310,8 +1316,8 @@ func _make_spin(min_val: int, max_val: int, default_val: int, on_change: Callabl
 func _make_magicka_input(default_text: String, on_change: Callable) -> LineEdit:
 	var input := LineEdit.new()
 	input.text = default_text
-	input.custom_minimum_size = Vector2(80, 46)
-	input.add_theme_font_size_override("font_size", 20)
+	input.custom_minimum_size = Vector2(90, 48)
+	input.add_theme_font_size_override("font_size", 22)
 	input.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
 	var input_style := StyleBoxFlat.new()
 	input_style.bg_color = UITheme.BTN_BG
