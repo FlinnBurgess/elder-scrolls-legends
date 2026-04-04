@@ -159,6 +159,11 @@ func _build_ui() -> void:
 	_board_container.add_theme_constant_override("separation", 0)
 	root.add_child(_board_container)
 
+	# Gap above player settings
+	var player_settings_spacer := Control.new()
+	player_settings_spacer.custom_minimum_size = Vector2(0, 12)
+	root.add_child(player_settings_spacer)
+
 	# Player settings row (rebuilt in _refresh_board)
 	_player_settings_container = HBoxContainer.new()
 	_player_settings_container.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -315,11 +320,17 @@ func _refresh_board() -> void:
 	# Lane config row
 	_build_lane_config_row(lane_widths)
 
+	# Spacer between lane config and enemy section
+	var top_spacer := Control.new()
+	top_spacer.custom_minimum_size = Vector2(0, 24)
+	_board_container.add_child(top_spacer)
+
 	# Enemy side (top half of board)
 	_build_side_section("enemy", "Enemy", lane_widths)
 
 	# Separator
 	var sep := UITheme.make_separator(0.0)
+	sep.custom_minimum_size.y = 24
 	_board_container.add_child(sep)
 
 	# Player side (bottom half of board)
@@ -347,10 +358,7 @@ func _build_player_settings_row() -> void:
 	_ring_check = CheckBox.new()
 	_ring_check.text = "Ring of Magicka"
 	_ring_check.button_pressed = bool(_config.get("player", {}).get("has_ring", false))
-	_ring_check.add_theme_font_size_override("font_size", 24)
-	_ring_check.add_theme_color_override("font_color", UITheme.GOLD)
-	_ring_check.add_theme_color_override("font_hover_color", UITheme.GOLD_BRIGHT)
-	_ring_check.add_theme_color_override("font_pressed_color", UITheme.GOLD_BRIGHT)
+	UITheme.style_checkbox(_ring_check, 24)
 	_ring_check.toggled.connect(func(v): _config["player"]["has_ring"] = v)
 	_player_settings_container.add_child(_ring_check)
 
@@ -473,7 +481,12 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 	# Side header with clickable zones
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 20)
+	header.alignment = BoxContainer.ALIGNMENT_CENTER
 	section.add_child(header)
+
+	var header_spacer := Control.new()
+	header_spacer.custom_minimum_size = Vector2(0, 12)
+	section.add_child(header_spacer)
 
 	var side_label := Label.new()
 	side_label.text = label_text

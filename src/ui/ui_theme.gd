@@ -170,6 +170,85 @@ static func style_option_button(btn: OptionButton, font_size: int = 22) -> void:
 
 	btn.add_theme_stylebox_override("focus", hover.duplicate())
 
+	# Style the dropdown popup
+	var popup := btn.get_popup()
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = PANEL_BG
+	panel_style.border_color = GOLD_DIM
+	panel_style.set_border_width_all(2)
+	panel_style.set_corner_radius_all(4)
+	panel_style.set_content_margin_all(4)
+	popup.add_theme_stylebox_override("panel", panel_style)
+
+	var hover_style := StyleBoxFlat.new()
+	hover_style.bg_color = BTN_BG_HOVER
+	hover_style.border_color = GOLD
+	hover_style.set_border_width_all(1)
+	hover_style.set_corner_radius_all(2)
+	hover_style.set_content_margin_all(8)
+	popup.add_theme_stylebox_override("hover", hover_style)
+
+	var separator_style := StyleBoxFlat.new()
+	separator_style.bg_color = GOLD_DIM
+	separator_style.content_margin_top = 1
+	separator_style.content_margin_bottom = 1
+	popup.add_theme_stylebox_override("labeled_separator_left", separator_style)
+	popup.add_theme_stylebox_override("labeled_separator_right", separator_style)
+	popup.add_theme_stylebox_override("separator", separator_style)
+
+	popup.add_theme_font_size_override("font_size", font_size)
+	popup.add_theme_color_override("font_color", TEXT_LIGHT)
+	popup.add_theme_color_override("font_hover_color", GOLD_BRIGHT)
+
+
+static func style_checkbox(cb: CheckBox, font_size: int = 22) -> void:
+	cb.add_theme_font_size_override("font_size", font_size)
+	cb.add_theme_color_override("font_color", GOLD)
+	cb.add_theme_color_override("font_hover_color", GOLD_BRIGHT)
+	cb.add_theme_color_override("font_pressed_color", GOLD_BRIGHT)
+
+	var size := 24
+	var unchecked := _make_checkbox_icon(size, GOLD_DIM, false)
+	var checked := _make_checkbox_icon(size, GOLD, true)
+	cb.add_theme_icon_override("unchecked", unchecked)
+	cb.add_theme_icon_override("checked", checked)
+
+
+static func _make_checkbox_icon(size: int, border_color: Color, checked: bool) -> ImageTexture:
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	# Border
+	var border := 2
+	for x in range(size):
+		for y in range(size):
+			if x < border or x >= size - border or y < border or y >= size - border:
+				img.set_pixel(x, y, border_color)
+			else:
+				img.set_pixel(x, y, Color(BTN_BG.r, BTN_BG.g, BTN_BG.b, 0.9))
+	# Tick mark (✓ shape)
+	if checked:
+		var mark_color := GOLD_BRIGHT
+		# Short downward leg: from (5, 12) to (9, 16)
+		# Long upward leg: from (9, 16) to (18, 7)
+		var points: Array[Vector2i] = []
+		var s := float(size) / 24.0  # scale factor relative to 24px base
+		# Short leg
+		for i in range(5):
+			var px := int(round((5 + i) * s))
+			var py := int(round((12 + i) * s))
+			points.append(Vector2i(px, py))
+		# Long leg
+		for i in range(10):
+			var px := int(round((9 + i) * s))
+			var py := int(round((16 - i) * s))
+			points.append(Vector2i(px, py))
+		for p in points:
+			for dx in range(-1, 2):
+				var px := clampi(p.x + dx, 0, size - 1)
+				var py := clampi(p.y, 0, size - 1)
+				img.set_pixel(px, py, mark_color)
+	return ImageTexture.create_from_image(img)
+
 
 static func style_spin_box(spin: SpinBox, font_size: int = 22) -> void:
 	var line_edit := spin.get_line_edit()
