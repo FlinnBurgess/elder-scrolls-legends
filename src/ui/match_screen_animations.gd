@@ -105,6 +105,9 @@ func _record_feedback_from_events(events: Array) -> void:
 					"stack_index": draw_stack,
 					"expires_at_ms": now + _screen.DRAW_FEEDBACK_DURATION_MS,
 				})
+				if not drawn_instance_id.is_empty():
+					_screen._draw_animating_ids.append(drawn_instance_id)
+					_animate_card_draw(draw_player_id, drawn_instance_id, draw_stack)
 			"rune_broken":
 				var rune_player_id := str(event.get("player_id", ""))
 				var rune_stack := int(rune_stacks.get(rune_player_id, 0))
@@ -242,11 +245,69 @@ func _record_feedback_from_events(events: Array) -> void:
 				_screen._queue_creature_toast(str(event.get("source_instance_id", "")), "%d/%d" % [cu_value, cu_threshold], Color(0.7, 0.6, 0.3))
 
 
+func _animate_card_draw(player_id: String, instance_id: String, stack_index: int) -> void:
+	var is_local: bool = player_id == _screen.PLAYER_ORDER[1]
+	var card_size: Vector2 = _screen._hand_card_display_size()
+	var viewport_size: Vector2 = _screen.get_viewport_rect().size
+
+	# Build a card-back panel
+	var card_panel := PanelContainer.new()
+	card_panel.name = "draw_anim_%s" % instance_id
+	card_panel.custom_minimum_size = card_size
+	card_panel.size = card_size
+	_screen._apply_panel_style(card_panel, Color(0.35, 0.22, 0.12, 0.98), Color(0.57, 0.44, 0.27, 0.92), 2, 0)
+	card_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card_panel.z_index = 480
+
+	# Calculate the destination: right edge of the player's hand area
+	var dest_y: float
+	if is_local:
+		dest_y = viewport_size.y - card_size.y * 0.35
+	else:
+		dest_y = -(card_size.y * 0.90)
+	# Estimate hand position — rightmost card slot
+	var player_state: Dictionary = {}
+	for p in _screen._match_state.get("players", []):
+		if str(p.get("player_id", "")) == player_id:
+			player_state = p
+			break
+	var hand_count := int(player_state.get("hand", []).size())
+	var overlap_step := card_size.x * 0.45
+	var total_width := card_size.x + overlap_step * float(max(0, hand_count - 1))
+	var start_x: float = (viewport_size.x - total_width) * 0.5
+	var dest_x: float = start_x + overlap_step * float(max(0, hand_count - 1))
+
+	# Start off-screen right
+	var start_pos := Vector2(viewport_size.x + card_size.x * 0.1, dest_y)
+	var end_pos := Vector2(dest_x, dest_y)
+	# Stagger multiple draws slightly
+	var delay := float(stack_index) * 0.12
+
+	card_panel.position = start_pos
+	card_panel.pivot_offset = card_size * 0.5
+
+	_screen._prophecy_card_overlay.add_child(card_panel)
+
+	var tween: Tween = _screen.create_tween()
+	if delay > 0.0:
+		card_panel.modulate = Color(1, 1, 1, 0)
+		tween.tween_interval(delay)
+		tween.tween_property(card_panel, "modulate:a", 1.0, 0.05)
+	tween.tween_property(card_panel, "position", end_pos, _screen.DRAW_ANIM_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tween.tween_callback(func():
+		card_panel.queue_free()
+		if instance_id in _screen._draw_animating_ids:
+			_screen._draw_animating_ids.erase(instance_id)
+			_screen._refresh._refresh_ui()
+	)
+
+
 func _clear_feedback_state() -> void:
 	_screen._attack_feedbacks.clear()
 	_screen._damage_feedbacks.clear()
 	_screen._removal_feedbacks.clear()
 	_screen._draw_feedbacks.clear()
+	_screen._draw_animating_ids.clear()
 	_screen._rune_feedbacks.clear()
 
 

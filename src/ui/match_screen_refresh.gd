@@ -97,7 +97,10 @@ func _refresh_player_sections() -> void:
 		_screen._clear_children(hand_row)
 		var hand_public = _screen._is_hand_public(player_id)
 		for card in player.get("hand", []):
-			if _screen._overlays._has_active_prophecy_overlay(str(card.get("instance_id", ""))):
+			var card_iid := str(card.get("instance_id", ""))
+			if _screen._overlays._has_active_prophecy_overlay(card_iid):
+				continue
+			if card_iid in _screen._draw_animating_ids:
 				continue
 			hand_row.add_child(_screen._card_surface._build_card_button(card, hand_public, "hand"))
 		if hand_row.get_child_count() == 0:

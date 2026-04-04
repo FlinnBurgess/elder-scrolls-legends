@@ -54,6 +54,7 @@ const ATTACK_FEEDBACK_DURATION_MS := 520
 const DAMAGE_FEEDBACK_DURATION_MS := 1050
 const REMOVAL_FEEDBACK_DURATION_MS := 1280
 const DRAW_FEEDBACK_DURATION_MS := 1800
+const DRAW_ANIM_DURATION := 0.35
 const RUNE_FEEDBACK_DURATION_MS := 2100
 const TURN_BANNER_DURATION_MS := 1600
 const CARD_HOVER_PREVIEW_DELAY_MS := 1000
@@ -150,6 +151,7 @@ var _attack_feedbacks: Array = []
 var _damage_feedbacks: Array = []
 var _removal_feedbacks: Array = []
 var _draw_feedbacks: Array = []
+var _draw_animating_ids: Array = []
 var _rune_feedbacks: Array = []
 var _local_hand_overlay: Control
 var _opponent_hand_overlay: Control
@@ -297,6 +299,7 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int 
 	_selected_instance_id = ""
 	_last_turn_owner_id = ""
 	_animations._floating_card_ids.clear()
+	_draw_animating_ids.clear()
 	_turn_banner_until_ms = 0
 	_clear_pile_selection()
 	_status_message = "Choose cards to replace."
@@ -399,6 +402,7 @@ func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_confi
 	_selected_instance_id = ""
 	_last_turn_owner_id = ""
 	_animations._floating_card_ids.clear()
+	_draw_animating_ids.clear()
 	_turn_banner_until_ms = 0
 	_clear_pile_selection()
 	_status_message = "Choose cards to replace."
@@ -570,6 +574,7 @@ func start_test_match(test_state: Dictionary) -> void:
 	_selected_instance_id = ""
 	_last_turn_owner_id = ""
 	_animations._floating_card_ids.clear()
+	_draw_animating_ids.clear()
 	_turn_banner_until_ms = 0
 	_clear_pile_selection()
 	_overlays._mulligan_card_by_id = {}
@@ -617,6 +622,7 @@ func start_puzzle_match(puzzle_state: Dictionary, puzzle_config: Dictionary = {}
 	_selected_instance_id = ""
 	_last_turn_owner_id = ""
 	_animations._floating_card_ids.clear()
+	_draw_animating_ids.clear()
 	_turn_banner_until_ms = 0
 	_clear_pile_selection()
 	_overlays._mulligan_card_by_id = {}
@@ -773,6 +779,7 @@ func resume_from_state(saved_state: Dictionary) -> void:
 	_selected_instance_id = ""
 	_last_turn_owner_id = ""
 	_animations._floating_card_ids.clear()
+	_draw_animating_ids.clear()
 	_turn_banner_until_ms = 0
 	_clear_pile_selection()
 	var phase := str(_match_state.get("phase", ""))
@@ -906,6 +913,7 @@ func load_scenario(scenario_id: String) -> bool:
 	_selected_instance_id = ""
 	_last_turn_owner_id = ""
 	_animations._floating_card_ids.clear()
+	_draw_animating_ids.clear()
 	_turn_banner_until_ms = 0
 	_clear_pile_selection()
 	var scenario_timing_result: Dictionary = _match_state.get("last_timing_result", {})
