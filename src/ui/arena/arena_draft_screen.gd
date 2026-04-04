@@ -21,6 +21,18 @@ const ATTRIBUTE_TINTS := {
 	"endurance": Color(0.58, 0.46, 0.72, 1.0),
 }
 const NEUTRAL_COST_COLOR := Color(0.6, 0.6, 0.6, 1.0)
+const DECK_ROW_HEIGHT := 52
+const DECK_ROW_BORDER := 4
+const DECK_ROW_ART_TOP_FRAC := 0.05
+const DECK_ROW_ART_BOTTOM_FRAC := 0.45
+const DECK_ROW_FADE_SHADER_CODE := "
+shader_type canvas_item;
+void fragment() {
+	vec4 tex = texture(TEXTURE, UV);
+	float fade = smoothstep(0.25, 0.7, UV.x);
+	COLOR = mix(tex, vec4(0.0, 0.0, 0.0, 1.0), fade);
+}
+"
 
 # Draft config
 var _attribute_ids: Array = []
@@ -59,6 +71,7 @@ var _hover_delay_timer: Timer
 var _error_report_hovered_type := ""
 var _error_report_hovered_context := ""
 var _error_report_popover: Control = null
+var _deck_row_fade_shader: Shader
 
 
 func _ready() -> void:
@@ -386,58 +399,182 @@ func _refresh_deck_card_list() -> void:
 
 
 func _build_deck_card_row(entry: Dictionary) -> Control:
-	var row := HBoxContainer.new()
+	var row_h := DECK_ROW_HEIGHT
+	var border := DECK_ROW_BORDER
+	var attributes: Array = entry.get("attributes", [])
+
+	# Root container — fixed height, clips children
+	var row := Control.new()
 	row.size_flags_horizontal = SIZE_EXPAND_FILL
-	row.custom_minimum_size = Vector2(0, 40)
-	row.add_theme_constant_override("separation", 8)
+	row.custom_minimum_size = Vector2(0, row_h)
+	row.clip_contents = true
 	row.mouse_filter = Control.MOUSE_FILTER_STOP
 	row.mouse_entered.connect(_on_deck_row_mouse_entered.bind(row, entry))
 	row.mouse_exited.connect(_on_deck_row_mouse_exited.bind(entry))
 
-	# Cost badge
-	var cost_badge := PanelContainer.new()
-	var badge_style := StyleBoxFlat.new()
-	badge_style.set_corner_radius_all(16)
-	badge_style.set_content_margin_all(0)
-	badge_style.content_margin_left = 10
-	badge_style.content_margin_right = 10
-	badge_style.content_margin_top = 5
-	badge_style.content_margin_bottom = 5
-	var cost_color := _get_card_cost_badge_color(entry.get("attributes", []))
-	badge_style.bg_color = cost_color
-	cost_badge.add_theme_stylebox_override("panel", badge_style)
-	cost_badge.custom_minimum_size = Vector2(36, 32)
+	# --- Attribute-colored border (split for multi-attribute) ---
+	_add_attribute_border(row, attributes, row_h, border)
+
+	# --- Black background behind art (visible where art doesn't reach) ---
+	var bg := ColorRect.new()
+	bg.color = Color(0.04, 0.04, 0.06, 1.0)
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.offset_left = border
+	bg.offset_top = border
+	bg.offset_right = -border
+	bg.offset_bottom = -border
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(bg)
+
+	# --- Card art fill with vertical crop (10%–30% of image shown) ---
+	var art_tex := _resolve_deck_row_art(entry.get("card_id", ""))
+	var art_rect := TextureRect.new()
+	art_rect.texture = art_tex
+	art_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	art_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Position the art so the visible window shows 10%–30% of the image height
+	# The row inner height is (row_h - 2*border). The art slice is 20% of image height.
+	# art_height = inner_height / 0.20, offset upward by 10% of art_height
+	var inner_h := row_h - border * 2
+	var art_h := inner_h / (DECK_ROW_ART_BOTTOM_FRAC - DECK_ROW_ART_TOP_FRAC)
+	var art_y := border - art_h * DECK_ROW_ART_TOP_FRAC
+	art_rect.anchor_left = 0.0
+	art_rect.anchor_right = 1.0
+	art_rect.anchor_top = 0.0
+	art_rect.anchor_bottom = 0.0
+	art_rect.offset_left = border
+	art_rect.offset_right = -border
+	art_rect.offset_top = art_y
+	art_rect.offset_bottom = art_y + art_h
+	# Apply fade-to-black shader on right side
+	if _deck_row_fade_shader == null:
+		_deck_row_fade_shader = Shader.new()
+		_deck_row_fade_shader.code = DECK_ROW_FADE_SHADER_CODE
+	var mat := ShaderMaterial.new()
+	mat.shader = _deck_row_fade_shader
+	art_rect.material = mat
+	row.add_child(art_rect)
+
+	# --- Magicka gem (left side) ---
+	var gem_size := 36
+	var gem := PanelContainer.new()
+	var gem_style := StyleBoxFlat.new()
+	gem_style.bg_color = Color(0.12, 0.14, 0.18, 0.99)
+	gem_style.border_color = Color(0.72, 0.84, 0.98, 1.0)
+	gem_style.set_border_width_all(2)
+	gem_style.set_corner_radius_all(gem_size / 2)
+	gem_style.set_content_margin_all(0)
+	gem.add_theme_stylebox_override("panel", gem_style)
+	gem.custom_minimum_size = Vector2(gem_size, gem_size)
+	gem.size = Vector2(gem_size, gem_size)
+	gem.position = Vector2(border + 5, (row_h - gem_size) / 2.0)
+	gem.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var cost_label := Label.new()
 	cost_label.text = str(entry["cost"])
-	cost_label.add_theme_font_size_override("font_size", 17)
-	cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cost_label.add_theme_font_size_override("font_size", 18)
 	cost_label.add_theme_color_override("font_color", Color.WHITE)
-	cost_badge.add_child(cost_label)
-	row.add_child(cost_badge)
+	cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cost_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	cost_label.size_flags_horizontal = SIZE_EXPAND_FILL
+	cost_label.size_flags_vertical = SIZE_EXPAND_FILL
+	gem.add_child(cost_label)
+	row.add_child(gem)
 
-	# Card name
+	# --- Card name + quantity (right side, over the faded area) ---
+	var right_info := HBoxContainer.new()
+	right_info.anchor_left = 0.0
+	right_info.anchor_right = 1.0
+	right_info.anchor_top = 0.0
+	right_info.anchor_bottom = 1.0
+	right_info.offset_left = border + gem_size + 12
+	right_info.offset_right = -border - 10
+	right_info.offset_top = border
+	right_info.offset_bottom = -border
+	right_info.add_theme_constant_override("separation", 8)
+	right_info.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
 	var name_label := Label.new()
 	name_label.text = str(entry["name"])
 	name_label.size_flags_horizontal = SIZE_EXPAND_FILL
-	name_label.add_theme_font_size_override("font_size", 18)
+	name_label.size_flags_vertical = SIZE_SHRINK_CENTER
+	name_label.add_theme_font_size_override("font_size", 19)
 	name_label.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	row.add_child(name_label)
+	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	right_info.add_child(name_label)
 
-	# Quantity indicator
 	var qty_label := Label.new()
 	qty_label.text = "x%d" % entry["quantity"]
-	qty_label.add_theme_font_size_override("font_size", 17)
+	qty_label.size_flags_vertical = SIZE_SHRINK_CENTER
+	qty_label.add_theme_font_size_override("font_size", 18)
 	qty_label.add_theme_color_override("font_color", UITheme.GOLD_DIM)
-	row.add_child(qty_label)
+	qty_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	right_info.add_child(qty_label)
+
+	row.add_child(right_info)
 
 	return row
 
 
-func _get_card_cost_badge_color(attributes: Array) -> Color:
-	if attributes.size() == 1:
-		return ATTRIBUTE_TINTS.get(str(attributes[0]), NEUTRAL_COST_COLOR)
-	return NEUTRAL_COST_COLOR
+func _add_attribute_border(row: Control, attributes: Array, row_h: int, border: int) -> void:
+	var colors: Array = []
+	for attr in attributes:
+		colors.append(ATTRIBUTE_TINTS.get(str(attr), NEUTRAL_COST_COLOR))
+	if colors.is_empty():
+		colors.append(NEUTRAL_COST_COLOR)
+
+	if colors.size() == 1:
+		# Single-color border via a full background rect
+		var border_bg := ColorRect.new()
+		border_bg.color = colors[0]
+		border_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		border_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(border_bg)
+	else:
+		# Split border: divide horizontally into equal segments
+		var segment_count := colors.size()
+		for i in range(segment_count):
+			var seg := ColorRect.new()
+			seg.color = colors[i]
+			seg.anchor_top = 0.0
+			seg.anchor_bottom = 1.0
+			seg.anchor_left = float(i) / segment_count
+			seg.anchor_right = float(i + 1) / segment_count
+			seg.offset_left = 0
+			seg.offset_right = 0
+			seg.offset_top = 0
+			seg.offset_bottom = 0
+			seg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			row.add_child(seg)
+
+
+func _resolve_deck_row_art(card_id: String) -> Texture2D:
+	if card_id.is_empty():
+		return _get_placeholder_art()
+	var path := "res://assets/images/cards/" + card_id + ".png"
+	if ResourceLoader.exists(path):
+		var resource = load(path)
+		if resource is Texture2D:
+			return resource as Texture2D
+	var global_path := ProjectSettings.globalize_path(path)
+	if FileAccess.file_exists(global_path):
+		var image := Image.new()
+		if image.load(global_path) == OK:
+			return ImageTexture.create_from_image(image)
+	return _get_placeholder_art()
+
+
+func _get_placeholder_art() -> Texture2D:
+	var path := "res://assets/images/cards/placeholder.png"
+	if ResourceLoader.exists(path):
+		var resource = load(path)
+		if resource is Texture2D:
+			return resource as Texture2D
+	var image := Image.create(2, 2, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0.26, 0.24, 0.22, 1.0))
+	return ImageTexture.create_from_image(image)
 
 
 func _refresh_magicka_curve() -> void:
