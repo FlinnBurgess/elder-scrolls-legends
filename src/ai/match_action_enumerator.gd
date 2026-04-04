@@ -349,11 +349,12 @@ static func _enumerate_pending_hand_selection_actions(match_state: Dictionary, p
 			"order_key": 5,
 		})
 		actions.append(descriptor)
-	var decline := _build_descriptor(KIND_DECLINE_HAND_SELECTION, match_state, player_id, {}, {}, {
-		"timing_window": TIMING_INTERRUPT,
-		"order_key": 6,
-	})
-	actions.append(decline)
+	if not bool(selection.get("mandatory", false)):
+		var decline := _build_descriptor(KIND_DECLINE_HAND_SELECTION, match_state, player_id, {}, {}, {
+			"timing_window": TIMING_INTERRUPT,
+			"order_key": 6,
+		})
+		actions.append(decline)
 	return actions
 
 

@@ -1031,6 +1031,7 @@ func _enter_hand_selection_mode() -> void:
 		"candidate_ids": candidate_ids,
 		"source_instance_id": str(selection.get("source_instance_id", "")),
 		"prompt": str(selection.get("prompt", "Choose a card from your hand.")),
+		"mandatory": bool(selection.get("mandatory", false)),
 	}
 	_screen._selected_instance_id = ""
 	_screen._status_message = str(_hand_selection_state.get("prompt", ""))
@@ -1056,6 +1057,8 @@ func _resolve_hand_selection(instance_id: String) -> void:
 
 
 func _cancel_hand_selection() -> void:
+	if bool(_hand_selection_state.get("mandatory", false)):
+		return
 	var local_id = _screen._local_player_id()
 	_screen.MatchTiming.decline_pending_hand_selection(_screen._match_state, local_id)
 	_exit_hand_selection_mode()

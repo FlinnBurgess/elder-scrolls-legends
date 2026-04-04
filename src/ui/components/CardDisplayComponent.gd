@@ -1469,7 +1469,7 @@ func _refresh_pips() -> void:
 	if _pips_container == null:
 		return
 	for child in _pips_container.get_children():
-		child.queue_free()
+		child.free()
 	if _relationships.is_empty():
 		_pips_container.visible = false
 		return

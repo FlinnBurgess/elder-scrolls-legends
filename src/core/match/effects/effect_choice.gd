@@ -267,6 +267,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						"then_op": str(effect.get("then_op", "")),
 						"then_context": effect.get("then_context", {}).duplicate(true) if typeof(effect.get("then_context", {})) == TYPE_DICTIONARY else {},
 						"prompt": str(effect.get("prompt", "Choose a card from your hand.")),
+						"mandatory": bool(effect.get("mandatory", false)),
 					})
 		"optional_discard_and_summon":
 			var odas_controller_id := str(trigger.get("controller_player_id", ""))
