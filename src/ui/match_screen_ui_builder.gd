@@ -1,6 +1,8 @@
 class_name MatchScreenUIBuilder
 extends RefCounted
 
+const UITheme = preload("res://src/ui/ui_theme.gd")
+
 var _screen  # MatchScreen reference
 
 
@@ -485,62 +487,53 @@ func _build_pause_overlay() -> PanelContainer:
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	overlay.z_index = 90
-	_apply_panel_style(overlay, Color(0.04, 0.05, 0.07, 0.78), Color(0.5, 0.5, 0.55, 0.6), 0, 0)
+	_apply_panel_style(overlay, Color(0.04, 0.05, 0.07, 0.78), Color(0, 0, 0, 0), 0, 0)
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	overlay.add_child(center)
 	var card := PanelContainer.new()
 	card.name = "PauseCard"
 	card.custom_minimum_size = Vector2(320, 0)
-	_apply_panel_style(card, Color(0.1, 0.11, 0.16, 0.98), Color(0.5, 0.5, 0.55, 0.96), 2, 16)
+	_apply_panel_style(card, UITheme.PANEL_BG, UITheme.PANEL_BORDER, 2, 8)
 	center.add_child(card)
 	var box := _build_panel_box(card, 14, 24)
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	var title := Label.new()
 	title.text = "Paused"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 30)
-	title.add_theme_color_override("font_color", Color(0.95, 0.96, 0.98, 1.0))
+	UITheme.style_title(title, 30)
 	box.add_child(title)
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 6)
-	box.add_child(spacer)
+	box.add_child(UITheme.make_separator(260.0))
 	var resume_button := Button.new()
 	resume_button.text = "Resume"
-	resume_button.custom_minimum_size = Vector2(260, 48)
-	resume_button.add_theme_font_size_override("font_size", 17)
-	_apply_button_style(resume_button, Color(0.18, 0.22, 0.18, 0.98), Color(0.5, 0.7, 0.5, 0.94), Color(0.95, 0.98, 0.95, 1.0), 1, 12)
+	resume_button.custom_minimum_size = Vector2(260, 52)
+	UITheme.style_button(resume_button, 20)
 	resume_button.pressed.connect(_screen._toggle_pause_menu)
 	box.add_child(resume_button)
 	if _screen._puzzle_mode:
 		var retry_button := Button.new()
 		retry_button.text = "Retry"
-		retry_button.custom_minimum_size = Vector2(260, 48)
-		retry_button.add_theme_font_size_override("font_size", 17)
-		_apply_button_style(retry_button, Color(0.18, 0.18, 0.22, 0.98), Color(0.5, 0.5, 0.7, 0.94), Color(0.95, 0.95, 0.98, 1.0), 1, 12)
+		retry_button.custom_minimum_size = Vector2(260, 52)
+		UITheme.style_button(retry_button, 20)
 		retry_button.pressed.connect(func(): _screen._pause_overlay.visible = false; _screen.puzzle_retry_requested.emit())
 		box.add_child(retry_button)
 		var return_button := Button.new()
 		return_button.text = "Return to Puzzles"
-		return_button.custom_minimum_size = Vector2(260, 48)
-		return_button.add_theme_font_size_override("font_size", 17)
-		_apply_button_style(return_button, Color(0.22, 0.18, 0.18, 0.98), Color(0.7, 0.5, 0.5, 0.94), Color(0.98, 0.95, 0.95, 1.0), 1, 12)
+		return_button.custom_minimum_size = Vector2(260, 52)
+		UITheme.style_button(return_button, 20, true)
 		return_button.pressed.connect(func(): _screen._pause_overlay.visible = false; _screen.puzzle_return_to_select_requested.emit())
 		box.add_child(return_button)
 	elif _screen._arena_mode:
 		var forfeit_button := Button.new()
 		forfeit_button.text = "Forfeit"
-		forfeit_button.custom_minimum_size = Vector2(260, 48)
-		forfeit_button.add_theme_font_size_override("font_size", 17)
-		_apply_button_style(forfeit_button, Color(0.6, 0.18, 0.14, 0.98), Color(0.9, 0.42, 0.42, 0.94), Color(1.0, 0.93, 0.9, 1.0), 1, 12)
+		forfeit_button.custom_minimum_size = Vector2(260, 52)
+		UITheme.style_button_accent(forfeit_button, Color(0.85, 0.3, 0.25), 20)
 		forfeit_button.pressed.connect(_screen._forfeit_match)
 		box.add_child(forfeit_button)
 	else:
 		var menu_button := Button.new()
 		menu_button.text = "Return to Menu"
-		menu_button.custom_minimum_size = Vector2(260, 48)
-		menu_button.add_theme_font_size_override("font_size", 17)
-		_apply_button_style(menu_button, Color(0.22, 0.18, 0.18, 0.98), Color(0.7, 0.5, 0.5, 0.94), Color(0.98, 0.95, 0.95, 1.0), 1, 12)
+		menu_button.custom_minimum_size = Vector2(260, 52)
+		UITheme.style_button(menu_button, 20, true)
 		menu_button.pressed.connect(func(): _screen._pause_overlay.visible = false; _screen.return_to_main_menu_requested.emit())
 		box.add_child(menu_button)
 	return overlay

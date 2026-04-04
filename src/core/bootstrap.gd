@@ -774,16 +774,21 @@ func _show_pause_menu() -> void:
 	# Semi-transparent background that blocks clicks
 	var bg := ColorRect.new()
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0, 0, 0, 0.6)
+	bg.color = Color(0.04, 0.05, 0.07, 0.78)
 	_pause_overlay.add_child(bg)
 
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_pause_overlay.add_child(center)
+
 	var panel := PanelContainer.new()
-	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	panel.custom_minimum_size = Vector2(320, 0)
-	_pause_overlay.add_child(panel)
+	UITheme.style_panel(panel)
+	center.add_child(panel)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 16)
+	vbox.add_theme_constant_override("separation", 14)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 24)
 	margin.add_theme_constant_override("margin_right", 24)
@@ -794,19 +799,22 @@ func _show_pause_menu() -> void:
 
 	var title := Label.new()
 	title.text = "Paused"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 24)
+	UITheme.style_title(title, 30)
 	vbox.add_child(title)
+
+	vbox.add_child(UITheme.make_separator(260.0))
 
 	var resume_button := Button.new()
 	resume_button.text = "Resume"
-	resume_button.custom_minimum_size = Vector2(0, 44)
+	resume_button.custom_minimum_size = Vector2(260, 52)
+	UITheme.style_button(resume_button, 20)
 	resume_button.pressed.connect(_dismiss_pause_menu)
 	vbox.add_child(resume_button)
 
 	var main_menu_button := Button.new()
 	main_menu_button.text = "Return to Main Menu"
-	main_menu_button.custom_minimum_size = Vector2(0, 44)
+	main_menu_button.custom_minimum_size = Vector2(260, 52)
+	UITheme.style_button(main_menu_button, 20, true)
 	main_menu_button.pressed.connect(_on_pause_main_menu_pressed)
 	vbox.add_child(main_menu_button)
 
