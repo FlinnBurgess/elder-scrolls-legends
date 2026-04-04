@@ -10,6 +10,7 @@ const MagickaCurveChartClass = preload("res://src/ui/components/magicka_curve_ch
 const ArenaDraftEngineClass = preload("res://src/arena/arena_draft_engine.gd")
 const ErrorReportWriterClass = preload("res://src/core/error_report_writer.gd")
 const ErrorReportPopoverClass = preload("res://src/ui/components/error_report_popover.gd")
+const DeckCardListClass = preload("res://src/ui/components/deck_card_list.gd")
 const UITheme = preload("res://src/ui/ui_theme.gd")
 
 const CARD_ASPECT_RATIO := 384.0 / 220.0
@@ -20,18 +21,6 @@ const ATTRIBUTE_TINTS := {
 	"agility": Color(0.4, 0.76, 0.52, 1.0),
 	"endurance": Color(0.58, 0.46, 0.72, 1.0),
 }
-const NEUTRAL_COST_COLOR := Color(0.6, 0.6, 0.6, 1.0)
-const DECK_ROW_HEIGHT := 52
-const DECK_ROW_BORDER := 4
-const DECK_ROW_ART_VSHIFT := -0.1
-const DECK_ROW_FADE_SHADER_CODE := "
-shader_type canvas_item;
-void fragment() {
-	vec4 tex = texture(TEXTURE, UV);
-	float fade = smoothstep(0.25, 0.7, UV.x);
-	COLOR = mix(tex, vec4(0.0, 0.0, 0.0, 1.0), fade);
-}
-"
 
 # Draft config
 var _attribute_ids: Array = []
@@ -56,21 +45,14 @@ var _pick_counter_label: Label
 var _options_container: HBoxContainer
 var _option_displays: Array = []
 var _deck_card_list_scroll: ScrollContainer
-var _deck_card_list_container: VBoxContainer
+var _deck_card_list: DeckCardList
 var _magicka_curve_chart: Control
 var _card_count_label: Label
 var _card_hover_preview_layer: Control
-var _hover_preview_card_id := ""
-var _hover_preview_node: Control
 var _hovered_option_index := -1
-var _hover_pending_card_id := ""
-var _hover_pending_row: Control
-var _hover_pending_entry: Dictionary
-var _hover_delay_timer: Timer
 var _error_report_hovered_type := ""
 var _error_report_hovered_context := ""
 var _error_report_popover: Control = null
-var _deck_row_fade_shader: Shader
 
 
 func _ready() -> void:
@@ -261,12 +243,6 @@ func _build_ui() -> void:
 	_card_hover_preview_layer.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(_card_hover_preview_layer)
 
-	_hover_delay_timer = Timer.new()
-	_hover_delay_timer.one_shot = true
-	_hover_delay_timer.wait_time = 0.35
-	_hover_delay_timer.timeout.connect(_on_hover_delay_timeout)
-	add_child(_hover_delay_timer)
-
 	# Deck header
 	var deck_header := Label.new()
 	deck_header.text = "Deck"
@@ -280,10 +256,10 @@ func _build_ui() -> void:
 	_deck_card_list_scroll.size_flags_horizontal = SIZE_EXPAND_FILL
 	_deck_card_list_scroll.size_flags_vertical = SIZE_EXPAND_FILL
 	_right_column.add_child(_deck_card_list_scroll)
-	_deck_card_list_container = VBoxContainer.new()
-	_deck_card_list_container.size_flags_horizontal = SIZE_EXPAND_FILL
-	_deck_card_list_container.add_theme_constant_override("separation", 4)
-	_deck_card_list_scroll.add_child(_deck_card_list_container)
+	_deck_card_list = DeckCardListClass.new()
+	_deck_card_list.row_mouse_entered.connect(_on_deck_row_mouse_entered)
+	_deck_card_list.row_mouse_exited.connect(_on_deck_row_mouse_exited)
+	_deck_card_list_scroll.add_child(_deck_card_list)
 
 	# Magicka curve chart
 	_magicka_curve_chart = MagickaCurveChartClass.new()
@@ -363,238 +339,12 @@ func _refresh_options() -> void:
 
 
 func _refresh_deck_card_list() -> void:
-	if _deck_card_list_container == null:
+	if _deck_card_list == null:
 		return
-	_clear_children(_deck_card_list_container)
-
-	var deck_entries: Array = []
-	for entry in _deck:
-		var card_id: String = str(entry.get("card_id", ""))
-		var card: Dictionary = _card_database.get(card_id, {})
-		if card.is_empty():
-			continue
-		deck_entries.append({
-			"card_id": card_id,
-			"name": str(card.get("name", card_id)),
-			"cost": int(card.get("cost", 0)),
-			"quantity": int(entry.get("quantity", 0)),
-			"attributes": card.get("attributes", []),
-		})
-	deck_entries.sort_custom(func(a, b):
-		if a["cost"] != b["cost"]:
-			return a["cost"] < b["cost"]
-		return a["name"].to_lower() < b["name"].to_lower()
-	)
-
-	for entry in deck_entries:
-		_deck_card_list_container.add_child(_build_deck_card_row(entry))
-
-	if deck_entries.is_empty():
-		var empty_label := Label.new()
-		empty_label.text = "No cards in deck"
-		empty_label.add_theme_font_size_override("font_size", 18)
-		empty_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
-		_deck_card_list_container.add_child(empty_label)
-
-
-func _build_deck_card_row(entry: Dictionary) -> Control:
-	var row_h := DECK_ROW_HEIGHT
-	var border := DECK_ROW_BORDER
-	var attributes: Array = entry.get("attributes", [])
-
-	# Root container — fixed height, clips children
-	var row := Control.new()
-	row.size_flags_horizontal = SIZE_EXPAND_FILL
-	row.custom_minimum_size = Vector2(0, row_h)
-	row.clip_contents = true
-	row.mouse_filter = Control.MOUSE_FILTER_STOP
-	row.mouse_entered.connect(_on_deck_row_mouse_entered.bind(row, entry))
-	row.mouse_exited.connect(_on_deck_row_mouse_exited.bind(entry))
-
-	# --- Attribute-colored border (split for multi-attribute) ---
-	_add_attribute_border(row, attributes, row_h, border)
-
-	# --- Black background behind art (visible where art doesn't reach) ---
-	var bg := ColorRect.new()
-	bg.color = Color(0.04, 0.04, 0.06, 1.0)
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.offset_left = border
-	bg.offset_right = -border
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(bg)
-
-	# --- Card art fill (aspect-covered, shifted to show top of image) ---
-	var art_clip := Control.new()
-	art_clip.clip_contents = true
-	art_clip.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	art_clip.offset_left = border
-	art_clip.offset_right = -border
-	art_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(art_clip)
-	var art_tex := _resolve_deck_row_art(entry.get("card_id", ""))
-	var art_rect := TextureRect.new()
-	art_rect.texture = art_tex
-	art_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	art_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	art_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# Make the TextureRect much taller than the clip area so aspect-cover
-	# fills the width, then shift it up via VSHIFT to show the top of the art.
-	var inner_h := row_h
-	var art_height := inner_h * 3.0
-	var shift := DECK_ROW_ART_VSHIFT * art_height
-	art_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	art_rect.offset_top = shift
-	art_rect.offset_bottom = shift + art_height - inner_h
-	if _deck_row_fade_shader == null:
-		_deck_row_fade_shader = Shader.new()
-		_deck_row_fade_shader.code = DECK_ROW_FADE_SHADER_CODE
-	var mat := ShaderMaterial.new()
-	mat.shader = _deck_row_fade_shader
-	art_rect.material = mat
-	art_clip.add_child(art_rect)
-
-	# --- Magicka gem (left side) ---
-	var gem_size := 36
-	var gem := PanelContainer.new()
-	var gem_style := StyleBoxFlat.new()
-	gem_style.bg_color = Color(0.12, 0.14, 0.18, 0.99)
-	gem_style.border_color = Color(0.72, 0.84, 0.98, 1.0)
-	gem_style.set_border_width_all(2)
-	gem_style.set_corner_radius_all(gem_size / 2)
-	gem_style.set_content_margin_all(0)
-	gem.add_theme_stylebox_override("panel", gem_style)
-	gem.custom_minimum_size = Vector2(gem_size, gem_size)
-	gem.size = Vector2(gem_size, gem_size)
-	gem.position = Vector2(border + 5, (row_h - gem_size) / 2.0)
-	gem.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var cost_label := Label.new()
-	cost_label.text = str(entry["cost"])
-	cost_label.add_theme_font_size_override("font_size", 18)
-	cost_label.add_theme_color_override("font_color", Color.WHITE)
-	cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	cost_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	cost_label.size_flags_horizontal = SIZE_EXPAND_FILL
-	cost_label.size_flags_vertical = SIZE_EXPAND_FILL
-	gem.add_child(cost_label)
-	row.add_child(gem)
-
-	# --- Card name + quantity (right side, over the faded area) ---
-	var right_info := HBoxContainer.new()
-	right_info.anchor_left = 0.0
-	right_info.anchor_right = 1.0
-	right_info.anchor_top = 0.0
-	right_info.anchor_bottom = 1.0
-	right_info.offset_left = border + gem_size + 12
-	right_info.offset_right = -border - 10
-	right_info.offset_top = 0
-	right_info.offset_bottom = 0
-	right_info.add_theme_constant_override("separation", 8)
-	right_info.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	var name_label := Label.new()
-	name_label.text = str(entry["name"])
-	name_label.size_flags_horizontal = SIZE_EXPAND_FILL
-	name_label.size_flags_vertical = SIZE_SHRINK_CENTER
-	name_label.add_theme_font_size_override("font_size", 19)
-	name_label.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
-	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	right_info.add_child(name_label)
-
-	var qty_label := Label.new()
-	qty_label.text = "x%d" % entry["quantity"]
-	qty_label.size_flags_vertical = SIZE_SHRINK_CENTER
-	qty_label.add_theme_font_size_override("font_size", 18)
-	qty_label.add_theme_color_override("font_color", UITheme.GOLD_DIM)
-	qty_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	right_info.add_child(qty_label)
-
-	row.add_child(right_info)
-
-	return row
-
-
-func _add_attribute_border(row: Control, attributes: Array, row_h: int, border: int) -> void:
-	var colors: Array = []
-	for attr in attributes:
-		colors.append(ATTRIBUTE_TINTS.get(str(attr), NEUTRAL_COST_COLOR))
-	if colors.is_empty():
-		colors.append(NEUTRAL_COST_COLOR)
-
-	if colors.size() == 1:
-		# Left border
-		var left_bg := ColorRect.new()
-		left_bg.color = colors[0]
-		left_bg.anchor_bottom = 1.0
-		left_bg.offset_right = border
-		left_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(left_bg)
-		# Right border
-		var right_bg := ColorRect.new()
-		right_bg.color = colors[0]
-		right_bg.anchor_left = 1.0
-		right_bg.anchor_right = 1.0
-		right_bg.anchor_bottom = 1.0
-		right_bg.offset_left = -border
-		right_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(right_bg)
-	else:
-		# Left/right edges own the corners (full height, pixel-positioned).
-		# Top/bottom edges are inset horizontally by border so they don't overlap corners.
-		var n := colors.size()
-		# Left edge — full height, vertical stripes top-to-bottom
-		for i in range(n):
-			var seg := ColorRect.new()
-			seg.color = colors[i]
-			seg.position = Vector2(0, roundi(float(i) / n * row_h))
-			seg.size = Vector2(border, roundi(float(i + 1) / n * row_h) - roundi(float(i) / n * row_h))
-			seg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			row.add_child(seg)
-		# Right edge — full height, vertical stripes top-to-bottom
-		# Use anchor_left=1.0 for horizontal position, pixel size for vertical
-		for i in range(n):
-			var seg := ColorRect.new()
-			seg.color = colors[i]
-			var seg_top := roundi(float(i) / n * row_h)
-			var seg_bottom := roundi(float(i + 1) / n * row_h)
-			seg.anchor_left = 1.0
-			seg.anchor_top = 0.0
-			seg.anchor_right = 1.0
-			seg.anchor_bottom = 0.0
-			seg.offset_left = -border
-			seg.offset_right = 0
-			seg.offset_top = seg_top
-			seg.offset_bottom = seg_bottom
-			seg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			row.add_child(seg)
-
-
-func _resolve_deck_row_art(card_id: String) -> Texture2D:
-	if card_id.is_empty():
-		return _get_placeholder_art()
-	var path := "res://assets/images/cards/" + card_id + ".png"
-	if ResourceLoader.exists(path):
-		var resource = load(path)
-		if resource is Texture2D:
-			return resource as Texture2D
-	var global_path := ProjectSettings.globalize_path(path)
-	if FileAccess.file_exists(global_path):
-		var image := Image.new()
-		if image.load(global_path) == OK:
-			return ImageTexture.create_from_image(image)
-	return _get_placeholder_art()
-
-
-func _get_placeholder_art() -> Texture2D:
-	var path := "res://assets/images/cards/placeholder.png"
-	if ResourceLoader.exists(path):
-		var resource = load(path)
-		if resource is Texture2D:
-			return resource as Texture2D
-	var image := Image.create(2, 2, false, Image.FORMAT_RGBA8)
-	image.fill(Color(0.26, 0.24, 0.22, 1.0))
-	return ImageTexture.create_from_image(image)
+	if _card_hover_preview_layer != null and not _card_database.is_empty():
+		_deck_card_list.enable_hover_preview(_card_hover_preview_layer, _card_database)
+		_deck_card_list.set_relationship_context_callback(_build_draft_relationship_context)
+	_deck_card_list.set_deck(_deck, _card_database)
 
 
 func _refresh_magicka_curve() -> void:
@@ -667,36 +417,20 @@ func _on_root_split_resized() -> void:
 	_root_split.resized.connect(_on_root_split_resized)
 
 
-# --- Deck Row Hover Preview ---
+# --- Deck Row Hover (error report context only, preview handled by DeckCardList) ---
 
-func _on_deck_row_mouse_entered(row: Control, entry: Dictionary) -> void:
+func _on_deck_row_mouse_entered(_row: Control, entry: Dictionary) -> void:
 	var card_id: String = str(entry.get("card_id", ""))
 	if card_id.is_empty():
 		return
-	_clear_deck_hover_preview()
-	_hover_pending_card_id = card_id
-	_hover_pending_row = row
-	_hover_pending_entry = entry
-	_hover_delay_timer.start()
 	_error_report_hovered_type = "card"
 	_error_report_hovered_context = "%s (in deck list)" % str(entry.get("name", card_id))
 
 
 func _on_deck_row_mouse_exited(_entry: Dictionary) -> void:
-	_hover_pending_card_id = ""
-	_hover_pending_row = null
-	_hover_pending_entry = {}
-	_hover_delay_timer.stop()
-	_clear_deck_hover_preview()
 	if _error_report_hovered_type == "card":
 		_error_report_hovered_type = ""
 		_error_report_hovered_context = ""
-
-
-func _on_hover_delay_timeout() -> void:
-	if _hover_pending_card_id.is_empty() or _hover_pending_row == null:
-		return
-	_show_deck_hover_preview(_hover_pending_row, _hover_pending_card_id)
 
 
 func _build_draft_relationship_context() -> Dictionary:
@@ -707,47 +441,6 @@ func _build_draft_relationship_context() -> Dictionary:
 		for i in range(qty):
 			deck_cards.append(card)
 	return {"zone": "arena_draft", "deck_cards": deck_cards}
-
-
-func _show_deck_hover_preview(row: Control, card_id: String) -> void:
-	_clear_deck_hover_preview()
-	var card: Dictionary = _card_database.get(card_id, {})
-	if card.is_empty():
-		return
-	_hover_preview_card_id = card_id
-	var preview_height := 384.0
-	var preview_width := preview_height / CARD_ASPECT_RATIO
-	var preview_size := Vector2(preview_width, preview_height)
-	var wrapper := Control.new()
-	wrapper.custom_minimum_size = preview_size
-	wrapper.size = preview_size
-	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var component := CardDisplayComponentClass.new()
-	component.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	component.set_interactive(false)
-	component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	component.apply_card(card, CardDisplayComponentClass.PRESENTATION_FULL)
-	if component.has_method("set_relationship_context"):
-		component.set_relationship_context(_build_draft_relationship_context())
-	wrapper.add_child(component)
-	_card_hover_preview_layer.add_child(wrapper)
-	_hover_preview_node = wrapper
-	# Position to the left of the right column
-	var row_rect := row.get_global_rect()
-	var layer_origin := _card_hover_preview_layer.get_global_rect().position
-	var target_x := row_rect.position.x - preview_size.x - 12.0 - layer_origin.x
-	var target_y := row_rect.get_center().y - preview_size.y * 0.5 - layer_origin.y
-	target_y = clampf(target_y, 0.0, maxf(_card_hover_preview_layer.size.y - preview_size.y, 0.0))
-	target_x = maxf(target_x, 0.0)
-	wrapper.position = Vector2(target_x, target_y)
-
-
-func _clear_deck_hover_preview() -> void:
-	_hover_preview_card_id = ""
-	if _hover_preview_node != null and is_instance_valid(_hover_preview_node):
-		_hover_preview_node.get_parent().remove_child(_hover_preview_node)
-		_hover_preview_node.queue_free()
-	_hover_preview_node = null
 
 
 # --- Helpers ---
