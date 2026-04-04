@@ -346,36 +346,71 @@ func _show_deck_select_screen() -> void:
 
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list.add_theme_constant_override("separation", 8)
+	list.add_theme_constant_override("separation", 10)
 	scroll.add_child(list)
 
 	if not player_entries.is_empty():
 		var my_decks_label := Label.new()
 		my_decks_label.text = "My Decks"
-		my_decks_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		UITheme.style_section_label(my_decks_label, 20)
+		my_decks_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		UITheme.style_section_label(my_decks_label, 24)
 		list.add_child(my_decks_label)
 
 	for i in range(_deck_entries.size()):
 		if i == player_entries.size() and not player_entries.is_empty():
 			var defaults_spacer := Control.new()
-			defaults_spacer.custom_minimum_size = Vector2(0, 8)
+			defaults_spacer.custom_minimum_size = Vector2(0, 12)
 			list.add_child(defaults_spacer)
 			var defaults_label := Label.new()
 			defaults_label.text = "Default Decks"
-			defaults_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-			UITheme.style_section_label(defaults_label, 20)
+			defaults_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			UITheme.style_section_label(defaults_label, 24)
 			list.add_child(defaults_label)
 
 		var entry: Dictionary = _deck_entries[i]
 		var deck_button := Button.new()
-		var attributes_text := ", ".join(entry.get("attribute_ids", []))
-		var card_count := int(entry.get("card_count", 0))
-		deck_button.text = "%s  (%s | %d cards)" % [str(entry.get("name", "Unknown")), attributes_text, card_count]
-		deck_button.custom_minimum_size = Vector2(0, 56)
-		deck_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		UITheme.style_button(deck_button, 20)
+		deck_button.custom_minimum_size = Vector2(680, 60)
+		deck_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		UITheme.style_button(deck_button, 24)
 		deck_button.pressed.connect(_on_deck_selected.bind(i))
+		# Build rich content: name | attribute icons | card count
+		var content := HBoxContainer.new()
+		content.add_theme_constant_override("separation", 12)
+		content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		content.offset_left = 12
+		content.offset_right = -12
+		deck_button.add_child(content)
+		var name_label := Label.new()
+		name_label.text = str(entry.get("name", "Unknown"))
+		name_label.add_theme_font_size_override("font_size", 24)
+		name_label.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
+		name_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content.add_child(name_label)
+		var spacer := Control.new()
+		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content.add_child(spacer)
+		var attr_ids: Array = entry.get("attribute_ids", [])
+		for attr_id in attr_ids:
+			var icon_path := "res://assets/images/attributes/%s-small.png" % str(attr_id)
+			if ResourceLoader.exists(icon_path):
+				var icon := TextureRect.new()
+				icon.texture = load(icon_path)
+				icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+				icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+				icon.custom_minimum_size = Vector2(32, 32)
+				icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+				icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				content.add_child(icon)
+		var count_label := Label.new()
+		count_label.text = "%d cards" % int(entry.get("card_count", 0))
+		count_label.add_theme_font_size_override("font_size", 20)
+		count_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+		count_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content.add_child(count_label)
 		list.add_child(deck_button)
 		_deck_select_buttons.append(deck_button)
 

@@ -106,9 +106,13 @@ func _build_ui() -> void:
 	import_button.pressed.connect(_on_import_pressed)
 	button_row.add_child(import_button)
 
-	var sep := UITheme.make_separator(0.0)
-	sep.size_flags_horizontal = SIZE_EXPAND_FILL
-	root.add_child(sep)
+	var sep_spacer_top := Control.new()
+	sep_spacer_top.custom_minimum_size = Vector2(0, 8)
+	root.add_child(sep_spacer_top)
+	root.add_child(UITheme.make_separator(480.0))
+	var sep_spacer_bottom := Control.new()
+	sep_spacer_bottom.custom_minimum_size = Vector2(0, 8)
+	root.add_child(sep_spacer_bottom)
 
 	# Scrollable deck list
 	var scroll := ScrollContainer.new()
@@ -124,30 +128,36 @@ func _build_ui() -> void:
 
 func _build_deck_row(deck_name: String) -> Control:
 	var row := HBoxContainer.new()
+	row.custom_minimum_size = Vector2(680, 0)
 	row.size_flags_horizontal = SIZE_SHRINK_CENTER
 	row.add_theme_constant_override("separation", 12)
 
-	# Deck name button (clickable to edit)
+	# Deck name button (clickable to edit — expands to fill remaining space)
 	var name_button := Button.new()
 	name_button.text = deck_name
-	name_button.custom_minimum_size = Vector2(320, 60)
+	name_button.size_flags_horizontal = SIZE_EXPAND_FILL
+	name_button.custom_minimum_size = Vector2(0, 60)
 	name_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	UITheme.style_button(name_button, 24)
 	name_button.pressed.connect(_on_deck_selected.bind(deck_name))
 	row.add_child(name_button)
 
-	# Validation error indicator
+	# Validation error indicator (always present, hidden when valid)
+	var error_btn := Button.new()
+	error_btn.text = "!"
+	error_btn.custom_minimum_size = Vector2(52, 60)
+	UITheme.style_button_accent(error_btn, Color(0.8, 0.25, 0.2, 1.0), 26)
+	row.add_child(error_btn)
 	var definition := DeckPersistenceClass.load_deck(deck_name)
 	if not definition.is_empty():
 		var validation := DeckValidatorClass.validate_deck(definition, _card_by_id)
 		var errors: Array = validation.get("errors", [])
 		if not errors.is_empty():
-			var error_btn := Button.new()
-			error_btn.text = "!"
-			error_btn.custom_minimum_size = Vector2(52, 60)
-			UITheme.style_button_accent(error_btn, Color(0.8, 0.25, 0.2, 1.0), 26)
 			error_btn.pressed.connect(_on_validation_error_pressed.bind(deck_name, errors))
-			row.add_child(error_btn)
+		else:
+			error_btn.visible = false
+	else:
+		error_btn.visible = false
 
 	# Export button
 	var export_button := Button.new()
