@@ -8,6 +8,7 @@ signal back_requested
 
 const PuzzleCodecScript = preload("res://src/puzzle/puzzle_codec.gd")
 const PuzzlePersistenceScript = preload("res://src/puzzle/puzzle_persistence.gd")
+const UITheme = preload("res://src/ui/ui_theme.gd")
 
 var _custom_list_container: VBoxContainer
 var _custom_section_body: VBoxContainer
@@ -31,11 +32,7 @@ func refresh() -> void:
 func _build_ui() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 
-	var bg := ColorRect.new()
-	bg.color = Color(0.08, 0.09, 0.12, 1.0)
-	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	bg.mouse_filter = MOUSE_FILTER_IGNORE
-	add_child(bg)
+	UITheme.add_background(self)
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
@@ -59,17 +56,18 @@ func _build_ui() -> void:
 	var back_button := Button.new()
 	back_button.text = "Back"
 	back_button.custom_minimum_size = Vector2(120, 56)
-	back_button.add_theme_font_size_override("font_size", 24)
-	_apply_button_style(back_button, Color(0.18, 0.19, 0.24), Color(0.4, 0.4, 0.45))
+	UITheme.style_button(back_button, 22, true)
 	back_button.pressed.connect(func(): back_requested.emit())
 	header.add_child(back_button)
 
 	var title := Label.new()
 	title.text = "Puzzles"
-	title.add_theme_font_size_override("font_size", 40)
-	title.add_theme_color_override("font_color", Color(0.95, 0.92, 0.85))
 	title.size_flags_horizontal = SIZE_EXPAND_FILL
+	UITheme.style_title(title, 40)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	header.add_child(title)
+
+	root.add_child(UITheme.make_separator(0.0))
 
 	# Scrollable puzzle list
 	var scroll := ScrollContainer.new()
@@ -94,17 +92,15 @@ func _build_ui() -> void:
 
 	var import_btn := Button.new()
 	import_btn.text = "Import Puzzle"
-	import_btn.custom_minimum_size = Vector2(220, 56)
-	import_btn.add_theme_font_size_override("font_size", 22)
-	_apply_button_style(import_btn, Color(0.15, 0.17, 0.22), Color(0.4, 0.45, 0.55))
+	import_btn.custom_minimum_size = Vector2(240, 60)
+	UITheme.style_button(import_btn, 22)
 	import_btn.pressed.connect(_show_import_dialog)
 	bottom_row.add_child(import_btn)
 
 	var builder_btn := Button.new()
 	builder_btn.text = "Create Puzzle"
-	builder_btn.custom_minimum_size = Vector2(220, 56)
-	builder_btn.add_theme_font_size_override("font_size", 22)
-	_apply_button_style(builder_btn, Color(0.15, 0.17, 0.22), Color(0.4, 0.45, 0.55))
+	builder_btn.custom_minimum_size = Vector2(240, 60)
+	UITheme.style_button(builder_btn, 22)
 	builder_btn.pressed.connect(func(): builder_requested.emit())
 	bottom_row.add_child(builder_btn)
 
@@ -152,10 +148,9 @@ func _build_pack_section_from_data(pack_path: String, parsed: Dictionary) -> voi
 
 	var header_btn := Button.new()
 	header_btn.text = pack_name
-	header_btn.add_theme_font_size_override("font_size", 28)
 	header_btn.custom_minimum_size = Vector2(0, 60)
 	header_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_apply_button_style(header_btn, Color(0.14, 0.15, 0.2), Color(0.35, 0.4, 0.55))
+	UITheme.style_button(header_btn, 26)
 	section.add_child(header_btn)
 
 	var grid := GridContainer.new()
@@ -191,11 +186,10 @@ func _build_pack_section_from_data(pack_path: String, parsed: Dictionary) -> voi
 		btn.text = puzzle_name
 		btn.size_flags_horizontal = SIZE_EXPAND_FILL
 		btn.custom_minimum_size = Vector2(0, 52)
-		btn.add_theme_font_size_override("font_size", 20)
 		if solved:
-			_apply_button_style(btn, Color(0.1, 0.16, 0.1), Color(0.35, 0.6, 0.35))
+			UITheme.style_button_accent(btn, Color(0.4, 0.75, 0.4), 20)
 		else:
-			_apply_button_style(btn, Color(0.12, 0.13, 0.18), Color(0.3, 0.32, 0.4))
+			UITheme.style_button(btn, 20)
 		var puzzle_entry := {"id": puzzle_id, "name": puzzle_name, "code": code, "solved": solved}
 		btn.pressed.connect(func(): _on_puzzle_clicked(puzzle_entry))
 
@@ -210,10 +204,9 @@ func _build_custom_puzzles_section() -> void:
 	# Section header (expandable)
 	var header_btn := Button.new()
 	header_btn.text = "Custom Puzzles"
-	header_btn.add_theme_font_size_override("font_size", 28)
 	header_btn.custom_minimum_size = Vector2(0, 60)
 	header_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_apply_button_style(header_btn, Color(0.14, 0.15, 0.2), Color(0.35, 0.4, 0.55))
+	UITheme.style_button(header_btn, 26)
 	section.add_child(header_btn)
 
 	_custom_section_body = VBoxContainer.new()
@@ -237,7 +230,7 @@ func _refresh_custom_puzzles() -> void:
 		var empty_label := Label.new()
 		empty_label.text = "No custom puzzles yet"
 		empty_label.add_theme_font_size_override("font_size", 20)
-		empty_label.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
+		empty_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
 		_custom_section_body.add_child(empty_label)
 
 
@@ -261,8 +254,7 @@ func _add_puzzle_row(entry: Dictionary) -> void:
 	name_btn.size_flags_horizontal = SIZE_EXPAND_FILL
 	name_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	name_btn.custom_minimum_size = Vector2(0, 52)
-	name_btn.add_theme_font_size_override("font_size", 24)
-	_apply_button_style(name_btn, Color(0.12, 0.13, 0.18), Color(0.3, 0.32, 0.4))
+	UITheme.style_button(name_btn, 22)
 	var entry_copy := entry.duplicate()
 	name_btn.pressed.connect(func(): _on_puzzle_clicked(entry_copy))
 	row.add_child(name_btn)
@@ -270,9 +262,8 @@ func _add_puzzle_row(entry: Dictionary) -> void:
 	# Edit button
 	var edit_btn := Button.new()
 	edit_btn.text = "Edit"
-	edit_btn.custom_minimum_size = Vector2(80, 52)
-	edit_btn.add_theme_font_size_override("font_size", 22)
-	_apply_button_style(edit_btn, Color(0.14, 0.16, 0.22), Color(0.4, 0.5, 0.65))
+	edit_btn.custom_minimum_size = Vector2(90, 52)
+	UITheme.style_button(edit_btn, 20)
 	var code_for_edit := str(entry.get("code", ""))
 	edit_btn.pressed.connect(func(): _on_edit_puzzle(code_for_edit))
 	row.add_child(edit_btn)
@@ -281,8 +272,7 @@ func _add_puzzle_row(entry: Dictionary) -> void:
 	var delete_btn := Button.new()
 	delete_btn.text = "X"
 	delete_btn.custom_minimum_size = Vector2(52, 52)
-	delete_btn.add_theme_font_size_override("font_size", 22)
-	_apply_button_style(delete_btn, Color(0.2, 0.12, 0.12), Color(0.6, 0.3, 0.3))
+	UITheme.style_button_accent(delete_btn, Color(0.8, 0.3, 0.3), 20)
 	var puzzle_id := str(entry.get("id", ""))
 	delete_btn.pressed.connect(func(): _on_delete_puzzle(puzzle_id))
 	row.add_child(delete_btn)
@@ -327,12 +317,7 @@ func _build_import_dialog() -> void:
 
 	var card := PanelContainer.new()
 	card.custom_minimum_size = Vector2(600, 350)
-	var card_style := StyleBoxFlat.new()
-	card_style.bg_color = Color(0.1, 0.11, 0.16, 0.98)
-	card_style.border_color = Color(0.5, 0.5, 0.55, 0.96)
-	card_style.set_border_width_all(2)
-	card_style.set_corner_radius_all(12)
-	card.add_theme_stylebox_override("panel", card_style)
+	UITheme.style_panel(card)
 	center.add_child(card)
 
 	var vbox := VBoxContainer.new()
@@ -347,7 +332,8 @@ func _build_import_dialog() -> void:
 
 	var import_title := Label.new()
 	import_title.text = "Import Puzzle Code"
-	import_title.add_theme_font_size_override("font_size", 26)
+	UITheme.style_title(import_title, 28)
+	import_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	vbox.add_child(import_title)
 
 	_import_input = TextEdit.new()
@@ -370,17 +356,15 @@ func _build_import_dialog() -> void:
 
 	var cancel_btn := Button.new()
 	cancel_btn.text = "Cancel"
-	cancel_btn.custom_minimum_size = Vector2(130, 48)
-	cancel_btn.add_theme_font_size_override("font_size", 22)
-	_apply_button_style(cancel_btn, Color(0.18, 0.19, 0.24), Color(0.4, 0.4, 0.45))
+	cancel_btn.custom_minimum_size = Vector2(140, 52)
+	UITheme.style_button(cancel_btn, 22, true)
 	cancel_btn.pressed.connect(_dismiss_import_dialog)
 	btn_row.add_child(cancel_btn)
 
 	var import_btn := Button.new()
 	import_btn.text = "Import"
-	import_btn.custom_minimum_size = Vector2(130, 48)
-	import_btn.add_theme_font_size_override("font_size", 22)
-	_apply_button_style(import_btn, Color(0.14, 0.18, 0.24), Color(0.35, 0.5, 0.7))
+	import_btn.custom_minimum_size = Vector2(140, 52)
+	UITheme.style_button(import_btn, 22)
 	import_btn.pressed.connect(_on_import_confirmed)
 	btn_row.add_child(import_btn)
 
@@ -417,29 +401,3 @@ func _on_import_confirmed() -> void:
 	PuzzlePersistenceScript.add_puzzle(puzzle_name, code)
 	_dismiss_import_dialog()
 	_refresh_custom_puzzles()
-
-
-func _apply_button_style(btn: Button, bg_color: Color, border_color: Color) -> void:
-	var normal := StyleBoxFlat.new()
-	normal.bg_color = bg_color
-	normal.border_color = border_color
-	normal.set_border_width_all(1)
-	normal.set_corner_radius_all(6)
-	normal.set_content_margin_all(8)
-	btn.add_theme_stylebox_override("normal", normal)
-
-	var hover := StyleBoxFlat.new()
-	hover.bg_color = bg_color.lightened(0.15)
-	hover.border_color = border_color.lightened(0.2)
-	hover.set_border_width_all(1)
-	hover.set_corner_radius_all(6)
-	hover.set_content_margin_all(8)
-	btn.add_theme_stylebox_override("hover", hover)
-
-	var pressed := StyleBoxFlat.new()
-	pressed.bg_color = bg_color.lightened(0.25)
-	pressed.border_color = border_color.lightened(0.3)
-	pressed.set_border_width_all(1)
-	pressed.set_corner_radius_all(6)
-	pressed.set_content_margin_all(8)
-	btn.add_theme_stylebox_override("pressed", pressed)

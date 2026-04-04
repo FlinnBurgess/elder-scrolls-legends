@@ -15,6 +15,7 @@ const PuzzlePersistenceScript = preload("res://src/puzzle/puzzle_persistence.gd"
 const AIPlayProfile = preload("res://src/ai/ai_play_profile.gd")
 const PuzzleBuilderScreenScript = preload("res://src/ui/puzzle/puzzle_builder_screen.gd")
 const GameLogger = preload("res://src/core/match/game_logger.gd")
+const UITheme = preload("res://src/ui/ui_theme.gd")
 
 const DECKS_DIR := "res://data/decks/"
 
@@ -59,17 +60,7 @@ func _show_main_menu() -> void:
 	_main_menu.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_main_menu)
 
-	# Dark background
-	var bg := ColorRect.new()
-	bg.color = Color(0.08, 0.08, 0.12, 1.0)
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_main_menu.add_child(bg)
-
-	# Subtle vignette overlay
-	var vignette := ColorRect.new()
-	vignette.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	vignette.color = Color(0, 0, 0, 0)
-	_main_menu.add_child(vignette)
+	UITheme.add_background(_main_menu)
 
 	var center := VBoxContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
@@ -78,45 +69,29 @@ func _show_main_menu() -> void:
 	center.add_theme_constant_override("separation", 12)
 	_main_menu.add_child(center)
 
-	# Decorative top line
-	var top_line := ColorRect.new()
-	top_line.custom_minimum_size = Vector2(480, 2)
-	top_line.color = Color(0.72, 0.58, 0.3, 0.6)
-	top_line.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	center.add_child(top_line)
+	center.add_child(UITheme.make_separator())
 
 	var spacer_top := Control.new()
 	spacer_top.custom_minimum_size = Vector2(0, 12)
 	center.add_child(spacer_top)
 
-	# Title
 	var title := Label.new()
 	title.text = "The Elder Scrolls"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 56)
-	title.add_theme_color_override("font_color", Color(0.85, 0.72, 0.4, 1.0))
+	UITheme.style_title(title, 56)
 	center.add_child(title)
 
-	# Subtitle
 	var subtitle := Label.new()
 	subtitle.text = "L E G E N D S"
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_font_size_override("font_size", 30)
-	subtitle.add_theme_color_override("font_color", Color(0.72, 0.58, 0.3, 0.8))
+	UITheme.style_section_label(subtitle, 30)
 	center.add_child(subtitle)
 
-	# Decorative bottom line
-	var bottom_line := ColorRect.new()
-	bottom_line.custom_minimum_size = Vector2(480, 2)
-	bottom_line.color = Color(0.72, 0.58, 0.3, 0.6)
-	bottom_line.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	center.add_child(bottom_line)
+	center.add_child(UITheme.make_separator())
 
 	var spacer_mid := Control.new()
 	spacer_mid.custom_minimum_size = Vector2(0, 40)
 	center.add_child(spacer_mid)
 
-	# Menu buttons
 	var buttons_data := [
 		["Match", _on_match_pressed],
 		["Adventure", _on_adventure_pressed],
@@ -125,7 +100,11 @@ func _show_main_menu() -> void:
 		["Deck Builder", _on_deckbuilder_pressed],
 	]
 	for entry in buttons_data:
-		var btn := _create_menu_button(entry[0], entry[1])
+		var btn := Button.new()
+		btn.text = entry[0]
+		btn.custom_minimum_size = Vector2(480, 72)
+		btn.pressed.connect(entry[1])
+		UITheme.style_button(btn, 28)
 		center.add_child(btn)
 		if entry[0] == "Match":
 			_match_button = btn
@@ -134,61 +113,12 @@ func _show_main_menu() -> void:
 	spacer_quit.custom_minimum_size = Vector2(0, 20)
 	center.add_child(spacer_quit)
 
-	var quit_button := _create_menu_button("Quit", get_tree().quit, true)
+	var quit_button := Button.new()
+	quit_button.text = "Quit"
+	quit_button.custom_minimum_size = Vector2(480, 72)
+	quit_button.pressed.connect(get_tree().quit)
+	UITheme.style_button(quit_button, 28, true)
 	center.add_child(quit_button)
-
-
-func _create_menu_button(label_text: String, callback: Callable, subdued := false) -> Button:
-	var btn := Button.new()
-	btn.text = label_text
-	btn.custom_minimum_size = Vector2(480, 72)
-	btn.add_theme_font_size_override("font_size", 28)
-	btn.pressed.connect(callback)
-
-	var gold := Color(0.85, 0.72, 0.4, 1.0)
-	var gold_dim := Color(0.72, 0.58, 0.3, 0.7)
-
-	if subdued:
-		btn.add_theme_color_override("font_color", Color(0.6, 0.55, 0.45, 0.8))
-		btn.add_theme_color_override("font_hover_color", Color(0.75, 0.65, 0.5, 1.0))
-	else:
-		btn.add_theme_color_override("font_color", Color(0.9, 0.85, 0.7, 1.0))
-		btn.add_theme_color_override("font_hover_color", gold)
-
-	btn.add_theme_color_override("font_pressed_color", Color(1.0, 0.9, 0.6, 1.0))
-	btn.add_theme_color_override("font_focus_color", Color(0.9, 0.85, 0.7, 1.0))
-
-	# Normal style
-	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color(0.12, 0.11, 0.15, 0.9)
-	normal.border_color = gold_dim
-	normal.set_border_width_all(1)
-	normal.set_corner_radius_all(4)
-	normal.set_content_margin_all(12)
-	btn.add_theme_stylebox_override("normal", normal)
-
-	# Hover style
-	var hover := StyleBoxFlat.new()
-	hover.bg_color = Color(0.18, 0.16, 0.2, 0.95)
-	hover.border_color = gold
-	hover.set_border_width_all(2)
-	hover.set_corner_radius_all(4)
-	hover.set_content_margin_all(12)
-	btn.add_theme_stylebox_override("hover", hover)
-
-	# Pressed style
-	var pressed := StyleBoxFlat.new()
-	pressed.bg_color = Color(0.22, 0.19, 0.12, 1.0)
-	pressed.border_color = Color(1.0, 0.9, 0.6, 1.0)
-	pressed.set_border_width_all(2)
-	pressed.set_corner_radius_all(4)
-	pressed.set_content_margin_all(12)
-	btn.add_theme_stylebox_override("pressed", pressed)
-
-	# Focus style (matches hover)
-	btn.add_theme_stylebox_override("focus", hover.duplicate())
-
-	return btn
 
 
 func _on_match_pressed() -> void:
@@ -371,76 +301,108 @@ func _show_deck_select_screen() -> void:
 	_deck_select_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_deck_select_screen)
 
-	var center := VBoxContainer.new()
-	center.custom_minimum_size = Vector2(400, 0)
-	center.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	center.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	center.grow_vertical = Control.GROW_DIRECTION_BOTH
-	center.add_theme_constant_override("separation", 12)
-	_deck_select_screen.add_child(center)
+	UITheme.add_background(_deck_select_screen)
+
+	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 80)
+	margin.add_theme_constant_override("margin_right", 80)
+	margin.add_theme_constant_override("margin_top", 50)
+	margin.add_theme_constant_override("margin_bottom", 50)
+	_deck_select_screen.add_child(margin)
+
+	var root := VBoxContainer.new()
+	root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_theme_constant_override("separation", 16)
+	margin.add_child(root)
+
+	# Header row
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 20)
+	root.add_child(header)
+
+	var back_button := Button.new()
+	back_button.text = "Back"
+	back_button.custom_minimum_size = Vector2(120, 56)
+	UITheme.style_button(back_button, 22, true)
+	back_button.pressed.connect(_on_deck_select_back_pressed)
+	header.add_child(back_button)
 
 	var title := Label.new()
 	title.text = "Choose Your Deck"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 26)
-	center.add_child(title)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	UITheme.style_title(title, 40)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	header.add_child(title)
 
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 8)
-	center.add_child(spacer)
+	root.add_child(UITheme.make_separator(0.0))
+
+	# Scrollable deck list
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	root.add_child(scroll)
+
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", 8)
+	scroll.add_child(list)
 
 	if not player_entries.is_empty():
 		var my_decks_label := Label.new()
 		my_decks_label.text = "My Decks"
 		my_decks_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		my_decks_label.add_theme_font_size_override("font_size", 16)
-		my_decks_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 1.0))
-		center.add_child(my_decks_label)
+		UITheme.style_section_label(my_decks_label, 20)
+		list.add_child(my_decks_label)
 
 	for i in range(_deck_entries.size()):
 		if i == player_entries.size() and not player_entries.is_empty():
 			var defaults_spacer := Control.new()
-			defaults_spacer.custom_minimum_size = Vector2(0, 4)
-			center.add_child(defaults_spacer)
+			defaults_spacer.custom_minimum_size = Vector2(0, 8)
+			list.add_child(defaults_spacer)
 			var defaults_label := Label.new()
 			defaults_label.text = "Default Decks"
 			defaults_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-			defaults_label.add_theme_font_size_override("font_size", 16)
-			defaults_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 1.0))
-			center.add_child(defaults_label)
+			UITheme.style_section_label(defaults_label, 20)
+			list.add_child(defaults_label)
 
 		var entry: Dictionary = _deck_entries[i]
 		var deck_button := Button.new()
 		var attributes_text := ", ".join(entry.get("attribute_ids", []))
 		var card_count := int(entry.get("card_count", 0))
 		deck_button.text = "%s  (%s | %d cards)" % [str(entry.get("name", "Unknown")), attributes_text, card_count]
-		deck_button.custom_minimum_size = Vector2(400, 48)
+		deck_button.custom_minimum_size = Vector2(0, 56)
+		deck_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		UITheme.style_button(deck_button, 20)
 		deck_button.pressed.connect(_on_deck_selected.bind(i))
-		center.add_child(deck_button)
+		list.add_child(deck_button)
 		_deck_select_buttons.append(deck_button)
 
+	# Bottom action buttons
 	var button_spacer := Control.new()
-	button_spacer.custom_minimum_size = Vector2(0, 12)
-	center.add_child(button_spacer)
+	button_spacer.custom_minimum_size = Vector2(0, 8)
+	root.add_child(button_spacer)
+
+	var action_row := HBoxContainer.new()
+	action_row.add_theme_constant_override("separation", 16)
+	action_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	root.add_child(action_row)
 
 	_start_match_button = Button.new()
 	_start_match_button.text = "Start Match"
-	_start_match_button.custom_minimum_size = Vector2(400, 52)
+	_start_match_button.custom_minimum_size = Vector2(240, 64)
 	_start_match_button.disabled = true
+	UITheme.style_button(_start_match_button, 24)
 	_start_match_button.pressed.connect(_on_start_match_pressed)
-	center.add_child(_start_match_button)
+	action_row.add_child(_start_match_button)
 
 	var random_decks_button := Button.new()
 	random_decks_button.text = "Random Decks"
-	random_decks_button.custom_minimum_size = Vector2(400, 48)
+	random_decks_button.custom_minimum_size = Vector2(240, 64)
+	UITheme.style_button(random_decks_button, 24)
 	random_decks_button.pressed.connect(_on_random_decks_pressed)
-	center.add_child(random_decks_button)
-
-	var back_button := Button.new()
-	back_button.text = "Back"
-	back_button.custom_minimum_size = Vector2(400, 44)
-	back_button.pressed.connect(_on_deck_select_back_pressed)
-	center.add_child(back_button)
+	action_row.add_child(random_decks_button)
 
 
 func _on_deck_selected(index: int) -> void:
@@ -449,20 +411,9 @@ func _on_deck_selected(index: int) -> void:
 	for i in range(_deck_select_buttons.size()):
 		var btn: Button = _deck_select_buttons[i]
 		if i == index:
-			var style := StyleBoxFlat.new()
-			style.bg_color = Color(0.2, 0.4, 0.65, 1.0)
-			style.border_color = Color(0.4, 0.65, 0.9, 1.0)
-			style.border_width_left = 2
-			style.border_width_top = 2
-			style.border_width_right = 2
-			style.border_width_bottom = 2
-			style.corner_radius_top_left = 4
-			style.corner_radius_top_right = 4
-			style.corner_radius_bottom_left = 4
-			style.corner_radius_bottom_right = 4
-			btn.add_theme_stylebox_override("normal", style)
+			UITheme.style_button_selected(btn)
 		else:
-			btn.remove_theme_stylebox_override("normal")
+			UITheme.style_button(btn, 20)
 
 
 func _on_start_match_pressed() -> void:

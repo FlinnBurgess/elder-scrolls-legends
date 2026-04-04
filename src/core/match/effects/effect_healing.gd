@@ -168,8 +168,12 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			var asu_controller := str(trigger.get("controller_player_id", ""))
 			var asu_player := MatchTimingHelpers._get_player_state(match_state, asu_controller)
 			if not asu_player.is_empty():
+				var asu_activated_only := bool(effect.get("activated_only", false))
 				for card in asu_player.get(ZONE_SUPPORT, []):
 					if typeof(card) == TYPE_DICTIONARY:
+						var base_uses = card.get("support_uses", null)
+						if asu_activated_only and (base_uses == null or int(base_uses) <= 0):
+							continue
 						var current_uses := int(card.get("remaining_support_uses", card.get("support_uses", 0)))
 						card["remaining_support_uses"] = current_uses + asu_amount
 				generated_events.append({"event_type": "support_uses_added", "player_id": asu_controller, "amount": asu_amount, "reason": reason})

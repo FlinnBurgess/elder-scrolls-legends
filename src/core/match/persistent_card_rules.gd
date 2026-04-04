@@ -18,7 +18,7 @@ const ZONE_ATTACHED_ITEM := "attached_item"
 
 static func refresh_support_for_controller_turn(card: Dictionary) -> void:
 	_ensure_support_state(card)
-	card["activation_used_this_turn"] = false
+	card["activations_this_turn"] = 0
 
 
 static func can_activate_support(match_state: Dictionary, player_id: String, instance_id: String) -> bool:
@@ -216,8 +216,9 @@ static func validate_activate_support(match_state: Dictionary, player_id: String
 	if str(card.get("controller_player_id", location.get("player_id", ""))) != player_id:
 		return _invalid_result("Support %s is not controlled by %s." % [instance_id, player_id])
 	_ensure_support_state(card)
-	if bool(card.get("activation_used_this_turn", false)):
-		return _invalid_result("Supports can only be activated once per turn.")
+	var max_activations := 1 + _count_extra_support_activations(match_state, player_id)
+	if int(card.get("activations_this_turn", 0)) >= max_activations:
+		return _invalid_result("Support has already been activated the maximum number of times this turn.")
 	if card.has("remaining_support_uses") and card.get("remaining_support_uses") != null and int(card.get("remaining_support_uses", 0)) <= 0:
 		if not _has_unlimited_support_uses(match_state, player_id):
 			return _invalid_result("Support %s has no remaining uses." % instance_id)
@@ -238,7 +239,7 @@ static func activate_support(match_state: Dictionary, player_id: String, instanc
 	var activation_cost := int(card.get("activation_cost", 0))
 	if activation_cost > 0:
 		_spend_magicka(match_state, player_id, activation_cost)
-	card["activation_used_this_turn"] = true
+	card["activations_this_turn"] = int(card.get("activations_this_turn", 0)) + 1
 	var has_unlimited := _has_unlimited_support_uses(match_state, player_id)
 	if card.has("remaining_support_uses") and card.get("remaining_support_uses") != null and not has_unlimited:
 		card["remaining_support_uses"] = maxi(0, int(card.get("remaining_support_uses", 0)) - 1)
@@ -354,10 +355,19 @@ static func _has_activate_trigger(card: Dictionary) -> bool:
 
 static func _ensure_support_state(card: Dictionary) -> void:
 	EvergreenRules.ensure_card_state(card)
-	if not card.has("activation_used_this_turn"):
-		card["activation_used_this_turn"] = false
+	if not card.has("activations_this_turn"):
+		card["activations_this_turn"] = 0
 	if not card.has("remaining_support_uses"):
 		card["remaining_support_uses"] = null if card.get("support_uses", null) == null else int(card.get("support_uses", 0))
+
+
+static func _count_extra_support_activations(match_state: Dictionary, player_id: String) -> int:
+	var count := 0
+	for lane in match_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(player_id, []):
+			if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == "hos_wil_cauldron_keeper":
+				count += 1
+	return count
 
 
 static func _get_player_state(match_state: Dictionary, player_id: String) -> Dictionary:

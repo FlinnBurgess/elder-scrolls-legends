@@ -728,7 +728,7 @@ func _apply_surface_button_style(button: Button, surface: String, hidden := fals
 			"support":
 				fill = Color(0.14, 0.18, 0.18, 0.98)
 				border = Color(0.35, 0.58, 0.56, 0.92)
-				if bool(card.get("activation_used_this_turn", false)):
+				if int(card.get("activations_this_turn", 0)) > 0 and not _screen.PersistentCardRules.can_activate_support(_screen._match_state, _screen._active_player_id(), str(card.get("instance_id", ""))):
 					fill = fill.darkened(0.3)
 					border = border.darkened(0.2)
 		if surface == "hand" and _screen._overlays._is_pending_prophecy_card(card):

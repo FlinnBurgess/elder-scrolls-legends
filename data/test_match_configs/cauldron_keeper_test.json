@@ -1,6 +1,6 @@
 {
-  "name": "Bringer of Nightmares",
-  "description": "Test vision_and_transform summon: see 2 random creatures, transform any creature into one",
+  "name": "Cauldron Keeper",
+  "description": "Test Guard, summon extra uses on activated supports, and extra activation per turn passive",
   "board_profile": "standard_versus",
   "turn_number": 1,
   "first_player": "player_1",
@@ -12,27 +12,26 @@
     "has_ring": false,
     "ring_charges": 0,
     "hand": [
-      "hos_int_bringer_of_nightmares",
-      "hos_int_bringer_of_nightmares",
-      "str_fiery_imp",
-      "str_fiery_imp"
+      "hos_wil_cauldron_keeper",
+      "hos_wil_cauldron_keeper",
+      "hos_wil_elixir_of_vitality",
+      "neu_elixir_of_conflict",
+      "wil_elixir_of_the_defender",
+      "wil_divine_fervor"
     ],
     "deck": [
+      "hos_wil_cauldron_keeper",
       "str_whiterun_trooper",
       "str_whiterun_trooper",
-      "end_young_mammoth",
       "end_young_mammoth",
       "int_elusive_schemer"
     ],
     "discard": [],
     "supports": [],
     "field_creatures": [
-      "str_fiery_imp",
       "str_whiterun_trooper"
     ],
-    "shadow_creatures": [
-      "str_fiery_imp"
-    ]
+    "shadow_creatures": []
   },
   "player_2": {
     "health": 30,

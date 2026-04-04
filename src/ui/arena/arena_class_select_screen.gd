@@ -6,6 +6,7 @@ signal back_pressed
 
 const REGISTRY_PATH := "res://data/legends/registries/attribute_class_registry.json"
 const ArenaRunManagerScript = preload("res://src/arena/arena_run_manager.gd")
+const UITheme = preload("res://src/ui/ui_theme.gd")
 
 const ATTRIBUTE_TINTS := {
 	"strength": Color(0.84, 0.39, 0.31, 1.0),
@@ -65,26 +66,29 @@ func _build_ui() -> void:
 		return
 	_is_built = true
 
+	UITheme.add_background(self)
+
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(center)
 
 	var root := VBoxContainer.new()
-	root.custom_minimum_size = Vector2(700, 0)
+	root.custom_minimum_size = Vector2(800, 0)
 	root.add_theme_constant_override("separation", 32)
 	center.add_child(root)
 
 	# Title
 	var title := Label.new()
 	title.text = "Choose Your Class"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 28)
+	UITheme.style_title(title, 40)
 	root.add_child(title)
+
+	root.add_child(UITheme.make_separator(600.0))
 
 	# Class options row
 	var options_row := HBoxContainer.new()
 	options_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	options_row.add_theme_constant_override("separation", 24)
+	options_row.add_theme_constant_override("separation", 28)
 	root.add_child(options_row)
 
 	for class_data in _class_options:
@@ -102,32 +106,27 @@ func _build_ui() -> void:
 
 	var back_button := Button.new()
 	back_button.text = "Back"
-	back_button.custom_minimum_size = Vector2(200, 44)
+	back_button.custom_minimum_size = Vector2(220, 56)
+	UITheme.style_button(back_button, 22, true)
 	back_button.pressed.connect(func() -> void: back_pressed.emit())
 	back_row.add_child(back_button)
 
 
 func _build_class_card(class_data: Dictionary) -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(200, 160)
-
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.12, 0.12, 0.15, 1.0)
-	style.border_color = Color(0.4, 0.4, 0.5, 1.0)
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(12)
-	style.set_content_margin_all(20)
-	panel.add_theme_stylebox_override("panel", style)
+	panel.custom_minimum_size = Vector2(220, 200)
+	UITheme.style_panel(panel)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 12)
+	vbox.add_theme_constant_override("separation", 14)
 	panel.add_child(vbox)
 
 	# Class name
 	var name_label := Label.new()
 	name_label.text = str(class_data.get("display_name", "Unknown"))
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_label.add_theme_font_size_override("font_size", 22)
+	name_label.add_theme_font_size_override("font_size", 24)
+	name_label.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
 	vbox.add_child(name_label)
 
 	# Attribute labels
@@ -140,17 +139,16 @@ func _build_class_card(class_data: Dictionary) -> PanelContainer:
 	for attr_id in attr_ids:
 		var attr_label := Label.new()
 		attr_label.text = str(attr_id).capitalize()
-		attr_label.add_theme_font_size_override("font_size", 14)
+		attr_label.add_theme_font_size_override("font_size", 16)
 		var tint: Color = ATTRIBUTE_TINTS.get(str(attr_id), Color.WHITE)
 		attr_label.add_theme_color_override("font_color", tint)
 		attr_row.add_child(attr_label)
 
-		# Separator between attributes
 		if attr_id != attr_ids.back():
 			var sep := Label.new()
 			sep.text = "+"
-			sep.add_theme_font_size_override("font_size", 14)
-			sep.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6, 1.0))
+			sep.add_theme_font_size_override("font_size", 16)
+			sep.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 1.0))
 			attr_row.add_child(sep)
 
 	# Spacer
@@ -161,7 +159,8 @@ func _build_class_card(class_data: Dictionary) -> PanelContainer:
 	# Select button
 	var select_button := Button.new()
 	select_button.text = "Select"
-	select_button.custom_minimum_size = Vector2(0, 40)
+	select_button.custom_minimum_size = Vector2(0, 52)
+	UITheme.style_button(select_button, 22)
 	select_button.pressed.connect(func() -> void: class_selected.emit(attr_ids))
 	vbox.add_child(select_button)
 
