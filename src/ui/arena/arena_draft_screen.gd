@@ -23,8 +23,7 @@ const ATTRIBUTE_TINTS := {
 const NEUTRAL_COST_COLOR := Color(0.6, 0.6, 0.6, 1.0)
 const DECK_ROW_HEIGHT := 52
 const DECK_ROW_BORDER := 4
-const DECK_ROW_ART_TOP_FRAC := 0.05
-const DECK_ROW_ART_BOTTOM_FRAC := 0.45
+const DECK_ROW_ART_VSHIFT := -0.1
 const DECK_ROW_FADE_SHADER_CODE := "
 shader_type canvas_item;
 void fragment() {
@@ -420,41 +419,39 @@ func _build_deck_card_row(entry: Dictionary) -> Control:
 	bg.color = Color(0.04, 0.04, 0.06, 1.0)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.offset_left = border
-	bg.offset_top = border
 	bg.offset_right = -border
-	bg.offset_bottom = -border
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(bg)
 
-	# --- Card art fill with vertical crop (10%–30% of image shown) ---
+	# --- Card art fill (aspect-covered, shifted to show top of image) ---
+	var art_clip := Control.new()
+	art_clip.clip_contents = true
+	art_clip.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	art_clip.offset_left = border
+	art_clip.offset_right = -border
+	art_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(art_clip)
 	var art_tex := _resolve_deck_row_art(entry.get("card_id", ""))
 	var art_rect := TextureRect.new()
 	art_rect.texture = art_tex
 	art_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	art_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	art_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# Position the art so the visible window shows 10%–30% of the image height
-	# The row inner height is (row_h - 2*border). The art slice is 20% of image height.
-	# art_height = inner_height / 0.20, offset upward by 10% of art_height
-	var inner_h := row_h - border * 2
-	var art_h := inner_h / (DECK_ROW_ART_BOTTOM_FRAC - DECK_ROW_ART_TOP_FRAC)
-	var art_y := border - art_h * DECK_ROW_ART_TOP_FRAC
-	art_rect.anchor_left = 0.0
-	art_rect.anchor_right = 1.0
-	art_rect.anchor_top = 0.0
-	art_rect.anchor_bottom = 0.0
-	art_rect.offset_left = border
-	art_rect.offset_right = -border
-	art_rect.offset_top = art_y
-	art_rect.offset_bottom = art_y + art_h
-	# Apply fade-to-black shader on right side
+	# Make the TextureRect much taller than the clip area so aspect-cover
+	# fills the width, then shift it up via VSHIFT to show the top of the art.
+	var inner_h := row_h
+	var art_height := inner_h * 3.0
+	var shift := DECK_ROW_ART_VSHIFT * art_height
+	art_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	art_rect.offset_top = shift
+	art_rect.offset_bottom = shift + art_height - inner_h
 	if _deck_row_fade_shader == null:
 		_deck_row_fade_shader = Shader.new()
 		_deck_row_fade_shader.code = DECK_ROW_FADE_SHADER_CODE
 	var mat := ShaderMaterial.new()
 	mat.shader = _deck_row_fade_shader
 	art_rect.material = mat
-	row.add_child(art_rect)
+	art_clip.add_child(art_rect)
 
 	# --- Magicka gem (left side) ---
 	var gem_size := 36
@@ -489,8 +486,8 @@ func _build_deck_card_row(entry: Dictionary) -> Control:
 	right_info.anchor_bottom = 1.0
 	right_info.offset_left = border + gem_size + 12
 	right_info.offset_right = -border - 10
-	right_info.offset_top = border
-	right_info.offset_bottom = -border
+	right_info.offset_top = 0
+	right_info.offset_bottom = 0
 	right_info.add_theme_constant_override("separation", 8)
 	right_info.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
@@ -526,26 +523,49 @@ func _add_attribute_border(row: Control, attributes: Array, row_h: int, border: 
 		colors.append(NEUTRAL_COST_COLOR)
 
 	if colors.size() == 1:
-		# Single-color border via a full background rect
-		var border_bg := ColorRect.new()
-		border_bg.color = colors[0]
-		border_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		border_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(border_bg)
+		# Left border
+		var left_bg := ColorRect.new()
+		left_bg.color = colors[0]
+		left_bg.anchor_bottom = 1.0
+		left_bg.offset_right = border
+		left_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(left_bg)
+		# Right border
+		var right_bg := ColorRect.new()
+		right_bg.color = colors[0]
+		right_bg.anchor_left = 1.0
+		right_bg.anchor_right = 1.0
+		right_bg.anchor_bottom = 1.0
+		right_bg.offset_left = -border
+		right_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(right_bg)
 	else:
-		# Split border: divide horizontally into equal segments
-		var segment_count := colors.size()
-		for i in range(segment_count):
+		# Left/right edges own the corners (full height, pixel-positioned).
+		# Top/bottom edges are inset horizontally by border so they don't overlap corners.
+		var n := colors.size()
+		# Left edge — full height, vertical stripes top-to-bottom
+		for i in range(n):
 			var seg := ColorRect.new()
 			seg.color = colors[i]
+			seg.position = Vector2(0, roundi(float(i) / n * row_h))
+			seg.size = Vector2(border, roundi(float(i + 1) / n * row_h) - roundi(float(i) / n * row_h))
+			seg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			row.add_child(seg)
+		# Right edge — full height, vertical stripes top-to-bottom
+		# Use anchor_left=1.0 for horizontal position, pixel size for vertical
+		for i in range(n):
+			var seg := ColorRect.new()
+			seg.color = colors[i]
+			var seg_top := roundi(float(i) / n * row_h)
+			var seg_bottom := roundi(float(i + 1) / n * row_h)
+			seg.anchor_left = 1.0
 			seg.anchor_top = 0.0
-			seg.anchor_bottom = 1.0
-			seg.anchor_left = float(i) / segment_count
-			seg.anchor_right = float(i + 1) / segment_count
-			seg.offset_left = 0
+			seg.anchor_right = 1.0
+			seg.anchor_bottom = 0.0
+			seg.offset_left = -border
 			seg.offset_right = 0
-			seg.offset_top = 0
-			seg.offset_bottom = 0
+			seg.offset_top = seg_top
+			seg.offset_bottom = seg_bottom
 			seg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			row.add_child(seg)
 
