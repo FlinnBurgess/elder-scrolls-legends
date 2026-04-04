@@ -252,14 +252,11 @@ func _build_ui() -> void:
 	_right_column.add_child(UITheme.make_separator(0.0))
 
 	# Deck card list
-	_deck_card_list_scroll = ScrollContainer.new()
-	_deck_card_list_scroll.size_flags_horizontal = SIZE_EXPAND_FILL
-	_deck_card_list_scroll.size_flags_vertical = SIZE_EXPAND_FILL
-	_right_column.add_child(_deck_card_list_scroll)
 	_deck_card_list = DeckCardListClass.new()
 	_deck_card_list.row_mouse_entered.connect(_on_deck_row_mouse_entered)
 	_deck_card_list.row_mouse_exited.connect(_on_deck_row_mouse_exited)
-	_deck_card_list_scroll.add_child(_deck_card_list)
+	_deck_card_list_scroll = _deck_card_list.create_scroll_container()
+	_right_column.add_child(_deck_card_list_scroll)
 
 	# Magicka curve chart
 	_magicka_curve_chart = MagickaCurveChartClass.new()

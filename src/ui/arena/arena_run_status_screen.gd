@@ -202,13 +202,9 @@ func _build_ui() -> void:
 
 	right_col.add_child(UITheme.make_separator(0.0))
 
-	var deck_scroll := ScrollContainer.new()
-	deck_scroll.size_flags_horizontal = SIZE_EXPAND_FILL
-	deck_scroll.size_flags_vertical = SIZE_EXPAND_FILL
-	right_col.add_child(deck_scroll)
-
 	_deck_card_list = DeckCardListClass.new()
-	deck_scroll.add_child(_deck_card_list)
+	var deck_scroll := _deck_card_list.create_scroll_container()
+	right_col.add_child(deck_scroll)
 
 	# Card hover preview layer (overlay on top of everything)
 	_card_hover_preview_layer = Control.new()

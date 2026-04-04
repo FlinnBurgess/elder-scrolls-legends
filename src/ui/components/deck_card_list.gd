@@ -55,6 +55,26 @@ func _init() -> void:
 	add_theme_constant_override("separation", 4)
 
 
+## Create a ScrollContainer pre-configured for this component (hidden scrollbar).
+## Add the DeckCardList as a child of the returned container.
+func create_scroll_container() -> ScrollContainer:
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	scroll.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	var vbar := scroll.get_v_scroll_bar()
+	if vbar:
+		vbar.add_theme_stylebox_override("scroll", StyleBoxEmpty.new())
+		vbar.add_theme_stylebox_override("grabber", StyleBoxEmpty.new())
+		vbar.add_theme_stylebox_override("grabber_highlight", StyleBoxEmpty.new())
+		vbar.add_theme_stylebox_override("grabber_pressed", StyleBoxEmpty.new())
+		vbar.custom_minimum_size = Vector2.ZERO
+		vbar.value_changed.connect(_on_scroll_changed)
+	scroll.add_child(self)
+	return scroll
+
+
 ## Enable a "-" remove button on each row. Emits card_remove_pressed(card_id).
 func set_show_remove_buttons(enabled: bool) -> void:
 	_show_remove_buttons = enabled
@@ -258,6 +278,14 @@ func _on_row_mouse_exited(entry: Dictionary) -> void:
 	_hover_pending_card_id = ""
 	_hover_pending_row = null
 	_hover_delay_timer.stop()
+	_clear_hover_preview()
+
+
+func _on_scroll_changed(_value: float) -> void:
+	_hover_pending_card_id = ""
+	_hover_pending_row = null
+	if _hover_delay_timer != null:
+		_hover_delay_timer.stop()
 	_clear_hover_preview()
 
 

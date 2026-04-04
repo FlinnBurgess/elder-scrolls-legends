@@ -319,16 +319,13 @@ func _build_ui() -> void:
 
 	_right_column.add_child(_build_deck_header())
 
-	_deck_card_list_scroll = ScrollContainer.new()
-	_deck_card_list_scroll.size_flags_horizontal = SIZE_EXPAND_FILL
-	_deck_card_list_scroll.size_flags_vertical = SIZE_EXPAND_FILL
-	_right_column.add_child(_deck_card_list_scroll)
 	_deck_card_list = DeckCardListClass.new()
 	_deck_card_list.set_show_remove_buttons(true)
 	_deck_card_list.card_remove_pressed.connect(remove_card_from_deck)
 	_deck_card_list.row_mouse_entered.connect(func(_row: Control, entry: Dictionary): _on_deck_row_mouse_entered(entry))
 	_deck_card_list.row_mouse_exited.connect(func(_entry: Dictionary): _on_deck_row_mouse_exited())
-	_deck_card_list_scroll.add_child(_deck_card_list)
+	_deck_card_list_scroll = _deck_card_list.create_scroll_container()
+	_right_column.add_child(_deck_card_list_scroll)
 
 	# Magicka curve chart
 	_magicka_curve_chart = MagickaCurveChartClass.new()
