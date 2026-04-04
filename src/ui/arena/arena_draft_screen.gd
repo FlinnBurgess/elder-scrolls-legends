@@ -622,11 +622,10 @@ func _get_deck_definition() -> Dictionary:
 
 
 func _compute_option_card_height() -> float:
-	var available_height := 500.0
+	var available_height := 900.0
 	if _left_column != null and _left_column.size.y > 0:
-		# Leave room for pick counter and spacing
-		available_height = maxf(300.0, _left_column.size.y - 80.0)
-	return minf(available_height, 500.0) * 1.2
+		available_height = maxf(400.0, _left_column.size.y - 60.0)
+	return minf(available_height, 900.0)
 
 
 # --- Signal Handlers ---
