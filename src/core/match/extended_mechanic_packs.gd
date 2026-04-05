@@ -1497,6 +1497,18 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 					match_state["winner_player_id"] = cwc_controller
 					match_state["win_reason"] = "check_win_condition"
 					return {"handled": true, "events": [{"event_type": "game_won", "player_id": cwc_controller, "reason": "both_lanes_have_friendly"}]}
+			elif cwc_condition == "friendly_lanes_full":
+				var cwc_all_full := true
+				for lane in match_state.get("lanes", []):
+					var cwc_slots: Array = lane.get("player_slots", {}).get(cwc_controller, [])
+					var cwc_capacity := int(lane.get("slot_capacity", 4))
+					if cwc_slots.size() < cwc_capacity:
+						cwc_all_full = false
+						break
+				if cwc_all_full:
+					match_state["winner_player_id"] = cwc_controller
+					match_state["win_reason"] = "check_win_condition"
+					return {"handled": true, "events": [{"event_type": "game_won", "player_id": cwc_controller, "reason": "friendly_lanes_full"}]}
 			return {"handled": true, "events": []}
 		"summon_conditional_atronach":
 			var sca_controller := str(trigger.get("controller_player_id", ""))
@@ -1554,8 +1566,8 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				return {"handled": true, "events": []}
 			var lg_roll: int = _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_lockpick", 2)
 			if lg_roll == 0:
-				# Success: put another Lockpick into hand with +1 cost
-				var lg_template := {"definition_id": "hos_agi_lockpick", "name": "Lockpick", "card_type": "action", "attributes": ["agility"], "cost": 3, "power": 0, "health": 0, "base_power": 0, "base_health": 0, "rules_text": "50% chance: Put another Lockpick into your hand. 50% chance: Draw a card and reduce its cost by 2.", "triggered_abilities": [{"family": "on_play", "effects": [{"op": "lockpick_gamble"}]}]}
+				# Success: put another Lockpick into hand
+				var lg_template := {"definition_id": "hos_agi_lockpick", "name": "Lockpick", "card_type": "action", "attributes": ["agility"], "cost": 2, "power": 0, "health": 0, "base_power": 0, "base_health": 0, "rules_text": "Either put another Lockpick into your hand or draw a card and reduce its cost by 2, chosen randomly.", "triggered_abilities": [{"family": "on_play", "effects": [{"op": "lockpick_gamble"}]}]}
 				var lg_card := MatchMutations.build_generated_card(match_state, lg_controller_id, lg_template)
 				lg_card["zone"] = "hand"
 				var lg_hand: Array = lg_player.get("hand", [])

@@ -249,3 +249,13 @@ How to spot: Search for `"action".*equip_health_bonus` or `"action".*equip_power
 An effect op (e.g., `battle_strongest_enemy`) iterates only the attacker's lane to find targets, but the card text says "your opponent's most powerful creature" (no lane restriction). The effect fires but picks from a subset of candidates, missing stronger creatures in other lanes.
 Example: Duel Atop the World (battled strongest enemy in same lane instead of across all lanes)
 How to spot: Rules text references "opponent's most powerful creature" or similar board-wide superlative without mentioning "in its lane" or "in this lane". Check the op handler to see if it restricts iteration to a single lane index.
+
+## Wrong token in card_template
+A summon effect's `card_template` references the wrong token creature (wrong `definition_id`, name, and/or stats). The effect fires correctly but summons the wrong card. Often caused by using a similar-but-different token (e.g., Colovian Trooper instead of Kvatch Soldier).
+Example: Jarl Balgruuf (summoned Colovian Trooper 2/2 Guard instead of Kvatch Soldier 2/3 Guard)
+How to spot: Compare the card's `rules_text` token names against the `card_template` entries in `triggered_abilities`. Also compare token stats (power/health/keywords) against the actual token seed in the catalog.
+
+## Win condition too lenient
+A `check_win_condition` effect uses a condition that is easier to meet than what the card text describes (e.g., "any friendly creature in each lane" vs "lanes are full"). The win triggers prematurely.
+Example: Jarl Balgruuf (triggered on "both lanes have a friendly creature" instead of "your lanes are full")
+How to spot: Compare the card's `rules_text` win condition wording against the `condition` value in the `check_win_condition` effect and its engine handler logic.
