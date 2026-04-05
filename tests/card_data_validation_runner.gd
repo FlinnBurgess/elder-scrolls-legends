@@ -49,6 +49,7 @@ func _initialize() -> void:
 	var timing_source := _read_source_file("res://src/core/match/match_timing.gd")
 	var extended_source := _read_source_file("res://src/core/match/extended_mechanic_packs.gd")
 	var effect_app_source := _read_source_file("res://src/core/match/match_effect_application.gd")
+	var targeting_source := _read_source_file("res://src/core/match/match_targeting.gd")
 	if timing_source.is_empty() or extended_source.is_empty():
 		_assert(false, "Failed to read engine source files for validation.")
 		_finish()
@@ -67,14 +68,14 @@ func _initialize() -> void:
 		for op in effect_app_ops:
 			all_ops[op] = true
 
-	var targets := _extract_match_cases(timing_source, "match target:", "\t\t")
+	var targets := _extract_match_cases(targeting_source, "match target:", "\t\t")
 	var all_targets: Dictionary = {}
 	for t in targets:
 		all_targets[t] = true
 	for t in SPECIAL_TARGETS:
 		all_targets[t] = true
 
-	var trigger_target_modes := _extract_match_cases(timing_source, "match target_mode:", "\t\t")
+	var trigger_target_modes := _extract_match_cases(targeting_source, "match target_mode:", "\t\t")
 	var all_trigger_modes: Dictionary = {}
 	for m in trigger_target_modes:
 		all_trigger_modes[m] = true

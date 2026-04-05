@@ -35,6 +35,13 @@ func target_selected_card(target_instance_id: String) -> Dictionary:
 		else:
 			result = _screen.PersistentCardRules.play_item_from_hand(_screen._match_state, _screen._active_player_id(), _screen._selected_instance_id, {"target_instance_id": target_instance_id})
 	elif bool(selected_location.get("is_valid", false)) and str(selected_location.get("zone", "")) == _screen.MatchMutations.ZONE_HAND and str(selected_card.get("card_type", "")) == "action":
+		# Lane-targeting actions: redirect creature clicks to the creature's lane
+		if str(selected_card.get("action_target_mode", "")) == "choose_lane":
+			var target_lane_id := str(target_location.get("lane_id", ""))
+			if not target_lane_id.is_empty():
+				_play_action_to_lane(target_lane_id)
+				return {"is_valid": true}
+			return _screen._invalid_ui_result("Could not determine lane for target.")
 		saved_action_id = _screen._selected_instance_id
 		saved_action_card = selected_card.duplicate(true)
 		if _screen._check_exalt_action(selected_card, {"target_instance_id": target_instance_id}, _screen._is_pending_prophecy_card(selected_card)):
@@ -134,7 +141,7 @@ func _action_target_mode_allows(action_card: Dictionary, target_instance_id: Str
 		"enemy_creature_or_support":
 			mode_allowed = target_controller != controller_id
 		"choose_lane":
-			mode_allowed = true  # Lane targeting handled by _on_lane_pressed
+			mode_allowed = true  # Creature clicks redirect to lane play in target_selected_card
 		"creature_1_power_or_less":
 			mode_allowed = _screen.EvergreenRules.get_power(target_card) <= 1
 		"creature_4_power_or_less":

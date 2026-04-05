@@ -1,6 +1,6 @@
 {
-  "name": "Snowhawk Detachment",
-  "description": "Test Summon: +1/+1 if you have another creature with Guard",
+  "name": "Swims-at-Night",
+  "description": "Test Swims-at-Night: summon generates a 0-cost card, playing 0-cost cards grants permanent +1/+1",
   "board_profile": "standard_versus",
   "turn_number": 1,
   "first_player": "player_1",
@@ -12,23 +12,23 @@
     "has_ring": false,
     "ring_charges": 0,
     "hand": [
-      "hos_wil_snowhawk_detachment",
-      "hos_wil_snowhawk_detachment",
-      "wil_septim_guardsman",
-      "wil_kvatch_soldier",
-      "wil_hive_defender"
+      "hos_agi_swims_at_night",
+      "str_nord_firebrand",
+      "agi_curse",
+      "int_lesser_ward",
+      "hos_agi_paralyze",
+      "end_healing_hands"
     ],
     "deck": [
-      "agi_mournhold_guardian",
-      "end_fharun_defender",
-      "wil_senchetiger",
-      "str_fortress_watchman"
+      "agi_murkwater_goblin",
+      "hom_agi_dres_spy",
+      "aw_agi_back_alley_footpad",
+      "str_improvised_weapon",
+      "neu_maple_shield"
     ],
     "discard": [],
     "supports": [],
-    "field_creatures": [
-      "wil_kvatch_soldier"
-    ],
+    "field_creatures": [],
     "shadow_creatures": []
   },
   "player_2": {
@@ -41,7 +41,12 @@
     "hand": ["str_fiery_imp"],
     "deck": ["str_fiery_imp", "str_fiery_imp"],
     "discard": [],
-    "field_creatures": ["str_fiery_imp"],
-    "shadow_creatures": ["str_fiery_imp"]
+    "field_creatures": [
+      "str_fiery_imp",
+      "str_fiery_imp"
+    ],
+    "shadow_creatures": [
+      "str_fiery_imp"
+    ]
   }
 }
