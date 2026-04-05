@@ -241,14 +241,14 @@ func _show_mulligan_overlay() -> void:
 	var turn_order_label := Label.new()
 	turn_order_label.text = "You are playing first" if going_first else "You are playing second"
 	turn_order_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	turn_order_label.add_theme_font_size_override("font_size", 20)
+	turn_order_label.add_theme_font_size_override("font_size", 28)
 	turn_order_label.add_theme_color_override("font_color", Color(0.72, 0.68, 0.58, 0.9))
 	vbox.add_child(turn_order_label)
 
 	var title_label := Label.new()
 	title_label.text = "Choose cards to replace"
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_label.add_theme_font_size_override("font_size", 26)
+	title_label.add_theme_font_size_override("font_size", 34)
 	title_label.add_theme_color_override("font_color", Color(0.92, 0.88, 0.78, 1.0))
 	vbox.add_child(title_label)
 
@@ -259,7 +259,10 @@ func _show_mulligan_overlay() -> void:
 	card_row.mouse_filter = Control.MOUSE_FILTER_PASS
 	vbox.add_child(card_row)
 
-	var card_size = _screen._hand_card_display_size()
+	var base: Vector2 = _screen.CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+	var mulligan_height: float = _screen.get_viewport_rect().size.y * 0.45
+	var aspect_ratio: float = base.x / base.y
+	var card_size := Vector2(mulligan_height * aspect_ratio, mulligan_height)
 	var card_buttons_map := {}
 	var x_labels_map := {}
 	_screen._mulligan_instance_id_order = []
@@ -284,12 +287,14 @@ func _show_mulligan_overlay() -> void:
 
 		var x_label := Label.new()
 		x_label.name = "XMark"
-		x_label.text = "X"
+		x_label.text = "✕"
 		x_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		x_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		x_label.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		x_label.add_theme_font_size_override("font_size", 48)
-		x_label.add_theme_color_override("font_color", Color(0.95, 0.25, 0.2, 0.92))
+		x_label.add_theme_font_size_override("font_size", 120)
+		x_label.add_theme_color_override("font_color", Color(0.95, 0.25, 0.2, 0.95))
+		x_label.add_theme_constant_override("outline_size", 15)
+		x_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.9))
 		x_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		x_label.visible = false
 		card_button.add_child(x_label)

@@ -62,6 +62,7 @@ const ATTRIBUTE_ICON_PATHS := {
 	"neutral": "res://assets/images/attributes/neutral-small.png",
 }
 const ATTRIBUTE_ICON_SIZE := 22
+const ATTRIBUTE_INLINE_ICON_SIZE := 40
 
 const PIP_SIZE := 8.0
 const PIP_SPACING := 6.0
@@ -1135,6 +1136,7 @@ func _rules_bbcode(card: Dictionary) -> String:
 	var plain := _rules_preview(card)
 	plain = _apply_wax_wane_colors(plain)
 	plain = _apply_item_buff_colors(card, plain)
+	plain = _replace_attribute_names_with_icons(plain)
 	# Append augment descriptions in green (only on main card view, not alt-views).
 	if _relationship_index == 0:
 		var augment_text := _augment_bbcode(card)
@@ -1151,6 +1153,22 @@ func _rules_bbcode(card: Dictionary) -> String:
 	var keyword_line := plain.substr(0, newline_pos)
 	var rest := plain.substr(newline_pos + 1)
 	return "[center][b]" + keyword_line + "[/b]\n" + rest + "[/center]"
+
+
+func _replace_attribute_names_with_icons(text: String) -> String:
+	var s := ATTRIBUTE_INLINE_ICON_SIZE
+	for attr_name in ATTRIBUTE_ICON_PATHS:
+		var icon_path: String = ATTRIBUTE_ICON_PATHS[attr_name]
+		var img_tag := "[img=" + str(s) + "x" + str(s) + "]" + icon_path + "[/img]"
+		# Replace [AttributeName] (bracketed form, case-insensitive)
+		var bracket_regex := RegEx.new()
+		bracket_regex.compile("(?i)\\[" + attr_name + "\\]")
+		text = bracket_regex.sub(text, img_tag, true)
+		# Replace bare attribute name (case-insensitive, word boundaries)
+		var bare_regex := RegEx.new()
+		bare_regex.compile("(?i)\\b" + attr_name + "\\b")
+		text = bare_regex.sub(text, img_tag, true)
+	return text
 
 
 func _augment_bbcode(card: Dictionary) -> String:
