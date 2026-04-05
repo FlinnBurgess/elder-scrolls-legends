@@ -128,6 +128,12 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						if typeof(_ed_subtypes) == TYPE_ARRAY and _ed_subtypes.has("Dragon"):
 							if str(dd_source_creature.get("controller_player_id", "")) != str(card.get("controller_player_id", "")):
 								continue
+					# enemy_cliff immunity: can't be damaged by cliff creatures
+					if typeof(_ed_immunities) == TYPE_ARRAY and _ed_immunities.has("enemy_cliff"):
+						var _ec_name = str(dd_source_creature.get("name", ""))
+						if _ec_name in ["Cliff Racer", "Cliff Hunter", "Cliff Strider"]:
+							if str(dd_source_creature.get("controller_player_id", "")) != str(card.get("controller_player_id", "")):
+								continue
 				# Damage redirect: if creature is protected, redirect damage to protector
 				var redirect_id := str(card.get("_protected_by", ""))
 				if not redirect_id.is_empty():

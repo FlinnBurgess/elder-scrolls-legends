@@ -286,6 +286,17 @@ static func get_valid_targets_for_mode(match_state: Dictionary, source_instance_
 			var ed_immunities = c.get("self_immunity", [])
 			return not (typeof(ed_immunities) == TYPE_ARRAY and ed_immunities.has("enemy_dragon"))
 		)
+	# enemy_cliff immunity: can't be targeted by cliff creatures
+	var source_name = str(source_card.get("name", ""))
+	if source_name in ["Cliff Racer", "Cliff Hunter", "Cliff Strider"]:
+		targets = targets.filter(func(c):
+			if not c.has("instance_id"):
+				return true
+			if str(c.get("controller_player_id", "")) == controller_id:
+				return true
+			var ec_immunities = c.get("self_immunity", [])
+			return not (typeof(ec_immunities) == TYPE_ARRAY and ec_immunities.has("enemy_cliff"))
+		)
 	# Convert to target info format
 	var result: Array = []
 	for t in targets:

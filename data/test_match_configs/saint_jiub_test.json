@@ -1,0 +1,61 @@
+{
+  "name": "Saint Jiub Immunity",
+  "description": "Test Guard + immunity to Cliff Racers, Cliff Hunters, and Cliff Striders",
+  "board_profile": "standard_versus",
+  "turn_number": 1,
+  "first_player": "player_1",
+  "player_1": {
+    "health": 30,
+    "max_magicka": 12,
+    "current_magicka": 12,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [
+      "hom_neu_saint_jiub",
+      "agi_cliff_racer",
+      "hom_str_cliff_hunter",
+      "hom_agi_cliff_strider",
+      "str_fiery_imp"
+    ],
+    "deck": [
+      "int_elusive_schemer",
+      "int_elusive_schemer",
+      "int_elusive_schemer"
+    ],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "hom_neu_saint_jiub"
+    ],
+    "shadow_creatures": []
+  },
+  "player_2": {
+    "health": 30,
+    "max_magicka": 12,
+    "current_magicka": 12,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [
+      "agi_cliff_racer",
+      "hom_str_cliff_hunter",
+      "hom_agi_cliff_strider",
+      "str_fiery_imp"
+    ],
+    "deck": [
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp"
+    ],
+    "discard": [],
+    "field_creatures": [
+      "agi_cliff_racer",
+      "hom_agi_cliff_strider",
+      "str_fiery_imp"
+    ],
+    "shadow_creatures": [
+      "str_fiery_imp"
+    ]
+  }
+}

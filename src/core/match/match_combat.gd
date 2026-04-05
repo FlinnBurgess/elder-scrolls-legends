@@ -164,6 +164,12 @@ static func _validate_creature_attack_target(match_state: Dictionary, attacker_l
 		if typeof(attacker_subtypes) == TYPE_ARRAY and attacker_subtypes.has("Dragon"):
 			if str(attacker_lookup["player_id"]) != str(defender_lookup["player_id"]):
 				return _invalid_result("This creature can't be targeted by enemy Dragons.")
+	# enemy_cliff immunity: can't be targeted by Cliff Racers, Cliff Hunters, and Cliff Striders
+	if typeof(defender_immunities) == TYPE_ARRAY and defender_immunities.has("enemy_cliff"):
+		var attacker_name = str(attacker_lookup["card"].get("name", ""))
+		if attacker_name in ["Cliff Racer", "Cliff Hunter", "Cliff Strider"]:
+			if str(attacker_lookup["player_id"]) != str(defender_lookup["player_id"]):
+				return _invalid_result("This creature can't be targeted by Cliff Racers, Cliff Hunters, and Cliff Striders.")
 
 	var attacker_can_attack_any_lane := EvergreenRules.has_status(attacker_lookup["card"], "attack_any_lane")
 	if str(defender_lookup["lane_id"]) != str(attacker_lookup["lane_id"]) and not attacker_can_attack_any_lane:
@@ -257,10 +263,22 @@ static func _resolve_creature_attack(match_state: Dictionary, validation: Dictio
 		if typeof(_def_subtypes) == TYPE_ARRAY and _def_subtypes.has("Dragon"):
 			if str(attacker_damage_target.get("controller_player_id", "")) != str(defender.get("controller_player_id", "")):
 				damage_to_attacker = 0
+	# enemy_cliff immunity: can't be damaged by cliff creatures (blocks retaliation damage)
+	if typeof(_atk_immunities) == TYPE_ARRAY and _atk_immunities.has("enemy_cliff"):
+		var _def_name = str(defender.get("name", ""))
+		if _def_name in ["Cliff Racer", "Cliff Hunter", "Cliff Strider"]:
+			if str(attacker_damage_target.get("controller_player_id", "")) != str(defender.get("controller_player_id", "")):
+				damage_to_attacker = 0
 	var _def_immunities = defender_damage_target.get("self_immunity", [])
 	if typeof(_def_immunities) == TYPE_ARRAY and _def_immunities.has("enemy_dragon"):
 		var _atk_subtypes = attacker.get("subtypes", [])
 		if typeof(_atk_subtypes) == TYPE_ARRAY and _atk_subtypes.has("Dragon"):
+			if str(defender_damage_target.get("controller_player_id", "")) != str(attacker.get("controller_player_id", "")):
+				damage_to_defender = 0
+	# enemy_cliff immunity: can't be damaged by cliff creatures
+	if typeof(_def_immunities) == TYPE_ARRAY and _def_immunities.has("enemy_cliff"):
+		var _atk_name = str(attacker.get("name", ""))
+		if _atk_name in ["Cliff Racer", "Cliff Hunter", "Cliff Strider"]:
 			if str(defender_damage_target.get("controller_player_id", "")) != str(attacker.get("controller_player_id", "")):
 				damage_to_defender = 0
 	var defender_damage := EvergreenRules.apply_damage_to_creature(defender_damage_target, damage_to_defender)
