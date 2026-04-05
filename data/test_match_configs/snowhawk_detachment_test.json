@@ -1,0 +1,47 @@
+{
+  "name": "Snowhawk Detachment",
+  "description": "Test Summon: +1/+1 if you have another creature with Guard",
+  "board_profile": "standard_versus",
+  "turn_number": 1,
+  "first_player": "player_1",
+  "player_1": {
+    "health": 30,
+    "max_magicka": 12,
+    "current_magicka": 12,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [
+      "hos_wil_snowhawk_detachment",
+      "hos_wil_snowhawk_detachment",
+      "wil_septim_guardsman",
+      "wil_kvatch_soldier",
+      "wil_hive_defender"
+    ],
+    "deck": [
+      "agi_mournhold_guardian",
+      "end_fharun_defender",
+      "wil_senchetiger",
+      "str_fortress_watchman"
+    ],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "wil_kvatch_soldier"
+    ],
+    "shadow_creatures": []
+  },
+  "player_2": {
+    "health": 30,
+    "max_magicka": 2,
+    "current_magicka": 2,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": ["str_fiery_imp"],
+    "deck": ["str_fiery_imp", "str_fiery_imp"],
+    "discard": [],
+    "field_creatures": ["str_fiery_imp"],
+    "shadow_creatures": ["str_fiery_imp"]
+  }
+}
