@@ -1,0 +1,68 @@
+{
+  "name": "Waves of the Fallen",
+  "description": "Test transform choice: enemy creatures into 2/2 Stricken Draugrs or friendly creatures into 5/5 Hulking Draugrs",
+  "board_profile": "standard_versus",
+  "turn_number": 1,
+  "first_player": "player_1",
+  "player_1": {
+    "health": 30,
+    "max_magicka": 12,
+    "current_magicka": 12,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [
+      "hos_end_waves_of_the_fallen",
+      "hos_end_waves_of_the_fallen",
+      "end_fharun_defender",
+      "end_young_mammoth",
+      "str_whiterun_trooper"
+    ],
+    "deck": [
+      "hos_end_waves_of_the_fallen",
+      "end_fharun_defender",
+      "end_young_mammoth",
+      "str_whiterun_trooper",
+      "int_elusive_schemer",
+      "str_fiery_imp"
+    ],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "str_fiery_imp",
+      "str_fiery_imp"
+    ],
+    "shadow_creatures": [
+      "str_fiery_imp",
+      "end_deathless_draugr"
+    ]
+  },
+  "player_2": {
+    "health": 30,
+    "max_magicka": 2,
+    "current_magicka": 2,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [
+      "str_fiery_imp"
+    ],
+    "deck": [
+      "str_fiery_imp",
+      "str_nord_firebrand",
+      "end_deathless_draugr",
+      "str_whiterun_trooper",
+      "end_fharun_defender"
+    ],
+    "discard": [],
+    "field_creatures": [
+      "end_young_mammoth",
+      "str_whiterun_trooper",
+      "str_fiery_imp"
+    ],
+    "shadow_creatures": [
+      "end_fharun_defender",
+      "str_fiery_imp"
+    ]
+  }
+}

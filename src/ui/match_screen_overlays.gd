@@ -965,9 +965,12 @@ func _show_player_choice_overlay() -> void:
 
 		if mode == "card" and option.has("card"):
 			var card_button := Button.new()
-			card_button.custom_minimum_size = _screen.CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+			var base_size: Vector2 = _screen.CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+			var card_scale := 1.5
+			card_button.custom_minimum_size = base_size * card_scale
 			var card_display = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
 			card_display.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			card_display.scale = Vector2(card_scale, card_scale)
 			card_button.add_child(card_display)
 			card_display.apply_card(option["card"], _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
 			_screen._apply_button_style(card_button, Color(0.12, 0.13, 0.17, 0.95), Color(0.4, 0.38, 0.5, 0.8), Color.WHITE)

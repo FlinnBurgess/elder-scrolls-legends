@@ -344,6 +344,9 @@ static func _evaluate_aura_condition(match_state: Dictionary, source_card: Dicti
 			return int(player.get("max_magicka", 0)) >= 18
 		"has_ward":
 			return EvergreenRules.has_keyword(source_card, "ward")
+		"health_gte_30":
+			var player := MatchTimingHelpers._find_player_by_id(match_state, player_id)
+			return int(player.get("health", 0)) >= 30
 	return false
 
 

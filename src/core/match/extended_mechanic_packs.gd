@@ -1303,19 +1303,27 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 		"waves_of_the_fallen_choice":
 			var wotf_controller := str(trigger.get("controller_player_id", ""))
 			var wotf_lane_id := str(event.get("lane_id", "field"))
+			var wotf_stricken_template := {"card_id": "stricken_draugr_token", "name": "Stricken Draugr", "card_type": "creature", "cost": 2, "power": 2, "health": 2, "subtypes": ["Skeleton"], "collectible": false, "attributes": ["endurance"], "art_path": "res://assets/images/cards/end_stricken_draugr.png"}
+			var wotf_hulking_template := {"card_id": "hulking_draugr_token", "name": "Hulking Draugr", "card_type": "creature", "cost": 5, "power": 5, "health": 5, "subtypes": ["Skeleton"], "collectible": false, "attributes": ["endurance"], "art_path": "res://assets/images/cards/end_hulking_draugr.png"}
+			var wotf_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+			var wotf_base_card := wotf_source.duplicate(true) if not wotf_source.is_empty() else {"name": "Waves of the Fallen", "card_type": "action", "cost": 8, "attributes": ["endurance"], "rarity": "epic", "art_path": "res://assets/images/cards/end_waves_of_the_fallen.png"}
+			var wotf_card_a := wotf_base_card.duplicate(true)
+			wotf_card_a["rules_text"] = "Transform all enemy creatures in this lane into 2/2 Stricken Draugrs."
+			var wotf_card_b := wotf_base_card.duplicate(true)
+			wotf_card_b["rules_text"] = "Transform all friendly creatures in this lane into 5/5 Hulking Draugrs."
 			var wotf_pending: Array = match_state.get("pending_player_choices", [])
 			wotf_pending.append({
 				"player_id": wotf_controller,
 				"source_instance_id": str(trigger.get("source_instance_id", "")),
 				"prompt": "Waves of the Fallen:",
-				"mode": "text",
+				"mode": "card",
 				"options": [
-					{"label": "Debuff Enemies", "description": "Set all enemy creatures in this lane to 2/2"},
-					{"label": "Buff Friendlies", "description": "Set all friendly creatures in this lane to 5/5"},
+					{"label": "Stricken Draugrs", "card": wotf_card_a},
+					{"label": "Hulking Draugrs", "card": wotf_card_b},
 				],
 				"effects_per_option": [
-					[{"op": "set_stats", "target": "all_enemies_in_event_lane", "power": 2, "health": 2}],
-					[{"op": "set_stats", "target": "all_friendly_in_event_lane", "power": 5, "health": 5}],
+					[{"op": "transform", "target": "all_enemies_in_event_lane", "card_template": wotf_stricken_template}],
+					[{"op": "transform", "target": "all_friendly_in_event_lane", "card_template": wotf_hulking_template}],
 				],
 				"trigger": trigger.duplicate(true),
 				"event": event.duplicate(true),
