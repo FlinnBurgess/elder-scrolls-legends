@@ -1,6 +1,6 @@
 {
-  "name": "Lockpick Gamble",
-  "description": "Test Lockpick's random outcome: another Lockpick in hand or draw + cost reduction",
+  "name": "Mistveil Enchanter",
+  "description": "Test Ward summon self-buff: +2/+0 if another friendly Ward creature exists",
   "board_profile": "standard_versus",
   "turn_number": 1,
   "first_player": "player_1",
@@ -12,27 +12,24 @@
     "has_ring": false,
     "ring_charges": 0,
     "hand": [
-      "hos_agi_lockpick",
-      "hos_agi_lockpick",
-      "hos_agi_lockpick",
-      "hos_agi_lockpick",
-      "hos_agi_lockpick"
+      "hos_int_mistveil_enchanter",
+      "hos_int_mistveil_enchanter",
+      "end_wind_keep_spellsword",
+      "int_wardcrafter",
+      "int_breton_conjurer",
+      "int_daggerfall_mage"
     ],
     "deck": [
-      "end_young_mammoth",
-      "end_young_mammoth",
-      "end_young_mammoth",
-      "int_elusive_schemer",
-      "int_elusive_schemer",
-      "str_whiterun_trooper",
-      "str_whiterun_trooper",
-      "end_fharun_defender",
-      "end_fharun_defender"
+      "int_glenumbra_sorceress",
+      "end_iliac_sorcerer",
+      "hos_int_mistveil_enchanter"
     ],
     "discard": [],
     "supports": [],
     "field_creatures": [],
-    "shadow_creatures": []
+    "shadow_creatures": [
+      { "definition_id": "end_wind_keep_spellsword", "can_attack": false }
+    ]
   },
   "player_2": {
     "health": 30,
@@ -44,7 +41,11 @@
     "hand": ["str_fiery_imp"],
     "deck": ["str_fiery_imp", "str_fiery_imp"],
     "discard": [],
-    "field_creatures": ["str_fiery_imp"],
-    "shadow_creatures": []
+    "field_creatures": [
+      "str_fiery_imp"
+    ],
+    "shadow_creatures": [
+      "str_fiery_imp"
+    ]
   }
 }
