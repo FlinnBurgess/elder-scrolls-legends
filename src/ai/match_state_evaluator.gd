@@ -14,6 +14,10 @@ const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 # Default weights — these match the midrange profile in AIPlayProfile and serve
 # as fallback values when no options dictionary is provided.
 const HEALTH_WEIGHT := 2.5
+# Scaling factor for diminishing-returns health utility curve.
+# sqrt(30) normalises so _health_utility(30) == 30, keeping overall magnitude
+# compatible with the existing health_weight constants across all profiles.
+const _HEALTH_SCALE := 5.477225575  # sqrt(30)
 const RUNE_WEIGHT := 1.25
 const HAND_WEIGHT := 0.8
 const OPPONENT_HAND_WEIGHT := 0.45
@@ -49,7 +53,7 @@ static func evaluate_state(match_state: Dictionary, perspective_player_id: Strin
 	var threat_w := float(options.get("incoming_threat_weight", INCOMING_THREAT_WEIGHT))
 
 	var score := 0.0
-	score += (int(me.get("health", 0)) - int(opponent.get("health", 0))) * health_w
+	score += (_health_utility(int(me.get("health", 0))) - _health_utility(int(opponent.get("health", 0)))) * health_w
 	score += (int(me.get("rune_thresholds", []).size()) - int(opponent.get("rune_thresholds", []).size())) * rune_w
 	score += _board_value(match_state, perspective_player_id)
 	score += _support_zone_value(me, support_base) - _support_zone_value(opponent, support_base)
@@ -341,6 +345,16 @@ static func _opposing_player_id(match_state: Dictionary, player_id: String) -> S
 		if candidate != player_id:
 			return candidate
 	return ""
+
+
+## Diminishing-returns health utility: sqrt curve scaled so f(30) == 30.
+## At 30 HP, losing 1 HP costs ~1.25 (half the linear 2.5). At 5 HP, losing 1
+## HP costs ~3.25 (30% more than linear). This makes the AI accept small health
+## costs when healthy while playing cautiously at low health.
+static func _health_utility(health: int) -> float:
+	if health <= 0:
+		return 0.0
+	return _HEALTH_SCALE * sqrt(float(health))
 
 
 static func _array_has_string(values, expected: String) -> bool:

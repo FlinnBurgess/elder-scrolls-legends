@@ -190,6 +190,11 @@ Effect ops that read from a `source` field (e.g., `copy_keywords_to_friendly`) d
 Example: Mentor's Ring
 How to spot: User reports an item's on-play effect doing nothing despite the trigger firing. Check if the effect uses an op that reads from a source card (e.g., `copy_keywords_to_friendly`) and whether `"source"` is specified in the effect dict. If missing, it defaults to the item card instead of the equipped creature.
 
+## Wrong damage trigger family — aura-like instead of source-specific
+Card uses `on_enemy_damaged` (fires when ANY enemy creature takes damage from any source) when it should use `on_deal_damage_to_creature` (fires only when THIS card deals damage to a creature, via `match_role: "source"`). The effect triggers on all enemy damage events instead of only damage dealt by the card itself.
+Example: Deepwood Trapper ("Shackle creatures damaged by Deepwood Trapper" was using `on_enemy_damaged` — shackled on any damage, not just its own)
+How to spot: User reports a "Shackle/effect creatures damaged by [card name]" triggering from other damage sources. Check if the trigger family is `on_enemy_damaged` (any enemy damage) vs `on_deal_damage_to_creature` (only this card's damage). Also check the target: `on_deal_damage_to_creature` uses `"damaged_creature"`, not `"event_damaged_creature"`.
+
 ## Unresolved "same"/"other" lane sentinel in fill/copy summon ops
 The `fill_lane_with` and `summon_copies_to_lane` ops resolve lanes via a fallback chain (`effect.lane_id` → `effect.target_lane_id` → `effect.lane` → `event.lane_id`) but only handled the `"chosen"` and `"both"` sentinel values. The `"same"` and `"other"`/`"other_lane"` sentinels (already handled by `summon_from_effect`) passed through as literal lane IDs and silently failed because no lane has those IDs. Fixed by adding resolution branches in both op handlers.
 Example: Prized Chicken, Vastarie, Prophet of Bones (`"lane": "same"` on `fill_lane_with`)
@@ -229,3 +234,8 @@ How to spot: User reports the card does something entirely different from what i
 Card rules text says "another random friendly creature" but the effect uses `target: "random_friendly"` which includes self. Should use `target: "random_other_friendly"` to exclude the source card.
 Example: Reachman Shaman, Blackrose Herbalist
 How to spot: User reports a creature buffing/healing itself when it's the only friendly creature on board, or the word "another" appears in `rules_text` but the target is `random_friendly` instead of `random_other_friendly`.
+
+## Action card with item data fields instead of triggered abilities
+Card is typed as `"action"` but has item-specific fields (`equip_health_bonus`, `equip_power_bonus`, `equip_keywords`, `rules_text: "+X/+Y"`) and no `triggered_abilities`. The card was likely templated from an item definition. The equip fields do nothing on an action; the card has no gameplay effect when played.
+Example: Counterfeit Trinket (had `equip_health_bonus: 1` and `rules_text: "+0/+1"` instead of draw + self-damage)
+How to spot: Search for `"action".*equip_health_bonus` or `"action".*equip_power_bonus` in card_catalog.gd. Also check non-collectible action tokens with suspiciously item-like rules_text (e.g., "+X/+Y" with no other text).
