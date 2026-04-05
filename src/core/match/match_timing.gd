@@ -189,7 +189,7 @@ const FAMILY_SPECS := {
 	FAMILY_AFTER_FRIENDLY_ACTION_DAMAGES_ENEMY: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "controller", "damage_kind": "ability"},
 	FAMILY_ON_FRIENDLY_PILFER_OR_DRAIN: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "controller", "target_type": "player", "min_amount": 1},
 	FAMILY_ON_FRIENDLY_CREATURE_DEATH_COUNT: {"event_type": EVENT_CREATURE_DESTROYED, "window": WINDOW_AFTER, "match_role": "opponent_player"},
-	FAMILY_ON_ENEMY_STAT_REDUCTION: {"event_type": "stats_modified", "window": WINDOW_AFTER, "match_role": "opponent_player"},
+	FAMILY_ON_ENEMY_STAT_REDUCTION: {"event_type": "stats_modified", "window": WINDOW_AFTER, "match_role": "opponent_player", "require_negative_stat_bonus": true},
 	FAMILY_ON_FRIENDLY_DRAGON_DAMAGE: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "controller"},
 	FAMILY_ON_PLAYER_HEALTH_ZERO: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "target_player_is_controller", "target_type": "player"},
 	FAMILY_WAX: {"event_type": EVENT_CREATURE_SUMMONED, "window": WINDOW_AFTER, "match_role": "source", "required_wax_wane_phase": "wax"},

@@ -1,0 +1,62 @@
+{
+  "name": "Skyforge → Underforge",
+  "description": "Test Skyforge equipping 3 daggers then transforming into Underforge. Verify Underforge activate (set subtype to Werewolf) and aura (+1/+1 to friendly Werewolves).",
+  "board_profile": "standard_versus",
+  "turn_number": 1,
+  "first_player": "player_1",
+  "player_1": {
+    "health": 30,
+    "max_magicka": 12,
+    "current_magicka": 12,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [
+      "hos_str_skyforge",
+      "str_nord_firebrand",
+      "str_fiery_imp",
+      "str_whiterun_trooper",
+      "str_child_of_hircine",
+      "end_fharun_defender"
+    ],
+    "deck": [
+      "end_night_predator",
+      "str_bangkorai_butcher",
+      "str_nord_firebrand",
+      "str_fiery_imp",
+      "str_whiterun_trooper"
+    ],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      "str_whiterun_trooper",
+      "str_fiery_imp"
+    ],
+    "shadow_creatures": [
+      "str_nord_firebrand"
+    ]
+  },
+  "player_2": {
+    "health": 30,
+    "max_magicka": 1,
+    "current_magicka": 1,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": ["str_fiery_imp"],
+    "deck": [
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_nord_firebrand",
+      "str_nord_firebrand"
+    ],
+    "discard": [],
+    "field_creatures": [
+      "str_fiery_imp",
+      "str_fiery_imp"
+    ],
+    "shadow_creatures": [
+      "str_fiery_imp"
+    ]
+  }
+}

@@ -263,33 +263,45 @@ static func activate_support(match_state: Dictionary, player_id: String, instanc
 			"source_instance_id": instance_id,
 			"remaining_uses": 0,
 		}]
-		var discard_result := MatchMutations.discard_card(match_state, instance_id, {"reason": "support_uses_exhausted"})
-		exhaustion_events.append_array(discard_result.get("events", []))
-		# Fire Last Gasp triggers on the support (they listen for creature_destroyed
-		# which is never emitted for supports, so resolve them manually).
-		var raw_triggers = card.get("triggered_abilities", [])
-		if typeof(raw_triggers) == TYPE_ARRAY:
-			for raw_trigger in raw_triggers:
-				if typeof(raw_trigger) != TYPE_DICTIONARY:
-					continue
-				if str(raw_trigger.get("family", "")) != MatchTiming.FAMILY_LAST_GASP:
-					continue
-				var fake_trigger := {
-					"trigger_id": instance_id + "_support_last_gasp",
-					"source_instance_id": instance_id,
-					"controller_player_id": player_id,
-					"owner_player_id": str(card.get("owner_player_id", player_id)),
-					"source_zone": "support",
-					"descriptor": raw_trigger.duplicate(true),
-				}
-				var fake_event := {
-					"event_type": MatchTiming.EVENT_CREATURE_DESTROYED,
-					"instance_id": instance_id,
-					"source_instance_id": instance_id,
-					"controller_player_id": player_id,
-				}
-				var lg_resolution := MatchTiming._build_trigger_resolution(match_state, fake_trigger, fake_event)
-				exhaustion_events.append_array(MatchTiming._apply_effects(match_state, fake_trigger, fake_event, lg_resolution))
+		var toe_template = card.get("transform_on_exhausted", null)
+		if typeof(toe_template) == TYPE_DICTIONARY and not toe_template.is_empty():
+			# Transform the support into the specified card instead of discarding it
+			var transform_result := MatchMutations.transform_card(match_state, instance_id, toe_template, {"reason": "support_exhausted_transform"})
+			exhaustion_events.append_array(transform_result.get("events", []))
+			var transformed_card: Dictionary = transform_result.get("card", card)
+			MatchMutations.restore_definition_state(transformed_card)
+			transformed_card.erase("remaining_support_uses")
+			transformed_card.erase("transform_on_exhausted")
+			_ensure_support_state(transformed_card)
+			transformed_card["activations_this_turn"] = 0
+		else:
+			var discard_result := MatchMutations.discard_card(match_state, instance_id, {"reason": "support_uses_exhausted"})
+			exhaustion_events.append_array(discard_result.get("events", []))
+			# Fire Last Gasp triggers on the support (they listen for creature_destroyed
+			# which is never emitted for supports, so resolve them manually).
+			var raw_triggers = card.get("triggered_abilities", [])
+			if typeof(raw_triggers) == TYPE_ARRAY:
+				for raw_trigger in raw_triggers:
+					if typeof(raw_trigger) != TYPE_DICTIONARY:
+						continue
+					if str(raw_trigger.get("family", "")) != MatchTiming.FAMILY_LAST_GASP:
+						continue
+					var fake_trigger := {
+						"trigger_id": instance_id + "_support_last_gasp",
+						"source_instance_id": instance_id,
+						"controller_player_id": player_id,
+						"owner_player_id": str(card.get("owner_player_id", player_id)),
+						"source_zone": "support",
+						"descriptor": raw_trigger.duplicate(true),
+					}
+					var fake_event := {
+						"event_type": MatchTiming.EVENT_CREATURE_DESTROYED,
+						"instance_id": instance_id,
+						"source_instance_id": instance_id,
+						"controller_player_id": player_id,
+					}
+					var lg_resolution := MatchTiming._build_trigger_resolution(match_state, fake_trigger, fake_event)
+					exhaustion_events.append_array(MatchTiming._apply_effects(match_state, fake_trigger, fake_event, lg_resolution))
 		var exhaustion_timing := MatchTiming.publish_events(match_state, exhaustion_events)
 		processed_events.append_array(exhaustion_timing.get("processed_events", []))
 		trigger_resolutions.append_array(exhaustion_timing.get("trigger_resolutions", []))
@@ -358,7 +370,8 @@ static func _ensure_support_state(card: Dictionary) -> void:
 	if not card.has("activations_this_turn"):
 		card["activations_this_turn"] = 0
 	if not card.has("remaining_support_uses"):
-		card["remaining_support_uses"] = null if card.get("support_uses", null) == null else int(card.get("support_uses", 0))
+		var su = card.get("support_uses", null)
+		card["remaining_support_uses"] = null if (su == null or int(su) == 0) else int(su)
 
 
 static func _count_extra_support_activations(match_state: Dictionary, player_id: String) -> int:

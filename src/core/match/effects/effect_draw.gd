@@ -328,6 +328,24 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					card["zone"] = ZONE_HAND
 					dacfd_hand.append(card)
 					generated_events.append({"event_type": "card_drawn", "player_id": dacfd_controller, "instance_id": str(card.get("instance_id", "")), "source": "draw_all_creatures_from_discard", "reason": reason})
+		"draw_random_creature_from_discard":
+			var drcfd_controller := str(trigger.get("controller_player_id", ""))
+			var drcfd_player := MatchTimingHelpers._get_player_state(match_state, drcfd_controller)
+			if not drcfd_player.is_empty():
+				var drcfd_discard: Array = drcfd_player.get(ZONE_DISCARD, [])
+				var drcfd_hand: Array = drcfd_player.get(ZONE_HAND, [])
+				var drcfd_source_id := str(trigger.get("source_instance_id", ""))
+				var drcfd_candidates: Array = []
+				for card in drcfd_discard:
+					if typeof(card) == TYPE_DICTIONARY and str(card.get("card_type", "")) == "creature" and str(card.get("instance_id", "")) != drcfd_source_id:
+						drcfd_candidates.append(card)
+				if not drcfd_candidates.is_empty():
+					var drcfd_picked: Dictionary = drcfd_candidates[randi() % drcfd_candidates.size()]
+					drcfd_discard.erase(drcfd_picked)
+					MatchMutations.restore_definition_state(drcfd_picked)
+					drcfd_picked["zone"] = ZONE_HAND
+					drcfd_hand.append(drcfd_picked)
+					generated_events.append({"event_type": "card_drawn", "player_id": drcfd_controller, "instance_id": str(drcfd_picked.get("instance_id", "")), "source": "draw_random_creature_from_discard", "reason": reason})
 		"draw_cards_per_runes":
 			var dcpr_controller_id := str(trigger.get("controller_player_id", ""))
 			var dcpr_opponent_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), dcpr_controller_id)

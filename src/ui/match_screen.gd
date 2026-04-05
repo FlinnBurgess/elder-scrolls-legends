@@ -517,6 +517,8 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 		card["cant_attack_player"] = bool(definition["cant_attack_player"])
 	if definition.has("_empower_target_bonus"):
 		card["_empower_target_bonus"] = int(definition["_empower_target_bonus"])
+	if definition.has("transform_on_exhausted"):
+		card["transform_on_exhausted"] = definition["transform_on_exhausted"].duplicate(true)
 	var innate_statuses: Array = definition.get("innate_statuses", [])
 	if not innate_statuses.is_empty():
 		card["innate_statuses"] = innate_statuses.duplicate(true)

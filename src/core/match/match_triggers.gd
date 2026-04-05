@@ -741,6 +741,9 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 	if bool(descriptor.get("require_positive_power_bonus", family_spec.get("require_positive_power_bonus", false))):
 		if int(event.get("power_bonus", 0)) <= 0:
 			return false
+	if bool(descriptor.get("require_negative_stat_bonus", family_spec.get("require_negative_stat_bonus", false))):
+		if int(event.get("power_bonus", 0)) >= 0 and int(event.get("health_bonus", 0)) >= 0:
+			return false
 	# Expertise: only fires at end of turn if controller played an action/item/support
 	if str(descriptor.get("family", "")) == FAMILY_EXPERTISE:
 		var expertise_controller := str(trigger.get("controller_player_id", ""))

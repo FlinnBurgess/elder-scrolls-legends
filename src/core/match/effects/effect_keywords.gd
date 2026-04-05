@@ -462,3 +462,12 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				gpd_abilities.append(gpd_new_trigger)
 				card["triggered_abilities"] = gpd_abilities
 				generated_events.append({"event_type": "ability_granted", "target_instance_id": str(card.get("instance_id", "")), "family": gpd_family, "reason": reason})
+		"set_subtype":
+			var ss_subtype := str(effect.get("subtype", ""))
+			if ss_subtype.is_empty():
+				return
+			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
+				card["subtypes"] = [ss_subtype]
+				generated_events.append({"event_type": "subtype_changed", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "new_subtype": ss_subtype, "reason": reason})
+			var ss_aura_events := MatchAuras.recalculate_auras(match_state)
+			generated_events.append_array(ss_aura_events)

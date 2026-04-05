@@ -83,6 +83,10 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					base_power = EvergreenRules.get_remaining_health(ms_source)
 			elif ms_power_source == "event_power_gained":
 				base_power = int(event.get("power_bonus", event.get("amount", 0)))
+			elif ms_power_source == "event_power_reduced":
+				base_power = absi(mini(int(event.get("power_bonus", 0)), 0))
+			elif ms_power_source == "event_power_reduced_sign":
+				base_power = -1 if int(event.get("power_bonus", 0)) < 0 else 0
 			elif ms_power_source == "damage_amount":
 				base_power = int(event.get("amount", 0))
 			var ms_health_source := str(effect.get("health_source", ""))
@@ -90,6 +94,10 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var ms_source_h := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 				if not ms_source_h.is_empty():
 					base_health = EvergreenRules.get_power(ms_source_h)
+			elif ms_health_source == "event_health_reduced":
+				base_health = absi(mini(int(event.get("health_bonus", 0)), 0))
+			elif ms_health_source == "event_health_reduced_sign":
+				base_health = -1 if int(event.get("health_bonus", 0)) < 0 else 0
 			var total_power := base_power * stat_multiplier
 			var total_health := base_health * stat_multiplier
 			var is_temp := str(effect.get("duration", "")) == "end_of_turn" or bool(effect.get("temporary", false)) or bool(effect.get("expires_end_of_turn", false))
@@ -100,6 +108,8 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				generated_events.append({
 					"event_type": "stats_modified",
 					"source_instance_id": str(trigger.get("source_instance_id", "")),
+					"source_controller_player_id": str(trigger.get("controller_player_id", "")),
+					"player_id": str(card.get("controller_player_id", "")),
 					"target_instance_id": str(card.get("instance_id", "")),
 					"power_bonus": total_power,
 					"health_bonus": total_health,
@@ -145,6 +155,8 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				generated_events.append({
 					"event_type": "stats_modified",
 					"source_instance_id": str(trigger.get("source_instance_id", "")),
+					"source_controller_player_id": str(trigger.get("controller_player_id", "")),
+					"player_id": str(card.get("controller_player_id", "")),
 					"target_instance_id": str(card.get("instance_id", "")),
 					"reason": reason,
 				})
@@ -159,6 +171,8 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				generated_events.append({
 					"event_type": "stats_modified",
 					"source_instance_id": str(trigger.get("source_instance_id", "")),
+					"source_controller_player_id": str(trigger.get("controller_player_id", "")),
+					"player_id": str(card.get("controller_player_id", "")),
 					"target_instance_id": str(card.get("instance_id", "")),
 					"power_bonus": power_bonus,
 					"health_bonus": health_bonus,
@@ -173,6 +187,8 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				generated_events.append({
 					"event_type": "stats_modified",
 					"source_instance_id": str(trigger.get("source_instance_id", "")),
+					"source_controller_player_id": str(trigger.get("controller_player_id", "")),
+					"player_id": str(card.get("controller_player_id", "")),
 					"target_instance_id": str(card.get("instance_id", "")),
 					"health_bonus": dh_current,
 					"reason": reason,
@@ -198,6 +214,8 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				generated_events.append({
 					"event_type": "stats_modified",
 					"source_instance_id": str(trigger.get("source_instance_id", "")),
+					"source_controller_player_id": str(trigger.get("controller_player_id", "")),
+					"player_id": str(card.get("controller_player_id", "")),
 					"target_instance_id": str(card.get("instance_id", "")),
 					"reason": reason,
 				})
@@ -239,7 +257,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var power_bonus := current_power if cds_stat in ["both", "power"] else 0
 				var health_bonus := current_health if cds_stat in ["both", "health"] else 0
 				EvergreenRules.apply_stat_bonus(card, power_bonus, health_bonus, reason)
-				generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "power_bonus": power_bonus, "health_bonus": health_bonus, "reason": reason})
+				generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "source_controller_player_id": str(trigger.get("controller_player_id", "")), "player_id": str(card.get("controller_player_id", "")), "target_instance_id": str(card.get("instance_id", "")), "power_bonus": power_bonus, "health_bonus": health_bonus, "reason": reason})
 		"modify_stats_per_keyword":
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				var mspk_count := 0
@@ -250,7 +268,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var mspk_power := int(effect.get("power_per_keyword", 0)) * mspk_count
 				var mspk_health := int(effect.get("health_per_keyword", 0)) * mspk_count
 				EvergreenRules.apply_stat_bonus(card, mspk_power, mspk_health, reason)
-				generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "power_bonus": mspk_power, "health_bonus": mspk_health, "reason": reason})
+				generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "source_controller_player_id": str(trigger.get("controller_player_id", "")), "player_id": str(card.get("controller_player_id", "")), "target_instance_id": str(card.get("instance_id", "")), "power_bonus": mspk_power, "health_bonus": mspk_health, "reason": reason})
 		"set_all_friendly_power_to_max":
 			var safptm_controller_id := str(trigger.get("controller_player_id", ""))
 			var safptm_max_power := 0
@@ -264,7 +282,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					card["power"] = safptm_max_power
 					card["base_power"] = safptm_max_power
 					EvergreenRules.ensure_card_state(card)
-					generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "reason": reason})
+					generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "source_controller_player_id": str(trigger.get("controller_player_id", "")), "player_id": str(card.get("controller_player_id", "")), "target_instance_id": str(card.get("instance_id", "")), "reason": reason})
 		"spend_all_magicka_for_stats":
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				var ctrl_id := str(card.get("controller_player_id", ""))

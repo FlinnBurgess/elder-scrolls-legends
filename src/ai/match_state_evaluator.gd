@@ -119,7 +119,8 @@ static func _support_zone_value(player_state: Dictionary, support_base: float = 
 			continue
 		total += support_base
 		total += float(int(card.get("cost", 0))) * 0.2
-		total += float(int(card.get("remaining_support_uses", card.get("support_uses", 0)))) * 0.2
+		var rsu = card.get("remaining_support_uses", card.get("support_uses", 0))
+		total += float(int(rsu) if rsu != null else 3) * 0.2
 		total += 0.6 if int(card.get("activation_cost", -1)) >= 0 else 0.0
 	return total
 
