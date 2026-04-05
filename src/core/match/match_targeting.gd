@@ -211,7 +211,7 @@ static func get_valid_targets_for_mode(match_state: Dictionary, source_instance_
 					if p > max_friendly_power:
 						max_friendly_power = p
 		targets = targets.filter(func(c): return c.has("instance_id") and EvergreenRules.get_power(c) < max_friendly_power)
-	# Filter out creatures immune to action targeting (e.g. Iron Atronach, Nahagliiv)
+	# Filter out creatures immune to action targeting (e.g. Iron Atronach, Nahagliiv, Shadowmaster Cover)
 	if str(source_card.get("card_type", "")) == "action":
 		targets = targets.filter(func(c):
 			if not c.has("instance_id"):
@@ -219,6 +219,13 @@ static func get_valid_targets_for_mode(match_state: Dictionary, source_instance_
 			var immunities = c.get("self_immunity", [])
 			if typeof(immunities) != TYPE_ARRAY or not immunities.has("action_targeting"):
 				return true
+			# Check while_status condition — immunity only active if the required status is present
+			var conditions = c.get("_immunity_conditions", {})
+			if conditions.has("action_targeting"):
+				var cond = conditions["action_targeting"]
+				var req_status := str(cond.get("while_status", ""))
+				if not req_status.is_empty() and not EvergreenRules.has_status(c, req_status):
+					return true
 			return str(c.get("controller_player_id", "")) == controller_id
 		)
 		# protect_friendly_from_actions: if opponent has a creature with this passive,

@@ -564,6 +564,10 @@ static func _enumerate_attacks(match_state: Dictionary, player_id: String) -> Ar
 		var attacker_instance_id := str(card.get("instance_id", ""))
 		var atk_targets: Array = []
 		atk_targets.append_array(_enemy_lane_cards(match_state, player_id, str(card.get("lane_id", ""))))
+		if EvergreenRules.has_status(card, "attack_any_lane") or EvergreenRules.has_status(card, "move_to_attack_any_lane"):
+			for lane in match_state.get("lanes", []):
+				if str(lane.get("lane_id", "")) != str(card.get("lane_id", "")):
+					atk_targets.append_array(_enemy_lane_cards(match_state, player_id, str(lane.get("lane_id", ""))))
 		var atk_cond: Dictionary = card.get("attack_condition", {})
 		if bool(atk_cond.get("can_attack_friendly", false)):
 			for friendly_card in _lane_cards_for_player(match_state, player_id):
@@ -920,6 +924,17 @@ static func _expand_target_parameter_sets(match_state: Dictionary, requirements:
 						if card_controller == atm_controller:
 							continue
 						if EvergreenRules.get_power(card) > 3:
+							continue
+				# Skip creatures immune to enemy action targeting (e.g. Iron Atronach, Nahagliiv, Shadowmaster Cover)
+				if not atm_controller.is_empty() and str(card.get("controller_player_id", "")) != atm_controller:
+					var at_immunities = card.get("self_immunity", [])
+					if typeof(at_immunities) == TYPE_ARRAY and at_immunities.has("action_targeting"):
+						var at_conditions = card.get("_immunity_conditions", {})
+						if at_conditions.has("action_targeting"):
+							var at_req_status := str(at_conditions["action_targeting"].get("while_status", ""))
+							if at_req_status.is_empty() or EvergreenRules.has_status(card, at_req_status):
+								continue
+						else:
 							continue
 				var next_parameters: Dictionary = parameters.duplicate(true)
 				next_parameters["target_instance_id"] = str(card.get("instance_id", ""))

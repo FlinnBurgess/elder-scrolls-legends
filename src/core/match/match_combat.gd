@@ -95,6 +95,17 @@ static func resolve_attack(match_state: Dictionary, player_id: String, attacker_
 		_record_events(match_state, player_result["events"])
 		return player_result
 
+	# Cross-lane attack with movement: move attacker to defender's lane before combat so move triggers fire first
+	if bool(validation.get("is_cross_lane", false)) and EvergreenRules.has_status(attacker, "move_to_attack_any_lane"):
+		var defender_lane_id := str(validation.get("defender_lane_id", ""))
+		var move_result := MatchMutations.move_card_between_lanes(match_state, player_id, attacker_instance_id, defender_lane_id, {"preserve_entered_lane_on_turn": true})
+		if bool(move_result.get("is_valid", false)):
+			events.append_array(move_result.get("events", []))
+			var move_timing := MatchTiming.publish_events(match_state, events)
+			events = move_timing.get("processed_events", [])
+			# Update validation lane_id to reflect new position
+			validation["lane_id"] = defender_lane_id
+
 	var creature_result := _resolve_creature_attack(match_state, validation, attacker, events)
 	var creature_timing_result := MatchTiming.publish_events(match_state, events)
 	# Merge pre-destroy (damage triggers), phase1 (defender death), and phase2 (attacker death + remaining) results
@@ -171,17 +182,23 @@ static func _validate_creature_attack_target(match_state: Dictionary, attacker_l
 			if str(attacker_lookup["player_id"]) != str(defender_lookup["player_id"]):
 				return _invalid_result("This creature can't be targeted by Cliff Racers, Cliff Hunters, and Cliff Striders.")
 
-	var attacker_can_attack_any_lane := EvergreenRules.has_status(attacker_lookup["card"], "attack_any_lane")
-	if str(defender_lookup["lane_id"]) != str(attacker_lookup["lane_id"]) and not attacker_can_attack_any_lane:
+	var attacker_can_attack_any_lane := EvergreenRules.has_status(attacker_lookup["card"], "attack_any_lane") or EvergreenRules.has_status(attacker_lookup["card"], "move_to_attack_any_lane")
+	var is_cross_lane := str(defender_lookup["lane_id"]) != str(attacker_lookup["lane_id"])
+	if is_cross_lane and not attacker_can_attack_any_lane:
 		return _invalid_result("Creatures can only attack creatures in the same lane.")
+
+	# For cross-lane attacks, check guards in the defender's lane instead of the attacker's
+	var effective_guards := enemy_guards
+	if is_cross_lane and attacker_can_attack_any_lane:
+		effective_guards = _get_lane_guard_instance_ids(match_state, defender_lookup["lane_index"], defending_player_id)
 
 	var defender: Dictionary = defender_lookup["card"]
 	if not is_friendly_target and _is_cover_active(match_state, defender) and not _has_keyword(defender, EvergreenRules.KEYWORD_GUARD):
 		return _invalid_result("Covered creatures cannot be attacked by enemy creatures.")
 
 	var attacker_ignores_guard := EvergreenRules.has_status(attacker_lookup["card"], "ignore_guard")
-	if not is_friendly_target and not enemy_guards.is_empty() and not _has_keyword(defender, EvergreenRules.KEYWORD_GUARD) and not attacker_ignores_guard:
-		return _invalid_result("Guard creatures in lane %s must be attacked first." % attacker_lookup["lane_id"])
+	if not is_friendly_target and not effective_guards.is_empty() and not _has_keyword(defender, EvergreenRules.KEYWORD_GUARD) and not attacker_ignores_guard:
+		return _invalid_result("Guard creatures in lane %s must be attacked first." % defender_lookup["lane_id"])
 
 	return {
 		"is_valid": true,
@@ -194,7 +211,9 @@ static func _validate_creature_attack_target(match_state: Dictionary, attacker_l
 		"target_instance_id": target_instance_id,
 		"defender": defender,
 		"defender_lookup": defender_lookup,
-		"guard_instance_ids": enemy_guards,
+		"guard_instance_ids": effective_guards,
+		"is_cross_lane": is_cross_lane,
+		"defender_lane_id": str(defender_lookup["lane_id"]),
 	}
 
 

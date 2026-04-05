@@ -101,6 +101,17 @@ func _action_target_mode_allows(action_card: Dictionary, target_instance_id: Str
 	# action_immune: opponent's actions cannot target this creature
 	if str(target_card.get("controller_player_id", "")) != controller_id and _screen.EvergreenRules.has_raw_status(target_card, "action_immune"):
 		return false
+	# action_targeting self_immunity: opponent's actions cannot target this creature (e.g. Iron Atronach, Nahagliiv, Shadowmaster Cover)
+	if str(target_card.get("controller_player_id", "")) != controller_id:
+		var immunities = target_card.get("self_immunity", [])
+		if typeof(immunities) == TYPE_ARRAY and immunities.has("action_targeting"):
+			var conditions = target_card.get("_immunity_conditions", {})
+			if conditions.has("action_targeting"):
+				var req_status := str(conditions["action_targeting"].get("while_status", ""))
+				if req_status.is_empty() or _screen.EvergreenRules.has_status(target_card, req_status):
+					return false
+			else:
+				return false
 	var target_controller := str(target_card.get("controller_player_id", ""))
 	var mode_allowed := true
 	match atm:

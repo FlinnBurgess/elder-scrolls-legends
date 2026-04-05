@@ -1,5 +1,10 @@
 # Bug Classes
 
+## Cross-lane attack status missing from AI enumeration
+Cards with `attack_any_lane` or `move_to_attack_any_lane` status could pass validation in the UI but the AI could never enumerate cross-lane attack targets. Also, `move_to_attack_any_lane` cards (e.g., "May move to attack creatures in the other lane") need pre-attack lane movement so move triggers fire before combat. Guard checking must use the defender's lane, not the attacker's.
+Example: Serpentine Stalker, Blood Dragon, Dead Drop, Bushwhack
+How to spot: Card text mentions attacking creatures in other/any lane, but AI never uses cross-lane attacks; or card says "move to attack" but creature doesn't move before attacking.
+
 ## Card with spurious keywords field
 Cards that grant keywords to other cards (via `grant_keyword` triggered abilities or by summoning creatures with keywords) should not have those keywords in their own `keywords` array, as this causes the keyword to display as a bold header on the card. Applies to both support cards and creatures.
 Example: Elixir of Deflection, Wardcrafter, Baron of Tear, General Tullius

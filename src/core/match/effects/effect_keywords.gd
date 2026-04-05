@@ -329,6 +329,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					generated_events.append({"event_type": "status_stolen", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "status_id": ss_status})
 		"grant_immunity":
 			var gi_type := str(effect.get("immunity_type", ""))
+			var gi_while_status := str(effect.get("while_status", ""))
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				var gi_immunities: Array = card.get("self_immunity", [])
 				if typeof(gi_immunities) != TYPE_ARRAY:
@@ -336,6 +337,10 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				if not gi_immunities.has(gi_type):
 					gi_immunities.append(gi_type)
 				card["self_immunity"] = gi_immunities
+				if not gi_while_status.is_empty():
+					var gi_conditions: Dictionary = card.get("_immunity_conditions", {})
+					gi_conditions[gi_type] = {"while_status": gi_while_status}
+					card["_immunity_conditions"] = gi_conditions
 				generated_events.append({"event_type": "immunity_granted", "target_instance_id": str(card.get("instance_id", "")), "immunity_type": gi_type, "reason": reason})
 		"grant_temporary_immunity":
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
