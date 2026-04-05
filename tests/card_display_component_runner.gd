@@ -6,7 +6,7 @@ const PRESENTATION_FULL := "full"
 const PRESENTATION_CREATURE_BOARD_MINIMAL := "creature_board_minimal"
 const PRESENTATION_SUPPORT_BOARD_MINIMAL := "support_board_minimal"
 const FULL_MINIMUM_SIZE := Vector2(220, 384)
-const CREATURE_BOARD_MINIMUM_SIZE := Vector2(193, 336)
+const CREATURE_BOARD_MINIMUM_SIZE := Vector2(251, 437)
 const SUPPORT_BOARD_MINIMUM_SIZE := Vector2(144, 144)
 const COLOR_STAT_BASE := Color(0.98, 0.94, 0.86, 1.0)
 const COLOR_STAT_BUFF := Color(0.56, 0.94, 0.56, 1.0)
@@ -182,6 +182,40 @@ func _run() -> void:
 		quit(1)
 		return
 	if not _assert(art_frame != null and absf(art_frame.size.x - art_frame.size.y) <= 0.5, "Support board-minimal mode should keep the artwork region square."):
+		quit(1)
+		return
+
+	# Ongoing support badge tests
+	var ongoing_support := {
+		"instance_id": "divine_fervor",
+		"name": "Divine Fervor",
+		"card_type": "support",
+		"cost": 5,
+		"rarity": "epic",
+		"attributes": ["willpower"],
+		"rules_text": "Ongoing\nFriendly creatures have +1/+1.",
+	}
+	component.size = FULL_MINIMUM_SIZE
+	component.apply_card(ongoing_support, PRESENTATION_FULL)
+	await process_frame
+	var ongoing_badge := component.find_child("OngoingBadge", true, false) as Label
+	if not _assert(ongoing_badge != null and ongoing_badge.visible, "Full mode ongoing support should show the Ongoing badge."):
+		quit(1)
+		return
+	if not _assert(ongoing_badge.position.y + ongoing_badge.size.y >= art_frame.position.y + art_frame.size.y * 0.85, "Ongoing badge should be positioned at the bottom of the art area."):
+		quit(1)
+		return
+	if not _assert(rules_label != null and not rules_label.text.contains("Ongoing"), "Ongoing support rules text should not contain the word Ongoing."):
+		quit(1)
+		return
+	if not _assert(rules_label.text.contains("+1/+1"), "Ongoing support rules text should still contain the effect description."):
+		quit(1)
+		return
+
+	# Non-ongoing support should NOT show the badge
+	component.apply_card(support_card, PRESENTATION_FULL)
+	await process_frame
+	if not _assert(ongoing_badge != null and not ongoing_badge.visible, "Non-ongoing support should not show the Ongoing badge."):
 		quit(1)
 		return
 

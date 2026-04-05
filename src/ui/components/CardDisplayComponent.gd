@@ -9,7 +9,7 @@ const PRESENTATION_CREATURE_BOARD_MINIMAL := "creature_board_minimal"
 const PRESENTATION_SUPPORT_BOARD_MINIMAL := "support_board_minimal"
 
 const FULL_LAYOUT_BASE_SIZE := Vector2(220, 384)
-const CREATURE_BOARD_LAYOUT_BASE_SIZE := Vector2(193, 336)
+const CREATURE_BOARD_LAYOUT_BASE_SIZE := Vector2(251, 437)
 const SUPPORT_BOARD_LAYOUT_BASE_SIZE := Vector2(144, 144)
 const PRESENTATION_SCALE := 1.0
 
@@ -111,6 +111,7 @@ var _keyword_icons_container: HBoxContainer
 var _augment_badge_container: VBoxContainer
 var _quantity_badge: Label
 var _charges_badge: Label
+var _ongoing_badge: Label
 var _pips_container: HBoxContainer
 
 
@@ -474,6 +475,16 @@ func _build_internal_nodes() -> void:
 	_charges_badge.visible = false
 	_content_root.add_child(_charges_badge)
 
+	_ongoing_badge = Label.new()
+	_ongoing_badge.name = "OngoingBadge"
+	_ongoing_badge.text = "Ongoing"
+	_ongoing_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_ongoing_badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_ongoing_badge.add_theme_font_size_override("font_size", 11)
+	_ongoing_badge.add_theme_color_override("font_color", Color(0.95, 0.88, 0.6, 1.0))
+	_ongoing_badge.visible = false
+	_content_root.add_child(_ongoing_badge)
+
 	_pips_container = HBoxContainer.new()
 	_pips_container.name = "PipsContainer"
 	_pips_container.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -497,6 +508,7 @@ func _refresh_all() -> void:
 	_fit_rules_font_size()
 	_refresh_quantity_badge()
 	_refresh_charges_badge()
+	_refresh_ongoing_badge()
 	_refresh_deck_grey_out()
 
 
@@ -1079,8 +1091,15 @@ func _subtype_line(card: Dictionary) -> String:
 	return " • ".join(subtype_names)
 
 
+func _is_ongoing_support(card: Dictionary) -> bool:
+	var rt := str(card.get("rules_text", ""))
+	return card.get("card_type", "") == "support" and rt.begins_with("Ongoing\n")
+
+
 func _rules_preview(card: Dictionary) -> String:
-	var rules_text := str(card.get("rules_text", "")).strip_edges().replace("\n", " ")
+	var rules_text := str(card.get("rules_text", "")).strip_edges()
+	if _is_ongoing_support(card) and rules_text.begins_with("Ongoing\n"):
+		rules_text = rules_text.substr("Ongoing\n".length()).strip_edges()
 	# Only extract keywords that appear as standalone entries at the start of the
 	# rules text (e.g. "Guard." or "Guard, Charge. Deal 2 damage."). Keywords
 	# embedded in sentences ("Give a creature Guard") must not be extracted.
@@ -1219,7 +1238,7 @@ func _has_extracted_keywords(card: Dictionary) -> bool:
 	for kw in KEYWORD_NAMES:
 		if EvergreenRules.has_keyword(card, kw):
 			return true
-	var rules_text := str(card.get("rules_text", "")).strip_edges().replace("\n", " ")
+	var rules_text := str(card.get("rules_text", "")).strip_edges()
 	if rules_text.is_empty():
 		return false
 	for kw in KEYWORD_NAMES:
@@ -1544,6 +1563,36 @@ func _refresh_charges_badge() -> void:
 	style.corner_radius_bottom_left = 4
 	style.corner_radius_bottom_right = 4
 	_charges_badge.add_theme_stylebox_override("normal", style)
+
+
+func _refresh_ongoing_badge() -> void:
+	if _ongoing_badge == null:
+		return
+	if _presentation_mode != PRESENTATION_FULL or not _is_ongoing_support(_card_data):
+		_ongoing_badge.visible = false
+		return
+	_ongoing_badge.visible = true
+	var scale := _layout_scale(PRESENTATION_FULL)
+	var badge_w := _art_frame.size.x * 0.5
+	var badge_h := 18.0 * scale
+	_ongoing_badge.add_theme_font_size_override("font_size", _scaled_int(11, scale))
+	_ongoing_badge.size = Vector2(badge_w, badge_h)
+	_ongoing_badge.position = Vector2(
+		_art_frame.position.x + (_art_frame.size.x - badge_w) * 0.5,
+		_art_frame.position.y + _art_frame.size.y - badge_h - float(_scaled_border_width(2, scale))
+	)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.0, 0.0, 0.0, 0.82)
+	style.border_color = Color(0.95, 0.88, 0.6, 0.5)
+	style.border_width_top = 1
+	style.border_width_bottom = 1
+	style.border_width_left = 1
+	style.border_width_right = 1
+	style.corner_radius_top_left = 3
+	style.corner_radius_top_right = 3
+	style.corner_radius_bottom_left = 3
+	style.corner_radius_bottom_right = 3
+	_ongoing_badge.add_theme_stylebox_override("normal", style)
 
 
 func _set_mouse_passthrough_recursive(node: Node) -> void:

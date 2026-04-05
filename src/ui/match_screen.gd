@@ -1483,7 +1483,7 @@ func _build_match_relationship_context() -> Dictionary:
 
 
 func _add_hover_preview_to_layer(card: Dictionary, instance_id: String, name_prefix: String) -> Control:
-	var preview_size := _hand_card_display_size()
+	var preview_size := _hand_card_display_size() * 1.4
 	# Replicate how hand cards render: a CardDisplayComponent built at base
 	# size (220x384) with PRESET_FULL_RECT inside a larger container. When
 	# the component enters the tree, NOTIFICATION_RESIZED fires and updates

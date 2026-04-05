@@ -1,0 +1,52 @@
+{
+  "name": "Thieves' Den",
+  "description": "Test the Ongoing support badge + Pilfer: +1/+1 granted to all friendly creatures",
+  "board_profile": "standard_versus",
+  "turn_number": 1,
+  "first_player": "player_1",
+  "player_1": {
+    "health": 30,
+    "max_magicka": 12,
+    "current_magicka": 12,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [
+      "agi_thieves_den",
+      "agi_daring_cutpurse",
+      "agi_baandari_bruiser",
+      "hos_agi_palace_prowler",
+      "str_nord_firebrand",
+      "agi_torval_crook",
+      "dual_master_of_thieves"
+    ],
+    "deck": [
+      "agi_quinrawl_burglar",
+      "agi_tenmar_swiftclaw",
+      "agi_goblin_skulk"
+    ],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [],
+    "shadow_creatures": []
+  },
+  "player_2": {
+    "health": 30,
+    "max_magicka": 1,
+    "current_magicka": 1,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [],
+    "deck": ["str_fiery_imp", "str_fiery_imp", "str_fiery_imp"],
+    "discard": [],
+    "field_creatures": [
+      "str_fiery_imp",
+      "str_fiery_imp"
+    ],
+    "shadow_creatures": [
+      "str_fiery_imp",
+      "str_fiery_imp"
+    ]
+  }
+}

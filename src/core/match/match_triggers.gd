@@ -178,7 +178,7 @@ static func _inject_granted_triggers(match_state: Dictionary, registry: Array, l
 					if not str(descriptor.get("target_mode", "")).is_empty():
 						continue
 					var required_keyword := str(descriptor.get("required_keyword", ""))
-					if not required_keyword.is_empty() and not EvergreenRules.has_keyword(card, required_keyword):
+					if not required_keyword.is_empty() and not _card_has_keyword_or_family(card, required_keyword, granted_triggers):
 						continue
 					registry.append({
 						"trigger_id": "%s_granted_%d" % [instance_id, g_index],
@@ -191,6 +191,27 @@ static func _inject_granted_triggers(match_state: Dictionary, registry: Array, l
 						"slot_index": slot_index,
 						"descriptor": descriptor,
 					})
+
+
+static func _card_has_keyword_or_family(card: Dictionary, keyword: String, granted_triggers: Array) -> bool:
+	if EvergreenRules.has_keyword(card, keyword):
+		return true
+	# Check native triggered abilities for matching family (e.g. "pilfer")
+	var raw_triggers = card.get("triggered_abilities", [])
+	if typeof(raw_triggers) == TYPE_ARRAY:
+		for t in raw_triggers:
+			if typeof(t) == TYPE_DICTIONARY and str(t.get("family", "")) == keyword:
+				return true
+	# Check if any granted trigger gives this card the required family
+	for gt in granted_triggers:
+		if typeof(gt) != TYPE_DICTIONARY:
+			continue
+		if str(gt.get("family", "")) != keyword:
+			continue
+		var gt_req := str(gt.get("required_keyword", ""))
+		if gt_req.is_empty() or EvergreenRules.has_keyword(card, gt_req):
+			return true
+	return false
 
 
 static func _append_card_triggers(registry: Array, card, zone_name: String, controller_player_id: String, lane_index := -1, slot_index := -1, current_turn := -1) -> void:
