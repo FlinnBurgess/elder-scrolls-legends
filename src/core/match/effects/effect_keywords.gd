@@ -168,6 +168,45 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						granted.append(kw)
 						generated_events.append({"event_type": "keyword_granted", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "keyword_id": kw})
 				card["granted_keywords"] = granted
+		"copy_keywords_to_random_hand_card":
+			var ckrhc_source_target := str(effect.get("source", "self"))
+			var ckrhc_source_id := ""
+			if ckrhc_source_target == "event_target":
+				ckrhc_source_id = str(event.get("target_instance_id", trigger.get("target_instance_id", "")))
+			else:
+				ckrhc_source_id = str(trigger.get("source_instance_id", ""))
+			var ckrhc_source := MatchTimingHelpers._find_card_anywhere(match_state, ckrhc_source_id)
+			if ckrhc_source.is_empty():
+				return
+			var ckrhc_source_keywords: Array = []
+			for kw in RANDOM_KEYWORD_POOL:
+				if EvergreenRules.has_keyword(ckrhc_source, kw):
+					ckrhc_source_keywords.append(kw)
+			if ckrhc_source_keywords.is_empty():
+				return
+			var ckrhc_controller := str(trigger.get("controller_player_id", ""))
+			var ckrhc_player := MatchTimingHelpers._get_player_state(match_state, ckrhc_controller)
+			if not ckrhc_player.is_empty():
+				var ckrhc_hand: Array = ckrhc_player.get(ZONE_HAND, [])
+				var ckrhc_filter_subtype := str(effect.get("target_filter_subtype", ""))
+				var ckrhc_candidates: Array = []
+				for card in ckrhc_hand:
+					if typeof(card) != TYPE_DICTIONARY:
+						continue
+					if not ckrhc_filter_subtype.is_empty():
+						var subtypes = card.get("subtypes", [])
+						if typeof(subtypes) != TYPE_ARRAY or not subtypes.has(ckrhc_filter_subtype):
+							continue
+					ckrhc_candidates.append(card)
+				if not ckrhc_candidates.is_empty():
+					var ckrhc_pick: Dictionary = ckrhc_candidates[MatchEffectParams._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_ckrhc", ckrhc_candidates.size())]
+					EvergreenRules.ensure_card_state(ckrhc_pick)
+					var ckrhc_granted: Array = ckrhc_pick.get("granted_keywords", [])
+					for kw in ckrhc_source_keywords:
+						if not ckrhc_granted.has(kw):
+							ckrhc_granted.append(kw)
+							generated_events.append({"event_type": "keyword_granted", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(ckrhc_pick.get("instance_id", "")), "keyword_id": kw})
+					ckrhc_pick["granted_keywords"] = ckrhc_granted
 		"steal_keywords":
 			var steal_source := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 			if steal_source.is_empty():

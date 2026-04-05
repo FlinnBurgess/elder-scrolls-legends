@@ -1,0 +1,53 @@
+{
+	"name": "Devour - Keyword Transfer to Hand Dragon",
+	"description": "Test Devour destroying creatures with 4 power or less and giving their keywords to a random Dragon in hand.",
+	"board_profile": "standard_versus",
+	"turn_number": 1,
+	"first_player": "player_1",
+	"player_1": {
+		"health": 30,
+		"max_magicka": 12,
+		"current_magicka": 12,
+		"rune_thresholds": [25, 20, 15, 10, 5],
+		"has_ring": false,
+		"ring_charges": 0,
+		"hand": [
+			"hos_wil_devour",
+			"hos_wil_devour",
+			"hos_wil_revered_guardian",
+			"hos_str_skyborn_dragon",
+			"hos_int_mystic_dragon",
+			"hos_wil_karthspire_scourge"
+		],
+		"deck": [
+			"hos_wil_devour",
+			"hos_end_ironscale_dragon",
+			"hos_str_swiftwing_dragon",
+			"int_elusive_schemer"
+		],
+		"discard": [],
+		"supports": [],
+		"field_creatures": [],
+		"shadow_creatures": []
+	},
+	"player_2": {
+		"health": 30,
+		"max_magicka": 2,
+		"current_magicka": 2,
+		"rune_thresholds": [25, 20, 15, 10, 5],
+		"has_ring": false,
+		"ring_charges": 0,
+		"hand": ["str_fiery_imp"],
+		"deck": ["str_fiery_imp", "str_fiery_imp", "str_fiery_imp"],
+		"discard": [],
+		"field_creatures": [
+			"int_evermore_steward",
+			"str_rampaging_minotaur",
+			"wil_cheydinhal_sapper"
+		],
+		"shadow_creatures": [
+			"str_battlerage_orc",
+			"wil_hive_warrior"
+		]
+	}
+}

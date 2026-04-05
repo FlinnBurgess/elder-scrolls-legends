@@ -235,6 +235,11 @@ Card rules text says "another random friendly creature" but the effect uses `tar
 Example: Reachman Shaman, Blackrose Herbalist
 How to spot: User reports a creature buffing/healing itself when it's the only friendly creature on board, or the word "another" appears in `rules_text` but the target is `random_friendly` instead of `random_other_friendly`.
 
+## Effect targets wrong zone — board creatures instead of hand cards
+Card effect uses a board-targeting op (e.g., `copy_keywords_to_friendly` with `target: "all_friendly"`) when the rules text specifies a hand card target (e.g., "a random Dragon in your hand"). The effect fires but operates on the wrong zone, producing incorrect gameplay.
+Example: Devour (was copying keywords to all friendly Dragons on board, should copy to a random Dragon in hand)
+How to spot: Rules text mentions "in your hand" but the effect's `target` resolves to board creatures (`all_friendly`, `random_friendly`, etc.). Search for `in your hand` in `rules_text` and verify the effect targets hand cards.
+
 ## Action card with item data fields instead of triggered abilities
 Card is typed as `"action"` but has item-specific fields (`equip_health_bonus`, `equip_power_bonus`, `equip_keywords`, `rules_text: "+X/+Y"`) and no `triggered_abilities`. The card was likely templated from an item definition. The equip fields do nothing on an action; the card has no gameplay effect when played.
 Example: Counterfeit Trinket (had `equip_health_bonus: 1` and `rules_text: "+0/+1"` instead of draw + self-damage)
