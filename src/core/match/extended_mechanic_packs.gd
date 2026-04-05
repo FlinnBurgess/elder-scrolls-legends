@@ -1225,6 +1225,56 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				"event": event.duplicate(true),
 			})
 			return {"handled": true, "events": [{"event_type": "player_choice_pending", "player_id": goc_controller}]}
+		"reveal_and_copy_from_opponent_deck":
+			var racfod_controller := str(trigger.get("controller_player_id", ""))
+			var racfod_opponent := ""
+			for player in match_state.get("players", []):
+				if str(player.get("player_id", "")) != racfod_controller:
+					racfod_opponent = str(player.get("player_id", ""))
+					break
+			var racfod_opp := _get_player_state(match_state, racfod_opponent)
+			var racfod_my := _get_player_state(match_state, racfod_controller)
+			if racfod_opp.is_empty() or racfod_my.is_empty():
+				return {"handled": true, "events": []}
+			var racfod_deck: Array = racfod_opp.get("deck", [])
+			if racfod_deck.is_empty():
+				return {"handled": true, "events": []}
+			var racfod_count := int(effect.get("count", 3))
+			var racfod_source_id := str(trigger.get("source_instance_id", ""))
+			# Pick up to racfod_count distinct random indices from opponent deck
+			var racfod_indices: Array = []
+			var racfod_available: Array = []
+			for i in range(racfod_deck.size()):
+				racfod_available.append(i)
+			for pick in range(mini(racfod_count, racfod_deck.size())):
+				var idx: int = _timing_rules()._deterministic_index(match_state, racfod_source_id + "_racfod_%d" % pick, racfod_available.size())
+				racfod_indices.append(racfod_available[idx])
+				racfod_available.remove_at(idx)
+			# Build card options and effects_per_option
+			var racfod_options: Array = []
+			var racfod_effects: Array = []
+			for card_idx in racfod_indices:
+				var racfod_card: Dictionary = racfod_deck[card_idx]
+				if typeof(racfod_card) != TYPE_DICTIONARY:
+					continue
+				var racfod_template: Dictionary = racfod_card.duplicate(true)
+				racfod_template.erase("instance_id")
+				racfod_options.append({"label": str(racfod_template.get("name", "")), "card": racfod_template})
+				racfod_effects.append([{"op": "generate_card_to_hand", "card_template": racfod_template, "target_player": "controller"}])
+			if racfod_options.is_empty():
+				return {"handled": true, "events": []}
+			var racfod_pending: Array = match_state.get("pending_player_choices", [])
+			racfod_pending.append({
+				"player_id": racfod_controller,
+				"source_instance_id": racfod_source_id,
+				"prompt": "Choose a card to draw a copy of:",
+				"mode": "card",
+				"options": racfod_options,
+				"effects_per_option": racfod_effects,
+				"trigger": trigger.duplicate(true),
+				"event": event.duplicate(true),
+			})
+			return {"handled": true, "events": [{"event_type": "player_choice_pending", "player_id": racfod_controller}]}
 		"opponent_gives_card_from_hand":
 			var ogcfh_controller := str(trigger.get("controller_player_id", ""))
 			var ogcfh_opponent := ""

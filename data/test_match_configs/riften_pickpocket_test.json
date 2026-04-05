@@ -1,6 +1,6 @@
 {
-  "name": "Mistveil Enchanter",
-  "description": "Test Ward summon self-buff: +2/+0 if another friendly Ward creature exists",
+  "name": "Riften Pickpocket",
+  "description": "Test Summon: Reveal 3 random opponent deck cards, choose one, draw a copy",
   "board_profile": "standard_versus",
   "turn_number": 1,
   "first_player": "player_1",
@@ -12,24 +12,19 @@
     "has_ring": false,
     "ring_charges": 0,
     "hand": [
-      "hos_int_mistveil_enchanter",
-      "hos_int_mistveil_enchanter",
-      "end_wind_keep_spellsword",
-      "int_wardcrafter",
-      "int_breton_conjurer",
-      "int_daggerfall_mage"
+      "hos_int_riften_pickpocket",
+      "hos_int_riften_pickpocket",
+      "hos_int_riften_pickpocket"
     ],
     "deck": [
-      "int_glenumbra_sorceress",
-      "end_iliac_sorcerer",
-      "hos_int_mistveil_enchanter"
+      "int_elusive_schemer",
+      "int_elusive_schemer",
+      "int_elusive_schemer"
     ],
     "discard": [],
     "supports": [],
     "field_creatures": [],
-    "shadow_creatures": [
-      { "definition_id": "end_wind_keep_spellsword", "can_attack": false }
-    ]
+    "shadow_creatures": []
   },
   "player_2": {
     "health": 30,
@@ -39,7 +34,20 @@
     "has_ring": false,
     "ring_charges": 0,
     "hand": ["str_fiery_imp"],
-    "deck": ["str_fiery_imp", "str_fiery_imp"],
+    "deck": [
+      "str_whiterun_trooper",
+      "end_young_mammoth",
+      "int_lightning_bolt",
+      "agi_thieves_guild_recruit",
+      "wil_hive_defender",
+      "str_belligerent_giant",
+      "end_night_shadow",
+      "int_cunning_ally",
+      "agi_territorial_viper",
+      "wil_dawn_star_healer",
+      "str_mighty_ally",
+      "int_crystal_tower_crafter"
+    ],
     "discard": [],
     "field_creatures": [
       "str_fiery_imp"
