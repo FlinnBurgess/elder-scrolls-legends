@@ -88,7 +88,7 @@ func _apply_local_hand_hover_state(button: Button, hovered: bool) -> void:
 		raised = true
 	if hovered and not hand_selection_active:
 		target_filter = Control.MOUSE_FILTER_STOP
-		target_scale = Vector2(1.1, 1.1) if selected else Vector2(1.05, 1.05)
+		target_scale = Vector2(1.4, 1.4)
 		target_position = base_position + Vector2(0.0, -rise_amount - (20.0 if selected else 0.0))
 		target_z = 120 if selected else 100
 		raised = true
@@ -100,7 +100,6 @@ func _apply_local_hand_hover_state(button: Button, hovered: bool) -> void:
 	# Apply non-animated properties immediately
 	button.z_index = target_z
 	button.mouse_filter = target_filter
-	button.scale = target_scale
 	button.pivot_offset = card_size * 0.5
 	button.size = target_size
 	button.modulate = Color(0.4, 0.4, 0.4, 0.7) if hand_selection_ineligible else Color.WHITE
@@ -110,13 +109,14 @@ func _apply_local_hand_hover_state(button: Button, hovered: bool) -> void:
 		content_root.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 		content_root.position = Vector2.ZERO
 		content_root.size = card_size
-	# Animate position (the rise/fall)
+	# Animate position and scale (the rise/fall + grow/shrink)
 	var tween_key := "hand_hover_tween"
 	var existing_tween: Tween = button.get_meta(tween_key, null) if button.has_meta(tween_key) else null
 	if existing_tween != null and existing_tween.is_valid():
 		existing_tween.kill()
-	var tween = _screen.create_tween()
+	var tween = _screen.create_tween().set_parallel(true)
 	tween.tween_property(button, "position", target_position, 0.15).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	tween.tween_property(button, "scale", target_scale, 0.15).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
 	button.set_meta(tween_key, tween)
 	# Bob animation for affordable cards at rest
 	var bob_key := "hand_bob_tween"

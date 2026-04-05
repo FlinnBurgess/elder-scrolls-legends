@@ -22,10 +22,46 @@ func _add_card_overlay_badges(content_root: Control, card: Dictionary, public_vi
 		var lane_badges := _build_lane_status_badges(card, instance_id)
 		if lane_badges != null:
 			content_root.add_child(lane_badges)
+	if surface == "support":
+		var counter_badge := _build_support_counter_badge(card)
+		if counter_badge != null:
+			content_root.add_child(counter_badge)
 	if surface == "hand":
 		var hand_badges := _build_hand_emphasis_badges(card, public_view, surface, instance_id)
 		if hand_badges != null:
 			content_root.add_child(hand_badges)
+
+
+func _build_support_counter_badge(card: Dictionary) -> Label:
+	var threshold := 0
+	var counter_name := ""
+	for trigger in card.get("triggered_abilities", []):
+		if typeof(trigger) != TYPE_DICTIONARY:
+			continue
+		for effect in trigger.get("effects", []):
+			if typeof(effect) != TYPE_DICTIONARY:
+				continue
+			if str(effect.get("op", "")) == "add_counter" and int(effect.get("threshold", 0)) > 0:
+				counter_name = str(effect.get("counter", effect.get("counter_name", "counter")))
+				threshold = int(effect.get("threshold", 0))
+				break
+		if threshold > 0:
+			break
+	if threshold == 0:
+		return null
+	var current := int(card.get("_counter_" + counter_name, 0))
+	var label := Label.new()
+	label.text = "%d/%d" % [current, threshold]
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	label.add_theme_font_size_override("font_size", 30)
+	label.add_theme_color_override("font_color", Color.WHITE)
+	label.add_theme_color_override("font_outline_color", Color.BLACK)
+	label.add_theme_constant_override("outline_size", 4)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.z_index = 20
+	return label
 
 
 func _build_lane_status_badges(_card: Dictionary, _instance_id: String) -> HBoxContainer:

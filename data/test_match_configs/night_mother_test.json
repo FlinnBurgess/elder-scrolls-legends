@@ -1,0 +1,84 @@
+{
+  "name": "The Night Mother",
+  "description": "Test activate summon, enemy death counter (X/20), and threshold payoff",
+  "board_profile": "standard_versus",
+  "turn_number": 1,
+  "first_player": "player_1",
+  "player_1": {
+    "health": 30,
+    "max_magicka": 12,
+    "current_magicka": 12,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [
+      "db_neu_the_night_mother",
+      "int_fire_storm",
+      "int_ice_storm",
+      "str_vigilant_giant",
+      "str_belligerent_giant"
+    ],
+    "deck": [
+      "str_nord_firebrand",
+      "str_nord_firebrand",
+      "str_nord_firebrand",
+      "str_nord_firebrand",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "int_fire_storm",
+      "int_ice_storm",
+      "str_skaven_pyromancer",
+      "str_skaven_pyromancer",
+      "str_grahtwood_ambusher",
+      "str_grahtwood_ambusher"
+    ],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      {"definition_id": "str_vigilant_giant", "can_attack": true}
+    ],
+    "shadow_creatures": [
+      {"definition_id": "str_vigilant_giant", "can_attack": true}
+    ]
+  },
+  "player_2": {
+    "health": 30,
+    "max_magicka": 1,
+    "current_magicka": 1,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [
+      "str_nord_firebrand"
+    ],
+    "deck": [
+      "str_nord_firebrand",
+      "str_nord_firebrand",
+      "str_nord_firebrand",
+      "str_nord_firebrand",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "end_deathless_draugr",
+      "end_deathless_draugr",
+      "end_deathless_draugr",
+      "end_deathless_draugr"
+    ],
+    "discard": [],
+    "field_creatures": [
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp"
+    ],
+    "shadow_creatures": [
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp"
+    ]
+  }
+}

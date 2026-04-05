@@ -188,8 +188,8 @@ var _error_report_hovered_context := ""
 var _error_report_popover: Control = null
 
 # Match history state
-const MATCH_HISTORY_MAX_ENTRIES := 5
-const MATCH_HISTORY_ICON_SIZE := Vector2(64, 64)
+const MATCH_HISTORY_MAX_ENTRIES := 10
+const MATCH_HISTORY_ICON_SIZE := Vector2(90, 90)
 const MATCH_HISTORY_ICON_BORDER_WIDTH := 3
 const MATCH_HISTORY_PLAYER_BORDER_COLOR := Color(0.3, 0.5, 0.9)
 const MATCH_HISTORY_OPPONENT_BORDER_COLOR := Color(0.85, 0.3, 0.25)
@@ -1827,6 +1827,10 @@ func _on_card_pressed(instance_id: String) -> void:
 	if board_mode == SELECTION_MODE_ATTACK or (board_mode == SELECTION_MODE_SUPPORT and _targeting._selected_support_uses_card_targets(board_card)):
 		_selection._enter_targeting_mode(instance_id)
 		return
+	# Supports with lane choice enter targeting mode (arrow → click lane)
+	if board_mode == SELECTION_MODE_SUPPORT and _selection._support_has_choose_lane(board_card):
+		_selection._enter_targeting_mode(instance_id)
+		return
 	# Supports without card targets activate immediately on click
 	if board_mode == SELECTION_MODE_SUPPORT and not _targeting._selected_support_uses_card_targets(board_card):
 		_selected_instance_id = instance_id
@@ -1862,6 +1866,14 @@ func _on_lane_row_gui_input(event: InputEvent, lane_id: String, player_id: Strin
 			accept_event()
 			return
 		_targeting._play_action_to_lane(lane_id)
+		accept_event()
+		return
+	if not _targeting._targeting_arrow_state.is_empty() and _selection._selected_action_mode(card) == SELECTION_MODE_SUPPORT and _selection._support_has_choose_lane(card):
+		var support_id := _selected_instance_id
+		_targeting._cancel_targeting_mode_silent()
+		_selected_instance_id = ""
+		var result := PersistentCardRules.activate_support(_match_state, _active_player_id(), support_id, {"lane_id": lane_id})
+		_finalize_engine_result(result, "Activated support.")
 		accept_event()
 		return
 	# Mobilize: item in targeting mode can be played to a lane (summon Recruit + equip)
@@ -1950,6 +1962,13 @@ func _on_lane_pressed(lane_id: String) -> void:
 	var card = _selection._selected_card()
 	if not _targeting._targeting_arrow_state.is_empty() and _selection._selected_action_mode(card) == SELECTION_MODE_ACTION:
 		_targeting._play_action_to_lane(lane_id)
+		return
+	if not _targeting._targeting_arrow_state.is_empty() and _selection._selected_action_mode(card) == SELECTION_MODE_SUPPORT and _selection._support_has_choose_lane(card):
+		var support_id := _selected_instance_id
+		_targeting._cancel_targeting_mode_silent()
+		_selected_instance_id = ""
+		var result := PersistentCardRules.activate_support(_match_state, _active_player_id(), support_id, {"lane_id": lane_id})
+		_finalize_engine_result(result, "Activated support.")
 		return
 	var target_player := _target_lane_player_id()
 	if not _selection._selected_support_row_target_player_id(card).is_empty():

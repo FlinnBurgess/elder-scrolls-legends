@@ -197,12 +197,12 @@ static func _resolve_lane_dementia_damage(match_state: Dictionary, trigger: Dict
 		elif power == best_power:
 			tied = true
 
-	if tied or best_owner != active_player_id:
+	if tied:
 		return {"handled": true, "events": []}
 
 	var opponent_id := ""
 	for player in match_state.get("players", []):
-		if typeof(player) == TYPE_DICTIONARY and str(player.get("player_id", "")) != active_player_id:
+		if typeof(player) == TYPE_DICTIONARY and str(player.get("player_id", "")) != best_owner:
 			opponent_id = str(player.get("player_id", ""))
 			break
 	if opponent_id.is_empty():
@@ -212,14 +212,14 @@ static func _resolve_lane_dementia_damage(match_state: Dictionary, trigger: Dict
 	var damage_result: Dictionary = _timing_rules().apply_player_damage(match_state, opponent_id, amount, {
 		"reason": "lane_effect_dementia",
 		"source_instance_id": str(trigger.get("source_instance_id", "")),
-		"source_controller_player_id": active_player_id,
+		"source_controller_player_id": best_owner,
 	})
 
 	var events: Array = [{
 		"event_type": "damage_resolved",
 		"damage_kind": "lane_effect_dementia",
 		"source_instance_id": str(trigger.get("source_instance_id", "")),
-		"source_controller_player_id": active_player_id,
+		"source_controller_player_id": best_owner,
 		"target_type": "player",
 		"target_player_id": opponent_id,
 		"amount": int(damage_result.get("applied_damage", 0)),

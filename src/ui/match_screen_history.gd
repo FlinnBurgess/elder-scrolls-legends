@@ -423,18 +423,18 @@ func _show_match_history_popover(entry_index: int) -> void:
 
 	var content_panel := PanelContainer.new()
 	content_panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	_screen._apply_panel_style(content_panel, Color(0.08, 0.09, 0.11, 0.97), Color(0.35, 0.36, 0.42, 0.9), 2, 12)
+	_screen._apply_panel_style(content_panel, Color(0.08, 0.09, 0.11, 0.97), Color(0.35, 0.36, 0.42, 0.9), 4, 20)
 	center.add_child(content_panel)
 
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 20)
-	margin.add_theme_constant_override("margin_top", 16)
-	margin.add_theme_constant_override("margin_right", 20)
-	margin.add_theme_constant_override("margin_bottom", 16)
+	margin.add_theme_constant_override("margin_left", 36)
+	margin.add_theme_constant_override("margin_top", 28)
+	margin.add_theme_constant_override("margin_right", 36)
+	margin.add_theme_constant_override("margin_bottom", 28)
 	content_panel.add_child(margin)
 
 	var content_hbox := HBoxContainer.new()
-	content_hbox.add_theme_constant_override("separation", 16)
+	content_hbox.add_theme_constant_override("separation", 28)
 	content_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	margin.add_child(content_hbox)
 
@@ -455,14 +455,14 @@ func _show_match_history_popover(entry_index: int) -> void:
 		# Arrow
 		var arrow_label := Label.new()
 		arrow_label.text = "→"
-		arrow_label.add_theme_font_size_override("font_size", 36)
+		arrow_label.add_theme_font_size_override("font_size", 65)
 		arrow_label.add_theme_color_override("font_color", Color(0.85, 0.83, 0.78, 1.0))
 		arrow_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		content_hbox.add_child(arrow_label)
 
 		# Targets
 		var targets_hbox := HBoxContainer.new()
-		targets_hbox.add_theme_constant_override("separation", 12)
+		targets_hbox.add_theme_constant_override("separation", 22)
 
 		for target in targets:
 			var target_section := _build_history_popover_target_section(target)
@@ -478,13 +478,13 @@ func _show_match_history_popover(entry_index: int) -> void:
 
 			var chain_arrow := Label.new()
 			chain_arrow.text = "→"
-			chain_arrow.add_theme_font_size_override("font_size", 36)
+			chain_arrow.add_theme_font_size_override("font_size", 65)
 			chain_arrow.add_theme_color_override("font_color", Color(0.85, 0.83, 0.78, 1.0))
 			chain_arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			content_hbox.add_child(chain_arrow)
 
 			var chain_hbox := HBoxContainer.new()
-			chain_hbox.add_theme_constant_override("separation", 12)
+			chain_hbox.add_theme_constant_override("separation", 22)
 
 			for chain_target in chain_targets:
 				var ct_section := _build_history_popover_target_section(chain_target)
@@ -501,13 +501,13 @@ func _show_match_history_popover(entry_index: int) -> void:
 
 func _build_history_popover_card_section(card: Dictionary, player_id: String, destroyed: bool) -> VBoxContainer:
 	var section := VBoxContainer.new()
-	section.add_theme_constant_override("separation", 4)
+	section.add_theme_constant_override("separation", 8)
 	section.alignment = BoxContainer.ALIGNMENT_CENTER
 
 	# Player label
 	var label := Label.new()
 	label.text = "You" if player_id == _screen._local_player_id() else "Opponent"
-	label.add_theme_font_size_override("font_size", 14)
+	label.add_theme_font_size_override("font_size", 26)
 	label.add_theme_color_override("font_color", Color(0.8, 0.78, 0.72, 1.0))
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	section.add_child(label)
@@ -518,13 +518,13 @@ func _build_history_popover_card_section(card: Dictionary, player_id: String, de
 		section.add_child(placeholder)
 	else:
 		var card_wrapper := PanelContainer.new()
-		card_wrapper.custom_minimum_size = Vector2(180, 310)
+		card_wrapper.custom_minimum_size = Vector2(328, 564)
 		var wrapper_style := StyleBoxFlat.new()
 		wrapper_style.bg_color = Color(0.12, 0.11, 0.14, 0.95)
-		wrapper_style.corner_radius_top_left = 6
-		wrapper_style.corner_radius_top_right = 6
-		wrapper_style.corner_radius_bottom_left = 6
-		wrapper_style.corner_radius_bottom_right = 6
+		wrapper_style.corner_radius_top_left = 10
+		wrapper_style.corner_radius_top_right = 10
+		wrapper_style.corner_radius_bottom_left = 10
+		wrapper_style.corner_radius_bottom_right = 10
 		card_wrapper.add_theme_stylebox_override("panel", wrapper_style)
 
 		var component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
@@ -538,7 +538,7 @@ func _build_history_popover_card_section(card: Dictionary, player_id: String, de
 			component.modulate = Color(0.4, 0.4, 0.4, 0.7)
 			var x_label := Label.new()
 			x_label.text = "✕"
-			x_label.add_theme_font_size_override("font_size", 72)
+			x_label.add_theme_font_size_override("font_size", 130)
 			x_label.add_theme_color_override("font_color", Color(0.9, 0.2, 0.15, 0.85))
 			x_label.set_anchors_and_offsets_preset(PRESET_CENTER)
 			x_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -560,24 +560,24 @@ func _build_history_popover_target_section(target: Dictionary) -> VBoxContainer:
 		# Player avatar target
 		var player_id_for_label := target_player_id if not target_player_id.is_empty() else ""
 		var section := VBoxContainer.new()
-		section.add_theme_constant_override("separation", 4)
+		section.add_theme_constant_override("separation", 8)
 		section.alignment = BoxContainer.ALIGNMENT_CENTER
 
 		var label := Label.new()
 		label.text = "You" if player_id_for_label == _screen._local_player_id() else "Opponent"
-		label.add_theme_font_size_override("font_size", 14)
+		label.add_theme_font_size_override("font_size", 26)
 		label.add_theme_color_override("font_color", Color(0.8, 0.78, 0.72, 1.0))
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		section.add_child(label)
 
 		var avatar_panel := PanelContainer.new()
-		avatar_panel.custom_minimum_size = Vector2(120, 120)
+		avatar_panel.custom_minimum_size = Vector2(218, 218)
 		var avatar_style := StyleBoxFlat.new()
 		avatar_style.bg_color = Color(0.15, 0.14, 0.18, 0.95)
-		avatar_style.corner_radius_top_left = 60
-		avatar_style.corner_radius_top_right = 60
-		avatar_style.corner_radius_bottom_left = 60
-		avatar_style.corner_radius_bottom_right = 60
+		avatar_style.corner_radius_top_left = 109
+		avatar_style.corner_radius_top_right = 109
+		avatar_style.corner_radius_bottom_left = 109
+		avatar_style.corner_radius_bottom_right = 109
 		avatar_style.border_color = Color(0.5, 0.48, 0.42, 0.8)
 		avatar_style.border_width_left = 2
 		avatar_style.border_width_top = 2
@@ -587,7 +587,7 @@ func _build_history_popover_target_section(target: Dictionary) -> VBoxContainer:
 
 		var avatar_label := Label.new()
 		avatar_label.text = "Face"
-		avatar_label.add_theme_font_size_override("font_size", 20)
+		avatar_label.add_theme_font_size_override("font_size", 36)
 		avatar_label.add_theme_color_override("font_color", Color(0.85, 0.82, 0.78, 1.0))
 		avatar_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		avatar_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -599,17 +599,17 @@ func _build_history_popover_target_section(target: Dictionary) -> VBoxContainer:
 		var rune_breaks: Array = target.get("rune_breaks", [])
 		if not rune_breaks.is_empty():
 			var rune_row := HBoxContainer.new()
-			rune_row.add_theme_constant_override("separation", 4)
+			rune_row.add_theme_constant_override("separation", 8)
 			rune_row.alignment = BoxContainer.ALIGNMENT_CENTER
 			for threshold in rune_breaks:
 				var rune_panel := PanelContainer.new()
-				rune_panel.custom_minimum_size = Vector2(32, 32)
+				rune_panel.custom_minimum_size = Vector2(58, 58)
 				var rune_style := StyleBoxFlat.new()
 				rune_style.bg_color = Color(0.12, 0.1, 0.2, 0.95)
-				rune_style.corner_radius_top_left = 4
-				rune_style.corner_radius_top_right = 4
-				rune_style.corner_radius_bottom_left = 4
-				rune_style.corner_radius_bottom_right = 4
+				rune_style.corner_radius_top_left = 8
+				rune_style.corner_radius_top_right = 8
+				rune_style.corner_radius_bottom_left = 8
+				rune_style.corner_radius_bottom_right = 8
 				rune_style.border_color = Color(0.6, 0.25, 0.2, 0.9)
 				rune_style.border_width_left = 1
 				rune_style.border_width_top = 1
@@ -619,7 +619,7 @@ func _build_history_popover_target_section(target: Dictionary) -> VBoxContainer:
 
 				var rune_label := Label.new()
 				rune_label.text = "✕"
-				rune_label.add_theme_font_size_override("font_size", 16)
+				rune_label.add_theme_font_size_override("font_size", 28)
 				rune_label.add_theme_color_override("font_color", Color(0.9, 0.2, 0.15, 0.9))
 				rune_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 				rune_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -637,13 +637,13 @@ func _build_history_popover_target_section(target: Dictionary) -> VBoxContainer:
 
 func _build_hidden_card_placeholder() -> PanelContainer:
 	var placeholder := PanelContainer.new()
-	placeholder.custom_minimum_size = Vector2(180, 310)
+	placeholder.custom_minimum_size = Vector2(328, 564)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.14, 0.13, 0.17, 0.95)
-	style.corner_radius_top_left = 8
-	style.corner_radius_top_right = 8
-	style.corner_radius_bottom_left = 8
-	style.corner_radius_bottom_right = 8
+	style.corner_radius_top_left = 14
+	style.corner_radius_top_right = 14
+	style.corner_radius_bottom_left = 14
+	style.corner_radius_bottom_right = 14
 	style.border_color = Color(0.4, 0.38, 0.34, 0.8)
 	style.border_width_left = 2
 	style.border_width_top = 2
@@ -653,7 +653,7 @@ func _build_hidden_card_placeholder() -> PanelContainer:
 
 	var mystery_label := Label.new()
 	mystery_label.text = "???"
-	mystery_label.add_theme_font_size_override("font_size", 36)
+	mystery_label.add_theme_font_size_override("font_size", 65)
 	mystery_label.add_theme_color_override("font_color", Color(0.65, 0.62, 0.55, 0.8))
 	mystery_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mystery_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER

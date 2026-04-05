@@ -375,18 +375,17 @@ func _test_dementia_lane_damages_opponent_on_turn_start() -> bool:
 	_summon_creature(player_1, match_state, "p1_big", "dementia", 5, 3)
 	_summon_creature(player_2, match_state, "p2_small", "dementia", 3, 3)
 	var p2_health_before := int(player_2.get("health", 0))
-	# End player 1's turn, start player 2's turn — player 2 does NOT have highest power
+	# End player 1's turn, start player 2's turn — player 1 has highest power so player 2 takes 3
 	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
 	var p2_health_after_p2_turn := int(player_2.get("health", 0))
-	# Player 2's turn started — player 1 has highest power so no damage to player 1
 	var p1_health_after_p2_turn := int(player_1.get("health", 0))
-	# End player 2's turn, start player 1's turn — player 1 HAS highest power
+	# End player 2's turn, start player 1's turn — player 1 still has highest, player 2 takes 3 more
 	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
 	var p2_health_after_p1_turn := int(player_2.get("health", 0))
 	return (
-		_assert(p2_health_after_p2_turn == p2_health_before, "Player 2 should not take dementia damage on their own turn when player 1 has highest power.") and
-		_assert(p1_health_after_p2_turn == 30, "Player 1 should not take dementia damage on player 2's turn since player 2 doesn't have highest power.") and
-		_assert(p2_health_after_p1_turn == p2_health_before - 3, "Player 2 should take 3 dementia damage when player 1 starts their turn with the highest power creature.")
+		_assert(p2_health_after_p2_turn == p2_health_before - 3, "Player 2 should take 3 dementia damage at start of player 2's turn when player 1 has highest power.") and
+		_assert(p1_health_after_p2_turn == 30, "Player 1 should not take dementia damage since player 2 doesn't have highest power.") and
+		_assert(p2_health_after_p1_turn == p2_health_before - 6, "Player 2 should take 3 more dementia damage at start of player 1's turn (6 total).")
 	)
 
 
@@ -398,12 +397,14 @@ func _test_dementia_lane_no_damage_when_opponent_has_highest() -> bool:
 	_summon_creature(player_2, match_state, "p2_only", "dementia", 4, 4)
 	var p1_health_before := int(player_1.get("health", 0))
 	var p2_health_before := int(player_2.get("health", 0))
-	# End player 1's turn (player 1 has no creature, so no damage on this turn)
+	# End player 1's turn — player 2 has highest power, so player 1 takes 3 damage
 	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
-	# Player 2's turn starts — player 2 has highest power, so player 1 takes 3 damage
+	var p1_health_after_p2_turn := int(player_1.get("health", 0))
+	# End player 2's turn — player 2 still has highest power, player 1 takes 3 more
 	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
 	return (
-		_assert(int(player_1.get("health", 0)) == p1_health_before - 3, "Player 1 should take 3 damage when player 2 has the highest power creature on player 2's turn.") and
+		_assert(p1_health_after_p2_turn == p1_health_before - 3, "Player 1 should take 3 damage at start of player 2's turn.") and
+		_assert(int(player_1.get("health", 0)) == p1_health_before - 6, "Player 1 should take 3 more damage at start of player 1's turn (6 total).") and
 		_assert(int(player_2.get("health", 0)) == p2_health_before, "Player 2 should not take damage when they own the highest power creature.")
 	)
 

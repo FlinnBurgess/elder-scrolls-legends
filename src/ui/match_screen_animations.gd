@@ -247,7 +247,7 @@ func _record_feedback_from_events(events: Array) -> void:
 			"counter_updated":
 				var cu_value := int(event.get("value", 0))
 				var cu_threshold := int(event.get("threshold", 0))
-				_screen._queue_creature_toast(str(event.get("source_instance_id", "")), "%d/%d" % [cu_value, cu_threshold], Color(0.7, 0.6, 0.3))
+				_screen._queue_creature_toast(str(event.get("source_instance_id", "")), "%d/%d" % [cu_value, cu_threshold], Color.WHITE)
 
 
 func _animate_card_draw(player_id: String, instance_id: String, stack_index: int) -> void:

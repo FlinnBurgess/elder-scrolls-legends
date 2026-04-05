@@ -88,6 +88,9 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						single_lane_id = str(_sat_loc.get("lane_id", ""))
 				if single_lane_id == "random":
 					var _rl_controller_id := str(trigger.get("controller_player_id", ""))
+					var _rl_target_player := str(effect.get("target_player", "controller"))
+					if _rl_target_player == "opponent":
+						_rl_controller_id = str(MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), _rl_controller_id))
 					var _rl_candidates: Array = []
 					for _rl_lane in match_state.get("lanes", []):
 						var _rl_lid := str(_rl_lane.get("lane_id", ""))
@@ -791,7 +794,15 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			# Delegate to summon_random_from_catalog with appropriate filters
 			var src_filter: Dictionary = {"card_type": "creature"}
 			if op == "summon_random_by_cost":
-				var src_exact_cost := int(effect.get("cost", effect.get("exact_cost", -1)))
+				var src_exact_cost := -1
+				var src_cost_source := str(effect.get("cost_source", ""))
+				if src_cost_source == "self_counter":
+					var src_counter_name := str(effect.get("counter", "counter"))
+					var src_source_card := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+					if not src_source_card.is_empty():
+						src_exact_cost = int(src_source_card.get("_counter_" + src_counter_name, 0))
+				else:
+					src_exact_cost = int(effect.get("cost", effect.get("exact_cost", -1)))
 				if src_exact_cost >= 0:
 					src_filter["max_cost"] = src_exact_cost
 					src_filter["min_cost"] = src_exact_cost

@@ -593,6 +593,18 @@ func _support_has_choose_lane_and_owner(card: Dictionary) -> bool:
 	return false
 
 
+func _support_has_choose_lane(card: Dictionary) -> bool:
+	for trigger in card.get("triggered_abilities", []):
+		if typeof(trigger) != TYPE_DICTIONARY or str(trigger.get("family", "")) != "activate":
+			continue
+		for effect in trigger.get("effects", []):
+			if typeof(effect) != TYPE_DICTIONARY:
+				continue
+			if str(effect.get("lane", "")) == "chosen":
+				return true
+	return false
+
+
 func _show_lane_and_owner_choice(support_instance_id: String) -> void:
 	var lanes: Array = _screen._match_state.get("lanes", [])
 	var options: Array = []
