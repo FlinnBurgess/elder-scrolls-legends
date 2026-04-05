@@ -1379,7 +1379,9 @@ func _show_multi_card_choice_panel(cards: Array, prompt_text: String) -> void:
 	hbox.mouse_filter = Control.MOUSE_FILTER_PASS
 	vbox.add_child(hbox)
 
-	var card_size := CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+	var base_card_size := CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+	var card_scale := 1.5
+	var card_size := base_card_size * card_scale
 	for i in range(cards.size()):
 		var card: Dictionary = cards[i]
 		var card_button := Button.new()
@@ -1395,6 +1397,7 @@ func _show_multi_card_choice_panel(cards: Array, prompt_text: String) -> void:
 
 		var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
 		component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		component.scale = Vector2(card_scale, card_scale)
 		component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
 		card_button.add_child(component)
 

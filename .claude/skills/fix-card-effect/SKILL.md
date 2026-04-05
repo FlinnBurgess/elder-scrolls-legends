@@ -232,10 +232,6 @@ Also update `action_is_legal` for `KIND_END_TURN` to block ending turn while the
    - `match_mutations.reset_transient_state()` — used when cards change zones
    - `match_turn_loop._clear_temporary_stat_bonuses()` — end-of-turn cleanup (if the state is turn-scoped)
 
-## Step 3b: Post-fix Learnings Scan
-
-Run `scan-learnings` again with a more specific description now that you understand the problem deeply (e.g., "random target selection in match_timing", "trigger registry filtering"). Your understanding of the problem has evolved since Step 1b — this second pass catches issues your fix may have introduced that weren't obvious before the implementation.
-
 ## Step 4: Scan for Other Cards
 
 After implementing the fix, search `card_catalog.gd` for other cards that should use the same effect. Look for:
@@ -246,18 +242,6 @@ After implementing the fix, search `card_catalog.gd` for other cards that should
 Report any cards found that could benefit from the same fix, and apply the fix to them as well.
 
 If any identified cards cannot be fixed right now (e.g., they need an engine feature that doesn't exist yet or would be too invasive to add), add them to `development-artifacts/unfixed_card_effects.md` with a short description of what's blocking the fix. If that file doesn't exist, create it with the heading `# Unfixed Card Effects`. Remove entries from the file when they are fixed.
-
-## Step 5: Record Bug Class
-
-After fixing the card, identify the class of bug that caused the issue (e.g., "Missing triggered_abilities on action card", "Item missing equip_keywords field", "Wrong trigger family used"). Then check `development-artifacts/bug_classes.md` — if the file exists, read it and see if this class of bug is already documented. If it is, skip this step. If not (or if the file doesn't exist), append the new bug class with a one-line description and an example card. If creating the file, start it with the heading `# Bug Classes`.
-
-Format each entry as:
-```
-## <Bug Class Name>
-<One-line description of what goes wrong and why>
-Example: <card name that exhibited this bug>
-How to spot: <describe symptoms a user might report and/or patterns to search for in the catalog to find other affected cards>
-```
 
 ## Step 6: Update Tracking
 

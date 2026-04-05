@@ -833,6 +833,11 @@ static func resolve_pending_top_deck_multi_choice(match_state: Dictionary, playe
 			draw_card["zone"] = ZONE_HAND
 			player.get(ZONE_HAND, []).append(draw_card)
 			events.append({"event_type": EVENT_CARD_DRAWN, "player_id": player_id, "source_instance_id": str(draw_card.get("instance_id", ""))})
+	elif mode == "keep_one_vanish_rest":
+		# Chosen card goes to hand, rest are discarded (generated cards that vanish)
+		chosen_card["zone"] = ZONE_HAND
+		player.get(ZONE_HAND, []).append(chosen_card)
+		events.append({"event_type": EVENT_CARD_DRAWN, "player_id": player_id, "source_instance_id": str(choice.get("source_instance_id", "")), "drawn_instance_id": str(chosen_card.get("instance_id", "")), "source_zone": MatchMutations.ZONE_GENERATED, "target_zone": ZONE_HAND, "reason": "discover_from_catalog"})
 	elif mode == "draw_one_shuffle_rest":
 		# Prophet's Sight: chosen card goes to hand, others shuffle back into deck
 		chosen_card["zone"] = ZONE_HAND

@@ -693,56 +693,10 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				var grth_current_esc := int(grth_source_card.get(grth_esc_state_key, 0))
 				grth_filter[grth_esc_field] = int(grth_filter.get(grth_esc_field, 0)) + grth_current_esc
 				grth_source_card[grth_esc_state_key] = grth_current_esc + grth_esc_increment
-			var grth_seeds: Array = CardCatalog._card_seeds()
-			var grth_candidates: Array = []
+			var grth_candidates := _filter_catalog_seeds(grth_filter)
 			var grth_controller_id := str(trigger.get("controller_player_id", ""))
 			var grth_player := _get_player_state(match_state, grth_controller_id)
-			if grth_player.is_empty():
-				return {"handled": true, "events": []}
-			var grth_max_cost := int(grth_filter.get("max_cost", -1))
-			var grth_req_card_type := str(grth_filter.get("card_type", ""))
-			var grth_req_subtype := str(grth_filter.get("required_subtype", grth_filter.get("subtype", "")))
-			var grth_req_rules_tag := str(grth_filter.get("rules_tag", grth_filter.get("tag", "")))
-			var grth_req_keyword := str(grth_filter.get("keyword", ""))
-			var grth_name_contains := str(grth_filter.get("name_contains", ""))
-			for seed in grth_seeds:
-				if typeof(seed) != TYPE_DICTIONARY:
-					continue
-				if not bool(seed.get("collectible", true)):
-					continue
-				if not grth_req_card_type.is_empty() and str(seed.get("card_type", "")) != grth_req_card_type:
-					continue
-				if grth_max_cost >= 0 and int(seed.get("cost", 0)) > grth_max_cost:
-					continue
-				if not grth_req_subtype.is_empty():
-					var subtypes = seed.get("subtypes", [])
-					if typeof(subtypes) != TYPE_ARRAY:
-						continue
-					var grth_group: Array = SUBTYPE_GROUPS.get(grth_req_subtype, [])
-					if not grth_group.is_empty():
-						var grth_match := false
-						for st in subtypes:
-							if grth_group.has(st):
-								grth_match = true
-								break
-						if not grth_match:
-							continue
-					elif not subtypes.has(grth_req_subtype):
-						continue
-				if not grth_req_rules_tag.is_empty():
-					var grth_tags = seed.get("rules_tags", [])
-					if typeof(grth_tags) != TYPE_ARRAY or not grth_tags.has(grth_req_rules_tag):
-						continue
-				if not grth_req_keyword.is_empty():
-					var grth_kws = seed.get("keywords", [])
-					if typeof(grth_kws) != TYPE_ARRAY or not grth_kws.has(grth_req_keyword):
-						continue
-				if not grth_name_contains.is_empty():
-					var grth_card_name := str(seed.get("name", ""))
-					if grth_card_name.findn(grth_name_contains) < 0:
-						continue
-				grth_candidates.append(seed)
-			if grth_candidates.is_empty():
+			if grth_player.is_empty() or grth_candidates.is_empty():
 				return {"handled": true, "events": []}
 			var grth_count := int(effect.get("count", 1))
 			var grth_all_events: Array = []
@@ -759,6 +713,51 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				grth_hand.append(grth_gen)
 				grth_all_events.append({"event_type": "card_drawn", "player_id": grth_controller_id, "source_instance_id": str(trigger.get("source_instance_id", "")), "drawn_instance_id": str(grth_gen.get("instance_id", "")), "source_zone": MatchMutations.ZONE_GENERATED, "target_zone": MatchMutations.ZONE_HAND, "reason": "generate_random_to_hand"})
 			return {"handled": true, "events": grth_all_events}
+		"discover_from_catalog":
+			var dfc_filter_raw = effect.get("filter", {})
+			var dfc_filter: Dictionary = dfc_filter_raw.duplicate(true) if typeof(dfc_filter_raw) == TYPE_DICTIONARY else {}
+			var dfc_source_id := str(trigger.get("source_instance_id", ""))
+			var dfc_source_card := _find_card_anywhere(match_state, dfc_source_id)
+			# Escalating filter: increase a filter field each time the source card uses this effect
+			var dfc_esc_key := str(effect.get("escalating_filter_key", ""))
+			var dfc_esc_field := str(effect.get("escalating_filter_field", ""))
+			var dfc_esc_increment := int(effect.get("escalating_increment", 0))
+			if not dfc_esc_key.is_empty() and not dfc_esc_field.is_empty() and dfc_esc_increment > 0 and not dfc_source_card.is_empty():
+				var dfc_esc_state_key := "_escalating_" + dfc_esc_key
+				var dfc_current_esc := int(dfc_source_card.get(dfc_esc_state_key, 0))
+				dfc_filter[dfc_esc_field] = int(dfc_filter.get(dfc_esc_field, 0)) + dfc_current_esc
+				dfc_source_card[dfc_esc_state_key] = dfc_current_esc + dfc_esc_increment
+				# Update the source card's rules_text to reflect the new cost
+				var dfc_rules_template := str(effect.get("rules_text_template", ""))
+				if not dfc_rules_template.is_empty() and not dfc_source_card.is_empty():
+					var dfc_next_cost := int(dfc_filter.get(dfc_esc_field, 0)) + dfc_esc_increment
+					dfc_source_card["rules_text"] = dfc_rules_template.replace("{cost}", str(dfc_next_cost))
+			var dfc_candidates := _filter_catalog_seeds(dfc_filter)
+			var dfc_controller_id := str(trigger.get("controller_player_id", ""))
+			var dfc_player := _get_player_state(match_state, dfc_controller_id)
+			if dfc_player.is_empty() or dfc_candidates.is_empty():
+				return {"handled": true, "events": []}
+			var dfc_discover_count := int(effect.get("discover_count", 3))
+			var dfc_options: Array = []
+			for dfc_i in range(mini(dfc_discover_count, dfc_candidates.size())):
+				var dfc_pick: Dictionary = dfc_candidates[_timing_rules()._deterministic_index(match_state, dfc_source_id + "_dfc_" + str(dfc_i), dfc_candidates.size())]
+				# Remove picked candidate to avoid duplicates
+				dfc_candidates.erase(dfc_pick)
+				var dfc_template: Dictionary = dfc_pick.duplicate(true)
+				dfc_template["definition_id"] = str(dfc_template.get("card_id", ""))
+				var dfc_gen := MatchMutations.build_generated_card(match_state, dfc_controller_id, dfc_template)
+				dfc_options.append(dfc_gen)
+			if dfc_options.is_empty():
+				return {"handled": true, "events": []}
+			var dfc_prompt := str(effect.get("prompt", "Choose a card to draw."))
+			match_state["pending_top_deck_choices"].append({
+				"player_id": dfc_controller_id,
+				"source_instance_id": dfc_source_id,
+				"cards": dfc_options,
+				"mode": "keep_one_vanish_rest",
+				"prompt": dfc_prompt,
+			})
+			return {"handled": true, "events": []}
 		"equip_random_item_from_catalog":
 			var erfc_seeds: Array = CardCatalog._card_seeds()
 			var erfc_items: Array = []
@@ -2211,6 +2210,58 @@ static func _resolve_player_targets(match_state: Dictionary, event: Dictionary, 
 			var chosen_pid := str(trigger.get("_chosen_target_player_id", ""))
 			return [] if chosen_pid.is_empty() else [chosen_pid]
 	return []
+
+
+static func _filter_catalog_seeds(filter: Dictionary) -> Array:
+	var seeds: Array = CardCatalog._card_seeds()
+	var candidates: Array = []
+	var max_cost := int(filter.get("max_cost", -1))
+	var exact_cost := int(filter.get("exact_cost", -1))
+	var req_card_type := str(filter.get("card_type", ""))
+	var req_subtype := str(filter.get("required_subtype", filter.get("subtype", "")))
+	var req_rules_tag := str(filter.get("rules_tag", filter.get("tag", "")))
+	var req_keyword := str(filter.get("keyword", ""))
+	var name_contains := str(filter.get("name_contains", ""))
+	for seed in seeds:
+		if typeof(seed) != TYPE_DICTIONARY:
+			continue
+		if not bool(seed.get("collectible", true)):
+			continue
+		if not req_card_type.is_empty() and str(seed.get("card_type", "")) != req_card_type:
+			continue
+		if max_cost >= 0 and int(seed.get("cost", 0)) > max_cost:
+			continue
+		if exact_cost >= 0 and int(seed.get("cost", 0)) != exact_cost:
+			continue
+		if not req_subtype.is_empty():
+			var subtypes = seed.get("subtypes", [])
+			if typeof(subtypes) != TYPE_ARRAY:
+				continue
+			var group: Array = SUBTYPE_GROUPS.get(req_subtype, [])
+			if not group.is_empty():
+				var match_found := false
+				for st in subtypes:
+					if group.has(st):
+						match_found = true
+						break
+				if not match_found:
+					continue
+			elif not subtypes.has(req_subtype):
+				continue
+		if not req_rules_tag.is_empty():
+			var tags = seed.get("rules_tags", [])
+			if typeof(tags) != TYPE_ARRAY or not tags.has(req_rules_tag):
+				continue
+		if not req_keyword.is_empty():
+			var kws = seed.get("keywords", [])
+			if typeof(kws) != TYPE_ARRAY or not kws.has(req_keyword):
+				continue
+		if not name_contains.is_empty():
+			var card_name := str(seed.get("name", ""))
+			if card_name.findn(name_contains) < 0:
+				continue
+		candidates.append(seed)
+	return candidates
 
 
 static func _find_card_anywhere(match_state: Dictionary, instance_id: String) -> Dictionary:

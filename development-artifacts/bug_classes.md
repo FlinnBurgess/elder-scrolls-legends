@@ -264,3 +264,8 @@ How to spot: Compare the card's `rules_text` token names against the `card_templ
 A `check_win_condition` effect uses a condition that is easier to meet than what the card text describes (e.g., "any friendly creature in each lane" vs "lanes are full"). The win triggers prematurely.
 Example: Jarl Balgruuf (triggered on "both lanes have a friendly creature" instead of "your lanes are full")
 How to spot: Compare the card's `rules_text` win condition wording against the `condition` value in the `check_win_condition` effect and its engine handler logic.
+
+## Missing art_path on inline card_template in summon effects
+Card's `summon_from_effect` or `fill_lane_with` uses an inline `card_template` that omits `art_path`. `build_generated_card` falls back to `"res://assets/images/cards/" + definition_id + ".png"` which may not exist (e.g., `aw_neu_recruit.png` doesn't exist — the actual art files are race-specific like `recruit_high_elf.png`). The summoned token displays fallback/missing art.
+Example: Ayrenn's Chosen (summoned Recruits with no `art_path`, fell back to non-existent `aw_neu_recruit.png`), Battle of Chalman Keep
+How to spot: User reports summoned tokens showing placeholder/fallback art. Check if the inline `card_template` has an `art_path` field. Compare against other cards that summon the same token to see the correct art path.
