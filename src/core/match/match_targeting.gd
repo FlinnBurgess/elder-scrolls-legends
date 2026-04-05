@@ -275,6 +275,17 @@ static func get_valid_targets_for_mode(match_state: Dictionary, source_instance_
 				return true
 			return not EvergreenRules.has_raw_status(c, "action_immune")
 		)
+	# enemy_dragon immunity: can't be targeted by enemy Dragons
+	var source_subtypes = source_card.get("subtypes", [])
+	if typeof(source_subtypes) == TYPE_ARRAY and source_subtypes.has("Dragon"):
+		targets = targets.filter(func(c):
+			if not c.has("instance_id"):
+				return true
+			if str(c.get("controller_player_id", "")) == controller_id:
+				return true
+			var ed_immunities = c.get("self_immunity", [])
+			return not (typeof(ed_immunities) == TYPE_ARRAY and ed_immunities.has("enemy_dragon"))
+		)
 	# Convert to target info format
 	var result: Array = []
 	for t in targets:

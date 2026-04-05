@@ -808,6 +808,72 @@ func _animate_deck_card_reveal(revealed_card: Dictionary) -> void:
 	)
 
 
+func _animate_scroll_flip(source_card: Dictionary, chosen_label: String, chosen_description: String) -> void:
+	var card_size = _screen._hand_card_display_size()
+	var viewport_size = _screen.get_viewport_rect().size
+
+	var wrapper := PanelContainer.new()
+	wrapper.name = "scroll_flip_panel"
+	wrapper.custom_minimum_size = card_size
+	wrapper.size = card_size
+	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var pos_x: float = (viewport_size.x - card_size.x) * 0.5
+	var pos_y: float = (viewport_size.y - card_size.y) * 0.5
+	wrapper.position = Vector2(pos_x, pos_y)
+
+	# Dim background
+	var dimmer := ColorRect.new()
+	dimmer.name = "scroll_flip_dimmer"
+	dimmer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dimmer.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	dimmer.color = Color(0.0, 0.0, 0.0, 0.5)
+	_screen._prophecy_card_overlay.add_child(dimmer)
+
+	# Show the original Experimental Scroll card
+	var front_component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+	front_component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	front_component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	front_component.apply_card(source_card, _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+	wrapper.add_child(front_component)
+
+	_screen._prophecy_card_overlay.add_child(wrapper)
+
+	# Build result card data: same as source but with chosen label/description
+	var result_card := source_card.duplicate(true)
+	result_card["name"] = chosen_label
+	result_card["rules_text"] = chosen_description
+
+	wrapper.pivot_offset = Vector2(wrapper.size.x * 0.5, wrapper.size.y * 0.5)
+	var tween = _screen.create_tween()
+	# Hold the original card briefly
+	tween.tween_interval(0.6)
+	# Flip: scale x to 0
+	tween.tween_property(wrapper, "scale:x", 0.0, 0.2)
+	# Swap content to result card
+	tween.tween_callback(func():
+		for child in wrapper.get_children():
+			child.queue_free()
+		var result_component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+		result_component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		result_component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		result_component.apply_card(result_card, _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+		wrapper.add_child(result_component)
+	)
+	# Flip back
+	tween.tween_property(wrapper, "scale:x", 1.0, 0.2)
+	# Hold result
+	tween.tween_interval(1.5)
+	# Dismiss and resolve deferred effects
+	tween.tween_callback(func():
+		if is_instance_valid(dimmer):
+			dimmer.queue_free()
+		if is_instance_valid(wrapper):
+			wrapper.queue_free()
+		_screen._resolve_pending_scroll_effect()
+	)
+
+
 func _animate_enemy_spell_reveal(action: Dictionary, _result: Dictionary) -> void:
 	var source_card: Dictionary = action.get("source_card", {})
 	if source_card.is_empty():

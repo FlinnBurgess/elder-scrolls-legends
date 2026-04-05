@@ -134,6 +134,13 @@ static func execute_action(match_state: Dictionary, action: Dictionary) -> Dicti
 			result = MatchTiming.decline_pending_turn_trigger_target(match_state, player_id)
 		_:
 			return {"is_valid": false, "errors": ["Unsupported action kind: %s" % kind], "match_state": match_state}
+	# Auto-resolve deferred scroll effects (no animation needed for AI)
+	while MatchTiming.has_pending_scroll_effect(match_state):
+		var scroll_result := MatchTiming.resolve_pending_scroll_effect(match_state)
+		if bool(scroll_result.get("is_valid", false)):
+			result["events"] = result.get("events", []) + scroll_result.get("events", [])
+		else:
+			break
 	result["match_state"] = match_state
 	return result
 

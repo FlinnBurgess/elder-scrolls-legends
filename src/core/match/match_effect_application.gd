@@ -199,7 +199,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 			"buff_creatures_in_deck", "buff_creatures_in_discard", "buff_items_in_deck", "equip_copies_from_discard", "equip_copy_of_item", "equip_generated_item", "equip_item", "equip_items_from_discard", "modify_item_in_hand", "modify_random_item_in_hand", "reequip_all_items_to", "steal_item_from_opponent_discard", "steal_items":
 				EffectItems.apply(op, match_state, trigger, event, effect, generated_events, ctx)
 			# Choice
-			"build_custom_fabricant", "choose_card_in_hand_and_shuffle_copies", "choose_cost_lock", "choose_cost_trigger", "choose_one", "choose_two", "conditional_drawn_card_bonus", "conditional_lane_bonus", "learn_action", "look_draw_discard", "look_give_draw", "optional_discard_and_summon", "play_learned_actions", "secretly_choose_creature", "select_card_from_hand", "stitch_creatures_from_decks":
+			"build_custom_fabricant", "choose_card_in_hand_and_shuffle_copies", "choose_cost_lock", "choose_cost_trigger", "choose_one", "choose_two", "conditional_drawn_card_bonus", "conditional_lane_bonus", "learn_action", "look_draw_discard", "look_give_draw", "optional_discard_and_summon", "play_learned_actions", "random_sub_effect", "secretly_choose_creature", "select_card_from_hand", "stitch_creatures_from_decks":
 				EffectChoice.apply(op, match_state, trigger, event, effect, generated_events, ctx)
 			# Misc
 			"add_counter", "aim_at", "buff_random_hand_card", "grant_aura_by_chosen_subtype", "log", "mark_for_resummon", "mark_target", "redirect_damage_to_self", "reveal_opponent_hand_card", "reveal_opponent_top_deck", "swap_creatures", "top_deck_attribute_bonus":

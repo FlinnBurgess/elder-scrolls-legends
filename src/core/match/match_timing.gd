@@ -250,6 +250,8 @@ static func ensure_match_state(match_state: Dictionary) -> void:
 		match_state["pending_forced_plays"] = []
 	if not match_state.has("pending_budget_summons") or typeof(match_state["pending_budget_summons"]) != TYPE_ARRAY:
 		match_state["pending_budget_summons"] = []
+	if not match_state.has("pending_scroll_effects") or typeof(match_state["pending_scroll_effects"]) != TYPE_ARRAY:
+		match_state["pending_scroll_effects"] = []
 	if not match_state.has("out_of_cards_sequence"):
 		match_state["out_of_cards_sequence"] = 0
 
@@ -852,6 +854,32 @@ static func resolve_pending_top_deck_multi_choice(match_state: Dictionary, playe
 		events.append_array(dors_resume.get("events", []))
 	var timing_result := publish_events(match_state, events)
 	return {"is_valid": true, "errors": [], "events": timing_result.get("processed_events", []), "chosen_card": chosen_card}
+
+
+static func has_pending_scroll_effect(match_state: Dictionary) -> bool:
+	var pending: Array = match_state.get("pending_scroll_effects", [])
+	return not pending.is_empty()
+
+
+static func resolve_pending_scroll_effect(match_state: Dictionary) -> Dictionary:
+	ensure_match_state(match_state)
+	var pending: Array = match_state.get("pending_scroll_effects", [])
+	if pending.is_empty():
+		return {"is_valid": false, "errors": ["No pending scroll effect."], "events": []}
+	var entry: Dictionary = pending.pop_front()
+	var trigger: Dictionary = entry.get("trigger", {})
+	var ev: Dictionary = entry.get("event", {})
+	var sub_effects: Array = entry.get("effects", [])
+	var family: String = entry.get("family", "")
+	var patched_trigger := trigger.duplicate(true)
+	patched_trigger["descriptor"] = {"family": family, "effects": sub_effects}
+	var events: Array = MatchEffectApplication._apply_effects(match_state, patched_trigger, ev, {})
+	var timing_result := publish_events(match_state, events)
+	return {
+		"is_valid": true,
+		"errors": [],
+		"events": timing_result.get("processed_events", []),
+	}
 
 
 static func has_pending_player_choice(match_state: Dictionary, player_id: String = "") -> bool:

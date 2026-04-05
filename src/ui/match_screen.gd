@@ -1170,6 +1170,13 @@ func _on_consume_selection_declined() -> void:
 	_refresh._refresh_ui()
 
 
+func _resolve_pending_scroll_effect() -> void:
+	var result := MatchTiming.resolve_pending_scroll_effect(_match_state)
+	if bool(result.get("is_valid", false)):
+		_animations._record_feedback_from_events(_copy_array(result.get("events", [])))
+	_refresh._refresh_ui()
+
+
 func _has_local_pending_player_choice() -> bool:
 	return MatchTiming.has_pending_player_choice(_match_state, _local_player_id())
 

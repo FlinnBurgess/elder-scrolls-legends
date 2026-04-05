@@ -239,6 +239,11 @@ func _record_feedback_from_events(events: Array) -> void:
 				var lad_lane_id := str(event.get("lane_id", ""))
 				var lad_amount := int(event.get("amount", 0))
 				_screen._queue_status_toast("%d damage to all creatures in lane!" % lad_amount, Color(0.9, 0.3, 0.2))
+			"random_sub_effect_chosen":
+				var rse_source_id := str(event.get("source_instance_id", ""))
+				var rse_card: Dictionary = _screen._card_from_instance_id(rse_source_id)
+				if not rse_card.is_empty():
+					_screen._feedback._animate_scroll_flip(rse_card, str(event.get("label", "")), str(event.get("description", "")))
 			"counter_updated":
 				var cu_value := int(event.get("value", 0))
 				var cu_threshold := int(event.get("threshold", 0))

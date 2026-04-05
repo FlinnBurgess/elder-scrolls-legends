@@ -244,3 +244,8 @@ How to spot: Rules text mentions "in your hand" but the effect's `target` resolv
 Card is typed as `"action"` but has item-specific fields (`equip_health_bonus`, `equip_power_bonus`, `equip_keywords`, `rules_text: "+X/+Y"`) and no `triggered_abilities`. The card was likely templated from an item definition. The equip fields do nothing on an action; the card has no gameplay effect when played.
 Example: Counterfeit Trinket (had `equip_health_bonus: 1` and `rules_text: "+0/+1"` instead of draw + self-damage)
 How to spot: Search for `"action".*equip_health_bonus` or `"action".*equip_power_bonus` in card_catalog.gd. Also check non-collectible action tokens with suspiciously item-like rules_text (e.g., "+X/+Y" with no other text).
+
+## Effect op hardcoded to same-lane when card text implies all lanes
+An effect op (e.g., `battle_strongest_enemy`) iterates only the attacker's lane to find targets, but the card text says "your opponent's most powerful creature" (no lane restriction). The effect fires but picks from a subset of candidates, missing stronger creatures in other lanes.
+Example: Duel Atop the World (battled strongest enemy in same lane instead of across all lanes)
+How to spot: Rules text references "opponent's most powerful creature" or similar board-wide superlative without mentioning "in its lane" or "in this lane". Check the op handler to see if it restricts iteration to a single lane index.

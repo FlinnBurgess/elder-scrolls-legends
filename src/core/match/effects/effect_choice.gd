@@ -359,6 +359,33 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						generated_events.append_array(scfd_result.get("events", []))
 						generated_events.append(MatchSummonTiming._build_summon_event(scfd_result["card"], scfd_controller_id, scfd_lane_id, int(scfd_result.get("slot_index", -1)), reason))
 						_MT()._check_summon_abilities(match_state, scfd_result["card"])
+		"random_sub_effect":
+			var rse_choices_raw = effect.get("choices", [])
+			var rse_choices: Array = rse_choices_raw if typeof(rse_choices_raw) == TYPE_ARRAY else []
+			if rse_choices.is_empty():
+				return
+			var rse_source_id := str(trigger.get("source_instance_id", ""))
+			var rse_idx := MatchEffectParams._deterministic_index(match_state, rse_source_id + "_random_sub", rse_choices.size())
+			var rse_chosen = rse_choices[rse_idx]
+			if typeof(rse_chosen) != TYPE_DICTIONARY:
+				return
+			generated_events.append({
+				"event_type": "random_sub_effect_chosen",
+				"source_instance_id": rse_source_id,
+				"chosen_index": rse_idx,
+				"label": str(rse_chosen.get("label", "")),
+				"description": str(rse_chosen.get("description", "")),
+			})
+			var rse_sub_effects: Array = rse_chosen.get("effects", [])
+			if not rse_sub_effects.is_empty():
+				var rse_pending: Array = match_state.get("pending_scroll_effects", [])
+				rse_pending.append({
+					"trigger": trigger.duplicate(true),
+					"event": event.duplicate(true),
+					"family": str(descriptor.get("family", "")),
+					"effects": rse_sub_effects,
+				})
+				match_state["pending_scroll_effects"] = rse_pending
 		"learn_action":
 			var la_controller_id := str(trigger.get("controller_player_id", ""))
 			var la_source := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))

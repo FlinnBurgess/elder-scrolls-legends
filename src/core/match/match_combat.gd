@@ -157,6 +157,14 @@ static func _validate_creature_attack_target(match_state: Dictionary, attacker_l
 	if is_friendly_target and target_instance_id == str(attacker_lookup["card"].get("instance_id", "")):
 		return _invalid_result("A creature cannot attack itself.")
 
+	# enemy_dragon immunity: can't be targeted by enemy Dragons
+	var defender_immunities = defender_lookup["card"].get("self_immunity", [])
+	if typeof(defender_immunities) == TYPE_ARRAY and defender_immunities.has("enemy_dragon"):
+		var attacker_subtypes = attacker_lookup["card"].get("subtypes", [])
+		if typeof(attacker_subtypes) == TYPE_ARRAY and attacker_subtypes.has("Dragon"):
+			if str(attacker_lookup["player_id"]) != str(defender_lookup["player_id"]):
+				return _invalid_result("This creature can't be targeted by enemy Dragons.")
+
 	var attacker_can_attack_any_lane := EvergreenRules.has_status(attacker_lookup["card"], "attack_any_lane")
 	if str(defender_lookup["lane_id"]) != str(attacker_lookup["lane_id"]) and not attacker_can_attack_any_lane:
 		return _invalid_result("Creatures can only attack creatures in the same lane.")
@@ -242,6 +250,19 @@ static func _resolve_creature_attack(match_state: Dictionary, validation: Dictio
 		var attacker_protector := _find_creature_on_board(match_state.get("lanes", []), attacker_redirect_id)
 		if bool(attacker_protector.get("is_valid", false)):
 			attacker_damage_target = attacker_protector["card"]
+	# enemy_dragon immunity: can't be damaged by enemy Dragons (blocks retaliation damage)
+	var _atk_immunities = attacker_damage_target.get("self_immunity", [])
+	if typeof(_atk_immunities) == TYPE_ARRAY and _atk_immunities.has("enemy_dragon"):
+		var _def_subtypes = defender.get("subtypes", [])
+		if typeof(_def_subtypes) == TYPE_ARRAY and _def_subtypes.has("Dragon"):
+			if str(attacker_damage_target.get("controller_player_id", "")) != str(defender.get("controller_player_id", "")):
+				damage_to_attacker = 0
+	var _def_immunities = defender_damage_target.get("self_immunity", [])
+	if typeof(_def_immunities) == TYPE_ARRAY and _def_immunities.has("enemy_dragon"):
+		var _atk_subtypes = attacker.get("subtypes", [])
+		if typeof(_atk_subtypes) == TYPE_ARRAY and _atk_subtypes.has("Dragon"):
+			if str(defender_damage_target.get("controller_player_id", "")) != str(attacker.get("controller_player_id", "")):
+				damage_to_defender = 0
 	var defender_damage := EvergreenRules.apply_damage_to_creature(defender_damage_target, damage_to_defender)
 	var attacker_damage := EvergreenRules.apply_damage_to_creature(attacker_damage_target, damage_to_attacker)
 	var applied_to_defender := int(defender_damage.get("applied", 0))

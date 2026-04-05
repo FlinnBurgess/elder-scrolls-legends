@@ -120,6 +120,14 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					continue
 				if is_action_damage and MatchTimingHelpers._is_immune_to_effect(match_state, card, "action_damage"):
 					continue
+				# enemy_dragon immunity: can't be damaged by enemy Dragons
+				if not dd_source_creature.is_empty():
+					var _ed_immunities = card.get("self_immunity", [])
+					if typeof(_ed_immunities) == TYPE_ARRAY and _ed_immunities.has("enemy_dragon"):
+						var _ed_subtypes = dd_source_creature.get("subtypes", [])
+						if typeof(_ed_subtypes) == TYPE_ARRAY and _ed_subtypes.has("Dragon"):
+							if str(dd_source_creature.get("controller_player_id", "")) != str(card.get("controller_player_id", "")):
+								continue
 				# Damage redirect: if creature is protected, redirect damage to protector
 				var redirect_id := str(card.get("_protected_by", ""))
 				if not redirect_id.is_empty():
@@ -434,15 +442,23 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					continue
 				var best_enemy: Dictionary = {}
 				var best_power := -1
-				for pid in match_state["lanes"][bse_lane_idx].get("player_slots", {}).keys():
-					if pid == bse_controller:
-						continue
-					for card in match_state["lanes"][bse_lane_idx]["player_slots"][pid]:
-						if typeof(card) == TYPE_DICTIONARY:
-							var p := EvergreenRules.get_power(card)
-							if p > best_power:
-								best_power = p
-								best_enemy = card
+				var search_scope: String = effect.get("scope", "same_lane")
+				var lanes_to_search: Array = []
+				if search_scope == "all_lanes":
+					for li in range(match_state.get("lanes", []).size()):
+						lanes_to_search.append(li)
+				else:
+					lanes_to_search.append(bse_lane_idx)
+				for search_li in lanes_to_search:
+					for pid in match_state["lanes"][search_li].get("player_slots", {}).keys():
+						if pid == bse_controller:
+							continue
+						for card in match_state["lanes"][search_li]["player_slots"][pid]:
+							if typeof(card) == TYPE_DICTIONARY:
+								var p := EvergreenRules.get_power(card)
+								if p > best_power:
+									best_power = p
+									best_enemy = card
 				if not best_enemy.is_empty():
 					var patched := trigger.duplicate(true)
 					patched["source_instance_id"] = str(attacker.get("instance_id", ""))
