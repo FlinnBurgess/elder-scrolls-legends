@@ -59,6 +59,7 @@ static func resolve_attack(match_state: Dictionary, player_id: String, attacker_
 		if extra > 0:
 			attacker["extra_attacks_remaining"] = extra - 1
 	attacker["has_attacked_this_turn"] = true
+	_increment_lane_attack_count(match_state, attacker)
 	if EvergreenRules.has_raw_status(attacker, EvergreenRules.STATUS_COVER):
 		EvergreenRules.remove_status(attacker, EvergreenRules.STATUS_COVER)
 		attacker.erase("cover_expires_on_turn")
@@ -518,7 +519,6 @@ static func _has_extra_attack_passive(match_state: Dictionary, attacker: Diction
 
 
 static func _lane_attack_limit_reached(match_state: Dictionary, attacker: Dictionary) -> bool:
-	var attacker_id := str(attacker.get("instance_id", ""))
 	var lane_id := str(attacker.get("lane_id", ""))
 	if lane_id.is_empty():
 		return false
@@ -538,19 +538,23 @@ static func _lane_attack_limit_reached(match_state: Dictionary, attacker: Dictio
 			break
 	if not has_limit:
 		return false
-	# Check if another creature in this lane has already attacked
+	# Check if any attack has already happened in this lane this turn
 	for lane in match_state.get("lanes", []):
 		if str(lane.get("lane_id", "")) != lane_id:
 			continue
-		for pid in lane.get("player_slots", {}).keys():
-			for card in lane.get("player_slots", {}).get(pid, []):
-				if typeof(card) != TYPE_DICTIONARY:
-					continue
-				if str(card.get("instance_id", "")) == attacker_id:
-					continue
-				if bool(card.get("has_attacked_this_turn", false)):
-					return true
+		if int(lane.get("_attacks_this_turn", 0)) > 0:
+			return true
 	return false
+
+
+static func _increment_lane_attack_count(match_state: Dictionary, attacker: Dictionary) -> void:
+	var lane_id := str(attacker.get("lane_id", ""))
+	if lane_id.is_empty():
+		return
+	for lane in match_state.get("lanes", []):
+		if str(lane.get("lane_id", "")) == lane_id:
+			lane["_attacks_this_turn"] = int(lane.get("_attacks_this_turn", 0)) + 1
+			break
 
 
 static func _entered_lane_this_turn(match_state: Dictionary, attacker: Dictionary) -> bool:

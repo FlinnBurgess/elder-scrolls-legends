@@ -15,6 +15,7 @@ const ZONE_ATTACHED_ITEM := "attached_item"
 const ZONE_DISCARD := "discard"
 const ZONE_BANISHED := "banished"
 const ZONE_GENERATED := "generated"
+const PLAYING_CARD_ID := "fom_neu_playing_card"
 const PLAYER_ZONE_ORDER := [ZONE_HAND, ZONE_SUPPORT, ZONE_DISCARD, ZONE_BANISHED, ZONE_DECK]
 const IDENTITY_FIELDS := [
 	"definition_id", "name", "card_type", "cost", "power", "health", "base_power", "base_health",
@@ -530,7 +531,20 @@ static func build_generated_card(match_state: Dictionary, controller_player_id: 
 		card["base_health"] = max_magicka
 		card.erase("stats_from_max_magicka")
 	EvergreenRules.ensure_card_state(card)
+	if str(card.get("definition_id", "")) == PLAYING_CARD_ID:
+		_apply_playing_card_mutation(match_state, card)
 	return card
+
+
+static func _apply_playing_card_mutation(match_state: Dictionary, card: Dictionary) -> void:
+	var assigned_cost := MatchEffectParams._deterministic_index(match_state, str(card.get("instance_id", "")) + "_playing_card_cost", 8) + 2
+	card["cost"] = assigned_cost
+	card["_playing_card_assigned_cost"] = assigned_cost
+	card["rules_text"] = "Summon a random creature with cost %d." % assigned_cost
+	card["art_path"] = "res://assets/images/cards/playing-card-%d.png" % assigned_cost
+	card["action_target_mode"] = "choose_lane"
+	card["triggered_abilities"] = [{"family": "on_play", "required_zone": "discard", "effects": [{"op": "summon_random_from_catalog", "filter": {"card_type": "creature", "exact_cost": assigned_cost}}]}]
+	GameLogger.trc("Mut", "playing_card", "inst:%s,cost:%d" % [str(card.get("instance_id", "")), assigned_cost])
 
 
 static func silence_card(card: Dictionary, options: Dictionary = {}, match_state: Dictionary = {}) -> Dictionary:

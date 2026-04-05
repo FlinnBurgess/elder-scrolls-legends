@@ -45,11 +45,41 @@ func _lane_readiness_badge_text(card: Dictionary) -> String:
 		print("[READINESS] %s has_attacked=true extra_attacks_remaining=%d" % [cid, extra])
 		if extra <= 0:
 			return "WAITING"
+	if _lane_attack_limit_reached_for(card):
+		print("[READINESS] %s -> WAITING (lane_attack_limit reached)" % cid)
+		return "WAITING"
 	if _screen._entered_lane_this_turn(card) and not _screen.EvergreenRules.has_keyword(card, _screen.EvergreenRules.KEYWORD_CHARGE):
 		print("[READINESS] %s -> WAITING (summoning sick: entered_lane_on_turn=%s turn_number=%s)" % [cid, card.get("entered_lane_on_turn", -1), _screen._match_state.get("turn_number", 0)])
 		return "WAITING"
 	print("[READINESS] %s -> READY" % cid)
 	return "READY"
+
+
+func _lane_attack_limit_reached_for(card: Dictionary) -> bool:
+	var lane_id := str(card.get("lane_id", ""))
+	if lane_id.is_empty():
+		return false
+	var has_limit := false
+	for lane in _screen._match_state.get("lanes", []):
+		if str(lane.get("lane_id", "")) != lane_id:
+			continue
+		for pid in lane.get("player_slots", {}).keys():
+			for c in lane.get("player_slots", {}).get(pid, []):
+				if typeof(c) == TYPE_DICTIONARY and _screen.EvergreenRules._has_passive(c, "lane_attack_limit"):
+					has_limit = true
+					break
+			if has_limit:
+				break
+		if has_limit:
+			break
+	if not has_limit:
+		return false
+	for lane in _screen._match_state.get("lanes", []):
+		if str(lane.get("lane_id", "")) != lane_id:
+			continue
+		if int(lane.get("_attacks_this_turn", 0)) > 0:
+			return true
+	return false
 
 
 func _build_hand_emphasis_badges(_card: Dictionary, _public_view: bool, _surface: String, _instance_id: String) -> HBoxContainer:

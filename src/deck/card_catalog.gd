@@ -34,6 +34,8 @@ const EXC_SET_ID := "exclusive_cards"
 const EXC_RELEASE_GROUP_ID := "exc_pvp"
 const DG_SET_ID := "dawnguard"
 const DG_RELEASE_GROUP_ID := "dg_pvp"
+const FOM_SET_ID := "festival_of_madness"
+const FOM_RELEASE_GROUP_ID := "fom_pvp"
 
 
 static func load_default() -> Dictionary:
@@ -1722,5 +1724,10 @@ static func _card_seeds() -> Array:
 		_seed("dg_end_ring_of_the_beast", "Ring of the Beast", ["endurance"], "item", 4, 0, 0, {"set_id": DG_SET_ID, "release_group_id": DG_RELEASE_GROUP_ID, "rarity": "epic", "effect_ids": ["equip", "modify_stats", "summon"], "rules_text": "+1/+1\nSummon: Double the wielder's health.", "equip_power_bonus": 1, "equip_health_bonus": 1, "triggered_abilities": [{"family": "on_play", "effects": [{"op": "double_health", "target": "host"}]}]}),
 		_seed("dg_end_vampire_fledgling", "Vampire Fledgling", ["endurance"], "creature", 3, 4, 3, {"set_id": DG_SET_ID, "release_group_id": DG_RELEASE_GROUP_ID, "rarity": "rare", "subtypes": ["Vampire"], "rules_text": "At the start of your turn, Vampire Fledgling may Consume a creature to gain Drain this turn.", "triggered_abilities": [{"family": "start_of_turn", "required_zone": "lane", "effects": [{"op": "optional_consume_for_keyword", "target": "self", "keyword_id": "drain", "duration": "end_of_turn"}]}]}),
 		_seed("dg_dual_armored_troll", "Armored Troll", ["willpower", "endurance"], "creature", 5, 3, 7, {"set_id": DG_SET_ID, "release_group_id": DG_RELEASE_GROUP_ID, "rarity": "epic", "keywords": ["regenerate"], "subtypes": ["Troll"], "rules_text": "Regenerate\nArmored Troll is immune to damage on your turn.", "self_immunity": ["damage_on_own_turn"]}),
+
+		# ── FESTIVAL OF MADNESS (3 cards) ──
+		_seed("fom_neu_cheesemancer", "Cheesemancer", ["neutral"], "creature", 5, 4, 4, {"set_id": FOM_SET_ID, "release_group_id": FOM_RELEASE_GROUP_ID, "rarity": "epic", "subtypes": ["Imperial"], "rules_text": "At the start of the game, Cheesemancer gains the ability of a random creature from Isle of Madness.", "deck_code_id": "wA"}),
+		_seed("fom_neu_madness_beckons", "Madness Beckons", ["neutral"], "action", 1, 0, 0, {"set_id": FOM_SET_ID, "release_group_id": FOM_RELEASE_GROUP_ID, "rarity": "epic", "effect_ids": ["generate_card"], "rules_text": "Put a random Isle of Madness card into your hand.", "triggered_abilities": [{"family": "on_play", "required_zone": "discard", "effects": [{"op": "madness_beckons"}]}], "deck_code_id": "jZ"}),
+		_seed("fom_neu_playing_card", "Playing Card", ["neutral"], "action", 0, 0, 0, {"set_id": FOM_SET_ID, "release_group_id": FOM_RELEASE_GROUP_ID, "rarity": "rare", "collectible": false, "action_target_mode": "choose_lane", "rules_text": "Summon a random creature.", "triggered_abilities": [{"family": "on_play", "required_zone": "discard", "effects": [{"op": "summon_random_from_catalog", "filter": {"card_type": "creature"}}]}]}),
 
 	]

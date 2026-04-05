@@ -23,6 +23,7 @@ static func begin_first_turn(match_state: Dictionary) -> Dictionary:
 		push_error("Match is missing an active player for first turn start.")
 		return match_state
 
+	ExtendedMechanicPacks.apply_cheesemancer_mutations(match_state)
 	return _start_turn(match_state, active_player_id)
 
 
@@ -210,6 +211,7 @@ static func _refresh_board_state_for_turn(match_state: Dictionary, player_id: St
 	var current_turn_number := int(match_state.get("turn_number", 0))
 	var regenerate_events: Array = []
 	for lane in match_state.get("lanes", []):
+		lane["_attacks_this_turn"] = 0
 		var player_slots_by_id: Dictionary = lane.get("player_slots", {})
 		if not player_slots_by_id.has(player_id):
 			continue

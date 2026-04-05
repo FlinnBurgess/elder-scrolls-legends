@@ -466,6 +466,14 @@ func _creature_readiness_state(card: Dictionary) -> Dictionary:
 				"border": Color(0.62, 0.68, 0.78, 0.94),
 				"font": Color(0.89, 0.92, 0.98, 1.0),
 			}
+	if _screen._card_display._lane_attack_limit_reached_for(card):
+		return {
+			"id": "spent",
+			"label": "SPENT",
+			"fill": Color(0.18, 0.2, 0.26, 0.98),
+			"border": Color(0.62, 0.68, 0.78, 0.94),
+			"font": Color(0.89, 0.92, 0.98, 1.0),
+		}
 	if _screen._entered_lane_this_turn(card) and not _screen.EvergreenRules.has_keyword(card, _screen.EvergreenRules.KEYWORD_CHARGE):
 		return {
 			"id": "summoning_sick",

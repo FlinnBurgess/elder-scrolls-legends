@@ -569,6 +569,7 @@ func start_test_match(test_state: Dictionary) -> void:
 	var catalog_result := CardCatalog.load_default()
 	var card_by_id: Dictionary = catalog_result.get("card_by_id", {})
 	_hydrate_all_zones(test_state, card_by_id)
+	ExtendedMechanicPacks.apply_cheesemancer_mutations(test_state)
 	GameLogger.start_match(test_state)
 	_match_state = test_state
 	_ai_system._ai_options = {}

@@ -70,7 +70,9 @@ func _run_all_tests() -> bool:
 		_test_vivec_cannot_lose_expires_on_silence() and
 		_test_stampede_sentinel_blocks_action_damage_to_player() and
 		_test_stampede_sentinel_does_not_block_combat_damage_to_player() and
-		_test_battle_self_single_destruction()
+		_test_battle_self_single_destruction() and
+		_test_playing_card_mutation_and_summon() and
+		_test_madness_beckons_generates_iom_card()
 	)
 
 
@@ -2752,3 +2754,101 @@ func _test_battle_self_single_destruction() -> bool:
 		if typeof(evt) == TYPE_DICTIONARY and str(evt.get("event_type", "")) == "creature_destroyed" and str(evt.get("instance_id", "")) == target_id:
 			destroy_events += 1
 	return _assert(destroy_events == 1, "Battle self: should emit exactly 1 creature_destroyed event (found %d)." % destroy_events)
+
+
+func _test_playing_card_mutation_and_summon() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Generate a Playing Card via build_generated_card to trigger mutation
+	var template := {
+		"definition_id": MatchMutations.PLAYING_CARD_ID,
+		"name": "Playing Card",
+		"card_type": "action",
+		"cost": 0,
+		"rules_text": "",
+	}
+	var generated := MatchMutations.build_generated_card(match_state, pid, template)
+	# Verify cost was assigned between 2 and 9
+	var assigned_cost := int(generated.get("cost", 0))
+	if not _assert(assigned_cost >= 2 and assigned_cost <= 9, "Playing Card: cost should be 2-9, got %d." % assigned_cost):
+		return false
+	# Verify the locked cost field matches
+	if not _assert(int(generated.get("_playing_card_assigned_cost", 0)) == assigned_cost, "Playing Card: _playing_card_assigned_cost should match cost."):
+		return false
+	# Verify rules_text is dynamically set
+	var expected_text := "Summon a random creature with cost %d." % assigned_cost
+	if not _assert(str(generated.get("rules_text", "")) == expected_text, "Playing Card: rules_text should be '%s', got '%s'." % [expected_text, str(generated.get("rules_text", ""))]):
+		return false
+	# Verify art_path uses cost-specific image
+	var expected_art := "res://assets/images/cards/playing-card-%d.png" % assigned_cost
+	if not _assert(str(generated.get("art_path", "")) == expected_art, "Playing Card: art_path should be '%s'." % expected_art):
+		return false
+	# Verify action_target_mode is choose_lane
+	if not _assert(str(generated.get("action_target_mode", "")) == "choose_lane", "Playing Card: action_target_mode should be choose_lane."):
+		return false
+	# Verify triggered_abilities have the correct summon filter
+	var abilities: Array = generated.get("triggered_abilities", [])
+	if not _assert(abilities.size() == 1, "Playing Card: should have exactly 1 triggered ability."):
+		return false
+	var effects: Array = abilities[0].get("effects", [])
+	if not _assert(effects.size() == 1, "Playing Card: should have exactly 1 effect."):
+		return false
+	var filter: Dictionary = effects[0].get("filter", {})
+	if not _assert(int(filter.get("exact_cost", -1)) == assigned_cost, "Playing Card: filter exact_cost should be %d." % assigned_cost):
+		return false
+	# Now play the card and verify it summons a creature in the target lane
+	generated["zone"] = "hand"
+	player.get("hand", []).append(generated)
+	var play_result := MatchTiming.play_action_from_hand(match_state, pid, str(generated.get("instance_id", "")), {"lane_id": "field"})
+	if not _assert(bool(play_result.get("is_valid", false)), "Playing Card: should be playable with lane targeting."):
+		return false
+	# Check for a creature_summoned event in the field lane
+	var found_summoned := false
+	for evt in play_result.get("events", []):
+		if typeof(evt) == TYPE_DICTIONARY and str(evt.get("event_type", "")) == "creature_summoned" and str(evt.get("lane_id", "")) == "field":
+			found_summoned = true
+			break
+	return _assert(found_summoned, "Playing Card: should summon a creature into the target lane.")
+
+
+func _test_madness_beckons_generates_iom_card() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var beckons := ScenarioFixtures.add_hand_card(player, "madness_beckons", {
+		"card_type": "action", "cost": 0,
+		"definition_id": "fom_neu_madness_beckons",
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "madness_beckons"}]}],
+	})
+	# Track existing hand instance_ids before play
+	var hand_ids_before: Array = []
+	for c in player.get("hand", []):
+		if typeof(c) == TYPE_DICTIONARY:
+			hand_ids_before.append(str(c.get("instance_id", "")))
+	var result := MatchTiming.play_action_from_hand(match_state, pid, str(beckons.get("instance_id", "")), {})
+	if not _assert(bool(result.get("is_valid", false)), "Madness Beckons: should be playable."):
+		return false
+	# Find the new card in hand (one that wasn't there before and isn't the beckons card)
+	var new_card: Dictionary = {}
+	for c in player.get("hand", []):
+		if typeof(c) == TYPE_DICTIONARY and not hand_ids_before.has(str(c.get("instance_id", ""))):
+			new_card = c
+			break
+	if not _assert(not new_card.is_empty(), "Madness Beckons: should add a new card to hand."):
+		return false
+	# The new card should be from the valid pool
+	var valid_ids: Array = [
+		"iom_agi_crazed_hunger", "iom_end_dark_seducer", "iom_wil_fortress_guard",
+		"iom_neu_giant_chicken", "iom_str_grummite_magus", "iom_int_icy_shambles",
+		MatchMutations.PLAYING_CARD_ID,
+	]
+	var new_def_id := str(new_card.get("definition_id", ""))
+	if not _assert(valid_ids.has(new_def_id), "Madness Beckons: generated card '%s' should be from IOM pool." % new_def_id):
+		return false
+	# If it's a Playing Card, verify it was mutated
+	if new_def_id == MatchMutations.PLAYING_CARD_ID:
+		var pc_cost := int(new_card.get("cost", 0))
+		if not _assert(pc_cost >= 2 and pc_cost <= 9, "Madness Beckons: Playing Card cost should be 2-9, got %d." % pc_cost):
+			return false
+	return true

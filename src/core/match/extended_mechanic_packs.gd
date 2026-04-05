@@ -1759,6 +1759,38 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			var rw_events: Array = rw_result.get("events", []).duplicate()
 			rw_events.append(_timing_rules()._build_summon_event(rw_result["card"], rw_controller_id, "field", int(rw_result.get("slot_index", -1)), "runic_ward"))
 			return {"handled": true, "events": rw_events}
+		"madness_beckons":
+			var mb_controller_id := str(trigger.get("controller_player_id", ""))
+			var mb_player := _get_player_state(match_state, mb_controller_id)
+			if mb_player.is_empty():
+				return {"handled": true, "events": []}
+			var mb_pool: Array = [
+				"iom_agi_crazed_hunger",
+				"iom_end_dark_seducer",
+				"iom_wil_fortress_guard",
+				"iom_neu_giant_chicken",
+				"iom_str_grummite_magus",
+				"iom_int_icy_shambles",
+				MatchMutations.PLAYING_CARD_ID,
+			]
+			var mb_source_id := str(trigger.get("source_instance_id", ""))
+			var mb_pick_id: String = mb_pool[_timing_rules()._deterministic_index(match_state, mb_source_id + "_mb", mb_pool.size())]
+			var mb_template: Dictionary = {}
+			for mb_seed in CardCatalog._card_seeds():
+				if typeof(mb_seed) == TYPE_DICTIONARY and str(mb_seed.get("card_id", "")) == mb_pick_id:
+					mb_template = mb_seed.duplicate(true)
+					mb_template["definition_id"] = str(mb_template.get("card_id", ""))
+					break
+			if mb_template.is_empty():
+				return {"handled": true, "events": []}
+			var mb_card := MatchMutations.build_generated_card(match_state, mb_controller_id, mb_template)
+			var mb_hand: Array = mb_player.get("hand", [])
+			if _timing_rules()._overflow_card_to_discard(mb_player, mb_card, mb_controller_id, MatchMutations.ZONE_GENERATED, []):
+				return {"handled": true, "events": []}
+			mb_card["zone"] = "hand"
+			mb_hand.append(mb_card)
+			MatchMutations.apply_first_turn_hand_cost(match_state, mb_card, mb_controller_id)
+			return {"handled": true, "events": [{"event_type": "card_drawn", "player_id": mb_controller_id, "source_instance_id": str(mb_card.get("instance_id", "")), "reason": "madness_beckons"}]}
 	return {"handled": false, "events": []}
 
 
@@ -2747,3 +2779,73 @@ static func _card_matches_target_mode(target_mode: String, card: Dictionary, con
 		"enemy_creature_and_friendly_creature":
 			return true
 	return true
+
+
+# ── Cheesemancer: start-of-game ability mutation ──
+
+const CHEESEMANCER_ID := "fom_neu_cheesemancer"
+const CHEESEMANCER_SOURCE_IDS := [
+	"iom_agi_cyriel",
+	"iom_int_crucible_blacksmith",
+	"iom_str_trouble_seeker",
+	"iom_agi_hulking_scalon",
+	"iom_end_the_gatekeeper",
+]
+
+static func apply_cheesemancer_mutations(match_state: Dictionary) -> void:
+	var seeds_by_id := {}
+	for seed in CardCatalog._card_seeds():
+		if typeof(seed) == TYPE_DICTIONARY:
+			var sid := str(seed.get("card_id", ""))
+			if CHEESEMANCER_SOURCE_IDS.has(sid):
+				seeds_by_id[sid] = seed
+	if seeds_by_id.is_empty():
+		return
+	for player in match_state.get("players", []):
+		for zone_key in ["deck", "hand"]:
+			var zone: Array = player.get(zone_key, [])
+			for card in zone:
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				if str(card.get("definition_id", "")) != CHEESEMANCER_ID:
+					continue
+				var source_id: String = CHEESEMANCER_SOURCE_IDS[randi() % CHEESEMANCER_SOURCE_IDS.size()]
+				var source_seed: Dictionary = seeds_by_id.get(source_id, {})
+				if source_seed.is_empty():
+					continue
+				_apply_cheesemancer_ability(card, source_seed)
+				GameLogger.trc("Cheese", "mutate", "inst:%s,src:%s" % [str(card.get("instance_id", "")), source_id])
+
+
+static func _apply_cheesemancer_ability(card: Dictionary, source: Dictionary) -> void:
+	var source_name := str(source.get("name", ""))
+	var source_rules := str(source.get("rules_text", ""))
+	# Replace source card name with Cheesemancer in rules_text
+	if not source_name.is_empty():
+		source_rules = source_rules.replace(source_name, "Cheesemancer")
+	card["rules_text"] = source_rules
+	card["effect_ids"] = source.get("effect_ids", []).duplicate(true)
+	# Copy triggered abilities
+	var ta: Array = source.get("triggered_abilities", [])
+	if not ta.is_empty():
+		card["triggered_abilities"] = ta.duplicate(true)
+	# Copy keywords (merge with existing)
+	var src_kw: Array = source.get("keywords", [])
+	if not src_kw.is_empty():
+		var existing: Array = card.get("keywords", [])
+		if typeof(existing) != TYPE_ARRAY:
+			existing = []
+		for kw in src_kw:
+			if not existing.has(kw):
+				existing.append(kw)
+		card["keywords"] = existing
+	# Copy passive abilities
+	if source.has("passive_abilities"):
+		card["passive_abilities"] = source["passive_abilities"].duplicate(true)
+	# Copy immunity fields
+	if source.has("grants_immunity"):
+		card["grants_immunity"] = source["grants_immunity"].duplicate(true)
+	if source.has("self_immunity"):
+		card["self_immunity"] = source["self_immunity"].duplicate(true)
+	# Track which source was chosen for UI / debugging
+	card["_cheesemancer_source_id"] = str(source.get("card_id", ""))
