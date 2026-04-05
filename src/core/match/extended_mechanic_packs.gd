@@ -1143,62 +1143,25 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				var goc_deck_idx: int = goc_deck_candidates[_timing_rules()._deterministic_index(match_state, goc_source_id + "_goc_deck", goc_deck_candidates.size())]
 				goc_deck_card = goc_opp_deck[goc_deck_idx].duplicate(true) if typeof(goc_opp_deck[goc_deck_idx]) == TYPE_DICTIONARY else {}
 			else:
-				# Thief of Dreams mode: two cards from opponent deck, one matches a hand card
-				if goc_opp_deck.size() < 2 or goc_opp_hand.is_empty():
+				# Thief of Dreams mode: one card from opponent hand, one from opponent deck
+				if goc_opp_hand.is_empty() or goc_opp_deck.is_empty():
 					return {"handled": true, "events": []}
-				var goc_hand_defs: Array = []
-				for c in goc_opp_hand:
-					if typeof(c) == TYPE_DICTIONARY:
-						var def_id := str(c.get("definition_id", ""))
-						if not def_id in goc_hand_defs:
-							goc_hand_defs.append(def_id)
-				# Find deck cards matching a hand card
-				var goc_match_candidates: Array = []
+				var goc_hand_idx: int = _timing_rules()._deterministic_index(match_state, goc_source_id + "_goc_hand", goc_opp_hand.size())
+				goc_hand_card = goc_opp_hand[goc_hand_idx].duplicate(true) if typeof(goc_opp_hand[goc_hand_idx]) == TYPE_DICTIONARY else {}
+				var goc_hand_def := str(goc_hand_card.get("definition_id", ""))
+				var goc_deck_candidates: Array = []
 				for i in range(goc_opp_deck.size()):
-					if typeof(goc_opp_deck[i]) == TYPE_DICTIONARY and str(goc_opp_deck[i].get("definition_id", "")) in goc_hand_defs:
-						goc_match_candidates.append(i)
-				if goc_match_candidates.is_empty():
-					# No deck card matches hand — pick two random deck cards, neither guess is correct
-					var goc_idx1: int = _timing_rules()._deterministic_index(match_state, goc_source_id + "_goc_d1", goc_opp_deck.size())
-					var goc_remaining: Array = []
-					for i in range(goc_opp_deck.size()):
-						if i != goc_idx1:
-							goc_remaining.append(i)
-					if goc_remaining.is_empty():
-						return {"handled": true, "events": []}
-					var goc_idx2: int = goc_remaining[_timing_rules()._deterministic_index(match_state, goc_source_id + "_goc_d2", goc_remaining.size())]
-					var goc_c1: Dictionary = goc_opp_deck[goc_idx1].duplicate(true) if typeof(goc_opp_deck[goc_idx1]) == TYPE_DICTIONARY else {}
-					var goc_c2: Dictionary = goc_opp_deck[goc_idx2].duplicate(true) if typeof(goc_opp_deck[goc_idx2]) == TYPE_DICTIONARY else {}
-					goc_c1.erase("instance_id")
-					goc_c2.erase("instance_id")
-					var goc_pending_none: Array = match_state.get("pending_player_choices", [])
-					goc_pending_none.append({
-						"player_id": goc_controller,
-						"source_instance_id": goc_source_id,
-						"prompt": "Guess which card your opponent has in hand:",
-						"mode": "card",
-						"options": [{"label": str(goc_c1.get("name", "")), "card": goc_c1}, {"label": str(goc_c2.get("name", "")), "card": goc_c2}],
-						"effects_per_option": [[], []],
-						"trigger": trigger.duplicate(true),
-						"event": event.duplicate(true),
-					})
-					return {"handled": true, "events": [{"event_type": "player_choice_pending", "player_id": goc_controller}]}
-				var goc_match_idx: int = goc_match_candidates[_timing_rules()._deterministic_index(match_state, goc_source_id + "_goc_match", goc_match_candidates.size())]
-				goc_hand_card = goc_opp_deck[goc_match_idx].duplicate(true) if typeof(goc_opp_deck[goc_match_idx]) == TYPE_DICTIONARY else {}
-				var goc_match_def := str(goc_hand_card.get("definition_id", ""))
-				var goc_decoy_candidates: Array = []
-				for i in range(goc_opp_deck.size()):
-					if i != goc_match_idx and typeof(goc_opp_deck[i]) == TYPE_DICTIONARY and str(goc_opp_deck[i].get("definition_id", "")) != goc_match_def:
-						goc_decoy_candidates.append(i)
-				if goc_decoy_candidates.is_empty():
+					if typeof(goc_opp_deck[i]) == TYPE_DICTIONARY and str(goc_opp_deck[i].get("definition_id", "")) != goc_hand_def:
+						goc_deck_candidates.append(i)
+				if goc_deck_candidates.is_empty():
 					return {"handled": true, "events": []}
-				var goc_decoy_idx: int = goc_decoy_candidates[_timing_rules()._deterministic_index(match_state, goc_source_id + "_goc_decoy", goc_decoy_candidates.size())]
-				goc_deck_card = goc_opp_deck[goc_decoy_idx].duplicate(true) if typeof(goc_opp_deck[goc_decoy_idx]) == TYPE_DICTIONARY else {}
+				var goc_deck_idx: int = goc_deck_candidates[_timing_rules()._deterministic_index(match_state, goc_source_id + "_goc_deck", goc_deck_candidates.size())]
+				goc_deck_card = goc_opp_deck[goc_deck_idx].duplicate(true) if typeof(goc_opp_deck[goc_deck_idx]) == TYPE_DICTIONARY else {}
 			goc_hand_card.erase("instance_id")
 			goc_deck_card.erase("instance_id")
 			# Randomize presentation order
 			var goc_hand_is_first: bool = _timing_rules()._deterministic_index(match_state, goc_source_id + "_goc_order", 2) == 0
-			var goc_correct_effects: Array = goc_on_correct if goc_on_correct.size() > 0 else [{"op": "copy_card_to_hand", "card_template": goc_hand_card, "target_player": "controller"}]
+			var goc_correct_effects: Array = goc_on_correct if goc_on_correct.size() > 0 else [{"op": "generate_card_to_hand", "card_template": goc_hand_card, "target_player": "controller"}]
 			var goc_option_a: Dictionary
 			var goc_option_b: Dictionary
 			var goc_effects_a: Array
