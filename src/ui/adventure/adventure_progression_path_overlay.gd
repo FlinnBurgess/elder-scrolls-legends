@@ -8,6 +8,7 @@ signal closed
 
 const AdventureCardPoolScript = preload("res://src/adventure/adventure_card_pool.gd")
 const AugmentCatalogScript = preload("res://src/adventure/augment_catalog.gd")
+const UITheme = preload("res://src/ui/ui_theme.gd")
 
 const MAX_LEVEL := 30
 
@@ -109,13 +110,7 @@ func _build_ui() -> void:
 	panel.offset_left = 0
 	panel.offset_right = 0
 	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
-	var panel_style := StyleBoxFlat.new()
-	panel_style.bg_color = Color(0.1, 0.1, 0.12, 0.95)
-	panel_style.set_corner_radius_all(8)
-	panel_style.set_content_margin_all(16)
-	panel_style.set_border_width_all(1)
-	panel_style.border_color = Color(0.3, 0.3, 0.35, 1.0)
-	panel.add_theme_stylebox_override("panel", panel_style)
+	UITheme.style_panel(panel)
 	add_child(panel)
 
 	var vbox := VBoxContainer.new()
@@ -129,15 +124,18 @@ func _build_ui() -> void:
 
 	var title := Label.new()
 	title.text = "Progression Path"
-	title.add_theme_font_size_override("font_size", 24)
 	title.size_flags_horizontal = SIZE_EXPAND_FILL
+	UITheme.style_title(title, 28)
 	header.add_child(title)
 
 	var close_btn := Button.new()
 	close_btn.text = "X"
-	close_btn.custom_minimum_size = Vector2(40, 40)
+	close_btn.custom_minimum_size = Vector2(48, 48)
+	UITheme.style_button(close_btn, 20, true)
 	close_btn.pressed.connect(_close)
 	header.add_child(close_btn)
+
+	vbox.add_child(UITheme.make_separator(0.0))
 
 	# Scroll container for the horizontal track
 	_scroll_container = ScrollContainer.new()
@@ -359,28 +357,23 @@ func _on_node_hover(level: int, reward_info: Dictionary, node_panel: PanelContai
 
 func _show_tooltip(lines: Array, anchor: Control) -> void:
 	_tooltip = PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.12, 0.12, 0.15, 0.95)
-	style.set_corner_radius_all(6)
-	style.set_content_margin_all(10)
-	style.set_border_width_all(1)
-	style.border_color = Color(0.4, 0.4, 0.5, 1.0)
-	_tooltip.add_theme_stylebox_override("panel", style)
+	UITheme.style_panel(_tooltip)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 4)
+	vbox.add_theme_constant_override("separation", 8)
 	_tooltip.add_child(vbox)
 
 	for i in range(lines.size()):
 		var label := Label.new()
 		label.text = lines[i]
 		if i == 0:
-			label.add_theme_font_size_override("font_size", 16)
+			label.add_theme_font_size_override("font_size", 24)
+			label.add_theme_color_override("font_color", UITheme.GOLD)
 		else:
-			label.add_theme_font_size_override("font_size", 13)
-			label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 1.0))
+			label.add_theme_font_size_override("font_size", 20)
+			label.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
 		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		label.custom_minimum_size = Vector2(200, 0)
+		label.custom_minimum_size = Vector2(320, 0)
 		vbox.add_child(label)
 
 	_tooltip.mouse_filter = Control.MOUSE_FILTER_IGNORE

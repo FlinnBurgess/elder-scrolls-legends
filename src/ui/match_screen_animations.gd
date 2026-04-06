@@ -308,6 +308,7 @@ func _animate_card_draw(player_id: String, instance_id: String, stack_index: int
 
 
 func _clear_feedback_state() -> void:
+	_screen._feedback._kill_active_float_tweens()
 	_screen._attack_feedbacks.clear()
 	_screen._damage_feedbacks.clear()
 	_screen._removal_feedbacks.clear()

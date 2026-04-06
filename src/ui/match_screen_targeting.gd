@@ -218,14 +218,18 @@ func _update_targeting_arrow(mouse_pos: Vector2) -> void:
 	# Dynamically compute origin from the card button's current position so the
 	# arrow tracks the card through tween animations and layout changes.
 	var origin: Vector2 = _targeting_arrow_state.get("origin", Vector2.ZERO)
-	var arrow_instance_id: String = str(_targeting_arrow_state.get("instance_id", ""))
-	var arrow_button: Button = _screen._card_buttons.get(arrow_instance_id)
-	# For attached items (no own button), track the host creature's button instead.
-	if arrow_button == null and not _screen._host_arrow_instance_id.is_empty():
-		arrow_button = _screen._card_buttons.get(_screen._host_arrow_instance_id)
-	if arrow_button != null and is_instance_valid(arrow_button):
-		var card_size: Vector2 = arrow_button.get_meta("card_size", arrow_button.size)
-		origin = arrow_button.global_position + Vector2(card_size.x * 0.5, 0.0)
+	var action_preview: Control = _targeting_arrow_state.get("action_preview")
+	if action_preview != null and is_instance_valid(action_preview):
+		origin = action_preview.position + Vector2(action_preview.size.x * 0.5, 0.0)
+	else:
+		var arrow_instance_id: String = str(_targeting_arrow_state.get("instance_id", ""))
+		var arrow_button: Button = _screen._card_buttons.get(arrow_instance_id)
+		# For attached items (no own button), track the host creature's button instead.
+		if arrow_button == null and not _screen._host_arrow_instance_id.is_empty():
+			arrow_button = _screen._card_buttons.get(_screen._host_arrow_instance_id)
+		if arrow_button != null and is_instance_valid(arrow_button):
+			var card_size: Vector2 = arrow_button.get_meta("card_size", arrow_button.size)
+			origin = arrow_button.global_position + Vector2(card_size.x * 0.5, 0.0)
 	var start := origin
 	var end_point := mouse_pos
 	var mid := (start + end_point) * 0.5
@@ -287,6 +291,7 @@ func _cancel_targeting_mode_silent() -> void:
 	if _screen._targeting_arrow != null and is_instance_valid(_screen._targeting_arrow):
 		_screen._targeting_arrow.queue_free()
 	_screen._targeting_arrow = null
+	_screen._selection._dismiss_targeting_action_preview()
 	_targeting_arrow_state = {}
 	_screen._host_arrow_instance_id = ""
 

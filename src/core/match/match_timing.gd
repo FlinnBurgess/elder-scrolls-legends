@@ -178,7 +178,7 @@ const FAMILY_SPECS := {
 	FAMILY_ON_KEYWORD_GAINED: {"event_type": "keyword_granted", "window": WINDOW_AFTER, "match_role": "target"},
 	FAMILY_ON_FRIENDLY_POWER_GAIN: {"event_type": "stats_modified", "window": WINDOW_AFTER, "match_role": "controller", "require_positive_power_bonus": true},
 	FAMILY_ON_CONSUMED: {"event_type": EVENT_CREATURE_CONSUMED, "window": WINDOW_AFTER, "match_role": "target"},
-	FAMILY_ON_ENEMY_PROPHECY_DRAWN: {"event_type": EVENT_CARD_DRAWN, "window": WINDOW_AFTER, "match_role": "opponent_player"},
+	FAMILY_ON_ENEMY_PROPHECY_DRAWN: {"event_type": EVENT_CARD_DRAWN, "window": WINDOW_AFTER, "match_role": "opponent_player", "required_reason": EVENT_RUNE_BROKEN, "required_drawn_prophecy": true},
 	FAMILY_ON_FRIENDLY_SACRIFICE: {"event_type": EVENT_CREATURE_SACRIFICED, "window": WINDOW_AFTER, "match_role": "controller"},
 	FAMILY_ON_DEAL_DAMAGE_TO_CREATURE: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "source", "target_type": "creature"},
 	FAMILY_ON_ENEMY_DAMAGED: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "opponent_player"},

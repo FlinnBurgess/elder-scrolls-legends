@@ -437,6 +437,14 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 	var min_played_cost := int(descriptor.get("min_played_cost", family_spec.get("min_played_cost", 0)))
 	if min_played_cost > 0 and int(event.get("played_cost", 0)) < min_played_cost:
 		return false
+	var required_reason := str(descriptor.get("required_reason", family_spec.get("required_reason", "")))
+	if not required_reason.is_empty() and str(event.get("reason", "")) != required_reason:
+		return false
+	if bool(descriptor.get("required_drawn_prophecy", family_spec.get("required_drawn_prophecy", false))):
+		var rdp_instance_id := str(event.get("drawn_instance_id", event.get("source_instance_id", "")))
+		var rdp_card := MatchTimingHelpers._find_card_anywhere(match_state, rdp_instance_id)
+		if rdp_card.is_empty() or not MatchTimingHelpers._is_prophecy_card(rdp_card):
+			return false
 	var require_survived := bool(descriptor.get("require_survived", family_spec.get("require_survived", false)))
 	if require_survived:
 		# Check that the trigger's source creature is still alive in a lane

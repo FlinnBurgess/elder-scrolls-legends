@@ -100,6 +100,7 @@ func _apply_local_hand_hover_state(button: Button, hovered: bool) -> void:
 	# Apply non-animated properties immediately
 	button.z_index = target_z
 	button.mouse_filter = target_filter
+	button.scale = target_scale
 	button.pivot_offset = card_size * 0.5
 	button.size = target_size
 	button.modulate = Color(0.4, 0.4, 0.4, 0.7) if hand_selection_ineligible else Color.WHITE
@@ -127,7 +128,10 @@ func _apply_local_hand_hover_state(button: Button, hovered: bool) -> void:
 		var bob_button := button
 		var bob_pos := target_position
 		var bob_k := bob_key
-		tween.finished.connect(func(): _screen._start_hand_card_bob(bob_button, bob_pos, bob_k))
+		tween.finished.connect(func():
+			if is_instance_valid(bob_button):
+				_screen._start_hand_card_bob(bob_button, bob_pos, bob_k)
+		)
 
 
 func _process_lane_card_hover_preview() -> void:

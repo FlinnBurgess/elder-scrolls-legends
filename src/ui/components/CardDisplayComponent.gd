@@ -585,8 +585,11 @@ func _refresh_styles() -> void:
 	_rarity_label.add_theme_color_override("font_color", _rarity_color(_card_data))
 	if _card_data.has("_effective_cost"):
 		_cost_label.add_theme_color_override("font_color", COLOR_STAT_BUFF)
+		_cost_label.add_theme_color_override("font_outline_color", Color.BLACK)
+		_cost_label.add_theme_constant_override("outline_size", 8)
 	else:
 		_cost_label.add_theme_color_override("font_color", Color.BLACK)
+		_cost_label.add_theme_constant_override("outline_size", 0)
 	_attack_label.add_theme_color_override("font_color", _stat_color(_card_data, "power"))
 	_health_label.add_theme_color_override("font_color", _stat_color(_card_data, "health"))
 

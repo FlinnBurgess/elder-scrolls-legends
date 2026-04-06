@@ -546,7 +546,19 @@ func _enter_targeting_mode(instance_id: String) -> void:
 	_screen.select_card(instance_id)
 	var button: Button = _screen._card_buttons.get(instance_id)
 	var arrow_origin := Vector2.ZERO
-	if button != null:
+	var action_preview: Control = null
+	# For hand action/item cards, create a centered board preview instead of
+	# leaving the card in the hand row.
+	var is_hand_card: bool = _screen._hand._is_local_hand_card(instance_id)
+	var card_data: Dictionary = _screen._card_from_instance_id(instance_id)
+	var card_type := str(card_data.get("card_type", ""))
+	if is_hand_card and (card_type == "action" or card_type == "item"):
+		if button != null:
+			button.visible = false
+		action_preview = _create_targeting_action_preview(instance_id, card_data)
+		var preview_size: Vector2 = action_preview.size
+		arrow_origin = action_preview.position + Vector2(preview_size.x * 0.5, 0.0)
+	elif button != null:
 		# Card is now raised because select_card sets _screen._selected_instance_id and _refresh_ui
 		# applies the raised state. Set mouse_filter to ignore so the card doesn't intercept clicks.
 		button.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -572,13 +584,48 @@ func _enter_targeting_mode(instance_id: String) -> void:
 		"instance_id": instance_id,
 		"origin": arrow_origin,
 		"button": button,
+		"action_preview": action_preview,
 	}
+
+
+func _create_targeting_action_preview(instance_id: String, card: Dictionary) -> Control:
+	var preview_size = _screen._hand_card_display_size()
+	var base_size = _screen.CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+	var wrapper := Control.new()
+	wrapper.name = "targeting_action_preview_%s" % instance_id
+	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrapper.z_index = 500
+	wrapper.size = base_size
+	wrapper.custom_minimum_size = base_size
+	var component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+	component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	component.apply_card(card, _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+	wrapper.add_child(component)
+	_screen.add_child(wrapper)
+	wrapper.custom_minimum_size = preview_size
+	wrapper.size = preview_size
+	var viewport_size = _screen.get_viewport_rect().size
+	wrapper.position = Vector2(viewport_size.x * 0.5 - preview_size.x * 0.5, viewport_size.y * 0.5 - preview_size.y * 0.5)
+	return wrapper
+
+
+func _dismiss_targeting_action_preview() -> void:
+	var state: Dictionary = _screen._targeting._targeting_arrow_state
+	var preview: Control = state.get("action_preview")
+	if preview != null and is_instance_valid(preview):
+		preview.queue_free()
+	# Restore hand button visibility
+	var btn: Button = state.get("button")
+	if btn != null and is_instance_valid(btn):
+		btn.visible = true
 
 
 func _cancel_targeting_mode() -> void:
 	if _screen._targeting_arrow != null and is_instance_valid(_screen._targeting_arrow):
 		_screen._targeting_arrow.queue_free()
 	_screen._targeting_arrow = null
+	_dismiss_targeting_action_preview()
 	_screen._targeting._targeting_arrow_state = {}
 	_screen._selected_instance_id = ""
 	_screen._refresh_ui()

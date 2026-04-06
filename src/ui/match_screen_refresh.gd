@@ -39,8 +39,11 @@ func _refresh_ui() -> void:
 		var arrow_button: Button = _screen._card_buttons.get(arrow_id)
 		var summon_source_id := str(_screen._targeting._pending_summon_target.get("source_instance_id", ""))
 		var is_pending_summon_source := arrow_id == summon_source_id and not summon_source_id.is_empty()
+		var has_action_preview: bool = _screen._targeting._targeting_arrow_state.get("action_preview") != null
 		if arrow_button != null:
-			if not is_pending_summon_source:
+			if has_action_preview:
+				arrow_button.visible = false
+			elif not is_pending_summon_source:
 				arrow_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		elif not is_pending_summon_source and not _screen._overlays._has_active_prophecy_overlay(arrow_id):
 			_screen._targeting._cancel_targeting_mode_silent()
@@ -112,6 +115,7 @@ func _refresh_player_sections() -> void:
 
 
 func _refresh_lanes() -> void:
+	_screen._feedback._kill_active_float_tweens()
 	_screen._selection._clear_hand_insertion_preview(false)
 	# Reset sacrifice hover since lane buttons are being rebuilt
 	_screen._betray._sacrifice_hover_target_id = ""

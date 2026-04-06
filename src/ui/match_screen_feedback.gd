@@ -3,6 +3,7 @@ extends RefCounted
 
 var _screen  # MatchScreen reference
 var _overdraw_queue: Array = []
+var _active_float_tweens: Array = []
 
 
 const PRESET_FULL_RECT = Control.PRESET_FULL_RECT
@@ -33,6 +34,13 @@ func _apply_presentation_feedback() -> void:
 		_apply_draw_feedback(feedback)
 	for feedback in _screen._rune_feedbacks:
 		_apply_rune_feedback(feedback)
+
+
+func _kill_active_float_tweens() -> void:
+	for tween in _active_float_tweens:
+		if tween != null and tween.is_valid():
+			tween.kill()
+	_active_float_tweens.clear()
 
 
 func _clear_feedback_overlays() -> void:
@@ -354,13 +362,20 @@ func _apply_lane_card_float_effect(button: Button, card: Dictionary) -> void:
 		# First time floating – animate the rise and shadow fade-in
 		shadow.modulate.a = 0.0
 		var tween: Tween = _screen.create_tween()
+		_active_float_tweens.append(tween)
 		tween.set_parallel(true)
 		tween.tween_property(content_root, "offset_left", _screen.LANE_CARD_FLOAT_OFFSET.x, _screen.LANE_CARD_FLOAT_ANIM_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
 		tween.tween_property(content_root, "offset_top", _screen.LANE_CARD_FLOAT_OFFSET.y, _screen.LANE_CARD_FLOAT_ANIM_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
 		tween.tween_property(content_root, "offset_right", _screen.LANE_CARD_FLOAT_OFFSET.x, _screen.LANE_CARD_FLOAT_ANIM_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
 		tween.tween_property(content_root, "offset_bottom", _screen.LANE_CARD_FLOAT_OFFSET.y, _screen.LANE_CARD_FLOAT_ANIM_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
 		tween.tween_property(shadow, "modulate:a", 1.0, _screen.LANE_CARD_FLOAT_ANIM_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
-		tween.finished.connect(_screen._start_lane_card_bob.bind(button, content_root, shadow))
+		var bob_button := button
+		var bob_content := content_root
+		var bob_shadow := shadow
+		tween.finished.connect(func():
+			if is_instance_valid(bob_button) and is_instance_valid(bob_content):
+				_screen._card_display._start_lane_card_bob(bob_button, bob_content, bob_shadow)
+		)
 
 
 func _add_feedback_toast(container: Control, name: String, text: String, fill: Color, border: Color, font_color: Color, top_offset: float) -> void:
