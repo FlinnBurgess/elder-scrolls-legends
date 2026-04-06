@@ -775,7 +775,7 @@ func _build_card_cell(card: Dictionary, cell_size: Vector2) -> Control:
 	wrapper.mouse_exited.connect(_on_card_cell_mouse_exited.bind(card_id))
 	var card_display := CardDisplayComponentClass.new()
 	card_display.apply_card(card, CardDisplayComponentClass.PRESENTATION_FULL)
-	card_display.set_relationship_context(_build_relationship_context())
+	card_display.set_relationship_context_callback(_build_relationship_context)
 	card_display.custom_minimum_size = cell_size
 	card_display.size = cell_size
 	card_display.set_interactive(false)
@@ -789,7 +789,6 @@ func _build_card_cell(card: Dictionary, cell_size: Vector2) -> Control:
 func _refresh_card_quantities() -> void:
 	if _browser_summary_label != null:
 		_browser_summary_label.text = "%d cards shown | %d in deck" % [_filtered_cache.size(), get_deck_count()]
-	var context := _build_relationship_context()
 	for card_id in _card_display_by_id:
 		var card_display: Control = _card_display_by_id[card_id]
 		if not is_instance_valid(card_display):
@@ -798,8 +797,6 @@ func _refresh_card_quantities() -> void:
 		if card.is_empty():
 			continue
 		card_display.set_deck_quantity(get_deck_card_quantity(card_id), _copy_limit(card))
-		if card_display.has_method("set_relationship_context"):
-			card_display.set_relationship_context(context)
 	_refresh_deck_card_list()
 	_refresh_magicka_curve()
 	_refresh_card_count()

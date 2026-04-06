@@ -82,6 +82,7 @@ var _active_wax_wane_phases: Array = []  # e.g. ["wax"], ["wane"], or ["wax", "w
 var _relationships: Array = []
 var _relationship_index := 0
 var _relationship_context: Dictionary = {}
+var _relationship_context_callback: Callable
 
 var _content_root: Control
 var _outer_frame: PanelContainer
@@ -204,10 +205,22 @@ func get_art_texture() -> Texture2D:
 
 func set_relationship_context(context: Dictionary) -> void:
 	_relationship_context = context.duplicate(true)
+	_relationship_context_callback = Callable()
+	_rebuild_relationships()
+
+
+func set_relationship_context_callback(cb: Callable) -> void:
+	_relationship_context_callback = cb
 	_rebuild_relationships()
 
 
 func cycle_relationship(direction: int) -> void:
+	# Re-resolve from callback to ensure counts reflect current state
+	if _relationship_context_callback.is_valid():
+		var ctx: Dictionary = _relationship_context_callback.call()
+		_relationship_context = ctx
+		var card_for_resolve: Dictionary = _card_data if _original_card_data.is_empty() else _original_card_data
+		_relationships = CardRelationshipResolverClass.resolve(card_for_resolve, ctx)
 	if _relationships.is_empty():
 		return
 	# Total entries = original card (index 0) + relationships
@@ -237,7 +250,11 @@ func get_relationship_count() -> int:
 
 func _rebuild_relationships() -> void:
 	var was_cycling := _relationship_index != 0
-	_relationships = CardRelationshipResolverClass.resolve(_card_data if _original_card_data.is_empty() else _original_card_data, _relationship_context)
+	var ctx: Dictionary = _relationship_context
+	if _relationship_context_callback.is_valid():
+		ctx = _relationship_context_callback.call()
+		_relationship_context = ctx
+	_relationships = CardRelationshipResolverClass.resolve(_card_data if _original_card_data.is_empty() else _original_card_data, ctx)
 	_relationship_index = 0
 	if was_cycling and not _original_card_data.is_empty():
 		_card_data = _original_card_data.duplicate(true)

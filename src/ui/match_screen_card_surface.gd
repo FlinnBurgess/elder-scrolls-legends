@@ -251,8 +251,8 @@ func _build_card_display_component(card: Dictionary, surface: String, instance_i
 	component.apply_card(display_card, _screen._card_display._card_presentation_mode(card, surface))
 	if component.has_method("set_wax_wane_phases"):
 		component.set_wax_wane_phases(_get_wax_wane_phases_for_card(card))
-	if component.has_method("set_relationship_context"):
-		component.set_relationship_context(_screen._build_match_relationship_context())
+	if component.has_method("set_relationship_context_callback"):
+		component.set_relationship_context_callback(_screen._build_match_relationship_context)
 	if surface == "support" and not _screen.PersistentCardRules.can_activate_support(_screen._match_state, _screen._active_player_id(), str(card.get("instance_id", ""))) and int(card.get("activations_this_turn", 0)) > 0:
 		component.modulate = Color(0.5, 0.5, 0.55, 0.8)
 	return component

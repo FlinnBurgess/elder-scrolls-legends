@@ -314,8 +314,8 @@ func _refresh_options() -> void:
 
 		var card_display := CardDisplayComponentClass.new()
 		card_display.apply_card(card, CardDisplayComponentClass.PRESENTATION_FULL)
-		if card_display.has_method("set_relationship_context"):
-			card_display.set_relationship_context(_build_draft_relationship_context())
+		if card_display.has_method("set_relationship_context_callback"):
+			card_display.set_relationship_context_callback(_build_draft_relationship_context)
 		card_display.custom_minimum_size = Vector2(card_width, card_height)
 		card_display.size = Vector2(card_width, card_height)
 		card_display.set_interactive(false)

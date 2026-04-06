@@ -1503,8 +1503,8 @@ func _add_hover_preview_to_layer(card: Dictionary, instance_id: String, name_pre
 	component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
 	if component.has_method("set_wax_wane_phases"):
 		component.set_wax_wane_phases(_card_surface._get_wax_wane_phases_for_card(card))
-	if component.has_method("set_relationship_context"):
-		component.set_relationship_context(_build_match_relationship_context())
+	if component.has_method("set_relationship_context_callback"):
+		component.set_relationship_context_callback(_build_match_relationship_context)
 	wrapper.add_child(component)
 	# Add to tree — _ready() fires with base size, fonts set at scale 1.0
 	_card_hover_preview_layer.add_child(wrapper)
