@@ -144,25 +144,21 @@ func _resolve_betray_sacrifice(sacrifice_instance_id: String) -> void:
 	_dismiss_betray_skip_button()
 	if is_targeted:
 		_pending_betray["sacrifice_instance_id"] = sacrifice_instance_id
-		# Enter targeting mode for replay, arrow from player avatar
-		var avatar: Control = null
-		var section: Dictionary = _screen._player_sections.get(_screen._active_player_id(), {})
-		if section.has("avatar_component"):
-			avatar = section.get("avatar_component") as Control
+		# Show the action card centered on the board with the arrow originating from it
 		_screen._cancel_targeting_mode_silent()
+		var action_card: Dictionary = _pending_betray.get("action_card", {})
+		var action_instance_id := str(_pending_betray.get("action_instance_id", ""))
+		var action_preview: Control = _screen._selection._create_targeting_action_preview(action_instance_id, action_card)
+		var preview_size: Vector2 = action_preview.size
+		var arrow_origin := action_preview.position + Vector2(preview_size.x * 0.5, preview_size.y)
 		_screen._targeting_arrow = _screen._create_targeting_arrow()
-		var arrow_origin := Vector2.ZERO
-		if avatar != null:
-			arrow_origin = avatar.global_position + Vector2(avatar.size.x * 0.5, avatar.size.y * 0.5)
-		else:
-			var viewport_size = _screen.get_viewport_rect().size
-			arrow_origin = Vector2(viewport_size.x * 0.5, viewport_size.y * 0.85)
 		_screen._targeting._targeting_arrow_state = {
-			"instance_id": str(_pending_betray.get("action_instance_id", "")),
+			"instance_id": action_instance_id,
 			"origin": arrow_origin,
 			"button": null,
+			"action_preview": action_preview,
 		}
-		var card_name := str(_pending_betray.get("action_card", {}).get("name", ""))
+		var card_name := str(action_card.get("name", ""))
 		_screen._status_message = "Choose a target for %s." % card_name
 		_screen._refresh_ui()
 	elif bool(_pending_betray.get("is_lane_targeted", false)):

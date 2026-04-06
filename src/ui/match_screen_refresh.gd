@@ -45,7 +45,7 @@ func _refresh_ui() -> void:
 				arrow_button.visible = false
 			elif not is_pending_summon_source:
 				arrow_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		elif not is_pending_summon_source and not _screen._overlays._has_active_prophecy_overlay(arrow_id):
+		elif not is_pending_summon_source and not has_action_preview and not _screen._overlays._has_active_prophecy_overlay(arrow_id):
 			_screen._targeting._cancel_targeting_mode_silent()
 	_screen._feedback._process_overdraw_queue()
 

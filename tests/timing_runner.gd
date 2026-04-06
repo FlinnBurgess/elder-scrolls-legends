@@ -25,7 +25,8 @@ func _run_all_tests() -> bool:
 		_test_slay_on_death_and_last_gasp_follow_death_window_order() and
 		_test_slay_fires_when_both_creatures_die() and
 		_test_pilfer_does_not_fire_on_summon() and
-		_test_end_of_turn_target_mode_does_not_fire_on_summon()
+		_test_end_of_turn_target_mode_does_not_fire_on_summon() and
+		_test_on_keyword_gained_fires_from_hand()
 	)
 
 
@@ -276,6 +277,36 @@ func _test_end_of_turn_target_mode_does_not_fire_on_summon() -> bool:
 		_assert(pending_summon.is_empty(), "End-of-turn target_mode should NOT create pending summon targets.") and
 		_assert(pending_turn.is_empty(), "End-of-turn target_mode should NOT create pending turn targets until turn ends.") and
 		_assert(opponent["health"] == 30, "No damage should be dealt on summon by end-of-turn effect.")
+	)
+
+
+func _test_on_keyword_gained_fires_from_hand() -> bool:
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var hand_card := _add_hand_card(active_player, "manic_jack", {
+		"card_type": "creature",
+		"power": 3,
+		"health": 3,
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_KEYWORD_GAINED,
+			"required_zones": ["lane", "hand"],
+			"effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 1}],
+		}]
+	})
+	_reset_timing_logs(match_state)
+
+	# Grant a keyword to the hand card — the on_keyword_gained trigger should fire
+	MatchTiming.publish_events(match_state, [{
+		"event_type": "keyword_granted",
+		"source_instance_id": "external_source",
+		"target_instance_id": hand_card["instance_id"],
+		"keyword_id": "drain",
+	}])
+	var power_after := int(hand_card.get("power", 0)) + int(hand_card.get("power_bonus", 0))
+	var health_after := int(hand_card.get("health", 0)) + int(hand_card.get("health_bonus", 0))
+	return (
+		_assert(power_after == 4, "on_keyword_gained in hand should buff power: expected 4, got %d" % power_after) and
+		_assert(health_after == 4, "on_keyword_gained in hand should buff health: expected 4, got %d" % health_after)
 	)
 
 
