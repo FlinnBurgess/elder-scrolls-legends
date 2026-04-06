@@ -6,6 +6,7 @@ signal deck_pressed
 signal back_pressed
 
 const AdventureCatalogScript = preload("res://src/adventure/adventure_catalog.gd")
+const UITheme = preload("res://src/ui/ui_theme.gd")
 
 const PORTRAIT_SIZE := 140
 const PORTRAIT_BORDER := 8
@@ -21,6 +22,8 @@ void fragment() {
 "
 var _circle_shader: Shader = null
 
+var _deck_name: String = ""
+var _deck_level: int = 1
 var _region_data: Dictionary = {}
 var _deck_id: String = ""
 var _is_fallback := false
@@ -30,6 +33,11 @@ var _adventure_markers: Array[Dictionary] = []  # [{container: Control, pos: Vec
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+
+
+func set_deck_info(deck_name: String, deck_level: int) -> void:
+	_deck_name = deck_name
+	_deck_level = deck_level
 
 
 func set_region(region_data: Dictionary, deck_id: String) -> void:
@@ -50,18 +58,36 @@ func _build_ui() -> void:
 	else:
 		_build_fallback_ui()
 
-	# Top-right deck button
+	# Top-right deck info button
 	var deck_btn := Button.new()
-	deck_btn.text = "Deck"
-	deck_btn.add_theme_font_size_override("font_size", 22)
-	deck_btn.custom_minimum_size = Vector2(100, 44)
 	deck_btn.set_anchors_and_offsets_preset(PRESET_TOP_RIGHT)
-	deck_btn.offset_left = -116
-	deck_btn.offset_top = 16
-	deck_btn.offset_right = -16
-	deck_btn.offset_bottom = 60
+	deck_btn.offset_right = -20
+	deck_btn.offset_top = 20
+	deck_btn.offset_left = -290
+	deck_btn.offset_bottom = 100
 	deck_btn.pressed.connect(func() -> void: deck_pressed.emit())
+	UITheme.style_button(deck_btn, 22)
 	add_child(deck_btn)
+
+	var deck_vbox := VBoxContainer.new()
+	deck_vbox.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	deck_vbox.add_theme_constant_override("separation", 4)
+	deck_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	deck_btn.add_child(deck_vbox)
+
+	var name_label := Label.new()
+	name_label.text = _deck_name if not _deck_name.is_empty() else "No Deck"
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.add_theme_font_size_override("font_size", 24)
+	name_label.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
+	deck_vbox.add_child(name_label)
+
+	var level_label := Label.new()
+	level_label.text = "Level %d" % _deck_level
+	level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	level_label.add_theme_font_size_override("font_size", 20)
+	level_label.add_theme_color_override("font_color", UITheme.TEXT_SECTION)
+	deck_vbox.add_child(level_label)
 
 
 func _build_map_ui(bg_texture: Texture2D) -> void:
@@ -101,13 +127,13 @@ func _build_map_ui(bg_texture: Texture2D) -> void:
 	# Back button bottom-left
 	var back_btn := Button.new()
 	back_btn.text = "Back"
-	back_btn.add_theme_font_size_override("font_size", 22)
-	back_btn.custom_minimum_size = Vector2(100, 44)
+	back_btn.custom_minimum_size = Vector2(160, 64)
+	UITheme.style_button(back_btn, 26, true)
 	back_btn.set_anchors_and_offsets_preset(PRESET_BOTTOM_LEFT)
-	back_btn.offset_left = 16
-	back_btn.offset_bottom = -16
-	back_btn.offset_top = -60
-	back_btn.offset_right = 116
+	back_btn.offset_left = 20
+	back_btn.offset_bottom = -20
+	back_btn.offset_top = -84
+	back_btn.offset_right = 180
 	back_btn.pressed.connect(func() -> void: back_pressed.emit())
 	add_child(back_btn)
 
@@ -157,8 +183,8 @@ func _build_fallback_ui() -> void:
 
 	var back_btn := Button.new()
 	back_btn.text = "Back"
-	back_btn.custom_minimum_size = Vector2(300, 44)
-	back_btn.add_theme_font_size_override("font_size", 22)
+	back_btn.custom_minimum_size = Vector2(300, 56)
+	UITheme.style_button(back_btn, 22, true)
 	back_btn.pressed.connect(func() -> void: back_pressed.emit())
 	center.add_child(back_btn)
 

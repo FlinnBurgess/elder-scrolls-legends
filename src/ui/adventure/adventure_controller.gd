@@ -97,6 +97,11 @@ func _show_world_map() -> void:
 			return_to_menu.emit()
 			return
 	var screen := AdventureWorldMapScreenScript.new()
+	var deck_id := str(_selected_deck.get("deck_id", ""))
+	screen.set_deck_info(
+		str(_selected_deck.get("name", "")),
+		_progression.get_deck_level(deck_id),
+	)
 	screen.region_selected.connect(_on_region_selected)
 	screen.deck_pressed.connect(func() -> void: _show_deck_screen_overlay("world_map"))
 	screen.back_pressed.connect(func() -> void: return_to_menu.emit())
@@ -117,6 +122,10 @@ func _show_region_map(region_id: String) -> void:
 		return
 	var deck_id := str(_selected_deck.get("deck_id", ""))
 	var screen := AdventureRegionMapScreenScript.new()
+	screen.set_deck_info(
+		str(_selected_deck.get("name", "")),
+		_progression.get_deck_level(deck_id),
+	)
 	screen.adventure_selected.connect(_on_adventure_selected)
 	screen.deck_pressed.connect(func() -> void: _show_deck_screen_overlay("region_map"))
 	screen.back_pressed.connect(func() -> void: _show_world_map())
