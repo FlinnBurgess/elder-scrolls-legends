@@ -612,11 +612,11 @@ func _create_targeting_action_preview(instance_id: String, card: Dictionary) -> 
 
 func _dismiss_targeting_action_preview() -> void:
 	var state: Dictionary = _screen._targeting._targeting_arrow_state
-	var preview: Control = state.get("action_preview")
+	var preview = state.get("action_preview")
 	if preview != null and is_instance_valid(preview):
 		preview.queue_free()
 	# Restore hand button visibility
-	var btn: Button = state.get("button")
+	var btn = state.get("button")
 	if btn != null and is_instance_valid(btn):
 		btn.visible = true
 

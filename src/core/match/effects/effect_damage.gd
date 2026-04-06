@@ -575,36 +575,38 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					"target_instance_id": str(dceot_source.get("instance_id", "")),
 				})
 		"destroy_all_except_strongest_in_lane":
-			var daesl_controller_id := str(trigger.get("controller_player_id", ""))
-			var daesl_lane_id := str(event.get("lane_id", ""))
-			if daesl_lane_id.is_empty():
-				daesl_lane_id = str(effect.get("lane_id", ""))
-			if daesl_lane_id.is_empty():
-				var daesl_loc := MatchMutations.find_card_location(match_state, str(trigger.get("source_instance_id", "")))
-				daesl_lane_id = str(daesl_loc.get("lane_id", ""))
-			var daesl_to_destroy: Array = []
+			var daesl_lane_id := str(trigger.get("_chosen_lane_id", event.get("lane_id", "")))
+			var daesl_source_id := str(trigger.get("source_instance_id", ""))
 			for lane in match_state.get("lanes", []):
 				if str(lane.get("lane_id", "")) != daesl_lane_id:
 					continue
-				for daesl_pid in lane.get("player_slots", {}).keys():
-					var daesl_side: Array = []
-					for daesl_card in lane.get("player_slots", {})[daesl_pid]:
-						if typeof(daesl_card) == TYPE_DICTIONARY:
-							daesl_side.append(daesl_card)
-					if daesl_side.size() <= 1:
+				var player_slots: Dictionary = lane.get("player_slots", {})
+				for pid in player_slots.keys():
+					var slots: Array = player_slots[pid]
+					if slots.size() <= 1:
 						continue
-					var daesl_max_power := -1
-					for daesl_card in daesl_side:
-						var p := EvergreenRules.get_power(daesl_card)
-						if p > daesl_max_power:
-							daesl_max_power = p
-					for daesl_card in daesl_side:
-						if EvergreenRules.get_power(daesl_card) < daesl_max_power:
-							daesl_to_destroy.append(daesl_card)
-			for daesl_card in daesl_to_destroy:
-				var daesl_destroy := MatchMutations.discard_card(match_state, str(daesl_card.get("instance_id", "")), {"reason": reason})
-				generated_events.append({"event_type": EVENT_CREATURE_DESTROYED, "instance_id": str(daesl_card.get("instance_id", "")), "controller_player_id": str(daesl_card.get("controller_player_id", "")), "lane_id": daesl_lane_id})
-				generated_events.append_array(daesl_destroy.get("events", []))
+					var strongest_idx := 0
+					var strongest_power := EvergreenRules.get_power(slots[0]) if typeof(slots[0]) == TYPE_DICTIONARY else -1
+					for i in range(1, slots.size()):
+						if typeof(slots[i]) != TYPE_DICTIONARY:
+							continue
+						var p := EvergreenRules.get_power(slots[i])
+						if p > strongest_power:
+							strongest_power = p
+							strongest_idx = i
+					for slot_idx in range(slots.size() - 1, -1, -1):
+						if slot_idx == strongest_idx:
+							continue
+						var card = slots[slot_idx]
+						if typeof(card) != TYPE_DICTIONARY:
+							continue
+						var cpid := str(card.get("controller_player_id", ""))
+						var moved := MatchMutations.discard_card(match_state, str(card.get("instance_id", "")))
+						if bool(moved.get("is_valid", false)):
+							for dc_evt in moved.get("events", []):
+								if typeof(dc_evt) == TYPE_DICTIONARY and str(dc_evt.get("event_type", "")) == "attached_item_detached":
+									generated_events.append(dc_evt)
+							generated_events.append({"event_type": "creature_destroyed", "instance_id": str(card.get("instance_id", "")), "source_instance_id": str(card.get("instance_id", "")), "owner_player_id": str(card.get("owner_player_id", "")), "controller_player_id": cpid, "destroyed_by_instance_id": daesl_source_id, "lane_id": daesl_lane_id, "source_zone": ZONE_LANE})
 		"destroy_all_except_random":
 			var controller_id := str(trigger.get("controller_player_id", ""))
 			var opponent_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), controller_id)

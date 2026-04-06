@@ -561,20 +561,42 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					crch_hand.append(crch_copy)
 					generated_events.append({"event_type": "card_generated_to_hand", "player_id": crch_controller, "instance_id": str(crch_copy.get("instance_id", "")), "reason": reason})
 		"copy_from_opponent_deck":
-			var cfod_controller_id := str(trigger.get("controller_player_id", ""))
-			var cfod_opponent_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), cfod_controller_id)
-			var cfod_opponent := MatchTimingHelpers._get_player_state(match_state, cfod_opponent_id)
-			var cfod_controller := MatchTimingHelpers._get_player_state(match_state, cfod_controller_id)
-			var cfod_count := int(effect.get("count", 3))
-			if not cfod_opponent.is_empty() and not cfod_controller.is_empty():
-				var cfod_deck: Array = cfod_opponent.get(ZONE_DECK, [])
-				var cfod_hand: Array = cfod_controller.get(ZONE_HAND, [])
-				for _i in range(mini(cfod_count, cfod_deck.size())):
-					var cfod_top: Dictionary = cfod_deck.back()
-					var cfod_copy := MatchMutations.build_generated_card(match_state, cfod_controller_id, cfod_top)
-					cfod_copy["zone"] = ZONE_HAND
-					cfod_hand.append(cfod_copy)
-					generated_events.append({"event_type": EVENT_CARD_DRAWN, "player_id": cfod_controller_id, "source_instance_id": str(cfod_copy.get("instance_id", "")), "reason": reason})
+			var copy_filter_card_type := str(effect.get("required_card_type", ""))
+			var controller_id := str(trigger.get("controller_player_id", ""))
+			var opponent_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), controller_id)
+			var opponent := MatchTimingHelpers._get_player_state(match_state, opponent_id)
+			if opponent.is_empty():
+				return
+			var opp_deck: Array = opponent.get(ZONE_DECK, [])
+			var copy_candidates: Array = []
+			for d_idx in range(opp_deck.size()):
+				var d_card = opp_deck[d_idx]
+				if typeof(d_card) != TYPE_DICTIONARY:
+					continue
+				if not copy_filter_card_type.is_empty() and str(d_card.get("card_type", "")) != copy_filter_card_type:
+					continue
+				copy_candidates.append(d_idx)
+			if copy_candidates.is_empty():
+				return
+			var pick: int = copy_candidates[MatchEffectParams._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_copy_opp", copy_candidates.size())]
+			var source_card_for_copy: Dictionary = opp_deck[pick]
+			var copy_tmpl: Dictionary = source_card_for_copy.duplicate(true)
+			copy_tmpl.erase("instance_id")
+			copy_tmpl.erase("zone")
+			copy_tmpl.erase("damage_marked")
+			copy_tmpl.erase("power_bonus")
+			copy_tmpl.erase("health_bonus")
+			copy_tmpl.erase("granted_keywords")
+			copy_tmpl.erase("status_markers")
+			var gen_copy := MatchMutations.build_generated_card(match_state, controller_id, copy_tmpl)
+			var cth_player := MatchTimingHelpers._get_player_state(match_state, controller_id)
+			if not cth_player.is_empty():
+				if _MT()._overflow_card_to_discard(cth_player, gen_copy, controller_id, ZONE_GENERATED, generated_events):
+					return
+				gen_copy["zone"] = ZONE_HAND
+				var cth_hand: Array = cth_player.get(ZONE_HAND, [])
+				cth_hand.append(gen_copy)
+				generated_events.append({"event_type": "card_drawn", "player_id": controller_id, "source_instance_id": str(trigger.get("source_instance_id", "")), "drawn_instance_id": str(gen_copy.get("instance_id", "")), "reason": reason})
 		"copy_creature_from_deck_to_discard":
 			var ccfdtd_controller_id := str(trigger.get("controller_player_id", ""))
 			var ccfdtd_player := MatchTimingHelpers._get_player_state(match_state, ccfdtd_controller_id)

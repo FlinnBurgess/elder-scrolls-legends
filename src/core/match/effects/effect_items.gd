@@ -105,14 +105,41 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						generated_events.append_array(attach_result.get("events", []))
 						equipped += 1
 		"equip_copy_of_item":
-			var ecoi_controller_id := str(trigger.get("controller_player_id", ""))
-			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
-				if str(card.get("card_type", "")) == CARD_TYPE_ITEM:
-					var ecoi_copy := MatchMutations.build_generated_card(match_state, ecoi_controller_id, card)
-					for ecoi_target in MatchTargeting._resolve_card_targets_by_name(match_state, trigger, event, str(effect.get("equip_target", "chosen_target"))):
-						var ecoi_equip := MatchMutations.attach_item_to_creature(match_state, ecoi_controller_id, ecoi_copy, str(ecoi_target.get("instance_id", "")), {"reason": reason})
-						generated_events.append_array(ecoi_equip.get("events", []))
-						break
+			# Copy the item that was just equipped (from the card_equipped event) onto the target(s).
+			# Used by Gardener of Swords: "When you equip an item to another creature, equip a copy to Gardener."
+			var ecoi_item_id := str(event.get("source_instance_id", ""))
+			var ecoi_equip_target := str(event.get("target_instance_id", ""))
+			var ecoi_targets := MatchTargeting._resolve_card_targets(match_state, trigger, event, effect)
+			if ecoi_item_id.is_empty():
+				return
+			# Find the original item to get its definition_id for building a copy
+			var ecoi_location := MatchMutations.find_card_location(match_state, ecoi_item_id)
+			var ecoi_item: Dictionary = ecoi_location.get("card", {}) if bool(ecoi_location.get("is_valid", false)) else {}
+			if ecoi_item.is_empty():
+				return
+			var ecoi_def_id := str(ecoi_item.get("definition_id", ""))
+			if ecoi_def_id.is_empty():
+				return
+			for card in ecoi_targets:
+				# Skip if this target is the creature that was already equipped (the "another creature" clause)
+				if str(card.get("instance_id", "")) == ecoi_equip_target:
+					continue
+				var ecoi_controller := str(card.get("controller_player_id", trigger.get("controller_player_id", "")))
+				var ecoi_template := {"definition_id": ecoi_def_id}
+				# Copy stat bonuses and keywords from the original item
+				for key in ["name", "card_type", "cost", "equip_power_bonus", "equip_health_bonus", "equip_keywords", "keywords", "rules_text", "subtypes", "attributes", "art_path"]:
+					if ecoi_item.has(key):
+						ecoi_template[key] = ecoi_item[key]
+				var ecoi_copy := MatchMutations.build_generated_card(match_state, ecoi_controller, ecoi_template)
+				var ecoi_result := MatchMutations.attach_item_to_creature(match_state, ecoi_controller, ecoi_copy, str(card.get("instance_id", "")), {"source_zone": MatchMutations.ZONE_GENERATED})
+				if bool(ecoi_result.get("is_valid", false)):
+					generated_events.append_array(ecoi_result.get("events", []))
+					generated_events.append({"event_type": "item_equipped", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "item_instance_id": str(ecoi_copy.get("instance_id", "")), "reason": reason})
+					# Defer the copied item's on_play target mode check so it queues AFTER
+					# the original item's check (preserving correct targeting order).
+					var deferred: Array = match_state.get("_deferred_item_target_checks", [])
+					deferred.append(ecoi_copy)
+					match_state["_deferred_item_target_checks"] = deferred
 		"equip_copies_from_discard":
 			var ecfd_controller_id := str(trigger.get("controller_player_id", ""))
 			var ecfd_player := MatchTimingHelpers._get_player_state(match_state, ecfd_controller_id)
