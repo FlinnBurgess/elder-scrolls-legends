@@ -2291,8 +2291,6 @@ static func decline_pending_prophecy(match_state: Dictionary, player_id: String,
 
 static func play_pending_prophecy(match_state: Dictionary, player_id: String, instance_id: String, options: Dictionary = {}) -> Dictionary:
 	ensure_match_state(match_state)
-	if str(match_state.get("active_player_id", "")) == player_id:
-		return MatchTimingHelpers._invalid_result("Prophecy free play is only available during the opponent's turn.")
 	var window_index := _find_pending_prophecy_window_index(match_state, player_id, instance_id)
 	if window_index == -1:
 		return MatchTimingHelpers._invalid_result("No pending Prophecy window exists for %s." % instance_id)
@@ -3228,8 +3226,6 @@ static func _resolve_out_of_cards(match_state: Dictionary, player_id: String, co
 
 
 static func _can_open_prophecy_window(match_state: Dictionary, player_id: String, card: Dictionary) -> bool:
-	if str(match_state.get("active_player_id", "")) == player_id:
-		return false
 	return MatchTimingHelpers._is_prophecy_card(card)
 
 

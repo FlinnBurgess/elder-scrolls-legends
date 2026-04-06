@@ -449,7 +449,7 @@ func _creature_readiness_state(card: Dictionary) -> Dictionary:
 			"border": Color(0.58, 0.9, 0.62, 0.96),
 			"font": Color(0.95, 0.99, 0.96, 1.0),
 		}
-	if bool(card.get("cannot_attack", false)) or _screen.EvergreenRules.has_status(card, _screen.EvergreenRules.STATUS_SHACKLED):
+	if _screen.EvergreenRules.get_power(card) <= 0 or bool(card.get("cannot_attack", false)) or _screen.EvergreenRules.has_status(card, _screen.EvergreenRules.STATUS_SHACKLED):
 		return {
 			"id": "disabled",
 			"label": "DISABLED",

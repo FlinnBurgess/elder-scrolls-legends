@@ -300,6 +300,8 @@ static func _aura_source_value(card: Dictionary) -> float:
 
 
 static func _can_attack_now(match_state: Dictionary, card: Dictionary) -> bool:
+	if EvergreenRules.get_power(card) <= 0:
+		return false
 	if bool(card.get("cannot_attack", false)):
 		return false
 	if str(card.get("controller_player_id", "")) != str(match_state.get("active_player_id", "")):
@@ -314,6 +316,8 @@ static func _can_attack_now(match_state: Dictionary, card: Dictionary) -> bool:
 
 
 static func _can_threaten_face_next_turn(card: Dictionary) -> bool:
+	if EvergreenRules.get_power(card) <= 0:
+		return false
 	if bool(card.get("cannot_attack", false)):
 		return false
 	return true

@@ -434,6 +434,8 @@ static func _resolve_creature_attack(match_state: Dictionary, validation: Dictio
 
 
 static func _validate_attacker_readiness(match_state: Dictionary, attacker: Dictionary) -> Dictionary:
+	if EvergreenRules.get_power(attacker) <= 0:
+		return _invalid_result("Creatures with 0 power cannot attack.")
 	if bool(attacker.get("cannot_attack", false)):
 		return _invalid_result("This creature cannot attack.")
 	if EvergreenRules.has_status(attacker, EvergreenRules.STATUS_SHACKLED):

@@ -88,7 +88,7 @@ const HELP_TEXT := {
 	"shackled": "Shackled creatures skip attacking until the shackle clears on their controller's turn.",
 	"silenced": "Silence strips keywords, statuses, triggers, and attached items from the card.",
 	"wounded": "Wounded marks that the creature currently has damage on it.",
-	"prophecy": "Prophecy cards can be played for free during the opponent's turn when drawn from a broken rune.",
+	"prophecy": "Prophecy cards can be played for free when drawn from a broken rune.",
 	"ring_of_magicka": "The second player may spend one Ring charge per turn for +1 magicka that turn.",
 }
 
