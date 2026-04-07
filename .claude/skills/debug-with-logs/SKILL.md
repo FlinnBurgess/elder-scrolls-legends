@@ -1,27 +1,28 @@
 ---
 name: debug-with-logs
-description: Debug a bug using the user's description and live game logs fetched from the running Godot instance via MCP.
+description: Debug a bug using the user's description and the match log file from the most recent game.
 ---
 
 # Debug With Logs
 
-Takes a bug description from the user, fetches the current game output from the running Godot instance, and uses the logs to diagnose and fix the issue.
+Takes a bug description from the user, reads the match log file, and uses it to diagnose and fix the issue.
 
 ## Arguments
 
 `$ARGUMENTS` — A description of the bug (e.g., "Guard creature was ignored during attack", "Summon effect didn't trigger for Morkul Gatekeeper", "creature stats are wrong after equipping an item").
 
-## Step 1: Fetch Game Logs
+## Step 1: Read Match Trace
 
-Use the `mcp__godot-peek__get_output` MCP tool to fetch the current game output from the running Godot instance. This retrieves the live engine output including game log lines, warnings, and errors.
+Read `game_trace.txt` from the project root. It contains a verbose trace of the most recent match (wiped clean at each match start), including both human-readable game events and `[TRC]` engine trace lines. It may be large — read it in chunks using offset/limit (500 lines at a time). Read the **entire** file; do not skip sections.
 
-If the output is empty or the game doesn't appear to be running, tell the user and ask them to reproduce the bug in-game first, then re-run this skill.
+If the file is empty or missing, tell the user and ask them to play a match first, then re-run this skill.
 
 ## Step 2: Search for Evidence
 
 Based on the user's bug description, search the fetched output for relevant evidence. Use these log line types to guide your search:
 
 ### Log Line Types
+- `[TRC]` — Engine trace lines showing function calls and internal state (`[TRC]|frame|Node|method|vars`). Use these for deep debugging of engine logic.
 - `[BOARD]` — Board state snapshots at the start of each turn, showing creature stats and HP
 - `[PLAY]` — A card was played from hand
 - `[SUMMON]` — A creature entered a lane
@@ -42,8 +43,6 @@ Based on the user's bug description, search the fetched output for relevant evid
 - **Wrong ordering**: Events appearing in an unexpected sequence
 - **Board state inconsistencies**: Stats in `[BOARD]` snapshots that don't add up given prior events
 - **Errors / stack traces**: Any GDScript errors, assertion failures, or null reference warnings
-
-Also check for Godot-level errors (e.g., `ERROR:`, `SCRIPT ERROR:`, `Null instance`, `Invalid call`) that may point to crashes or unhandled edge cases.
 
 ## Step 3: Report Findings
 

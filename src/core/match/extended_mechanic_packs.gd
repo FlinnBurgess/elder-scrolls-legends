@@ -5,6 +5,7 @@ const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const CardCatalog = preload("res://src/deck/card_catalog.gd")
 const GameLogger = preload("res://src/core/match/game_logger.gd")
+const MatchTargeting = preload("res://src/core/match/match_targeting.gd")
 
 const EVENT_CARD_PLAYED := "card_played"
 const EVENT_DAMAGE_RESOLVED := "damage_resolved"
@@ -804,7 +805,8 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				rrhcc_candidates.append(rrhcc_card)
 			if rrhcc_candidates.is_empty():
 				return {"handled": true, "events": []}
-			var rrhcc_chosen: Dictionary = rrhcc_candidates[randi() % rrhcc_candidates.size()]
+			var _rrhcc_ctx := "%s|reduce_random_hand_card_cost" % str(trigger.get("source_instance_id", ""))
+			var rrhcc_chosen: Dictionary = rrhcc_candidates[MatchTargeting._deterministic_random_index(match_state, _rrhcc_ctx, rrhcc_candidates.size())]
 			if not rrhcc_chosen.has("_base_cost"):
 				rrhcc_chosen["_base_cost"] = int(rrhcc_chosen.get("cost", 0))
 			rrhcc_chosen["cost"] = maxi(0, int(rrhcc_chosen.get("cost", 0)) - rrhcc_amount)
@@ -2809,7 +2811,8 @@ static func apply_cheesemancer_mutations(match_state: Dictionary) -> void:
 					continue
 				if str(card.get("definition_id", "")) != CHEESEMANCER_ID:
 					continue
-				var source_id: String = CHEESEMANCER_SOURCE_IDS[randi() % CHEESEMANCER_SOURCE_IDS.size()]
+				var _cheese_ctx := "%s|cheesemancer" % str(card.get("instance_id", ""))
+				var source_id: String = CHEESEMANCER_SOURCE_IDS[MatchTargeting._deterministic_random_index(match_state, _cheese_ctx, CHEESEMANCER_SOURCE_IDS.size())]
 				var source_seed: Dictionary = seeds_by_id.get(source_id, {})
 				if source_seed.is_empty():
 					continue

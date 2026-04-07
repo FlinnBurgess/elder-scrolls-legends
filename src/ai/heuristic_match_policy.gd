@@ -33,6 +33,7 @@ const DEFAULT_MIN_ACTION_GAIN := 0.6
 const DEFAULT_TOP_CANDIDATES := 3
 const DEFAULT_LOOKAHEAD_DEPTH := 1
 const DEFAULT_LOOKAHEAD_DISCOUNT := 0.85
+const ACTION_SCORING_BUDGET_MS := 5000
 
 
 static func choose_mulligan(match_state: Dictionary, player_id: String) -> Array:
@@ -129,7 +130,15 @@ static func describe_choice(choice: Dictionary, max_candidates: int = 3) -> Stri
 
 static func _rank_actions(match_state: Dictionary, surface: Dictionary, player_id: String, baseline: float, options: Dictionary, lookahead_depth: int) -> Array:
 	var scored: Array = []
+	var budget_ms := int(options.get("action_scoring_budget_ms", ACTION_SCORING_BUDGET_MS))
+	var start_ms := Time.get_ticks_msec()
 	for action in surface.get("actions", []):
+		if budget_ms > 0 and (Time.get_ticks_msec() - start_ms) > budget_ms:
+			# Budget exceeded — score remaining actions with a fast heuristic fallback
+			for remaining_action in surface.get("actions", []):
+				if not scored.any(func(s): return s.get("action", {}).get("kind", "") == remaining_action.get("kind", "") and str(s.get("action", {}).get("source_instance_id", "")) == str(remaining_action.get("source_instance_id", ""))):
+					scored.append({"action": remaining_action.duplicate(true), "immediate_score": -999999.0, "total_score": -999999.0, "relative_gain": -999999.0, "reason": "budget_exceeded"})
+			break
 		var candidate := _score_action_immediate(match_state, action, player_id, baseline, options)
 		scored.append(candidate)
 	scored.sort_custom(_sort_scored_actions)
@@ -137,6 +146,8 @@ static func _rank_actions(match_state: Dictionary, surface: Dictionary, player_i
 		return scored
 	var top_count := mini(int(options.get("top_candidate_lookahead", DEFAULT_TOP_CANDIDATES)), scored.size())
 	for index in range(top_count):
+		if budget_ms > 0 and (Time.get_ticks_msec() - start_ms) > budget_ms:
+			break
 		var candidate: Dictionary = scored[index]
 		if _is_pass_action(candidate.get("action", {})) or not _can_continue_turn(candidate.get("simulated_state", {}), player_id):
 			continue

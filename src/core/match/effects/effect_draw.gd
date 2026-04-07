@@ -340,7 +340,8 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					if typeof(card) == TYPE_DICTIONARY and str(card.get("card_type", "")) == "creature" and str(card.get("instance_id", "")) != drcfd_source_id:
 						drcfd_candidates.append(card)
 				if not drcfd_candidates.is_empty():
-					var drcfd_picked: Dictionary = drcfd_candidates[randi() % drcfd_candidates.size()]
+					var _drcfd_ctx := "%s|draw_random_creature_from_discard" % str(trigger.get("source_instance_id", ""))
+					var drcfd_picked: Dictionary = drcfd_candidates[MatchTargeting._deterministic_random_index(match_state, _drcfd_ctx, drcfd_candidates.size())]
 					drcfd_discard.erase(drcfd_picked)
 					MatchMutations.restore_definition_state(drcfd_picked)
 					drcfd_picked["zone"] = ZONE_HAND

@@ -11,6 +11,7 @@ var _ai_enabled := false
 var _ai_options: Dictionary = {}
 var _spell_reveal_started_ms: int = -1
 const SPELL_REVEAL_TIMEOUT_MS := 5000
+const MAX_AI_ACTIONS_PER_TURN := 50
 
 func _init(screen) -> void:
 	_screen = screen
@@ -83,6 +84,12 @@ func _execute_local_match_ai_step() -> Dictionary:
 		return {"did_execute": false, "yield_reason": "waiting_on_local_prophecy"}
 	if not _ai_controls_current_decision_window():
 		return {"did_execute": false, "yield_reason": "no_ai_window"}
+	if _local_match_ai_action_count >= MAX_AI_ACTIONS_PER_TURN:
+		print("[AI] Safety valve: force ending turn after %d actions" % _local_match_ai_action_count)
+		var end_action := {"kind": _screen.MatchActionEnumerator.KIND_END_TURN, "player_id": _ai_player_id()}
+		_screen.MatchActionExecutor.execute_action(_screen._match_state, end_action)
+		_screen._refresh_ui()
+		return {"did_execute": true, "yield_reason": "match_complete"}
 	var ai_player_id := _ai_player_id()
 	var choice = _screen.HeuristicMatchPolicy.choose_action(_screen._match_state, ai_player_id, _ai_options)
 	if not bool(choice.get("is_valid", false)):

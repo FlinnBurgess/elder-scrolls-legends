@@ -431,7 +431,8 @@ static func _resolve_card_targets(match_state: Dictionary, trigger: Dictionary, 
 		targets = filtered
 	# For random_* targets with filters: pick one random from the filtered set
 	if _rct_is_random and targets.size() > 1:
-		targets = [targets[randi() % targets.size()]]
+		var _rct_ctx := "%s|%s|filtered_random" % [str(trigger.get("source_instance_id", "")), target]
+		targets = [targets[_deterministic_random_index(match_state, _rct_ctx, targets.size())]]
 	return targets
 
 
@@ -666,27 +667,33 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 		"random_enemy", "random_enemy_creature":
 			var all_enemies := _resolve_card_targets_by_name(match_state, trigger, event, "all_enemies")
 			if not all_enemies.is_empty():
-				targets.append(all_enemies[randi() % all_enemies.size()])
+				var _re_ctx := "%s|random_enemy" % str(trigger.get("source_instance_id", ""))
+				targets.append(all_enemies[_deterministic_random_index(match_state, _re_ctx, all_enemies.size())])
 		"random_friendly":
 			var all_friendly := _resolve_card_targets_by_name(match_state, trigger, event, "all_friendly")
 			if not all_friendly.is_empty():
-				targets.append(all_friendly[randi() % all_friendly.size()])
+				var _rf_ctx := "%s|random_friendly" % str(trigger.get("source_instance_id", ""))
+				targets.append(all_friendly[_deterministic_random_index(match_state, _rf_ctx, all_friendly.size())])
 		"random_other_friendly":
 			var all_other_friendly := _resolve_card_targets_by_name(match_state, trigger, event, "all_other_friendly")
 			if not all_other_friendly.is_empty():
-				targets.append(all_other_friendly[randi() % all_other_friendly.size()])
+				var _rof_ctx := "%s|random_other_friendly" % str(trigger.get("source_instance_id", ""))
+				targets.append(all_other_friendly[_deterministic_random_index(match_state, _rof_ctx, all_other_friendly.size())])
 		"random_enemy_in_lane":
 			var all_enemies_lane := _resolve_card_targets_by_name(match_state, trigger, event, "all_enemies_in_lane")
 			if not all_enemies_lane.is_empty():
-				targets.append(all_enemies_lane[randi() % all_enemies_lane.size()])
+				var _reil_ctx := "%s|random_enemy_in_lane" % str(trigger.get("source_instance_id", ""))
+				targets.append(all_enemies_lane[_deterministic_random_index(match_state, _reil_ctx, all_enemies_lane.size())])
 		"random_friendly_in_lane":
 			var all_friendly_lane := _resolve_card_targets_by_name(match_state, trigger, event, "all_friendly_in_lane")
 			if not all_friendly_lane.is_empty():
-				targets.append(all_friendly_lane[randi() % all_friendly_lane.size()])
+				var _rfil_ctx := "%s|random_friendly_in_lane" % str(trigger.get("source_instance_id", ""))
+				targets.append(all_friendly_lane[_deterministic_random_index(match_state, _rfil_ctx, all_friendly_lane.size())])
 		"random_creature":
 			var all_creatures := _resolve_card_targets_by_name(match_state, trigger, event, "all_creatures")
 			if not all_creatures.is_empty():
-				targets.append(all_creatures[randi() % all_creatures.size()])
+				var _rc_ctx := "%s|random_creature" % str(trigger.get("source_instance_id", ""))
+				targets.append(all_creatures[_deterministic_random_index(match_state, _rc_ctx, all_creatures.size())])
 		"random_friendly_in_each_lane", "friendly_in_each_lane":
 			var rfiel_controller_id := str(trigger.get("controller_player_id", ""))
 			for lane in match_state.get("lanes", []):
@@ -696,7 +703,9 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 					if typeof(card) == TYPE_DICTIONARY:
 						rfiel_candidates.append(card)
 				if not rfiel_candidates.is_empty():
-					targets.append(rfiel_candidates[randi() % rfiel_candidates.size()])
+					var _rfiel_lane_id := str(lane.get("lane_id", ""))
+					var _rfiel_ctx := "%s|random_friendly_in_each_lane|%s" % [str(trigger.get("source_instance_id", "")), _rfiel_lane_id]
+					targets.append(rfiel_candidates[_deterministic_random_index(match_state, _rfiel_ctx, rfiel_candidates.size())])
 		"random_enemy_in_each_lane":
 			var reiel_controller_id := str(trigger.get("controller_player_id", ""))
 			var reiel_opponent_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), reiel_controller_id)
@@ -707,7 +716,9 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 					if typeof(card) == TYPE_DICTIONARY:
 						reiel_candidates.append(card)
 				if not reiel_candidates.is_empty():
-					targets.append(reiel_candidates[randi() % reiel_candidates.size()])
+					var _reiel_lane_id := str(lane.get("lane_id", ""))
+					var _reiel_ctx := "%s|random_enemy_in_each_lane|%s" % [str(trigger.get("source_instance_id", "")), _reiel_lane_id]
+					targets.append(reiel_candidates[_deterministic_random_index(match_state, _reiel_ctx, reiel_candidates.size())])
 		"random_creature_in_hand":
 			var rcih_controller_id := str(trigger.get("controller_player_id", ""))
 			var rcih_player := MatchTimingHelpers._get_player_state(match_state, rcih_controller_id)
@@ -717,7 +728,8 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 					if typeof(card) == TYPE_DICTIONARY and str(card.get("card_type", "")) == CARD_TYPE_CREATURE:
 						rcih_candidates.append(card)
 				if not rcih_candidates.is_empty():
-					targets.append(rcih_candidates[randi() % rcih_candidates.size()])
+					var _rcih_ctx := "%s|random_creature_in_hand" % str(trigger.get("source_instance_id", ""))
+					targets.append(rcih_candidates[_deterministic_random_index(match_state, _rcih_ctx, rcih_candidates.size())])
 		"all_friendly_in_event_lane", "all_creatures_in_event_lane", "all_enemies_in_event_lane":
 			var event_lane_id := str(event.get("lane_id", ""))
 			if not event_lane_id.is_empty():
@@ -894,4 +906,16 @@ static func _resolve_player_targets(match_state: Dictionary, trigger: Dictionary
 			var chosen_pid := str(trigger.get("_chosen_target_player_id", ""))
 			return [] if chosen_pid.is_empty() else [chosen_pid]
 	return []
+
+
+static func _deterministic_random_index(match_state: Dictionary, context_id: String, pool_size: int) -> int:
+	if pool_size <= 0:
+		return 0
+	var fingerprint := "%s|%s|%s" % [str(match_state.get("rng_seed", 0)), str(match_state.get("turn_number", 0)), context_id]
+	var seed_value: int = 1469598103934665603
+	for byte in fingerprint.to_utf8_buffer():
+		seed_value = int((seed_value * 1099511628211 + int(byte)) % 9223372036854775783)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	return rng.randi_range(0, pool_size - 1)
 

@@ -43,6 +43,7 @@ static func end_turn(match_state: Dictionary, player_id: String) -> Dictionary:
 	var player := _get_player_state(match_state, player_id)
 	ExtendedMechanicPacks.toggle_wax_wane(player)
 	player["_dual_wax_wane"] = false
+	player["_unspent_magicka_last_turn"] = int(player.get("current_magicka", 0)) + int(player.get("temporary_magicka", 0))
 	player["current_magicka"] = 0
 	player["temporary_magicka"] = 0
 	player["ring_of_magicka_used_this_turn"] = false

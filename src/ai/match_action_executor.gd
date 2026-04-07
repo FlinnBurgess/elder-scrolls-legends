@@ -7,10 +7,11 @@ const MatchCombat = preload("res://src/core/match/match_combat.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
+const GameLogger = preload("res://src/core/match/game_logger.gd")
 
 
-static func execute_action(match_state: Dictionary, action: Dictionary) -> Dictionary:
-	if not MatchActionEnumerator.action_is_legal(match_state, action):
+static func execute_action(match_state: Dictionary, action: Dictionary, skip_legality_check: bool = false) -> Dictionary:
+	if not skip_legality_check and not MatchActionEnumerator.action_is_legal(match_state, action):
 		return {"is_valid": false, "errors": ["Action is not legal in the current state."], "match_state": match_state}
 	var player_id := str(action.get("player_id", ""))
 	var source_instance_id := str(action.get("source_instance_id", ""))
@@ -147,6 +148,8 @@ static func execute_action(match_state: Dictionary, action: Dictionary) -> Dicti
 
 static func clone_and_execute(match_state: Dictionary, action: Dictionary) -> Dictionary:
 	var clone := match_state.duplicate(true)
-	var result := execute_action(clone, action)
+	GameLogger.suppress()
+	var result := execute_action(clone, action, true)
+	GameLogger.unsuppress()
 	result["match_state"] = clone
 	return result

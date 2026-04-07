@@ -454,14 +454,17 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 	var definition: Dictionary = card_by_id.get(definition_id, {})
 	if definition.is_empty():
 		return
+	var is_mutated := card.has("_playing_card_assigned_cost")
 	card["name"] = str(definition.get("name", ""))
 	card["card_type"] = str(definition.get("card_type", "creature"))
-	card["cost"] = int(definition.get("cost", 0))
+	if not is_mutated:
+		card["cost"] = int(definition.get("cost", 0))
 	card["power"] = int(definition.get("base_power", 0))
 	card["health"] = int(definition.get("base_health", 0))
 	card["rarity"] = str(definition.get("rarity", "common"))
 	card["is_unique"] = bool(definition.get("is_unique", false))
-	card["rules_text"] = str(definition.get("rules_text", ""))
+	if not is_mutated:
+		card["rules_text"] = str(definition.get("rules_text", ""))
 	var existing_art_path := str(card.get("art_path", ""))
 	if existing_art_path.is_empty() or not ResourceLoader.exists(existing_art_path):
 		card["art_path"] = str(definition.get("art_path", ""))
@@ -486,10 +489,10 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 	if definition.has("shout_levels"):
 		card["shout_levels"] = definition["shout_levels"].duplicate(true)
 	var action_target_mode := str(definition.get("action_target_mode", ""))
-	if not action_target_mode.is_empty():
+	if not action_target_mode.is_empty() and not is_mutated:
 		card["action_target_mode"] = action_target_mode
 	var triggered: Array = definition.get("triggered_abilities", [])
-	if not triggered.is_empty():
+	if not triggered.is_empty() and not is_mutated:
 		card["triggered_abilities"] = triggered.duplicate(true)
 	if definition.has("aura"):
 		card["aura"] = definition["aura"].duplicate(true)
@@ -970,7 +973,8 @@ func play_selected_to_lane(lane_id: String, slot_index := -1) -> Dictionary:
 		options["slot_index"] = slot_index
 	var result := {}
 	if _overlays._is_pending_prophecy_card(card):
-		result = MatchTiming.play_pending_prophecy(_match_state, str(card.get("controller_player_id", "")), _selected_instance_id, options.merged({"lane_id": lane_id}, true))
+		var _prophecy_pid := str(card.get("controller_player_id", ""))
+		result = MatchTiming.play_pending_prophecy(_match_state, _prophecy_pid, _selected_instance_id, options.merged({"lane_id": lane_id}, true))
 	else:
 		result = LaneRules.summon_from_hand(_match_state, _active_player_id(), _selected_instance_id, lane_id, options)
 	var finalized := _finalize_engine_result(result, "Played %s into %s." % [_card_display._card_name(card), _lane_name(lane_id)])
@@ -1021,7 +1025,10 @@ func play_or_activate_selected() -> Dictionary:
 	var location := MatchMutations.find_card_location(_match_state, _selected_instance_id)
 	var result := {}
 	if _overlays._is_pending_prophecy_card(card):
-		result = MatchTiming.play_pending_prophecy(_match_state, str(card.get("controller_player_id", "")), _selected_instance_id)
+		var _proph_card_type := str(card.get("card_type", ""))
+		var _proph_pid := str(card.get("controller_player_id", ""))
+		var _proph_kind := "play_action" if _proph_card_type == "action" else ("play_support" if _proph_card_type == "support" else "summon_creature")
+		result = MatchTiming.play_pending_prophecy(_match_state, _proph_pid, _selected_instance_id)
 	elif bool(location.get("is_valid", false)) and str(location.get("zone", "")) == MatchMutations.ZONE_HAND:
 		match str(card.get("card_type", "")):
 			"support":

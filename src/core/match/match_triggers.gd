@@ -785,6 +785,13 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 		var ww_player := MatchTimingHelpers._get_player_state(match_state, controller_player_id)
 		if str(ww_player.get("wax_wane_state", "wax")) != required_wax_wane and not bool(ww_player.get("_dual_wax_wane", false)):
 			return false
+	# on_magicka_threshold: controller's current_magicka must meet the threshold
+	var magicka_threshold := int(descriptor.get("threshold", 0))
+	if magicka_threshold > 0:
+		var mt_controller := str(trigger.get("controller_player_id", ""))
+		var mt_player := MatchTimingHelpers._get_player_state(match_state, mt_controller)
+		if int(mt_player.get("current_magicka", 0)) < magicka_threshold:
+			return false
 	return ExtendedMechanicPacks.matches_additional_conditions(match_state, trigger, descriptor, event)
 
 

@@ -204,7 +204,7 @@ const FAMILY_SPECS := {
 	FAMILY_ON_INVADE: {"event_type": "invade_triggered", "window": WINDOW_AFTER, "match_role": "controller"},
 	FAMILY_ON_MAX_MAGICKA_GAIN_2: {"event_type": "max_magicka_gained", "window": WINDOW_AFTER, "match_role": "target_player_is_controller"},
 	FAMILY_ON_DISCARD_LEAVE: {"event_type": "card_moved", "window": WINDOW_AFTER, "match_role": "subject"},
-	FAMILY_ON_MAGICKA_THRESHOLD: {"event_type": "max_magicka_gained", "window": WINDOW_AFTER, "match_role": "target_player_is_controller"},
+	FAMILY_ON_MAGICKA_THRESHOLD: {"event_type": "magicka_restored", "window": WINDOW_AFTER, "match_role": "target_player_is_controller"},
 }
 
 
@@ -2632,6 +2632,12 @@ static func play_action_from_hand(match_state: Dictionary, player_id: String, in
 	played_card["zone"] = ZONE_DISCARD
 	player[ZONE_DISCARD].append(played_card)
 	_check_action_multi_target_abilities(match_state, played_card)
+	# Derive lane_id from target creature when not explicitly provided
+	var resolved_lane_id := str(options.get("lane_id", ""))
+	if resolved_lane_id.is_empty() and not str(options.get("target_instance_id", "")).is_empty():
+		var target_lane_index := MatchTimingHelpers._get_card_lane_index(match_state, str(options.get("target_instance_id", "")))
+		if target_lane_index >= 0 and target_lane_index < match_state.get("lanes", []).size():
+			resolved_lane_id = str(match_state["lanes"][target_lane_index].get("lane_id", ""))
 	var timing_result := publish_events(match_state, [{
 		"event_type": EVENT_CARD_PLAYED,
 		"playing_player_id": player_id,
@@ -2647,7 +2653,7 @@ static func play_action_from_hand(match_state: Dictionary, player_id: String, in
 		"timing_window": str(options.get("timing_window", WINDOW_AFTER)),
 		"target_instance_id": str(options.get("target_instance_id", "")),
 		"target_player_id": str(options.get("target_player_id", "")),
-		"lane_id": str(options.get("lane_id", "")),
+		"lane_id": resolved_lane_id,
 		"source_rules_text": str(played_card.get("rules_text", "")),
 		"source_name": str(played_card.get("name", "")),
 		"rules_tags": played_card.get("rules_tags", []).duplicate() if typeof(played_card.get("rules_tags", [])) == TYPE_ARRAY else [],
@@ -2684,6 +2690,12 @@ static func execute_betray_replay(match_state: Dictionary, player_id: String, ac
 		return {"is_valid": false, "errors": ["Action card %s not found in discard." % action_instance_id], "events": [], "trigger_resolutions": []}
 	# Queue multi-target / dual-target abilities before replaying
 	_check_action_multi_target_abilities(match_state, action_card)
+	# Derive lane_id from target creature when not explicitly provided
+	var replay_lane_id := str(replay_options.get("lane_id", ""))
+	if replay_lane_id.is_empty() and not str(replay_options.get("target_instance_id", "")).is_empty():
+		var replay_target_lane_index := MatchTimingHelpers._get_card_lane_index(match_state, str(replay_options.get("target_instance_id", "")))
+		if replay_target_lane_index >= 0 and replay_target_lane_index < match_state.get("lanes", []).size():
+			replay_lane_id = str(match_state["lanes"][replay_target_lane_index].get("lane_id", ""))
 	# Replay the action for free from discard
 	var replay_timing := publish_events(match_state, [{
 		"event_type": EVENT_CARD_PLAYED,
@@ -2699,7 +2711,7 @@ static func execute_betray_replay(match_state: Dictionary, player_id: String, ac
 		"reason": "betray_replay",
 		"target_instance_id": str(replay_options.get("target_instance_id", "")),
 		"target_player_id": str(replay_options.get("target_player_id", "")),
-		"lane_id": str(replay_options.get("lane_id", "")),
+		"lane_id": replay_lane_id,
 		"source_rules_text": str(action_card.get("rules_text", "")),
 		"source_name": str(action_card.get("name", "")),
 		"rules_tags": action_card.get("rules_tags", []).duplicate() if typeof(action_card.get("rules_tags", [])) == TYPE_ARRAY else [],

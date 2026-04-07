@@ -8,6 +8,7 @@ const RING_OF_MAGICKA_CHARGES := 3
 const STANDARD_BOARD_PROFILE_ID := "standard_versus"
 const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
 const GameLogger = preload("res://src/core/match/game_logger.gd")
+const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 
 
 static func create_standard_match(player_decks: Array, options: Dictionary = {}) -> Dictionary:
@@ -36,7 +37,7 @@ static func create_standard_match(player_decks: Array, options: Dictionary = {})
 		return {}
 
 	var starting_player_id: String = players[first_player_index]["player_id"]
-	return {
+	var match_state := {
 		"rules_version": "0.1.0",
 		"match_format": STANDARD_BOARD_PROFILE_ID,
 		"phase": "mulligan",
@@ -61,6 +62,15 @@ static func create_standard_match(player_decks: Array, options: Dictionary = {})
 			"pending_player_ids": [players[0]["player_id"], players[1]["player_id"]]
 		}
 	}
+	_apply_deck_mutations(match_state)
+	return match_state
+
+
+static func _apply_deck_mutations(match_state: Dictionary) -> void:
+	for player in match_state.get("players", []):
+		for card in player.get("deck", []) + player.get("hand", []):
+			if str(card.get("definition_id", "")) == MatchMutations.PLAYING_CARD_ID:
+				MatchMutations._apply_playing_card_mutation(match_state, card)
 
 
 static func apply_mulligan(match_state: Dictionary, player_id: String, discard_instance_ids: Array) -> Dictionary:

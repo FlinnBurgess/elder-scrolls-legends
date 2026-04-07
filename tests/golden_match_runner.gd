@@ -3,6 +3,7 @@ extends SceneTree
 const MatchCombat = preload("res://src/core/match/match_combat.gd")
 const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
+const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const ScenarioFixtures = preload("res://tests/support/scenario_fixtures.gd")
 const VerificationAsserts = preload("res://tests/support/verification_assertions.gd")
 
@@ -18,6 +19,8 @@ func _run_all_tests() -> void:
 	_test_seeded_rally_golden_replay_and_state()
 	_test_prophecy_overflow_golden_snapshot()
 	_test_hidden_zone_owner_routed_discard_snapshot()
+	_test_martin_septim_unspent_magicka_carry_over()
+	_test_martin_septim_transform_at_30_magicka()
 
 
 func _finish() -> void:
@@ -127,3 +130,76 @@ func _test_hidden_zone_owner_routed_discard_snapshot() -> void:
 		"controller_player_id": "player_2",
 		"move_events": 1,
 	}, "Golden hidden-zone discard scenario should route the card to its owner and reset control.", _failures)
+
+
+func _test_martin_septim_unspent_magicka_carry_over() -> void:
+	# Set up a match where player_1 has Martin Septim in play with max magicka 12.
+	# Summon Martin with cost=0 so no magicka is spent.
+	# End turn without spending → next turn should carry over the unspent magicka.
+	var martin_abilities: Array = [
+		{"family": "start_of_turn", "required_zone": "lane", "effects": [{"op": "gain_unspent_magicka_from_last_turn"}]},
+		{"family": "on_magicka_threshold", "required_zone": "lane", "threshold": 30, "effects": [{"op": "transform", "target": "self", "card_template": {"definition_id": "joo_dual_avatar_of_akatosh", "name": "Avatar of Akatosh", "card_type": "creature", "subtypes": ["Dragon"], "attributes": ["agility", "endurance"], "power": 30, "health": 30, "is_unique": true}}]},
+	]
+	var match_state := ScenarioFixtures.create_started_match({"deck_size": 20, "seed": 500, "first_player_index": 0})
+	var player := ScenarioFixtures.player(match_state, 0)
+	var opponent := ScenarioFixtures.player(match_state, 1)
+	player["max_magicka"] = 12
+	player["current_magicka"] = 12
+	var martin := ScenarioFixtures.summon_creature(player, match_state, "martin_septim", "field", 3, 7, [], 0, {
+		"definition_id": "joo_dual_martin_septim",
+		"name": "Martin Septim",
+		"is_unique": true,
+		"cost": 0,
+		"triggered_abilities": martin_abilities,
+	})
+	VerificationAsserts.assert_true(not martin.is_empty(), "Martin Septim should summon successfully.", _failures)
+
+	# Player 1 ends turn without spending any magicka (12 unspent).
+	MatchTurnLoop.end_turn(match_state, player["player_id"])
+	VerificationAsserts.assert_equal(int(player.get("_unspent_magicka_last_turn", 0)), 12, "Unspent magicka should be saved as 12 after ending turn without spending.", _failures)
+	# Player 2 ends turn → Player 1's turn starts.
+	MatchTurnLoop.end_turn(match_state, opponent["player_id"])
+	# max_magicka stays 12 (already at cap), current = 12, then carry-over adds 12 → 24
+	VerificationAsserts.assert_equal(int(player.get("current_magicka", 0)), 24, "Martin Septim should carry over 12 unspent magicka (12 base + 12 carried = 24).", _failures)
+
+
+func _test_martin_septim_transform_at_30_magicka() -> void:
+	# Martin Septim transforms when current_magicka reaches 30+.
+	# With max=12, need to accumulate over multiple turns:
+	#   Turn 1: current=12, end → unspent=12
+	#   Turn 2: current=12+12=24, end → unspent=24
+	#   Turn 3: current=12+24=36 ≥ 30 → TRANSFORM!
+	var martin_abilities: Array = [
+		{"family": "start_of_turn", "required_zone": "lane", "effects": [{"op": "gain_unspent_magicka_from_last_turn"}]},
+		{"family": "on_magicka_threshold", "required_zone": "lane", "threshold": 30, "effects": [{"op": "transform", "target": "self", "card_template": {"definition_id": "joo_dual_avatar_of_akatosh", "name": "Avatar of Akatosh", "card_type": "creature", "subtypes": ["Dragon"], "attributes": ["agility", "endurance"], "power": 30, "health": 30, "is_unique": true}}]},
+	]
+	var match_state := ScenarioFixtures.create_started_match({"deck_size": 20, "seed": 501, "first_player_index": 0})
+	var player := ScenarioFixtures.player(match_state, 0)
+	var opponent := ScenarioFixtures.player(match_state, 1)
+	player["max_magicka"] = 12
+	player["current_magicka"] = 12
+	var martin := ScenarioFixtures.summon_creature(player, match_state, "martin_septim", "field", 3, 7, [], 0, {
+		"definition_id": "joo_dual_martin_septim",
+		"name": "Martin Septim",
+		"is_unique": true,
+		"cost": 0,
+		"triggered_abilities": martin_abilities,
+	})
+	VerificationAsserts.assert_true(not martin.is_empty(), "Martin Septim should summon for transform test.", _failures)
+
+	# Cycle 1: end without spending → unspent=12
+	MatchTurnLoop.end_turn(match_state, player["player_id"])
+	MatchTurnLoop.end_turn(match_state, opponent["player_id"])
+	# Turn 2: current = 12 + 12 = 24, no transform yet
+	var martin_check := ScenarioFixtures.find_lane_card(match_state, "field", player["player_id"], "joo_dual_martin_septim")
+	VerificationAsserts.assert_true(not martin_check.is_empty(), "Martin Septim should still be Martin at 24 magicka.", _failures)
+
+	# Cycle 2: end without spending → unspent=24
+	MatchTurnLoop.end_turn(match_state, player["player_id"])
+	MatchTurnLoop.end_turn(match_state, opponent["player_id"])
+	# Turn 3: current = 12 + 24 = 36 ≥ 30 → transform triggers
+	var avatar := ScenarioFixtures.find_lane_card(match_state, "field", player["player_id"], "joo_dual_avatar_of_akatosh")
+	VerificationAsserts.assert_true(not avatar.is_empty(), "Martin Septim should transform into Avatar of Akatosh when current magicka reaches 36 (≥30).", _failures)
+	if not avatar.is_empty():
+		VerificationAsserts.assert_equal(int(avatar.get("power", 0)), 30, "Avatar of Akatosh should have 30 power.", _failures)
+		VerificationAsserts.assert_equal(int(avatar.get("health", 0)), 30, "Avatar of Akatosh should have 30 health.", _failures)

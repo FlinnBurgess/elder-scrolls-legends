@@ -481,7 +481,10 @@ func _on_start_match_pressed() -> void:
 
 func _on_random_decks_pressed() -> void:
 	var catalog := CardCatalog.load_default()
-	var all_cards: Array = catalog.get("cards", [])
+	var all_cards: Array = []
+	for card in catalog.get("cards", []):
+		if bool(card.get("collectible", true)):
+			all_cards.append(card)
 	if all_cards.size() < 50:
 		return
 

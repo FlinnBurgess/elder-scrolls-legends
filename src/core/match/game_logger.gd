@@ -5,12 +5,14 @@ const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const DeckCodeClass = preload("res://src/deck/deck_code.gd")
 
 const LOG_PATH := "res://game_log.txt"
+const TRACE_PATH := "res://game_trace.txt"
 
 const KEYWORD_EFFECT_IDS := ["breakthrough", "charge", "drain", "guard", "lethal", "mobilize", "rally", "regenerate", "ward"]
 const FAMILY_EFFECT_IDS := ["summon", "slay", "last_gasp", "pilfer", "veteran", "expertise", "plot", "activate"]
 const OP_EFFECT_IDS := ["damage", "heal", "draw", "silence", "destroy", "unsummon", "steal", "transform", "banish", "discard", "sacrifice", "copy", "modify_stats", "shackle"]
 
 static var _file: FileAccess = null
+static var _trace_file: FileAccess = null
 static var _active_match_state: Dictionary = {}
 static var _missing_effect_cards: Array = []
 static var _suppress_count: int = 0
@@ -19,7 +21,9 @@ static var _suppress_count: int = 0
 static func trc(node: String, method: String, vars_str: String) -> void:
 	if _suppress_count > 0:
 		return
-	print("[TRC]|%s|%s|%s|%s" % [Engine.get_physics_frames(), node, method, vars_str])
+	var line := "[TRC]|%s|%s|%s|%s" % [Engine.get_physics_frames(), node, method, vars_str]
+	print(line)
+	_write_trace(line)
 
 
 static func suppress() -> void:
@@ -37,6 +41,7 @@ static func start_match(match_state: Dictionary) -> void:
 	if _file == null:
 		push_error("GameLogger: Failed to open log file at %s" % LOG_PATH)
 		return
+	_trace_file = FileAccess.open(TRACE_PATH, FileAccess.WRITE)
 	_write("=== MATCH START ===")
 	var rng_seed: int = int(match_state.get("rng_seed", 0))
 	var catalog_result := CardCatalog.load_default()
@@ -62,7 +67,9 @@ static func start_match(match_state: Dictionary) -> void:
 		var deck_code: String = DeckCodeClass.encode({"cards": deck_def_cards}, card_id_to_deck_code).get("code", "")
 		deck_codes.append(deck_code)
 		_write("  Deck code: %s" % deck_code)
-	print("Match started — seed:%d player:%s enemy:%s" % [rng_seed, deck_codes[1], deck_codes[0]])
+	var match_summary := "Match started — seed:%d player:%s enemy:%s" % [rng_seed, deck_codes[1], deck_codes[0]]
+	print(match_summary)
+	_write(match_summary)
 	_write("")
 
 
@@ -143,6 +150,10 @@ static func close() -> void:
 		_file.flush()
 		_file.close()
 		_file = null
+	if _trace_file != null:
+		_trace_file.flush()
+		_trace_file.close()
+		_trace_file = null
 
 
 # --- Private event handlers ---
@@ -472,6 +483,13 @@ static func _write(line: String) -> void:
 	if _file != null:
 		_file.store_line(line)
 		_file.flush()
+	_write_trace(line)
+
+
+static func _write_trace(line: String) -> void:
+	if _trace_file != null:
+		_trace_file.store_line(line)
+		_trace_file.flush()
 
 
 static func _find_card(match_state: Dictionary, instance_id: String) -> Dictionary:

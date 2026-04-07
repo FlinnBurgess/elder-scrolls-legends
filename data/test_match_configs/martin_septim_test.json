@@ -1,0 +1,67 @@
+{
+  "name": "Martin Septim — Magicka Carry-Over + Transform",
+  "description": "Test unspent magicka accumulation and Avatar of Akatosh transform at 30+",
+  "board_profile": "standard_versus",
+  "turn_number": 1,
+  "first_player": "player_1",
+  "player_1": {
+    "health": 30,
+    "max_magicka": 10,
+    "current_magicka": 10,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [
+      "joo_dual_martin_septim",
+      "agi_mournhold_guardian",
+      "end_deadly_draugr",
+      "agi_voracious_spriggan",
+      "neu_enraged_mudcrab"
+    ],
+    "deck": [
+      "end_fharun_defender",
+      "end_young_mammoth",
+      "int_elusive_schemer",
+      "str_whiterun_trooper",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp"
+    ],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [],
+    "shadow_creatures": []
+  },
+  "player_2": {
+    "health": 30,
+    "max_magicka": 1,
+    "current_magicka": 1,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": ["str_fiery_imp"],
+    "deck": [
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "str_fiery_imp"
+    ],
+    "discard": [],
+    "field_creatures": [
+      "str_fiery_imp",
+      "str_fiery_imp"
+    ],
+    "shadow_creatures": [
+      "str_fiery_imp"
+    ]
+  }
+}

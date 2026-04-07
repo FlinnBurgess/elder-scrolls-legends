@@ -9,6 +9,7 @@ const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
+const GameLogger = preload("res://src/core/match/game_logger.gd")
 
 const FORMAT_VERSION := 1
 const ACTION_PHASE := "action"
@@ -240,6 +241,13 @@ static func enumerate_legal_actions(match_state: Dictionary, player_id: String =
 
 
 static func action_is_legal(match_state: Dictionary, action: Dictionary) -> bool:
+	GameLogger.suppress()
+	var result := _action_is_legal_inner(match_state, action)
+	GameLogger.unsuppress()
+	return result
+
+
+static func _action_is_legal_inner(match_state: Dictionary, action: Dictionary) -> bool:
 	var player_id := str(action.get("player_id", ""))
 	var source_instance_id := str(action.get("source_instance_id", ""))
 	var parameters: Dictionary = action.get("parameters", {}).duplicate(true)
@@ -275,10 +283,7 @@ static func action_is_legal(match_state: Dictionary, action: Dictionary) -> bool
 		KIND_END_TURN:
 			if MatchTiming.has_pending_prophecy(match_state) or MatchTiming.has_pending_discard_choice(match_state) or MatchTiming.has_pending_consume_selection(match_state) or MatchTiming.has_pending_deck_selection(match_state) or MatchTiming.has_pending_hand_selection(match_state) or MatchTiming.has_pending_top_deck_choice(match_state) or MatchTiming.has_pending_player_choice(match_state) or MatchTiming.has_pending_secondary_target(match_state) or MatchTiming.has_pending_summon_effect_target(match_state) or MatchTiming.has_pending_turn_trigger_target(match_state, player_id):
 				return false
-			var clone := match_state.duplicate(true)
-			var active_before := str(clone.get("active_player_id", ""))
-			MatchTurnLoop.end_turn(clone, player_id)
-			return active_before != str(clone.get("active_player_id", ""))
+			return str(match_state.get("active_player_id", "")) == player_id and str(match_state.get("phase", "")) == MatchTurnLoop.PHASE_ACTION
 		KIND_SUMMON_CREATURE:
 			if str(action.get("response_kind", "")) == MatchTiming.RULE_TAG_PROPHECY:
 				return bool(MatchTiming.play_pending_prophecy(match_state.duplicate(true), player_id, source_instance_id, parameters).get("is_valid", false))
