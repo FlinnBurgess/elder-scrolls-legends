@@ -2872,14 +2872,15 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 	var processed_events: Array = []
 	var trigger_resolutions: Array = []
 	var _loop_guard := 0
+	var _loop_limit: int = int(match_state.get("_publish_events_loop_limit", 250))
 	while not queue.is_empty():
 		_loop_guard += 1
-		if _loop_guard > 200:
+		if _loop_guard > _loop_limit - 50:
 			print("[LOOP_GUARD] publish_events iteration %d. Queue size: %d" % [_loop_guard, queue.size()])
 			for _dbg_i in range(mini(5, queue.size())):
 				var _dbg_evt: Dictionary = queue[_dbg_i]
 				print("[LOOP_GUARD]   queued[%d]: type=%s src=%s" % [_dbg_i, str(_dbg_evt.get("event_type", "")), str(_dbg_evt.get("source_instance_id", ""))])
-			if _loop_guard > 250:
+			if _loop_guard > _loop_limit:
 				print("[LOOP_GUARD] BREAKING OUT at %d iterations." % _loop_guard)
 				break
 		var event: Dictionary = queue.pop_front()
@@ -2941,7 +2942,12 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 	var aura_kw_events := MatchAuras.recalculate_auras(match_state)
 	for raw_aura_kw_event in aura_kw_events:
 		queue.append(MatchTimingHelpers._normalize_event(match_state, raw_aura_kw_event, {}))
+	var _aura_guard := 0
 	while not queue.is_empty():
+		_aura_guard += 1
+		if _aura_guard > 250:
+			print("[LOOP_GUARD] Aura event loop exceeded 250 iterations, breaking.")
+			break
 		var aura_kw_event: Dictionary = queue.pop_front()
 		processed_events.append(aura_kw_event)
 		MatchTimingHelpers._append_event_log(match_state, aura_kw_event)
@@ -2993,7 +2999,12 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 	if not aura_death_events.is_empty():
 		for raw_event in aura_death_events:
 			queue.append(MatchTimingHelpers._normalize_event(match_state, raw_event, {}))
+		var _death_guard := 0
 		while not queue.is_empty():
+			_death_guard += 1
+			if _death_guard > 250:
+				print("[LOOP_GUARD] Aura death event loop exceeded 250 iterations, breaking.")
+				break
 			var event: Dictionary = queue.pop_front()
 			processed_events.append(event)
 			MatchTimingHelpers._append_event_log(match_state, event)

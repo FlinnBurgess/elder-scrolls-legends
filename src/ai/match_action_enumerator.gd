@@ -11,6 +11,24 @@ const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
 const GameLogger = preload("res://src/core/match/game_logger.gd")
 
+## Deep-copy the match state without accumulated logs (event_log, replay_log,
+## last_timing_result).  These grow every event and are never needed by the AI
+## for evaluation — stripping them before the copy avoids duplicating thousands
+## of dictionary entries per clone.
+static func _lightweight_clone(match_state: Dictionary) -> Dictionary:
+	var saved_el = match_state.get("event_log", [])
+	var saved_rl = match_state.get("replay_log", [])
+	var saved_tr = match_state.get("last_timing_result", {})
+	match_state["event_log"] = []
+	match_state["replay_log"] = []
+	match_state["last_timing_result"] = {}
+	var clone := match_state.duplicate(true)
+	match_state["event_log"] = saved_el
+	match_state["replay_log"] = saved_rl
+	match_state["last_timing_result"] = saved_tr
+	return clone
+
+
 const FORMAT_VERSION := 1
 const ACTION_PHASE := "action"
 const TIMING_ACTION := "action"
@@ -255,9 +273,9 @@ static func _action_is_legal_inner(match_state: Dictionary, action: Dictionary) 
 		KIND_RING_USE:
 			return MatchTurnLoop.can_activate_ring_of_magicka(match_state, player_id)
 		KIND_CHOOSE_PLAYER_CHOICE:
-			return bool(MatchTiming.resolve_pending_player_choice(match_state.duplicate(true), player_id, int(parameters.get("chosen_index", 0))).get("is_valid", false))
+			return bool(MatchTiming.resolve_pending_player_choice(_lightweight_clone(match_state), player_id, int(parameters.get("chosen_index", 0))).get("is_valid", false))
 		KIND_CHOOSE_SECONDARY_TARGET:
-			return bool(MatchTiming.resolve_pending_secondary_target(match_state.duplicate(true), player_id, str(parameters.get("target_instance_id", ""))).get("is_valid", false))
+			return bool(MatchTiming.resolve_pending_secondary_target(_lightweight_clone(match_state), player_id, str(parameters.get("target_instance_id", ""))).get("is_valid", false))
 		KIND_CHOOSE_SUMMON_EFFECT_TARGET:
 			var set_target_info := {}
 			var set_tid := str(parameters.get("target_instance_id", ""))
@@ -266,7 +284,7 @@ static func _action_is_legal_inner(match_state: Dictionary, action: Dictionary) 
 				set_target_info["target_instance_id"] = set_tid
 			if not set_tpid.is_empty():
 				set_target_info["target_player_id"] = set_tpid
-			return bool(MatchTiming.resolve_pending_summon_effect_target(match_state.duplicate(true), player_id, set_target_info).get("is_valid", false))
+			return bool(MatchTiming.resolve_pending_summon_effect_target(_lightweight_clone(match_state), player_id, set_target_info).get("is_valid", false))
 		KIND_DECLINE_SUMMON_EFFECT_TARGET:
 			return MatchTiming.has_pending_summon_effect_target(match_state, player_id)
 		KIND_CHOOSE_TURN_TRIGGER_TARGET:
@@ -277,7 +295,7 @@ static func _action_is_legal_inner(match_state: Dictionary, action: Dictionary) 
 				tt_target_info["instance_id"] = tt_tid
 			if not tt_tpid.is_empty():
 				tt_target_info["player_id"] = tt_tpid
-			return bool(MatchTiming.resolve_pending_turn_trigger_target(match_state.duplicate(true), player_id, tt_target_info).get("is_valid", false))
+			return bool(MatchTiming.resolve_pending_turn_trigger_target(_lightweight_clone(match_state), player_id, tt_target_info).get("is_valid", false))
 		KIND_DECLINE_TURN_TRIGGER_TARGET:
 			return MatchTiming.has_pending_turn_trigger_target(match_state, player_id)
 		KIND_END_TURN:
@@ -286,46 +304,46 @@ static func _action_is_legal_inner(match_state: Dictionary, action: Dictionary) 
 			return str(match_state.get("active_player_id", "")) == player_id and str(match_state.get("phase", "")) == MatchTurnLoop.PHASE_ACTION
 		KIND_SUMMON_CREATURE:
 			if str(action.get("response_kind", "")) == MatchTiming.RULE_TAG_PROPHECY:
-				return bool(MatchTiming.play_pending_prophecy(match_state.duplicate(true), player_id, source_instance_id, parameters).get("is_valid", false))
+				return bool(MatchTiming.play_pending_prophecy(_lightweight_clone(match_state), player_id, source_instance_id, parameters).get("is_valid", false))
 			return bool(LaneRules.validate_summon_from_hand(match_state, player_id, source_instance_id, str(parameters.get("lane_id", "")), {
 				"slot_index": int(parameters.get("slot_index", -1)),
 			}).get("is_valid", false))
 		KIND_ATTACK:
 			return bool(MatchCombat.validate_attack(match_state, player_id, source_instance_id, parameters.get("target", {})).get("is_valid", false))
 		KIND_PLAY_SUPPORT:
-			return bool(PersistentCardRules.play_support_from_hand(match_state.duplicate(true), player_id, source_instance_id, parameters).get("is_valid", false))
+			return bool(PersistentCardRules.play_support_from_hand(_lightweight_clone(match_state), player_id, source_instance_id, parameters).get("is_valid", false))
 		KIND_PLAY_ITEM:
-			return bool(PersistentCardRules.play_item_from_hand(match_state.duplicate(true), player_id, source_instance_id, parameters).get("is_valid", false))
+			return bool(PersistentCardRules.play_item_from_hand(_lightweight_clone(match_state), player_id, source_instance_id, parameters).get("is_valid", false))
 		KIND_ACTIVATE_SUPPORT:
 			if not bool(PersistentCardRules.validate_activate_support(match_state, player_id, source_instance_id).get("is_valid", false)):
 				return false
-			return bool(PersistentCardRules.activate_support(match_state.duplicate(true), player_id, source_instance_id, parameters).get("is_valid", false))
+			return bool(PersistentCardRules.activate_support(_lightweight_clone(match_state), player_id, source_instance_id, parameters).get("is_valid", false))
 		KIND_PLAY_ACTION:
 			if str(action.get("response_kind", "")) == MatchTiming.RULE_TAG_PROPHECY:
-				return bool(MatchTiming.play_pending_prophecy(match_state.duplicate(true), player_id, source_instance_id, parameters).get("is_valid", false))
-			return bool(MatchTiming.play_action_from_hand(match_state.duplicate(true), player_id, source_instance_id, parameters).get("is_valid", false))
+				return bool(MatchTiming.play_pending_prophecy(_lightweight_clone(match_state), player_id, source_instance_id, parameters).get("is_valid", false))
+			return bool(MatchTiming.play_action_from_hand(_lightweight_clone(match_state), player_id, source_instance_id, parameters).get("is_valid", false))
 		KIND_DECLINE_PROPHECY:
-			return bool(MatchTiming.decline_pending_prophecy(match_state.duplicate(true), player_id, source_instance_id).get("is_valid", false))
+			return bool(MatchTiming.decline_pending_prophecy(_lightweight_clone(match_state), player_id, source_instance_id).get("is_valid", false))
 		KIND_CHOOSE_DISCARD:
-			return bool(MatchTiming.resolve_pending_discard_choice(match_state.duplicate(true), player_id, str(parameters.get("chosen_instance_id", ""))).get("is_valid", false))
+			return bool(MatchTiming.resolve_pending_discard_choice(_lightweight_clone(match_state), player_id, str(parameters.get("chosen_instance_id", ""))).get("is_valid", false))
 		KIND_DECLINE_DISCARD:
-			return bool(MatchTiming.decline_pending_discard_choice(match_state.duplicate(true), player_id).get("is_valid", false))
+			return bool(MatchTiming.decline_pending_discard_choice(_lightweight_clone(match_state), player_id).get("is_valid", false))
 		KIND_CHOOSE_CONSUME:
-			return bool(MatchTiming.resolve_consume_selection(match_state.duplicate(true), player_id, str(parameters.get("chosen_instance_id", ""))).get("is_valid", false))
+			return bool(MatchTiming.resolve_consume_selection(_lightweight_clone(match_state), player_id, str(parameters.get("chosen_instance_id", ""))).get("is_valid", false))
 		KIND_DECLINE_CONSUME:
-			return bool(MatchTiming.decline_consume_selection(match_state.duplicate(true), player_id).get("is_valid", false))
+			return bool(MatchTiming.decline_consume_selection(_lightweight_clone(match_state), player_id).get("is_valid", false))
 		KIND_CHOOSE_DECK_SELECTION:
-			return bool(MatchTiming.resolve_pending_deck_selection(match_state.duplicate(true), player_id, str(parameters.get("chosen_instance_id", ""))).get("is_valid", false))
+			return bool(MatchTiming.resolve_pending_deck_selection(_lightweight_clone(match_state), player_id, str(parameters.get("chosen_instance_id", ""))).get("is_valid", false))
 		KIND_DECLINE_DECK_SELECTION:
-			return bool(MatchTiming.decline_pending_deck_selection(match_state.duplicate(true), player_id).get("is_valid", false))
+			return bool(MatchTiming.decline_pending_deck_selection(_lightweight_clone(match_state), player_id).get("is_valid", false))
 		KIND_CHOOSE_HAND_SELECTION:
-			return bool(MatchTiming.resolve_pending_hand_selection(match_state.duplicate(true), player_id, str(parameters.get("chosen_instance_id", ""))).get("is_valid", false))
+			return bool(MatchTiming.resolve_pending_hand_selection(_lightweight_clone(match_state), player_id, str(parameters.get("chosen_instance_id", ""))).get("is_valid", false))
 		KIND_DECLINE_HAND_SELECTION:
-			return bool(MatchTiming.decline_pending_hand_selection(match_state.duplicate(true), player_id).get("is_valid", false))
+			return bool(MatchTiming.decline_pending_hand_selection(_lightweight_clone(match_state), player_id).get("is_valid", false))
 		KIND_TOP_DECK_DISCARD:
-			return bool(MatchTiming.resolve_pending_top_deck_choice(match_state.duplicate(true), player_id, true).get("is_valid", false))
+			return bool(MatchTiming.resolve_pending_top_deck_choice(_lightweight_clone(match_state), player_id, true).get("is_valid", false))
 		KIND_TOP_DECK_KEEP:
-			return bool(MatchTiming.resolve_pending_top_deck_choice(match_state.duplicate(true), player_id, false).get("is_valid", false))
+			return bool(MatchTiming.resolve_pending_top_deck_choice(_lightweight_clone(match_state), player_id, false).get("is_valid", false))
 	return false
 
 
@@ -423,7 +441,7 @@ static func _enumerate_creature_prophecy_plays(match_state: Dictionary, player_i
 		if slots.size() >= slot_capacity:
 			continue
 		if has_target_mode:
-			var sim_state := match_state.duplicate(true)
+			var sim_state := _lightweight_clone(match_state)
 			var sim_result := LaneRules.summon_from_hand(sim_state, player_id, str(card.get("instance_id", "")), lane_id, {"slot_index": -1, "played_for_free": true})
 			if not bool(sim_result.get("is_valid", false)):
 				continue
@@ -500,7 +518,7 @@ static func _enumerate_creature_summons(match_state: Dictionary, player_id: Stri
 				continue
 			if has_exalt_target_mode:
 				# Enumerate exalt-targeted summon variants (exalt: true in params)
-				var exalt_sim := match_state.duplicate(true)
+				var exalt_sim := _lightweight_clone(match_state)
 				var exalt_sim_result := LaneRules.summon_from_hand(exalt_sim, player_id, str(card.get("instance_id", "")), lane_id, {"slot_index": -1, "exalt": true, "played_for_free": true})
 				if bool(exalt_sim_result.get("is_valid", false)):
 					var exalt_targets := MatchTiming.get_all_valid_targets(exalt_sim, str(card.get("instance_id", "")))
@@ -519,7 +537,7 @@ static func _enumerate_creature_summons(match_state: Dictionary, player_id: Stri
 							actions.append(targeted_descriptor)
 			if has_base_target_mode:
 				# Simulate summon to get valid targets in that lane
-				var sim_state := match_state.duplicate(true)
+				var sim_state := _lightweight_clone(match_state)
 				var sim_result := LaneRules.summon_from_hand(sim_state, player_id, str(card.get("instance_id", "")), lane_id, {"slot_index": -1})
 				if not bool(sim_result.get("is_valid", false)):
 					continue

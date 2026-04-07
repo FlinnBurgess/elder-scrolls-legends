@@ -217,7 +217,6 @@ func _ready() -> void:
 	set_process(true)
 	_load_registries()
 	_ui_builder._build_ui()
-	load_scenario(_scenario_id)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -810,7 +809,10 @@ func resume_from_state(saved_state: Dictionary) -> void:
 		_refresh._refresh_ui()
 
 
+var _last_process_log_ms: int = 0
+
 func _process(_delta: float) -> void:
+	var _pt := Time.get_ticks_msec()
 	if _turn_banner_panel == null:
 		return
 	var should_show := _turn_banner_until_ms > Time.get_ticks_msec()
@@ -820,6 +822,14 @@ func _process(_delta: float) -> void:
 	_process_support_card_hover_preview()
 	_ai_system._process_local_match_ai_turn()
 	_selection._check_pending_forced_play()
+	var _pe := Time.get_ticks_msec() - _pt
+	if _pe > 200:
+		print("[PERF] _process took %dms (frame %d)" % [_pe, Engine.get_process_frames()])
+	# Heartbeat: proves _process is still running
+	if Time.get_ticks_msec() - _last_process_log_ms > 3000:
+		_last_process_log_ms = Time.get_ticks_msec()
+		var float_tweens: int = _feedback._active_float_tweens.size()
+		print("[HEARTBEAT] ms=%d frame=%d turn=%d active=%s float_tweens=%d" % [Time.get_ticks_msec(), Engine.get_process_frames(), int(_match_state.get("turn_number", 0)), str(_match_state.get("active_player_id", "")), float_tweens])
 
 
 func get_available_scenarios() -> Array:

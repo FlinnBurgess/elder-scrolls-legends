@@ -4,8 +4,8 @@ extends RefCounted
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const DeckCodeClass = preload("res://src/deck/deck_code.gd")
 
-const LOG_PATH := "res://game_log.txt"
-const TRACE_PATH := "res://game_trace.txt"
+static var LOG_PATH := "res://game_log.txt" if OS.has_feature("editor") else "user://game_log.txt"
+static var TRACE_PATH := "res://game_trace.txt" if OS.has_feature("editor") else "user://game_trace.txt"
 
 const KEYWORD_EFFECT_IDS := ["breakthrough", "charge", "drain", "guard", "lethal", "mobilize", "rally", "regenerate", "ward"]
 const FAMILY_EFFECT_IDS := ["summon", "slay", "last_gasp", "pilfer", "veteran", "expertise", "plot", "activate"]
@@ -13,6 +13,7 @@ const OP_EFFECT_IDS := ["damage", "heal", "draw", "silence", "destroy", "unsummo
 
 static var _file: FileAccess = null
 static var _trace_file: FileAccess = null
+static var _trace_buffer: PackedStringArray = PackedStringArray()
 static var _active_match_state: Dictionary = {}
 static var _missing_effect_cards: Array = []
 static var _suppress_count: int = 0
@@ -23,7 +24,7 @@ static func trc(node: String, method: String, vars_str: String) -> void:
 		return
 	var line := "[TRC]|%s|%s|%s|%s" % [Engine.get_physics_frames(), node, method, vars_str]
 	print(line)
-	_write_trace(line)
+	_trace_buffer.append(line)
 
 
 static func suppress() -> void:
@@ -151,6 +152,7 @@ static func close() -> void:
 		_file.close()
 		_file = null
 	if _trace_file != null:
+		_flush_trace_buffer()
 		_trace_file.flush()
 		_trace_file.close()
 		_trace_file = null
@@ -483,6 +485,7 @@ static func _write(line: String) -> void:
 	if _file != null:
 		_file.store_line(line)
 		_file.flush()
+	_flush_trace_buffer()
 	_write_trace(line)
 
 
@@ -490,6 +493,15 @@ static func _write_trace(line: String) -> void:
 	if _trace_file != null:
 		_trace_file.store_line(line)
 		_trace_file.flush()
+
+
+static func _flush_trace_buffer() -> void:
+	if _trace_file == null or _trace_buffer.is_empty():
+		return
+	for buffered_line in _trace_buffer:
+		_trace_file.store_line(buffered_line)
+	_trace_buffer.clear()
+	_trace_file.flush()
 
 
 static func _find_card(match_state: Dictionary, instance_id: String) -> Dictionary:

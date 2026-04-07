@@ -8,6 +8,8 @@ func _init(screen) -> void:
 
 
 func _refresh_ui() -> void:
+	var _refresh_start := Time.get_ticks_msec()
+	print("[REFRESH] _refresh_ui START at %d" % _refresh_start)
 	_screen._feedback._prune_feedback_state()
 	_screen._hover._clear_lane_card_hover_preview()
 	_screen._clear_support_card_hover_preview()
@@ -48,6 +50,8 @@ func _refresh_ui() -> void:
 		elif not is_pending_summon_source and not has_action_preview and not _screen._overlays._has_active_prophecy_overlay(arrow_id):
 			_screen._targeting._cancel_targeting_mode_silent()
 	_screen._feedback._process_overdraw_queue()
+	var _refresh_elapsed := Time.get_ticks_msec() - _refresh_start
+	print("[REFRESH] _refresh_ui END took %dms" % _refresh_elapsed)
 
 
 

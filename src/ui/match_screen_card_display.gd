@@ -271,7 +271,7 @@ func _start_hand_card_bob(button: Button, base_pos: Vector2, bob_key: String) ->
 	var bob_top: float = base_pos.y - _screen.HAND_CARD_BOB_AMPLITUDE
 	var bob_bottom: float = base_pos.y
 	var half = _screen.HAND_CARD_BOB_DURATION * 0.5
-	var bob_tween = _screen.create_tween()
+	var bob_tween = button.create_tween()
 	bob_tween.set_loops()
 	bob_tween.tween_property(button, "position:y", bob_top, half).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
 	bob_tween.tween_property(button, "position:y", bob_bottom, half).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)

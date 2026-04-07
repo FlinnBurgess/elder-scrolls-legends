@@ -147,7 +147,8 @@ static func execute_action(match_state: Dictionary, action: Dictionary, skip_leg
 
 
 static func clone_and_execute(match_state: Dictionary, action: Dictionary) -> Dictionary:
-	var clone := match_state.duplicate(true)
+	var clone := MatchActionEnumerator._lightweight_clone(match_state)
+	clone["_publish_events_loop_limit"] = 50
 	GameLogger.suppress()
 	var result := execute_action(clone, action, true)
 	GameLogger.unsuppress()

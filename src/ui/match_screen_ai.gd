@@ -58,7 +58,11 @@ func _process_local_match_ai_turn() -> void:
 	if _screen._queued_ai_step_at_ms > now_ms:
 		return
 	_screen._queued_ai_step_at_ms = -1
+	var _ai_step_start := Time.get_ticks_msec()
 	var step := _execute_local_match_ai_step()
+	var _ai_step_elapsed := Time.get_ticks_msec() - _ai_step_start
+	if _ai_step_elapsed > 200:
+		print("[PERF] AI step took %dms reason=%s" % [_ai_step_elapsed, str(step.get("yield_reason", ""))])
 	if not bool(step.get("did_execute", false)):
 		if str(step.get("yield_reason", "")) != "waiting_on_local_prophecy":
 			_reset_local_match_ai_queue()
@@ -91,7 +95,11 @@ func _execute_local_match_ai_step() -> Dictionary:
 		_screen._refresh_ui()
 		return {"did_execute": true, "yield_reason": "match_complete"}
 	var ai_player_id := _ai_player_id()
+	var _choose_start := Time.get_ticks_msec()
 	var choice = _screen.HeuristicMatchPolicy.choose_action(_screen._match_state, ai_player_id, _ai_options)
+	var _choose_elapsed := Time.get_ticks_msec() - _choose_start
+	if _choose_elapsed > 2000:
+		_screen.GameLogger.trc("AI", "choose_action", "SLOW CHOOSE %dms actions=%d" % [_choose_elapsed, choice.get("considered_actions", []).size()])
 	if not bool(choice.get("is_valid", false)):
 		return {
 			"did_execute": false,

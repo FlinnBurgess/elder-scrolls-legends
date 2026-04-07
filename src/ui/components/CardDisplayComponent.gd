@@ -3,6 +3,7 @@ extends Control
 
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const CardRelationshipResolverClass = preload("res://src/ui/components/card_relationship_resolver.gd")
+const WARD_SHADER = preload("res://assets/shaders/ward_mist.gdshader")
 
 const PRESENTATION_FULL := "full"
 const PRESENTATION_CREATURE_BOARD_MINIMAL := "creature_board_minimal"
@@ -321,10 +322,9 @@ func _build_internal_nodes() -> void:
 	_ward_overlay.color = Color.WHITE
 	_ward_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_ward_overlay.visible = false
-	var ward_shader := load("res://assets/shaders/ward_mist.gdshader") as Shader
-	if ward_shader:
+	if WARD_SHADER:
 		var ward_mat := ShaderMaterial.new()
-		ward_mat.shader = ward_shader
+		ward_mat.shader = WARD_SHADER
 		_ward_overlay.material = ward_mat
 	_art_clip.add_child(_ward_overlay)
 
@@ -1040,18 +1040,28 @@ func _get_default_art_texture() -> Texture2D:
 	return _default_art_texture
 
 
+static var _texture_cache: Dictionary = {}
+
 func _load_texture_from_path(path: String) -> Texture2D:
+	if _texture_cache.has(path):
+		return _texture_cache[path]
+	var _load_start := Time.get_ticks_msec()
+	var result: Texture2D = null
 	if ResourceLoader.exists(path):
 		var resource = load(path)
 		if resource is Texture2D:
-			return resource as Texture2D
-	var global_path := ProjectSettings.globalize_path(path)
-	if not FileAccess.file_exists(global_path):
-		return null
-	var image := Image.new()
-	if image.load(global_path) != OK:
-		return null
-	return ImageTexture.create_from_image(image)
+			result = resource as Texture2D
+	if result == null:
+		var global_path := ProjectSettings.globalize_path(path)
+		if FileAccess.file_exists(global_path):
+			var image := Image.new()
+			if image.load(global_path) == OK:
+				result = ImageTexture.create_from_image(image)
+	var _load_elapsed := Time.get_ticks_msec() - _load_start
+	if _load_elapsed > 100:
+		print("[TEXTURE] Slow load %dms: %s" % [_load_elapsed, path])
+	_texture_cache[path] = result
+	return result
 
 
 func _recommended_minimum_size(mode: String) -> Vector2:
