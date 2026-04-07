@@ -232,7 +232,16 @@ Also update `action_is_legal` for `KIND_END_TURN` to block ending turn while the
    - `match_mutations.reset_transient_state()` — used when cards change zones
    - `match_turn_loop._clear_temporary_stat_bonuses()` — end-of-turn cleanup (if the state is turn-scoped)
 
-## Step 4: Scan for Other Cards
+## Step 4: Add Regression Test
+
+After implementing the fix, add a regression test that exercises the fixed behavior. This prevents the bug from recurring silently.
+
+1. **Choose the right test runner** — pick the runner that best matches the fix area (e.g., `timing_runner.gd` for trigger fixes, `extended_mechanics_runner.gd` for custom effects, `items_and_supports_runner.gd` for item equip fixes, `golden_match_runner.gd` for complex multi-step scenarios).
+2. **Write a focused test function** — use `ScenarioFixtures` to set up a minimal match state that reproduces the scenario, invoke the relevant engine function (e.g., `MatchTiming.process_triggers`, `MatchCombat.resolve_attack`), and assert the correct outcome using `VerificationAsserts`.
+3. **Name the test clearly** — use the pattern `_test_{card_name_snake_case}_{what_was_fixed}` (e.g., `_test_nahagliiv_summon_guard_grant`, `_test_heirloom_greatsword_item_detached_equip`).
+4. **Register the test** — add the test function call to the runner's `_run_all_tests()` method.
+
+## Step 5: Scan for Other Cards
 
 After implementing the fix, search `card_catalog.gd` for other cards that should use the same effect. Look for:
 - Cards with similar `rules_text` patterns (e.g., other "Fill a lane" cards, other "Summon a X" cards)

@@ -1060,7 +1060,8 @@ func _load_texture_from_path(path: String) -> Texture2D:
 	var _load_elapsed := Time.get_ticks_msec() - _load_start
 	if _load_elapsed > 100:
 		print("[TEXTURE] Slow load %dms: %s" % [_load_elapsed, path])
-	_texture_cache[path] = result
+	if result != null:
+		_texture_cache[path] = result
 	return result
 
 

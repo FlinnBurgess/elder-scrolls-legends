@@ -32,17 +32,22 @@ Process all in-game error reports that were submitted via the error reporting po
    d. **Check if already fixed**: If a recent commit appears to address the issue, verify the fix covers the reported scenario. If so, mark the task as completed, delete the report file, and move on — no new commit needed.
    e. If the report is unclear or requires a design decision, **ask the user for guidance** before proceeding
    f. Implement the fix
-   g. Run relevant test runners based on the fix area. Test runners live in `tests/` and are run with: `/Applications/Godot.app/Contents/MacOS/Godot --headless --log-file /tmp/godot.log --path /Users/flinnburgess/Development/Godot/ElderScrollsLegends --script res://tests/<runner_name>.gd`
+   g. **Add a regression test** that exercises the fixed behavior to prevent the bug from recurring:
+      - Choose the runner that best matches the fix area (see list below)
+      - Write a focused test function using `ScenarioFixtures` to set up a minimal match state, invoke the relevant engine function, and assert the correct outcome with `VerificationAsserts`
+      - Name: `_test_{card_or_feature_snake_case}_{what_was_fixed}`
+      - Register the test function in the runner's `_run_all_tests()` method
+   h. Run relevant test runners based on the fix area. Test runners live in `tests/` and are run with: `/Applications/Godot.app/Contents/MacOS/Godot --headless --log-file /tmp/godot.log --path /Users/flinnburgess/Development/Godot/ElderScrollsLegends --script res://tests/<runner_name>.gd`
       **Important:** Godot test runners require `dangerouslyDisableSandbox: true` because Godot writes to `~/Library/Application Support/Godot/` for logging, and the sandbox blocks this — causing a segfault in `RotatedFileLogger::rotate_file()` that looks like an engine crash.
       - For match/UI fixes: `match_ui_runner.gd`, `all_rules_runner.gd`
       - For arena fixes: `arena_draft_engine_runner.gd`
       - For deck fixes: `deck_persistence_runner.gd`, `deck_validation_runner.gd`
       - For combat/card fixes: `combat_runner.gd`, `keyword_matrix_runner.gd`
       - For triggered abilities/shout/extended mechanics: `extended_mechanics_runner.gd`, `timing_runner.gd`
-   h. If tests fail due to issues introduced by the fix, fix them before proceeding
-   i. Commit the fix with a descriptive message
-   j. **Delete the report file** — remove the `.json` file from `reports/bug-reports/` using a bash `rm` command
-   k. Mark the task as `completed`
+   i. If tests fail due to issues introduced by the fix, fix them before proceeding
+   j. Commit the fix with a descriptive message
+   k. **Delete the report file** — remove the `.json` file from `reports/bug-reports/` using a bash `rm` command
+   l. Mark the task as `completed`
 5. **Continue** until all reports are processed
 6. **Summary** — after all reports are processed, present a final overview listing each report that was fixed (with a brief description of the bug and the fix applied), any reports that were skipped or deferred, and any remaining issues. **Make sure it is concise, sacrifice grammar for concision**
 7. **Pattern scan** — run the `bug-pattern-scan` skill to generalize the fixes into abstract pattern classes and scan for unresolved siblings across the codebase

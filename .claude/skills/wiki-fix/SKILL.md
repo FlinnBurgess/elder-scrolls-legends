@@ -265,7 +265,16 @@ If any identified cards cannot be fixed right now, add them to `development-arti
 1. Update the card's entry in `development-artifacts/core_set_cards.json` if relevant fields changed.
 2. If a new bug class was identified, document it in `development-artifacts/bug_classes.md` (see fix-card-effect skill for format).
 
-## Step 8: Test
+## Step 8: Add Regression Test
+
+After fixing any card implementation, add a regression test that exercises the fixed behavior. This prevents the bug from recurring silently.
+
+1. **Choose the right test runner** — pick the runner that best matches the fix area (e.g., `timing_runner.gd` for trigger fixes, `extended_mechanics_runner.gd` for custom effects, `items_and_supports_runner.gd` for item equip fixes, `golden_match_runner.gd` for complex multi-step scenarios).
+2. **Write a focused test function** — use `ScenarioFixtures` to set up a minimal match state that reproduces the scenario, invoke the relevant engine function (e.g., `MatchTiming.process_triggers`, `MatchCombat.resolve_attack`), and assert the correct outcome using `VerificationAsserts`.
+3. **Name the test clearly** — use the pattern `_test_{card_name_snake_case}_{what_was_fixed}` (e.g., `_test_nahagliiv_summon_guard_grant`, `_test_heirloom_greatsword_item_detached_equip`).
+4. **Register the test** — add the test function call to the runner's `_run_all_tests()` method.
+
+## Step 9: Run Tests
 
 Run the relevant test runners to verify no regressions:
 ```

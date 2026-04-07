@@ -190,7 +190,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 			"add_support_uses", "cost_increase_next_turn", "double_max_magicka_gain", "gain_max_magicka", "gain_unspent_magicka_from_last_turn", "heal", "increase_opponent_action_cost", "prevent_rune_draw", "restore_creature_health", "restore_magicka", "restore_rune", "set_power_cap_in_lane":
 				EffectHealing.apply(op, match_state, trigger, event, effect, generated_events, ctx)
 			# Transform
-			"change", "change_attribute", "change_lane_type", "change_lane_types", "conditional_transform", "copy", "randomize_attribute", "transform", "transform_deck", "transform_hand", "transform_in_hand", "transform_in_hand_to_random":
+			"change", "change_attribute", "change_lane_type", "change_lane_types", "conditional_change", "copy", "randomize_attribute", "transform", "transform_deck", "transform_hand", "transform_in_hand", "transform_in_hand_to_random":
 				EffectTransform.apply(op, match_state, trigger, event, effect, generated_events, ctx)
 			# Sacrifice
 			"consume", "consume_all_creatures_in_discard_this_turn", "consume_and_copy_veteran", "consume_and_reduce_matching_subtype_cost", "consume_card", "consume_or_sacrifice", "optional_consume_for_keyword", "recall_and_resummon", "sacrifice", "sacrifice_and_absorb_stats", "sacrifice_and_equip_from_deck", "sacrifice_and_resummon", "sacrifice_and_summon_from_deck":

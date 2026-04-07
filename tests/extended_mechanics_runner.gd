@@ -30,6 +30,7 @@ func _run_all_tests() -> bool:
 		_test_yagrums_workshop_doubles_assemble() and
 		_test_yagrums_workshop_clears_at_end_of_turn() and
 		_test_beast_form_pack() and
+		_test_beast_form_change_fires_summon_and_preserves_buffs() and
 		_test_veteran_hook() and
 		_test_action_pack_matrix() and
 		_test_empower_and_expertise_hooks() and
@@ -447,7 +448,7 @@ func _test_beast_form_pack() -> bool:
 			"match_role": "opponent_player",
 			"required_zone": "lane",
 			"effects": [{
-				"op": "transform",
+				"op": "change",
 				"target": "self",
 				"card_template": {"definition_id": "werewolf_form", "name": "Werewolf Form", "card_type": "creature", "power": 4, "health": 4},
 			}],
@@ -461,6 +462,49 @@ func _test_beast_form_pack() -> bool:
 	return (
 		_assert(str(beast.get("definition_id", "")) == "werewolf_form", "Breaking an enemy rune should transform Beast Form creatures.") and
 		_assert(EvergreenRules.get_power(beast) == 4 and EvergreenRules.get_health(beast) == 4, "Transformed Beast Form creature should take on the werewolf template stats.")
+	)
+
+
+func _test_beast_form_change_fires_summon_and_preserves_buffs() -> bool:
+	# Beast Form uses "change" (not "transform"), so:
+	# 1) The werewolf form's summon ability should fire (e.g. draw a card)
+	# 2) Existing buffs should be preserved after the change
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	# Werewolf form has a summon: draw a card
+	var beast := ScenarioFixtures.summon_creature(player, match_state, "huntmate", "field", 3, 3, [], -1, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_RUNE_BREAK,
+			"match_role": "opponent_player",
+			"required_zone": "lane",
+			"effects": [{
+				"op": "change",
+				"target": "self",
+				"card_template": {
+					"definition_id": "huntmate_werewolf",
+					"name": "Huntmate Werewolf",
+					"card_type": "creature",
+					"power": 4, "health": 4,
+					"triggered_abilities": [{"family": "summon", "effects": [{"op": "draw_cards", "target_player": "controller", "count": 1}]}],
+				},
+			}],
+		}],
+	})
+	# Apply a +2/+2 buff before the change
+	EvergreenRules.apply_stat_bonus(beast, 2, 2)
+	var hand_before: int = (player.get("hand", []) as Array).size()
+	var damage_result := MatchTiming.apply_player_damage(match_state, str(opponent.get("player_id", "")), 6, {
+		"source_instance_id": str(beast.get("instance_id", "")),
+		"source_controller_player_id": str(player.get("player_id", "")),
+	})
+	MatchTiming.publish_events(match_state, damage_result.get("events", []))
+	var hand_after: int = (player.get("hand", []) as Array).size()
+	return (
+		_assert(str(beast.get("definition_id", "")) == "huntmate_werewolf", "Beast should change into werewolf form.") and
+		_assert(hand_after > hand_before, "Werewolf summon ability (draw a card) should fire after Beast Form change.") and
+		_assert(EvergreenRules.get_power(beast) == 6, "Changed beast should have 4 base + 2 buff = 6 power.") and
+		_assert(EvergreenRules.get_health(beast) == 6, "Changed beast should have 4 base + 2 buff = 6 health.")
 	)
 
 

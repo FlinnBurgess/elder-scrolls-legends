@@ -145,6 +145,8 @@ func _record_feedback_from_events(events: Array) -> void:
 					_screen._queue_status_toast("Treasure Found! (%d)" % th_count, Color(1.0, 0.85, 0.3))
 			"card_transformed":
 				_screen._queue_status_toast("Card transformed!", Color(0.7, 0.5, 1.0))
+			"card_changed":
+				_screen._queue_status_toast("Card changed!", Color(0.7, 0.5, 1.0))
 			"rune_restored":
 				_screen._queue_status_toast("Rune restored!", Color(0.4, 0.8, 1.0))
 			"lane_type_changed":

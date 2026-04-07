@@ -66,12 +66,17 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				var transform_result := MatchMutations.transform_card(match_state, str(card.get("instance_id", "")), transform_template, {"reason": reason})
 				generated_events.append_array(transform_result.get("events", []))
-		"conditional_transform":
+		"conditional_change":
 			var ct_source := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 			if not ct_source.is_empty():
+				var ct_condition: Dictionary = effect.get("condition", {})
+				if not ct_condition.is_empty():
+					var ct_min_power := int(ct_condition.get("min_power", 0))
+					if ct_min_power > 0 and EvergreenRules.get_power(ct_source) < ct_min_power:
+						return
 				var ct_template: Dictionary = effect.get("card_template", {})
 				if not ct_template.is_empty():
-					var ct_result := MatchMutations.transform_card(match_state, str(ct_source.get("instance_id", "")), ct_template, {"reason": reason})
+					var ct_result := MatchMutations.change_card(ct_source, ct_template, {"reason": reason})
 					generated_events.append_array(ct_result.get("events", []))
 		"transform_in_hand":
 			var tih_controller_id := str(trigger.get("controller_player_id", ""))

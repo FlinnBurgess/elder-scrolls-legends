@@ -592,7 +592,18 @@ static func change_card(card: Dictionary, template: Dictionary, options: Diction
 	_restore_card_state(card, preserved, options)
 	card["changed_from"] = previous_definition_id
 	EvergreenRules.sync_derived_state(card)
-	return {"is_valid": true, "errors": [], "card": card, "events": [{"event_type": "card_changed", "source_instance_id": str(card.get("instance_id", ""))}]}
+	var change_events: Array = [{"event_type": "card_changed", "source_instance_id": str(card.get("instance_id", "")), "from_definition_id": previous_definition_id}]
+	if str(card.get("zone", "")) == ZONE_LANE and str(card.get("card_type", "")) == CARD_TYPE_CREATURE:
+		change_events.append({
+			"event_type": "creature_summoned",
+			"player_id": str(card.get("controller_player_id", "")),
+			"source_instance_id": str(card.get("instance_id", "")),
+			"source_controller_player_id": str(card.get("controller_player_id", "")),
+			"lane_id": str(card.get("lane_id", "")),
+			"slot_index": int(card.get("slot_index", -1)),
+			"reason": str(options.get("reason", "change")),
+		})
+	return {"is_valid": true, "errors": [], "card": card, "events": change_events}
 
 
 static func copy_card(target_card: Dictionary, source_card: Dictionary, options: Dictionary = {}) -> Dictionary:

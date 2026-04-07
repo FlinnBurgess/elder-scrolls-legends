@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bo5ip7j8pkt3c"
-path="res://.godot/imported/hos_str_aela_werewolf.png-c51185789e4b879e8170edba5535cc15.ctex"
+uid="uid://bd1q8hqd0uot7"
+path="res://.godot/imported/cwc_end_thornwell_terror_werewolf.png-cea18f23cc4939f38cc02cf272d55b59.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/images/cards/hos_str_aela_werewolf.png"
-dest_files=["res://.godot/imported/hos_str_aela_werewolf.png-c51185789e4b879e8170edba5535cc15.ctex"]
+source_file="res://assets/images/cards/cwc_end_thornwell_terror_werewolf.png"
+dest_files=["res://.godot/imported/cwc_end_thornwell_terror_werewolf.png-cea18f23cc4939f38cc02cf272d55b59.ctex"]
 
 [params]
 

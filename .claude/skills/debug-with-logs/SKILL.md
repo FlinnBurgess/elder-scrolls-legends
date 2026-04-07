@@ -64,4 +64,15 @@ If the log confirms a bug:
 
 - **Data bug** (wrong stats, wrong keywords, wrong cost in card definition): fix the card data in the catalog/seeds directly.
 
-After fixing, if the game is still running, suggest the user reproduce the scenario to verify the fix (they may need to restart the scene).
+## Step 5: Add Regression Test
+
+After implementing a fix, add a regression test that exercises the fixed behavior. This prevents the bug from recurring silently.
+
+1. **Choose the right test runner** — pick the runner that best matches the fix area (e.g., `timing_runner.gd` for trigger fixes, `extended_mechanics_runner.gd` for custom effects, `items_and_supports_runner.gd` for item equip fixes, `combat_runner.gd` for combat bugs, `golden_match_runner.gd` for complex multi-step scenarios).
+2. **Write a focused test function** — use `ScenarioFixtures` to set up a minimal match state that reproduces the scenario, invoke the relevant engine function (e.g., `MatchTiming.process_triggers`, `MatchCombat.resolve_attack`), and assert the correct outcome using `VerificationAsserts`.
+3. **Name the test clearly** — use the pattern `_test_{description_of_what_was_fixed}` (e.g., `_test_guard_not_bypassed_with_cover`, `_test_drain_heals_on_lethal_kill`).
+4. **Register the test** — add the test function call to the runner's `_run_all_tests()` method.
+
+## Step 6: Verify
+
+Run the relevant test runners to confirm the fix and new test pass. If the game is still running, suggest the user reproduce the scenario to verify the fix (they may need to restart the scene).

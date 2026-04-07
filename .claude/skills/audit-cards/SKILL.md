@@ -123,9 +123,10 @@ Take the next 50 cards with `"status": "pending"` as the current batch.
 **Phase 2 — Verify and Fix (Opus):** After all Haiku agents complete, the main conversation (Opus):
 1. **Spot-checks Haiku findings** before applying fixes. Haiku has a significant false positive rate (~30-50% on complex cards) due to misreading truncated data or hallucinating wiki discrepancies. Always verify by reading the actual card seed and comparing against wiki before editing.
 2. Applies confirmed fixes to `card_catalog.gd` and any engine files, one card at a time.
-3. Runs tests after each fix to ensure no regressions.
-4. If tests fail, debug and resolve before moving to the next fix.
-5. Game logic reasoning, new op implementation, and architectural decisions stay in Opus.
+3. **Adds a regression test** for each fix — pick the appropriate test runner, write a focused test using `ScenarioFixtures`/`VerificationAsserts` that exercises the fixed behavior, name it `_test_{card_name_snake_case}_{what_was_fixed}`, and register it in the runner's `_run_all_tests()`.
+4. Runs tests after each fix to ensure no regressions.
+5. If tests fail, debug and resolve before moving to the next fix.
+6. Game logic reasoning, new op implementation, and architectural decisions stay in Opus.
 
 **Phase 3 — Update Progress:** After both phases complete, update `card_audit_progress.json` for all cards in the batch:
 - `"pass"` — no issues found

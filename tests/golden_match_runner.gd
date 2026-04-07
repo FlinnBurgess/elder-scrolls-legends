@@ -21,6 +21,7 @@ func _run_all_tests() -> void:
 	_test_hidden_zone_owner_routed_discard_snapshot()
 	_test_martin_septim_unspent_magicka_carry_over()
 	_test_martin_septim_transform_at_30_magicka()
+	_test_unstable_madman_conditional_transform_at_5_power()
 
 
 func _finish() -> void:
@@ -138,7 +139,7 @@ func _test_martin_septim_unspent_magicka_carry_over() -> void:
 	# End turn without spending → next turn should carry over the unspent magicka.
 	var martin_abilities: Array = [
 		{"family": "start_of_turn", "required_zone": "lane", "effects": [{"op": "gain_unspent_magicka_from_last_turn"}]},
-		{"family": "on_magicka_threshold", "required_zone": "lane", "threshold": 30, "effects": [{"op": "transform", "target": "self", "card_template": {"definition_id": "joo_dual_avatar_of_akatosh", "name": "Avatar of Akatosh", "card_type": "creature", "subtypes": ["Dragon"], "attributes": ["agility", "endurance"], "power": 30, "health": 30, "is_unique": true}}]},
+		{"family": "on_magicka_threshold", "required_zone": "lane", "threshold": 30, "effects": [{"op": "change", "target": "self", "card_template": {"definition_id": "joo_dual_avatar_of_akatosh", "name": "Avatar of Akatosh", "card_type": "creature", "subtypes": ["Dragon"], "attributes": ["agility", "endurance"], "power": 30, "health": 30, "is_unique": true}}]},
 	]
 	var match_state := ScenarioFixtures.create_started_match({"deck_size": 20, "seed": 500, "first_player_index": 0})
 	var player := ScenarioFixtures.player(match_state, 0)
@@ -171,7 +172,7 @@ func _test_martin_septim_transform_at_30_magicka() -> void:
 	#   Turn 3: current=12+24=36 ≥ 30 → TRANSFORM!
 	var martin_abilities: Array = [
 		{"family": "start_of_turn", "required_zone": "lane", "effects": [{"op": "gain_unspent_magicka_from_last_turn"}]},
-		{"family": "on_magicka_threshold", "required_zone": "lane", "threshold": 30, "effects": [{"op": "transform", "target": "self", "card_template": {"definition_id": "joo_dual_avatar_of_akatosh", "name": "Avatar of Akatosh", "card_type": "creature", "subtypes": ["Dragon"], "attributes": ["agility", "endurance"], "power": 30, "health": 30, "is_unique": true}}]},
+		{"family": "on_magicka_threshold", "required_zone": "lane", "threshold": 30, "effects": [{"op": "change", "target": "self", "card_template": {"definition_id": "joo_dual_avatar_of_akatosh", "name": "Avatar of Akatosh", "card_type": "creature", "subtypes": ["Dragon"], "attributes": ["agility", "endurance"], "power": 30, "health": 30, "is_unique": true}}]},
 	]
 	var match_state := ScenarioFixtures.create_started_match({"deck_size": 20, "seed": 501, "first_player_index": 0})
 	var player := ScenarioFixtures.player(match_state, 0)
@@ -203,3 +204,61 @@ func _test_martin_septim_transform_at_30_magicka() -> void:
 	if not avatar.is_empty():
 		VerificationAsserts.assert_equal(int(avatar.get("power", 0)), 30, "Avatar of Akatosh should have 30 power.", _failures)
 		VerificationAsserts.assert_equal(int(avatar.get("health", 0)), 30, "Avatar of Akatosh should have 30 health.", _failures)
+
+
+func _test_unstable_madman_conditional_transform_at_5_power() -> void:
+	# Unstable Madman: 2/2, end-of-turn +1/+1, transforms into Unstoppable Berserker at 5+ power.
+	# Turn 1 end: 2+1=3 power → no transform
+	# Turn 2 end: 3+1=4 power → no transform
+	# Turn 3 end: 4+1=5 power → TRANSFORM
+	var madman_abilities: Array = [
+		{"family": "end_of_turn", "required_zone": "lane", "effects": [
+			{"op": "modify_stats", "target": "self", "power": 1, "health": 1},
+			{"op": "conditional_change", "target": "self", "condition": {"min_power": 5}, "card_template": {
+				"definition_id": "iom_str_unstoppable_berserker",
+				"name": "Unstoppable Berserker",
+				"card_type": "creature",
+				"subtypes": ["Nord"],
+				"attributes": ["strength"],
+				"cost": 3,
+				"power": 2,
+				"health": 2,
+				"base_power": 2,
+				"base_health": 2,
+				"keywords": ["breakthrough"],
+				"rules_text": "Breakthrough\nAt the end of your turn, Unstoppable Berserker gains +2/+2.",
+				"triggered_abilities": [{"family": "end_of_turn", "required_zone": "lane", "effects": [{"op": "modify_stats", "target": "self", "power": 2, "health": 2}]}],
+			}},
+		]},
+	]
+	var match_state := ScenarioFixtures.create_started_match({"deck_size": 20, "seed": 601, "first_player_index": 0})
+	var player := ScenarioFixtures.player(match_state, 0)
+	var opponent := ScenarioFixtures.player(match_state, 1)
+	player["max_magicka"] = 12
+	player["current_magicka"] = 12
+	var madman := ScenarioFixtures.summon_creature(player, match_state, "unstable_madman", "field", 2, 2, [], 0, {
+		"definition_id": "iom_str_unstable_madman",
+		"name": "Unstable Madman",
+		"cost": 3,
+		"triggered_abilities": madman_abilities,
+	})
+	VerificationAsserts.assert_true(not madman.is_empty(), "Unstable Madman should summon.", _failures)
+
+	# Turn 1 end: power becomes 3, should NOT transform
+	MatchTurnLoop.end_turn(match_state, player["player_id"])
+	var still_madman := ScenarioFixtures.find_lane_card(match_state, "field", player["player_id"], "iom_str_unstable_madman")
+	VerificationAsserts.assert_true(not still_madman.is_empty(), "Unstable Madman should not transform at 3 power.", _failures)
+
+	MatchTurnLoop.end_turn(match_state, opponent["player_id"])
+
+	# Turn 2 end: power becomes 4, should NOT transform
+	MatchTurnLoop.end_turn(match_state, player["player_id"])
+	still_madman = ScenarioFixtures.find_lane_card(match_state, "field", player["player_id"], "iom_str_unstable_madman")
+	VerificationAsserts.assert_true(not still_madman.is_empty(), "Unstable Madman should not transform at 4 power.", _failures)
+
+	MatchTurnLoop.end_turn(match_state, opponent["player_id"])
+
+	# Turn 3 end: power becomes 5, should transform into Unstoppable Berserker
+	MatchTurnLoop.end_turn(match_state, player["player_id"])
+	var berserker := ScenarioFixtures.find_lane_card(match_state, "field", player["player_id"], "iom_str_unstoppable_berserker")
+	VerificationAsserts.assert_true(not berserker.is_empty(), "Unstable Madman should transform into Unstoppable Berserker at 5 power.", _failures)
