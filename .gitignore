@@ -11,3 +11,4 @@ data/wiki_scrape/
 .vexp/
 reports/
 build/
+replay_state_dump.json
