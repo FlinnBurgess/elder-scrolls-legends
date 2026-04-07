@@ -287,24 +287,101 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						"prompt": "Choose a card to discard, or press Escape to skip.",
 					})
 		"build_custom_fabricant":
-			# Fabricate: choose attack, health, keywords to build a creature
+			# Fabricate step 1: choose from 3 Custom Fabricant stat options
 			var bcf_controller_id := str(trigger.get("controller_player_id", ""))
-			var bcf_options: Array = effect.get("options", [
-				{"label": "+3/+3", "description": "3 power, 3 health", "effects": [{"op": "summon_from_effect", "card_template": {"definition_id": "cwc_neu_custom_fabricant", "name": "Custom Fabricant", "card_type": "creature", "subtypes": ["Fabricant"], "attributes": ["neutral"], "cost": 0, "power": 3, "health": 3, "base_power": 3, "base_health": 3}}]},
-				{"label": "+5/+5", "description": "5 power, 5 health", "effects": [{"op": "summon_from_effect", "card_template": {"definition_id": "cwc_neu_custom_fabricant", "name": "Custom Fabricant", "card_type": "creature", "subtypes": ["Fabricant"], "attributes": ["neutral"], "cost": 0, "power": 5, "health": 5, "base_power": 5, "base_health": 5}}]},
-			])
-			var bcf_display: Array = []
+			var bcf_source_id := str(trigger.get("source_instance_id", ""))
+			# Generate 3 random stat values with deterministic RNG
+			var bcf_ctx1 := "%s|fabricate_stat_1" % bcf_source_id
+			var bcf_num1: int = MatchTargeting._deterministic_random_index(match_state, bcf_ctx1, 10) + 1  # 1-10
+			var bcf_ctx2 := "%s|fabricate_stat_2" % bcf_source_id
+			var bcf_min2 := bcf_num1 + 1
+			if bcf_min2 < 2:
+				bcf_min2 = 2
+			var bcf_range2 := 11 - bcf_min2 + 1
+			var bcf_num2: int = bcf_min2 + MatchTargeting._deterministic_random_index(match_state, bcf_ctx2, bcf_range2) if bcf_range2 > 0 else bcf_min2
+			var bcf_ctx3 := "%s|fabricate_stat_3" % bcf_source_id
+			var bcf_min3 := bcf_num2 + 1
+			if bcf_min3 < 3:
+				bcf_min3 = 3
+			var bcf_range3 := 12 - bcf_min3 + 1
+			var bcf_num3: int = bcf_min3 + MatchTargeting._deterministic_random_index(match_state, bcf_ctx3, bcf_range3) if bcf_range3 > 0 else bcf_min3
+			var bcf_art_paths: Array = [
+				"res://assets/images/cards/cwc_neu_custom_fabricant.png",
+				"res://assets/images/cards/cwc_neu_custom_fabricant_02.png",
+				"res://assets/images/cards/cwc_neu_custom_fabricant_03.png",
+			]
+			var bcf_stat_values: Array = [bcf_num1, bcf_num2, bcf_num3]
+			var bcf_options: Array = []
 			var bcf_effects: Array = []
-			for bcf_opt in bcf_options:
-				if typeof(bcf_opt) == TYPE_DICTIONARY:
-					bcf_display.append({"label": str(bcf_opt.get("label", "")), "description": str(bcf_opt.get("description", ""))})
-					bcf_effects.append(bcf_opt.get("effects", []))
+			for bcf_i in range(3):
+				var bcf_n: int = bcf_stat_values[bcf_i]
+				var bcf_card := {
+					"definition_id": "cwc_neu_custom_fabricant",
+					"name": "Custom Fabricant",
+					"card_type": "creature",
+					"subtypes": ["Fabricant"],
+					"attributes": ["neutral"],
+					"cost": bcf_n, "power": bcf_n, "health": bcf_n,
+					"base_power": bcf_n, "base_health": bcf_n,
+					"art_path": bcf_art_paths[bcf_i],
+					"rules_text": "",
+				}
+				bcf_options.append({"label": "%d/%d/%d" % [bcf_n, bcf_n, bcf_n], "card": bcf_card})
+				bcf_effects.append([{"op": "fabricate_choose_ability", "card_template": bcf_card}])
 			match_state["pending_player_choices"].append({
 				"player_id": bcf_controller_id,
-				"source_instance_id": str(trigger.get("source_instance_id", "")),
-				"prompt": "Choose your Fabricant's design.",
-				"options": bcf_display,
+				"source_instance_id": bcf_source_id,
+				"prompt": "Choose your Fabricant's stats.",
+				"mode": "card",
+				"options": bcf_options,
 				"effects_per_option": bcf_effects,
+				"trigger": trigger.duplicate(true),
+				"event": event.duplicate(true),
+			})
+		"fabricate_choose_ability":
+			# Fabricate step 2: choose an ability for the fabricant
+			var fca_controller_id := str(trigger.get("controller_player_id", ""))
+			var fca_source_id := str(trigger.get("source_instance_id", ""))
+			var fca_template: Dictionary = effect.get("card_template", {})
+			var fca_ability_pool: Array = [
+				{"keyword": "breakthrough", "rules_text": "Breakthrough"},
+				{"keyword": "drain", "rules_text": "Drain"},
+				{"keyword": "guard", "rules_text": "Guard"},
+				{"keyword": "lethal", "rules_text": "Lethal"},
+				{"keyword": "regenerate", "rules_text": "Regenerate"},
+				{"keyword": "ward", "rules_text": "Ward"},
+				{"triggered_ability": {"family": "summon", "target_mode": "creature_or_player", "effects": [{"op": "deal_damage", "target": "chosen_target", "amount": 1}]}, "rules_text": "Summon: Deal 1 damage."},
+				{"triggered_ability": {"family": "summon", "effects": [{"op": "heal", "target_player": "controller", "amount": 2}]}, "rules_text": "Summon: You gain 2 health."},
+				{"triggered_ability": {"family": "summon", "target_mode": "another_creature", "effects": [{"op": "modify_stats", "target": "chosen_target", "power": 1, "health": 1}]}, "rules_text": "Summon: Give another creature +1/+1."},
+				{"triggered_ability": {"family": "pilfer", "required_zone": "lane", "effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 1}]}, "rules_text": "Pilfer: +1/+1"},
+			]
+			# Pick 3 unique abilities from the pool
+			var fca_remaining := fca_ability_pool.duplicate(true)
+			var fca_chosen: Array = []
+			for fca_pick_i in range(3):
+				var fca_ctx := "%s|fabricate_ability_%d" % [fca_source_id, fca_pick_i]
+				var fca_idx: int = MatchTargeting._deterministic_random_index(match_state, fca_ctx, fca_remaining.size())
+				fca_chosen.append(fca_remaining[fca_idx])
+				fca_remaining.remove_at(fca_idx)
+			var fca_options: Array = []
+			var fca_effects: Array = []
+			for fca_ability in fca_chosen:
+				var fca_card := fca_template.duplicate(true)
+				fca_card["rules_text"] = str(fca_ability.get("rules_text", ""))
+				if fca_ability.has("keyword"):
+					fca_card["keywords"] = [str(fca_ability["keyword"])]
+				if fca_ability.has("triggered_ability"):
+					fca_card["triggered_abilities"] = [fca_ability["triggered_ability"]]
+				var fca_final := fca_card.duplicate(true)
+				fca_options.append({"label": str(fca_ability.get("rules_text", "")), "card": fca_card})
+				fca_effects.append([{"op": "generate_card_to_hand", "card_template": fca_final, "target_player": "controller"}])
+			match_state["pending_player_choices"].append({
+				"player_id": fca_controller_id,
+				"source_instance_id": fca_source_id,
+				"prompt": "Choose your Fabricant's ability.",
+				"mode": "card",
+				"options": fca_options,
+				"effects_per_option": fca_effects,
 				"trigger": trigger.duplicate(true),
 				"event": event.duplicate(true),
 			})

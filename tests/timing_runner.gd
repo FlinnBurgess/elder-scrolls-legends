@@ -26,7 +26,8 @@ func _run_all_tests() -> bool:
 		_test_slay_fires_when_both_creatures_die() and
 		_test_pilfer_does_not_fire_on_summon() and
 		_test_end_of_turn_target_mode_does_not_fire_on_summon() and
-		_test_on_keyword_gained_fires_from_hand()
+		_test_on_keyword_gained_fires_from_hand() and
+		_test_summon_deal_damage_chosen_target_player()
 	)
 
 
@@ -308,6 +309,31 @@ func _test_on_keyword_gained_fires_from_hand() -> bool:
 		_assert(power_after == 4, "on_keyword_gained in hand should buff power: expected 4, got %d" % power_after) and
 		_assert(health_after == 4, "on_keyword_gained in hand should buff health: expected 4, got %d" % health_after)
 	)
+
+
+func _test_summon_deal_damage_chosen_target_player() -> bool:
+	# Regression: summon abilities with target_mode "creature_or_player" that deal_damage
+	# to "chosen_target" must apply damage when the player selects face (a player target).
+	# Previously, the deferred-targeting check only looked at _chosen_target_id (card) and
+	# missed _chosen_target_player_id, so face-targeting silently failed.
+	var match_state := _build_started_match(20, 0)
+	var active: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var opponent_id := str(opponent["player_id"])
+	var hp_before := int(opponent.get("health", 30))
+	var card := _summon_creature(active, match_state, "face_pinger", "field", 1, 1, [], -1, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_SUMMON,
+			"target_mode": "creature_or_player",
+			"effects": [{"op": "deal_damage", "target": "chosen_target", "amount": 1}],
+		}],
+	})
+	# Resolve the summon target as the opponent's face
+	var result := MatchTiming.resolve_targeted_effect(match_state, str(card["instance_id"]), {"target_player_id": opponent_id})
+	if not _assert(bool(result.get("is_valid", false)), "resolve_targeted_effect should succeed for face target"):
+		return false
+	var hp_after := int(opponent.get("health", 30))
+	return _assert(hp_after == hp_before - 1, "Summon deal_damage to face should reduce opponent HP by 1: expected %d, got %d" % [hp_before - 1, hp_after])
 
 
 func _build_started_match(deck_size: int, first_player_index: int) -> Dictionary:
