@@ -792,6 +792,14 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 		var mt_player := MatchTimingHelpers._get_player_state(match_state, mt_controller)
 		if int(mt_player.get("current_magicka", 0)) < magicka_threshold:
 			return false
+	var required_source_subtype := str(descriptor.get("required_source_subtype", family_spec.get("required_source_subtype", "")))
+	if not required_source_subtype.is_empty():
+		var rss_source := MatchTimingHelpers._find_card_anywhere(match_state, str(event.get("source_instance_id", "")))
+		if rss_source.is_empty():
+			return false
+		var rss_subtypes = rss_source.get("subtypes", [])
+		if typeof(rss_subtypes) != TYPE_ARRAY or not rss_subtypes.has(required_source_subtype):
+			return false
 	return ExtendedMechanicPacks.matches_additional_conditions(match_state, trigger, descriptor, event)
 
 

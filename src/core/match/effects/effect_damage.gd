@@ -149,9 +149,11 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						"target_instance_id": str(card.get("instance_id", "")),
 					})
 				var applied := int(damage_result.get("applied", 0))
+				var dd_source_controller := str(dd_source_creature.get("controller_player_id", trigger.get("controller_player_id", "")))
 				generated_events.append({
 					"event_type": "damage_resolved",
 					"source_instance_id": damage_source_id,
+					"source_controller_player_id": dd_source_controller,
 					"target_instance_id": str(card.get("instance_id", "")),
 					"target_type": "creature",
 					"amount": applied,
@@ -208,6 +210,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 									generated_events.append({
 										"event_type": "damage_resolved",
 										"source_instance_id": str(trigger.get("source_instance_id", "")),
+										"source_controller_player_id": str(trigger.get("controller_player_id", "")),
 										"target_type": "player",
 										"target_player_id": dd_opponent,
 										"amount": dd_bt_applied,
