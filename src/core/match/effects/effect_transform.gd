@@ -66,6 +66,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				var transform_result := MatchMutations.transform_card(match_state, str(card.get("instance_id", "")), transform_template, {"reason": reason})
 				generated_events.append_array(transform_result.get("events", []))
+				_queue_targeted_summon_abilities(match_state, card)
 		"conditional_change":
 			var ct_source := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 			if not ct_source.is_empty():
@@ -78,6 +79,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				if not ct_template.is_empty():
 					var ct_result := MatchMutations.change_card(ct_source, ct_template, {"reason": reason})
 					generated_events.append_array(ct_result.get("events", []))
+					_queue_targeted_summon_abilities(match_state, ct_source)
 		"transform_in_hand":
 			var tih_controller_id := str(trigger.get("controller_player_id", ""))
 			var tih_template: Dictionary = effect.get("card_template", {})
@@ -187,6 +189,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				var change_result := MatchMutations.change_card(card, change_template, {"reason": reason})
 				generated_events.append_array(change_result.get("events", []))
+				_queue_targeted_summon_abilities(match_state, card)
 		"copy":
 			var source_cards := MatchTargeting._resolve_card_targets_by_name(match_state, trigger, event, str(effect.get("source_target", "event_source")))
 			if source_cards.is_empty():
@@ -230,3 +233,27 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					if not clt_new_record.is_empty():
 						lane["lane_rule_payload"] = MatchBootstrap._build_lane_rule_payload(clt_new_record)
 					generated_events.append({"event_type": "lane_type_changed", "lane_id": clt_lane_id, "new_type": clt_lane_type, "source_instance_id": str(trigger.get("source_instance_id", ""))})
+
+
+static func _queue_targeted_summon_abilities(match_state: Dictionary, card: Dictionary) -> void:
+	if str(card.get("zone", "")) != ZONE_LANE or str(card.get("card_type", "")) != CARD_TYPE_CREATURE:
+		return
+	var controller_id := str(card.get("controller_player_id", ""))
+	var source_id := str(card.get("instance_id", ""))
+	for ability in card.get("triggered_abilities", []):
+		if typeof(ability) != TYPE_DICTIONARY:
+			continue
+		if str(ability.get("family", "")) != "summon":
+			continue
+		var tm := str(ability.get("target_mode", ""))
+		if tm.is_empty():
+			continue
+		var valid := MatchTargeting.get_valid_targets_for_mode(match_state, source_id, tm, ability)
+		if valid.is_empty():
+			continue
+		var pending_arr: Array = match_state.get("pending_summon_effect_targets", [])
+		pending_arr.append({
+			"player_id": controller_id,
+			"source_instance_id": source_id,
+			"mandatory": false,
+		})

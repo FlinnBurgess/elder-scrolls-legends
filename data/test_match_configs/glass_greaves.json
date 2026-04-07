@@ -1,0 +1,58 @@
+{
+	"name": "Glass Greaves",
+	"description": "Test Glass Greaves equip (+1/+1) and Plot cost reduction",
+	"board_profile": "standard_versus",
+	"turn_number": 1,
+	"first_player": "player_1",
+	"player_1": {
+		"health": 30,
+		"max_magicka": 12,
+		"current_magicka": 12,
+		"rune_thresholds": [25, 20, 15, 10, 5],
+		"has_ring": false,
+		"ring_charges": 0,
+		"hand": [
+			"hom_agi_glass_greaves",
+			"hom_agi_glass_greaves",
+			"str_nord_firebrand",
+			"str_nord_firebrand",
+			"hom_agi_suran_pawnbroker",
+			"hom_agi_twin_lamps_consul"
+		],
+		"deck": [
+			"end_young_mammoth",
+			"end_young_mammoth",
+			"int_elusive_schemer",
+			"str_whiterun_trooper",
+			"str_whiterun_trooper"
+		],
+		"discard": [],
+		"supports": [],
+		"field_creatures": [
+			{"definition_id": "str_whiterun_trooper", "can_attack": true}
+		],
+		"shadow_creatures": []
+	},
+	"player_2": {
+		"health": 30,
+		"max_magicka": 2,
+		"current_magicka": 2,
+		"rune_thresholds": [25, 20, 15, 10, 5],
+		"has_ring": false,
+		"ring_charges": 0,
+		"hand": [
+			"str_fiery_imp"
+		],
+		"deck": [
+			"str_fiery_imp",
+			"str_fiery_imp",
+			"str_fiery_imp"
+		],
+		"discard": [],
+		"field_creatures": [
+			"str_fiery_imp",
+			"str_fiery_imp"
+		],
+		"shadow_creatures": []
+	}
+}

@@ -28,7 +28,7 @@
     "hand": [],
     "deck": ["str_fiery_imp", "str_fiery_imp", "str_fiery_imp", "str_fiery_imp", "str_fiery_imp"],
     "discard": [],
-    "field_creatures": ["str_fiery_imp"],
-    "shadow_creatures": ["str_fiery_imp"]
+    "field_creatures": ["end_young_mammoth"],
+    "shadow_creatures": ["end_fharun_defender"]
   }
 }

@@ -5,6 +5,7 @@ const MatchBootstrap = preload("res://src/core/match/match_bootstrap.gd")
 const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
+const LaneRules = preload("res://src/core/match/lane_rules.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
 
 
@@ -22,7 +23,8 @@ func _run_all_tests() -> bool:
 		_test_items_attach_and_route_to_owner_discard() and
 		_test_supports_persist_and_trigger_from_support_zone() and
 		_test_support_activations_are_once_per_turn_and_use_limited() and
-		_test_mobilize_items_create_recruits_and_attach_equipment()
+		_test_mobilize_items_create_recruits_and_attach_equipment() and
+		_test_plot_item_reduces_random_hand_card_cost()
 	)
 
 
@@ -174,6 +176,56 @@ func _test_mobilize_items_create_recruits_and_attach_equipment() -> bool:
 		_assert(recruit.get("attached_items", []).size() == 1 and _contains_instance(recruit.get("attached_items", []), mobilize_item["instance_id"]), "Mobilize Recruit should receive the item as attached equipment.") and
 		_assert(EvergreenRules.get_power(recruit) == 2 and EvergreenRules.get_health(recruit) == 3, "Mobilize handoff should preserve equipment bonuses on the created Recruit.") and
 		_assert(EvergreenRules.has_keyword(recruit, "ward"), "Mobilize handoff should preserve equipment keyword bonuses on the created Recruit.")
+	)
+
+
+func _test_plot_item_reduces_random_hand_card_cost() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	# Creature already in lane to equip onto
+	var host := _summon_creature(player, match_state, "target_creature", "field", 2, 4, 0)
+	# Filler creature to play first (activates Plot)
+	var filler := _add_hand_card(player, "filler_creature", {
+		"card_type": "creature",
+		"cost": 0,
+		"power": 1,
+		"health": 1,
+	})
+	# Glass Greaves: item with Plot cost reduction
+	var greaves := _add_hand_card(player, "glass_greaves", {
+		"card_type": "item",
+		"cost": 1,
+		"equip_power_bonus": 1,
+		"equip_health_bonus": 1,
+		"triggered_abilities": [{"family": "on_play", "plot_bonus": true, "effects": [{"op": "reduce_random_hand_card_cost", "amount": 1}]}],
+	})
+	# 0-cost card that should be skipped by the cost reduction
+	var _zero_cost := _add_hand_card(player, "zero_cost_card", {
+		"card_type": "creature",
+		"cost": 0,
+		"power": 1,
+		"health": 1,
+	})
+	# Card in hand whose cost should be reduced (only non-zero candidate)
+	var expensive_card := _add_hand_card(player, "expensive_card", {
+		"card_type": "action",
+		"cost": 5,
+	})
+	var cost_before := int(expensive_card.get("cost", 0))
+	# Play filler first to activate Plot
+	var filler_result := LaneRules.summon_from_hand(match_state, player["player_id"], filler["instance_id"], "field")
+	if not _assert(filler_result["is_valid"], "Filler creature should play successfully."):
+		return false
+	# Play Glass Greaves onto the host creature
+	var play_result := PersistentCardRules.play_item_from_hand(match_state, player["player_id"], greaves["instance_id"], {"target_instance_id": host["instance_id"]})
+	if not _assert(play_result["is_valid"], "Glass Greaves should equip successfully."):
+		return false
+	# Check that the expensive card's cost was reduced (0-cost cards should be skipped)
+	var cost_after := int(expensive_card.get("cost", 0))
+	var zero_cost_after := int(_zero_cost.get("cost", 0))
+	return (
+		_assert(cost_after == cost_before - 1, "Plot should reduce the non-zero-cost card by 1. Expected: %d, Got: %d" % [cost_before - 1, cost_after]) and
+		_assert(zero_cost_after == 0, "Zero-cost cards should be skipped by cost reduction.")
 	)
 
 

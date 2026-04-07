@@ -798,6 +798,8 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			for rrhcc_card in rrhcc_player.get(MatchMutations.ZONE_HAND, []):
 				if typeof(rrhcc_card) != TYPE_DICTIONARY:
 					continue
+				if int(rrhcc_card.get("cost", 0)) <= 0:
+					continue
 				if not rrhcc_subtype.is_empty():
 					var rrhcc_subtypes: Array = rrhcc_card.get("subtypes", [])
 					if typeof(rrhcc_subtypes) != TYPE_ARRAY or not rrhcc_subtypes.has(rrhcc_subtype):
