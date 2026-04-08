@@ -772,24 +772,41 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				EvergreenRules.apply_stat_bonus(sob_existing, sob_power, sob_health, reason)
 				generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(sob_existing.get("instance_id", "")), "power_bonus": sob_power, "health_bonus": sob_health, "reason": reason})
 		"summon_from_hand_to_full_lane":
-			# Allow summoning into a full lane by not checking capacity
+			# Auto-summon the trigger source card from hand into the opponent's full lane
 			var sfhtfl_controller_id := str(trigger.get("controller_player_id", ""))
+			var sfhtfl_source_id := str(trigger.get("source_instance_id", ""))
 			var sfhtfl_player := MatchTimingHelpers._get_player_state(match_state, sfhtfl_controller_id)
 			if not sfhtfl_player.is_empty():
+				# Verify the source card is still in hand
 				var sfhtfl_hand: Array = sfhtfl_player.get(ZONE_HAND, [])
-				var sfhtfl_creatures: Array = []
-				for sfhtfl_card in sfhtfl_hand:
-					if str(sfhtfl_card.get("card_type", "")) == CARD_TYPE_CREATURE:
-						sfhtfl_creatures.append(str(sfhtfl_card.get("instance_id", "")))
-				if not sfhtfl_creatures.is_empty():
-					match_state["pending_hand_selections"].append({
-						"player_id": sfhtfl_controller_id,
-						"source_instance_id": str(trigger.get("source_instance_id", "")),
-						"candidate_instance_ids": sfhtfl_creatures,
-						"then_op": "summon_from_hand_ignore_capacity",
-						"then_context": {},
-						"prompt": "Choose a creature from your hand to summon.",
-					})
+				var sfhtfl_card_index := -1
+				for sfhtfl_i in range(sfhtfl_hand.size()):
+					if str(sfhtfl_hand[sfhtfl_i].get("instance_id", "")) == sfhtfl_source_id:
+						sfhtfl_card_index = sfhtfl_i
+						break
+				if sfhtfl_card_index >= 0:
+					# Find opponent's full lanes
+					var sfhtfl_opponent_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), sfhtfl_controller_id)
+					var sfhtfl_full_lanes: Array = []
+					for sfhtfl_lane in match_state.get("lanes", []):
+						var sfhtfl_lid := str(sfhtfl_lane.get("lane_id", ""))
+						var sfhtfl_slots: Array = sfhtfl_lane.get("player_slots", {}).get(sfhtfl_opponent_id, [])
+						var sfhtfl_capacity := int(sfhtfl_lane.get("slot_capacity", 4))
+						if sfhtfl_slots.size() >= sfhtfl_capacity:
+							sfhtfl_full_lanes.append(sfhtfl_lid)
+					if not sfhtfl_full_lanes.is_empty():
+						var sfhtfl_target_lane: String = str(sfhtfl_full_lanes[0])
+						if sfhtfl_full_lanes.size() > 1:
+							var sfhtfl_idx := MatchEffectParams._deterministic_index(match_state, "full_lane_%s" % sfhtfl_source_id, sfhtfl_full_lanes.size())
+							sfhtfl_target_lane = sfhtfl_full_lanes[sfhtfl_idx]
+						var sfhtfl_summon_result := MatchMutations.summon_card_to_lane(match_state, sfhtfl_controller_id, sfhtfl_source_id, sfhtfl_target_lane, {"ignore_capacity": true})
+						if bool(sfhtfl_summon_result.get("is_valid", false)):
+							generated_events.append_array(sfhtfl_summon_result.get("events", []))
+							generated_events.append({"event_type": EVENT_CARD_PLAYED, "playing_player_id": sfhtfl_controller_id, "player_id": sfhtfl_controller_id, "source_instance_id": sfhtfl_source_id, "source_controller_player_id": sfhtfl_controller_id, "source_zone": ZONE_HAND, "target_zone": ZONE_LANE, "card_type": CARD_TYPE_CREATURE, "played_cost": 0})
+							generated_events.append(MatchSummonTiming._build_summon_event(sfhtfl_summon_result["card"], sfhtfl_controller_id, sfhtfl_target_lane, int(sfhtfl_summon_result.get("slot_index", -1)), reason))
+							if bool(sfhtfl_summon_result.get("granted_cover", false)):
+								generated_events.append({"event_type": "status_granted", "source_instance_id": sfhtfl_source_id, "target_instance_id": sfhtfl_source_id, "status_id": "cover"})
+							_MT()._check_summon_abilities(match_state, sfhtfl_summon_result["card"])
 		"summon_random_creature", "summon_random_by_cost":
 			# Delegate to summon_random_from_catalog with appropriate filters
 			var src_filter: Dictionary = {"card_type": "creature"}

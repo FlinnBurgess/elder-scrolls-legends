@@ -1,0 +1,63 @@
+{
+	"name": "Green Pact Ambusher",
+	"description": "Test auto-summon to opponent's full lane + Prophecy Guard",
+	"board_profile": "standard_versus",
+	"turn_number": 1,
+	"first_player": "player_2",
+	"player_1": {
+		"health": 30,
+		"max_magicka": 12,
+		"current_magicka": 12,
+		"rune_thresholds": [25, 20, 15, 10, 5],
+		"has_ring": false,
+		"ring_charges": 0,
+		"hand": [
+			"fsc_str_green_pact_ambusher",
+			"fsc_str_green_pact_ambusher",
+			"str_grahtwood_ambusher",
+			"agi_green_pact_stalker",
+			"str_earthbone_spinner"
+		],
+		"deck": [
+			"fsc_str_green_pact_ambusher",
+			"str_sharpshooter_scout",
+			"agi_blacksap_protector",
+			"agi_leaflurker",
+			"str_valenwood_huntsman"
+		],
+		"discard": [],
+		"supports": [],
+		"field_creatures": [],
+		"shadow_creatures": []
+	},
+	"player_2": {
+		"health": 30,
+		"max_magicka": 3,
+		"current_magicka": 3,
+		"rune_thresholds": [25, 20, 15, 10, 5],
+		"has_ring": false,
+		"ring_charges": 0,
+		"hand": [
+			"hom_end_vvardvark",
+			"hom_end_vvardvark"
+		],
+		"deck": [
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark"
+		],
+		"discard": [],
+		"field_creatures": [
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark"
+		],
+		"shadow_creatures": [
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark"
+		]
+	}
+}

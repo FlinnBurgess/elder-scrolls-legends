@@ -293,16 +293,44 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 		"consume_and_reduce_matching_subtype_cost":
 			var carmsc_controller_id := str(trigger.get("controller_player_id", ""))
 			var carmsc_source_id := str(trigger.get("source_instance_id", ""))
-			var carmsc_candidates = _MT().get_consume_candidates(match_state, carmsc_controller_id)
-			if not carmsc_candidates.is_empty():
-				var carmsc_candidate_ids: Array = []
-				for carmsc_c in carmsc_candidates:
-					carmsc_candidate_ids.append(str(carmsc_c.get("instance_id", "")))
-				var carmsc_pending: Array = match_state.get("pending_consume_selections", [])
-				carmsc_pending.append({
-					"player_id": carmsc_controller_id,
-					"source_instance_id": carmsc_source_id,
-					"candidate_instance_ids": carmsc_candidate_ids,
-					"has_target_mode": false,
-					"trigger_index": int(trigger.get("trigger_index", 0)),
-				})
+			var carmsc_consumed_info: Dictionary = trigger.get("_consumed_card_info", {})
+			if carmsc_consumed_info.is_empty():
+				var carmsc_source_card := MatchTimingHelpers._find_card_anywhere(match_state, carmsc_source_id)
+				if not carmsc_source_card.is_empty():
+					carmsc_consumed_info = carmsc_source_card.get("_consumed_card_info", {})
+			if not carmsc_consumed_info.is_empty():
+				# Post-consume phase: reduce cost of matching subtype creatures in deck
+				var carmsc_subtypes: Array = carmsc_consumed_info.get("subtypes", [])
+				var carmsc_reduction := int(effect.get("cost_reduction", 1))
+				var carmsc_player := MatchTimingHelpers._get_player_state(match_state, carmsc_controller_id)
+				if not carmsc_player.is_empty() and not carmsc_subtypes.is_empty():
+					var carmsc_deck: Array = carmsc_player.get(ZONE_DECK, [])
+					for carmsc_card in carmsc_deck:
+						if typeof(carmsc_card) != TYPE_DICTIONARY or str(carmsc_card.get("card_type", "")) != CARD_TYPE_CREATURE:
+							continue
+						var carmsc_card_subtypes: Array = carmsc_card.get("subtypes", [])
+						if typeof(carmsc_card_subtypes) != TYPE_ARRAY:
+							continue
+						var carmsc_match := false
+						for carmsc_st in carmsc_subtypes:
+							if carmsc_card_subtypes.has(carmsc_st):
+								carmsc_match = true
+								break
+						if carmsc_match:
+							carmsc_card["cost"] = maxi(0, int(carmsc_card.get("cost", 0)) - carmsc_reduction)
+					generated_events.append({"event_type": "zone_cost_reduced", "player_id": carmsc_controller_id, "zone": ZONE_DECK, "amount": carmsc_reduction, "reason": reason})
+			else:
+				# Pre-consume phase: create pending consume selection
+				var carmsc_candidates = _MT().get_consume_candidates(match_state, carmsc_controller_id)
+				if not carmsc_candidates.is_empty():
+					var carmsc_candidate_ids: Array = []
+					for carmsc_c in carmsc_candidates:
+						carmsc_candidate_ids.append(str(carmsc_c.get("instance_id", "")))
+					var carmsc_pending: Array = match_state.get("pending_consume_selections", [])
+					carmsc_pending.append({
+						"player_id": carmsc_controller_id,
+						"source_instance_id": carmsc_source_id,
+						"candidate_instance_ids": carmsc_candidate_ids,
+						"has_target_mode": false,
+						"trigger_index": int(trigger.get("trigger_index", 0)),
+					})

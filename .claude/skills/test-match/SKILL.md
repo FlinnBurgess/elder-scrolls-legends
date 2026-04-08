@@ -48,7 +48,7 @@ Set these parameters:
 - **Player 1 magicka**: High enough to play the test cards (usually 12)
 - **Player 2 magicka**: Low (1-3) so AI doesn't overwhelm the board
 - **Player 2 runes**: Standard (`[25, 20, 15, 10, 5]`) unless testing prophecy/rune interactions where you want no runes (`[]`)
-- **Player 2 creatures**: Weak (1/1 Fiery Imps or Nord Firebrands) as punching bags
+- **Player 2 creatures**: Weak punching bags — default to Vvardvarks (`hom_end_vvardvark`, 0/1) unless the test needs attackers
 - **Lane creatures**: Pre-place one key card in lane if it needs to attack or be attacked immediately
 
 ### Step 3 — Create the JSON Config
@@ -174,7 +174,8 @@ Tell the user:
 
 ## Common Card IDs for Testing
 
-Weak enemies (punching bags):
+Weak enemies (punching bags) — **prefer Vvardvarks as the default**:
+- `hom_end_vvardvark` — 0/1 creature, cost 0 (default choice for punching bags)
 - `str_fiery_imp` — 1/1 creature, cost 1
 - `str_nord_firebrand` — 1/1 Charge, cost 0
 - `end_deathless_draugr` — 1/1 Last Gasp: resummon, cost 1

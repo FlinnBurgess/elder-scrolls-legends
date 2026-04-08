@@ -77,7 +77,9 @@ func _run_all_tests() -> bool:
 		_test_madness_beckons_generates_iom_card() and
 		_test_play_prophecy_from_hand_opens_prophecy_window() and
 		_test_required_friendly_attribute_count_neutral() and
-		_test_required_friendly_attribute_count_not_met_blocks_target()
+		_test_required_friendly_attribute_count_not_met_blocks_target() and
+		_test_summon_from_hand_to_full_lane_auto_summons() and
+		_test_consume_and_reduce_matching_subtype_cost()
 	)
 
 
@@ -3012,3 +3014,109 @@ func _test_required_friendly_attribute_count_not_met_blocks_target() -> bool:
 		return false
 	# Enemy should still have Guard (not silenced)
 	return _assert(EvergreenRules.has_keyword(enemy, "guard"), "Fabricant: enemy should still have Guard — silence should not have fired.")
+
+
+func _test_summon_from_hand_to_full_lane_auto_summons() -> bool:
+	# Opponent goes first so we can end their turn to trigger the ability
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 10, "first_player_index": 1})
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Fill opponent's field lane to capacity (4 creatures)
+	for i in range(4):
+		ScenarioFixtures.summon_creature(opponent, match_state, "opp_fill_%d" % i, "field", 1, 1)
+	# Put Green Pact Ambusher analog in player's hand with end_of_turn trigger
+	var ambusher := ScenarioFixtures.add_hand_card(player, "ambusher", {
+		"card_type": "creature", "cost": 2, "power": 4, "health": 1,
+		"keywords": ["guard"],
+		"triggered_abilities": [{"family": "end_of_turn", "match_role": "opponent_player", "required_zone": "hand", "required_opponent_full_lane": true, "effects": [{"op": "summon_from_hand_to_full_lane", "target": "self"}]}],
+	})
+	var ambusher_id := str(ambusher.get("instance_id", ""))
+	# End opponent's turn to trigger the ability
+	MatchTurnLoop.end_turn(match_state, oid)
+	# Ambusher should no longer be in hand
+	var still_in_hand := false
+	for card in player.get("hand", []):
+		if str(card.get("instance_id", "")) == ambusher_id:
+			still_in_hand = true
+			break
+	if not _assert(not still_in_hand, "Ambusher should be removed from hand after auto-summon."):
+		return false
+	# Ambusher should be in the field lane (opponent's full lane)
+	var found_in_lane := false
+	for lane in match_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(pid, []):
+			if str(card.get("instance_id", "")) == ambusher_id:
+				found_in_lane = true
+				break
+	if not _assert(found_in_lane, "Ambusher should be summoned to the opponent's full lane."):
+		return false
+	# No pending hand selection should exist (auto-summon, not a pick phase)
+	var pending := MatchTiming.get_pending_hand_selection(match_state, pid)
+	return _assert(pending.is_empty(), "No pending hand selection should exist — summon should be automatic.")
+
+
+func _test_consume_and_reduce_matching_subtype_cost() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Set up deck with Dark Elf creatures and a non-Dark-Elf creature
+	var dark_elf_in_deck := ScenarioFixtures.make_card(pid, "dark_elf_deck_1", {
+		"card_type": "creature", "cost": 5, "power": 3, "health": 3,
+		"subtypes": ["Dark Elf"],
+	})
+	var dark_elf_in_deck_2 := ScenarioFixtures.make_card(pid, "dark_elf_deck_2", {
+		"card_type": "creature", "cost": 4, "power": 2, "health": 2,
+		"subtypes": ["Dark Elf"],
+	})
+	var nord_in_deck := ScenarioFixtures.make_card(pid, "nord_deck_1", {
+		"card_type": "creature", "cost": 3, "power": 2, "health": 2,
+		"subtypes": ["Nord"],
+	})
+	ScenarioFixtures.set_deck_cards(player, [dark_elf_in_deck, dark_elf_in_deck_2, nord_in_deck])
+	# Put a Dark Elf creature in the discard pile for consuming
+	var meal := ScenarioFixtures.make_card(pid, "dark_elf_meal", {
+		"card_type": "creature", "cost": 2, "power": 1, "health": 1,
+		"subtypes": ["Dark Elf"],
+	})
+	meal["zone"] = "discard"
+	player["discard"] = [meal]
+	# Add Rimmen Purveyor analog to hand: consume + reduce matching subtype cost
+	var purveyor := ScenarioFixtures.add_hand_card(player, "purveyor", {
+		"card_type": "creature", "cost": 0, "power": 4, "health": 4,
+		"triggered_abilities": [{"family": "summon", "effects": [{"op": "consume_and_reduce_matching_subtype_cost", "target_mode": "any_creature", "cost_reduction": 1}]}],
+	})
+	var purveyor_id := str(purveyor.get("instance_id", ""))
+	# Summon the purveyor — should create a pending consume selection
+	var summon_result := LaneRules.summon_from_hand(match_state, pid, purveyor_id, "field")
+	if not _assert(bool(summon_result.get("is_valid", false)), "Purveyor: summon should be valid."):
+		return false
+	if not _assert(MatchTiming.has_pending_consume_selection(match_state, pid), "Purveyor: should have pending consume selection after summon."):
+		return false
+	# Resolve the consume — pick the Dark Elf meal
+	var meal_id := str(meal.get("instance_id", ""))
+	var consume_result := MatchTiming.resolve_consume_selection(match_state, pid, meal_id)
+	if not _assert(bool(consume_result.get("is_valid", false)), "Purveyor: consume selection should be valid."):
+		return false
+	# Should NOT have another pending consume (only one creature should be consumed)
+	if not _assert(not MatchTiming.has_pending_consume_selection(match_state, pid), "Purveyor: should NOT have another pending consume after resolving."):
+		return false
+	# Dark Elf deck creatures should have cost reduced by 1
+	var deck: Array = player.get("deck", [])
+	var de1_cost := -1
+	var de2_cost := -1
+	var nord_cost := -1
+	for card in deck:
+		var iid := str(card.get("instance_id", ""))
+		if iid.ends_with("dark_elf_deck_1"):
+			de1_cost = int(card.get("cost", -1))
+		elif iid.ends_with("dark_elf_deck_2"):
+			de2_cost = int(card.get("cost", -1))
+		elif iid.ends_with("nord_deck_1"):
+			nord_cost = int(card.get("cost", -1))
+	if not _assert(de1_cost == 4, "Purveyor: Dark Elf deck creature 1 cost should be 4 (was 5), got %d." % de1_cost):
+		return false
+	if not _assert(de2_cost == 3, "Purveyor: Dark Elf deck creature 2 cost should be 3 (was 4), got %d." % de2_cost):
+		return false
+	return _assert(nord_cost == 3, "Purveyor: Nord deck creature cost should remain 3 (unchanged), got %d." % nord_cost)
