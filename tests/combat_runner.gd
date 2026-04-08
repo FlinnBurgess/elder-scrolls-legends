@@ -4,6 +4,7 @@ const MatchBootstrap = preload("res://src/core/match/match_bootstrap.gd")
 const LaneRules = preload("res://src/core/match/lane_rules.gd")
 const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const MatchCombat = preload("res://src/core/match/match_combat.gd")
+const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 
 
 func _initialize() -> void:
@@ -23,7 +24,8 @@ func _run_all_tests() -> bool:
 		_test_breakthrough_and_player_damage() and
 		_test_direct_player_attack_emits_events_and_applies_drain() and
 		_test_attack_refreshes_on_controller_next_turn() and
-		_test_guards_both_lanes_cross_lane_targeting()
+		_test_guards_both_lanes_cross_lane_targeting() and
+		_test_move_to_attack_into_shadow_lane_loses_cover()
 	)
 
 
@@ -254,6 +256,34 @@ func _test_guards_both_lanes_cross_lane_targeting() -> bool:
 		_assert(not cross_lane_player_attack["is_valid"], "Guards_both_lanes should block player attacks from other lanes.") and
 		_assert(not same_lane_player_attack["is_valid"], "Guards_both_lanes should block player attacks from the same lane.")
 	)
+
+
+func _test_move_to_attack_into_shadow_lane_loses_cover() -> bool:
+	var match_state := _build_started_match(18, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+
+	# Place a move_to_attack creature in the field lane
+	var stalker := _summon_creature(active_player, match_state, "stalker", "field", 4, 4, [], -1, {"status_markers": ["move_to_attack_any_lane"]})
+	_target_ready_for_attack(stalker, match_state)
+
+	# Place a weak enemy in the shadow lane (remove cover so it can be attacked)
+	var imp := _summon_creature(opponent, match_state, "imp", "shadow", 1, 1)
+	_target_ready_for_attack(imp, match_state)
+	EvergreenRules.remove_status(imp, EvergreenRules.STATUS_COVER)
+
+	# Stalker should not have cover before attacking
+	_assert(not EvergreenRules.has_raw_status(stalker, EvergreenRules.STATUS_COVER), "Stalker should not have cover before cross-lane attack.")
+
+	# Attack cross-lane: stalker moves to shadow lane then attacks
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], stalker["instance_id"], {
+		"type": "creature",
+		"instance_id": imp["instance_id"],
+	})
+	_assert(result["is_valid"], "Cross-lane move-to-attack should succeed.")
+
+	# After attacking, the stalker should NOT have cover — it was granted by shadow lane entry then removed by attacking
+	return _assert(not EvergreenRules.has_raw_status(stalker, EvergreenRules.STATUS_COVER), "Move-to-attack creature should lose cover after attacking into shadow lane.")
 
 
 func _build_started_match(deck_size: int, first_player_index: int) -> Dictionary:

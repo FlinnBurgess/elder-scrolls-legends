@@ -60,10 +60,6 @@ static func resolve_attack(match_state: Dictionary, player_id: String, attacker_
 			attacker["extra_attacks_remaining"] = extra - 1
 	attacker["has_attacked_this_turn"] = true
 	_increment_lane_attack_count(match_state, attacker)
-	if EvergreenRules.has_raw_status(attacker, EvergreenRules.STATUS_COVER):
-		EvergreenRules.remove_status(attacker, EvergreenRules.STATUS_COVER)
-		attacker.erase("cover_expires_on_turn")
-		attacker.erase("cover_granted_by")
 
 	var events: Array = []
 	events.append({
@@ -89,6 +85,10 @@ static func resolve_attack(match_state: Dictionary, player_id: String, attacker_
 		})
 
 	if str(validation.get("target_type", "")) == TARGET_TYPE_PLAYER:
+		if EvergreenRules.has_raw_status(attacker, EvergreenRules.STATUS_COVER):
+			EvergreenRules.remove_status(attacker, EvergreenRules.STATUS_COVER)
+			attacker.erase("cover_expires_on_turn")
+			attacker.erase("cover_granted_by")
 		var player_result := _resolve_player_attack(match_state, validation, attacker, events)
 		var player_timing_result := MatchTiming.publish_events(match_state, events)
 		player_result["events"] = player_timing_result.get("processed_events", [])
@@ -97,21 +97,32 @@ static func resolve_attack(match_state: Dictionary, player_id: String, attacker_
 		return player_result
 
 	# Cross-lane attack with movement: move attacker to defender's lane before combat so move triggers fire first
+	var move_timing: Dictionary = {}
 	if bool(validation.get("is_cross_lane", false)) and EvergreenRules.has_status(attacker, "move_to_attack_any_lane"):
 		var defender_lane_id := str(validation.get("defender_lane_id", ""))
 		var move_result := MatchMutations.move_card_between_lanes(match_state, player_id, attacker_instance_id, defender_lane_id, {"preserve_entered_lane_on_turn": true})
 		if bool(move_result.get("is_valid", false)):
 			events.append_array(move_result.get("events", []))
-			var move_timing := MatchTiming.publish_events(match_state, events)
-			events = move_timing.get("processed_events", [])
+			move_timing = MatchTiming.publish_events(match_state, events)
+			# Clear events — move events are fully processed and will be merged into the final result
+			events = []
 			# Update validation lane_id to reflect new position
 			validation["lane_id"] = defender_lane_id
 
+	# Remove cover after cross-lane movement so that moving into shadow lane grants then loses cover
+	if EvergreenRules.has_raw_status(attacker, EvergreenRules.STATUS_COVER):
+		EvergreenRules.remove_status(attacker, EvergreenRules.STATUS_COVER)
+		attacker.erase("cover_expires_on_turn")
+		attacker.erase("cover_granted_by")
+
 	var creature_result := _resolve_creature_attack(match_state, validation, attacker, events)
 	var creature_timing_result := MatchTiming.publish_events(match_state, events)
-	# Merge pre-destroy (damage triggers), phase1 (defender death), and phase2 (attacker death + remaining) results
+	# Merge move timing, pre-destroy (damage triggers), phase1 (defender death), and phase2 (attacker death + remaining) results
 	var all_events: Array = []
 	var all_triggers: Array = []
+	if not move_timing.is_empty():
+		all_events.append_array(move_timing.get("processed_events", []))
+		all_triggers.append_array(move_timing.get("trigger_resolutions", []))
 	if creature_result.has("_pre_destroy_timing"):
 		all_events.append_array(creature_result["_pre_destroy_timing"].get("processed_events", []))
 		all_triggers.append_array(creature_result["_pre_destroy_timing"].get("trigger_resolutions", []))
