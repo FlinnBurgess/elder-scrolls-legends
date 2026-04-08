@@ -232,6 +232,8 @@ static func ensure_match_state(match_state: Dictionary) -> void:
 		match_state["pending_discard_choices"] = []
 	if not match_state.has("pending_hand_selections") or typeof(match_state["pending_hand_selections"]) != TYPE_ARRAY:
 		match_state["pending_hand_selections"] = []
+	if not match_state.has("pending_free_plays") or typeof(match_state["pending_free_plays"]) != TYPE_ARRAY:
+		match_state["pending_free_plays"] = []
 	if not match_state.has("pending_top_deck_choices") or typeof(match_state["pending_top_deck_choices"]) != TYPE_ARRAY:
 		match_state["pending_top_deck_choices"] = []
 	if not match_state.has("pending_player_choices") or typeof(match_state["pending_player_choices"]) != TYPE_ARRAY:
@@ -387,6 +389,11 @@ static func resolve_targeted_effect(match_state: Dictionary, source_instance_id:
 				break
 	if matching_ability.is_empty():
 		return {"is_valid": false, "errors": ["No matching ability for chosen target."], "events": [], "trigger_resolutions": []}
+	# Gate check: if the ability has conditions (e.g. required_friendly_attribute_count),
+	# verify they are met before firing the effect.
+	var rte_controller := str(source_card.get("controller_player_id", ""))
+	if not MatchTargeting._ability_conditions_met(match_state, rte_controller, source_instance_id, matching_ability):
+		return {"is_valid": false, "errors": ["Ability conditions not met."], "events": [], "trigger_resolutions": []}
 	# Secondary target mode: if the ability has a secondary_target_mode and we haven't
 	# selected the secondary yet, save the primary target, fire the primary effect
 	# immediately, and create a pending secondary selection.
@@ -726,6 +733,29 @@ static func decline_pending_hand_selection(match_state: Dictionary, player_id: S
 			selections.remove_at(i)
 			return {"is_valid": true, "errors": []}
 	return {"is_valid": false, "errors": ["No pending hand selection for player %s." % player_id]}
+
+
+static func has_pending_free_play(match_state: Dictionary, player_id: String = "") -> bool:
+	return not get_pending_free_play(match_state, player_id).is_empty()
+
+
+static func get_pending_free_play(match_state: Dictionary, player_id: String = "") -> Dictionary:
+	ensure_match_state(match_state)
+	for entry in match_state.get("pending_free_plays", []):
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		if not player_id.is_empty() and str(entry.get("player_id", "")) != player_id:
+			continue
+		return entry.duplicate(true)
+	return {}
+
+
+static func consume_pending_free_play(match_state: Dictionary, instance_id: String) -> void:
+	var arr: Array = match_state.get("pending_free_plays", [])
+	for i in range(arr.size()):
+		if typeof(arr[i]) == TYPE_DICTIONARY and str(arr[i].get("instance_id", "")) == instance_id:
+			arr.remove_at(i)
+			return
 
 
 static func has_pending_top_deck_choice(match_state: Dictionary, player_id: String = "") -> bool:
@@ -2521,6 +2551,8 @@ static func play_action_from_hand(match_state: Dictionary, player_id: String, in
 	ExtendedMechanicPacks.apply_pre_play_options(played_card, options)
 	if str(played_card.get("card_type", "")) != CARD_TYPE_ACTION:
 		return MatchTimingHelpers._invalid_result("Selected mode for %s is not playable as an action." % instance_id)
+	if bool(played_card.get("_play_for_free", false)):
+		options["played_for_free"] = true
 	var played_for_free := bool(options.get("played_for_free", false))
 	if not played_for_free:
 		var play_limit := PersistentCardRules.get_play_limit_per_turn(match_state, player_id)
@@ -2628,6 +2660,9 @@ static func play_action_from_hand(match_state: Dictionary, player_id: String, in
 		MatchTimingHelpers._spend_magicka(match_state, player_id, play_cost)
 	if action_cost_reduction > 0:
 		player["next_card_cost_reduction"] = 0
+	if bool(played_card.get("_play_for_free", false)):
+		played_card.erase("_play_for_free")
+		consume_pending_free_play(match_state, instance_id)
 	player[ZONE_HAND].remove_at(hand_index)
 	played_card["zone"] = ZONE_DISCARD
 	player[ZONE_DISCARD].append(played_card)

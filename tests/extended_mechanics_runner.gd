@@ -7,6 +7,7 @@ const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const ExtendedMechanicPacks = preload("res://src/core/match/extended_mechanic_packs.gd")
+const MatchTargeting = preload("res://src/core/match/match_targeting.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
 const ScenarioFixtures = preload("res://tests/support/scenario_fixtures.gd")
 
@@ -73,7 +74,10 @@ func _run_all_tests() -> bool:
 		_test_stampede_sentinel_does_not_block_combat_damage_to_player() and
 		_test_battle_self_single_destruction() and
 		_test_playing_card_mutation_and_summon() and
-		_test_madness_beckons_generates_iom_card()
+		_test_madness_beckons_generates_iom_card() and
+		_test_play_prophecy_from_hand_opens_prophecy_window() and
+		_test_required_friendly_attribute_count_neutral() and
+		_test_required_friendly_attribute_count_not_met_blocks_target()
 	)
 
 
@@ -2896,3 +2900,115 @@ func _test_madness_beckons_generates_iom_card() -> bool:
 		if not _assert(pc_cost >= 2 and pc_cost <= 9, "Madness Beckons: Playing Card cost should be 2-9, got %d." % pc_cost):
 			return false
 	return true
+
+
+func _test_play_prophecy_from_hand_opens_prophecy_window() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	# Create a creature with summon: play_prophecy_from_hand
+	var beetle := ScenarioFixtures.add_hand_card(player, "assassin_beetle", {
+		"card_type": "creature",
+		"cost": 0,
+		"power": 2,
+		"health": 2,
+		"rules_tags": ["prophecy"],
+		"triggered_abilities": [{"family": "summon", "effects": [{"op": "play_prophecy_from_hand"}]}],
+	})
+	# Add a prophecy creature to hand as a candidate
+	var prophecy_card := ScenarioFixtures.add_hand_card(player, "prophecy_target", {
+		"card_type": "creature",
+		"cost": 3,
+		"power": 3,
+		"health": 3,
+		"rules_tags": ["prophecy"],
+	})
+	var prophecy_instance_id := str(prophecy_card.get("instance_id", ""))
+	# Summon the beetle to trigger play_prophecy_from_hand
+	var summon_result := LaneRules.summon_from_hand(match_state, player_id, str(beetle.get("instance_id", "")), "field")
+	if not _assert(bool(summon_result.get("is_valid", false)), "play_prophecy_from_hand: beetle summon should be valid."):
+		return false
+	# A pending hand selection should exist
+	var selection := MatchTiming.get_pending_hand_selection(match_state, player_id)
+	if not _assert(not selection.is_empty(), "play_prophecy_from_hand: should create a pending hand selection."):
+		return false
+	if not _assert(str(selection.get("then_op", "")) == "play_card_from_hand_free", "play_prophecy_from_hand: then_op should be play_card_from_hand_free."):
+		return false
+	# Resolve the hand selection by choosing the prophecy card
+	var resolve_result := MatchTiming.resolve_pending_hand_selection(match_state, player_id, prophecy_instance_id)
+	if not _assert(bool(resolve_result.get("is_valid", false)), "play_prophecy_from_hand: resolving hand selection should be valid."):
+		return false
+	# After resolving, no prophecy window — instead a pending free play should exist
+	if not _assert(not MatchTiming.has_pending_prophecy(match_state, player_id), "play_prophecy_from_hand: should NOT open a prophecy window (auto-keep)."):
+		return false
+	if not _assert(MatchTiming.has_pending_free_play(match_state, player_id), "play_prophecy_from_hand: should create a pending free play."):
+		return false
+	# The card should be marked with _play_for_free
+	var marked := false
+	for card in player.get("hand", []):
+		if str(card.get("instance_id", "")) == prophecy_instance_id:
+			marked = bool(card.get("_play_for_free", false))
+			break
+	if not _assert(marked, "play_prophecy_from_hand: chosen card should have _play_for_free flag."):
+		return false
+	# Playing the free-play card as a creature should work without spending magicka
+	player["current_magicka"] = 0  # zero magicka — should still work because it's free
+	var play_result := LaneRules.summon_from_hand(match_state, player_id, prophecy_instance_id, "field")
+	if not _assert(bool(play_result.get("is_valid", false)), "play_prophecy_from_hand: free-play card should summon even with 0 magicka."):
+		return false
+	# After playing, the pending free play should be consumed
+	return _assert(not MatchTiming.has_pending_free_play(match_state, player_id), "play_prophecy_from_hand: pending free play should be consumed after playing.")
+
+
+func _test_required_friendly_attribute_count_neutral() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Place a neutral creature in lane to satisfy the condition
+	ScenarioFixtures.summon_creature(player, match_state, "neutral_body", "field", 0, 3, [], -1, {
+		"attributes": ["neutral"],
+	})
+	# Summon Hulking Fabricant analog: +3/+3 if friendly neutral in play
+	var fabricant := ScenarioFixtures.add_hand_card(player, "hulking_fabricant", {
+		"card_type": "creature", "cost": 0, "power": 5, "health": 5,
+		"triggered_abilities": [{"family": "summon", "required_friendly_attribute_count": {"attribute": "neutral", "min": 1}, "effects": [{"op": "modify_stats", "target": "self", "power": 3, "health": 3}]}],
+	})
+	var summon_result := LaneRules.summon_from_hand(match_state, pid, str(fabricant.get("instance_id", "")), "field")
+	if not _assert(bool(summon_result.get("is_valid", false)), "Fabricant: summon should be valid."):
+		return false
+	# The +3/+3 buff should have been applied
+	if not _assert(EvergreenRules.get_power(fabricant) == 8, "Fabricant: power should be 8 (5 base + 3 buff), got %d." % EvergreenRules.get_power(fabricant)):
+		return false
+	return _assert(EvergreenRules.get_health(fabricant) == 8, "Fabricant: health should be 8 (5 base + 3 buff), got %d." % EvergreenRules.get_health(fabricant))
+
+
+func _test_required_friendly_attribute_count_not_met_blocks_target() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Place a NON-neutral creature — condition should NOT be met
+	ScenarioFixtures.summon_creature(player, match_state, "non_neutral_body", "field", 2, 3, [], -1, {
+		"attributes": ["strength"],
+	})
+	# Place an enemy creature as a potential silence target
+	var enemy := ScenarioFixtures.summon_creature(opponent, match_state, "enemy_target", "field", 3, 3, ["guard"])
+	# Add Verminous Fabricant analog: Silence another creature if neutral in play
+	var fabricant := ScenarioFixtures.add_hand_card(player, "verminous_fabricant", {
+		"card_type": "creature", "cost": 0, "power": 2, "health": 2,
+		"triggered_abilities": [{"family": "summon", "target_mode": "another_creature", "required_friendly_attribute_count": {"attribute": "neutral", "min": 1}, "effects": [{"op": "silence", "target": "chosen_target"}]}],
+	})
+	# Simulate summon to check valid targets — should be empty because no neutral in play
+	var sim_state := match_state.duplicate(true)
+	LaneRules.summon_from_hand(sim_state, pid, str(fabricant.get("instance_id", "")), "field")
+	var valid_targets := MatchTargeting.get_all_valid_targets(sim_state, str(fabricant.get("instance_id", "")))
+	if not _assert(valid_targets.is_empty(), "Fabricant: no valid targets should be offered without neutral in play, got %d." % valid_targets.size()):
+		return false
+	# Also verify resolve_targeted_effect rejects the attempt
+	LaneRules.summon_from_hand(match_state, pid, str(fabricant.get("instance_id", "")), "field")
+	var resolve_result := MatchTiming.resolve_targeted_effect(match_state, str(fabricant.get("instance_id", "")), {"target_instance_id": str(enemy.get("instance_id", ""))}, {"allowed_families": ["summon"]})
+	if not _assert(not bool(resolve_result.get("is_valid", false)), "Fabricant: resolve_targeted_effect should reject when condition not met."):
+		return false
+	# Enemy should still have Guard (not silenced)
+	return _assert(EvergreenRules.has_keyword(enemy, "guard"), "Fabricant: enemy should still have Guard — silence should not have fired.")

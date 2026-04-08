@@ -591,6 +591,25 @@ static func _enumerate_attacks(match_state: Dictionary, player_id: String) -> Ar
 			for lane in match_state.get("lanes", []):
 				if str(lane.get("lane_id", "")) != str(card.get("lane_id", "")):
 					atk_targets.append_array(_enemy_lane_cards(match_state, player_id, str(lane.get("lane_id", ""))))
+		# Include guards_both_lanes creatures from other lanes as valid attack targets
+		var attacker_lane_id := str(card.get("lane_id", ""))
+		var opponent_id := _opposing_player_id(match_state, player_id)
+		for lane in match_state.get("lanes", []):
+			if str(lane.get("lane_id", "")) == attacker_lane_id:
+				continue
+			var enemy_slots: Array = lane.get("player_slots", {}).get(opponent_id, [])
+			for enemy_card in enemy_slots:
+				if typeof(enemy_card) != TYPE_DICTIONARY:
+					continue
+				if EvergreenRules.has_keyword(enemy_card, EvergreenRules.KEYWORD_GUARD) and EvergreenRules.has_status(enemy_card, "guards_both_lanes"):
+					var eid := str(enemy_card.get("instance_id", ""))
+					var already_included := false
+					for existing in atk_targets:
+						if str(existing.get("instance_id", "")) == eid:
+							already_included = true
+							break
+					if not already_included:
+						atk_targets.append(enemy_card)
 		var atk_cond: Dictionary = card.get("attack_condition", {})
 		if bool(atk_cond.get("can_attack_friendly", false)):
 			for friendly_card in _lane_cards_for_player(match_state, player_id):

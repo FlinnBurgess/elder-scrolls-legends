@@ -111,8 +111,18 @@ func _lane_attack_limit_reached_for(card: Dictionary) -> bool:
 	return false
 
 
-func _build_hand_emphasis_badges(_card: Dictionary, _public_view: bool, _surface: String, _instance_id: String) -> HBoxContainer:
-	return null
+func _build_hand_emphasis_badges(card: Dictionary, _public_view: bool, _surface: String, instance_id: String) -> HBoxContainer:
+	if not bool(card.get("_play_for_free", false)):
+		return null
+	var hbox := HBoxContainer.new()
+	hbox.name = "%s_hand_badges" % instance_id
+	hbox.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	hbox.offset_top = -28
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var badge := _build_value_badge("%s_free_play" % instance_id, "FREE", Color(0.13, 0.42, 0.18, 0.95), Color(0.28, 0.72, 0.35, 0.9), Color(0.95, 1.0, 0.95, 1.0), 14, Vector2(50, 24))
+	hbox.add_child(badge)
+	return hbox
 
 
 func _build_value_badge(name_prefix: String, text: String, fill: Color, border: Color, font_color: Color, font_size: int, min_size: Vector2) -> PanelContainer:

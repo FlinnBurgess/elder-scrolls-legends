@@ -72,7 +72,12 @@ static func load_default() -> Dictionary:
 
 
 static func _build_card(seed: Dictionary, registry) -> Dictionary:
-	var attributes: Array = registry.normalize_attribute_ids(seed.get("attributes", []))
+	var raw_attrs: Array = seed.get("attributes", [])
+	var attributes: Array = registry.normalize_attribute_ids(raw_attrs)
+	# Preserve "neutral" — normalize_attribute_ids only keeps primary attributes,
+	# but neutral is needed for Fabricant required_friendly_attribute_count checks.
+	if raw_attrs.has("neutral") and not attributes.has("neutral"):
+		attributes.append("neutral")
 	var class_id: Variant = null
 	if attributes.size() >= 2:
 		class_id = registry.get_class_for_attributes(attributes).get("id", null)

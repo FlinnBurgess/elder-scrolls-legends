@@ -31,6 +31,10 @@ static func play_support_from_hand(match_state: Dictionary, player_id: String, i
 	if not bool(validation.get("is_valid", false)):
 		return validation
 	var card: Dictionary = validation["card"]
+	if bool(card.get("_play_for_free", false)):
+		options["played_for_free"] = true
+		card.erase("_play_for_free")
+		MatchTiming.consume_pending_free_play(match_state, instance_id)
 	var play_cost := 0 if bool(options.get("played_for_free", false)) else get_effective_play_cost(match_state, player_id, card)
 	if play_cost > 0:
 		_spend_magicka(match_state, player_id, play_cost)

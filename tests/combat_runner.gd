@@ -22,7 +22,8 @@ func _run_all_tests() -> bool:
 		_test_creature_combat_is_simultaneous_and_cleans_up_dead_creatures() and
 		_test_breakthrough_and_player_damage() and
 		_test_direct_player_attack_emits_events_and_applies_drain() and
-		_test_attack_refreshes_on_controller_next_turn()
+		_test_attack_refreshes_on_controller_next_turn() and
+		_test_guards_both_lanes_cross_lane_targeting()
 	)
 
 
@@ -204,6 +205,55 @@ func _test_attack_refreshes_on_controller_next_turn() -> bool:
 		"instance_id": defender_two["instance_id"],
 	})
 	return _assert(next_turn_validation["is_valid"], "Attacker should refresh for its controller's next turn.")
+
+
+func _test_guards_both_lanes_cross_lane_targeting() -> bool:
+	var match_state := _build_started_match(18, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+
+	# Place a guards_both_lanes creature in field lane for the opponent
+	var lydia := _summon_creature(opponent, match_state, "lydia", "field", 3, 8, ["guard"], -1, {"status_markers": ["guards_both_lanes"]})
+	_target_ready_for_attack(lydia, match_state)
+
+	# Place an attacker in the shadow lane (cross-lane from Lydia)
+	var shadow_attacker := _summon_creature(active_player, match_state, "shadow_attacker", "shadow", 3, 3)
+	_target_ready_for_attack(shadow_attacker, match_state)
+
+	# Place an attacker in the field lane (same lane as Lydia)
+	var field_attacker := _summon_creature(active_player, match_state, "field_attacker", "field", 3, 3)
+	_target_ready_for_attack(field_attacker, match_state)
+
+	# Cross-lane attacker should be able to target Lydia
+	var cross_lane_attack := MatchCombat.validate_attack(match_state, active_player["player_id"], shadow_attacker["instance_id"], {
+		"type": "creature",
+		"instance_id": lydia["instance_id"],
+	})
+
+	# Same-lane attacker should be able to target Lydia
+	var same_lane_attack := MatchCombat.validate_attack(match_state, active_player["player_id"], field_attacker["instance_id"], {
+		"type": "creature",
+		"instance_id": lydia["instance_id"],
+	})
+
+	# Cross-lane attacker should NOT be able to attack player (Lydia guards both lanes)
+	var cross_lane_player_attack := MatchCombat.validate_attack(match_state, active_player["player_id"], shadow_attacker["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+
+	# Same-lane attacker should NOT be able to attack player
+	var same_lane_player_attack := MatchCombat.validate_attack(match_state, active_player["player_id"], field_attacker["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+
+	return (
+		_assert(cross_lane_attack["is_valid"], "Cross-lane attacker should be able to target a guards_both_lanes creature.") and
+		_assert(same_lane_attack["is_valid"], "Same-lane attacker should be able to target a guards_both_lanes creature.") and
+		_assert(not cross_lane_player_attack["is_valid"], "Guards_both_lanes should block player attacks from other lanes.") and
+		_assert(not same_lane_player_attack["is_valid"], "Guards_both_lanes should block player attacks from the same lane.")
+	)
 
 
 func _build_started_match(deck_size: int, first_player_index: int) -> Dictionary:

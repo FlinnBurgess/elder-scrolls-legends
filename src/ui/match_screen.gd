@@ -1226,6 +1226,40 @@ func _refresh_hand_selection_state() -> void:
 		_overlays._exit_hand_selection_mode()
 
 
+func _refresh_free_play_state() -> void:
+	var local_id := _local_player_id()
+	var pending := MatchTiming.get_pending_free_play(_match_state, local_id)
+	if pending.is_empty():
+		return
+	var fp_instance_id := str(pending.get("instance_id", ""))
+	if fp_instance_id.is_empty():
+		return
+	# Auto-select the free-play card if nothing else is selected and no other interaction is active
+	if _selected_instance_id.is_empty() and _overlays._hand_selection_state.is_empty() and _overlays._prophecy_overlay_state.is_empty() and _targeting._targeting_arrow_state.is_empty() and _hand._detached_card_state.is_empty():
+		_selected_instance_id = fp_instance_id
+		var card := _card_from_instance_id(fp_instance_id)
+		var mode = _selection._selected_action_mode(card)
+		if mode == SELECTION_MODE_ACTION and _targeting._action_needs_explicit_target(card):
+			_selection._enter_targeting_mode(fp_instance_id)
+			_status_message = "Choose a target for this free card."
+		elif mode == SELECTION_MODE_ITEM:
+			_selection._enter_targeting_mode(fp_instance_id)
+			_status_message = "Choose a target for this free item."
+		else:
+			_status_message = "Play this card for free."
+
+
+func _has_local_pending_free_play() -> bool:
+	return MatchTiming.has_pending_free_play(_match_state, _local_player_id())
+
+
+func _selected_card_has_free_play() -> bool:
+	if _selected_instance_id.is_empty():
+		return false
+	var card := _card_from_instance_id(_selected_instance_id)
+	return bool(card.get("_play_for_free", false))
+
+
 func _enter_top_deck_choice_mode() -> void:
 	var local_id := _local_player_id()
 	var choice := MatchTiming.get_pending_top_deck_choice(_match_state, local_id)
@@ -1735,13 +1769,16 @@ func _input(event: InputEvent) -> void:
 					_targeting._cancel_summon_target_mode()
 				get_viewport().set_input_as_handled()
 			elif not _targeting._targeting_arrow_state.is_empty():
-				_selection._cancel_targeting_mode()
+				if not _selected_card_has_free_play():
+					_selection._cancel_targeting_mode()
 				get_viewport().set_input_as_handled()
 			elif not _hand._detached_card_state.is_empty():
-				_hand._cancel_detached_card()
+				if not _selected_card_has_free_play():
+					_hand._cancel_detached_card()
 				get_viewport().set_input_as_handled()
 			elif not _selected_instance_id.is_empty():
-				clear_selection()
+				if not _selected_card_has_free_play():
+					clear_selection()
 				get_viewport().set_input_as_handled()
 
 

@@ -22,6 +22,7 @@ func _refresh_ui() -> void:
 	_screen._overlays._refresh_deck_selection_overlay()
 	_screen._overlays._refresh_player_choice_overlay()
 	_screen._refresh_hand_selection_state()
+	_screen._refresh_free_play_state()
 	_screen._refresh_top_deck_choice_state()
 	_refresh_player_sections()
 	_refresh_lanes()

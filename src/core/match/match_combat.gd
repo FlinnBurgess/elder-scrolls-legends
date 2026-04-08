@@ -185,7 +185,8 @@ static func _validate_creature_attack_target(match_state: Dictionary, attacker_l
 
 	var attacker_can_attack_any_lane := EvergreenRules.has_status(attacker_lookup["card"], "attack_any_lane") or EvergreenRules.has_status(attacker_lookup["card"], "move_to_attack_any_lane")
 	var is_cross_lane := str(defender_lookup["lane_id"]) != str(attacker_lookup["lane_id"])
-	if is_cross_lane and not attacker_can_attack_any_lane:
+	var defender_guards_both_lanes := _has_keyword(defender_lookup["card"], EvergreenRules.KEYWORD_GUARD) and EvergreenRules.has_status(defender_lookup["card"], "guards_both_lanes")
+	if is_cross_lane and not attacker_can_attack_any_lane and not defender_guards_both_lanes:
 		return _invalid_result("Creatures can only attack creatures in the same lane.")
 
 	# For cross-lane attacks, check guards in the defender's lane instead of the attacker's

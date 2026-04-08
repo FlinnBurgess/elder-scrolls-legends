@@ -2602,6 +2602,12 @@ static func apply_hand_selection_effect(match_state: Dictionary, player_id: Stri
 			tfo_gained["controller_player_id"] = player_id
 			tfo_hand.append(tfo_gained)
 			return [{"event_type": "card_traded", "player_id": player_id, "discarded_id": str(chosen_card.get("instance_id", "")), "gained_id": str(tfo_gained.get("instance_id", ""))}]
+		"play_card_from_hand_free":
+			chosen_card["_play_for_free"] = true
+			var pfp_arr: Array = match_state.get("pending_free_plays", [])
+			pfp_arr.append({"player_id": player_id, "instance_id": str(chosen_card.get("instance_id", "")), "source_instance_id": source_instance_id})
+			match_state["pending_free_plays"] = pfp_arr
+			return [{"event_type": "free_play_granted", "player_id": player_id, "instance_id": str(chosen_card.get("instance_id", "")), "source_instance_id": source_instance_id}]
 	return []
 
 

@@ -318,10 +318,13 @@ static func get_all_valid_targets(match_state: Dictionary, source_instance_id: S
 	var source_card := MatchTimingHelpers._find_card_anywhere(match_state, source_instance_id)
 	if source_card.is_empty():
 		return []
+	var controller_id := str(source_card.get("controller_player_id", ""))
 	var is_secondary := source_card.has("_primary_target_id")
 	var all_targets: Array = []
 	var seen_ids: Dictionary = {}
 	for ability in get_target_mode_abilities(source_card):
+		if not _ability_conditions_met(match_state, controller_id, source_instance_id, ability):
+			continue
 		var mode := str(ability.get("secondary_target_mode", "")) if is_secondary else str(ability.get("target_mode", ""))
 		if mode.is_empty():
 			continue
@@ -331,6 +334,28 @@ static func get_all_valid_targets(match_state: Dictionary, source_instance_id: S
 				seen_ids[key] = true
 				all_targets.append(target_info)
 	return all_targets
+
+
+## Check whether a target_mode ability's gating conditions are satisfied.
+## This mirrors the condition checks in MatchTriggers._matches_conditions for
+## fields that gate whether an ability should fire at all.
+static func _ability_conditions_met(match_state: Dictionary, controller_id: String, source_instance_id: String, ability: Dictionary) -> bool:
+	var rfac_spec: Dictionary = ability.get("required_friendly_attribute_count", {})
+	if not rfac_spec.is_empty():
+		var rfac_attr := str(rfac_spec.get("attribute", ""))
+		var rfac_min := int(rfac_spec.get("min", rfac_spec.get("min_count", 0)))
+		var rfac_exclude_self := bool(rfac_spec.get("exclude_self", false))
+		var rfac_creatures := MatchTimingHelpers._player_lane_creatures(match_state, controller_id)
+		var rfac_count := 0
+		for rfac_card in rfac_creatures:
+			if rfac_exclude_self and str(rfac_card.get("instance_id", "")) == source_instance_id:
+				continue
+			var rfac_attrs = rfac_card.get("attributes", [])
+			if typeof(rfac_attrs) == TYPE_ARRAY and rfac_attrs.has(rfac_attr):
+				rfac_count += 1
+		if rfac_count < rfac_min:
+			return false
+	return true
 
 
 static func _resolve_card_targets(match_state: Dictionary, trigger: Dictionary, event: Dictionary, effect: Dictionary) -> Array:

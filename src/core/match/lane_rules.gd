@@ -53,6 +53,8 @@ static func validate_summon_from_hand(match_state: Dictionary, player_id: String
 		return _invalid_result("Card %s is not in %s's hand." % [instance_id, player_id])
 
 	var card: Dictionary = player[ZONE_HAND][hand_index]
+	if bool(card.get("_play_for_free", false)):
+		options["played_for_free"] = true
 	if not bool(options.get("played_for_free", false)):
 		var play_limit := PersistentCardRules.get_play_limit_per_turn(match_state, player_id)
 		if play_limit >= 0 and int(player.get("cards_played_this_turn", 0)) >= play_limit:
@@ -129,6 +131,9 @@ static func summon_from_hand(match_state: Dictionary, player_id: String, instanc
 	var timing_result := MatchTiming.publish_events(match_state, publish_list, _ensure_dictionary(options.get("event_context", {})))
 	# Check for consume abilities on the summoned card (must happen before target mode)
 	MatchTiming._check_consume_abilities(match_state, card)
+	if bool(card.get("_play_for_free", false)):
+		card.erase("_play_for_free")
+		MatchTiming.consume_pending_free_play(match_state, str(card.get("instance_id", "")))
 
 	return {
 		"is_valid": true,
