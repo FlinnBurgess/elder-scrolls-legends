@@ -522,6 +522,19 @@ func _build_pause_overlay() -> PanelContainer:
 		UITheme.style_button(return_button, 20, true)
 		return_button.pressed.connect(func(): _screen._pause_overlay.visible = false; _screen.puzzle_return_to_select_requested.emit())
 		box.add_child(return_button)
+	elif _screen._test_match_mode:
+		var restart_button := Button.new()
+		restart_button.text = "Restart"
+		restart_button.custom_minimum_size = Vector2(260, 52)
+		UITheme.style_button(restart_button, 20)
+		restart_button.pressed.connect(func(): _screen._pause_overlay.visible = false; _screen.test_match_restart_requested.emit())
+		box.add_child(restart_button)
+		var menu_button := Button.new()
+		menu_button.text = "Return to Menu"
+		menu_button.custom_minimum_size = Vector2(260, 52)
+		UITheme.style_button(menu_button, 20, true)
+		menu_button.pressed.connect(func(): _screen._pause_overlay.visible = false; _screen.return_to_main_menu_requested.emit())
+		box.add_child(menu_button)
 	elif _screen._arena_mode:
 		var forfeit_button := Button.new()
 		forfeit_button.text = "Forfeit"

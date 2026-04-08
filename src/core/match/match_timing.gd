@@ -208,6 +208,30 @@ const FAMILY_SPECS := {
 }
 
 
+static func _check_play_condition(match_state: Dictionary, player_id: String, condition: Dictionary) -> bool:
+	var type := str(condition.get("type", ""))
+	match type:
+		"friendly_creature_in_each_lane":
+			var lanes: Array = match_state.get("lanes", [])
+			for lane in lanes:
+				var slots = lane.get("player_slots", {}).get(player_id, [])
+				if typeof(slots) != TYPE_ARRAY or slots.is_empty():
+					return false
+			return true
+		"creature_damaged_opponent_each_lane":
+			var player := MatchTimingHelpers._get_player_state(match_state, player_id)
+			if player.is_empty():
+				return false
+			ExtendedMechanicPacks.ensure_player_state(player)
+			var tracked: Array = player.get("lanes_creature_damaged_opponent_this_turn", [])
+			var lanes: Array = match_state.get("lanes", [])
+			for lane in lanes:
+				if not tracked.has(str(lane.get("lane_id", ""))):
+					return false
+			return true
+	return true
+
+
 static func ensure_match_state(match_state: Dictionary) -> void:
 	ExtendedMechanicPacks.ensure_match_state(match_state)
 	if not match_state.has("pending_event_queue") or typeof(match_state["pending_event_queue"]) != TYPE_ARRAY:
@@ -2558,6 +2582,10 @@ static func play_action_from_hand(match_state: Dictionary, player_id: String, in
 		var play_limit := PersistentCardRules.get_play_limit_per_turn(match_state, player_id)
 		if play_limit >= 0 and int(player.get("cards_played_this_turn", 0)) >= play_limit:
 			return MatchTimingHelpers._invalid_result("You may only play %d card(s) per turn." % play_limit)
+	var play_condition = played_card.get("play_condition", {})
+	if typeof(play_condition) == TYPE_DICTIONARY and not play_condition.is_empty():
+		if not _check_play_condition(match_state, player_id, play_condition):
+			return MatchTimingHelpers._invalid_result(str(play_condition.get("error_message", "This card can't be played right now.")))
 	var base_action_cost := int(played_card.get("cost", 0)) + (1 if bool(options.get("exalt", false)) else 0)
 	var action_cost_reduction := int(player.get("next_card_cost_reduction", 0))
 	action_cost_reduction += MatchTimingHelpers._get_aura_cost_reduction(match_state, player_id, played_card)

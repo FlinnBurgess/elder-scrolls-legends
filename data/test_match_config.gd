@@ -4,7 +4,7 @@ extends RefCounted
 ## Test match configuration for manual testing.
 ##
 ## Configs are stored as JSON files in data/test_match_configs/.
-## Press "?" while hovering the Match button on the main menu to open the picker.
+## Middle-click the Match button on the main menu to open the picker.
 ##
 ## The match starts at the action phase — mulligan is skipped entirely.
 ## Deck order is preserved exactly as listed (index 0 is drawn first).

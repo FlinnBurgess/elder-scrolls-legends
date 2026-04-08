@@ -79,6 +79,7 @@ static func reset_turn_state(player: Dictionary) -> void:
 	player["creatures_died_this_turn"] = 0
 	player["invades_this_turn"] = 0
 	player["pilfer_or_drain_count_this_turn"] = 0
+	player["lanes_creature_damaged_opponent_this_turn"] = []
 	player["_double_summon_this_turn"] = false
 
 
@@ -140,6 +141,19 @@ static func observe_event(match_state: Dictionary, event: Dictionary) -> void:
 		if not source_player.is_empty() and str(source_player.get("player_id", "")) != target_player_id:
 			ensure_player_state(source_player)
 			source_player["pilfer_or_drain_count_this_turn"] = int(source_player.get("pilfer_or_drain_count_this_turn", 0)) + 1
+			# Track which lanes had a creature damage the opponent (for Daring Heist)
+			var source_id := str(event.get("source_instance_id", ""))
+			if not source_id.is_empty():
+				for lane in match_state.get("lanes", []):
+					var slots = lane.get("player_slots", {}).get(str(source_player.get("player_id", "")), [])
+					for card in slots:
+						if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) == source_id:
+							var lane_id := str(lane.get("lane_id", ""))
+							var tracked: Array = source_player.get("lanes_creature_damaged_opponent_this_turn", [])
+							if not tracked.has(lane_id):
+								tracked.append(lane_id)
+							source_player["lanes_creature_damaged_opponent_this_turn"] = tracked
+							break
 
 
 static func apply_pre_play_options(card: Dictionary, options: Dictionary) -> void:

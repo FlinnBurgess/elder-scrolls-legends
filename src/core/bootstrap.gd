@@ -29,6 +29,7 @@ var _selected_deck_index := -1
 var _start_match_button: Button
 var _match_button: Button
 var _test_match_picker: Control
+var _current_test_match_filename := ""
 var _puzzle_screen: Control
 var _current_puzzle_entry: Dictionary = {}
 var _current_puzzle_config: Dictionary = {}
@@ -108,6 +109,7 @@ func _show_main_menu() -> void:
 		center.add_child(btn)
 		if entry[0] == "Match":
 			_match_button = btn
+			btn.gui_input.connect(_on_match_button_gui_input)
 
 	var spacer_quit := Control.new()
 	spacer_quit.custom_minimum_size = Vector2(0, 20)
@@ -706,11 +708,18 @@ func _show_test_match_picker() -> void:
 	outer_vbox.add_child(back_btn)
 
 
+func _on_match_button_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_MIDDLE:
+		get_viewport().set_input_as_handled()
+		_show_test_match_picker()
+
+
 func _on_test_match_selected(filename: String) -> void:
 	if _test_match_picker != null:
 		_test_match_picker.queue_free()
 		_test_match_picker = null
 
+	_current_test_match_filename = filename
 	var test_state := TestMatchConfig.build_test_match_state_from_file(filename)
 	if test_state.is_empty():
 		push_error("TestMatchConfig returned an empty match state for '%s'" % filename)
@@ -719,9 +728,15 @@ func _on_test_match_selected(filename: String) -> void:
 	var match_screen := MatchScreen.new()
 	match_screen.name = "Match"
 	match_screen.return_to_main_menu_requested.connect(_show_main_menu)
+	match_screen.test_match_restart_requested.connect(_on_test_match_restart.bind(match_screen))
 	add_child(match_screen)
 	_active_screen = match_screen
 	match_screen.start_test_match(test_state)
+
+
+func _on_test_match_restart(match_screen: Control) -> void:
+	match_screen.queue_free()
+	_on_test_match_selected(_current_test_match_filename)
 
 
 func _on_test_match_delete(filename: String) -> void:
@@ -748,12 +763,6 @@ func _on_deckbuilder_pressed() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo:
-		if _main_menu != null and _main_menu.visible and event.unicode == 63:
-			if _match_button != null and _match_button.is_hovered():
-				get_viewport().set_input_as_handled()
-				_show_test_match_picker()
-				return
 	if _active_screen == null:
 		return
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:

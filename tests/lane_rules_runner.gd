@@ -90,7 +90,10 @@ func _run_all_tests() -> bool:
 		_test_reanimation_does_not_resurrect_twice() and
 		_test_reanimation_does_not_affect_other_lane() and
 		_test_reanimation_has_summoning_sickness() and
-		_test_reanimation_charge_can_attack_immediately()
+		_test_reanimation_charge_can_attack_immediately() and
+		_test_daring_heist_blocked_without_face_damage_in_both_lanes() and
+		_test_daring_heist_blocked_with_face_damage_in_one_lane_only() and
+		_test_daring_heist_allowed_with_face_damage_in_both_lanes()
 	)
 
 
@@ -1551,3 +1554,81 @@ func _test_reanimation_charge_can_attack_immediately() -> bool:
 			var can_attack := MatchCombat.can_attack(match_state, player_1["player_id"], attacker_id, {"type": "creature", "instance_id": defender_id})
 			return _assert(can_attack, "Reanimated charge creature should be able to attack immediately.")
 	return _assert(false, "Reanimated charge creature not found in lane.")
+
+
+func _test_daring_heist_blocked_without_face_damage_in_both_lanes() -> bool:
+	var match_state := _build_match()
+	var player: Dictionary = match_state["players"][0]
+	var action := _append_action_to_hand(player, "daring_heist", {
+		"play_condition": {"type": "creature_damaged_opponent_each_lane"},
+	})
+	var result := MatchTiming.play_action_from_hand(match_state, player["player_id"], action["instance_id"])
+	return _assert(not bool(result.get("is_valid", false)), "Daring Heist should be blocked when no creature has hit face.")
+
+
+func _test_daring_heist_blocked_with_face_damage_in_one_lane_only() -> bool:
+	var match_state := _build_match()
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	# Summon creature in field lane only, attack face
+	var creature := _summon_creature(player, match_state, "field_attacker", "field", 2, 2)
+	creature["entered_lane_on_turn"] = int(match_state.get("turn_number", 0)) - 1
+	creature["has_attacked_this_turn"] = false
+	MatchCombat.resolve_attack(match_state, player["player_id"], creature["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	var action := _append_action_to_hand(player, "daring_heist_2", {
+		"play_condition": {"type": "creature_damaged_opponent_each_lane"},
+	})
+	var result := MatchTiming.play_action_from_hand(match_state, player["player_id"], action["instance_id"])
+	return _assert(not bool(result.get("is_valid", false)), "Daring Heist should be blocked when only one lane has face damage.")
+
+
+func _test_daring_heist_allowed_with_face_damage_in_both_lanes() -> bool:
+	var match_state := _build_match()
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	# Summon and attack in field lane
+	var field_creature := _summon_creature(player, match_state, "field_attacker", "field", 2, 2)
+	field_creature["entered_lane_on_turn"] = int(match_state.get("turn_number", 0)) - 1
+	field_creature["has_attacked_this_turn"] = false
+	MatchCombat.resolve_attack(match_state, player["player_id"], field_creature["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	# Summon and attack in shadow lane
+	var shadow_creature := _summon_creature(player, match_state, "shadow_attacker", "shadow", 2, 2)
+	shadow_creature["entered_lane_on_turn"] = int(match_state.get("turn_number", 0)) - 1
+	shadow_creature["has_attacked_this_turn"] = false
+	MatchCombat.resolve_attack(match_state, player["player_id"], shadow_creature["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	var action := _append_action_to_hand(player, "daring_heist_3", {
+		"play_condition": {"type": "creature_damaged_opponent_each_lane"},
+	})
+	var result := MatchTiming.play_action_from_hand(match_state, player["player_id"], action["instance_id"])
+	return _assert(bool(result.get("is_valid", false)), "Daring Heist should be allowed when creatures in both lanes have hit face.")
+
+
+func _append_action_to_hand(player: Dictionary, label: String, extras: Dictionary = {}) -> Dictionary:
+	var player_id: String = player["player_id"]
+	var card := {
+		"instance_id": "%s_%s" % [player_id, label],
+		"definition_id": "test_%s" % label,
+		"owner_player_id": player_id,
+		"controller_player_id": player_id,
+		"zone": "hand",
+		"card_type": "action",
+		"cost": 0,
+		"power": 0,
+		"health": 0,
+		"keywords": [],
+		"granted_keywords": [],
+		"status_markers": [],
+		"triggered_abilities": [{"family": "on_play", "effects": [{"op": "draw_cards", "target_player": "controller", "count": 2}]}],
+	}
+	card.merge(extras, true)
+	player["hand"].append(card)
+	return card

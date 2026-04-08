@@ -444,16 +444,7 @@ static func get_exalt_extra_cost(card: Dictionary) -> int:
 
 
 static func _check_play_condition(match_state: Dictionary, player_id: String, condition: Dictionary) -> bool:
-	var type := str(condition.get("type", ""))
-	match type:
-		"friendly_creature_in_each_lane":
-			var lanes: Array = match_state.get("lanes", [])
-			for lane in lanes:
-				var slots = lane.get("player_slots", {}).get(player_id, [])
-				if typeof(slots) != TYPE_ARRAY or slots.is_empty():
-					return false
-			return true
-	return true
+	return MatchTiming._check_play_condition(match_state, player_id, condition)
 
 
 static func _invalid_result(message: String) -> Dictionary:

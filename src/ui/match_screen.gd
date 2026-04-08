@@ -6,6 +6,7 @@ signal forfeit_requested
 signal match_state_changed(match_state: Dictionary)
 signal puzzle_retry_requested
 signal puzzle_return_to_select_requested
+signal test_match_restart_requested
 
 const HeuristicMatchPolicy = preload("res://src/ai/heuristic_match_policy.gd")
 const MatchActionEnumerator = preload("res://src/ai/match_action_enumerator.gd")
@@ -174,6 +175,7 @@ var _match_end_box: VBoxContainer
 var _puzzle_end_retry_btn: Button
 var _puzzle_end_return_btn: Button
 var _arena_mode := false
+var _test_match_mode := false
 var _puzzle_mode := false
 var _puzzle_type := ""
 var _puzzle_config: Dictionary = {}
@@ -513,6 +515,8 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 		card["self_cost_reduction"] = definition["self_cost_reduction"].duplicate(true)
 	if definition.has("passive_abilities"):
 		card["passive_abilities"] = definition["passive_abilities"].duplicate(true)
+	if definition.has("play_condition"):
+		card["play_condition"] = definition["play_condition"].duplicate(true)
 	if definition.has("attack_condition"):
 		card["attack_condition"] = definition["attack_condition"].duplicate(true)
 	if definition.has("cant_attack_player"):
@@ -574,6 +578,7 @@ func start_test_match(test_state: Dictionary) -> void:
 	ExtendedMechanicPacks.apply_cheesemancer_mutations(test_state)
 	GameLogger.start_match(test_state)
 	_match_state = test_state
+	_test_match_mode = true
 	_ai_system._ai_options = {}
 	_scenario_id = LOCAL_MATCH_AI_SCENARIO_ID
 	_selected_instance_id = ""
