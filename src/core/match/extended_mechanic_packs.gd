@@ -437,6 +437,12 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 		for req_type in req_types_in_discard_or_play:
 			if not found_types.has(str(req_type)):
 				return false
+	# Support count threshold (e.g. Forward Camp: "when you have 4 supports")
+	var req_support_count := int(descriptor.get("count", 0))
+	if req_support_count > 0:
+		var supports: Array = controller.get("support", [])
+		if supports.size() < req_support_count:
+			return false
 	# Required/excluded event lane ID (e.g. Clockwork Dragon left/right lane check)
 	var req_lane := str(descriptor.get("required_event_lane_id", ""))
 	if not req_lane.is_empty() and str(event.get("lane_id", "")) != req_lane:

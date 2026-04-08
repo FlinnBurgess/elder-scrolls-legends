@@ -26,7 +26,9 @@ func _run_all_tests() -> bool:
 		_test_fatigue_uses_out_of_cards_and_eventual_loss() and
 		_test_on_enemy_rune_destroyed_triggers_invade() and
 		_test_fighters_guild_hall_triggers_on_retaliation_damage() and
-		_test_prophecy_item_can_be_thrown_at_enemy()
+		_test_prophecy_item_can_be_thrown_at_enemy() and
+		_test_prevent_rune_draw_heals_instead_of_drawing() and
+		_test_prevent_rune_draw_silenced_does_not_block()
 	)
 
 
@@ -351,6 +353,73 @@ func _test_fighters_guild_hall_triggers_on_retaliation_damage() -> bool:
 		_assert(result["is_valid"], "Fighters Guild Hall test: attack should resolve.") and
 		_assert(families.has(MatchTiming.FAMILY_ON_DAMAGE), "on_damage trigger should fire when friendly creature takes retaliation damage.") and
 		_assert(int(attacker.get("power_bonus", 0)) == 2, "Fighters Guild Hall should give +2/+0 to damaged creature.")
+	)
+
+
+func _test_prevent_rune_draw_heals_instead_of_drawing() -> bool:
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	# Summon a Varen-like creature for the opponent (the one whose runes break)
+	var _varen := _summon_creature(opponent, match_state, "varen", "field", 4, 6, [], 0, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_RUNE_BREAK,
+			"required_zone": "lane",
+			"effects": [
+				{"op": "heal", "target_player": "controller", "amount": 5},
+				{"op": "prevent_rune_draw"},
+			],
+		}]
+	})
+	var attacker := _summon_creature(active_player, match_state, "rune_breaker", "field", 6, 6, [], 0)
+	_target_ready_for_attack(attacker, match_state)
+	var hand_before: int = opponent["hand"].size()
+	var health_before: int = opponent["health"]
+
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], attacker["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	var rune_event := _first_event_of_type(result.get("events", []), MatchTiming.EVENT_RUNE_BROKEN)
+	# Took 6 damage, healed 5 from Varen → net 1 health lost
+	return (
+		_assert(result["is_valid"], "Prevent-rune-draw fixture should resolve.") and
+		_assert(opponent["hand"].size() == hand_before, "No card should be drawn when prevent_rune_draw creature is in lane.") and
+		_assert(not rune_event.is_empty(), "Rune-break event should still be emitted.") and
+		_assert(bool(rune_event.get("draw_card", true)) == false, "Rune-break event should have draw_card=false.") and
+		_assert(opponent["health"] == health_before - 6 + 5, "Player should be healed by 5 from the rune_break trigger.")
+	)
+
+
+func _test_prevent_rune_draw_silenced_does_not_block() -> bool:
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var varen := _summon_creature(opponent, match_state, "varen_silenced", "field", 4, 6, [], 0, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_RUNE_BREAK,
+			"required_zone": "lane",
+			"effects": [
+				{"op": "heal", "target_player": "controller", "amount": 5},
+				{"op": "prevent_rune_draw"},
+			],
+		}]
+	})
+	# Silence Varen
+	if not varen.has("status_markers"):
+		varen["status_markers"] = []
+	varen["status_markers"].append("silenced")
+	var attacker := _summon_creature(active_player, match_state, "rune_breaker", "field", 6, 6, [], 0)
+	_target_ready_for_attack(attacker, match_state)
+	var hand_before: int = opponent["hand"].size()
+
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], attacker["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	return (
+		_assert(result["is_valid"], "Silenced Varen fixture should resolve.") and
+		_assert(opponent["hand"].size() == hand_before + 1, "Silenced prevent_rune_draw creature should not block the rune draw.")
 	)
 
 

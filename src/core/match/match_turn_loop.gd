@@ -6,6 +6,9 @@ const ExtendedMechanicPacks = preload("res://src/core/match/extended_mechanic_pa
 const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
+const MatchTimingHelpers = preload("res://src/core/match/match_timing_helpers.gd")
+const MatchEffectParams = preload("res://src/core/match/match_effect_params.gd")
+const MatchSummonTiming = preload("res://src/core/match/match_summon_timing.gd")
 const GameLogger = preload("res://src/core/match/game_logger.gd")
 const PHASE_READY_FOR_FIRST_TURN := "ready_for_first_turn"
 const PHASE_ACTION := "action"
@@ -205,7 +208,49 @@ static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionar
 		match_state["phase"] = "complete"
 	if not events.is_empty():
 		MatchTiming.publish_events(match_state, events)
+	_process_discard_return_timers(match_state, player_id)
 	return match_state
+
+
+static func _process_discard_return_timers(match_state: Dictionary, player_id: String) -> void:
+	var player := _get_player_state(match_state, player_id)
+	if player.is_empty():
+		return
+	var discard: Array = player.get("discard", [])
+	var to_return: Array = []
+	for card in discard:
+		if typeof(card) != TYPE_DICTIONARY:
+			continue
+		if not card.has("_return_from_discard_timer"):
+			continue
+		if str(card.get("_return_from_discard_controller", "")) != player_id:
+			continue
+		var remaining := int(card.get("_return_from_discard_timer", 0)) - 1
+		if remaining <= 0:
+			to_return.append(card)
+		else:
+			card["_return_from_discard_timer"] = remaining
+	for card in to_return:
+		var lanes: Array = match_state.get("lanes", [])
+		var candidate_lanes: Array = []
+		for lane in lanes:
+			var lane_id := str(lane.get("lane_id", ""))
+			var open := MatchTimingHelpers._get_lane_open_slots(match_state, lane_id, player_id)
+			if int(open.get("open_slots", 0)) > 0:
+				candidate_lanes.append(lane_id)
+		if candidate_lanes.is_empty():
+			card["_return_from_discard_timer"] = 1
+			continue
+		var lane_idx := MatchEffectParams._deterministic_index(match_state, "return_discard_lane_%s_%s" % [str(card.get("instance_id", "")), str(match_state.get("turn_number", 0))], candidate_lanes.size())
+		var target_lane := str(candidate_lanes[lane_idx])
+		MatchMutations.restore_definition_state(card)
+		card.erase("_return_from_discard_timer")
+		card.erase("_return_from_discard_controller")
+		var summon_result := MatchMutations.summon_card_to_lane(match_state, player_id, str(card.get("instance_id", "")), target_lane, {})
+		if bool(summon_result.get("is_valid", false)):
+			var summon_events: Array = summon_result.get("events", [])
+			summon_events.append(MatchSummonTiming._build_summon_event(summon_result["card"], player_id, target_lane, int(summon_result.get("slot_index", -1)), "return_from_discard"))
+			MatchTiming.publish_events(match_state, summon_events)
 
 
 static func _refresh_board_state_for_turn(match_state: Dictionary, player_id: String) -> void:

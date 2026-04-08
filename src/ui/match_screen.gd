@@ -579,6 +579,7 @@ func start_test_match(test_state: Dictionary) -> void:
 	GameLogger.start_match(test_state)
 	_match_state = test_state
 	_test_match_mode = true
+	_rebuild_pause_overlay()
 	_ai_system._ai_options = {}
 	_scenario_id = LOCAL_MATCH_AI_SCENARIO_ID
 	_selected_instance_id = ""

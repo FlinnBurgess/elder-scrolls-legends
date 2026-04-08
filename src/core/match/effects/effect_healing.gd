@@ -178,11 +178,9 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						card["remaining_support_uses"] = current_uses + asu_amount
 				generated_events.append({"event_type": "support_uses_added", "player_id": asu_controller, "amount": asu_amount, "reason": reason})
 		"prevent_rune_draw":
-			var prd_opponent_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), str(trigger.get("controller_player_id", "")))
-			var prd_opponent := MatchTimingHelpers._get_player_state(match_state, prd_opponent_id)
-			if not prd_opponent.is_empty():
-				prd_opponent["_rune_draw_prevented_until_turn"] = int(match_state.get("turn_number", 0)) + 1
-				generated_events.append({"event_type": "rune_draw_prevented", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_player_id": prd_opponent_id})
+			# Draw prevention is handled directly in _resume_pending_rune_breaks.
+			# This op serves as a marker on the triggered ability; no runtime action needed.
+			pass
 		"cost_increase_next_turn":
 			var cint_controller_id := str(trigger.get("controller_player_id", ""))
 			var cint_opponent_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), cint_controller_id)

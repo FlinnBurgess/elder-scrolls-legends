@@ -1695,7 +1695,7 @@ static func _card_seeds() -> Array:
 		_seed("mc_neu_reconstructed_spider", "Reconstructed Spider", ["neutral"], "creature", 1, 1, 1, {"set_id": MC_SET_ID, "subtypes": ["Dwemer"], "collectible": false}),
 
 		# ── EXCLUSIVE CARDS — Neutral (2) ──
-		_seed("exc_neu_adoring_fan", "Adoring Fan", ["neutral"], "creature", 3, 0, 1, {"set_id": EXC_SET_ID, "release_group_id": EXC_RELEASE_GROUP_ID, "rarity": "legendary", "is_unique": true, "keywords": ["guard"], "rules_tags": ["prophecy"], "subtypes": ["Wood Elf"], "rules_text": "Prophecy, Guard\nImmune to Silence.\nLast Gasp: Adoring Fan will return.", "self_immunity": ["silence"], "triggered_abilities": [{"family": "last_gasp", "effects": [{"op": "return_to_deck_and_draw_later", "target": "self"}]}], "deck_code_id": "ae"}),
+		_seed("exc_neu_adoring_fan", "Adoring Fan", ["neutral"], "creature", 3, 0, 1, {"set_id": EXC_SET_ID, "release_group_id": EXC_RELEASE_GROUP_ID, "rarity": "legendary", "is_unique": true, "keywords": ["guard"], "rules_tags": ["prophecy"], "subtypes": ["Wood Elf"], "rules_text": "Prophecy, Guard\nImmune to Silence.\nLast Gasp: Adoring Fan will return.", "self_immunity": ["silence"], "triggered_abilities": [{"family": "last_gasp", "effects": [{"op": "schedule_return_from_discard", "target": "self"}]}], "deck_code_id": "ae"}),
 		_seed("exc_neu_horse_armor", "Horse Armor", ["neutral"], "item", 0, 0, 0, {"set_id": EXC_SET_ID, "release_group_id": EXC_RELEASE_GROUP_ID, "rarity": "legendary", "rules_text": "+0/+1\nSummon: The wielder becomes premium.", "equip_health_bonus": 1, "deck_code_id": "yV"}),
 
 		# ── DAWNGUARD — Strength (2), Willpower (2), Agility (2), Endurance (5), Dual-Attribute (1) ──

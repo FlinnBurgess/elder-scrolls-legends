@@ -24,7 +24,8 @@ func _run_all_tests() -> bool:
 		_test_supports_persist_and_trigger_from_support_zone() and
 		_test_support_activations_are_once_per_turn_and_use_limited() and
 		_test_mobilize_items_create_recruits_and_attach_equipment() and
-		_test_plot_item_reduces_random_hand_card_cost()
+		_test_plot_item_reduces_random_hand_card_cost() and
+		_test_on_support_count_reached_waits_for_threshold()
 	)
 
 
@@ -226,6 +227,51 @@ func _test_plot_item_reduces_random_hand_card_cost() -> bool:
 	return (
 		_assert(cost_after == cost_before - 1, "Plot should reduce the non-zero-cost card by 1. Expected: %d, Got: %d" % [cost_before - 1, cost_after]) and
 		_assert(zero_cost_after == 0, "Zero-cost cards should be skipped by cost reduction.")
+	)
+
+
+func _test_on_support_count_reached_waits_for_threshold() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	# Forward Camp: on_support_count_reached with count 4 should destroy self and summon creatures
+	var forward_camp := _add_hand_card(player, "forward_camp", {
+		"card_type": "support",
+		"cost": 3,
+		"support_uses": 0,
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_SUPPORT_COUNT_REACHED,
+			"required_zone": "support",
+			"count": 4,
+			"effects": [
+				{"op": "destroy_creature", "target": "self"},
+				{"op": "summon_from_effect", "lane": "field", "card_template": {
+					"definition_id": "eastmarch_crusader", "name": "Eastmarch Crusader",
+					"card_type": "creature", "subtypes": ["Nord"], "attributes": ["willpower"],
+					"cost": 2, "power": 2, "health": 2, "base_power": 2, "base_health": 2,
+				}},
+			],
+		}],
+	})
+	PersistentCardRules.play_support_from_hand(match_state, player["player_id"], forward_camp["instance_id"])
+	# After playing Forward Camp (1 support), it should NOT have triggered
+	if not (
+		_assert(_contains_instance(player["support"], forward_camp["instance_id"]), "Forward Camp should remain in support zone with only 1 support.") and
+		_assert(_find_lane_card(match_state, "field", player["player_id"], "eastmarch_crusader").is_empty(), "No Eastmarch Crusader should be summoned with only 1 support.")
+	):
+		return false
+	# Play 2 more supports (reaching 3 total) — still should not trigger
+	for i in range(2):
+		var filler := _add_hand_card(player, "filler_support_%d" % i, {"card_type": "support", "cost": 0, "support_uses": 3})
+		PersistentCardRules.play_support_from_hand(match_state, player["player_id"], filler["instance_id"])
+	if not _assert(_contains_instance(player["support"], forward_camp["instance_id"]), "Forward Camp should remain with only 3 supports."):
+		return false
+	# Play the 4th support — this should trigger Forward Camp
+	var fourth := _add_hand_card(player, "fourth_support", {"card_type": "support", "cost": 0, "support_uses": 3})
+	PersistentCardRules.play_support_from_hand(match_state, player["player_id"], fourth["instance_id"])
+	var crusader := _find_lane_card(match_state, "field", player["player_id"], "eastmarch_crusader")
+	return (
+		_assert(not _contains_instance(player["support"], forward_camp["instance_id"]), "Forward Camp should be destroyed after reaching 4 supports.") and
+		_assert(not crusader.is_empty(), "Eastmarch Crusader should be summoned in field lane after 4-support trigger.")
 	)
 
 

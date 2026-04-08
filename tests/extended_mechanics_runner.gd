@@ -79,7 +79,11 @@ func _run_all_tests() -> bool:
 		_test_required_friendly_attribute_count_neutral() and
 		_test_required_friendly_attribute_count_not_met_blocks_target() and
 		_test_summon_from_hand_to_full_lane_auto_summons() and
-		_test_consume_and_reduce_matching_subtype_cost()
+		_test_consume_and_reduce_matching_subtype_cost() and
+		_test_adoring_fan_death_sets_return_timer() and
+		_test_adoring_fan_returns_after_timer_expires() and
+		_test_adoring_fan_non_death_discard_has_no_timer() and
+		_test_adoring_fan_waits_when_lanes_full()
 	)
 
 
@@ -3120,3 +3124,146 @@ func _test_consume_and_reduce_matching_subtype_cost() -> bool:
 	if not _assert(de2_cost == 3, "Purveyor: Dark Elf deck creature 2 cost should be 3 (was 4), got %d." % de2_cost):
 		return false
 	return _assert(nord_cost == 3, "Purveyor: Nord deck creature cost should remain 3 (unchanged), got %d." % nord_cost)
+
+
+func _test_adoring_fan_death_sets_return_timer() -> bool:
+	# Opponent goes first so they can attack
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 10, "first_player_index": 1})
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Summon Adoring Fan analog with last_gasp -> schedule_return_from_discard
+	var fan := ScenarioFixtures.summon_creature(player, match_state, "adoring_fan", "field", 0, 1, ["guard"], -1, {
+		"self_immunity": ["silence"],
+		"triggered_abilities": [{"family": "last_gasp", "effects": [{"op": "schedule_return_from_discard", "target": "self"}]}],
+	})
+	var fan_id := str(fan.get("instance_id", ""))
+	# Summon a big attacker on opponent's side to kill the fan
+	var killer := ScenarioFixtures.summon_creature(opponent, match_state, "killer", "field", 5, 5)
+	killer["entered_lane_on_turn"] = 0
+	killer["has_attacked_this_turn"] = false
+	fan["entered_lane_on_turn"] = 0
+	# Attack the fan
+	MatchCombat.resolve_attack(match_state, oid, str(killer.get("instance_id", "")), {
+		"type": "creature",
+		"instance_id": fan_id,
+	})
+	# Fan should be in discard with a return timer
+	var found := false
+	for card in player.get("discard", []):
+		if str(card.get("instance_id", "")) == fan_id:
+			found = true
+			var timer := int(card.get("_return_from_discard_timer", -1))
+			if not _assert(timer >= 1 and timer <= 10, "Adoring Fan: return timer should be 1-10, got %d." % timer):
+				return false
+			if not _assert(str(card.get("_return_from_discard_controller", "")) == pid, "Adoring Fan: controller should match."):
+				return false
+			break
+	return _assert(found, "Adoring Fan: should be in discard after death.")
+
+
+func _test_adoring_fan_returns_after_timer_expires() -> bool:
+	# Opponent goes first so they can attack
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 10, "first_player_index": 1})
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Summon and kill adoring fan
+	var fan := ScenarioFixtures.summon_creature(player, match_state, "adoring_fan", "field", 0, 1, ["guard"], -1, {
+		"self_immunity": ["silence"],
+		"triggered_abilities": [{"family": "last_gasp", "effects": [{"op": "schedule_return_from_discard", "target": "self"}]}],
+	})
+	var fan_id := str(fan.get("instance_id", ""))
+	var killer := ScenarioFixtures.summon_creature(opponent, match_state, "killer", "field", 5, 5)
+	killer["entered_lane_on_turn"] = 0
+	killer["has_attacked_this_turn"] = false
+	fan["entered_lane_on_turn"] = 0
+	MatchCombat.resolve_attack(match_state, oid, str(killer.get("instance_id", "")), {
+		"type": "creature",
+		"instance_id": fan_id,
+	})
+	# Force timer to 1 so it triggers on next turn start
+	for card in player.get("discard", []):
+		if str(card.get("instance_id", "")) == fan_id:
+			card["_return_from_discard_timer"] = 1
+			break
+	# Cycle turns: opponent ends -> player's turn starts (timer decrements and fires)
+	MatchTurnLoop.end_turn(match_state, oid)
+	# Fan should now be in a lane, not in discard
+	var in_discard := false
+	for card in player.get("discard", []):
+		if str(card.get("instance_id", "")) == fan_id:
+			in_discard = true
+			break
+	if not _assert(not in_discard, "Adoring Fan: should no longer be in discard after timer expired."):
+		return false
+	var in_lane := _card_in_zone(match_state, fan_id, "lane")
+	return _assert(in_lane, "Adoring Fan: should be in a lane after returning from discard.")
+
+
+func _test_adoring_fan_non_death_discard_has_no_timer() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Manually place a card in discard (not via death) — simulate a discard effect
+	var fan := ScenarioFixtures.make_card(pid, "adoring_fan_no_death", {
+		"card_type": "creature", "cost": 3, "power": 0, "health": 1,
+		"self_immunity": ["silence"],
+		"triggered_abilities": [{"family": "last_gasp", "effects": [{"op": "schedule_return_from_discard", "target": "self"}]}],
+	})
+	fan["zone"] = "discard"
+	player["discard"].append(fan)
+	# The card should NOT have a return timer since it wasn't killed
+	var has_timer := fan.has("_return_from_discard_timer")
+	return _assert(not has_timer, "Adoring Fan: non-death discard should NOT have a return timer.")
+
+
+func _test_adoring_fan_waits_when_lanes_full() -> bool:
+	# Opponent goes first so they can attack
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 10, "first_player_index": 1})
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Summon and kill adoring fan
+	var fan := ScenarioFixtures.summon_creature(player, match_state, "adoring_fan_full", "field", 0, 1, ["guard"], -1, {
+		"self_immunity": ["silence"],
+		"triggered_abilities": [{"family": "last_gasp", "effects": [{"op": "schedule_return_from_discard", "target": "self"}]}],
+	})
+	var fan_id := str(fan.get("instance_id", ""))
+	var killer := ScenarioFixtures.summon_creature(opponent, match_state, "killer_full", "field", 5, 5)
+	killer["entered_lane_on_turn"] = 0
+	killer["has_attacked_this_turn"] = false
+	fan["entered_lane_on_turn"] = 0
+	MatchCombat.resolve_attack(match_state, oid, str(killer.get("instance_id", "")), {
+		"type": "creature",
+		"instance_id": fan_id,
+	})
+	# Force timer to 1
+	for card in player.get("discard", []):
+		if str(card.get("instance_id", "")) == fan_id:
+			card["_return_from_discard_timer"] = 1
+			break
+	# Fill all lanes for the player
+	for lane in match_state.get("lanes", []):
+		var lane_id := str(lane.get("lane_id", ""))
+		var slots: Array = lane.get("player_slots", {}).get(pid, [])
+		var capacity := int(lane.get("slot_capacity", 4))
+		var fill_count := capacity - slots.size()
+		for i in range(fill_count):
+			ScenarioFixtures.summon_creature(player, match_state, "filler_%s_%d" % [lane_id, i], lane_id, 1, 1)
+	# Cycle turns
+	MatchTurnLoop.end_turn(match_state, oid)
+	# Fan should STILL be in discard with timer reset to 1
+	var still_in_discard := false
+	var timer_val := -1
+	for card in player.get("discard", []):
+		if str(card.get("instance_id", "")) == fan_id:
+			still_in_discard = true
+			timer_val = int(card.get("_return_from_discard_timer", -1))
+			break
+	if not _assert(still_in_discard, "Adoring Fan: should stay in discard when all lanes are full."):
+		return false
+	return _assert(timer_val == 1, "Adoring Fan: timer should be set to 1 to retry next turn, got %d." % timer_val)

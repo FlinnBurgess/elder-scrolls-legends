@@ -3225,6 +3225,8 @@ static func _resume_pending_rune_breaks(match_state: Dictionary) -> Dictionary:
 		thresholds.remove_at(threshold_index)
 		player["rune_thresholds"] = thresholds
 		result["broken_runes"].append(threshold)
+		# Check if a friendly creature replaces the rune draw (e.g. Varen Aquilarios)
+		var rune_draw_prevented := _has_prevent_rune_draw(match_state, player_id)
 		result["events"].append({
 			"event_type": EVENT_RUNE_BROKEN,
 			"player_id": player_id,
@@ -3233,9 +3235,12 @@ static func _resume_pending_rune_breaks(match_state: Dictionary) -> Dictionary:
 			"source_controller_player_id": str(entry.get("source_controller_player_id", "")),
 			"causing_player_id": str(entry.get("causing_player_id", entry.get("source_controller_player_id", ""))),
 			"reason": str(entry.get("reason", "damage")),
-			"draw_card": true,
+			"draw_card": not rune_draw_prevented,
 			"timing_window": str(entry.get("timing_window", WINDOW_INTERRUPT)),
 		})
+		if rune_draw_prevented:
+			# Draw skipped — the rune_break trigger will fire heal via the trigger system
+			continue
 		# Prophet's Sight boon: intercept rune break draw with a 3-card choice
 		var ps_boon_pid := str(match_state.get("_boon_player_id", ""))
 		if ps_boon_pid == player_id:
@@ -3274,6 +3279,33 @@ static func _resume_pending_rune_breaks(match_state: Dictionary) -> Dictionary:
 			break
 	match_state["pending_rune_break_queue"] = queue
 	return result
+
+
+## Returns true if the player has a non-silenced creature in lane whose rune_break
+## triggered ability contains prevent_rune_draw (e.g. Varen Aquilarios).
+static func _has_prevent_rune_draw(match_state: Dictionary, player_id: String) -> bool:
+	for lane in match_state.get("lanes", []):
+		var slots: Array = lane.get("player_slots", {}).get(player_id, [])
+		for card in slots:
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			if EvergreenRules.has_raw_status(card, EvergreenRules.STATUS_SILENCED):
+				continue
+			var abilities = card.get("triggered_abilities", [])
+			if typeof(abilities) != TYPE_ARRAY:
+				continue
+			for ability in abilities:
+				if typeof(ability) != TYPE_DICTIONARY:
+					continue
+				if str(ability.get("family", "")) != FAMILY_RUNE_BREAK:
+					continue
+				var effects = ability.get("effects", [])
+				if typeof(effects) != TYPE_ARRAY:
+					continue
+				for effect in effects:
+					if typeof(effect) == TYPE_DICTIONARY and str(effect.get("op", "")) == "prevent_rune_draw":
+						return true
+	return false
 
 
 static func _resolve_out_of_cards(match_state: Dictionary, player_id: String, context: Dictionary) -> Dictionary:

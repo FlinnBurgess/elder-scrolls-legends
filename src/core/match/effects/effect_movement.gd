@@ -165,6 +165,16 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					rtdadl_template = rtdadl_source.duplicate(true)
 				var rtdadl_move := MatchMutations.move_card_to_zone(match_state, str(rtdadl_source.get("instance_id", "")), ZONE_DECK, {"reason": reason})
 				generated_events.append_array(rtdadl_move.get("events", []))
+		"schedule_return_from_discard":
+			# Stamp a random turn delay (1-10) on the card in the discard pile.
+			# The card must have died (last_gasp context) — the timer is set on the
+			# source card which is already in the discard pile at this point.
+			var srfd_source := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+			if not srfd_source.is_empty():
+				var srfd_controller := str(srfd_source.get("controller_player_id", ""))
+				var srfd_delay := MatchEffectParams._deterministic_index(match_state, "adoring_fan_return_%s_%s" % [str(srfd_source.get("instance_id", "")), str(match_state.get("turn_number", 0))], 10) + 1
+				srfd_source["_return_from_discard_timer"] = srfd_delay
+				srfd_source["_return_from_discard_controller"] = srfd_controller
 		"return_stolen":
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				var rs_original_owner := str(card.get("original_owner_player_id", card.get("owner_player_id", "")))
