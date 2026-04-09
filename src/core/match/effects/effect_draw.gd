@@ -500,6 +500,9 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						var gen_source := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 						var gen_counter_val := int(gen_source.get("_counter_" + gen_scale_counter, 0))
 						generated_card["_counter_" + gen_scale_counter] = gen_counter_val
+						var gen_rules := str(generated_card.get("rules_text", ""))
+						if not gen_rules.is_empty():
+							generated_card["rules_text"] = gen_rules.replace("0 damage", "%d damage" % gen_counter_val).replace("0 health", "%d health" % gen_counter_val)
 					if _MT()._overflow_card_to_discard(gen_player, generated_card, player_id, ZONE_GENERATED, generated_events):
 						return
 					generated_card["zone"] = ZONE_HAND

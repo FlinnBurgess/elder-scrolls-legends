@@ -22,6 +22,9 @@ func _add_card_overlay_badges(content_root: Control, card: Dictionary, public_vi
 		var lane_badges := _build_lane_status_badges(card, instance_id)
 		if lane_badges != null:
 			content_root.add_child(lane_badges)
+		var creature_counter := _build_creature_counter_badge(card)
+		if creature_counter != null:
+			content_root.add_child(creature_counter)
 	if surface == "support":
 		var counter_badge := _build_support_counter_badge(card)
 		if counter_badge != null:
@@ -62,6 +65,63 @@ func _build_support_counter_badge(card: Dictionary) -> Label:
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.z_index = 20
 	return label
+
+
+func _build_creature_counter_badge(card: Dictionary) -> Control:
+	var counter_name := ""
+	for trigger in card.get("triggered_abilities", []):
+		if typeof(trigger) != TYPE_DICTIONARY:
+			continue
+		for effect in trigger.get("effects", []):
+			if typeof(effect) != TYPE_DICTIONARY:
+				continue
+			if str(effect.get("op", "")) == "add_counter" and int(effect.get("threshold", 0)) == 0:
+				counter_name = str(effect.get("counter", effect.get("counter_name", "counter")))
+				break
+		if not counter_name.is_empty():
+			break
+	if counter_name.is_empty():
+		return null
+	var current := int(card.get("_counter_" + counter_name, 0))
+	if current <= 0:
+		return null
+	var circle_size := 52.0
+	var half := circle_size / 2.0
+	var circle_style := StyleBoxFlat.new()
+	circle_style.bg_color = Color(0, 0, 0, 0.85)
+	circle_style.border_color = Color.WHITE
+	circle_style.border_width_left = 2
+	circle_style.border_width_top = 2
+	circle_style.border_width_right = 2
+	circle_style.border_width_bottom = 2
+	circle_style.corner_radius_top_left = int(half)
+	circle_style.corner_radius_top_right = int(half)
+	circle_style.corner_radius_bottom_left = int(half)
+	circle_style.corner_radius_bottom_right = int(half)
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(circle_size, circle_size)
+	panel.add_theme_stylebox_override("panel", circle_style)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.z_index = 20
+	# Center using anchors (0.5, 0.5) with offsets
+	panel.anchor_left = 0.5
+	panel.anchor_top = 0.5
+	panel.anchor_right = 0.5
+	panel.anchor_bottom = 0.5
+	panel.offset_left = -half
+	panel.offset_top = -half
+	panel.offset_right = half
+	panel.offset_bottom = half
+	var label := Label.new()
+	label.text = str(current)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 28)
+	label.add_theme_color_override("font_color", Color.WHITE)
+	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(label)
+	return panel
 
 
 func _build_lane_status_badges(_card: Dictionary, _instance_id: String) -> HBoxContainer:

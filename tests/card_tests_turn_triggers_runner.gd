@@ -179,7 +179,12 @@ func _test_dragonfire_wizard_last_gasp_flame_lash_scales() -> bool:
 		for eff in ability.get("effects", []):
 			if str(eff.get("amount_source", "")).find("flame") >= 0:
 				uses_counter_source = true
-	return _assert(uses_counter_source, "Flame Lash effect should reference flame counter as amount_source")
+	if not _assert(uses_counter_source, "Flame Lash effect should reference flame counter as amount_source"):
+		return false
+	# Verify rules_text was updated to reflect the actual counter value
+	var lash_rules := str(flame_lash.get("rules_text", ""))
+	var expected_dmg_str := "%d damage" % lash_flame_count
+	return _assert(lash_rules.find(expected_dmg_str) >= 0, "Flame Lash rules_text should contain '%s', got '%s'" % [expected_dmg_str, lash_rules])
 
 
 func _test_dragonfire_wizard_no_flames_if_not_in_lane() -> bool:
