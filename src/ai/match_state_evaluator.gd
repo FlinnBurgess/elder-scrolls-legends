@@ -71,6 +71,7 @@ static func evaluate_state(match_state: Dictionary, perspective_player_id: Strin
 
 static func _board_value(match_state: Dictionary, perspective_player_id: String) -> float:
 	var total := 0.0
+	var opponent_id := _opposing_player_id(match_state, perspective_player_id)
 	for lane in match_state.get("lanes", []):
 		for raw_player_id in _player_ids(match_state):
 			for card in lane.get("player_slots", {}).get(raw_player_id, []):
@@ -81,7 +82,46 @@ static func _board_value(match_state: Dictionary, perspective_player_id: String)
 					total += value
 				else:
 					total -= value * 1.25
+		# Lethal trade-up bonus: a friendly Lethal creature that can attack is
+		# worth more when there are enemies in the lane it couldn't otherwise
+		# kill. This approximates the deeper lookahead needed to see "grant
+		# Lethal → attack → kill big creature".
+		total += _lethal_trade_up_bonus(match_state, lane, perspective_player_id, opponent_id)
 	return total
+
+
+## Bonus for friendly Lethal creatures that can profitably trade into enemy
+## creatures they couldn't kill with raw power alone. Only counts attackable
+## creatures (not shackled, not summoning-sick) so the value is immediate.
+static func _lethal_trade_up_bonus(match_state: Dictionary, lane: Dictionary, player_id: String, opponent_id: String) -> float:
+	var enemies: Array = lane.get("player_slots", {}).get(opponent_id, [])
+	if enemies.is_empty():
+		return 0.0
+	# Find the highest remaining health among enemies in this lane.
+	var best_enemy_health := 0
+	for enemy in enemies:
+		if typeof(enemy) != TYPE_DICTIONARY:
+			continue
+		best_enemy_health = maxi(best_enemy_health, EvergreenRules.get_remaining_health(enemy))
+	if best_enemy_health <= 0:
+		return 0.0
+	var bonus := 0.0
+	for card in lane.get("player_slots", {}).get(player_id, []):
+		if typeof(card) != TYPE_DICTIONARY:
+			continue
+		if not EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_LETHAL):
+			continue
+		if not _can_attack_now(match_state, card):
+			continue
+		var power := EvergreenRules.get_power(card)
+		if power <= 0:
+			continue
+		# Health gap: how far above its weight class Lethal lets this creature trade.
+		var gap := best_enemy_health - power
+		if gap <= 0:
+			continue
+		bonus += minf(float(gap), 6.0) * 1.5
+	return bonus
 
 
 static func _creature_value(match_state: Dictionary, card: Dictionary) -> float:
@@ -92,7 +132,16 @@ static func _creature_value(match_state: Dictionary, card: Dictionary) -> float:
 	if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_WARD):
 		value += 1.2
 	if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_LETHAL):
-		value += 1.1
+		# Lethal is worthless on 0-power creatures (they can't deal damage).
+		# Otherwise it's most valuable on low-power creatures (they trade up)
+		# and creatures that can attack immediately.
+		var lethal_power := float(EvergreenRules.get_power(card))
+		if lethal_power <= 0.0:
+			value += 0.0
+		else:
+			value += 1.1 + maxf(0.0, (5.0 - lethal_power) * 0.4)
+			if _can_attack_now(match_state, card):
+				value += 1.5
 	if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_DRAIN):
 		value += 0.8
 	if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_BREAKTHROUGH):

@@ -22,6 +22,8 @@ func _initialize() -> void:
 	_test_declines_bad_prophecy(failures)
 	_test_ends_turn_when_only_bad_ring_remains(failures)
 	_test_prioritizes_ongoing_effect_creature(failures)
+	_test_grants_lethal_to_low_power_attacker(failures)
+	_test_plays_lethal_granter_before_trading_expensive_creature(failures)
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)
@@ -208,6 +210,65 @@ func _test_prioritizes_ongoing_effect_creature(failures: Array) -> void:
 		}],
 	})
 	_assert_policy_pick(match_state, "attack:player_1:player_1_threat_hunter:target_type=creature:target=player_2_siege_engine", failures, "Policy should prioritize a 0-power creature with a dangerous ongoing effect over a vanilla creature with higher stats.")
+
+
+func _test_grants_lethal_to_low_power_attacker(failures: Array) -> void:
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 3, "first_player_index": 0})
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	player["hand"] = []
+	# Low-power creature that can attack this turn — ideal Lethal recipient.
+	var small_attacker := ScenarioFixtures.summon_creature(player, match_state, "small_attacker", "field", 1, 3, [], 0, {"cost": 0})
+	ScenarioFixtures.ready_for_attack(small_attacker, match_state)
+	# High-power creature that just entered lane — already kills most things, can't attack yet.
+	ScenarioFixtures.summon_creature(player, match_state, "big_creature", "field", 6, 6, [], 0, {"cost": 0})
+	# Support that grants Lethal to a friendly creature.
+	player["support"] = [ScenarioFixtures.make_card(str(player.get("player_id", "")), "lethal_totem", {
+		"zone": "support",
+		"card_type": "support",
+		"cost": 0,
+		"activation_cost": 1,
+		"support_uses": 1,
+		"remaining_support_uses": 1,
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ACTIVATE,
+			"required_zone": "support",
+			"effects": [{"op": "grant_keyword", "target": "event_target", "keyword_id": "lethal"}],
+		}],
+	})]
+	_assert_policy_pick(match_state, "activate_support:player_1:player_1_lethal_totem:target=player_1_small_attacker", failures, "Policy should grant Lethal to a low-power creature that can attack rather than a high-power creature that cannot.")
+
+
+func _test_plays_lethal_granter_before_trading_expensive_creature(failures: Array) -> void:
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 3, "first_player_index": 0})
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	player["hand"] = []
+	# Low-power attacker ready to attack — becomes deadly with Lethal.
+	var small_attacker := ScenarioFixtures.summon_creature(player, match_state, "small_attacker", "field", 1, 3, [], 0, {"cost": 0})
+	ScenarioFixtures.ready_for_attack(small_attacker, match_state)
+	# Expensive 4/4 also ready — can trade into the Guard but wastefully.
+	var big_creature := ScenarioFixtures.summon_creature(player, match_state, "big_creature", "field", 4, 4, [], 0, {"cost": 0})
+	ScenarioFixtures.ready_for_attack(big_creature, match_state)
+	# Enemy Guard with high health — neither creature kills it efficiently without Lethal.
+	ScenarioFixtures.summon_creature(opponent, match_state, "enemy_guard", "field", 5, 5, ["guard"], 0, {"cost": 0})
+	# Support that grants Lethal — costs 1 magicka to activate.
+	player["support"] = [ScenarioFixtures.make_card(str(player.get("player_id", "")), "lethal_totem", {
+		"zone": "support",
+		"card_type": "support",
+		"cost": 0,
+		"activation_cost": 1,
+		"support_uses": 1,
+		"remaining_support_uses": 1,
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ACTIVATE,
+			"required_zone": "support",
+			"effects": [{"op": "grant_keyword", "target": "event_target", "keyword_id": "lethal"}],
+		}],
+	})]
+	# The AI should activate the support (granting Lethal to the small attacker)
+	# rather than trading the 4/4 into the Guard. The interrupt-aware lookahead
+	# sees through "activate → grant Lethal → attack with Lethal creature".
+	_assert_policy_pick(match_state, "activate_support:player_1:player_1_lethal_totem:target=player_1_small_attacker", failures, "Policy should use a Lethal-granting support on a cheap attacker rather than trading an expensive creature into a Guard.")
 
 
 func _assert_policy_pick(match_state: Dictionary, expected_prefix: String, failures: Array, message: String) -> void:

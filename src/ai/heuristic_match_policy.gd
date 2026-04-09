@@ -128,7 +128,7 @@ static func describe_choice(choice: Dictionary, max_candidates: int = 3) -> Stri
 	return " || ".join(sections)
 
 
-static func _rank_actions(match_state: Dictionary, surface: Dictionary, player_id: String, baseline: float, options: Dictionary, lookahead_depth: int) -> Array:
+static func _rank_actions(match_state: Dictionary, surface: Dictionary, player_id: String, baseline: float, options: Dictionary, lookahead_depth: int, _interrupt_chain: int = 0) -> Array:
 	var scored: Array = []
 	var budget_ms := int(options.get("action_scoring_budget_ms", ACTION_SCORING_BUDGET_MS))
 	var start_ms := Time.get_ticks_msec()
@@ -151,7 +151,7 @@ static func _rank_actions(match_state: Dictionary, surface: Dictionary, player_i
 		var candidate: Dictionary = scored[index]
 		if _is_pass_action(candidate.get("action", {})) or not _can_continue_turn(candidate.get("simulated_state", {}), player_id):
 			continue
-		var continuation_gain := _best_followup_gain(candidate.get("simulated_state", {}), player_id, options, lookahead_depth)
+		var continuation_gain := _best_followup_gain(candidate.get("simulated_state", {}), player_id, options, lookahead_depth, _interrupt_chain)
 		candidate["continuation_gain"] = continuation_gain * float(options.get("lookahead_discount", DEFAULT_LOOKAHEAD_DISCOUNT))
 		candidate["total_score"] = float(candidate.get("immediate_score", -1000000.0)) + float(candidate.get("continuation_gain", 0.0))
 		candidate["relative_gain"] = float(candidate.get("total_score", -1000000.0)) - baseline
@@ -201,12 +201,23 @@ static func _score_action_immediate(match_state: Dictionary, action: Dictionary,
 	}
 
 
-static func _best_followup_gain(match_state: Dictionary, player_id: String, options: Dictionary, remaining_depth: int) -> float:
+static func _best_followup_gain(match_state: Dictionary, player_id: String, options: Dictionary, remaining_depth: int, _interrupt_chain: int = 0) -> float:
 	if remaining_depth <= 0 or not _can_continue_turn(match_state, player_id):
 		return 0.0
 	var baseline := MatchStateEvaluator.evaluate_state(match_state, player_id, options)
 	var surface := MatchActionEnumerator.enumerate_legal_actions(match_state, player_id)
-	var ranked := _rank_actions(match_state, surface, player_id, baseline, options, remaining_depth - 1)
+	# Interrupt windows (summon effect targets, secondary targets, etc.) are
+	# sub-decisions of the parent action — don't consume a lookahead ply.
+	# This lets the AI see through "play card → choose target → attack" sequences
+	# without needing extra lookahead depth.
+	var is_interrupt := str(surface.get("timing_window", "")) == MatchActionEnumerator.TIMING_INTERRUPT
+	var child_depth: int
+	if is_interrupt and _interrupt_chain < 3:
+		child_depth = remaining_depth
+	else:
+		child_depth = remaining_depth - 1
+	var next_chain := (_interrupt_chain + 1) if is_interrupt else 0
+	var ranked := _rank_actions(match_state, surface, player_id, baseline, options, child_depth, next_chain)
 	if ranked.is_empty():
 		return 0.0
 	var best_non_pass := _best_non_pass_candidate(ranked)
