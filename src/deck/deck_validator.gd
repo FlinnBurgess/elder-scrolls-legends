@@ -108,6 +108,12 @@ static func _validate_card_membership(card_id: String, card_record: Dictionary, 
 
 static func _describe_card_requirement(card_id: String, card_record: Dictionary, registry, errors: Array) -> Dictionary:
 	var raw_attribute_ids: Variant = card_record.get("attributes", [])
+	if typeof(raw_attribute_ids) == TYPE_ARRAY:
+		var filtered: Array = []
+		for attr in raw_attribute_ids:
+			if str(attr) != "neutral":
+				filtered.append(attr)
+		raw_attribute_ids = filtered
 	var attribute_validation = registry.validate_attribute_ids(raw_attribute_ids)
 	for error_message in attribute_validation.get("errors", []):
 		errors.append("Card `%s`: %s" % [card_id, error_message])

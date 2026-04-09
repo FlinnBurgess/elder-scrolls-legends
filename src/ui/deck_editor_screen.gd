@@ -705,7 +705,7 @@ func _card_matches_attribute_chips(card: Dictionary) -> bool:
 	var attributes: Array = card.get("attributes", [])
 	for filter_attr in _active_attribute_filters:
 		if filter_attr == "neutral":
-			if attributes.is_empty():
+			if attributes.is_empty() or attributes == ["neutral"]:
 				return true
 		else:
 			if attributes.has(filter_attr):
@@ -838,6 +838,8 @@ func _card_matches_deck_attributes(card: Dictionary) -> bool:
 	if attributes.is_empty():
 		return true
 	for attr in attributes:
+		if str(attr) == "neutral":
+			continue
 		if not _deck_attribute_ids.has(str(attr)):
 			return false
 	return true
@@ -891,6 +893,8 @@ func _find_illegal_cards(new_attribute_ids: Array) -> Array:
 		if attributes.is_empty():
 			continue
 		for attr in attributes:
+			if str(attr) == "neutral":
+				continue
 			if not new_attribute_ids.has(str(attr)):
 				illegal.append(card_id)
 				break
