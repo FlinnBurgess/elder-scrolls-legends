@@ -27,7 +27,11 @@ func _run_all_tests() -> bool:
 		_test_mobilize_items_create_recruits_and_attach_equipment() and
 		_test_plot_item_reduces_random_hand_card_cost() and
 		_test_on_support_count_reached_waits_for_threshold() and
-		_test_item_on_play_target_no_valid_targets_allows_decline()
+		_test_item_on_play_target_no_valid_targets_allows_decline() and
+		_test_horse_armor_sets_premium_on_wielder() and
+		_test_fifth_support_rejected_when_zone_full() and
+		_test_play_support_with_sacrifice() and
+		_test_play_support_sacrifice_rejects_when_not_full()
 	)
 
 
@@ -307,6 +311,85 @@ func _test_item_on_play_target_no_valid_targets_allows_decline() -> bool:
 		_assert(not actions.is_empty(), "Must have at least one action when item on_play targeting is pending.") and
 		_assert(actions.any(func(a): return str(a.get("kind", "")) == MatchActionEnumerator.KIND_DECLINE_SUMMON_EFFECT_TARGET or str(a.get("kind", "")) == MatchActionEnumerator.KIND_CHOOSE_SUMMON_EFFECT_TARGET), "Actions should include either a target choice or a decline option.")
 	)
+
+
+func _test_horse_armor_sets_premium_on_wielder() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid: String = player["player_id"]
+	var host := _summon_creature(player, match_state, "host_creature", "field", 3, 3, 0)
+	var horse_armor := _add_hand_card(player, "horse_armor", {
+		"card_type": "item",
+		"cost": 0,
+		"equip_health_bonus": 1,
+		"triggered_abilities": [{"family": "on_play", "effects": [{"op": "set_premium", "target": "event_target"}]}],
+	})
+	if not _assert(not bool(host.get("_premium", false)), "Host should not be premium before equip."):
+		return false
+	var result := PersistentCardRules.play_item_from_hand(match_state, pid, horse_armor["instance_id"], {"target_instance_id": host["instance_id"]})
+	if not _assert(result["is_valid"], "Horse Armor equip should succeed."):
+		return false
+	return (
+		_assert(bool(host.get("_premium", false)), "Host creature should be premium after Horse Armor equip.") and
+		_assert(EvergreenRules.get_health(host) == 4, "Host health should include +1 from Horse Armor equip bonus.")
+	)
+
+
+func _test_fifth_support_rejected_when_zone_full() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid: String = player["player_id"]
+	# Fill the support zone to 4
+	for i in range(4):
+		var s := _add_hand_card(player, "fill_support_%d" % i, {"card_type": "support", "cost": 0, "support_uses": 3})
+		var r := PersistentCardRules.play_support_from_hand(match_state, pid, s["instance_id"])
+		if not _assert(r["is_valid"], "Support %d should play successfully." % i):
+			return false
+	if not _assert(player["support"].size() == 4, "Support zone should have 4 supports."):
+		return false
+	# Attempt to play a 5th support — should be rejected
+	var fifth := _add_hand_card(player, "fifth_support", {"card_type": "support", "cost": 0, "support_uses": 3})
+	var result := PersistentCardRules.play_support_from_hand(match_state, pid, fifth["instance_id"])
+	return (
+		_assert(not result["is_valid"], "Playing a 5th support should fail.") and
+		_assert(player["support"].size() == 4, "Support zone should still have 4 supports.") and
+		_assert(_contains_instance(player["hand"], fifth["instance_id"]), "5th support should remain in hand.")
+	)
+
+
+func _test_play_support_with_sacrifice() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid: String = player["player_id"]
+	# Fill the support zone to 4
+	for i in range(4):
+		var s := _add_hand_card(player, "sac_fill_%d" % i, {"card_type": "support", "cost": 0, "support_uses": 3})
+		PersistentCardRules.play_support_from_hand(match_state, pid, s["instance_id"])
+	var sacrifice_id: String = str(player["support"][0].get("instance_id", ""))
+	# Play a new support by sacrificing the first one
+	var new_support := _add_hand_card(player, "new_support", {"card_type": "support", "cost": 0, "support_uses": 5})
+	var result := PersistentCardRules.play_support_with_sacrifice(match_state, pid, new_support["instance_id"], sacrifice_id)
+	return (
+		_assert(result["is_valid"], "Support sacrifice play should succeed.") and
+		_assert(player["support"].size() == 4, "Support zone should still have 4 supports after sacrifice play.") and
+		_assert(not _contains_instance(player["support"], sacrifice_id), "Sacrificed support should be removed from support zone.") and
+		_assert(_contains_instance(player["support"], new_support["instance_id"]), "New support should be in the support zone.") and
+		_assert(_contains_instance(player["discard"], sacrifice_id), "Sacrificed support should be in the discard pile.")
+	)
+
+
+func _test_play_support_sacrifice_rejects_when_not_full() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid: String = player["player_id"]
+	# Play only 2 supports (not full)
+	for i in range(2):
+		var s := _add_hand_card(player, "partial_fill_%d" % i, {"card_type": "support", "cost": 0, "support_uses": 3})
+		PersistentCardRules.play_support_from_hand(match_state, pid, s["instance_id"])
+	var sacrifice_id: String = str(player["support"][0].get("instance_id", ""))
+	var new_support := _add_hand_card(player, "extra_support", {"card_type": "support", "cost": 0, "support_uses": 3})
+	var result := PersistentCardRules.play_support_with_sacrifice(match_state, pid, new_support["instance_id"], sacrifice_id)
+	return _assert(not result["is_valid"], "Sacrifice play should fail when support zone is not full.")
 
 
 func _build_started_match() -> Dictionary:

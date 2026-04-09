@@ -14,6 +14,7 @@ const ZONE_HAND := "hand"
 const ZONE_LANE := "lane"
 const ZONE_SUPPORT := "support"
 const ZONE_ATTACHED_ITEM := "attached_item"
+const MAX_SUPPORTS := 4
 
 
 static func refresh_support_for_controller_turn(card: Dictionary) -> void:
@@ -30,6 +31,9 @@ static func play_support_from_hand(match_state: Dictionary, player_id: String, i
 	var validation := _validate_hand_card(match_state, player_id, instance_id, CARD_TYPE_SUPPORT, "Support play", bool(options.get("played_for_free", false)))
 	if not bool(validation.get("is_valid", false)):
 		return validation
+	var player_state := _get_player_state(match_state, player_id)
+	if player_state.get("support", []).size() >= MAX_SUPPORTS:
+		return _invalid_result("Support zone is full (%d). Sacrifice an existing support first." % MAX_SUPPORTS)
 	var card: Dictionary = validation["card"]
 	if bool(card.get("_play_for_free", false)):
 		options["played_for_free"] = true
@@ -57,6 +61,75 @@ static func play_support_from_hand(match_state: Dictionary, player_id: String, i
 		"reason": str(options.get("reason", "play_support")),
 	}])
 	return {"is_valid": true, "errors": [], "card": card, "events": timing_result.get("processed_events", []), "trigger_resolutions": timing_result.get("trigger_resolutions", [])}
+
+
+static func is_support_zone_full(match_state: Dictionary, player_id: String) -> bool:
+	return _get_player_state(match_state, player_id).get("support", []).size() >= MAX_SUPPORTS
+
+
+static func validate_play_support_with_sacrifice(match_state: Dictionary, player_id: String, instance_id: String, sacrifice_instance_id: String, options: Dictionary = {}) -> Dictionary:
+	var validation := _validate_hand_card(match_state, player_id, instance_id, CARD_TYPE_SUPPORT, "Support sacrifice play", bool(options.get("played_for_free", false)))
+	if not bool(validation.get("is_valid", false)):
+		return validation
+	var player_state := _get_player_state(match_state, player_id)
+	if player_state.get("support", []).size() < MAX_SUPPORTS:
+		return _invalid_result("Support zone is not full. Use normal play.")
+	var sacrifice_location := MatchMutations.find_card_location(match_state, sacrifice_instance_id)
+	if not bool(sacrifice_location.get("is_valid", false)):
+		return _invalid_result("Sacrifice target %s not found." % sacrifice_instance_id)
+	if str(sacrifice_location.get("zone", "")) != ZONE_SUPPORT:
+		return _invalid_result("Sacrifice target %s is not in the support zone." % sacrifice_instance_id)
+	if str(sacrifice_location.get("player_id", "")) != player_id:
+		return _invalid_result("Sacrifice target %s is not controlled by %s." % [sacrifice_instance_id, player_id])
+	return {"is_valid": true, "errors": [], "card": validation["card"], "sacrifice_instance_id": sacrifice_instance_id}
+
+
+static func play_support_with_sacrifice(match_state: Dictionary, player_id: String, instance_id: String, sacrifice_instance_id: String, options: Dictionary = {}) -> Dictionary:
+	GameLogger.trc("Persist", "play_support_sacrifice", "p:%s,id:%s,sac:%s" % [player_id, instance_id, sacrifice_instance_id])
+	var validation := validate_play_support_with_sacrifice(match_state, player_id, instance_id, sacrifice_instance_id, options)
+	if not bool(validation.get("is_valid", false)):
+		return validation
+	var card: Dictionary = validation["card"]
+	if bool(card.get("_play_for_free", false)):
+		options["played_for_free"] = true
+		card.erase("_play_for_free")
+		MatchTiming.consume_pending_free_play(match_state, instance_id)
+	var play_cost := 0 if bool(options.get("played_for_free", false)) else get_effective_play_cost(match_state, player_id, card)
+	if play_cost > 0:
+		_spend_magicka(match_state, player_id, play_cost)
+	_consume_cost_reduction(match_state, player_id)
+	# Sacrifice the existing support (move to discard)
+	var sacrifice_result := MatchMutations.discard_card(match_state, sacrifice_instance_id)
+	if not bool(sacrifice_result.get("is_valid", false)):
+		return sacrifice_result
+	var sacrifice_events: Array = [{
+		"event_type": "card_sacrificed",
+		"source_instance_id": sacrifice_instance_id,
+		"controller_player_id": player_id,
+	}]
+	# Move new support into the zone
+	var moved := MatchMutations.move_card_to_zone(match_state, instance_id, ZONE_SUPPORT, {"target_player_id": player_id, "reason": str(options.get("reason", "play_support"))})
+	if not bool(moved.get("is_valid", false)):
+		return moved
+	_ensure_support_state(card)
+	var play_events: Array = [{
+		"event_type": MatchTiming.EVENT_CARD_PLAYED,
+		"playing_player_id": player_id,
+		"player_id": player_id,
+		"source_instance_id": instance_id,
+		"source_controller_player_id": player_id,
+		"source_zone": ZONE_HAND,
+		"target_zone": ZONE_SUPPORT,
+		"card_type": CARD_TYPE_SUPPORT,
+		"played_cost": int(card.get("cost", 0)),
+		"played_for_free": bool(options.get("played_for_free", false)),
+		"reason": str(options.get("reason", "play_support")),
+	}]
+	var all_events: Array = []
+	all_events.append_array(sacrifice_events)
+	all_events.append_array(play_events)
+	var timing_result := MatchTiming.publish_events(match_state, all_events)
+	return {"is_valid": true, "errors": [], "card": card, "sacrifice_instance_id": sacrifice_instance_id, "events": timing_result.get("processed_events", []), "trigger_resolutions": timing_result.get("trigger_resolutions", [])}
 
 
 static func play_item_from_hand(match_state: Dictionary, player_id: String, instance_id: String, options: Dictionary = {}) -> Dictionary:
@@ -199,6 +272,8 @@ static func play_item_from_hand(match_state: Dictionary, player_id: String, inst
 	MatchTiming._check_consume_abilities(match_state, attach_result["card"])
 	# Check for on_play targeted abilities (e.g., Mace of Encumbrance shackle)
 	_check_item_on_play_target_mode(match_state, attach_result["card"])
+	# Apply untargeted on_play effects (e.g., Horse Armor set_premium on wielder)
+	_apply_item_untargeted_on_play_effects(match_state, attach_result["card"], target_instance_id)
 	# Process deferred item target checks (e.g., copies from Gardener of Swords)
 	# so they queue AFTER the original item's targeting.
 	_flush_deferred_item_target_checks(match_state)
@@ -700,6 +775,40 @@ static func _check_item_on_play_target_mode(match_state: Dictionary, item_card: 
 		"mandatory": false,
 		"allowed_families": ["on_play"],
 	})
+
+
+static func _apply_item_untargeted_on_play_effects(match_state: Dictionary, item_card: Dictionary, wielder_instance_id: String) -> void:
+	var raw_triggers = item_card.get("triggered_abilities", [])
+	if typeof(raw_triggers) != TYPE_ARRAY:
+		return
+	var item_id := str(item_card.get("instance_id", ""))
+	var controller_id := str(item_card.get("controller_player_id", ""))
+	for ab in raw_triggers:
+		if typeof(ab) != TYPE_DICTIONARY:
+			continue
+		if str(ab.get("family", "")) != "on_play":
+			continue
+		if not str(ab.get("target_mode", "")).is_empty():
+			continue  # Targeted abilities are handled by _check_item_on_play_target_mode
+		var effects: Array = ab.get("effects", [])
+		var trigger := {
+			"source_instance_id": item_id,
+			"controller_player_id": controller_id,
+		}
+		var event := {
+			"event_type": MatchTiming.EVENT_CARD_PLAYED,
+			"source_instance_id": item_id,
+			"target_instance_id": wielder_instance_id,
+		}
+		var resolution := {
+			"descriptor": ab,
+			"trigger": trigger,
+			"effects": effects,
+		}
+		var EffectApp = load("res://src/core/match/match_effect_application.gd")
+		var generated_events: Array = EffectApp._apply_effects(match_state, trigger, event, resolution)
+		if not generated_events.is_empty():
+			MatchTiming.publish_events(match_state, generated_events)
 
 
 static func _flush_deferred_item_target_checks(match_state: Dictionary) -> void:

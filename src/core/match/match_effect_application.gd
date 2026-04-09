@@ -194,7 +194,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 			"change", "change_attribute", "change_lane_type", "change_lane_types", "conditional_change", "copy", "randomize_attribute", "transform", "transform_deck", "transform_hand", "transform_in_hand", "transform_in_hand_to_random":
 				EffectTransform.apply(op, match_state, trigger, event, effect, generated_events, ctx)
 			# Sacrifice
-			"consume", "consume_all_creatures_in_discard_this_turn", "consume_and_copy_veteran", "consume_and_reduce_matching_subtype_cost", "consume_card", "consume_or_sacrifice", "optional_consume_for_keyword", "recall_and_resummon", "sacrifice", "sacrifice_and_absorb_stats", "sacrifice_and_equip_from_deck", "sacrifice_and_resummon", "sacrifice_and_summon_from_deck":
+			"consume", "consume_all_creatures_in_discard_this_turn", "consume_and_copy_veteran", "consume_and_reduce_matching_subtype_cost", "consume_card", "consume_or_sacrifice", "optional_consume_for_keyword", "recall_and_resummon", "sacrifice", "sacrifice_and_absorb_stats", "sacrifice_and_equip_from_deck", "sacrifice_and_resummon", "sacrifice_and_summon_from_deck", "sacrifice_source_and_equip_from_deck":
 				EffectSacrifice.apply(op, match_state, trigger, event, effect, generated_events, ctx)
 			# Items
 			"buff_creatures_in_deck", "buff_creatures_in_discard", "buff_items_in_deck", "equip_copies_from_discard", "equip_copy_of_item", "equip_generated_item", "equip_item", "equip_items_from_discard", "modify_item_in_hand", "modify_random_item_in_hand", "reequip_all_items_to", "steal_item_from_opponent_discard", "steal_items":
@@ -203,7 +203,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 			"build_custom_fabricant", "fabricate_choose_ability", "choose_card_in_hand_and_shuffle_copies", "choose_cost_lock", "choose_cost_trigger", "choose_one", "choose_two", "conditional_drawn_card_bonus", "conditional_lane_bonus", "learn_action", "look_draw_discard", "look_give_draw", "optional_discard_and_summon", "play_learned_actions", "random_sub_effect", "secretly_choose_creature", "select_card_from_hand", "stitch_creatures_from_decks":
 				EffectChoice.apply(op, match_state, trigger, event, effect, generated_events, ctx)
 			# Misc
-			"add_counter", "aim_at", "buff_random_hand_card", "grant_aura_by_chosen_subtype", "log", "mark_for_resummon", "mark_target", "redirect_damage_to_self", "reveal_opponent_hand_card", "reveal_opponent_top_deck", "swap_creatures", "top_deck_attribute_bonus":
+			"add_counter", "aim_at", "buff_random_hand_card", "grant_aura_by_chosen_subtype", "log", "mark_for_resummon", "mark_target", "redirect_damage_to_self", "reveal_opponent_hand_card", "reveal_opponent_top_deck", "set_premium", "swap_creatures", "top_deck_attribute_bonus":
 				EffectMisc.apply(op, match_state, trigger, event, effect, generated_events, ctx)
 			_:
 				var resolved_effect := effect

@@ -4,6 +4,7 @@ extends Control
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const CardRelationshipResolverClass = preload("res://src/ui/components/card_relationship_resolver.gd")
 const WARD_SHADER = preload("res://assets/shaders/ward_mist.gdshader")
+const PREMIUM_GOLD_SHADER = preload("res://assets/shaders/premium_gold.gdshader")
 
 const PRESENTATION_FULL := "full"
 const PRESENTATION_CREATURE_BOARD_MINIMAL := "creature_board_minimal"
@@ -106,11 +107,13 @@ var _attack_label: Label
 var _health_badge: TextureRect
 var _health_label: Label
 var _ward_overlay: ColorRect
+var _premium_overlay: ColorRect
 var _shackle_overlay: TextureRect
 var _lethal_particles: GPUParticles2D
 var _attribute_icons_container: VBoxContainer
 var _keyword_icons_container: HBoxContainer
 var _augment_badge_container: VBoxContainer
+var _gate_level_badge: Label
 var _quantity_badge: Label
 var _charges_badge: Label
 var _ongoing_badge: Label
@@ -133,6 +136,9 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if _ward_overlay != null and _ward_overlay.visible:
 		_ward_overlay.queue_redraw()
+		queue_redraw()
+	if _premium_overlay != null and _premium_overlay.visible:
+		_premium_overlay.queue_redraw()
 		queue_redraw()
 
 
@@ -328,6 +334,18 @@ func _build_internal_nodes() -> void:
 		_ward_overlay.material = ward_mat
 	_art_clip.add_child(_ward_overlay)
 
+	# Premium gold overlay sits above artwork, covers the full card frame
+	_premium_overlay = ColorRect.new()
+	_premium_overlay.name = "PremiumOverlay"
+	_premium_overlay.color = Color.WHITE
+	_premium_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_premium_overlay.visible = false
+	if PREMIUM_GOLD_SHADER:
+		var premium_mat := ShaderMaterial.new()
+		premium_mat.shader = PREMIUM_GOLD_SHADER
+		_premium_overlay.material = premium_mat
+	_content_root.add_child(_premium_overlay)
+
 	# Shackle overlay sits above artwork but below banners and badges
 	_shackle_overlay = TextureRect.new()
 	_shackle_overlay.name = "ShackleOverlay"
@@ -492,6 +510,15 @@ func _build_internal_nodes() -> void:
 	_charges_badge.visible = false
 	_content_root.add_child(_charges_badge)
 
+	_gate_level_badge = Label.new()
+	_gate_level_badge.name = "GateLevelBadge"
+	_gate_level_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_gate_level_badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_gate_level_badge.add_theme_font_size_override("font_size", 11)
+	_gate_level_badge.add_theme_color_override("font_color", Color(0.95, 0.88, 0.6, 1.0))
+	_gate_level_badge.visible = false
+	_content_root.add_child(_gate_level_badge)
+
 	_ongoing_badge = Label.new()
 	_ongoing_badge.name = "OngoingBadge"
 	_ongoing_badge.text = "Ongoing"
@@ -552,6 +579,7 @@ func _refresh_content() -> void:
 	_refresh_keyword_icons()
 	_refresh_augment_badges()
 	_refresh_attribute_icons()
+	_refresh_gate_level_badge()
 
 
 func _refresh_styles() -> void:
@@ -561,8 +589,11 @@ func _refresh_styles() -> void:
 	_apply_font_sizes(scale)
 	var accent := _attribute_tint(_card_data)
 	var muted_accent := accent.darkened(0.28)
-	# Outer frame – dark with accent border (ESL-style card edge)
-	_apply_panel_style(_outer_frame, COLOR_FRAME_DARK, accent, _scaled_border_width(3, scale), 0)
+	# Outer frame – dark with accent border (ESL-style card edge); gold for premium
+	var is_premium := bool(_card_data.get("_premium", false))
+	var outer_border := Color(0.85, 0.65, 0.15, 1.0) if is_premium else accent
+	var outer_border_w := _scaled_border_width(4, scale) if is_premium else _scaled_border_width(3, scale)
+	_apply_panel_style(_outer_frame, COLOR_FRAME_DARK, outer_border, outer_border_w, 0)
 	# Inner frame – slightly lighter
 	_apply_panel_style(_inner_frame, COLOR_FRAME_INNER, muted_accent, _scaled_border_width(1, scale), 0)
 	# Name banner – opaque dark overlay on top of art, thin bottom border matching art frame
@@ -629,7 +660,8 @@ func _refresh_visibility() -> void:
 	_attack_badge.visible = is_creature and (full or creature_minimal)
 	_health_badge.visible = is_creature and (full or creature_minimal)
 	_ward_overlay.visible = _interactive and is_creature and EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_WARD)
-	_shackle_overlay.visible = _interactive and is_creature and (creature_minimal) and EvergreenRules.has_raw_status(_card_data, EvergreenRules.STATUS_SHACKLED)
+	_premium_overlay.visible = bool(_card_data.get("_premium", false))
+	_shackle_overlay.visible = _interactive and is_creature and (creature_minimal) and (EvergreenRules.has_raw_status(_card_data, EvergreenRules.STATUS_SHACKLED) or bool(_card_data.get("cannot_attack", false)))
 	var show_lethal := _interactive and is_creature and (full or creature_minimal) and EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_LETHAL)
 	_lethal_particles.emitting = show_lethal
 	_lethal_particles.visible = show_lethal
@@ -703,6 +735,7 @@ func _layout_full(inner_rect: Rect2) -> void:
 	_layout_stat_badges(inner_rect, Rect2(_art_frame.position, _art_frame.size), scale, true)
 
 	_layout_ward_overlay()
+	_layout_premium_overlay()
 	_keyword_icons_container.visible = false
 	_layout_augment_badges()
 	_layout_attribute_icons()
@@ -741,6 +774,7 @@ func _layout_creature_board_minimal(inner_rect: Rect2) -> void:
 	_art_texture.size = _art_frame.size
 	_layout_stat_badges(inner_rect, Rect2(_art_frame.position, _art_frame.size), scale, true)
 	_layout_ward_overlay()
+	_layout_premium_overlay()
 	_layout_shackle_overlay()
 	_layout_keyword_icons()
 	_layout_augment_badges()
@@ -786,6 +820,7 @@ func _layout_support_board_minimal(inner_rect: Rect2) -> void:
 	_attack_badge.size = Vector2.ZERO
 	_health_badge.position = Vector2.ZERO
 	_health_badge.size = Vector2.ZERO
+	_layout_premium_overlay()
 
 
 func _frame_rect(width: float, height: float) -> Rect2:
@@ -1018,6 +1053,14 @@ func _layout_ward_overlay() -> void:
 	var v_pad := _art_clip.size.y * 0.08
 	_ward_overlay.position = Vector2(-h_pad, -v_pad)
 	_ward_overlay.size = _art_clip.size + Vector2(h_pad * 2, v_pad * 2)
+
+
+func _layout_premium_overlay() -> void:
+	if _premium_overlay == null:
+		return
+	# Cover the full outer frame so the shader's border mask aligns with card edges
+	_premium_overlay.position = _outer_frame.position
+	_premium_overlay.size = _outer_frame.size
 
 
 func _layout_shackle_overlay() -> void:
@@ -1608,6 +1651,38 @@ func _refresh_charges_badge() -> void:
 	style.corner_radius_bottom_left = 4
 	style.corner_radius_bottom_right = 4
 	_charges_badge.add_theme_stylebox_override("normal", style)
+
+
+func _refresh_gate_level_badge() -> void:
+	if _gate_level_badge == null:
+		return
+	var gate_level: int = int(_card_data.get("gate_level", 0))
+	if gate_level <= 0 or _presentation_mode != PRESENTATION_FULL:
+		_gate_level_badge.visible = false
+		return
+	_gate_level_badge.text = "Level: %d" % gate_level
+	_gate_level_badge.visible = true
+	var scale := _layout_scale(PRESENTATION_FULL)
+	var badge_w := _art_frame.size.x * 0.5
+	var badge_h := 18.0 * scale
+	_gate_level_badge.add_theme_font_size_override("font_size", _scaled_int(11, scale))
+	_gate_level_badge.size = Vector2(badge_w, badge_h)
+	_gate_level_badge.position = Vector2(
+		_art_frame.position.x + (_art_frame.size.x - badge_w) * 0.5,
+		_art_frame.position.y + _art_frame.size.y - badge_h - float(_scaled_border_width(2, scale))
+	)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.0, 0.0, 0.0, 0.82)
+	style.border_color = Color(0.95, 0.88, 0.6, 0.5)
+	style.border_width_top = 1
+	style.border_width_bottom = 1
+	style.border_width_left = 1
+	style.border_width_right = 1
+	style.corner_radius_top_left = 3
+	style.corner_radius_top_right = 3
+	style.corner_radius_bottom_left = 3
+	style.corner_radius_bottom_right = 3
+	_gate_level_badge.add_theme_stylebox_override("normal", style)
 
 
 func _refresh_ongoing_badge() -> void:

@@ -7,6 +7,8 @@ var _deferred_betray := {}
 var _pending_sacrifice_summon := {}
 var _sacrifice_hover_target_id: String = ""
 var _sacrifice_hover_label: PanelContainer = null
+var _support_sacrifice_hover_target_id: String = ""
+var _support_sacrifice_hover_label: PanelContainer = null
 
 func _init(screen) -> void:
 	_screen = screen
@@ -355,3 +357,109 @@ func _resolve_sacrifice_summon(sacrifice_instance_id: String) -> void:
 	var finalized = _screen._finalize_engine_result(result, "Sacrificed %s to play %s." % [sacrifice_name, summoned_name])
 	if bool(finalized.get("is_valid", false)):
 		_screen._check_summon_target_mode(saved_instance_id)
+
+
+# ── Support sacrifice (full support zone) ──────────────────────────────
+
+func _update_support_sacrifice_hover_from_mouse(mouse_pos: Vector2) -> void:
+	if _screen._hand._detached_card_state.is_empty():
+		_clear_support_sacrifice_hover()
+		return
+	var card = _screen._selected_card()
+	if card.is_empty() or str(card.get("card_type", "")) != "support":
+		_clear_support_sacrifice_hover()
+		return
+	var player_id: String = _screen._active_player_id()
+	if not _screen.PersistentCardRules.is_support_zone_full(_screen._match_state, player_id):
+		_clear_support_sacrifice_hover()
+		return
+	var nearest_id := _find_nearest_support_at_mouse(player_id, mouse_pos)
+	if nearest_id != "" and nearest_id != _support_sacrifice_hover_target_id:
+		_clear_support_sacrifice_hover()
+		_apply_support_sacrifice_hover(nearest_id)
+	elif nearest_id == "":
+		_clear_support_sacrifice_hover()
+
+
+func _find_nearest_support_at_mouse(player_id: String, mouse_pos: Vector2) -> String:
+	var player: Dictionary = _screen._player_state(player_id)
+	var best_id := ""
+	var best_dist := INF
+	for support_card in player.get("support", []):
+		var iid := str(support_card.get("instance_id", ""))
+		var button: Button = _screen._card_buttons.get(iid)
+		if button == null or not is_instance_valid(button):
+			continue
+		var rect := Rect2(button.global_position, button.size)
+		if rect.has_point(mouse_pos):
+			var center := rect.position + rect.size * 0.5
+			var dist := mouse_pos.distance_to(center)
+			if dist < best_dist:
+				best_dist = dist
+				best_id = iid
+	return best_id
+
+
+func _apply_support_sacrifice_hover(instance_id: String) -> void:
+	_support_sacrifice_hover_target_id = instance_id
+	var button: Button = _screen._card_buttons.get(instance_id)
+	if button != null and is_instance_valid(button):
+		_screen._apply_betray_target_glow(button, "support")
+	var target_card = _screen._card_from_instance_id(instance_id)
+	_support_sacrifice_hover_label = PanelContainer.new()
+	var bg_style := StyleBoxFlat.new()
+	bg_style.bg_color = Color(0.0, 0.0, 0.0, 0.85)
+	bg_style.set_corner_radius_all(4)
+	bg_style.set_content_margin_all(6)
+	_support_sacrifice_hover_label.add_theme_stylebox_override("panel", bg_style)
+	_support_sacrifice_hover_label.z_index = 501
+	_support_sacrifice_hover_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var label := Label.new()
+	label.text = "Sacrifice %s" % _screen._card_name(target_card)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_color_override("font_color", Color(0.95, 0.35, 0.25, 1.0))
+	label.add_theme_font_size_override("font_size", 16)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_support_sacrifice_hover_label.add_child(label)
+	_screen.add_child(_support_sacrifice_hover_label)
+	_update_support_sacrifice_hover_label_position()
+
+
+func _update_support_sacrifice_hover_label_position() -> void:
+	if _support_sacrifice_hover_label == null or not is_instance_valid(_support_sacrifice_hover_label):
+		return
+	var preview: Control = _screen._hand._detached_card_state.get("preview")
+	if preview == null or not is_instance_valid(preview):
+		return
+	var label_size := _support_sacrifice_hover_label.size
+	_support_sacrifice_hover_label.position = Vector2(
+		preview.position.x + preview.size.x * 0.5 - label_size.x * 0.5,
+		preview.position.y + preview.size.y + 4.0
+	)
+
+
+func _clear_support_sacrifice_hover() -> void:
+	if _support_sacrifice_hover_target_id.is_empty():
+		return
+	var button: Button = _screen._card_buttons.get(_support_sacrifice_hover_target_id)
+	if button != null and is_instance_valid(button):
+		var glow := button.find_child("valid_target_glow", false, false)
+		if glow != null:
+			glow.queue_free()
+	_support_sacrifice_hover_target_id = ""
+	if _support_sacrifice_hover_label != null and is_instance_valid(_support_sacrifice_hover_label):
+		_support_sacrifice_hover_label.queue_free()
+	_support_sacrifice_hover_label = null
+
+
+func _resolve_support_sacrifice_hover() -> void:
+	var sacrifice_id := _support_sacrifice_hover_target_id
+	var detached_id := str(_screen._hand._detached_card_state.get("instance_id", ""))
+	_clear_support_sacrifice_hover()
+	_screen._cancel_detached_card_silent()
+	var sacrifice_card_data = _screen._card_from_instance_id(sacrifice_id)
+	var played_card = _screen._card_from_instance_id(detached_id)
+	var sacrifice_name = _screen._card_name(sacrifice_card_data)
+	var played_name = _screen._card_name(played_card)
+	var result = _screen.PersistentCardRules.play_support_with_sacrifice(_screen._match_state, _screen._active_player_id(), detached_id, sacrifice_id)
+	_screen._finalize_engine_result(result, "Sacrificed %s to play %s." % [sacrifice_name, played_name])

@@ -301,6 +301,8 @@ static func _tactical_bonus(before_state: Dictionary, after_state: Dictionary, a
 			bonus += 0.75
 		MatchActionEnumerator.KIND_PLAY_SUPPORT:
 			bonus += 0.45
+		MatchActionEnumerator.KIND_PLAY_SUPPORT_SACRIFICE:
+			bonus += 0.35
 		MatchActionEnumerator.KIND_ACTIVATE_SUPPORT:
 			bonus += 0.65
 		MatchActionEnumerator.KIND_PLAY_ACTION:
@@ -470,6 +472,7 @@ static func _classify_candidate(before_state: Dictionary, after_state: Dictionar
 		MatchActionEnumerator.KIND_RING_USE,
 		MatchActionEnumerator.KIND_SUMMON_CREATURE,
 		MatchActionEnumerator.KIND_PLAY_SUPPORT,
+		MatchActionEnumerator.KIND_PLAY_SUPPORT_SACRIFICE,
 		MatchActionEnumerator.KIND_PLAY_ITEM,
 		MatchActionEnumerator.KIND_ACTIVATE_SUPPORT,
 		MatchActionEnumerator.KIND_PLAY_ACTION,

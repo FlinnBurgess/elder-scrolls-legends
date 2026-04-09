@@ -623,6 +623,12 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 					if exclude_self and str(card.get("instance_id", "")) == self_id:
 						continue
 					targets.append(card)
+		"friendly_creature_with_3_items":
+			var controller_id := str(trigger.get("controller_player_id", ""))
+			targets = MatchTimingHelpers._player_lane_creatures(match_state, controller_id)
+			targets = targets.filter(func(c):
+				var items = c.get("attached_items", [])
+				return typeof(items) == TYPE_ARRAY and items.size() >= 3)
 		"all_creatures", "all_other_creatures":
 			var self_id := str(trigger.get("source_instance_id", ""))
 			var exclude_self := target == "all_other_creatures"

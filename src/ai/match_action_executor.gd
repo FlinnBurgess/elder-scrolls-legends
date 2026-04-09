@@ -63,6 +63,8 @@ static func execute_action(match_state: Dictionary, action: Dictionary, skip_leg
 			result = MatchCombat.resolve_attack(match_state, player_id, source_instance_id, parameters.get("target", {}).duplicate(true))
 		MatchActionEnumerator.KIND_PLAY_SUPPORT:
 			result = PersistentCardRules.play_support_from_hand(match_state, player_id, source_instance_id, parameters)
+		MatchActionEnumerator.KIND_PLAY_SUPPORT_SACRIFICE:
+			result = PersistentCardRules.play_support_with_sacrifice(match_state, player_id, source_instance_id, str(parameters.get("sacrifice_instance_id", "")), parameters)
 		MatchActionEnumerator.KIND_PLAY_ITEM:
 			result = PersistentCardRules.play_item_from_hand(match_state, player_id, source_instance_id, parameters)
 		MatchActionEnumerator.KIND_ACTIVATE_SUPPORT:

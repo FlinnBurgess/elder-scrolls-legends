@@ -87,7 +87,10 @@ func _run_all_tests() -> bool:
 		_test_upgrade_chain_summon_advances_and_caps() and
 		_test_upgrade_chain_overflows_to_other_lane() and
 		_test_reanimate_action_summons_from_discard() and
-		_test_summon_from_discard_exact_cost_filter()
+		_test_summon_from_discard_exact_cost_filter() and
+		_test_monster_perfection_lab_equips_item_from_deck() and
+		_test_monster_perfection_lab_no_trigger_without_3_items() and
+		_test_monster_perfection_lab_decline_keeps_lab()
 	)
 
 
@@ -1065,7 +1068,7 @@ func _test_invade_gate_rules_text_and_cost_reduction() -> bool:
 	# Invade 5 — level 5 (two random keywords)
 	MatchTiming.play_action_from_hand(match_state, pid, str(invade_cards[4].get("instance_id", "")))
 	var l5_text := str(gate.get("rules_text", ""))
-	var l5_ok := l5_text.find("two random keywords") != -1
+	var l5_ok := l5_text.find("2 random keywords") != -1
 	return (
 		_assert(l1_ok, "Level 1 gate rules_text should mention +0/+1 (got: %s)." % [l1_text]) and
 		_assert(l2_ok, "Level 2 gate rules_text should mention +1/+1 without cost reduction (got: %s)." % [l2_text]) and
@@ -1074,7 +1077,7 @@ func _test_invade_gate_rules_text_and_cost_reduction() -> bool:
 		_assert(daedra_effective_cost == 4, "Daedra in hand should cost 1 less with level 3+ gate (got: %d)." % [daedra_effective_cost]) and
 		_assert(non_daedra_effective_cost == 5, "Non-Daedra should not get cost reduction (got: %d)." % [non_daedra_effective_cost]) and
 		_assert(l4_ok, "Level 4 gate rules_text should mention 'a random keyword' (got: %s)." % [l4_text]) and
-		_assert(l5_ok, "Level 5 gate rules_text should mention 'two random keywords' (got: %s)." % [l5_text]) and
+		_assert(l5_ok, "Level 5 gate rules_text should mention '2 random keywords' (got: %s)." % [l5_text]) and
 		_assert(int(gate.get("health", 0)) == 12, "Level 5 gate should have health 12 (4 + 4*2) (got: %d)." % [int(gate.get("health", 0))])
 	)
 
@@ -1083,9 +1086,9 @@ func _test_invade_gate_level_capped_at_five() -> bool:
 	var match_state := _build_started_match()
 	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
 	var pid := str(player.get("player_id", ""))
-	# Create 8 invade actions to go well past level 5
+	# Create 12 invade actions to go well past old level 5 cap
 	var invade_cards: Array = []
-	for i in range(8):
+	for i in range(12):
 		invade_cards.append(ScenarioFixtures.add_hand_card(player, "cap_invade_%d" % i, {
 			"card_type": "action",
 			"cost": 0,
@@ -1095,12 +1098,12 @@ func _test_invade_gate_level_capped_at_five() -> bool:
 		MatchTiming.play_action_from_hand(match_state, pid, str(card.get("instance_id", "")))
 	var gate := _find_lane_card(match_state, "shadow", pid, "generated_oblivion_gate")
 	var gate_level := int(gate.get("gate_level", 0))
-	# Summon a Daedra to check keyword count
+	# Summon a Daedra to check keyword count (capped at 8 = pool size)
 	var daedra := ScenarioFixtures.summon_creature(player, match_state, "cap_daedra", "field", 1, 1, [], -1, {"subtypes": ["Daedra"]})
 	var granted: Array = daedra.get("granted_keywords", [])
 	return (
-		_assert(gate_level == 5, "Gate level should cap at 5 (got: %d)." % [gate_level]) and
-		_assert(granted.size() <= 2, "Summoned Daedra should get at most 2 keywords from level 5 gate (got: %d)." % [granted.size()])
+		_assert(gate_level == 12, "Gate level should be uncapped (got: %d)." % [gate_level]) and
+		_assert(granted.size() == 8, "Summoned Daedra should get at most 8 keywords (pool size) from high-level gate (got: %d)." % [granted.size()])
 	)
 
 
@@ -3448,6 +3451,117 @@ func _test_summon_from_discard_exact_cost_filter() -> bool:
 	if not _assert(candidates.has(one_cost_id), "1-cost creature should be in candidates."):
 		return false
 	return _assert(not candidates.has(zero_cost_id), "0-cost creature should NOT be in candidates with exact_cost: 1 filter. Got: %s" % str(candidates))
+
+
+func _test_monster_perfection_lab_equips_item_from_deck() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Summon a creature and attach 3 items to it
+	var creature := ScenarioFixtures.summon_creature(player, match_state, "equipped_creature", "field", 3, 3)
+	var creature_id := str(creature.get("instance_id", ""))
+	for i in range(3):
+		var item := ScenarioFixtures.make_card(pid, "equip_%d" % i, {"card_type": "item", "cost": 0})
+		MatchMutations.attach_item_to_creature(match_state, pid, item, creature_id)
+	# Place Monster Perfection Lab as a support
+	var lab := ScenarioFixtures.add_hand_card(player, "lab", {
+		"card_type": "support",
+		"cost": 0,
+		"support_uses": 0,
+		"triggered_abilities": [{"family": "end_of_turn", "required_zone": "support", "effects": [{"op": "sacrifice_and_equip_from_deck", "target": "friendly_creature_with_3_items"}]}],
+	})
+	PersistentCardRules.play_support_from_hand(match_state, pid, str(lab.get("instance_id", "")))
+	# Put an item in the deck
+	var deck_item := ScenarioFixtures.make_card(pid, "deck_sword", {"card_type": "item", "cost": 2, "name": "Deck Sword", "equip_power_bonus": 3})
+	ScenarioFixtures.set_deck_cards(player, [deck_item])
+	# End the turn — should queue a cancellable pending_summon_effect_targets
+	MatchTurnLoop.end_turn(match_state, pid)
+	if not _assert(MatchTiming.has_pending_summon_effect_target(match_state, pid), "Lab should queue a pending summon effect target after end of turn."):
+		return false
+	# Step 1: Player selects the creature with 3+ items
+	var resolve_result := MatchTiming.resolve_pending_summon_effect_target(match_state, pid, {"target_instance_id": creature_id})
+	if not _assert(bool(resolve_result.get("is_valid", false)), "Resolving summon effect target should succeed."):
+		return false
+	# Step 2: A deck selection should now be pending — player picks the item
+	if not _assert(MatchTiming.has_pending_deck_selection(match_state, pid), "Deck selection should be pending after choosing creature."):
+		return false
+	var deck_item_id := str(deck_item.get("instance_id", ""))
+	var deck_resolve := MatchTiming.resolve_pending_deck_selection(match_state, pid, deck_item_id)
+	if not _assert(bool(deck_resolve.get("is_valid", false)), "Resolving deck selection should succeed."):
+		return false
+	var attached: Array = creature.get("attached_items", [])
+	var lab_card := MatchTimingHelpers._find_card_anywhere(match_state, str(lab.get("instance_id", "")))
+	var deck_after: Array = player.get("deck", [])
+	return (
+		_assert(attached.size() == 4, "Creature should have 4 items (3 original + 1 from deck), got %d." % attached.size()) and
+		_assert(lab_card.is_empty() or str(lab_card.get("zone", "")) == "discard", "Lab should be sacrificed (gone or in discard), found zone: %s." % str(lab_card.get("zone", ""))) and
+		_assert(deck_after.size() == 0, "Deck item should have been removed from deck, got %d cards." % deck_after.size())
+	)
+
+
+func _test_monster_perfection_lab_no_trigger_without_3_items() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Summon a creature with only 2 items — not enough to trigger
+	var creature := ScenarioFixtures.summon_creature(player, match_state, "under_equipped", "field", 3, 3)
+	var creature_id := str(creature.get("instance_id", ""))
+	for i in range(2):
+		var item := ScenarioFixtures.make_card(pid, "equip_%d" % i, {"card_type": "item", "cost": 0})
+		MatchMutations.attach_item_to_creature(match_state, pid, item, creature_id)
+	# Place Monster Perfection Lab as a support
+	var lab := ScenarioFixtures.add_hand_card(player, "lab_no_trigger", {
+		"card_type": "support",
+		"cost": 0,
+		"support_uses": 0,
+		"triggered_abilities": [{"family": "end_of_turn", "required_zone": "support", "effects": [{"op": "sacrifice_and_equip_from_deck", "target": "friendly_creature_with_3_items"}]}],
+	})
+	PersistentCardRules.play_support_from_hand(match_state, pid, str(lab.get("instance_id", "")))
+	var deck_item := ScenarioFixtures.make_card(pid, "deck_sword", {"card_type": "item", "cost": 2})
+	ScenarioFixtures.set_deck_cards(player, [deck_item])
+	# End the turn — lab should NOT trigger (no creature with 3+ items)
+	MatchTurnLoop.end_turn(match_state, pid)
+	var lab_card := MatchTimingHelpers._find_card_anywhere(match_state, str(lab.get("instance_id", "")))
+	var deck_after: Array = player.get("deck", [])
+	return (
+		_assert(str(lab_card.get("zone", "")) == "support", "Lab should still be in support zone when no valid target, got: %s." % str(lab_card.get("zone", ""))) and
+		_assert(deck_after.size() == 1, "Deck should be untouched (1 item), got %d." % deck_after.size())
+	)
+
+
+func _test_monster_perfection_lab_decline_keeps_lab() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Summon a creature with 3 items
+	var creature := ScenarioFixtures.summon_creature(player, match_state, "equipped_creature", "field", 3, 3)
+	var creature_id := str(creature.get("instance_id", ""))
+	for i in range(3):
+		var item := ScenarioFixtures.make_card(pid, "equip_%d" % i, {"card_type": "item", "cost": 0})
+		MatchMutations.attach_item_to_creature(match_state, pid, item, creature_id)
+	# Place Monster Perfection Lab
+	var lab := ScenarioFixtures.add_hand_card(player, "lab_decline", {
+		"card_type": "support",
+		"cost": 0,
+		"support_uses": 0,
+		"triggered_abilities": [{"family": "end_of_turn", "required_zone": "support", "effects": [{"op": "sacrifice_and_equip_from_deck", "target": "friendly_creature_with_3_items"}]}],
+	})
+	PersistentCardRules.play_support_from_hand(match_state, pid, str(lab.get("instance_id", "")))
+	var deck_item := ScenarioFixtures.make_card(pid, "deck_sword", {"card_type": "item", "cost": 2})
+	ScenarioFixtures.set_deck_cards(player, [deck_item])
+	# End the turn — queues targeting
+	MatchTurnLoop.end_turn(match_state, pid)
+	if not _assert(MatchTiming.has_pending_summon_effect_target(match_state, pid), "Lab should queue pending target."):
+		return false
+	# Player declines — lab should stay, nothing happens
+	MatchTiming.decline_pending_summon_effect_target(match_state, pid)
+	var lab_card := MatchTimingHelpers._find_card_anywhere(match_state, str(lab.get("instance_id", "")))
+	var deck_after: Array = player.get("deck", [])
+	return (
+		_assert(str(lab_card.get("zone", "")) == "support", "Lab should remain in support zone after decline, got: %s." % str(lab_card.get("zone", ""))) and
+		_assert(deck_after.size() == 1, "Deck should be untouched after decline, got %d." % deck_after.size()) and
+		_assert(creature.get("attached_items", []).size() == 3, "Creature should still have 3 items after decline, got %d." % creature.get("attached_items", []).size())
+	)
 
 
 func _lane_creatures(match_state: Dictionary, lane_id: String, player_id: String) -> Array:

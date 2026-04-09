@@ -1945,7 +1945,7 @@ static func _resolve_invade(match_state: Dictionary, trigger: Dictionary) -> Arr
 		invade_event["gate_level"] = 1
 		events.append(invade_event)
 		return events
-	var next_level := mini(5, maxi(1, int(gate.get("gate_level", 1)) + 1))
+	var next_level := maxi(1, int(gate.get("gate_level", 1)) + 1)
 	var change_result := MatchMutations.change_card(gate, _build_gate_template(next_level), {"reason": "invade"})
 	gate["gate_level"] = next_level
 	gate["cannot_attack"] = true
@@ -1983,7 +1983,7 @@ static func _resolve_gate_buff(match_state: Dictionary, trigger: Dictionary, eve
 		"health_bonus": 1,
 		"reason": "oblivion_gate",
 	})
-	var keyword_count := clampi(int(gate.get("gate_level", 1)) - 3, 0, 2)
+	var keyword_count := clampi(int(gate.get("gate_level", 1)) - 3, 0, 8)
 	for keyword_id in _choose_gate_keywords(match_state, target, keyword_count):
 		if _grant_keyword(target, keyword_id):
 			events.append({
@@ -2123,7 +2123,7 @@ static func _apply_double_card_choice(card: Dictionary, choice) -> void:
 
 
 static func _build_gate_template(level: int) -> Dictionary:
-	var gate_level := clampi(level, 1, 5)
+	var gate_level := maxi(level, 1)
 	return {
 		"definition_id": "generated_oblivion_gate",
 		"name": "Oblivion Gate",
@@ -2160,10 +2160,11 @@ static func _gate_rules_text(level: int) -> String:
 		text += "+1/+1."
 	if level >= 3:
 		text += " Daedra you summon cost 1 less."
-	if level == 4:
+	var kw_count := clampi(level - 3, 0, 8)
+	if kw_count == 1:
 		text += " When you summon a Daedra, give it a random keyword."
-	elif level >= 5:
-		text += " When you summon a Daedra, give it two random keywords."
+	elif kw_count >= 2:
+		text += " When you summon a Daedra, give it %d random keywords." % kw_count
 	return text
 
 

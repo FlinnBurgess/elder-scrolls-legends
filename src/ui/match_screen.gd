@@ -1688,13 +1688,17 @@ func _on_end_turn_pressed() -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		var mouse_pos := (event as InputEventMouseMotion).position
+		# Check if a drag-from-hand gesture has started
+		_hand._process_drag_motion(mouse_pos)
 		if not _hand._detached_card_state.is_empty() and _overlays._pending_exalt.is_empty():
 			var preview: Control = _hand._detached_card_state.get("preview")
 			if preview != null and is_instance_valid(preview):
-				preview.position = mouse_pos + Vector2(-preview.size.x * 0.5, -preview.size.y * 0.62)
+				preview.position = mouse_pos + Vector2(-preview.size.x * 0.5, -preview.size.y * 0.62) + _hand._drag_position_offset
 			_selection._update_hand_insertion_preview_from_mouse(mouse_pos)
 			_betray._update_sacrifice_hover_from_mouse(mouse_pos)
 			_betray._update_sacrifice_hover_label_position()
+			_betray._update_support_sacrifice_hover_from_mouse(mouse_pos)
+			_betray._update_support_sacrifice_hover_label_position()
 		if not _targeting._targeting_arrow_state.is_empty():
 			_targeting._update_targeting_arrow(mouse_pos)
 	elif event is InputEventKey:
@@ -1757,6 +1761,11 @@ func _input(event: InputEvent) -> void:
 			return
 	elif event is InputEventMouseButton:
 		var button_event := event as InputEventMouseButton
+		# Drag-and-drop: resolve on left mouse release
+		if button_event.button_index == MOUSE_BUTTON_LEFT and not button_event.pressed:
+			if _hand._handle_drag_release(button_event.global_position):
+				get_viewport().set_input_as_handled()
+				return
 		if button_event.button_index == MOUSE_BUTTON_RIGHT and button_event.pressed:
 			if not _overlays._pending_exalt.is_empty():
 				_overlays._resolve_exalt(false)
@@ -1781,6 +1790,8 @@ func _input(event: InputEvent) -> void:
 			elif not _hand._detached_card_state.is_empty():
 				if not _selected_card_has_free_play():
 					_hand._cancel_detached_card()
+				_hand._drag_state = {}
+				_hand._drag_active = false
 				get_viewport().set_input_as_handled()
 			elif not _selected_instance_id.is_empty():
 				if not _selected_card_has_free_play():
@@ -1812,6 +1823,12 @@ func _on_lane_card_gui_input(event: InputEvent, instance_id: String) -> void:
 
 
 func _on_card_pressed(instance_id: String) -> void:
+	# If a drag-and-drop just resolved, suppress the click that the Button fires on release
+	if _hand._drag_active:
+		return
+	# Normal click — clear any pending drag candidate
+	_hand._drag_state = {}
+	_hand._drag_active = false
 	if not _overlays._pending_exalt.is_empty():
 		return
 	if not _overlays._hand_selection_state.is_empty():
@@ -1853,6 +1870,9 @@ func _on_card_pressed(instance_id: String) -> void:
 	if not _hand._detached_card_state.is_empty():
 		if _betray._sacrifice_hover_target_id != "" and instance_id == _betray._sacrifice_hover_target_id:
 			_betray._resolve_sacrifice_hover()
+			return
+		if _betray._support_sacrifice_hover_target_id != "" and instance_id == _betray._support_sacrifice_hover_target_id:
+			_betray._resolve_support_sacrifice_hover()
 			return
 		var target_card := _card_from_instance_id(instance_id)
 		if _hand._try_resolve_selected_support_row_card(target_card):

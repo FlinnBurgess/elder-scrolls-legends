@@ -820,6 +820,7 @@ static func reset_transient_state(card: Dictionary) -> void:
 	card.erase("temporary_stat_bonuses")
 	card.erase("temporary_keywords")
 	card.erase("_consumed_equip_keywords")
+	card.erase("gate_level")
 
 
 static func restore_definition_state(card: Dictionary) -> void:

@@ -189,6 +189,8 @@ func _ai_action_status_message(action: Dictionary) -> String:
 			return "%s attacked %s with %s." % [player_name, _ai_action_target_name(action), source_name]
 		_screen.MatchActionEnumerator.KIND_PLAY_SUPPORT:
 			return "%s played %s." % [player_name, source_name]
+		_screen.MatchActionEnumerator.KIND_PLAY_SUPPORT_SACRIFICE:
+			return "%s sacrificed a support to play %s." % [player_name, source_name]
 		_screen.MatchActionEnumerator.KIND_PLAY_ITEM:
 			return "%s used %s on %s." % [player_name, source_name, _ai_action_target_name(action)]
 		_screen.MatchActionEnumerator.KIND_ACTIVATE_SUPPORT:

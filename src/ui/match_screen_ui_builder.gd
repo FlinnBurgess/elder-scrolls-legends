@@ -264,20 +264,6 @@ func _build_player_section(player_id: String) -> Dictionary:
 	support_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	support_surface.add_child(support_row)
 
-	var support_surface_right := Control.new()
-	support_surface_right.name = "%s_support_surface_right" % player_id
-	support_surface_right.focus_mode = Control.FOCUS_NONE
-	support_surface_right.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	rows.add_child(support_surface_right)
-
-	var support_row_right := HBoxContainer.new()
-	support_row_right.name = "%s_support_row_right" % player_id
-	support_row_right.add_theme_constant_override("separation", 16)
-	support_row_right.alignment = BoxContainer.ALIGNMENT_BEGIN
-	support_row_right.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	support_row_right.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	support_surface_right.add_child(support_row_right)
-
 	# End turn button – bottom-right of local player section
 	if not is_opponent:
 		var end_turn_row := HBoxContainer.new()
@@ -397,9 +383,6 @@ func _build_player_section(player_id: String) -> Dictionary:
 		support_surface.reparent(avatar_overlay)
 		support_surface.size_flags_horizontal = 0
 		support_surface.size_flags_vertical = 0
-		support_surface_right.reparent(avatar_overlay)
-		support_surface_right.size_flags_horizontal = 0
-		support_surface_right.size_flags_vertical = 0
 		var avatar_w := 300.0
 		var avatar_h := 282.0
 		var avatar_gap := 12.0
@@ -422,13 +405,6 @@ func _build_player_section(player_id: String) -> Dictionary:
 			support_surface.offset_left = support_right - support_side_width
 			support_surface.offset_top = top_y + (avatar_h - support_h) * 0.5
 			support_surface.offset_bottom = top_y + (avatar_h + support_h) * 0.5
-			# Right supports row — left-aligned to grow rightward from avatar
-			var support_left := avatar_w * 0.5 + avatar_gap
-			support_surface_right.set_anchors_preset(PRESET_CENTER_TOP)
-			support_surface_right.offset_left = support_left
-			support_surface_right.offset_right = support_left + support_side_width
-			support_surface_right.offset_top = top_y + (avatar_h - support_h) * 0.5
-			support_surface_right.offset_bottom = top_y + (avatar_h + support_h) * 0.5
 		else:
 			# Player: centred horizontally, above the player hand area
 			var bottom_margin := 180.0
@@ -444,13 +420,6 @@ func _build_player_section(player_id: String) -> Dictionary:
 			support_surface.offset_left = support_right - support_side_width
 			support_surface.offset_top = -avatar_h - bottom_margin + (avatar_h - support_h) * 0.5
 			support_surface.offset_bottom = -avatar_h - bottom_margin + (avatar_h + support_h) * 0.5
-			# Right supports row — left-aligned to grow rightward from avatar
-			var support_left := avatar_w * 0.5 + avatar_gap
-			support_surface_right.set_anchors_preset(PRESET_CENTER_BOTTOM)
-			support_surface_right.offset_left = support_left
-			support_surface_right.offset_right = support_left + support_side_width
-			support_surface_right.offset_top = -avatar_h - bottom_margin + (avatar_h - support_h) * 0.5
-			support_surface_right.offset_bottom = -avatar_h - bottom_margin + (avatar_h + support_h) * 0.5
 
 	return {
 		"player_id": player_id,
@@ -464,8 +433,6 @@ func _build_player_section(player_id: String) -> Dictionary:
 		"discard_button": discard_button,
 		"support_surface": support_surface,
 		"support_row": support_row,
-		"support_surface_right": support_surface_right,
-		"support_row_right": support_row_right,
 		"hand_row": hand_row,
 	}
 

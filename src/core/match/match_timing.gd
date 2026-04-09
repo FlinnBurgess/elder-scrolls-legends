@@ -2100,6 +2100,14 @@ static func resolve_pending_deck_selection(match_state: Dictionary, player_id: S
 			var cctd_discard: Array = player.get(MatchMutations.ZONE_DISCARD, [])
 			cctd_discard.push_front(cctd_copy)
 			generated_events.append({"event_type": "card_milled", "source_instance_id": source_id, "player_id": player_id, "milled_instance_id": str(cctd_copy.get("instance_id", ""))})
+		"equip_item_to_creature":
+			var eitc_target_id := str(then_context.get("target_instance_id", ""))
+			var eitc_creature := MatchTimingHelpers._find_card_anywhere(match_state, eitc_target_id)
+			if not eitc_creature.is_empty():
+				deck.remove_at(chosen_idx)
+				chosen_card.erase("zone")
+				var eitc_result := MatchMutations.attach_item_to_creature(match_state, player_id, chosen_card, eitc_target_id, {"reason": str(then_context.get("reason", "deck_selection"))})
+				generated_events.append_array(eitc_result.get("events", []))
 	# Publish events
 	var all_events: Array = []
 	var all_resolutions: Array = []

@@ -21,6 +21,7 @@ func _refresh_ui() -> void:
 	_screen._overlays._refresh_consume_selection_overlay()
 	_screen._overlays._refresh_deck_selection_overlay()
 	_screen._overlays._refresh_player_choice_overlay()
+	_screen._targeting._refresh_pending_summon_effect_target()
 	_screen._refresh_hand_selection_state()
 	_screen._refresh_free_play_state()
 	_screen._refresh_top_deck_choice_state()
@@ -97,20 +98,10 @@ func _refresh_player_sections() -> void:
 		discard_button.tooltip_text = _screen._pile_button_tooltip(player, _screen.MatchMutations.ZONE_DISCARD)
 
 		var support_row: HBoxContainer = section["support_row"]
-		var support_row_right: HBoxContainer = section["support_row_right"]
 		_screen._clear_children(support_row)
-		_screen._clear_children(support_row_right)
 		var supports: Array = player.get("support", [])
-		var card_w := 144.0
-		var gap := 16.0
-		var left_width: float = support_row.get_parent().size.x
-		var left_capacity := int(max(1, floor((left_width + gap) / (card_w + gap))))
-		for i in supports.size():
-			var btn: Button = _screen._card_surface._build_card_button(supports[i], true, "support")
-			if i < left_capacity:
-				support_row.add_child(btn)
-			else:
-				support_row_right.add_child(btn)
+		for support_card in supports:
+			support_row.add_child(_screen._card_surface._build_card_button(support_card, true, "support"))
 
 		var hand_row: Control = section["hand_row"]
 		_screen._clear_children(hand_row)
@@ -184,7 +175,7 @@ func _refresh_turn_presentation() -> void:
 	var active_player = _screen._active_player_id()
 	if active_player.is_empty():
 		return
-	if active_player != _screen._last_turn_owner_id:
+	if active_player != _screen._last_turn_owner_id and not _screen._local_player_has_pending_interrupt():
 		_screen._last_turn_owner_id = active_player
 		_screen._animations._floating_card_ids.clear()
 		_screen._turn_banner_until_ms = Time.get_ticks_msec() + _screen.TURN_BANNER_DURATION_MS

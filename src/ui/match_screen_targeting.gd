@@ -473,6 +473,47 @@ func _resolve_secondary_target_player(player_id: String) -> void:
 	_screen._finalize_engine_result(result, "Dealt damage to %s." % _screen._player_name(player_id))
 
 
+func _refresh_pending_summon_effect_target() -> void:
+	# Refresh-safe version — called from _refresh_ui(); does not call _refresh_ui() itself.
+	var local_id = _screen._local_player_id()
+	if not _screen.MatchTiming.has_pending_summon_effect_target(_screen._match_state, local_id):
+		return
+	if not _pending_summon_target.is_empty():
+		return
+	var pending = _screen.MatchTiming.get_pending_summon_effect_target(_screen._match_state, local_id)
+	var source_id := str(pending.get("source_instance_id", ""))
+	var card = _screen._card_from_instance_id(source_id)
+	if card.is_empty():
+		_screen.MatchTiming.decline_pending_summon_effect_target(_screen._match_state, local_id)
+		return
+	var choice_tm := str(pending.get("_choice_target_mode", ""))
+	var valid_targets: Array
+	if not choice_tm.is_empty():
+		valid_targets = _screen.MatchTiming.get_valid_targets_for_mode(_screen._match_state, source_id, choice_tm, {})
+	else:
+		valid_targets = _screen.MatchTiming.get_all_valid_targets(_screen._match_state, source_id)
+	if valid_targets.is_empty():
+		_screen.MatchTiming.decline_pending_summon_effect_target(_screen._match_state, local_id)
+		return
+	_pending_summon_target = {
+		"source_instance_id": source_id,
+		"is_effect_summon": true,
+		"_choice_target_mode": choice_tm,
+	}
+	_screen._selected_instance_id = source_id
+	_screen._enter_targeting_mode(source_id)
+	if not choice_tm.is_empty():
+		_screen._status_message = _summon_target_prompt(card, [{"target_mode": choice_tm}])
+	else:
+		var abilities = _screen.MatchTiming.get_target_mode_abilities(card)
+		_screen._status_message = _summon_target_prompt(card, abilities)
+	var vision_data: Dictionary = pending.get("vision_card", {})
+	if not vision_data.is_empty():
+		_show_vision_card_overlay(vision_data)
+	if not _is_pending_summon_mandatory():
+		_show_summon_skip_button()
+
+
 func _check_pending_summon_effect_target() -> void:
 	var local_id = _screen._local_player_id()
 	if not _screen.MatchTiming.has_pending_summon_effect_target(_screen._match_state, local_id):

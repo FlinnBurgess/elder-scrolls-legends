@@ -144,37 +144,51 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 								generated_events.append(MatchSummonTiming._build_summon_event(sasd_result["card"], sasd_controller_id, sasd_lane_id, int(sasd_result.get("slot_index", -1)), reason))
 								_MT()._check_summon_abilities(match_state, sasd_result["card"])
 		"sacrifice_and_equip_from_deck":
-			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
-				var saed_controller_id := str(card.get("controller_player_id", ""))
-				var saed_items: Array = card.get("attached_items", [])
-				var saed_item_templates: Array = []
-				for saed_item in saed_items:
-					saed_item_templates.append(saed_item.duplicate(true))
-				var saed_sac := MatchMutations.sacrifice_card(match_state, saed_controller_id, str(card.get("instance_id", "")), {"reason": reason})
-				generated_events.append_array(saed_sac.get("events", []))
-				# Summon a creature from deck and equip the items
-				var saed_player := MatchTimingHelpers._get_player_state(match_state, saed_controller_id)
-				if not saed_player.is_empty():
-					var saed_deck: Array = saed_player.get(ZONE_DECK, [])
-					var saed_candidates: Array = []
-					for saed_dc in saed_deck:
-						if str(saed_dc.get("card_type", "")) == CARD_TYPE_CREATURE:
-							saed_candidates.append(saed_dc)
-					if not saed_candidates.is_empty():
-						var saed_idx := MatchEffectParams._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_sac_equip", saed_candidates.size())
-						var saed_target: Dictionary = saed_candidates[saed_idx]
-						saed_deck.erase(saed_target)
-						saed_target.erase("zone")
-						var saed_lane_id := MatchSummonTiming._resolve_summon_lane_id(match_state, trigger, event, effect, saed_controller_id)
-						if not saed_lane_id.is_empty():
-							var saed_result := MatchMutations.summon_card_to_lane(match_state, saed_controller_id, saed_target, saed_lane_id, {"source_zone": ZONE_DECK})
-							if bool(saed_result.get("is_valid", false)):
-								generated_events.append_array(saed_result.get("events", []))
-								generated_events.append(MatchSummonTiming._build_summon_event(saed_result["card"], saed_controller_id, saed_lane_id, int(saed_result.get("slot_index", -1)), reason))
-								for saed_item_t in saed_item_templates:
-									var saed_new_item := MatchMutations.build_generated_card(match_state, saed_controller_id, saed_item_t)
-									var saed_equip := MatchMutations.attach_item_to_creature(match_state, saed_controller_id, saed_new_item, str(saed_result["card"].get("instance_id", "")), {"reason": reason})
-									generated_events.append_array(saed_equip.get("events", []))
+			# Queue a cancellable targeting phase — player picks a creature with 3+ items
+			var saed_controller_id := str(trigger.get("controller_player_id", ""))
+			var saed_source_id := str(trigger.get("source_instance_id", ""))
+			var saed_valid := MatchTargeting.get_valid_targets_for_mode(match_state, saed_source_id, "friendly_creature_with_3_items", {})
+			if saed_valid.is_empty():
+				return
+			var saed_pending: Array = match_state.get("pending_summon_effect_targets", [])
+			saed_pending.append({
+				"player_id": saed_controller_id,
+				"source_instance_id": saed_source_id,
+				"mandatory": false,
+				"_choice_target_mode": "friendly_creature_with_3_items",
+				"_choice_deferred_effects": [{"op": "sacrifice_source_and_equip_from_deck", "target": "chosen_target"}],
+				"_choice_trigger": trigger.duplicate(true),
+				"_choice_event": event.duplicate(true),
+			})
+			generated_events.append({"event_type": "summon_effect_target_pending", "player_id": saed_controller_id})
+		"sacrifice_source_and_equip_from_deck":
+			# Deferred: player chose a creature — discard the lab, then browse deck for items
+			var ssed_targets := MatchTargeting._resolve_card_targets(match_state, trigger, event, effect)
+			if ssed_targets.is_empty():
+				return
+			var ssed_creature: Dictionary = ssed_targets[0]
+			var ssed_controller_id := str(trigger.get("controller_player_id", ""))
+			var ssed_source_id := str(trigger.get("source_instance_id", ""))
+			# Discard the source support (the lab)
+			var ssed_discard := MatchMutations.discard_card(match_state, ssed_source_id, {"reason": reason})
+			generated_events.append_array(ssed_discard.get("events", []))
+			# Find items in deck and queue a deck selection for the player to choose one
+			var ssed_player := MatchTimingHelpers._get_player_state(match_state, ssed_controller_id)
+			if not ssed_player.is_empty():
+				var ssed_deck: Array = ssed_player.get(ZONE_DECK, [])
+				var ssed_item_ids: Array = []
+				for ssed_dc in ssed_deck:
+					if typeof(ssed_dc) == TYPE_DICTIONARY and str(ssed_dc.get("card_type", "")) == "item":
+						ssed_item_ids.append(str(ssed_dc.get("instance_id", "")))
+				if not ssed_item_ids.is_empty():
+					var ssed_pending: Array = match_state.get("pending_deck_selections", [])
+					ssed_pending.append({
+						"player_id": ssed_controller_id,
+						"source_instance_id": ssed_source_id,
+						"candidate_instance_ids": ssed_item_ids,
+						"then_op": "equip_item_to_creature",
+						"then_context": {"target_instance_id": str(ssed_creature.get("instance_id", "")), "reason": "monster_perfection_lab"},
+					})
 		"sacrifice_and_absorb_stats":
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				var saas_source := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))

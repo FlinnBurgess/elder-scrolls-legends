@@ -200,6 +200,10 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var sc_give := MatchMutations.steal_card(match_state, sc_target_controller, sc_source_id, {})
 				generated_events.append_array(sc_give.get("events", []))
 				generated_events.append({"event_type": "creatures_swapped", "source_instance_id": sc_source_id, "target_instance_id": sc_target_id})
+		"set_premium":
+			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
+				card["_premium"] = true
+				generated_events.append({"event_type": "creature_became_premium", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", ""))})
 		"grant_aura_by_chosen_subtype":
 			# This requires a player choice of subtype — use pending_player_choices
 			var gabcs_controller_id := str(trigger.get("controller_player_id", ""))

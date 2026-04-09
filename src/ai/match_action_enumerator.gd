@@ -38,6 +38,7 @@ const KIND_END_TURN := "end_turn"
 const KIND_SUMMON_CREATURE := "summon_creature"
 const KIND_ATTACK := "attack"
 const KIND_PLAY_SUPPORT := "play_support"
+const KIND_PLAY_SUPPORT_SACRIFICE := "play_support_sacrifice"
 const KIND_PLAY_ITEM := "play_item"
 const KIND_ACTIVATE_SUPPORT := "activate_support"
 const KIND_PLAY_ACTION := "play_action"
@@ -65,6 +66,7 @@ const ACTION_KIND_ORDER := {
 	KIND_SUMMON_CREATURE + ":turn": 30,
 	KIND_ATTACK: 40,
 	KIND_PLAY_SUPPORT: 50,
+	KIND_PLAY_SUPPORT_SACRIFICE: 51,
 	KIND_PLAY_ITEM: 60,
 	KIND_ACTIVATE_SUPPORT: 70,
 	KIND_PLAY_ACTION: 80,
@@ -312,6 +314,8 @@ static func _action_is_legal_inner(match_state: Dictionary, action: Dictionary) 
 			return bool(MatchCombat.validate_attack(match_state, player_id, source_instance_id, parameters.get("target", {})).get("is_valid", false))
 		KIND_PLAY_SUPPORT:
 			return bool(PersistentCardRules.play_support_from_hand(_lightweight_clone(match_state), player_id, source_instance_id, parameters).get("is_valid", false))
+		KIND_PLAY_SUPPORT_SACRIFICE:
+			return bool(PersistentCardRules.play_support_with_sacrifice(_lightweight_clone(match_state), player_id, source_instance_id, str(parameters.get("sacrifice_instance_id", "")), parameters).get("is_valid", false))
 		KIND_PLAY_ITEM:
 			return bool(PersistentCardRules.play_item_from_hand(_lightweight_clone(match_state), player_id, source_instance_id, parameters).get("is_valid", false))
 		KIND_ACTIVATE_SUPPORT:
@@ -641,15 +645,29 @@ static func _enumerate_attacks(match_state: Dictionary, player_id: String) -> Ar
 
 static func _enumerate_support_plays(match_state: Dictionary, player_id: String) -> Array:
 	var actions: Array = []
+	var zone_full := PersistentCardRules.is_support_zone_full(match_state, player_id)
 	for card in _player_zone_cards(match_state, player_id, MatchMutations.ZONE_HAND):
 		if str(card.get("card_type", "")) != "support":
 			continue
-		var descriptor := _build_descriptor(KIND_PLAY_SUPPORT, match_state, player_id, card, {}, {
-			"timing_window": TIMING_ACTION,
-			"order_key": ACTION_KIND_ORDER[KIND_PLAY_SUPPORT],
-		})
-		if action_is_legal(match_state, descriptor):
-			actions.append(descriptor)
+		if zone_full:
+			# Enumerate sacrifice variants for each existing support
+			for existing in _player_zone_cards(match_state, player_id, MatchMutations.ZONE_SUPPORT):
+				var sac_id := str(existing.get("instance_id", ""))
+				var descriptor := _build_descriptor(KIND_PLAY_SUPPORT_SACRIFICE, match_state, player_id, card, {
+					"sacrifice_instance_id": sac_id,
+				}, {
+					"timing_window": TIMING_ACTION,
+					"order_key": ACTION_KIND_ORDER[KIND_PLAY_SUPPORT_SACRIFICE],
+				})
+				if action_is_legal(match_state, descriptor):
+					actions.append(descriptor)
+		else:
+			var descriptor := _build_descriptor(KIND_PLAY_SUPPORT, match_state, player_id, card, {}, {
+				"timing_window": TIMING_ACTION,
+				"order_key": ACTION_KIND_ORDER[KIND_PLAY_SUPPORT],
+			})
+			if action_is_legal(match_state, descriptor):
+				actions.append(descriptor)
 	return actions
 
 
@@ -1103,6 +1121,8 @@ static func _build_action_id(action: Dictionary) -> String:
 		parts.append("exalt")
 	if parameters.has("double_card_choice"):
 		parts.append("double=%s" % str(parameters.get("double_card_choice", "")))
+	if parameters.has("sacrifice_instance_id"):
+		parts.append("sacrifice=%s" % str(parameters.get("sacrifice_instance_id", "")))
 	if parameters.has("betray_sacrifice_instance_id"):
 		parts.append("betray_sacrifice=%s" % str(parameters.get("betray_sacrifice_instance_id", "")))
 	if parameters.has("betray_replay_target_instance_id"):

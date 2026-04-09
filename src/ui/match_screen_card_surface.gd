@@ -57,6 +57,7 @@ func _build_card_button(card: Dictionary, public_view: bool, surface := "default
 	if surface == "hand" and public_view and str(card.get("controller_player_id", "")) == _screen.PLAYER_ORDER[1]:
 		button.mouse_entered.connect(_screen._on_local_hand_card_mouse_entered.bind(button))
 		button.mouse_exited.connect(_screen._on_local_hand_card_mouse_exited.bind(button))
+		button.gui_input.connect(_screen._hand._on_hand_card_gui_input.bind(instance_id))
 	if surface == "lane" and str(card.get("card_type", "")) == "creature":
 		button.mouse_entered.connect(_screen._on_lane_card_mouse_entered.bind(button, instance_id))
 		button.mouse_exited.connect(_screen._on_lane_card_mouse_exited.bind(instance_id))
