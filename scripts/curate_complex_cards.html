@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Complex Card Curator</title>
+<style>
+  :root {
+    --bg: rgb(20, 20, 31);
+    --panel-bg: rgba(26, 26, 36, 0.98);
+    --panel-border: rgba(184, 148, 77, 0.5);
+    --gold: rgb(217, 184, 102);
+    --gold-dim: rgba(184, 148, 77, 0.7);
+    --gold-bright: rgb(255, 230, 153);
+    --text-light: rgb(230, 217, 179);
+    --text-muted: rgba(153, 140, 115, 0.8);
+    --text-section: rgba(184, 148, 77, 0.8);
+    --btn-bg: rgba(31, 28, 38, 0.9);
+    --btn-bg-hover: rgba(46, 41, 51, 0.95);
+    --btn-bg-pressed: rgb(56, 48, 31);
+    --green: rgb(100, 180, 100);
+    --red: rgb(200, 90, 90);
+    --green-dim: rgba(100, 180, 100, 0.15);
+    --red-dim: rgba(200, 90, 90, 0.15);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text-light);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    padding: 30px 50px;
+    min-height: 100vh;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--gold-dim);
+  }
+
+  h1 {
+    font-size: 32px;
+    color: var(--gold);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  .stats {
+    display: flex;
+    gap: 24px;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+  .stats span { color: var(--gold); font-weight: 600; }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .search-box {
+    flex: 1;
+    min-width: 250px;
+    padding: 10px 16px;
+    background: var(--btn-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    color: var(--text-light);
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-box:focus { border-color: var(--gold); }
+  .search-box::placeholder { color: var(--text-muted); }
+
+  select {
+    padding: 10px 14px;
+    background: var(--btn-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    color: var(--text-light);
+    font-size: 14px;
+    outline: none;
+    cursor: pointer;
+  }
+  select:focus { border-color: var(--gold); }
+
+  .btn {
+    padding: 9px 18px;
+    background: var(--btn-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    color: var(--text-light);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--btn-bg-hover); border-color: var(--gold); }
+  .btn:active { background: var(--btn-bg-pressed); border-color: var(--gold-bright); }
+  .btn.primary { border-color: var(--gold); color: var(--gold); }
+  .btn.danger { border-color: var(--red); color: var(--red); }
+
+  /* Card grid */
+  .card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .card-row {
+    display: grid;
+    grid-template-columns: 44px 1fr 100px 80px 130px;
+    gap: 16px;
+    align-items: center;
+    padding: 12px 18px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    transition: all 0.15s;
+  }
+  .card-row:hover { border-color: var(--gold); }
+  .card-row.kept {
+    border-color: var(--green);
+    background: var(--green-dim);
+  }
+  .card-row.dismissed {
+    border-color: transparent;
+    opacity: 0.35;
+    background: var(--red-dim);
+  }
+
+  .complexity-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--btn-bg);
+    border: 2px solid var(--gold-dim);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--gold);
+    flex-shrink: 0;
+  }
+
+  .card-info {
+    min-width: 0;
+  }
+  .card-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--gold);
+    margin-bottom: 2px;
+  }
+  .card-id {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+  .card-text {
+    font-size: 13px;
+    color: var(--text-light);
+    margin-top: 4px;
+    white-space: pre-wrap;
+    opacity: 0.85;
+  }
+
+  .card-meta {
+    font-size: 13px;
+    color: var(--text-section);
+    text-align: center;
+  }
+
+  .card-cost {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--gold-bright);
+    text-align: center;
+  }
+
+  .card-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+  }
+  .card-actions .btn {
+    padding: 6px 14px;
+    font-size: 13px;
+  }
+  .btn-keep { color: var(--green); border-color: var(--green); }
+  .btn-keep:hover { background: var(--green-dim); }
+  .btn-dismiss { color: var(--red); border-color: var(--red); }
+  .btn-dismiss:hover { background: var(--red-dim); }
+  .btn-undo { color: var(--text-muted); border-color: var(--text-muted); }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 60px;
+    color: var(--text-muted);
+    font-size: 18px;
+  }
+
+  /* Load prompt */
+  .load-prompt {
+    text-align: center;
+    padding: 80px 40px;
+  }
+  .load-prompt p {
+    color: var(--text-muted);
+    margin-bottom: 20px;
+    font-size: 16px;
+  }
+  .load-prompt .btn { font-size: 18px; padding: 14px 30px; }
+
+  /* Pagination */
+  .pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--gold-dim);
+  }
+  .pagination .btn { padding: 8px 20px; }
+  .page-info { color: var(--text-muted); font-size: 14px; }
+
+  /* Export modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: var(--panel-bg);
+    border: 1px solid var(--gold);
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 700px;
+    width: 90%;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .modal h2 {
+    color: var(--gold);
+    margin-bottom: 16px;
+    font-size: 22px;
+  }
+  .modal textarea {
+    flex: 1;
+    min-height: 300px;
+    background: var(--bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    color: var(--text-light);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    padding: 14px;
+    resize: vertical;
+    outline: none;
+  }
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 16px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Complex Card Curator</h1>
+  <div class="stats">
+    <div>Total: <span id="stat-total">0</span></div>
+    <div>Kept: <span id="stat-kept">0</span></div>
+    <div>Dismissed: <span id="stat-dismissed">0</span></div>
+    <div>Undecided: <span id="stat-undecided">0</span></div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <input type="text" class="search-box" id="search" placeholder="Search by name, id, or rules text...">
+  <select id="filter-status">
+    <option value="all">All</option>
+    <option value="undecided">Undecided</option>
+    <option value="kept">Kept</option>
+    <option value="dismissed">Dismissed</option>
+  </select>
+  <select id="filter-type">
+    <option value="all">All Types</option>
+    <option value="creature">Creature</option>
+    <option value="action">Action</option>
+    <option value="item">Item</option>
+    <option value="support">Support</option>
+  </select>
+  <select id="sort-by">
+    <option value="complexity">Sort: Complexity</option>
+    <option value="name">Sort: Name</option>
+    <option value="cost">Sort: Cost</option>
+  </select>
+  <button class="btn primary" onclick="exportKept()">Export Kept</button>
+  <button class="btn" onclick="document.getElementById('file-input').click()">Load JSON</button>
+  <button class="btn danger" onclick="resetAll()">Reset</button>
+  <input type="file" id="file-input" accept=".json" style="display:none">
+</div>
+
+<div id="card-list" class="card-list">
+  <div class="load-prompt" id="load-prompt">
+    <p>Load complex_cards_output.json to begin curating</p>
+    <button class="btn primary" onclick="document.getElementById('file-input').click()">Load JSON File</button>
+  </div>
+</div>
+
+<div class="pagination" id="pagination" style="display:none">
+  <button class="btn" onclick="changePage(-1)" id="prev-btn">Prev</button>
+  <span class="page-info" id="page-info"></span>
+  <button class="btn" onclick="changePage(1)" id="next-btn">Next</button>
+</div>
+
+<!-- Export modal -->
+<div class="modal-overlay" id="export-modal">
+  <div class="modal">
+    <h2>Exported Cards (<span id="export-count">0</span>)</h2>
+    <textarea id="export-text" readonly></textarea>
+    <div class="modal-actions">
+      <button class="btn" onclick="copyExport()">Copy to Clipboard</button>
+      <button class="btn" onclick="downloadExport()">Download JSON</button>
+      <button class="btn" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PAGE_SIZE = 50;
+const STORAGE_KEY = 'complex_card_curation';
+
+let allCards = [];
+let decisions = {};  // card_id -> 'kept' | 'dismissed'
+let filteredCards = [];
+let currentPage = 0;
+
+// Persistence
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(decisions));
+}
+function loadState() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) decisions = JSON.parse(saved);
+  } catch(e) {}
+}
+
+// Load file
+document.getElementById('file-input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      allCards = JSON.parse(evt.target.result);
+      loadState();
+      currentPage = 0;
+      applyFilters();
+    } catch(err) {
+      alert('Invalid JSON: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+});
+
+function applyFilters() {
+  const search = document.getElementById('search').value.toLowerCase();
+  const statusFilter = document.getElementById('filter-status').value;
+  const typeFilter = document.getElementById('filter-type').value;
+  const sortBy = document.getElementById('sort-by').value;
+
+  filteredCards = allCards.filter(card => {
+    // Status filter
+    const status = decisions[card.card_id] || 'undecided';
+    if (statusFilter !== 'all' && status !== statusFilter) return false;
+
+    // Type filter
+    if (typeFilter !== 'all' && card.card_type !== typeFilter) return false;
+
+    // Search
+    if (search) {
+      const haystack = (card.name + ' ' + card.card_id + ' ' + card.rules_text).toLowerCase();
+      if (!haystack.includes(search)) return false;
+    }
+
+    return true;
+  });
+
+  // Sort
+  filteredCards.sort((a, b) => {
+    if (sortBy === 'complexity') return b.complexity - a.complexity;
+    if (sortBy === 'name') return a.name.localeCompare(b.name);
+    if (sortBy === 'cost') return a.cost - b.cost;
+    return 0;
+  });
+
+  // Clamp page
+  const maxPage = Math.max(0, Math.ceil(filteredCards.length / PAGE_SIZE) - 1);
+  if (currentPage > maxPage) currentPage = maxPage;
+
+  renderCards();
+  updateStats();
+}
+
+function renderCards() {
+  const container = document.getElementById('card-list');
+  const pagination = document.getElementById('pagination');
+
+  if (allCards.length === 0) {
+    container.innerHTML = `<div class="load-prompt"><p>Load complex_cards_output.json to begin curating</p><button class="btn primary" onclick="document.getElementById('file-input').click()">Load JSON File</button></div>`;
+    pagination.style.display = 'none';
+    return;
+  }
+
+  const start = currentPage * PAGE_SIZE;
+  const end = Math.min(start + PAGE_SIZE, filteredCards.length);
+  const page = filteredCards.slice(start, end);
+
+  if (page.length === 0) {
+    container.innerHTML = '<div class="empty-state">No cards match your filters</div>';
+    pagination.style.display = 'none';
+    return;
+  }
+
+  container.innerHTML = page.map(card => {
+    const status = decisions[card.card_id] || 'undecided';
+    const statusClass = status === 'kept' ? 'kept' : status === 'dismissed' ? 'dismissed' : '';
+    const attrs = card.attributes.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join('/');
+    const typeCap = card.card_type.charAt(0).toUpperCase() + card.card_type.slice(1);
+
+    const actionBtns = status === 'undecided'
+      ? `<button class="btn btn-keep" onclick="decide('${card.card_id}','kept')">Keep</button><button class="btn btn-dismiss" onclick="decide('${card.card_id}','dismissed')">Dismiss</button>`
+      : `<button class="btn btn-undo" onclick="decide('${card.card_id}','undecided')">Undo</button>`;
+
+    return `<div class="card-row ${statusClass}">
+      <div class="complexity-badge">${card.complexity}</div>
+      <div class="card-info">
+        <div class="card-name">${escHtml(card.name)}</div>
+        <div class="card-id">${escHtml(card.card_id)}</div>
+        <div class="card-text">${escHtml(card.stripped_text)}</div>
+      </div>
+      <div class="card-meta">${typeCap}<br>${attrs}</div>
+      <div class="card-cost">${card.cost}</div>
+      <div class="card-actions">${actionBtns}</div>
+    </div>`;
+  }).join('');
+
+  // Pagination
+  const totalPages = Math.ceil(filteredCards.length / PAGE_SIZE);
+  pagination.style.display = totalPages > 1 ? 'flex' : 'none';
+  document.getElementById('page-info').textContent = `Page ${currentPage + 1} of ${totalPages} (${filteredCards.length} cards)`;
+  document.getElementById('prev-btn').disabled = currentPage === 0;
+  document.getElementById('next-btn').disabled = currentPage >= totalPages - 1;
+}
+
+function updateStats() {
+  const total = allCards.length;
+  let kept = 0, dismissed = 0;
+  for (const cid in decisions) {
+    if (decisions[cid] === 'kept') kept++;
+    else if (decisions[cid] === 'dismissed') dismissed++;
+  }
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-kept').textContent = kept;
+  document.getElementById('stat-dismissed').textContent = dismissed;
+  document.getElementById('stat-undecided').textContent = total - kept - dismissed;
+}
+
+function decide(cardId, status) {
+  if (status === 'undecided') {
+    delete decisions[cardId];
+  } else {
+    decisions[cardId] = status;
+  }
+  saveState();
+  applyFilters();
+}
+
+function changePage(delta) {
+  currentPage += delta;
+  renderCards();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function resetAll() {
+  if (!confirm('Reset all decisions? This cannot be undone.')) return;
+  decisions = {};
+  saveState();
+  applyFilters();
+}
+
+function exportKept() {
+  const kept = allCards.filter(c => decisions[c.card_id] === 'kept');
+  const json = JSON.stringify(kept, null, 2);
+  document.getElementById('export-count').textContent = kept.length;
+  document.getElementById('export-text').value = json;
+  document.getElementById('export-modal').classList.add('active');
+}
+
+function copyExport() {
+  const textarea = document.getElementById('export-text');
+  textarea.select();
+  navigator.clipboard.writeText(textarea.value);
+}
+
+function downloadExport() {
+  const blob = new Blob([document.getElementById('export-text').value], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'curated_complex_cards.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function closeModal() {
+  document.getElementById('export-modal').classList.remove('active');
+}
+
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// Wire up filters
+document.getElementById('search').addEventListener('input', () => { currentPage = 0; applyFilters(); });
+document.getElementById('filter-status').addEventListener('change', () => { currentPage = 0; applyFilters(); });
+document.getElementById('filter-type').addEventListener('change', () => { currentPage = 0; applyFilters(); });
+document.getElementById('sort-by').addEventListener('change', () => { currentPage = 0; applyFilters(); });
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'ArrowLeft') changePage(-1);
+  if (e.key === 'ArrowRight') changePage(1);
+  if (e.key === 'Escape') closeModal();
+});
+
+// Close modal on overlay click
+document.getElementById('export-modal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeModal();
+});
+</script>
+</body>
+</html>

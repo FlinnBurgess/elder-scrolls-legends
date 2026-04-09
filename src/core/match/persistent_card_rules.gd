@@ -697,7 +697,7 @@ static func _check_item_on_play_target_mode(match_state: Dictionary, item_card: 
 	pending_arr.append({
 		"player_id": controller_id,
 		"source_instance_id": instance_id,
-		"mandatory": true,
+		"mandatory": false,
 		"allowed_families": ["on_play"],
 	})
 

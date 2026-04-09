@@ -113,7 +113,7 @@ static func enumerate_legal_actions(match_state: Dictionary, player_id: String =
 		result["has_pending_consume_selection"] = true
 		var consume_actions: Array = []
 		for candidate_id in consume_selection.get("candidate_instance_ids", []):
-			consume_actions.append(_build_descriptor(KIND_CHOOSE_CONSUME, match_state, decision_player_id, {"chosen_instance_id": str(candidate_id)}, {}, {"timing_window": TIMING_INTERRUPT}))
+			consume_actions.append(_build_descriptor(KIND_CHOOSE_CONSUME, match_state, decision_player_id, {}, {"chosen_instance_id": str(candidate_id)}, {"timing_window": TIMING_INTERRUPT}))
 		consume_actions.append(_build_descriptor(KIND_DECLINE_CONSUME, match_state, decision_player_id, {}, {}, {"timing_window": TIMING_INTERRUPT}))
 		result["actions"] = consume_actions
 	elif MatchTiming.has_pending_deck_selection(match_state):
@@ -126,7 +126,7 @@ static func enumerate_legal_actions(match_state: Dictionary, player_id: String =
 		result["has_pending_deck_selection"] = true
 		var deck_actions: Array = []
 		for candidate_id in deck_selection.get("candidate_instance_ids", []):
-			deck_actions.append(_build_descriptor(KIND_CHOOSE_DECK_SELECTION, match_state, decision_player_id, {"chosen_instance_id": str(candidate_id)}, {}, {"timing_window": TIMING_INTERRUPT}))
+			deck_actions.append(_build_descriptor(KIND_CHOOSE_DECK_SELECTION, match_state, decision_player_id, {}, {"chosen_instance_id": str(candidate_id)}, {"timing_window": TIMING_INTERRUPT}))
 		deck_actions.append(_build_descriptor(KIND_DECLINE_DECK_SELECTION, match_state, decision_player_id, {}, {}, {"timing_window": TIMING_INTERRUPT}))
 		result["actions"] = deck_actions
 	elif MatchTiming.has_pending_hand_selection(match_state):
@@ -152,7 +152,7 @@ static func enumerate_legal_actions(match_state: Dictionary, player_id: String =
 			var card_controller := str(card.get("controller_player_id", ""))
 			if card_controller == sec_player_id:
 				continue
-			sec_actions.append(_build_descriptor(KIND_CHOOSE_SECONDARY_TARGET, match_state, decision_player_id, {"target_instance_id": str(card.get("instance_id", ""))}, {}, {"timing_window": TIMING_INTERRUPT}))
+			sec_actions.append(_build_descriptor(KIND_CHOOSE_SECONDARY_TARGET, match_state, decision_player_id, {}, {"target_instance_id": str(card.get("instance_id", ""))}, {"timing_window": TIMING_INTERRUPT}))
 		result["actions"] = sec_actions
 	elif MatchTiming.has_pending_summon_effect_target(match_state):
 		var summon_eff_target := MatchTiming.get_pending_summon_effect_target(match_state)
@@ -178,8 +178,8 @@ static func enumerate_legal_actions(match_state: Dictionary, player_id: String =
 				params["target_instance_id"] = tid
 			if not tpid.is_empty():
 				params["target_player_id"] = tpid
-			set_actions.append(_build_descriptor(KIND_CHOOSE_SUMMON_EFFECT_TARGET, match_state, decision_player_id, params, {}, {"timing_window": TIMING_INTERRUPT}))
-		if not bool(summon_eff_target.get("mandatory", false)):
+			set_actions.append(_build_descriptor(KIND_CHOOSE_SUMMON_EFFECT_TARGET, match_state, decision_player_id, {}, params, {"timing_window": TIMING_INTERRUPT}))
+		if not bool(summon_eff_target.get("mandatory", false)) or _set_valid_targets.is_empty():
 			set_actions.append(_build_descriptor(KIND_DECLINE_SUMMON_EFFECT_TARGET, match_state, decision_player_id, {}, {}, {"timing_window": TIMING_INTERRUPT}))
 		result["actions"] = set_actions
 	elif MatchTiming.has_pending_turn_trigger_target(match_state, decision_player_id):
@@ -196,7 +196,7 @@ static func enumerate_legal_actions(match_state: Dictionary, player_id: String =
 				params["target_instance_id"] = tid
 			if not tpid.is_empty():
 				params["target_player_id"] = tpid
-			tt_actions.append(_build_descriptor(KIND_CHOOSE_TURN_TRIGGER_TARGET, match_state, decision_player_id, params, {}, {"timing_window": TIMING_INTERRUPT}))
+			tt_actions.append(_build_descriptor(KIND_CHOOSE_TURN_TRIGGER_TARGET, match_state, decision_player_id, {}, params, {"timing_window": TIMING_INTERRUPT}))
 		tt_actions.append(_build_descriptor(KIND_DECLINE_TURN_TRIGGER_TARGET, match_state, decision_player_id, {}, {}, {"timing_window": TIMING_INTERRUPT}))
 		result["actions"] = tt_actions
 	elif MatchTiming.has_pending_player_choice(match_state):
@@ -211,7 +211,7 @@ static func enumerate_legal_actions(match_state: Dictionary, player_id: String =
 		var pc_actions: Array = []
 		for oi in range(pc_options.size()):
 			var pc_label := str(pc_options[oi].get("label", "Option %d" % (oi + 1))) if typeof(pc_options[oi]) == TYPE_DICTIONARY else str(pc_options[oi])
-			pc_actions.append(_build_descriptor(KIND_CHOOSE_PLAYER_CHOICE, match_state, decision_player_id, {"chosen_index": oi}, {}, {
+			pc_actions.append(_build_descriptor(KIND_CHOOSE_PLAYER_CHOICE, match_state, decision_player_id, {}, {"chosen_index": oi}, {
 				"timing_window": TIMING_INTERRUPT,
 				"label": pc_label,
 			}))

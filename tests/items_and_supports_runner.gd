@@ -7,6 +7,7 @@ const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const LaneRules = preload("res://src/core/match/lane_rules.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
+const MatchActionEnumerator = preload("res://src/ai/match_action_enumerator.gd")
 
 
 func _initialize() -> void:
@@ -25,7 +26,8 @@ func _run_all_tests() -> bool:
 		_test_support_activations_are_once_per_turn_and_use_limited() and
 		_test_mobilize_items_create_recruits_and_attach_equipment() and
 		_test_plot_item_reduces_random_hand_card_cost() and
-		_test_on_support_count_reached_waits_for_threshold()
+		_test_on_support_count_reached_waits_for_threshold() and
+		_test_item_on_play_target_no_valid_targets_allows_decline()
 	)
 
 
@@ -272,6 +274,38 @@ func _test_on_support_count_reached_waits_for_threshold() -> bool:
 	return (
 		_assert(not _contains_instance(player["support"], forward_camp["instance_id"]), "Forward Camp should be destroyed after reaching 4 supports.") and
 		_assert(not crusader.is_empty(), "Eastmarch Crusader should be summoned in field lane after 4-support trigger.")
+	)
+
+
+func _test_item_on_play_target_no_valid_targets_allows_decline() -> bool:
+	# Bone Bow has on_play target_mode "another_creature" (Silence another creature).
+	# When there are no other creatures on the board, the AI must have a decline
+	# action so the game doesn't get stuck in a mandatory targeting phase.
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid: String = player["player_id"]
+	# Summon a single creature to equip
+	var host := _summon_creature(player, match_state, "host_creature", "field", 4, 4, 0)
+	# Add Bone Bow to hand
+	var bone_bow := _add_hand_card(player, "bone_bow", {
+		"card_type": "item",
+		"cost": 2,
+		"equip_power_bonus": 1,
+		"triggered_abilities": [{"family": "on_play", "target_mode": "another_creature", "effects": [{"op": "silence", "target": "chosen_target"}]}],
+	})
+	# Play Bone Bow on the host creature
+	var result := PersistentCardRules.play_item_from_hand(match_state, pid, bone_bow["instance_id"], {"target_instance_id": host["instance_id"]})
+	if not _assert(result["is_valid"], "Playing Bone Bow on own creature should succeed."):
+		return false
+	# The on_play creates a mandatory pending_summon_effect_target.
+	# With only the host creature on board, "another_creature" includes it (since
+	# the source is the item, not the host). But the enumeration must always
+	# provide at least one action to prevent the game from getting stuck.
+	var surface := MatchActionEnumerator.enumerate_legal_actions(match_state, pid)
+	var actions: Array = surface.get("actions", [])
+	return (
+		_assert(not actions.is_empty(), "Must have at least one action when item on_play targeting is pending.") and
+		_assert(actions.any(func(a): return str(a.get("kind", "")) == MatchActionEnumerator.KIND_DECLINE_SUMMON_EFFECT_TARGET or str(a.get("kind", "")) == MatchActionEnumerator.KIND_CHOOSE_SUMMON_EFFECT_TARGET), "Actions should include either a target choice or a decline option.")
 	)
 
 
