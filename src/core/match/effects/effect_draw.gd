@@ -296,7 +296,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						drawn["zone"] = ZONE_HAND
 						var dfdf_hand: Array = dfdf_player.get(ZONE_HAND, [])
 						dfdf_hand.append(drawn)
-						generated_events.append({"event_type": "card_drawn", "player_id": player_id, "instance_id": str(drawn.get("instance_id", "")), "source": "draw_from_deck_filtered", "reason": reason})
+						generated_events.append({"event_type": "card_drawn", "player_id": player_id, "drawn_instance_id": str(drawn.get("instance_id", "")), "source": "draw_from_deck_filtered", "reason": reason})
 		"draw_specific_from_deck":
 			var dsfd_source_id := str(trigger.get("source_instance_id", ""))
 			var dsfd_controller := str(trigger.get("controller_player_id", ""))
