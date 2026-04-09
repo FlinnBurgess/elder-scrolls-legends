@@ -97,9 +97,20 @@ func _refresh_player_sections() -> void:
 		discard_button.tooltip_text = _screen._pile_button_tooltip(player, _screen.MatchMutations.ZONE_DISCARD)
 
 		var support_row: HBoxContainer = section["support_row"]
+		var support_row_right: HBoxContainer = section["support_row_right"]
 		_screen._clear_children(support_row)
-		for support in player.get("support", []):
-			support_row.add_child(_screen._card_surface._build_card_button(support, true, "support"))
+		_screen._clear_children(support_row_right)
+		var supports: Array = player.get("support", [])
+		var card_w := 144.0
+		var gap := 16.0
+		var left_width: float = support_row.get_parent().size.x
+		var left_capacity := int(max(1, floor((left_width + gap) / (card_w + gap))))
+		for i in supports.size():
+			var btn: Button = _screen._card_surface._build_card_button(supports[i], true, "support")
+			if i < left_capacity:
+				support_row.add_child(btn)
+			else:
+				support_row_right.add_child(btn)
 
 		var hand_row: Control = section["hand_row"]
 		_screen._clear_children(hand_row)

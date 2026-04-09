@@ -244,9 +244,7 @@ func _build_card_display_component(card: Dictionary, surface: String, instance_i
 		display_card["_cover_active"] = true
 	if surface == "hand" and str(card.get("controller_player_id", "")) == _screen._active_player_id():
 		var effective_cost = _screen.PersistentCardRules.get_effective_play_cost(_screen._match_state, _screen._active_player_id(), card)
-		var base_cost := int(card.get("_base_cost", card.get("cost", 0)))
-		if effective_cost != base_cost:
-			display_card["_effective_cost"] = effective_cost
+		display_card["_effective_cost"] = effective_cost
 		_apply_empower_text_updates(display_card, _screen._active_player_id())
 	component.apply_card(display_card, _screen._card_display._card_presentation_mode(card, surface))
 	if component.has_method("set_wax_wane_phases"):

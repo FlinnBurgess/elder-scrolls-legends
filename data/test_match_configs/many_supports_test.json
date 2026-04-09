@@ -1,0 +1,48 @@
+{
+  "name": "Many Supports Layout Test",
+  "description": "Tests support card layout with 7+ supports to verify left/right overflow around avatar",
+  "board_profile": "standard_versus",
+  "turn_number": 1,
+  "first_player": "player_1",
+  "player_1": {
+    "health": 30,
+    "max_magicka": 12,
+    "current_magicka": 12,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [
+      "wil_divine_fervor",
+      "str_northwind_outpost",
+      "neu_mundus_stone",
+      "agi_thieves_den",
+      "end_necromancers_amulet",
+      "neu_elixir_of_conflict",
+      "wil_elixir_of_the_defender",
+      "agi_elixir_of_light_feet",
+      "end_elixir_of_vigor"
+    ],
+    "deck": [
+      "str_skirmishers_elixir",
+      "neu_goldbrand",
+      "end_chieftains_banner"
+    ],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [],
+    "shadow_creatures": []
+  },
+  "player_2": {
+    "health": 30,
+    "max_magicka": 1,
+    "current_magicka": 1,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": ["hom_end_vvardvark"],
+    "deck": ["hom_end_vvardvark", "hom_end_vvardvark"],
+    "discard": [],
+    "field_creatures": ["hom_end_vvardvark"],
+    "shadow_creatures": ["hom_end_vvardvark"]
+  }
+}

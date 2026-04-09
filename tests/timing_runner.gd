@@ -4,6 +4,7 @@ const MatchBootstrap = preload("res://src/core/match/match_bootstrap.gd")
 const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const LaneRules = preload("res://src/core/match/lane_rules.gd")
 const MatchCombat = preload("res://src/core/match/match_combat.gd")
+const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
 
 
@@ -27,7 +28,8 @@ func _run_all_tests() -> bool:
 		_test_pilfer_does_not_fire_on_summon() and
 		_test_end_of_turn_target_mode_does_not_fire_on_summon() and
 		_test_on_keyword_gained_fires_from_hand() and
-		_test_summon_deal_damage_chosen_target_player()
+		_test_summon_deal_damage_chosen_target_player() and
+		_test_item_slay_trigger_fires_and_destroys_item()
 	)
 
 
@@ -448,6 +450,43 @@ func _events_of_type(events: Array, event_type: String) -> Array:
 		if str(event.get("event_type", "")) == event_type:
 			matches.append(event)
 	return matches
+
+
+func _test_item_slay_trigger_fires_and_destroys_item() -> bool:
+	# Fork of Horripilation: an item with a slay trigger that destroys itself and draws 3 cards
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var wielder := _summon_creature(active_player, match_state, "wielder", "field", 5, 5, [], 0)
+	var fork := _add_hand_card(active_player, "fork", {
+		"card_type": "item",
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_SLAY,
+			"required_zone": "lane",
+			"effects": [
+				{"op": "destroy_item", "target": "self"},
+				{"op": "draw_cards", "target_player": "controller", "count": 3},
+			],
+		}],
+	})
+	MatchMutations.attach_item_to_creature(match_state, active_player["player_id"], fork["instance_id"], wielder["instance_id"])
+	var victim := _summon_creature(opponent, match_state, "victim", "field", 2, 2)
+	_target_ready_for_attack(wielder, match_state)
+	var hand_before: int = active_player["hand"].size()
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], wielder["instance_id"], {
+		"type": "creature",
+		"instance_id": victim["instance_id"],
+	})
+	var slay_resolutions := _families_from_resolutions(result.get("trigger_resolutions", [])).filter(func(f): return f == MatchTiming.FAMILY_SLAY)
+	var detach_events := _events_of_type(result.get("events", []), "attached_item_detached")
+	var hand_after: int = active_player["hand"].size()
+	return (
+		_assert(result["is_valid"], "Item slay combat should resolve.") and
+		_assert(slay_resolutions.size() == 1, "Item slay trigger should fire once. Got %d." % slay_resolutions.size()) and
+		_assert(detach_events.size() == 1, "Fork should be detached. Got %d detach events." % detach_events.size()) and
+		_assert(wielder.get("attached_items", []).is_empty(), "Wielder should have no items after slay.") and
+		_assert(hand_after == hand_before + 3, "Controller should draw 3 cards. Hand went from %d to %d." % [hand_before, hand_after])
+	)
 
 
 func _build_deck(prefix: String, size: int) -> Array:

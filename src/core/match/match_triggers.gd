@@ -392,7 +392,14 @@ static func _matches_trigger_role(match_state: Dictionary, trigger: Dictionary, 
 		"killer":
 			if bool(event.get("is_retaliation_kill", false)):
 				return false
-			return str(event.get("destroyed_by_instance_id", "")) == source_instance_id
+			var killer_id := str(event.get("destroyed_by_instance_id", ""))
+			if killer_id == source_instance_id:
+				return true
+			# Item triggers: the host creature is the killer, not the item itself
+			var killer_source := MatchTimingHelpers._find_card_anywhere(match_state, source_instance_id)
+			if not killer_source.is_empty() and str(killer_source.get("attached_to_instance_id", "")) == killer_id:
+				return true
+			return false
 		"either":
 			return str(event.get("source_instance_id", "")) == source_instance_id or MatchTimingHelpers._event_target_instance_id(event) == source_instance_id or MatchTimingHelpers._event_subject_instance_id(event) == source_instance_id
 		"any_player":

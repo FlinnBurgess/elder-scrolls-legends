@@ -156,6 +156,32 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				return
 			var summon_template: Dictionary = effect.get("card_template", {})
 			if summon_template.is_empty():
+				var sfe_uc: Array = effect.get("upgrade_chain", [])
+				if not sfe_uc.is_empty():
+					var sfe_uc_src_id := str(trigger.get("source_instance_id", ""))
+					var sfe_uc_loc := MatchMutations.find_card_location(match_state, sfe_uc_src_id)
+					if bool(sfe_uc_loc.get("is_valid", false)):
+						var sfe_uc_card: Dictionary = sfe_uc_loc["card"]
+						var sfe_uc_idx := mini(int(sfe_uc_card.get("_upgrade_chain_index", 0)), sfe_uc.size() - 1)
+						summon_template = sfe_uc[sfe_uc_idx]
+						var sfe_uc_next := mini(sfe_uc_idx + 1, sfe_uc.size() - 1)
+						sfe_uc_card["_upgrade_chain_index"] = sfe_uc_next
+						var sfe_uc_next_name := str(sfe_uc[sfe_uc_next].get("name", ""))
+						var sfe_uc_prefix := str(effect.get("upgrade_chain_text_prefix", ""))
+						if not sfe_uc_next_name.is_empty() and not sfe_uc_prefix.is_empty():
+							sfe_uc_card["rules_text"] = sfe_uc_prefix + sfe_uc_next_name + "."
+						# Overflow to other lane if the source lane is full
+						if not summon_lane_ids.is_empty() and not summon_players.is_empty():
+							var sfe_uc_open := MatchTimingHelpers._get_lane_open_slots(match_state, summon_lane_ids[0], summon_players[0])
+							if int(sfe_uc_open.get("open_slots", 0)) <= 0:
+								for sfe_uc_lane in match_state.get("lanes", []):
+									var sfe_uc_lid := str(sfe_uc_lane.get("lane_id", ""))
+									if sfe_uc_lid != summon_lane_ids[0] and not sfe_uc_lid.is_empty():
+										var sfe_uc_other_open := MatchTimingHelpers._get_lane_open_slots(match_state, sfe_uc_lid, summon_players[0])
+										if int(sfe_uc_other_open.get("open_slots", 0)) > 0:
+											summon_lane_ids[0] = sfe_uc_lid
+										break
+			if summon_template.is_empty():
 				for source_card in MatchTargeting._resolve_card_targets_by_name(match_state, trigger, event, str(effect.get("source_target", "event_source"))):
 					for s_lane_id in summon_lane_ids:
 						var summon_existing := MatchMutations.summon_card_to_lane(match_state, summon_players[0], str(source_card.get("instance_id", "")), s_lane_id, {

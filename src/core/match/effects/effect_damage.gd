@@ -637,14 +637,26 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 							generated_events.append({"event_type": "creature_destroyed", "instance_id": str(card.get("instance_id", "")), "source_instance_id": str(card.get("instance_id", "")), "owner_player_id": str(card.get("owner_player_id", "")), "controller_player_id": cpid, "destroyed_by_instance_id": destroy_source_id, "lane_id": lane_id, "source_zone": ZONE_LANE})
 		"destroy_item":
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
-				var di_items: Array = card.get("attached_items", [])
-				if not di_items.is_empty():
-					var di_item: Dictionary = di_items[0]
+				var di_item: Dictionary = {}
+				var di_host_id := ""
+				# If the resolved target is the item itself (e.g. Fork of Horripilation targeting "self"),
+				# find its host creature and detach it
+				var di_attached_to := str(card.get("attached_to_instance_id", ""))
+				if not di_attached_to.is_empty():
+					di_item = card
+					di_host_id = di_attached_to
+				else:
+					# Target is a creature — detach its first attached item
+					var di_items: Array = card.get("attached_items", [])
+					if not di_items.is_empty():
+						di_item = di_items[0]
+						di_host_id = str(card.get("instance_id", ""))
+				if not di_item.is_empty() and not di_host_id.is_empty():
 					var di_result := MatchMutations.discard_card(match_state, str(di_item.get("instance_id", "")), {"reason": reason})
 					generated_events.append({
 						"event_type": "attached_item_detached",
 						"source_instance_id": str(trigger.get("source_instance_id", "")),
-						"host_instance_id": str(card.get("instance_id", "")),
+						"host_instance_id": di_host_id,
 						"item_instance_id": str(di_item.get("instance_id", "")),
 					})
 					generated_events.append_array(di_result.get("events", []))

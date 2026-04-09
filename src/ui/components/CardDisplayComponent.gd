@@ -537,6 +537,7 @@ func _refresh_content() -> void:
 		_cost_label.text = str(int(_card_data.get("_effective_cost", 0)))
 	else:
 		_cost_label.text = str(int(_card_data.get("cost", 0)))
+
 	_name_label.text = _card_name(_card_data)
 	_subtype_label.text = _subtype_line(_card_data)
 	_rules_label.text = _rules_bbcode(_card_data)
@@ -600,8 +601,9 @@ func _refresh_styles() -> void:
 	_subtype_label.add_theme_color_override("font_color", COLOR_TEXT_MUTED)
 	_rules_label.add_theme_color_override("default_color", COLOR_RULES_TEXT)
 	_rarity_label.add_theme_color_override("font_color", _rarity_color(_card_data))
-	if _card_data.has("_effective_cost"):
-		_cost_label.add_theme_color_override("font_color", COLOR_STAT_BUFF)
+	var _cost_color := _cost_display_color()
+	if _cost_color != Color.BLACK:
+		_cost_label.add_theme_color_override("font_color", _cost_color)
 		_cost_label.add_theme_color_override("font_outline_color", Color.BLACK)
 		_cost_label.add_theme_constant_override("outline_size", 8)
 	else:
@@ -1324,6 +1326,18 @@ func _art_fill(mode: String) -> Color:
 			return Color(0.2, 0.17, 0.13, 0.98)
 		_:
 			return Color(0.19, 0.16, 0.13, 0.96)
+
+
+func _cost_display_color() -> Color:
+	if not _card_data.has("_effective_cost"):
+		return Color.BLACK
+	var effective := int(_card_data.get("_effective_cost", 0))
+	var base := int(_card_data.get("_base_cost", _card_data.get("cost", 0)))
+	if effective < base:
+		return COLOR_STAT_BUFF
+	if effective > base:
+		return COLOR_STAT_REDUCED
+	return Color.BLACK
 
 
 func _stat_color(card: Dictionary, stat: String) -> Color:

@@ -83,7 +83,9 @@ func _run_all_tests() -> bool:
 		_test_adoring_fan_death_sets_return_timer() and
 		_test_adoring_fan_returns_after_timer_expires() and
 		_test_adoring_fan_non_death_discard_has_no_timer() and
-		_test_adoring_fan_waits_when_lanes_full()
+		_test_adoring_fan_waits_when_lanes_full() and
+		_test_upgrade_chain_summon_advances_and_caps() and
+		_test_upgrade_chain_overflows_to_other_lane()
 	)
 
 
@@ -3267,3 +3269,126 @@ func _test_adoring_fan_waits_when_lanes_full() -> bool:
 	if not _assert(still_in_discard, "Adoring Fan: should stay in discard when all lanes are full."):
 		return false
 	return _assert(timer_val == 1, "Adoring Fan: timer should be set to 1 to retry next turn, got %d." % timer_val)
+
+
+func _test_upgrade_chain_summon_advances_and_caps() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	var chain_templates := [
+		{"definition_id": "t_flame", "name": "Flame Atronach", "card_type": "creature", "subtypes": ["Daedra"], "attributes": ["intelligence"], "cost": 3, "power": 3, "health": 3, "base_power": 3, "base_health": 3, "keywords": ["breakthrough"], "rules_text": "Breakthrough"},
+		{"definition_id": "t_frost", "name": "Frost Atronach", "card_type": "creature", "subtypes": ["Daedra"], "attributes": ["intelligence"], "cost": 5, "power": 5, "health": 5, "base_power": 5, "base_health": 5, "keywords": ["guard"], "rules_text": "Guard"},
+		{"definition_id": "t_lava", "name": "Lava Atronach", "card_type": "creature", "subtypes": ["Daedra"], "attributes": ["intelligence"], "cost": 7, "power": 8, "health": 8, "base_power": 8, "base_health": 8, "keywords": ["breakthrough", "guard", "ward"], "rules_text": "Breakthrough, Guard, Ward"},
+	]
+	var conjurer := ScenarioFixtures.summon_creature(player, match_state, "conjurer", "field", 2, 3, [], -1, {
+		"triggered_abilities": [{
+			"event_type": MatchTiming.EVENT_TURN_ENDING,
+			"match_role": "controller",
+			"required_zone": "lane",
+			"family": "expertise",
+			"min_noncreature_plays_this_turn": 1,
+			"effects": [{"op": "summon_from_effect", "lane": "same", "upgrade_chain": chain_templates, "upgrade_chain_text_prefix": "Expertise: Summon a "}],
+		}],
+	})
+	# Play a 0-cost action to satisfy expertise's "noncreature play" requirement, then end turn
+	var ping1 := ScenarioFixtures.add_hand_card(player, "ping1", {
+		"card_type": "action", "cost": 0,
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "damage", "target_player": "target_player", "amount": 0}]}],
+	})
+	MatchTiming.play_action_from_hand(match_state, pid, str(ping1.get("instance_id", "")), {"target_player_id": pid})
+	MatchTurnLoop.end_turn(match_state, pid)
+	# --- Verify trigger 1: Flame Atronach ---
+	var flame_found := false
+	for card in _lane_creatures(match_state, "field", pid):
+		if str(card.get("definition_id", "")) == "t_flame":
+			flame_found = true
+			break
+	if not _assert(flame_found, "Upgrade chain trigger 1 should summon Flame Atronach."):
+		return false
+	if not _assert(str(conjurer.get("rules_text", "")).find("Frost Atronach") >= 0, "After first trigger, rules_text should show Frost Atronach next. Got: %s" % str(conjurer.get("rules_text", ""))):
+		return false
+	# --- Trigger 2: Frost Atronach ---
+	MatchTurnLoop.end_turn(match_state, oid)  # opponent passes
+	var ping2 := ScenarioFixtures.add_hand_card(player, "ping2", {
+		"card_type": "action", "cost": 0,
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "damage", "target_player": "target_player", "amount": 0}]}],
+	})
+	MatchTiming.play_action_from_hand(match_state, pid, str(ping2.get("instance_id", "")), {"target_player_id": pid})
+	MatchTurnLoop.end_turn(match_state, pid)
+	var frost_found := false
+	for card in _lane_creatures(match_state, "field", pid):
+		if str(card.get("definition_id", "")) == "t_frost":
+			frost_found = true
+			break
+	if not _assert(frost_found, "Upgrade chain trigger 2 should summon Frost Atronach."):
+		return false
+	if not _assert(str(conjurer.get("rules_text", "")).find("Lava Atronach") >= 0, "After second trigger, rules_text should show Lava Atronach next. Got: %s" % str(conjurer.get("rules_text", ""))):
+		return false
+	# --- Trigger 3: Lava Atronach (last in chain) ---
+	MatchTurnLoop.end_turn(match_state, oid)
+	var ping3 := ScenarioFixtures.add_hand_card(player, "ping3", {
+		"card_type": "action", "cost": 0,
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "damage", "target_player": "target_player", "amount": 0}]}],
+	})
+	MatchTiming.play_action_from_hand(match_state, pid, str(ping3.get("instance_id", "")), {"target_player_id": pid})
+	MatchTurnLoop.end_turn(match_state, pid)
+	var lava_found := false
+	for card in _lane_creatures(match_state, "field", pid):
+		if str(card.get("definition_id", "")) == "t_lava":
+			lava_found = true
+			break
+	if not _assert(lava_found, "Upgrade chain trigger 3 should summon Lava Atronach."):
+		return false
+	# --- Verify chain index is capped at last entry ---
+	return _assert(int(conjurer.get("_upgrade_chain_index", -1)) == 2, "Upgrade chain index should stay capped at last entry (2). Got: %d" % int(conjurer.get("_upgrade_chain_index", -1)))
+
+
+func _test_upgrade_chain_overflows_to_other_lane() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	var chain_templates := [
+		{"definition_id": "t_flame", "name": "Flame Atronach", "card_type": "creature", "subtypes": ["Daedra"], "attributes": ["intelligence"], "cost": 3, "power": 3, "health": 3, "base_power": 3, "base_health": 3, "keywords": ["breakthrough"], "rules_text": "Breakthrough"},
+	]
+	# Summon conjurer to field lane
+	var conjurer := ScenarioFixtures.summon_creature(player, match_state, "uc_conjurer", "field", 2, 3, [], -1, {
+		"triggered_abilities": [{
+			"event_type": MatchTiming.EVENT_TURN_ENDING,
+			"match_role": "controller",
+			"required_zone": "lane",
+			"family": "expertise",
+			"min_noncreature_plays_this_turn": 1,
+			"effects": [{"op": "summon_from_effect", "lane": "same", "upgrade_chain": chain_templates, "upgrade_chain_text_prefix": "Expertise: Summon a "}],
+		}],
+	})
+	# Fill remaining field lane slots
+	for i in range(3):
+		ScenarioFixtures.summon_creature(player, match_state, "filler_%d" % i, "field", 1, 1)
+	# Verify field is full (4/4)
+	if not _assert(_lane_creatures(match_state, "field", pid).size() == 4, "Field lane should be full (4 creatures)."):
+		return false
+	# Play an action and end turn to trigger expertise
+	var ping := ScenarioFixtures.add_hand_card(player, "uc_ping", {
+		"card_type": "action", "cost": 0,
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "damage", "target_player": "target_player", "amount": 0}]}],
+	})
+	MatchTiming.play_action_from_hand(match_state, pid, str(ping.get("instance_id", "")), {"target_player_id": pid})
+	MatchTurnLoop.end_turn(match_state, pid)
+	# Flame Atronach should appear in shadow lane (overflow)
+	var found_in_shadow := false
+	for card in _lane_creatures(match_state, "shadow", pid):
+		if str(card.get("definition_id", "")) == "t_flame":
+			found_in_shadow = true
+			break
+	return _assert(found_in_shadow, "Upgrade chain should overflow to the other lane when source lane is full.")
+
+
+func _lane_creatures(match_state: Dictionary, lane_id: String, player_id: String) -> Array:
+	for lane in match_state.get("lanes", []):
+		if str(lane.get("lane_id", "")) == lane_id:
+			return lane.get("player_slots", {}).get(player_id, [])
+	return []
