@@ -29,7 +29,9 @@ func _run_all_tests() -> bool:
 		_test_end_of_turn_target_mode_does_not_fire_on_summon() and
 		_test_on_keyword_gained_fires_from_hand() and
 		_test_summon_deal_damage_chosen_target_player() and
-		_test_item_slay_trigger_fires_and_destroys_item()
+		_test_item_slay_trigger_fires_and_destroys_item() and
+		_test_slay_draw_from_discard_player_choice() and
+		_test_on_move_only_fires_for_moved_creature()
 	)
 
 
@@ -486,6 +488,79 @@ func _test_item_slay_trigger_fires_and_destroys_item() -> bool:
 		_assert(detach_events.size() == 1, "Fork should be detached. Got %d detach events." % detach_events.size()) and
 		_assert(wielder.get("attached_items", []).is_empty(), "Wielder should have no items after slay.") and
 		_assert(hand_after == hand_before + 3, "Controller should draw 3 cards. Hand went from %d to %d." % [hand_before, hand_after])
+	)
+
+
+func _test_slay_draw_from_discard_player_choice() -> bool:
+	# Falkreath Defiler: Slay should create a pending discard choice (player picks), not auto-draw
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	# Put a creature in the controller's discard pile
+	var discarded := {
+		"instance_id": "%s_discarded" % active_player["player_id"],
+		"definition_id": "test_discarded_creature",
+		"owner_player_id": active_player["player_id"],
+		"controller_player_id": active_player["player_id"],
+		"zone": "discard",
+		"card_type": "creature",
+		"cost": 3, "power": 2, "health": 2, "base_power": 2, "base_health": 2,
+		"damage_marked": 0, "keywords": [], "granted_keywords": [], "status_markers": [],
+		"triggered_abilities": [], "power_bonus": 0, "health_bonus": 0,
+	}
+	active_player["discard"].append(discarded)
+	var hand_before: int = active_player["hand"].size()
+	var defiler := _summon_creature(active_player, match_state, "defiler", "field", 5, 5, [], 0, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_SLAY,
+			"required_zone": "lane",
+			"effects": [{"op": "draw_from_discard_filtered", "target_player": "controller", "filter": {"card_type": "creature"}, "player_choice": true}],
+		}]
+	})
+	var victim := _summon_creature(opponent, match_state, "victim", "field", 1, 1, [], 0)
+	_target_ready_for_attack(defiler, match_state)
+	_target_ready_for_attack(victim, match_state)
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], defiler["instance_id"], {
+		"type": "creature",
+		"instance_id": victim["instance_id"],
+	})
+	var hand_after: int = active_player["hand"].size()
+	var pending: Array = match_state.get("pending_discard_choices", [])
+	return (
+		_assert(result["is_valid"], "Slay combat should resolve.") and
+		_assert(hand_after == hand_before, "Hand size should NOT change — card should not be auto-drawn. Was %d, now %d." % [hand_before, hand_after]) and
+		_assert(not pending.is_empty(), "Should create a pending_discard_choices entry for player to pick from.") and
+		_assert(pending[0].get("candidate_instance_ids", []).has(str(discarded.get("instance_id", ""))), "Discarded creature should be in choice candidates.")
+	)
+
+
+func _test_on_move_only_fires_for_moved_creature() -> bool:
+	# Two creatures with on_move self-triggers in the same lane.
+	# Moving only one should fire on_move once — not for the other.
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var on_move_ability := {
+		"family": MatchTiming.FAMILY_ON_MOVE,
+		"required_zone": "lane",
+		"effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 0}],
+	}
+	var stayer := _summon_creature(active_player, match_state, "stayer", "field", 3, 3, [], -1, {
+		"triggered_abilities": [on_move_ability],
+	})
+	var mover := _summon_creature(active_player, match_state, "mover", "field", 3, 3, [], -1, {
+		"triggered_abilities": [on_move_ability],
+	})
+	_reset_timing_logs(match_state)
+
+	var result := MatchMutations.move_card_between_lanes(match_state, active_player["player_id"], mover["instance_id"], "shadow")
+	_assert(bool(result.get("is_valid", false)), "Move should succeed.")
+	MatchTiming.publish_events(match_state, result.get("events", []))
+
+	var sources := _replay_sources_for_family(match_state, MatchTiming.FAMILY_ON_MOVE, active_player["player_id"])
+	return (
+		_assert(sources == [mover["instance_id"]], "Only the moved creature should fire on_move, got: %s" % str(sources)) and
+		_assert(int(mover.get("power_bonus", 0)) == 1, "Moved creature should get +1 power from on_move.") and
+		_assert(int(stayer.get("power_bonus", 0)) == 0, "Non-moved creature should NOT get +1 power from on_move.")
 	)
 
 

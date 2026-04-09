@@ -62,6 +62,7 @@ func _test_seeded_rally_golden_replay_and_state() -> void:
 	VerificationAsserts.assert_equal(ScenarioFixtures.replay_signature(match_state), [
 		{"entry_type": "event_processed", "event_type": "attack_declared", "timing_window": "after"},
 		{"entry_type": "event_processed", "event_type": "rally_resolved", "timing_window": "after"},
+		{"entry_type": "event_processed", "event_type": "rally_triggered", "timing_window": "after"},
 		{"entry_type": "event_processed", "event_type": "damage_resolved", "timing_window": "after"},
 		{"entry_type": "event_processed", "event_type": "attack_resolved", "timing_window": "after"},
 	], "Golden rally scenario should lock the replay signature for seeded combat output.", _failures)

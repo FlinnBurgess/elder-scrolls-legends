@@ -1,0 +1,2062 @@
+{
+  "joo_agi_the_ultimate_heist": {
+    "name": "The Ultimate Heist",
+    "complexity": 204,
+    "status": "untested"
+  },
+  "mc_dual_monster_perfection_lab": {
+    "name": "Monster Perfection Lab",
+    "complexity": 193,
+    "status": "untested"
+  },
+  "mc_dual_dragonfire_wizard": {
+    "name": "Dragonfire Wizard",
+    "complexity": 188,
+    "status": "complete"
+  },
+  "aw_neu_the_ruby_throne": {
+    "name": "The Ruby Throne",
+    "complexity": 186,
+    "status": "untested"
+  },
+  "moe_end_ruin_shambler": {
+    "name": "Ruin Shambler",
+    "complexity": 172,
+    "status": "untested"
+  },
+  "moe_agi_apex_predator": {
+    "name": "Apex Predator",
+    "complexity": 170,
+    "status": "complete"
+  },
+  "hos_neu_alduin": {
+    "name": "Alduin",
+    "complexity": 161,
+    "status": "complete"
+  },
+  "moe_agi_rebellion_general": {
+    "name": "Rebellion General",
+    "complexity": 161,
+    "status": "untested"
+  },
+  "db_end_gravesinger": {
+    "name": "Gravesinger",
+    "complexity": 161,
+    "status": "complete"
+  },
+  "moe_str_flamespear_dragon": {
+    "name": "Flamespear Dragon",
+    "complexity": 160,
+    "status": "complete"
+  },
+  "iom_neu_gates_of_madness": {
+    "name": "Gates of Madness",
+    "complexity": 153,
+    "status": "untested"
+  },
+  "fsc_int_piercing_twilight": {
+    "name": "Piercing Twilight",
+    "complexity": 153,
+    "status": "untested"
+  },
+  "tc_tri_enchanted_ring": {
+    "name": "Enchanted Ring",
+    "complexity": 150,
+    "status": "untested"
+  },
+  "mc_end_hist_grove": {
+    "name": "Hist Grove",
+    "complexity": 148,
+    "status": "untested"
+  },
+  "joo_agi_dead_drop": {
+    "name": "Dead Drop",
+    "complexity": 146,
+    "status": "untested"
+  },
+  "mhc_neu_altar_of_despair": {
+    "name": "Altar of Despair",
+    "complexity": 144,
+    "status": "untested"
+  },
+  "moe_agi_corinthe_brawler": {
+    "name": "Corinthe Brawler",
+    "complexity": 141,
+    "status": "untested"
+  },
+  "joo_end_miscarcand_lich": {
+    "name": "Miscarcand Lich",
+    "complexity": 141,
+    "status": "untested"
+  },
+  "mc_end_pure_blood_elder": {
+    "name": "Pure-Blood Elder",
+    "complexity": 138,
+    "status": "untested"
+  },
+  "aw_int_nereid_sister": {
+    "name": "Nereid Sister",
+    "complexity": 137,
+    "status": "untested"
+  },
+  "iom_neu_haskill": {
+    "name": "Haskill",
+    "complexity": 137,
+    "status": "untested"
+  },
+  "aw_str_orsinium_forge": {
+    "name": "Orsinium Forge",
+    "complexity": 135,
+    "status": "untested"
+  },
+  "mc_dual_dark_mane": {
+    "name": "Dark Mane",
+    "complexity": 129,
+    "status": "untested"
+  },
+  "mc_end_skyshard": {
+    "name": "Skyshard",
+    "complexity": 127,
+    "status": "untested"
+  },
+  "hos_neu_young_dragonborn": {
+    "name": "Young Dragonborn",
+    "complexity": 126,
+    "status": "untested"
+  },
+  "fhc_neu_siege_of_stros_mkai": {
+    "name": "Siege of Stros M'Kai",
+    "complexity": 126,
+    "status": "untested"
+  },
+  "aw_int_soul_shred": {
+    "name": "Soul Shred",
+    "complexity": 124,
+    "status": "untested"
+  },
+  "moe_agi_devious_bandit": {
+    "name": "Devious Bandit",
+    "complexity": 124,
+    "status": "untested"
+  },
+  "int_dark_rift": {
+    "name": "Dark Rift",
+    "complexity": 123,
+    "status": "untested"
+  },
+  "moe_int_frazzled_alfiq": {
+    "name": "Frazzled Alfiq",
+    "complexity": 123,
+    "status": "untested"
+  },
+  "moe_end_dro_mathra_reaper": {
+    "name": "Dro-m'Athra Reaper",
+    "complexity": 123,
+    "status": "untested"
+  },
+  "dual_general_tullius": {
+    "name": "General Tullius",
+    "complexity": 122,
+    "status": "untested"
+  },
+  "hom_agi_naryu_virian": {
+    "name": "Naryu Virian",
+    "complexity": 122,
+    "status": "untested"
+  },
+  "aw_tri_ayrenn_dominion_queen": {
+    "name": "Ayrenn, Dominion Queen",
+    "complexity": 122,
+    "status": "untested"
+  },
+  "moe_wil_cygnus_standard_bearer": {
+    "name": "Cygnus Standard Bearer",
+    "complexity": 122,
+    "status": "untested"
+  },
+  "tc_tri_smuggler_underboss": {
+    "name": "Smuggler Underboss",
+    "complexity": 122,
+    "status": "untested"
+  },
+  "hom_tri_ascended_sleeper": {
+    "name": "Ascended Sleeper",
+    "complexity": 121,
+    "status": "untested"
+  },
+  "joo_str_marauder_chieftain": {
+    "name": "Marauder Chieftain",
+    "complexity": 121,
+    "status": "untested"
+  },
+  "joo_agi_the_gray_fox": {
+    "name": "The Gray Fox",
+    "complexity": 121,
+    "status": "untested"
+  },
+  "mc_int_conjuration_tutor": {
+    "name": "Conjuration Tutor",
+    "complexity": 120,
+    "status": "untested"
+  },
+  "hom_agi_cliff_strider": {
+    "name": "Cliff Strider",
+    "complexity": 118,
+    "status": "untested"
+  },
+  "cwc_wil_phalanx_exemplar": {
+    "name": "Phalanx Exemplar",
+    "complexity": 118,
+    "status": "untested"
+  },
+  "hos_neu_barbas": {
+    "name": "Barbas",
+    "complexity": 117,
+    "status": "untested"
+  },
+  "hom_wil_morag_tong_nightblade": {
+    "name": "Morag Tong Nightblade",
+    "complexity": 117,
+    "status": "untested"
+  },
+  "hom_agi_cornerclub_gambler": {
+    "name": "Cornerclub Gambler",
+    "complexity": 117,
+    "status": "untested"
+  },
+  "aw_agi_daedric_titan": {
+    "name": "Daedric Titan",
+    "complexity": 117,
+    "status": "untested"
+  },
+  "joo_agi_bloody_hand_chef": {
+    "name": "Bloody Hand Chef",
+    "complexity": 117,
+    "status": "untested"
+  },
+  "iom_int_gardeners_harvest": {
+    "name": "Gardener's Harvest",
+    "complexity": 117,
+    "status": "untested"
+  },
+  "moe_int_alfiq_conjurer": {
+    "name": "Alfiq Conjurer",
+    "complexity": 116,
+    "status": "untested"
+  },
+  "aw_wil_mystic_of_ancient_rites": {
+    "name": "Mystic of Ancient Rites",
+    "complexity": 115,
+    "status": "untested"
+  },
+  "hom_end_aundae_clan_sorcerer": {
+    "name": "Aundae Clan Sorcerer",
+    "complexity": 114,
+    "status": "untested"
+  },
+  "db_wil_the_black_dragon": {
+    "name": "The Black Dragon",
+    "complexity": 113,
+    "status": "untested"
+  },
+  "hos_end_dragon_cult_ghost": {
+    "name": "Dragon Cult Ghost",
+    "complexity": 112,
+    "status": "untested"
+  },
+  "joo_str_unfinished_business": {
+    "name": "Unfinished Business",
+    "complexity": 112,
+    "status": "untested"
+  },
+  "joo_int_hannibal_traven": {
+    "name": "Hannibal Traven",
+    "complexity": 112,
+    "status": "untested"
+  },
+  "mc_str_giants_camp": {
+    "name": "Giant's Camp",
+    "complexity": 112,
+    "status": "untested"
+  },
+  "int_supreme_atromancer": {
+    "name": "Supreme Atromancer",
+    "complexity": 111,
+    "status": "untested"
+  },
+  "hom_int_sotha_sil": {
+    "name": "Sotha Sil",
+    "complexity": 111,
+    "status": "untested"
+  },
+  "hom_agi_cliff_racer_onslaught": {
+    "name": "Cliff Racer Onslaught",
+    "complexity": 110,
+    "status": "untested"
+  },
+  "mc_dual_supreme_dragon": {
+    "name": "Supreme Dragon",
+    "complexity": 110,
+    "status": "untested"
+  },
+  "aw_tri_clivia_tharn": {
+    "name": "Clivia Tharn",
+    "complexity": 109,
+    "status": "untested"
+  },
+  "fsc_agi_shadowmarking": {
+    "name": "Shadowmarking",
+    "complexity": 109,
+    "status": "untested"
+  },
+  "tc_tri_altar_of_spellmaking": {
+    "name": "Altar of Spellmaking",
+    "complexity": 109,
+    "status": "untested"
+  },
+  "mc_int_renegade_magister": {
+    "name": "Renegade Magister",
+    "complexity": 109,
+    "status": "untested"
+  },
+  "hom_wil_writ_of_execution": {
+    "name": "Writ of Execution",
+    "complexity": 108,
+    "status": "untested"
+  },
+  "aw_neu_soulburst": {
+    "name": "Soulburst",
+    "complexity": 108,
+    "status": "untested"
+  },
+  "cwc_neu_mecinar": {
+    "name": "Mecinar",
+    "complexity": 108,
+    "status": "untested"
+  },
+  "tc_tri_ordinator_of_the_almsivi": {
+    "name": "Ordinator of the Almsivi",
+    "complexity": 108,
+    "status": "untested"
+  },
+  "int_divayth_fyr": {
+    "name": "Divayth Fyr",
+    "complexity": 106,
+    "status": "untested"
+  },
+  "end_disciple_of_namira": {
+    "name": "Disciple of Namira",
+    "complexity": 103,
+    "status": "untested"
+  },
+  "hom_str_skar_drillmaster": {
+    "name": "Skar Drillmaster",
+    "complexity": 103,
+    "status": "untested"
+  },
+  "joo_wil_defense_of_bruma": {
+    "name": "Defense of Bruma",
+    "complexity": 103,
+    "status": "untested"
+  },
+  "iom_neu_dawnfang": {
+    "name": "Dawnfang",
+    "complexity": 103,
+    "status": "untested"
+  },
+  "hom_int_mighty_conjuring": {
+    "name": "Mighty Conjuring",
+    "complexity": 102,
+    "status": "untested"
+  },
+  "hom_wil_crassius_favor": {
+    "name": "Crassius' Favor",
+    "complexity": 102,
+    "status": "untested"
+  },
+  "hom_tri_sun_in_shadow": {
+    "name": "Sun-in-Shadow",
+    "complexity": 102,
+    "status": "untested"
+  },
+  "tc_end_midnight_burial": {
+    "name": "Midnight Burial",
+    "complexity": 102,
+    "status": "untested"
+  },
+  "end_black_worm_necromancer": {
+    "name": "Black Worm Necromancer",
+    "complexity": 100,
+    "status": "untested"
+  },
+  "moe_int_vastarie": {
+    "name": "Vastarie",
+    "complexity": 100,
+    "status": "untested"
+  },
+  "joo_wil_worldly_wanderer": {
+    "name": "Worldly Wanderer",
+    "complexity": 100,
+    "status": "untested"
+  },
+  "hom_agi_awakened_dreamer": {
+    "name": "Awakened Dreamer",
+    "complexity": 99,
+    "status": "untested"
+  },
+  "moe_agi_tenarr_zalviit_nightstalker": {
+    "name": "Tenarr Zalviit Nightstalker",
+    "complexity": 99,
+    "status": "untested"
+  },
+  "iom_neu_duskfang": {
+    "name": "Duskfang",
+    "complexity": 99,
+    "status": "untested"
+  },
+  "int_summerset_orrery": {
+    "name": "Summerset Orrery",
+    "complexity": 98,
+    "status": "untested"
+  },
+  "int_wispmother": {
+    "name": "Wispmother",
+    "complexity": 98,
+    "status": "untested"
+  },
+  "agi_soulrest_marshal": {
+    "name": "Soulrest Marshal",
+    "complexity": 98,
+    "status": "untested"
+  },
+  "tc_tri_pact_outcast": {
+    "name": "Pact Outcast",
+    "complexity": 98,
+    "status": "untested"
+  },
+  "mc_dual_prankster_mage": {
+    "name": "Prankster Mage",
+    "complexity": 98,
+    "status": "untested"
+  },
+  "dg_wil_the_end_of_vampires": {
+    "name": "The End of Vampires",
+    "complexity": 98,
+    "status": "untested"
+  },
+  "tc_int_strange_brew": {
+    "name": "Strange Brew",
+    "complexity": 97,
+    "status": "untested"
+  },
+  "mc_wil_priest_of_mara": {
+    "name": "Priest of Mara",
+    "complexity": 97,
+    "status": "untested"
+  },
+  "mc_neu_training_grounds": {
+    "name": "Training Grounds",
+    "complexity": 97,
+    "status": "untested"
+  },
+  "moe_neu_lunar_sway": {
+    "name": "Lunar Sway",
+    "complexity": 95,
+    "status": "untested"
+  },
+  "moe_wil_shrewd_strategist": {
+    "name": "Shrewd Strategist",
+    "complexity": 94,
+    "status": "untested"
+  },
+  "joo_wil_blind_moth_priest": {
+    "name": "Blind Moth Priest",
+    "complexity": 94,
+    "status": "untested"
+  },
+  "db_int_blood_sorceress": {
+    "name": "Blood Sorceress",
+    "complexity": 93,
+    "status": "untested"
+  },
+  "iom_wil_fortress_guard": {
+    "name": "Fortress Guard",
+    "complexity": 93,
+    "status": "untested"
+  },
+  "iom_agi_greatwood_elder": {
+    "name": "Greatwood Elder",
+    "complexity": 93,
+    "status": "untested"
+  },
+  "hom_wil_ambitious_hireling": {
+    "name": "Ambitious Hireling",
+    "complexity": 92,
+    "status": "untested"
+  },
+  "aw_end_bishop_of_the_hour": {
+    "name": "Bishop of the Hour",
+    "complexity": 92,
+    "status": "untested"
+  },
+  "tc_agi_obstinate_goat": {
+    "name": "Obstinate Goat",
+    "complexity": 92,
+    "status": "untested"
+  },
+  "dg_agi_knowledge_plagiarist": {
+    "name": "Knowledge Plagiarist",
+    "complexity": 92,
+    "status": "untested"
+  },
+  "dg_end_vampire_fledgling": {
+    "name": "Vampire Fledgling",
+    "complexity": 92,
+    "status": "untested"
+  },
+  "agi_camoran_scout_leader": {
+    "name": "Camoran Scout Leader",
+    "complexity": 91,
+    "status": "untested"
+  },
+  "hom_str_imposters_mission": {
+    "name": "Imposter's Mission",
+    "complexity": 91,
+    "status": "untested"
+  },
+  "joo_end_emperors_attendant": {
+    "name": "Emperor's Attendant",
+    "complexity": 91,
+    "status": "untested"
+  },
+  "joo_neu_great_sigil_stone": {
+    "name": "Great Sigil Stone",
+    "complexity": 91,
+    "status": "untested"
+  },
+  "cwc_end_hallowed_deathpriest": {
+    "name": "Hallowed Deathpriest",
+    "complexity": 91,
+    "status": "untested"
+  },
+  "agi_spider_daedra": {
+    "name": "Spider Daedra",
+    "complexity": 90,
+    "status": "untested"
+  },
+  "hom_wil_shrine_guardian": {
+    "name": "Shrine Guardian",
+    "complexity": 90,
+    "status": "untested"
+  },
+  "aw_str_ebonthread_cloak": {
+    "name": "Ebonthread Cloak",
+    "complexity": 90,
+    "status": "untested"
+  },
+  "mc_neu_yagrums_workshop": {
+    "name": "Yagrum's Workshop",
+    "complexity": 90,
+    "status": "untested"
+  },
+  "joo_int_occult_ritemaster": {
+    "name": "Occult Ritemaster",
+    "complexity": 89,
+    "status": "untested"
+  },
+  "cwc_neu_assembled_titan": {
+    "name": "Assembled Titan",
+    "complexity": 89,
+    "status": "untested"
+  },
+  "iom_int_luzrah_gro_shar": {
+    "name": "Luzrah gro-Shar",
+    "complexity": 89,
+    "status": "untested"
+  },
+  "tc_str_explore": {
+    "name": "Explore",
+    "complexity": 89,
+    "status": "untested"
+  },
+  "str_markarth_bannerman": {
+    "name": "Markarth Bannerman",
+    "complexity": 88,
+    "status": "untested"
+  },
+  "str_reive_blademaster": {
+    "name": "Reive, Blademaster",
+    "complexity": 88,
+    "status": "untested"
+  },
+  "str_whirling_duelist": {
+    "name": "Whirling Duelist",
+    "complexity": 88,
+    "status": "untested"
+  },
+  "neu_dwarven_centurion": {
+    "name": "Dwarven Centurion",
+    "complexity": 88,
+    "status": "untested"
+  },
+  "hom_int_genius_pathmage": {
+    "name": "Genius Pathmage",
+    "complexity": 88,
+    "status": "untested"
+  },
+  "aw_end_imperial_lackey": {
+    "name": "Imperial Lackey",
+    "complexity": 88,
+    "status": "untested"
+  },
+  "joo_str_mehrunes_dagons_flayer": {
+    "name": "Mehrunes Dagon's Flayer",
+    "complexity": 88,
+    "status": "untested"
+  },
+  "iom_end_xavara_atronach": {
+    "name": "Xavara Atronach",
+    "complexity": 88,
+    "status": "untested"
+  },
+  "neu_halls_of_the_dwemer": {
+    "name": "Halls of the Dwemer",
+    "complexity": 87,
+    "status": "untested"
+  },
+  "hos_neu_dragon_mound": {
+    "name": "Dragon Mound",
+    "complexity": 87,
+    "status": "untested"
+  },
+  "joo_agi_wild_boar": {
+    "name": "Wild Boar",
+    "complexity": 87,
+    "status": "untested"
+  },
+  "db_int_corsair_ship": {
+    "name": "Corsair Ship",
+    "complexity": 87,
+    "status": "untested"
+  },
+  "cwc_wil_reconstruction_engine": {
+    "name": "Reconstruction Engine",
+    "complexity": 87,
+    "status": "untested"
+  },
+  "moe_end_boneweaver": {
+    "name": "Boneweaver",
+    "complexity": 86,
+    "status": "untested"
+  },
+  "mc_dual_worm_kings_agent": {
+    "name": "Worm King's Agent",
+    "complexity": 86,
+    "status": "untested"
+  },
+  "int_balmora_spymaster": {
+    "name": "Balmora Spymaster",
+    "complexity": 85,
+    "status": "untested"
+  },
+  "wil_imprison": {
+    "name": "Imprison",
+    "complexity": 85,
+    "status": "untested"
+  },
+  "hos_wil_bandit_ringleader": {
+    "name": "Bandit Ringleader",
+    "complexity": 85,
+    "status": "untested"
+  },
+  "hos_neu_forsworn_looter": {
+    "name": "Forsworn Looter",
+    "complexity": 85,
+    "status": "untested"
+  },
+  "hom_str_stendarrs_hammer": {
+    "name": "Stendarr's Hammer",
+    "complexity": 85,
+    "status": "untested"
+  },
+  "hom_wil_umbra": {
+    "name": "Umbra",
+    "complexity": 85,
+    "status": "untested"
+  },
+  "aw_end_dark_anchor": {
+    "name": "Dark Anchor",
+    "complexity": 85,
+    "status": "untested"
+  },
+  "moe_str_imbued_minotaur": {
+    "name": "Imbued Minotaur",
+    "complexity": 85,
+    "status": "untested"
+  },
+  "moe_str_senche_raht_graveprowler": {
+    "name": "Senche-raht Graveprowler",
+    "complexity": 85,
+    "status": "untested"
+  },
+  "moe_int_grave_grasp": {
+    "name": "Grave Grasp",
+    "complexity": 85,
+    "status": "untested"
+  },
+  "db_wil_chanter_of_akatosh": {
+    "name": "Chanter of Akatosh",
+    "complexity": 85,
+    "status": "untested"
+  },
+  "db_end_little_girl": {
+    "name": "Little Girl",
+    "complexity": 85,
+    "status": "untested"
+  },
+  "mhc_neu_forsaken_champion": {
+    "name": "Forsaken Champion",
+    "complexity": 85,
+    "status": "untested"
+  },
+  "mhc_neu_illusory_mimic": {
+    "name": "Illusory Mimic",
+    "complexity": 85,
+    "status": "untested"
+  },
+  "fhc_neu_sehts_masterwork": {
+    "name": "Seht's Masterwork",
+    "complexity": 85,
+    "status": "untested"
+  },
+  "fsc_neu_wilds_incarnate": {
+    "name": "Wilds Incarnate",
+    "complexity": 85,
+    "status": "untested"
+  },
+  "mc_dual_frostscale_dragon": {
+    "name": "Frostscale Dragon",
+    "complexity": 85,
+    "status": "untested"
+  },
+  "dual_gortwog_gronagorm": {
+    "name": "Gortwog gro-Nagorm",
+    "complexity": 84,
+    "status": "untested"
+  },
+  "hos_dual_crusaders_assault": {
+    "name": "Crusader's Assault",
+    "complexity": 84,
+    "status": "untested"
+  },
+  "aw_str_lyris_titanborn": {
+    "name": "Lyris Titanborn",
+    "complexity": 84,
+    "status": "untested"
+  },
+  "wil_renowned_legate": {
+    "name": "Renowned Legate",
+    "complexity": 83,
+    "status": "untested"
+  },
+  "neu_goldbrand": {
+    "name": "Goldbrand",
+    "complexity": 83,
+    "status": "untested"
+  },
+  "hom_tri_telvanni_catspaw": {
+    "name": "Telvanni Catspaw",
+    "complexity": 83,
+    "status": "untested"
+  },
+  "aw_agi_baandari_opportunist": {
+    "name": "Baandari Opportunist",
+    "complexity": 83,
+    "status": "untested"
+  },
+  "moe_end_zumog_phoom": {
+    "name": "Zumog Phoom",
+    "complexity": 83,
+    "status": "untested"
+  },
+  "iom_end_wake_the_dead": {
+    "name": "Wake the Dead",
+    "complexity": 83,
+    "status": "untested"
+  },
+  "agi_murkwater_butcher": {
+    "name": "Murkwater Butcher",
+    "complexity": 82,
+    "status": "untested"
+  },
+  "neu_ageless_automaton": {
+    "name": "Ageless Automaton",
+    "complexity": 82,
+    "status": "untested"
+  },
+  "hom_agi_berne_clan_nightstalker": {
+    "name": "Berne Clan Nightstalker",
+    "complexity": 82,
+    "status": "untested"
+  },
+  "moe_neu_cadwell_the_soul_shriven": {
+    "name": "Cadwell the Soul Shriven",
+    "complexity": 82,
+    "status": "untested"
+  },
+  "joo_wil_unexpected_arrival": {
+    "name": "Unexpected Arrival",
+    "complexity": 82,
+    "status": "untested"
+  },
+  "joo_agi_dust_eater_skirmisher": {
+    "name": "Dust Eater Skirmisher",
+    "complexity": 82,
+    "status": "untested"
+  },
+  "mhc_neu_merchants_camel": {
+    "name": "Merchant's Camel",
+    "complexity": 82,
+    "status": "untested"
+  },
+  "mc_dual_altmer_dragonknight": {
+    "name": "Altmer Dragonknight",
+    "complexity": 82,
+    "status": "untested"
+  },
+  "dual_militant_chieftain": {
+    "name": "Militant Chieftain",
+    "complexity": 81,
+    "status": "untested"
+  },
+  "hos_int_studious_greybeard": {
+    "name": "Studious Greybeard",
+    "complexity": 81,
+    "status": "untested"
+  },
+  "cwc_end_brassilisk": {
+    "name": "Brassilisk",
+    "complexity": 81,
+    "status": "untested"
+  },
+  "iom_agi_mad_dash": {
+    "name": "Mad Dash",
+    "complexity": 81,
+    "status": "untested"
+  },
+  "fsc_wil_apex_wolf": {
+    "name": "Apex Wolf",
+    "complexity": 81,
+    "status": "untested"
+  },
+  "int_staff_of_sparks": {
+    "name": "Staff of Sparks",
+    "complexity": 80,
+    "status": "untested"
+  },
+  "wil_immolating_blast": {
+    "name": "Immolating Blast",
+    "complexity": 80,
+    "status": "untested"
+  },
+  "end_stampeding_mammoth": {
+    "name": "Stampeding Mammoth",
+    "complexity": 80,
+    "status": "untested"
+  },
+  "hom_int_ash_piercer": {
+    "name": "Ash Piercer",
+    "complexity": 80,
+    "status": "untested"
+  },
+  "joo_str_kynreeve_champion": {
+    "name": "Kynreeve Champion",
+    "complexity": 80,
+    "status": "untested"
+  },
+  "int_daggerfall_mage": {
+    "name": "Daggerfall Mage",
+    "complexity": 79,
+    "status": "untested"
+  },
+  "hom_str_fetcherfly_golem": {
+    "name": "Fetcherfly Golem",
+    "complexity": 79,
+    "status": "untested"
+  },
+  "hom_wil_kwama_queen": {
+    "name": "Kwama Queen",
+    "complexity": 79,
+    "status": "untested"
+  },
+  "hom_agi_ash_oppressor": {
+    "name": "Ash Oppressor",
+    "complexity": 79,
+    "status": "untested"
+  },
+  "aw_int_altmer_flameslinger": {
+    "name": "Altmer Flameslinger",
+    "complexity": 79,
+    "status": "untested"
+  },
+  "aw_tri_emeric_covenant_king": {
+    "name": "Emeric, Covenant King",
+    "complexity": 79,
+    "status": "untested"
+  },
+  "aw_tri_transitus_shrine": {
+    "name": "Transitus Shrine",
+    "complexity": 79,
+    "status": "untested"
+  },
+  "joo_end_umaril_the_unfeathered": {
+    "name": "Umaril the Unfeathered",
+    "complexity": 79,
+    "status": "untested"
+  },
+  "tc_tri_death_scythe": {
+    "name": "Death Scythe",
+    "complexity": 79,
+    "status": "untested"
+  },
+  "mc_dual_black_hand_messenger": {
+    "name": "Black Hand Messenger",
+    "complexity": 79,
+    "status": "untested"
+  },
+  "dual_ayrenn": {
+    "name": "Ayrenn",
+    "complexity": 78,
+    "status": "untested"
+  },
+  "hos_end_corrupted_shade": {
+    "name": "Corrupted Shade",
+    "complexity": 78,
+    "status": "untested"
+  },
+  "moe_end_imbued_argonian": {
+    "name": "Imbued Argonian",
+    "complexity": 78,
+    "status": "untested"
+  },
+  "mc_neu_steam_constructor": {
+    "name": "Steam Constructor",
+    "complexity": 78,
+    "status": "untested"
+  },
+  "mc_neu_heroic_rebirth": {
+    "name": "Heroic Rebirth",
+    "complexity": 78,
+    "status": "untested"
+  },
+  "int_mages_guild_retreat": {
+    "name": "Mages Guild Retreat",
+    "complexity": 77,
+    "status": "untested"
+  },
+  "wil_haafingar_marauder": {
+    "name": "Haafingar Marauder",
+    "complexity": 77,
+    "status": "untested"
+  },
+  "dual_skywatch_vindicator": {
+    "name": "Skywatch Vindicator",
+    "complexity": 77,
+    "status": "untested"
+  },
+  "hos_str_world_eaters_eyrie": {
+    "name": "World-Eater's Eyrie",
+    "complexity": 77,
+    "status": "untested"
+  },
+  "hos_int_insightful_scholar": {
+    "name": "Insightful Scholar",
+    "complexity": 77,
+    "status": "untested"
+  },
+  "moe_wil_imbued_khajiit": {
+    "name": "Imbued Khajiit",
+    "complexity": 77,
+    "status": "untested"
+  },
+  "moe_agi_imbued_bosmer": {
+    "name": "Imbued Bosmer",
+    "complexity": 77,
+    "status": "untested"
+  },
+  "joo_str_agent_of_mehrunes_dagon": {
+    "name": "Agent of Mehrunes Dagon",
+    "complexity": 77,
+    "status": "untested"
+  },
+  "db_end_dark_guardian": {
+    "name": "Dark Guardian",
+    "complexity": 77,
+    "status": "untested"
+  },
+  "str_wrothgar_forge": {
+    "name": "Wrothgar Forge",
+    "complexity": 76,
+    "status": "untested"
+  },
+  "hos_end_emperor_titus_mede_ii": {
+    "name": "Emperor Titus Mede II",
+    "complexity": 76,
+    "status": "untested"
+  },
+  "hom_neu_dwemer_puzzle_box": {
+    "name": "Dwemer Puzzle Box",
+    "complexity": 76,
+    "status": "untested"
+  },
+  "agi_hidden_trail": {
+    "name": "Hidden Trail",
+    "complexity": 75,
+    "status": "untested"
+  },
+  "hos_wil_grisly_gourmet": {
+    "name": "Grisly Gourmet",
+    "complexity": 75,
+    "status": "untested"
+  },
+  "hos_wil_legate_rikke": {
+    "name": "Legate Rikke",
+    "complexity": 75,
+    "status": "untested"
+  },
+  "moe_int_imbued_breton": {
+    "name": "Imbued Breton",
+    "complexity": 75,
+    "status": "untested"
+  },
+  "moe_wil_halls_of_colossus": {
+    "name": "Halls of Colossus",
+    "complexity": 75,
+    "status": "untested"
+  },
+  "joo_int_blast_from_oblivion": {
+    "name": "Blast from Oblivion",
+    "complexity": 75,
+    "status": "untested"
+  },
+  "aw_wil_strategists_map": {
+    "name": "Strategist's Map",
+    "complexity": 74,
+    "status": "untested"
+  },
+  "aw_agi_sai_sahan": {
+    "name": "Sai Sahan",
+    "complexity": 74,
+    "status": "untested"
+  },
+  "moe_wil_alfiq_illusionist": {
+    "name": "Alfiq Illusionist",
+    "complexity": 74,
+    "status": "untested"
+  },
+  "iom_wil_heretic_conjurer": {
+    "name": "Heretic Conjurer",
+    "complexity": 74,
+    "status": "untested"
+  },
+  "neu_orb_of_vaermina": {
+    "name": "Orb of Vaermina",
+    "complexity": 73,
+    "status": "untested"
+  },
+  "dual_thorn_histmage": {
+    "name": "Thorn Histmage",
+    "complexity": 73,
+    "status": "untested"
+  },
+  "hos_int_dragons_fury": {
+    "name": "Dragon's Fury",
+    "complexity": 73,
+    "status": "untested"
+  },
+  "hom_int_tel_vos_magister": {
+    "name": "Tel Vos Magister",
+    "complexity": 73,
+    "status": "untested"
+  },
+  "aw_agi_empire_dreadmage": {
+    "name": "Empire Dreadmage",
+    "complexity": 73,
+    "status": "untested"
+  },
+  "moe_int_skeletal_mage": {
+    "name": "Skeletal Mage",
+    "complexity": 73,
+    "status": "untested"
+  },
+  "joo_agi_unicorn": {
+    "name": "Unicorn",
+    "complexity": 73,
+    "status": "untested"
+  },
+  "joo_end_black_soul_gem": {
+    "name": "Black Soul Gem",
+    "complexity": 73,
+    "status": "untested"
+  },
+  "joo_end_whodunit": {
+    "name": "Whodunit?",
+    "complexity": 73,
+    "status": "untested"
+  },
+  "fhc_neu_namiras_shrine": {
+    "name": "Namira's Shrine",
+    "complexity": 73,
+    "status": "untested"
+  },
+  "mc_wil_amulet_of_mara": {
+    "name": "Amulet of Mara",
+    "complexity": 73,
+    "status": "untested"
+  },
+  "wil_helgen_squad_leader": {
+    "name": "Helgen Squad Leader",
+    "complexity": 72,
+    "status": "untested"
+  },
+  "aw_int_sparksmith": {
+    "name": "Sparksmith",
+    "complexity": 72,
+    "status": "untested"
+  },
+  "aw_neu_battle_of_chalman_keep": {
+    "name": "Battle of Chalman Keep",
+    "complexity": 72,
+    "status": "untested"
+  },
+  "aw_tri_daggerfall_phantom": {
+    "name": "Daggerfall Phantom",
+    "complexity": 72,
+    "status": "untested"
+  },
+  "cwc_neu_dormant_centurion": {
+    "name": "Dormant Centurion",
+    "complexity": 72,
+    "status": "untested"
+  },
+  "str_silvenar_tracker": {
+    "name": "Silvenar Tracker",
+    "complexity": 71,
+    "status": "untested"
+  },
+  "hom_end_indomitable_ordinator": {
+    "name": "Indomitable Ordinator",
+    "complexity": 71,
+    "status": "untested"
+  },
+  "aw_end_supply_runner": {
+    "name": "Supply Runner",
+    "complexity": 71,
+    "status": "untested"
+  },
+  "aw_tri_master_of_incunabula": {
+    "name": "Master of Incunabula",
+    "complexity": 71,
+    "status": "untested"
+  },
+  "cwc_int_reverberating_strike": {
+    "name": "Reverberating Strike",
+    "complexity": 71,
+    "status": "untested"
+  },
+  "cwc_neu_brass_arquebus": {
+    "name": "Brass Arquebus",
+    "complexity": 71,
+    "status": "untested"
+  },
+  "mc_neu_mechanical_ally": {
+    "name": "Mechanical Ally",
+    "complexity": 71,
+    "status": "untested"
+  },
+  "dg_wil_penitus_oculatus_envoy": {
+    "name": "Penitus Oculatus Envoy",
+    "complexity": 71,
+    "status": "untested"
+  },
+  "str_belligerent_giant": {
+    "name": "Belligerent Giant",
+    "complexity": 70,
+    "status": "untested"
+  },
+  "aw_str_craven_conscript": {
+    "name": "Craven Conscript",
+    "complexity": 70,
+    "status": "untested"
+  },
+  "aw_wil_guildsworn_honeytongue": {
+    "name": "Guildsworn Honeytongue",
+    "complexity": 70,
+    "status": "untested"
+  },
+  "db_neu_flesh_sculpture": {
+    "name": "Flesh Sculpture",
+    "complexity": 70,
+    "status": "untested"
+  },
+  "cwc_agi_nix_hound_fabricant": {
+    "name": "Nix-Hound Fabricant",
+    "complexity": 70,
+    "status": "untested"
+  },
+  "dual_merricataswala": {
+    "name": "Merric-at-Aswala",
+    "complexity": 69,
+    "status": "untested"
+  },
+  "hos_wil_arrest": {
+    "name": "Arrest",
+    "complexity": 69,
+    "status": "untested"
+  },
+  "hos_agi_brynjolf": {
+    "name": "Brynjolf",
+    "complexity": 69,
+    "status": "untested"
+  },
+  "aw_wil_gray_viper_brigand": {
+    "name": "Gray Viper Brigand",
+    "complexity": 69,
+    "status": "untested"
+  },
+  "moe_wil_smash_and_grab": {
+    "name": "Smash and Grab",
+    "complexity": 69,
+    "status": "untested"
+  },
+  "moe_end_expunge": {
+    "name": "Expunge",
+    "complexity": 69,
+    "status": "untested"
+  },
+  "joo_dual_mankar_camoran": {
+    "name": "Mankar Camoran",
+    "complexity": 69,
+    "status": "untested"
+  },
+  "db_agi_brotherhood_sanctuary": {
+    "name": "Brotherhood Sanctuary",
+    "complexity": 69,
+    "status": "untested"
+  },
+  "cwc_str_hunter_killers": {
+    "name": "Hunter-Killers",
+    "complexity": 69,
+    "status": "untested"
+  },
+  "iom_str_grummite_magus": {
+    "name": "Grummite Magus",
+    "complexity": 69,
+    "status": "untested"
+  },
+  "mc_wil_conjurers_spirit": {
+    "name": "Conjurer's Spirit",
+    "complexity": 69,
+    "status": "untested"
+  },
+  "int_craglorn_scavenger": {
+    "name": "Craglorn Scavenger",
+    "complexity": 68,
+    "status": "untested"
+  },
+  "hom_str_aspect_of_hircine": {
+    "name": "Aspect of Hircine",
+    "complexity": 68,
+    "status": "untested"
+  },
+  "moe_int_black_worm_neophyte": {
+    "name": "Black Worm Neophyte",
+    "complexity": 68,
+    "status": "untested"
+  },
+  "mc_dual_headless_zombie": {
+    "name": "Headless Zombie",
+    "complexity": 68,
+    "status": "untested"
+  },
+  "str_triumphant_jarl": {
+    "name": "Triumphant Jarl",
+    "complexity": 67,
+    "status": "untested"
+  },
+  "int_baron_of_tear": {
+    "name": "Baron of Tear",
+    "complexity": 67,
+    "status": "untested"
+  },
+  "int_desperate_conjuring": {
+    "name": "Desperate Conjuring",
+    "complexity": 67,
+    "status": "untested"
+  },
+  "hos_dual_scouts_report": {
+    "name": "Scout's Report",
+    "complexity": 67,
+    "status": "untested"
+  },
+  "hom_agi_nix_hound": {
+    "name": "Nix-Hound",
+    "complexity": 67,
+    "status": "untested"
+  },
+  "aw_agi_unrelenting_siege": {
+    "name": "Unrelenting Siege",
+    "complexity": 67,
+    "status": "untested"
+  },
+  "int_fate_weaver": {
+    "name": "Fate Weaver",
+    "complexity": 66,
+    "status": "untested"
+  },
+  "moe_wil_mercenary_captain": {
+    "name": "Mercenary Captain",
+    "complexity": 66,
+    "status": "untested"
+  },
+  "moe_neu_ill_fated_scholar": {
+    "name": "Ill-Fated Scholar",
+    "complexity": 66,
+    "status": "untested"
+  },
+  "joo_str_dremora_archer": {
+    "name": "Dremora Archer",
+    "complexity": 66,
+    "status": "untested"
+  },
+  "cwc_neu_power_sphere": {
+    "name": "Power Sphere",
+    "complexity": 66,
+    "status": "untested"
+  },
+  "fsc_str_sword_of_the_inferno": {
+    "name": "Sword of the Inferno",
+    "complexity": 66,
+    "status": "untested"
+  },
+  "mc_wil_pack_leader": {
+    "name": "Pack Leader",
+    "complexity": 66,
+    "status": "untested"
+  },
+  "agi_thieves_guild_recruit": {
+    "name": "Thieves Guild Recruit",
+    "complexity": 65,
+    "status": "untested"
+  },
+  "end_blackrose_herbalist": {
+    "name": "Blackrose Herbalist",
+    "complexity": 65,
+    "status": "untested"
+  },
+  "end_siege_catapult": {
+    "name": "Siege Catapult",
+    "complexity": 65,
+    "status": "untested"
+  },
+  "hom_end_betty_netch": {
+    "name": "Betty Netch",
+    "complexity": 65,
+    "status": "untested"
+  },
+  "joo_end_determined_supplier": {
+    "name": "Determined Supplier",
+    "complexity": 65,
+    "status": "untested"
+  },
+  "cwc_wil_clockwork_apostle": {
+    "name": "Clockwork Apostle",
+    "complexity": 65,
+    "status": "untested"
+  },
+  "iom_end_tavyar_the_knight": {
+    "name": "Tavyar the Knight",
+    "complexity": 65,
+    "status": "untested"
+  },
+  "iom_neu_ghost_fanatic": {
+    "name": "Ghost Fanatic",
+    "complexity": 65,
+    "status": "untested"
+  },
+  "mhc_str_stoneshard_orc": {
+    "name": "Stoneshard Orc",
+    "complexity": 65,
+    "status": "untested"
+  },
+  "mc_int_battlereeve_of_dusk": {
+    "name": "Battlereeve of Dusk",
+    "complexity": 65,
+    "status": "untested"
+  },
+  "int_shimmerene_peddler": {
+    "name": "Shimmerene Peddler",
+    "complexity": 64,
+    "status": "untested"
+  },
+  "wil_artaeum_savant": {
+    "name": "Artaeum Savant",
+    "complexity": 64,
+    "status": "untested"
+  },
+  "wil_hero_of_anvil": {
+    "name": "Hero of Anvil",
+    "complexity": 64,
+    "status": "untested"
+  },
+  "agi_green_pact_stalker": {
+    "name": "Green Pact Stalker",
+    "complexity": 64,
+    "status": "untested"
+  },
+  "end_plea_to_kynareth": {
+    "name": "Plea to Kynareth",
+    "complexity": 64,
+    "status": "untested"
+  },
+  "moe_agi_mausoleum_delver": {
+    "name": "Mausoleum Delver",
+    "complexity": 64,
+    "status": "untested"
+  },
+  "db_int_daggers_in_the_dark": {
+    "name": "Daggers in the Dark",
+    "complexity": 64,
+    "status": "untested"
+  },
+  "fhc_neu_tullius_conscription": {
+    "name": "Tullius' Conscription",
+    "complexity": 64,
+    "status": "untested"
+  },
+  "fsc_agi_torval_extortionist": {
+    "name": "Torval Extortionist",
+    "complexity": 64,
+    "status": "untested"
+  },
+  "tc_wil_feed": {
+    "name": "Feed",
+    "complexity": 64,
+    "status": "untested"
+  },
+  "hom_neu_yagrum_bagarn": {
+    "name": "Yagrum Bagarn",
+    "complexity": 63,
+    "status": "untested"
+  },
+  "joo_str_modryn_oreyn": {
+    "name": "Modryn Oreyn",
+    "complexity": 63,
+    "status": "untested"
+  },
+  "iom_int_transmogrify": {
+    "name": "Transmogrify",
+    "complexity": 63,
+    "status": "untested"
+  },
+  "hom_int_barilzars_tinkering": {
+    "name": "Barilzar's Tinkering",
+    "complexity": 62,
+    "status": "untested"
+  },
+  "hom_agi_dres_spy": {
+    "name": "Dres Spy",
+    "complexity": 62,
+    "status": "untested"
+  },
+  "aw_tri_vanus_galerion": {
+    "name": "Vanus Galerion",
+    "complexity": 62,
+    "status": "untested"
+  },
+  "moe_end_moontouched_guardian": {
+    "name": "Moontouched Guardian",
+    "complexity": 62,
+    "status": "untested"
+  },
+  "tc_tri_aldmeri_spellwright": {
+    "name": "Aldmeri Spellwright",
+    "complexity": 62,
+    "status": "untested"
+  },
+  "dg_agi_zephyr": {
+    "name": "Zephyr",
+    "complexity": 62,
+    "status": "untested"
+  },
+  "dual_red_bramman": {
+    "name": "Red Bramman",
+    "complexity": 61,
+    "status": "untested"
+  },
+  "hos_int_master_swordsmith": {
+    "name": "Master Swordsmith",
+    "complexity": 61,
+    "status": "untested"
+  },
+  "moe_end_bone_armor": {
+    "name": "Bone Armor",
+    "complexity": 61,
+    "status": "untested"
+  },
+  "db_int_speaker_terenus": {
+    "name": "Speaker Terenus",
+    "complexity": 61,
+    "status": "untested"
+  },
+  "iom_neu_ring_of_lordship": {
+    "name": "Ring of Lordship",
+    "complexity": 61,
+    "status": "untested"
+  },
+  "hom_int_sixth_house_amulet": {
+    "name": "Sixth House Amulet",
+    "complexity": 60,
+    "status": "untested"
+  },
+  "aw_str_jorunns_vanguard": {
+    "name": "Jorunn's Vanguard",
+    "complexity": 60,
+    "status": "untested"
+  },
+  "aw_end_mannimarco": {
+    "name": "Mannimarco",
+    "complexity": 60,
+    "status": "untested"
+  },
+  "moe_agi_razum_dar": {
+    "name": "Razum-Dar",
+    "complexity": 60,
+    "status": "untested"
+  },
+  "fsc_wil_harmony": {
+    "name": "Harmony",
+    "complexity": 60,
+    "status": "untested"
+  },
+  "wil_blackmail": {
+    "name": "Blackmail",
+    "complexity": 59,
+    "status": "untested"
+  },
+  "agi_ungolim_the_listener": {
+    "name": "Ungolim the Listener",
+    "complexity": 59,
+    "status": "untested"
+  },
+  "aw_wil_luminous_shards": {
+    "name": "Luminous Shards",
+    "complexity": 59,
+    "status": "untested"
+  },
+  "aw_wil_wish": {
+    "name": "Wish",
+    "complexity": 59,
+    "status": "untested"
+  },
+  "aw_end_spiny_haj_mota": {
+    "name": "Spiny Haj Mota",
+    "complexity": 59,
+    "status": "untested"
+  },
+  "moe_str_enraged_dragonknight": {
+    "name": "Enraged Dragonknight",
+    "complexity": 59,
+    "status": "untested"
+  },
+  "moe_agi_suthay_bootlegger": {
+    "name": "Suthay Bootlegger",
+    "complexity": 59,
+    "status": "untested"
+  },
+  "mc_str_seasoned_captain": {
+    "name": "Seasoned Captain",
+    "complexity": 59,
+    "status": "untested"
+  },
+  "hos_str_hit_and_run": {
+    "name": "Hit and Run",
+    "complexity": 58,
+    "status": "untested"
+  },
+  "hom_neu_silent_pilgrim": {
+    "name": "Silent Pilgrim",
+    "complexity": 58,
+    "status": "untested"
+  },
+  "moe_neu_moon_gate": {
+    "name": "Moon Gate",
+    "complexity": 58,
+    "status": "untested"
+  },
+  "joo_wil_blades_guardian": {
+    "name": "Blades Guardian",
+    "complexity": 58,
+    "status": "untested"
+  },
+  "dg_end_nether_lich": {
+    "name": "Nether Lich",
+    "complexity": 58,
+    "status": "untested"
+  },
+  "hos_str_ulfric_stormcloak": {
+    "name": "Ulfric Stormcloak",
+    "complexity": 57,
+    "status": "untested"
+  },
+  "cwc_neu_assembled_conduit": {
+    "name": "Assembled Conduit",
+    "complexity": 57,
+    "status": "untested"
+  },
+  "cwc_neu_gearwork_spider": {
+    "name": "Gearwork Spider",
+    "complexity": 57,
+    "status": "untested"
+  },
+  "agi_necrom_mastermind": {
+    "name": "Necrom Mastermind",
+    "complexity": 56,
+    "status": "untested"
+  },
+  "end_blood_magic_lord": {
+    "name": "Blood Magic Lord",
+    "complexity": 56,
+    "status": "untested"
+  },
+  "hos_end_frost_troll": {
+    "name": "Frost Troll",
+    "complexity": 56,
+    "status": "untested"
+  },
+  "moe_agi_illicit_butcher": {
+    "name": "Illicit Butcher",
+    "complexity": 56,
+    "status": "untested"
+  },
+  "mc_dual_apprentice_necromancer": {
+    "name": "Apprentice Necromancer",
+    "complexity": 56,
+    "status": "untested"
+  },
+  "hom_int_mages_guild_recruit": {
+    "name": "Mages Guild Recruit",
+    "complexity": 55,
+    "status": "untested"
+  },
+  "hom_end_lichs_ascension": {
+    "name": "Lich's Ascension",
+    "complexity": 55,
+    "status": "untested"
+  },
+  "aw_str_pact_shieldbearer": {
+    "name": "Pact Shieldbearer",
+    "complexity": 55,
+    "status": "untested"
+  },
+  "joo_int_mythic_dawn_acolyte": {
+    "name": "Mythic Dawn Acolyte",
+    "complexity": 55,
+    "status": "untested"
+  },
+  "agi_murkwater_shaman": {
+    "name": "Murkwater Shaman",
+    "complexity": 54,
+    "status": "untested"
+  },
+  "end_angry_grahl": {
+    "name": "Angry Grahl",
+    "complexity": 54,
+    "status": "untested"
+  },
+  "end_iron_atronach": {
+    "name": "Iron Atronach",
+    "complexity": 54,
+    "status": "untested"
+  },
+  "hos_neu_dwarven_dynamo": {
+    "name": "Dwarven Dynamo",
+    "complexity": 54,
+    "status": "untested"
+  },
+  "aw_wil_outflank": {
+    "name": "Outflank",
+    "complexity": 54,
+    "status": "untested"
+  },
+  "aw_tri_forerunner_of_the_pact": {
+    "name": "Forerunner of the Pact",
+    "complexity": 54,
+    "status": "untested"
+  },
+  "joo_neu_giant_slaughterfish": {
+    "name": "Giant Slaughterfish",
+    "complexity": 54,
+    "status": "untested"
+  },
+  "mc_neu_skooma_cats_whimsy": {
+    "name": "Skooma Cat's Whimsy",
+    "complexity": 54,
+    "status": "untested"
+  },
+  "wil_imperial_might": {
+    "name": "Imperial Might",
+    "complexity": 53,
+    "status": "untested"
+  },
+  "end_flesh_atronach": {
+    "name": "Flesh Atronach",
+    "complexity": 53,
+    "status": "untested"
+  },
+  "hom_wil_chodalas_treachery": {
+    "name": "Chodala's Treachery",
+    "complexity": 53,
+    "status": "untested"
+  },
+  "iom_int_gnarl_rootbender": {
+    "name": "Gnarl Rootbender",
+    "complexity": 53,
+    "status": "untested"
+  },
+  "int_farsight_nereid": {
+    "name": "Farsight Nereid",
+    "complexity": 52,
+    "status": "untested"
+  },
+  "end_lucien_lachance": {
+    "name": "Lucien Lachance",
+    "complexity": 52,
+    "status": "untested"
+  },
+  "moe_str_prowl_smuggler": {
+    "name": "Prowl Smuggler",
+    "complexity": 52,
+    "status": "untested"
+  },
+  "db_str_underworld_vigilante": {
+    "name": "Underworld Vigilante",
+    "complexity": 52,
+    "status": "untested"
+  },
+  "db_end_wrath_of_sithis": {
+    "name": "Wrath of Sithis",
+    "complexity": 52,
+    "status": "untested"
+  },
+  "str_rihad_horseman": {
+    "name": "Rihad Horseman",
+    "complexity": 51,
+    "status": "untested"
+  },
+  "hos_int_echo_of_akatosh": {
+    "name": "Echo of Akatosh",
+    "complexity": 51,
+    "status": "untested"
+  },
+  "hos_dual_warriors_fury": {
+    "name": "Warrior's Fury",
+    "complexity": 51,
+    "status": "untested"
+  },
+  "db_int_stealer_of_secrets": {
+    "name": "Stealer of Secrets",
+    "complexity": 51,
+    "status": "untested"
+  },
+  "int_dragonstar_rider": {
+    "name": "Dragonstar Rider",
+    "complexity": 50,
+    "status": "untested"
+  },
+  "agi_spider_lair": {
+    "name": "Spider Lair",
+    "complexity": 50,
+    "status": "untested"
+  },
+  "end_nahagliiv": {
+    "name": "Nahagliiv",
+    "complexity": 50,
+    "status": "untested"
+  },
+  "joo_int_attuned_dremora": {
+    "name": "Attuned Dremora",
+    "complexity": 50,
+    "status": "untested"
+  },
+  "db_agi_skooma_underboss": {
+    "name": "Skooma Underboss",
+    "complexity": 50,
+    "status": "untested"
+  },
+  "cwc_int_laaneth": {
+    "name": "Laaneth",
+    "complexity": 50,
+    "status": "untested"
+  },
+  "mc_int_yokudan_nightblade": {
+    "name": "Yokudan Nightblade",
+    "complexity": 50,
+    "status": "untested"
+  },
+  "agi_tenmar_swiftclaw": {
+    "name": "Tenmar Swiftclaw",
+    "complexity": 49,
+    "status": "untested"
+  },
+  "hos_end_encumbered_explorer": {
+    "name": "Encumbered Explorer",
+    "complexity": 49,
+    "status": "untested"
+  },
+  "moe_end_seeker_of_the_black_arts": {
+    "name": "Seeker of the Black Arts",
+    "complexity": 49,
+    "status": "untested"
+  },
+  "joo_end_faded_wraith": {
+    "name": "Faded Wraith",
+    "complexity": 49,
+    "status": "untested"
+  },
+  "joo_neu_painted_troll": {
+    "name": "Painted Troll",
+    "complexity": 49,
+    "status": "untested"
+  },
+  "cwc_neu_star_sung_bard": {
+    "name": "Star-Sung Bard",
+    "complexity": 49,
+    "status": "untested"
+  },
+  "end_raise_dead": {
+    "name": "Raise Dead",
+    "complexity": 48,
+    "status": "untested"
+  },
+  "joo_agi_blades_flanker": {
+    "name": "Blades Flanker",
+    "complexity": 48,
+    "status": "untested"
+  },
+  "joo_end_blades_defender": {
+    "name": "Blades Defender",
+    "complexity": 48,
+    "status": "untested"
+  },
+  "tc_tri_red_mountain": {
+    "name": "Red Mountain",
+    "complexity": 48,
+    "status": "untested"
+  },
+  "tc_tri_wild_echatere": {
+    "name": "Wild Echatere",
+    "complexity": 48,
+    "status": "untested"
+  },
+  "wil_dawnbreaker": {
+    "name": "Dawnbreaker",
+    "complexity": 47,
+    "status": "untested"
+  },
+  "hom_wil_balmora_captain": {
+    "name": "Balmora Captain",
+    "complexity": 47,
+    "status": "untested"
+  },
+  "dg_dual_armored_troll": {
+    "name": "Armored Troll",
+    "complexity": 47,
+    "status": "untested"
+  },
+  "moe_wil_queens_captain": {
+    "name": "Queen's Captain",
+    "complexity": 46,
+    "status": "untested"
+  },
+  "moe_neu_crocodile_brute": {
+    "name": "Crocodile Brute",
+    "complexity": 46,
+    "status": "untested"
+  },
+  "int_high_rock_summoner": {
+    "name": "High Rock Summoner",
+    "complexity": 45,
+    "status": "untested"
+  },
+  "int_nahkriin_dragon_priest": {
+    "name": "Nahkriin, Dragon Priest",
+    "complexity": 45,
+    "status": "untested"
+  },
+  "hos_agi_embassy_disguise": {
+    "name": "Embassy Disguise",
+    "complexity": 45,
+    "status": "untested"
+  },
+  "moe_str_fear_totem": {
+    "name": "Fear Totem",
+    "complexity": 45,
+    "status": "untested"
+  },
+  "db_end_falkreath_defiler": {
+    "name": "Falkreath Defiler",
+    "complexity": 45,
+    "status": "untested"
+  },
+  "cwc_agi_sails_through_storms": {
+    "name": "Sails-Through-Storms",
+    "complexity": 45,
+    "status": "untested"
+  },
+  "wil_tower_alchemist": {
+    "name": "Tower Alchemist",
+    "complexity": 44,
+    "status": "untested"
+  },
+  "cwc_int_memory_wraith": {
+    "name": "Memory Wraith",
+    "complexity": 44,
+    "status": "untested"
+  },
+  "cwc_neu_reflective_automaton": {
+    "name": "Reflective Automaton",
+    "complexity": 44,
+    "status": "untested"
+  },
+  "mc_str_stampede_sentinel": {
+    "name": "Stampede Sentinel",
+    "complexity": 44,
+    "status": "untested"
+  },
+  "cwc_neu_dwarven_colossus": {
+    "name": "Dwarven Colossus",
+    "complexity": 43,
+    "status": "untested"
+  },
+  "fsc_end_death_hound": {
+    "name": "Death Hound",
+    "complexity": 43,
+    "status": "untested"
+  },
+  "agi_swift_strike": {
+    "name": "Swift Strike",
+    "complexity": 42,
+    "status": "untested"
+  },
+  "aw_str_high_rock_stalwart": {
+    "name": "High Rock Stalwart",
+    "complexity": 42,
+    "status": "untested"
+  },
+  "fsc_int_destruction_tutor": {
+    "name": "Destruction Tutor",
+    "complexity": 42,
+    "status": "untested"
+  },
+  "mc_neu_old_saltys_assault": {
+    "name": "Old Salty's Assault",
+    "complexity": 42,
+    "status": "untested"
+  },
+  "hos_wil_wolf_cage": {
+    "name": "Wolf Cage",
+    "complexity": 41,
+    "status": "untested"
+  },
+  "moe_end_reanimate": {
+    "name": "Reanimate",
+    "complexity": 41,
+    "status": "untested"
+  },
+  "str_mage_slayer": {
+    "name": "Mage Slayer",
+    "complexity": 40,
+    "status": "untested"
+  },
+  "moe_dual_khamira": {
+    "name": "Khamira",
+    "complexity": 40,
+    "status": "untested"
+  },
+  "hos_str_battlefield_scrounger": {
+    "name": "Battlefield Scrounger",
+    "complexity": 39,
+    "status": "untested"
+  },
+  "db_str_garnag_dark_adherent": {
+    "name": "Garnag, Dark Adherent",
+    "complexity": 39,
+    "status": "untested"
+  },
+  "dg_end_lord_harkon": {
+    "name": "Lord Harkon",
+    "complexity": 39,
+    "status": "untested"
+  },
+  "str_covenant_marauder": {
+    "name": "Covenant Marauder",
+    "complexity": 38,
+    "status": "untested"
+  },
+  "moe_wil_kaalgrontiid": {
+    "name": "Kaalgrontiid",
+    "complexity": 37,
+    "status": "untested"
+  },
+  "db_wil_penitus_oculatus_agent": {
+    "name": "Penitus Oculatus Agent",
+    "complexity": 36,
+    "status": "untested"
+  },
+  "joo_neu_blackwood_hoodlum": {
+    "name": "Blackwood Hoodlum",
+    "complexity": 35,
+    "status": "untested"
+  },
+  "str_lumbering_ogrim": {
+    "name": "Lumbering Ogrim",
+    "complexity": 33,
+    "status": "untested"
+  },
+  "hos_neu_lute": {
+    "name": "Lute",
+    "complexity": 33,
+    "status": "untested"
+  },
+  "iom_end_jyggalags_incursion": {
+    "name": "Jyggalag's Incursion",
+    "complexity": 33,
+    "status": "untested"
+  },
+  "wil_miraak_dragonborn": {
+    "name": "Miraak, Dragonborn",
+    "complexity": 32,
+    "status": "untested"
+  },
+  "iom_wil_thadon_duke_of_mania": {
+    "name": "Thadon, Duke of Mania",
+    "complexity": 32,
+    "status": "untested"
+  },
+  "joo_wil_dive_rock_fall": {
+    "name": "Dive Rock Fall",
+    "complexity": 31,
+    "status": "untested"
+  },
+  "joo_agi_arenthia_guerrilla": {
+    "name": "Arenthia Guerrilla",
+    "complexity": 31,
+    "status": "untested"
+  },
+  "mhc_wil_shivering_apothecary": {
+    "name": "Shivering Apothecary",
+    "complexity": 31,
+    "status": "untested"
+  }
+}

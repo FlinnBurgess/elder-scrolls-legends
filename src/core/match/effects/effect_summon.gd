@@ -452,16 +452,22 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			var sfd_source_power := EvergreenRules.get_power(sfd_source) if not sfd_source.is_empty() else 999
 			var sfd_filter_dict: Dictionary = effect.get("filter", {}) if typeof(effect.get("filter", null)) == TYPE_DICTIONARY else {}
 			var sfd_max_cost := int(sfd_filter_dict.get("max_cost", -1))
+			var sfd_exact_cost := int(sfd_filter_dict.get("exact_cost", -1))
+			# Power filter only applies when the source is a creature (e.g. "with less power than this creature")
+			var sfd_apply_power_filter := not sfd_source.is_empty() and str(sfd_source.get("card_type", "")) == "creature"
 			# Build candidate list from discard
 			var sfd_candidates: Array = []
 			var sfd_candidate_ids: Array = []
 			for di in range(sfd_discard.size()):
 				var d_card: Variant = sfd_discard[di]
 				if typeof(d_card) == TYPE_DICTIONARY and str(d_card.get("card_type", "")) == "creature":
-					if sfd_max_cost >= 0:
+					if sfd_exact_cost >= 0:
+						if int(d_card.get("cost", 0)) != sfd_exact_cost:
+							continue
+					elif sfd_max_cost >= 0:
 						if int(d_card.get("cost", 0)) > sfd_max_cost:
 							continue
-					elif EvergreenRules.get_power(d_card) >= sfd_source_power:
+					elif sfd_apply_power_filter and EvergreenRules.get_power(d_card) >= sfd_source_power:
 						continue
 					sfd_candidates.append(di)
 					sfd_candidate_ids.append(str(d_card.get("instance_id", "")))

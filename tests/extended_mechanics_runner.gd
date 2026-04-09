@@ -85,7 +85,9 @@ func _run_all_tests() -> bool:
 		_test_adoring_fan_non_death_discard_has_no_timer() and
 		_test_adoring_fan_waits_when_lanes_full() and
 		_test_upgrade_chain_summon_advances_and_caps() and
-		_test_upgrade_chain_overflows_to_other_lane()
+		_test_upgrade_chain_overflows_to_other_lane() and
+		_test_reanimate_action_summons_from_discard() and
+		_test_summon_from_discard_exact_cost_filter()
 	)
 
 
@@ -3385,6 +3387,67 @@ func _test_upgrade_chain_overflows_to_other_lane() -> bool:
 			found_in_shadow = true
 			break
 	return _assert(found_in_shadow, "Upgrade chain should overflow to the other lane when source lane is full.")
+
+
+func _test_reanimate_action_summons_from_discard() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Put a creature in the discard pile
+	var dead_creature := ScenarioFixtures.make_card(pid, "dead_warrior", {
+		"card_type": "creature", "power": 5, "health": 5, "base_power": 5, "base_health": 5, "cost": 5,
+	})
+	dead_creature["zone"] = "discard"
+	player["discard"].append(dead_creature)
+	var dead_id := str(dead_creature.get("instance_id", ""))
+	# Add a Reanimate-like action to hand (action with summon_from_discard, no power filter)
+	var reanimate := ScenarioFixtures.add_hand_card(player, "reanimate", {
+		"card_type": "action", "cost": 0,
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "summon_from_discard", "target_player": "controller"}]}],
+	})
+	var play_result := MatchTiming.play_action_from_hand(match_state, pid, str(reanimate.get("instance_id", "")))
+	if not _assert(bool(play_result.get("is_valid", false)), "Reanimate action should play successfully."):
+		return false
+	# Should have a pending discard choice (player picks which creature to summon)
+	var pending: Array = match_state.get("pending_discard_choices", [])
+	if not _assert(not pending.is_empty(), "Reanimate should create a pending discard choice for the player."):
+		return false
+	var choice: Dictionary = pending[0]
+	var candidates: Array = choice.get("candidate_instance_ids", [])
+	return _assert(candidates.has(dead_id), "Dead creature should be in the summon candidates. Got: %s" % str(candidates))
+
+
+func _test_summon_from_discard_exact_cost_filter() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Put a 0-cost creature and a 1-cost creature in discard
+	var zero_cost := ScenarioFixtures.make_card(pid, "zero_cost_creature", {
+		"card_type": "creature", "power": 1, "health": 1, "base_power": 1, "base_health": 1, "cost": 0,
+	})
+	zero_cost["zone"] = "discard"
+	player["discard"].append(zero_cost)
+	var one_cost := ScenarioFixtures.make_card(pid, "one_cost_creature", {
+		"card_type": "creature", "power": 2, "health": 2, "base_power": 2, "base_health": 2, "cost": 1,
+	})
+	one_cost["zone"] = "discard"
+	player["discard"].append(one_cost)
+	var one_cost_id := str(one_cost.get("instance_id", ""))
+	var zero_cost_id := str(zero_cost.get("instance_id", ""))
+	# Summon a creature with summon_from_discard + exact_cost: 1 (like Apprentice Necromancer)
+	var necro := ScenarioFixtures.summon_creature(player, match_state, "necro", "field", 3, 3, [], -1, {
+		"triggered_abilities": [{"family": "summon", "effects": [{"op": "summon_from_discard", "filter": {"card_type": "creature", "exact_cost": 1}}]}],
+	})
+	if necro.is_empty():
+		return _assert(false, "Necromancer should summon successfully.")
+	# Should have a pending discard choice
+	var pending: Array = match_state.get("pending_discard_choices", [])
+	if not _assert(not pending.is_empty(), "Should create a pending discard choice."):
+		return false
+	var candidates: Array = pending[0].get("candidate_instance_ids", [])
+	if not _assert(candidates.has(one_cost_id), "1-cost creature should be in candidates."):
+		return false
+	return _assert(not candidates.has(zero_cost_id), "0-cost creature should NOT be in candidates with exact_cost: 1 filter. Got: %s" % str(candidates))
 
 
 func _lane_creatures(match_state: Dictionary, lane_id: String, player_id: String) -> Array:

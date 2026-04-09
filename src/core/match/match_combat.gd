@@ -83,6 +83,14 @@ static func resolve_attack(match_state: Dictionary, player_id: String, attacker_
 			"power_bonus": int(rally_result.get("power_bonus", 0)),
 			"health_bonus": int(rally_result.get("health_bonus", 0)),
 		})
+	if not rally_results.is_empty():
+		events.append({
+			"event_type": "rally_triggered",
+			"source_instance_id": str(attacker.get("instance_id", "")),
+			"player_id": player_id,
+			"controller_player_id": player_id,
+			"rally_count": rally_results.size(),
+		})
 
 	if str(validation.get("target_type", "")) == TARGET_TYPE_PLAYER:
 		if EvergreenRules.has_raw_status(attacker, EvergreenRules.STATUS_COVER):

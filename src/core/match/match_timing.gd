@@ -158,7 +158,7 @@ const FAMILY_SPECS := {
 	FAMILY_AFTER_ACTION_PLAYED: {"event_type": EVENT_CARD_PLAYED, "window": WINDOW_AFTER, "match_role": "controller", "required_played_card_type": "action"},
 	FAMILY_ON_WARD_BROKEN: {"event_type": "ward_removed", "window": WINDOW_AFTER, "match_role": "target"},
 	FAMILY_ON_FRIENDLY_SLAY: {"event_type": EVENT_CREATURE_DESTROYED, "window": WINDOW_AFTER, "match_role": "friendly_killer"},
-	FAMILY_ON_MOVE: {"event_type": "card_moved", "window": WINDOW_AFTER, "match_role": "controller"},
+	FAMILY_ON_MOVE: {"event_type": "card_moved", "window": WINDOW_AFTER, "match_role": "source"},
 	FAMILY_ITEM_DETACHED: {"event_type": "attached_item_detached", "window": WINDOW_AFTER, "match_role": "source"},
 	FAMILY_ON_ENEMY_RUNE_DESTROYED: {"event_type": EVENT_RUNE_BROKEN, "window": WINDOW_AFTER, "match_role": "opponent_player"},
 	FAMILY_ON_ENEMY_SHACKLED: {"event_type": "status_granted", "window": WINDOW_AFTER, "match_role": "opponent_target", "required_event_status_id": "shackled"},
@@ -2089,6 +2089,17 @@ static func resolve_pending_deck_selection(match_state: Dictionary, player_id: S
 						"reason": str(then_context.get("reason", "deck_selection")),
 					})
 					_check_summon_abilities(match_state, summon_result["card"])
+		"copy_creature_to_discard":
+			# Create a copy of the chosen card and put it in the discard pile (card stays in deck)
+			var cctd_copy := MatchMutations.build_generated_card(match_state, player_id, chosen_card)
+			cctd_copy["zone"] = MatchMutations.ZONE_DISCARD
+			var cctd_mod_power := int(then_context.get("modify_power", 0))
+			var cctd_mod_health := int(then_context.get("modify_health", 0))
+			if cctd_mod_power != 0 or cctd_mod_health != 0:
+				EvergreenRules.apply_stat_bonus(cctd_copy, cctd_mod_power, cctd_mod_health, str(then_context.get("reason", "copy_to_discard")))
+			var cctd_discard: Array = player.get(MatchMutations.ZONE_DISCARD, [])
+			cctd_discard.push_front(cctd_copy)
+			generated_events.append({"event_type": "card_milled", "source_instance_id": source_id, "player_id": player_id, "milled_instance_id": str(cctd_copy.get("instance_id", ""))})
 	# Publish events
 	var all_events: Array = []
 	var all_resolutions: Array = []
@@ -2701,7 +2712,7 @@ static func play_action_from_hand(match_state: Dictionary, player_id: String, in
 		var target_lane_index := MatchTimingHelpers._get_card_lane_index(match_state, str(options.get("target_instance_id", "")))
 		if target_lane_index >= 0 and target_lane_index < match_state.get("lanes", []).size():
 			resolved_lane_id = str(match_state["lanes"][target_lane_index].get("lane_id", ""))
-	var timing_result := publish_events(match_state, [{
+	var action_events: Array = [{
 		"event_type": EVENT_CARD_PLAYED,
 		"playing_player_id": player_id,
 		"player_id": player_id,
@@ -2720,7 +2731,20 @@ static func play_action_from_hand(match_state: Dictionary, player_id: String, in
 		"source_rules_text": str(played_card.get("rules_text", "")),
 		"source_name": str(played_card.get("name", "")),
 		"rules_tags": played_card.get("rules_tags", []).duplicate() if typeof(played_card.get("rules_tags", [])) == TYPE_ARRAY else [],
-	}])
+	}]
+	# Publish action_targeted event when an action targets a specific creature
+	var action_target_id := str(options.get("target_instance_id", ""))
+	if not action_target_id.is_empty():
+		var action_target_card := MatchTimingHelpers._find_card_anywhere(match_state, action_target_id)
+		if not action_target_card.is_empty() and str(action_target_card.get("card_type", "")) == CARD_TYPE_CREATURE:
+			action_events.append({
+				"event_type": "action_targeted",
+				"source_instance_id": instance_id,
+				"source_controller_player_id": player_id,
+				"player_id": player_id,
+				"target_instance_id": action_target_id,
+			})
+	var timing_result := publish_events(match_state, action_events)
 	return {
 		"is_valid": true,
 		"errors": [],
@@ -3590,8 +3614,11 @@ static func process_end_of_turn_returns(match_state: Dictionary, turn_number: in
 			if not bool(rtd_loc.get("is_valid", false)):
 				continue
 			var rtd_card: Dictionary = rtd_loc["card"]
-			var rtd_lane_slots: Array = rtd_loc.get("player_slots", [])
-			rtd_lane_slots.erase(rtd_card)
+			var rtd_lane_index: int = int(rtd_loc.get("lane_index", -1))
+			var rtd_player_id: String = str(rtd_loc.get("player_id", ""))
+			if rtd_lane_index >= 0 and rtd_lane_index < match_state.get("lanes", []).size():
+				var rtd_lane_slots: Array = match_state["lanes"][rtd_lane_index].get("player_slots", {}).get(rtd_player_id, [])
+				rtd_lane_slots.erase(rtd_card)
 			rtd_card.erase("_return_to_deck_end_of_turn")
 			rtd_card["zone"] = ZONE_DECK
 			MatchMutations.restore_definition_state(rtd_card)

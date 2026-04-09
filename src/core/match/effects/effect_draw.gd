@@ -609,16 +609,31 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					if str(ccfdtd_card.get("card_type", "")) == CARD_TYPE_CREATURE:
 						ccfdtd_creatures.append(ccfdtd_card)
 				if not ccfdtd_creatures.is_empty():
-					var ccfdtd_idx := MatchEffectParams._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_copy_to_discard", ccfdtd_creatures.size())
-					var ccfdtd_source: Dictionary = ccfdtd_creatures[ccfdtd_idx]
-					var ccfdtd_copy := MatchMutations.build_generated_card(match_state, ccfdtd_controller_id, ccfdtd_source)
-					ccfdtd_copy["zone"] = ZONE_DISCARD
-					var ccfdtd_mod_power := int(effect.get("modify_power", 0))
-					var ccfdtd_mod_health := int(effect.get("modify_health", 0))
-					if ccfdtd_mod_power != 0 or ccfdtd_mod_health != 0:
-						EvergreenRules.apply_stat_bonus(ccfdtd_copy, ccfdtd_mod_power, ccfdtd_mod_health, reason)
-					ccfdtd_discard.push_front(ccfdtd_copy)
-					generated_events.append({"event_type": "card_milled", "source_instance_id": str(trigger.get("source_instance_id", "")), "player_id": ccfdtd_controller_id, "milled_instance_id": str(ccfdtd_copy.get("instance_id", ""))})
+					if bool(effect.get("player_choice", false)):
+						# Player chooses which creature to copy
+						var ccfdtd_candidate_ids: Array = []
+						for ccfdtd_c in ccfdtd_creatures:
+							ccfdtd_candidate_ids.append(str(ccfdtd_c.get("instance_id", "")))
+						var ccfdtd_pending: Array = match_state.get("pending_deck_selections", [])
+						ccfdtd_pending.append({
+							"player_id": ccfdtd_controller_id,
+							"source_instance_id": str(trigger.get("source_instance_id", "")),
+							"candidate_instance_ids": ccfdtd_candidate_ids,
+							"then_op": "copy_creature_to_discard",
+							"then_context": {"reason": reason, "modify_power": int(effect.get("modify_power", 0)), "modify_health": int(effect.get("modify_health", 0))},
+							"prompt": "Choose a creature from your deck.",
+						})
+					else:
+						var ccfdtd_idx := MatchEffectParams._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_copy_to_discard", ccfdtd_creatures.size())
+						var ccfdtd_source: Dictionary = ccfdtd_creatures[ccfdtd_idx]
+						var ccfdtd_copy := MatchMutations.build_generated_card(match_state, ccfdtd_controller_id, ccfdtd_source)
+						ccfdtd_copy["zone"] = ZONE_DISCARD
+						var ccfdtd_mod_power := int(effect.get("modify_power", 0))
+						var ccfdtd_mod_health := int(effect.get("modify_health", 0))
+						if ccfdtd_mod_power != 0 or ccfdtd_mod_health != 0:
+							EvergreenRules.apply_stat_bonus(ccfdtd_copy, ccfdtd_mod_power, ccfdtd_mod_health, reason)
+						ccfdtd_discard.push_front(ccfdtd_copy)
+						generated_events.append({"event_type": "card_milled", "source_instance_id": str(trigger.get("source_instance_id", "")), "player_id": ccfdtd_controller_id, "milled_instance_id": str(ccfdtd_copy.get("instance_id", ""))})
 		"play_random_from_deck":
 			var prfd_controller_id := str(trigger.get("controller_player_id", ""))
 			var prfd_player := MatchTimingHelpers._get_player_state(match_state, prfd_controller_id)

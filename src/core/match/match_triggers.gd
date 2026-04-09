@@ -543,8 +543,8 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 		var rlf_capacity := int(rlf_lane.get("slot_capacity", 4))
 		if rlf_slots.size() < rlf_capacity:
 			return false
-	# 8. required_no_enemies_in_lane — no enemy creatures in the trigger source's lane
-	if bool(descriptor.get("required_no_enemies_in_lane", false)):
+	# 8. required_no_enemies_in_lane / no_enemies_in_lane — no enemy creatures in the trigger source's lane
+	if bool(descriptor.get("required_no_enemies_in_lane", descriptor.get("no_enemies_in_lane", false))):
 		var rneil_controller := str(trigger.get("controller_player_id", ""))
 		var rneil_opponent := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), rneil_controller)
 		var rneil_lane_index := int(trigger.get("lane_index", -1))
