@@ -1876,6 +1876,9 @@ func _on_card_pressed(instance_id: String) -> void:
 		elif mode != SELECTION_MODE_NONE:
 			_hand._detach_hand_card(instance_id)
 			return
+	# Block board card actions during enemy turn (prophecies/betray/summon handled above)
+	if not _is_local_player_turn():
+		return
 	var target_card := _card_from_instance_id(instance_id)
 	if _hand._try_resolve_selected_support_row_card(target_card):
 		return
