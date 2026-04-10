@@ -61,6 +61,29 @@ static func recalculate_auras(match_state: Dictionary) -> Array:
 				"zone": "support",
 			})
 
+	# Step 2b: Recalculate player magicka auras from lane creatures (before
+	# evaluating aura conditions so that conditions like min_max_magicka_18
+	# see the magicka bonus from creatures like Betty Netch)
+	for player in match_state.get("players", []):
+		var pid := str(player.get("player_id", ""))
+		var old_bonus := int(player.get("aura_max_magicka_bonus", 0))
+		var new_bonus := 0
+		for lane in lanes:
+			var player_slots: Dictionary = lane.get("player_slots", {})
+			for card in player_slots.get(pid, []):
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				if not card.has("magicka_aura"):
+					continue
+				if EvergreenRules.has_raw_status(card, EvergreenRules.STATUS_SILENCED):
+					continue
+				new_bonus += int(card["magicka_aura"])
+		var delta := new_bonus - old_bonus
+		if delta != 0:
+			player["max_magicka"] = maxi(0, int(player.get("max_magicka", 0)) + delta)
+			player["current_magicka"] = mini(int(player.get("current_magicka", 0)), int(player["max_magicka"]))
+			player["aura_max_magicka_bonus"] = new_bonus
+
 	# Step 3: Apply each aura
 	for source in aura_sources:
 		var aura: Dictionary = source["aura"]
@@ -213,28 +236,7 @@ static func recalculate_auras(match_state: Dictionary) -> Array:
 							continue
 						gi_target["aura_damage_immune"] = true
 
-	# Step 4: Recalculate player magicka auras from lane creatures
-	for player in match_state.get("players", []):
-		var pid := str(player.get("player_id", ""))
-		var old_bonus := int(player.get("aura_max_magicka_bonus", 0))
-		var new_bonus := 0
-		for lane in lanes:
-			var player_slots: Dictionary = lane.get("player_slots", {})
-			for card in player_slots.get(pid, []):
-				if typeof(card) != TYPE_DICTIONARY:
-					continue
-				if not card.has("magicka_aura"):
-					continue
-				if EvergreenRules.has_raw_status(card, EvergreenRules.STATUS_SILENCED):
-					continue
-				new_bonus += int(card["magicka_aura"])
-		var delta := new_bonus - old_bonus
-		if delta != 0:
-			player["max_magicka"] = maxi(0, int(player.get("max_magicka", 0)) + delta)
-			player["current_magicka"] = mini(int(player.get("current_magicka", 0)), int(player["max_magicka"]))
-			player["aura_max_magicka_bonus"] = new_bonus
-
-	# Step 5: Emit keyword_granted events for newly gained aura keywords
+	# Step 4: Emit keyword_granted events for newly gained aura keywords
 	var aura_keyword_events: Array = []
 	for lane in lanes:
 		var player_slots_by_id: Dictionary = lane.get("player_slots", {})

@@ -1,0 +1,64 @@
+{
+	"name": "Pure-Blood Elder",
+	"description": "Test max magicka doubling and 18+ threshold aura (+8/+8, Breakthrough)",
+	"board_profile": "standard_versus",
+	"turn_number": 1,
+	"first_player": "player_1",
+	"player_1": {
+		"health": 30,
+		"max_magicka": 12,
+		"current_magicka": 15,
+		"rune_thresholds": [25, 20, 15, 10, 5],
+		"has_ring": false,
+		"ring_charges": 0,
+		"hand": [
+			"end_tree_minder",
+			"hos_end_spine_of_eldersblood",
+			"joo_end_whodunit",
+			"mc_end_hist_grove",
+			"joo_end_blackwood_alchemist",
+			"hom_end_betty_netch"
+		],
+		"deck": [
+			"end_archein_venomtongue",
+			"joo_end_determined_supplier",
+			"end_tree_minder",
+			"hos_end_spine_of_eldersblood"
+		],
+		"discard": [
+			"end_young_mammoth",
+			"end_fharun_defender",
+			"str_whiterun_trooper"
+		],
+		"supports": [],
+		"field_creatures": [
+			{"definition_id": "mc_end_pure_blood_elder", "can_attack": true}
+		],
+		"shadow_creatures": []
+	},
+	"player_2": {
+		"health": 30,
+		"max_magicka": 2,
+		"current_magicka": 2,
+		"rune_thresholds": [25, 20, 15, 10, 5],
+		"has_ring": false,
+		"ring_charges": 0,
+		"hand": [
+			"hom_end_vvardvark"
+		],
+		"deck": [
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark"
+		],
+		"discard": [],
+		"field_creatures": [
+			"hom_end_vvardvark",
+			"hom_end_vvardvark"
+		],
+		"shadow_creatures": [
+			"hom_end_vvardvark",
+			"hom_end_vvardvark"
+		]
+	}
+}

@@ -8,6 +8,8 @@ const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const ExtendedMechanicPacks = preload("res://src/core/match/extended_mechanic_packs.gd")
 const MatchTargeting = preload("res://src/core/match/match_targeting.gd")
+const MatchAuras = preload("res://src/core/match/match_auras.gd")
+const MatchTriggers = preload("res://src/core/match/match_triggers.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
 const ScenarioFixtures = preload("res://tests/support/scenario_fixtures.gd")
 
@@ -98,7 +100,9 @@ func _run_all_tests() -> bool:
 		_test_dro_mathra_reaper_on_discard_leave_triggers() and
 		_test_transform_deck_preserves_definition_id_and_art_path() and
 		_test_conditional_drawn_card_bonus_sets_base_cost() and
-		_test_banish_by_name_from_opponent()
+		_test_banish_by_name_from_opponent() and
+		_test_double_max_magicka_gain_works_on_first_gain() and
+		_test_magicka_aura_visible_to_aura_conditions()
 	)
 
 
@@ -3807,6 +3811,53 @@ func _test_banish_by_name_from_opponent() -> bool:
 		_assert(deck_imps == 0, "All imps should be banished from deck, got %d." % deck_imps) and
 		_assert(discard_wolves == 1, "Wolves in discard should be untouched, got %d." % discard_wolves) and
 		_assert(deck_wolves == 1, "Wolves in deck should be untouched, got %d." % deck_wolves)
+	)
+
+
+func _test_double_max_magicka_gain_works_on_first_gain() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	player["max_magicka"] = 10
+	player["current_magicka"] = 10
+	# Place Pure-Blood Elder analog in lane with the doubling trigger
+	var elder := ScenarioFixtures.summon_creature(player, match_state, "pbe", "field", 8, 8, [], -1, {
+		"cost": 0,
+		"triggered_abilities": [{"family": "on_gain_max_magicka", "required_zone": "lane", "effects": [{"op": "double_max_magicka_gain"}]}],
+	})
+	# Now summon a Tree Minder analog with gain_max_magicka summon trigger
+	var tree_minder := ScenarioFixtures.summon_creature(player, match_state, "tree_minder", "field", 1, 1, [], -1, {
+		"cost": 0,
+		"triggered_abilities": [{"family": "summon", "effects": [{"op": "gain_max_magicka", "target_player": "controller", "amount": 1}]}],
+	})
+	# The first gain should be doubled: 10 + 2 = 12
+	var final_max := int(player.get("max_magicka", 0))
+	return _assert(final_max == 12, "First gain_max_magicka should be doubled by Pure-Blood Elder (expected 12, got %d)." % final_max)
+
+
+func _test_magicka_aura_visible_to_aura_conditions() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	player["max_magicka"] = 16
+	player["current_magicka"] = 16
+	# Place a creature with a self-aura gated on min_max_magicka_18
+	var elder := ScenarioFixtures.summon_creature(player, match_state, "pbe_aura", "field", 8, 8, [], -1, {
+		"cost": 0,
+		"aura": {"scope": "self", "condition": "min_max_magicka_18", "power": 8, "health": 8, "keywords": ["breakthrough"]},
+	})
+	# Place a creature with magicka_aura +2 (like Betty Netch)
+	var netch := ScenarioFixtures.summon_creature(player, match_state, "netch", "field", 0, 5, [], -1, {
+		"cost": 0,
+		"magicka_aura": 2,
+	})
+	# Recalculate auras — magicka aura should apply before condition check
+	MatchAuras.recalculate_auras(match_state)
+	var aura_power := int(elder.get("aura_power_bonus", 0))
+	var aura_kws: Array = elder.get("aura_keywords", [])
+	return (
+		_assert(aura_power == 8, "Elder should get +8 aura power when magicka aura pushes max to 18 (got %d)." % aura_power) and
+		_assert(aura_kws.has("breakthrough"), "Elder should get Breakthrough keyword from aura.")
 	)
 
 

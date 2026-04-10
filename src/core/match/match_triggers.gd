@@ -352,8 +352,17 @@ static func _has_pilfer_is_slay_active(match_state: Dictionary, controller_id: S
 static func _has_double_max_magicka_gain(match_state: Dictionary, player_id: String) -> bool:
 	for lane in match_state.get("lanes", []):
 		for card in lane.get("player_slots", {}).get(player_id, []):
-			if typeof(card) == TYPE_DICTIONARY and bool(card.get("_double_max_magicka_gain", false)):
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			if EvergreenRules.has_raw_status(card, EvergreenRules.STATUS_SILENCED):
+				continue
+			if bool(card.get("_double_max_magicka_gain", false)):
 				return true
+			for ta in card.get("triggered_abilities", []):
+				if typeof(ta) == TYPE_DICTIONARY and str(ta.get("family", "")) == "on_gain_max_magicka":
+					for eff in ta.get("effects", []):
+						if typeof(eff) == TYPE_DICTIONARY and str(eff.get("op", "")) == "double_max_magicka_gain":
+							return true
 	return false
 
 
