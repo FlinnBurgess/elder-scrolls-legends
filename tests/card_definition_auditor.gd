@@ -209,7 +209,7 @@ const RECOGNIZED_OPS := [
 	# Choice
 	"build_custom_fabricant", "fabricate_choose_ability",
 	"choose_card_in_hand_and_shuffle_copies", "choose_cost_lock",
-	"choose_cost_trigger", "choose_one", "choose_two",
+	"choose_one", "choose_two",
 	"conditional_drawn_card_bonus", "conditional_lane_bonus", "learn_action",
 	"look_draw_discard", "look_give_draw", "optional_discard_and_summon",
 	"play_learned_actions", "random_sub_effect", "secretly_choose_creature",
@@ -240,6 +240,7 @@ const RECOGNIZED_OPS := [
 	"boon_marked_for_death", "boon_soul_tear", "boon_first_lesson",
 	"boon_battleground", "boon_shattered_fate", "boon_harbingers_call",
 	"boon_holy_ground", "boon_runic_ward", "madness_beckons",
+	"random_cost_trigger", "check_cost_trigger_match",
 ]
 
 const RECOGNIZED_COST_REDUCTION_SOURCES := [
@@ -253,7 +254,7 @@ const RECOGNIZED_COST_REDUCTION_SOURCES := [
 # Ops that offer PLAYER CHOICE (not random selection)
 const CHOICE_PROVIDING_OPS := [
 	"choose_one", "choose_two", "look_draw_discard", "look_give_draw",
-	"choose_card_in_hand_and_shuffle_copies", "choose_cost_trigger",
+	"choose_card_in_hand_and_shuffle_copies",
 	"choose_cost_lock", "select_card_from_hand", "optional_discard_and_summon",
 	"build_custom_fabricant", "fabricate_choose_ability",
 	"stitch_creatures_from_decks", "guess_opponent_card",

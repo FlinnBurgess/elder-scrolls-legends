@@ -563,6 +563,10 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			return {"handled": true, "events": _resolve_gate_buff(match_state, trigger, event)}
 		"track_treasure_hunt":
 			return {"handled": true, "events": _resolve_treasure_hunt(match_state, trigger, event, effect)}
+		"random_cost_trigger":
+			return {"handled": true, "events": _resolve_random_cost_trigger(match_state, trigger)}
+		"check_cost_trigger_match":
+			return {"handled": true, "events": _resolve_check_cost_trigger_match(match_state, trigger, event, effect)}
 		"damage":
 			var dmg_amount_raw = effect.get("amount", 0)
 			if str(dmg_amount_raw) == "destroy_front_rune":
@@ -2020,6 +2024,63 @@ static func _resolve_treasure_hunt(match_state: Dictionary, trigger: Dictionary,
 		"player_id": str(trigger.get("controller_player_id", "")),
 		"source_instance_id": str(source_card.get("instance_id", "")),
 	}]
+
+
+static func _resolve_random_cost_trigger(match_state: Dictionary, trigger: Dictionary) -> Array:
+	var source_card := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+	if source_card.is_empty():
+		return []
+	var cost := _pick_random_cost(match_state, str(source_card.get("instance_id", "")))
+	source_card["active_cost_trigger"] = cost
+	return [{"event_type": "cost_trigger_set", "source_instance_id": str(source_card.get("instance_id", "")), "chosen_cost": cost}]
+
+
+static func _resolve_check_cost_trigger_match(match_state: Dictionary, trigger: Dictionary, event: Dictionary, effect: Dictionary) -> Array:
+	var source_card := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+	if source_card.is_empty():
+		return []
+	var active_cost = source_card.get("active_cost_trigger", null)
+	if active_cost == null:
+		return []
+	var played_id := str(event.get("source_instance_id", ""))
+	var played_card := _find_card_anywhere(match_state, played_id)
+	if played_card.is_empty():
+		return []
+	var played_cost := int(played_card.get("cost", -1))
+	if played_cost != int(active_cost):
+		return []
+	var events: Array = []
+	var controller_id := str(trigger.get("controller_player_id", ""))
+	var on_match_effects: Array = effect.get("on_match", [])
+	if typeof(on_match_effects) != TYPE_ARRAY:
+		on_match_effects = [on_match_effects]
+	for sub_effect in on_match_effects:
+		if typeof(sub_effect) != TYPE_DICTIONARY:
+			continue
+		var sub_op := str(sub_effect.get("op", ""))
+		if sub_op == "draw_cards":
+			var draw_count := int(sub_effect.get("count", 1))
+			var draw_result: Dictionary = _timing_rules().draw_cards(match_state, controller_id, draw_count, {"reason": "cost_trigger_match", "source_instance_id": str(source_card.get("instance_id", ""))})
+			events.append_array(draw_result.get("events", []))
+	var new_cost := _pick_random_cost(match_state, str(source_card.get("instance_id", "")) + "_reshuffle")
+	source_card["active_cost_trigger"] = new_cost
+	events.append({"event_type": "cost_trigger_set", "source_instance_id": str(source_card.get("instance_id", "")), "chosen_cost": new_cost})
+	return events
+
+
+static func _pick_random_cost(match_state: Dictionary, context_id: String) -> int:
+	var fingerprint := "%s|%s|%s|cost_trigger" % [str(match_state.get("rng_seed", 0)), str(match_state.get("turn_number", 0)), context_id]
+	var seed_value: int = 1469598103934665603
+	for byte in fingerprint.to_utf8_buffer():
+		seed_value = int((seed_value * 1099511628211 + int(byte)) % 9223372036854775783)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	var rng_state = match_state.get("rng_state", 0)
+	if rng_state is int and rng_state > 0:
+		rng.state = rng_state
+	var cost := rng.randi_range(0, 12)
+	match_state["rng_state"] = rng.state
+	return cost
 
 
 static func _count_source_multiplier(match_state: Dictionary, trigger: Dictionary, effect: Dictionary) -> int:

@@ -1,17 +1,5 @@
 [
 	{
-		"card_id": "iom_neu_haskill",
-		"name": "Haskill",
-		"card_type": "creature",
-		"cost": 4,
-		"attributes": [
-			"neutral"
-		],
-		"rules_text": "At the end of your turn, Haskill chooses a cost. When you play a card with the chosen cost, draw a card. Then Haskill chooses a new cost.",
-		"stripped_text": "At the end of your turn, Haskill chooses a cost. When you play a card with the chosen cost, draw a card. Then Haskill chooses a new cost.",
-		"complexity": 137
-	},
-	{
 		"card_id": "aw_str_orsinium_forge",
 		"name": "Orsinium Forge",
 		"card_type": "support",

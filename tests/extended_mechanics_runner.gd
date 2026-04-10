@@ -103,7 +103,9 @@ func _run_all_tests() -> bool:
 		_test_banish_by_name_from_opponent() and
 		_test_double_max_magicka_gain_works_on_first_gain() and
 		_test_magicka_aura_visible_to_aura_conditions() and
-		_test_grant_keyword_to_all_copies_spreads_to_hand_and_deck()
+		_test_grant_keyword_to_all_copies_spreads_to_hand_and_deck() and
+		_test_haskill_random_cost_trigger_draws_on_match() and
+		_test_haskill_random_cost_trigger_no_draw_on_mismatch()
 	)
 
 
@@ -3894,6 +3896,65 @@ func _test_magicka_aura_visible_to_aura_conditions() -> bool:
 	return (
 		_assert(aura_power == 8, "Elder should get +8 aura power when magicka aura pushes max to 18 (got %d)." % aura_power) and
 		_assert(aura_kws.has("breakthrough"), "Elder should get Breakthrough keyword from aura.")
+	)
+
+
+func _test_haskill_random_cost_trigger_draws_on_match() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var haskill := ScenarioFixtures.summon_creature(player, match_state, "haskill", "field", 3, 5, [], -1, {
+		"triggered_abilities": [
+			{"family": "end_of_turn", "required_zone": "lane", "effects": [{"op": "random_cost_trigger"}]},
+			{"family": "on_friendly_card_played", "required_zone": "lane", "effects": [{"op": "check_cost_trigger_match", "on_match": [{"op": "draw_cards", "target_player": "controller", "count": 1}]}]},
+		],
+	})
+	# End the turn to trigger random_cost_trigger
+	MatchTiming.publish_events(match_state, [{"event_type": "turn_ending", "player_id": pid, "source_controller_player_id": pid, "turn_number": 1}])
+	var chosen_cost = haskill.get("active_cost_trigger", null)
+	if not _assert(chosen_cost != null, "Haskill should have active_cost_trigger after end of turn."):
+		return false
+	# Add a card with the matching cost to hand and a draw target in deck
+	var matching_card := ScenarioFixtures.add_hand_card(player, "cost_match", {"card_type": "creature", "cost": int(chosen_cost), "power": 1, "health": 1})
+	player["deck"] = [ScenarioFixtures.make_card(pid, "draw_target", {"zone": "deck", "card_type": "creature", "cost": 0, "power": 1, "health": 1})]
+	var hand_before: int = player.get("hand", []).size()
+	# Play the matching card
+	LaneRules.summon_from_hand(match_state, pid, str(matching_card.get("instance_id", "")), "field", {})
+	var hand_after: int = player.get("hand", []).size()
+	# Hand should have net +0 (played 1, drew 1) meaning the draw fired
+	# But since the card was removed from hand (-1) and one was drawn (+1), hand_after == hand_before - 1 + 1 = hand_before
+	var old_cost := int(chosen_cost)
+	var new_cost = haskill.get("active_cost_trigger", null)
+	return (
+		_assert(hand_after == hand_before, "Playing a card matching Haskill's cost should draw a card (hand size: %d -> %d, expected %d)." % [hand_before, hand_after, hand_before]) and
+		_assert(new_cost != null, "Haskill should have a new active_cost_trigger after the match.")
+	)
+
+
+func _test_haskill_random_cost_trigger_no_draw_on_mismatch() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var haskill := ScenarioFixtures.summon_creature(player, match_state, "haskill", "field", 3, 5, [], -1, {
+		"triggered_abilities": [
+			{"family": "end_of_turn", "required_zone": "lane", "effects": [{"op": "random_cost_trigger"}]},
+			{"family": "on_friendly_card_played", "required_zone": "lane", "effects": [{"op": "check_cost_trigger_match", "on_match": [{"op": "draw_cards", "target_player": "controller", "count": 1}]}]},
+		],
+	})
+	# End the turn to trigger random_cost_trigger
+	MatchTiming.publish_events(match_state, [{"event_type": "turn_ending", "player_id": pid, "source_controller_player_id": pid, "turn_number": 1}])
+	var chosen_cost := int(haskill.get("active_cost_trigger", 0))
+	# Add a card with a cost guaranteed to NOT match (outside 0-12 range but played for free)
+	var mismatched_cost := 99
+	var mismatch_card := ScenarioFixtures.add_hand_card(player, "cost_mismatch", {"card_type": "creature", "cost": mismatched_cost, "power": 1, "health": 1})
+	player["deck"] = [ScenarioFixtures.make_card(pid, "draw_target", {"zone": "deck", "card_type": "creature", "cost": 0, "power": 1, "health": 1})]
+	var hand_before: int = player.get("hand", []).size()
+	LaneRules.summon_from_hand(match_state, pid, str(mismatch_card.get("instance_id", "")), "field", {"played_for_free": true})
+	var hand_after: int = player.get("hand", []).size()
+	# Hand should shrink by 1 (played 1, drew 0)
+	return (
+		_assert(hand_after == hand_before - 1, "Playing a card NOT matching Haskill's cost should NOT draw (hand size: %d -> %d, expected %d)." % [hand_before, hand_after, hand_before - 1]) and
+		_assert(int(haskill.get("active_cost_trigger", -1)) == chosen_cost, "Haskill's cost should NOT change when the played card doesn't match.")
 	)
 
 

@@ -1,8 +1,21 @@
 {
-  "findings": [],
+  "findings": [
+    {
+      "card_id": "exc_neu_horse_armor",
+      "card_name": "Horse Armor",
+      "check": "unknown_op",
+      "context": {
+        "effect_index": 0,
+        "op": "set_premium",
+        "trigger_index": 0
+      },
+      "detail": "Trigger #0 effect #0 has unrecognized op 'set_premium'",
+      "severity": "error"
+    }
+  ],
   "summary": {
-    "cards_with_issues": 0,
-    "errors": 0,
+    "cards_with_issues": 1,
+    "errors": 1,
     "total_cards": 1323,
     "warnings": 0
   }
