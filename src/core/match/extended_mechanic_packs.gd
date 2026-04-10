@@ -69,9 +69,13 @@ static func ensure_player_state(player: Dictionary) -> void:
 
 static func reset_turn_state(player: Dictionary) -> void:
 	ensure_player_state(player)
-	# permanent_empower: accumulate empower bonus across turns
-	if bool(player.get("_permanent_empower_active", false)):
-		player["_permanent_empower_accumulated"] = int(player.get("_permanent_empower_accumulated", 0)) + int(player.get("empower_count_this_turn", 0))
+	# permanent_empower: stamp hand action cards with accumulated empower bonus (not deck cards)
+	var empower_this_turn := int(player.get("empower_count_this_turn", 0))
+	if bool(player.get("_permanent_empower_active", false)) and empower_this_turn > 0:
+		var hand: Array = player.get("hand", [])
+		for card in hand:
+			if typeof(card) == TYPE_DICTIONARY and str(card.get("card_type", "")) == "action":
+				card["_permanent_empower_bonus"] = int(card.get("_permanent_empower_bonus", 0)) + empower_this_turn
 	player["cards_played_this_turn"] = 0
 	player["noncreature_plays_this_turn"] = 0
 	player["empower_count_this_turn"] = 0
@@ -583,7 +587,9 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 		"empower_damage":
 			var controller := _get_player_state(match_state, str(trigger.get("controller_player_id", "")))
 			ensure_player_state(controller)
-			var empower_amount := int(effect.get("amount", 0)) + int(effect.get("amount_per_damage", 0)) * int(controller.get("empower_count_this_turn", 0))
+			var ed_source := _find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+			var ed_empower_total := int(controller.get("empower_count_this_turn", 0)) + int(ed_source.get("_permanent_empower_bonus", 0))
+			var empower_amount := int(effect.get("amount", 0)) + int(effect.get("amount_per_damage", 0)) * ed_empower_total
 			return {"handled": true, "events": _resolve_player_damage(match_state, trigger, event, effect, empower_amount)}
 		"heal":
 			var heal_controller_id := str(trigger.get("controller_player_id", ""))
@@ -2831,7 +2837,7 @@ static func _card_matches_target_mode(target_mode: String, card: Dictionary, con
 				var c1pol_player := _get_player_state(match_state, controller_player_id)
 				if not c1pol_player.is_empty():
 					ensure_player_state(c1pol_player)
-					c1pol_max += c1pol_empower * (int(c1pol_player.get("empower_count_this_turn", 0)) + int(c1pol_player.get("_permanent_empower_accumulated", 0)))
+					c1pol_max += c1pol_empower * (int(c1pol_player.get("empower_count_this_turn", 0)) + int(source_card.get("_permanent_empower_bonus", 0)))
 			return EvergreenRules.get_power(card) <= c1pol_max
 		"creature_4_power_or_less":
 			return EvergreenRules.get_power(card) <= 4

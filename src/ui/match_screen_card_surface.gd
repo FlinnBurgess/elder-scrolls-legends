@@ -520,7 +520,7 @@ func _apply_empower_text_updates(display_card: Dictionary, player_id: String) ->
 	var effect_ids = display_card.get("effect_ids", [])
 	if typeof(effect_ids) != TYPE_ARRAY or not effect_ids.has("empower"):
 		return
-	var empower_amount = _screen.MatchTiming._get_empower_amount(_screen._match_state, player_id)
+	var empower_amount = _screen.MatchTiming._get_empower_amount(_screen._match_state, player_id, display_card)
 	if empower_amount <= 0:
 		return
 	var abilities: Array = display_card.get("triggered_abilities", [])

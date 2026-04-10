@@ -63,7 +63,8 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			var damage_amount := MatchEffectParams._resolve_amount(trigger, effect, match_state, event) * MatchEffectParams._resolve_count_multiplier(match_state, trigger, event, effect)
 			var dd_empower_bonus := int(effect.get("empower_bonus", 0))
 			if dd_empower_bonus > 0:
-				damage_amount += dd_empower_bonus * MatchTimingHelpers._get_empower_amount(match_state, str(trigger.get("controller_player_id", "")))
+				var dd_source := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+				damage_amount += dd_empower_bonus * MatchTimingHelpers._get_empower_amount(match_state, str(trigger.get("controller_player_id", "")), dd_source)
 			var dd_bonus_data: Dictionary = effect.get("bonus_per_friendly_subtype", {})
 			if not dd_bonus_data.is_empty():
 				var dd_bonus_subtype := str(dd_bonus_data.get("subtype", ""))
@@ -531,7 +532,8 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			if dc_max_power >= 0:
 				var dc_empower_bonus := int(effect.get("empower_bonus", 0))
 				if dc_empower_bonus > 0:
-					dc_max_power += dc_empower_bonus * MatchTimingHelpers._get_empower_amount(match_state, str(trigger.get("controller_player_id", "")))
+					var dc_source := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+					dc_max_power += dc_empower_bonus * MatchTimingHelpers._get_empower_amount(match_state, str(trigger.get("controller_player_id", "")), dc_source)
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				if dc_max_power >= 0 and EvergreenRules.get_power(card) > dc_max_power:
 					continue

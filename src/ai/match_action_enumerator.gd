@@ -1003,6 +1003,35 @@ static func _expand_target_parameter_sets(match_state: Dictionary, requirements:
 								continue
 						else:
 							continue
+					# Skip creatures with action_immune_conditional passive (e.g. Daedric Titan)
+					if not atm_controller.is_empty() and str(card.get("controller_player_id", "")) != atm_controller:
+						if EvergreenRules._has_passive(card, "action_immune_conditional"):
+							var aic_passives = card.get("passive_abilities", [])
+							if typeof(aic_passives) == TYPE_ARRAY:
+								var aic_immune := false
+								for p in aic_passives:
+									if typeof(p) != TYPE_DICTIONARY or str(p.get("type", "")) != "action_immune_conditional":
+										continue
+									var aic_cond := str(p.get("condition", ""))
+									if aic_cond == "creature_in_each_lane":
+										var aic_ctrl := str(card.get("controller_player_id", ""))
+										var aic_card_id := str(card.get("instance_id", ""))
+										var aic_has_in_each := true
+										for aic_lane in match_state.get("lanes", []):
+											var aic_slots: Array = aic_lane.get("player_slots", {}).get(aic_ctrl, [])
+											var aic_has_other := false
+											for aic_slot in aic_slots:
+												if typeof(aic_slot) == TYPE_DICTIONARY and str(aic_slot.get("instance_id", "")) != aic_card_id:
+													aic_has_other = true
+													break
+											if not aic_has_other:
+												aic_has_in_each = false
+												break
+										if aic_has_in_each:
+											aic_immune = true
+											break
+								if aic_immune:
+									continue
 				var next_parameters: Dictionary = parameters.duplicate(true)
 				next_parameters["target_instance_id"] = str(card.get("instance_id", ""))
 				expanded_card_sets.append(next_parameters)

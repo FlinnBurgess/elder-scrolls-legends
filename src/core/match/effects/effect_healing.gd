@@ -164,7 +164,8 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			var asu_amount := int(effect.get("amount", 1))
 			var asu_empower_bonus := int(effect.get("empower_bonus", 0))
 			if asu_empower_bonus > 0:
-				asu_amount += asu_empower_bonus * MatchTimingHelpers._get_empower_amount(match_state, str(trigger.get("controller_player_id", "")))
+				var asu_source := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+				asu_amount += asu_empower_bonus * MatchTimingHelpers._get_empower_amount(match_state, str(trigger.get("controller_player_id", "")), asu_source)
 			var asu_controller := str(trigger.get("controller_player_id", ""))
 			var asu_player := MatchTimingHelpers._get_player_state(match_state, asu_controller)
 			if not asu_player.is_empty():

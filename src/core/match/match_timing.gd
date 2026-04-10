@@ -2623,7 +2623,7 @@ static func play_action_from_hand(match_state: Dictionary, player_id: String, in
 					sr_amount = int(self_reduction.get(key, 1))
 					break
 		if sr_source == "empower":
-			action_cost_reduction += MatchTimingHelpers._get_empower_amount(match_state, player_id) * sr_amount
+			action_cost_reduction += MatchTimingHelpers._get_empower_amount(match_state, player_id, played_card) * sr_amount
 		elif sr_source == "creature_summons_this_turn":
 			action_cost_reduction += int(player.get("creature_summons_this_turn", 0)) * sr_amount
 		elif sr_source == "creatures_died_this_turn":
@@ -3661,8 +3661,8 @@ static func process_end_of_turn_returns(match_state: Dictionary, turn_number: in
 static func _deterministic_index(match_state: Dictionary, context_id: String, pool_size: int) -> int:
 	return MatchEffectParams._deterministic_index(match_state, context_id, pool_size)
 
-static func _get_empower_amount(match_state: Dictionary, controller_player_id: String) -> int:
-	return MatchTimingHelpers._get_empower_amount(match_state, controller_player_id)
+static func _get_empower_amount(match_state: Dictionary, controller_player_id: String, source_card: Dictionary = {}) -> int:
+	return MatchTimingHelpers._get_empower_amount(match_state, controller_player_id, source_card)
 
 static func _get_heal_multiplier(match_state: Dictionary, player_id: String) -> int:
 	return MatchTimingHelpers._get_heal_multiplier(match_state, player_id)

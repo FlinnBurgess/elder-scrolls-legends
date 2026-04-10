@@ -37,7 +37,8 @@ func _run_all_tests() -> bool:
 		_test_slay_does_not_fire_on_stat_reduction_kill() and
 		_test_play_random_from_deck_creates_free_plays() and
 		_test_decline_pending_free_play_keeps_card_in_hand() and
-		_test_copy_pilfer_abilities_fires_all_friendly_pilfer_triggers()
+		_test_copy_pilfer_abilities_fires_all_friendly_pilfer_triggers() and
+		_test_item_on_attack_trigger_fires_for_host_creature()
 	)
 
 
@@ -838,6 +839,40 @@ func _test_copy_pilfer_abilities_fires_all_friendly_pilfer_triggers() -> bool:
 	return (
 		_assert(copier["power_bonus"] == 1, "copy_pilfer: copier should gain +1 power from copied pilfer A. Got %d." % copier["power_bonus"]) and
 		_assert(copier["health_bonus"] == 1, "copy_pilfer: copier should gain +1 health from copied pilfer B. Got %d." % copier["health_bonus"])
+	)
+
+
+func _test_item_on_attack_trigger_fires_for_host_creature() -> bool:
+	# Staff of Sparks: on_attack should deal 1 damage to all enemies in lane when host attacks
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var wielder := _summon_creature(active_player, match_state, "sparks_wielder", "field", 3, 3, [], 0)
+	var item := _add_hand_card(active_player, "staff_of_sparks", {
+		"card_type": "item",
+		"equip_power_bonus": 3,
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_ATTACK,
+			"required_zone": "lane",
+			"effects": [{"op": "deal_damage", "target": "all_enemies_in_lane", "amount": 1}],
+		}],
+	})
+	MatchMutations.attach_item_to_creature(match_state, active_player["player_id"], item["instance_id"], wielder["instance_id"])
+	var enemy_a := _summon_creature(opponent, match_state, "enemy_a", "field", 1, 3, [], 0)
+	var enemy_b := _summon_creature(opponent, match_state, "enemy_b", "field", 1, 3, [], 1)
+	_target_ready_for_attack(wielder, match_state)
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], wielder["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	var on_attack_resolutions := _families_from_resolutions(result.get("trigger_resolutions", [])).filter(func(f): return f == MatchTiming.FAMILY_ON_ATTACK)
+	var enemy_a_dmg := int(enemy_a.get("damage_marked", 0))
+	var enemy_b_dmg := int(enemy_b.get("damage_marked", 0))
+	return (
+		_assert(result["is_valid"], "Attack with Staff of Sparks should resolve.") and
+		_assert(on_attack_resolutions.size() == 1, "Item on_attack should fire once. Got %d." % on_attack_resolutions.size()) and
+		_assert(enemy_a_dmg >= 1, "Enemy A should take 1 damage from Staff of Sparks. Got %d." % enemy_a_dmg) and
+		_assert(enemy_b_dmg >= 1, "Enemy B should take 1 damage from Staff of Sparks. Got %d." % enemy_b_dmg)
 	)
 
 

@@ -446,7 +446,14 @@ static func _matches_trigger_role(match_state: Dictionary, trigger: Dictionary, 
 			var event_player_id := str(event.get("player_id", event.get("playing_player_id", event.get("controller_player_id", event.get("source_controller_player_id", "")))))
 			return not event_player_id.is_empty() and event_player_id != controller_player_id
 		"source":
-			return str(event.get("source_instance_id", event.get("attacker_instance_id", ""))) == source_instance_id
+			var event_source_id := str(event.get("source_instance_id", event.get("attacker_instance_id", "")))
+			if event_source_id == source_instance_id:
+				return true
+			# Item triggers: the host creature is the event source, not the item itself
+			var source_card := MatchTimingHelpers._find_card_anywhere(match_state, source_instance_id)
+			if not source_card.is_empty() and str(source_card.get("attached_to_instance_id", "")) == event_source_id:
+				return true
+			return false
 		"target":
 			return MatchTimingHelpers._event_target_instance_id(event) == source_instance_id
 		"subject":

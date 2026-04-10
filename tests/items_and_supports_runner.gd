@@ -40,7 +40,9 @@ func _run_all_tests() -> bool:
 		_test_altar_of_despair_sweet_roll_fallback() and
 		_test_orsinium_forge_escalates_plate_stats_per_use() and
 		_test_skyshard_on_card_drawn_buffs_creature() and
-		_test_dark_rift_summons_atronach_after_five_activations()
+		_test_dark_rift_summons_atronach_after_five_activations() and
+		_test_transform_card_updates_definition_id_from_raw_seed() and
+		_test_transform_card_updates_base_cost()
 	)
 
 
@@ -843,6 +845,79 @@ func _test_dark_rift_summons_atronach_after_five_activations() -> bool:
 		_assert(EvergreenRules.get_health(atronach) == 5, "Dark Rift: Storm Atronach should have 5 health.") and
 		_assert(EvergreenRules.has_keyword(atronach, "ward"), "Dark Rift: Storm Atronach should have Ward.") and
 		_assert(_contains_instance(player["discard"], support["instance_id"]), "Dark Rift: support should be in discard after exhaustion.")
+	)
+
+
+func _test_transform_card_updates_definition_id_from_raw_seed() -> bool:
+	# When transform_card receives a raw catalog seed (card_id, not definition_id),
+	# it should normalize card_id → definition_id so art_path and identity resolve correctly.
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var card := _add_hand_card(player, "harvest", {
+		"card_type": "item",
+		"cost": 1,
+		"equip_power_bonus": 1,
+		"equip_health_bonus": 1,
+		"_base_cost": 1,
+	})
+	# Simulate a raw catalog seed template (uses "card_id" instead of "definition_id")
+	var raw_seed := {
+		"card_id": "str_heavy_battleaxe",
+		"name": "Heavy Battleaxe",
+		"card_type": "item",
+		"cost": 4,
+		"base_power": 0,
+		"base_health": 0,
+		"keywords": [],
+		"rules_text": "+4/+1",
+		"equip_power_bonus": 4,
+		"equip_health_bonus": 1,
+		"equip_keywords": [],
+		"triggered_abilities": [],
+		"rarity": "common",
+		"collectible": true,
+	}
+	var result: Dictionary = MatchMutations.transform_card(match_state, card["instance_id"], raw_seed, {})
+	var transformed: Dictionary = result.get("card", {})
+	return (
+		_assert(result["is_valid"], "Transform with raw seed should succeed.") and
+		_assert(str(transformed.get("definition_id", "")) == "str_heavy_battleaxe", "Transform should set definition_id from card_id. Got '%s'." % str(transformed.get("definition_id", ""))) and
+		_assert(str(transformed.get("art_path", "")).find("str_heavy_battleaxe") >= 0, "Transform should derive art_path from new definition_id. Got '%s'." % str(transformed.get("art_path", ""))) and
+		_assert(int(transformed.get("equip_power_bonus", 0)) == 4, "Transform should update equip_power_bonus. Got %d." % int(transformed.get("equip_power_bonus", 0))) and
+		_assert(int(transformed.get("equip_health_bonus", 0)) == 1, "Transform should update equip_health_bonus. Got %d." % int(transformed.get("equip_health_bonus", 0)))
+	)
+
+
+func _test_transform_card_updates_base_cost() -> bool:
+	# After transform, _base_cost should match the new card's cost so the UI
+	# doesn't show a stale red/green cost color.
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var card := _add_hand_card(player, "cheap_item", {
+		"card_type": "item",
+		"cost": 1,
+		"_base_cost": 1,
+	})
+	var template := {
+		"definition_id": "expensive_item",
+		"name": "Expensive Item",
+		"card_type": "item",
+		"cost": 6,
+		"base_power": 0,
+		"base_health": 0,
+		"keywords": [],
+		"rules_text": "+5/+5",
+		"equip_power_bonus": 5,
+		"equip_health_bonus": 5,
+		"equip_keywords": [],
+		"triggered_abilities": [],
+	}
+	var result: Dictionary = MatchMutations.transform_card(match_state, card["instance_id"], template, {})
+	var transformed: Dictionary = result.get("card", {})
+	return (
+		_assert(result["is_valid"], "Transform should succeed.") and
+		_assert(int(transformed.get("cost", 0)) == 6, "Transform should update cost to 6. Got %d." % int(transformed.get("cost", 0))) and
+		_assert(int(transformed.get("_base_cost", 0)) == 6, "Transform should update _base_cost to match new cost. Got %d." % int(transformed.get("_base_cost", 0)))
 	)
 
 

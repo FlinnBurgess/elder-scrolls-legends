@@ -640,12 +640,26 @@ static func transform_card(match_state: Dictionary, instance_id: String, templat
 	var previous_definition_id := str(card.get("definition_id", ""))
 	var detached := _move_attached_items_to_owner_discard(match_state, card, {"reason": str(options.get("reason", "transform"))})
 	var preserved := _preserve_card_state(card, {"attack_state": true, "entered_lane": true})
-	_apply_identity(card, template)
+	# Normalize raw catalog seeds: map card_id → definition_id so _apply_identity
+	# finds the field (raw seeds use "card_id", IDENTITY_FIELDS expects "definition_id")
+	var norm_template := template
+	if template.has("card_id") and not template.has("definition_id"):
+		norm_template = template.duplicate(true)
+		norm_template["definition_id"] = str(template["card_id"])
+	_apply_identity(card, norm_template)
 	# art_path is not an identity field — update it from the template or derive from new definition_id
+	var new_def_id := str(card.get("definition_id", ""))
 	if template.has("art_path"):
 		card["art_path"] = str(template["art_path"])
 	else:
-		card["art_path"] = "res://assets/images/cards/" + str(card.get("definition_id", "")) + ".png"
+		card["art_path"] = "res://assets/images/cards/" + new_def_id + ".png"
+	# Update _base_cost so the UI doesn't show a stale cost color after transform
+	card["_base_cost"] = int(card.get("cost", 0))
+	# Sync item-specific fields from the template (not covered by IDENTITY_FIELDS)
+	if str(card.get("card_type", "")) == "item":
+		card["equip_power_bonus"] = int(norm_template.get("equip_power_bonus", 0))
+		card["equip_health_bonus"] = int(norm_template.get("equip_health_bonus", 0))
+		card["equip_keywords"] = _clone_variant(norm_template.get("equip_keywords", []))
 	reset_transient_state(card)
 	_restore_card_state(card, preserved, options)
 	card["transformed_from"] = previous_definition_id

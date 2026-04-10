@@ -119,7 +119,7 @@ static func get_valid_targets_for_mode(match_state: Dictionary, source_instance_
 			var c1pol_max := 1
 			var c1pol_empower := int(source_card.get("_empower_target_bonus", 0))
 			if c1pol_empower > 0:
-				c1pol_max += c1pol_empower * MatchTimingHelpers._get_empower_amount(match_state, controller_id)
+				c1pol_max += c1pol_empower * MatchTimingHelpers._get_empower_amount(match_state, controller_id, source_card)
 			targets = MatchTimingHelpers._all_lane_creatures(match_state)
 			targets = targets.filter(func(c): return EvergreenRules.get_power(c) <= c1pol_max)
 		"creature_4_power_or_less":
@@ -264,10 +264,16 @@ static func get_valid_targets_for_mode(match_state: Dictionary, source_instance_
 				var aic_cond := str(p.get("condition", ""))
 				if aic_cond == "creature_in_each_lane":
 					var aic_controller := str(c.get("controller_player_id", ""))
+					var aic_card_id := str(c.get("instance_id", ""))
 					var aic_has_in_each := true
 					for aic_lane in match_state.get("lanes", []):
 						var aic_slots: Array = aic_lane.get("player_slots", {}).get(aic_controller, [])
-						if aic_slots.is_empty():
+						var aic_has_other := false
+						for aic_slot in aic_slots:
+							if typeof(aic_slot) == TYPE_DICTIONARY and str(aic_slot.get("instance_id", "")) != aic_card_id:
+								aic_has_other = true
+								break
+						if not aic_has_other:
 							aic_has_in_each = false
 							break
 					if aic_has_in_each:

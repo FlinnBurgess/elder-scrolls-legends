@@ -351,12 +351,14 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var bfod_empower_bonus := int(effect.get("empower_bonus", 0))
 				var bfod_per_attr := bfod_count_per_attr
 				if bfod_empower_bonus > 0:
-					bfod_per_attr += bfod_empower_bonus * MatchTimingHelpers._get_empower_amount(match_state, bfod_controller_id)
+					var bfod_source := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+					bfod_per_attr += bfod_empower_bonus * MatchTimingHelpers._get_empower_amount(match_state, bfod_controller_id, bfod_source)
 				bfod_count = bfod_per_attr * bfod_opp_attrs
 			else:
 				var bfod_empower_bonus := int(effect.get("empower_bonus", 0))
 				if bfod_empower_bonus > 0:
-					bfod_count += bfod_empower_bonus * MatchTimingHelpers._get_empower_amount(match_state, bfod_controller_id)
+					var bfod_source2 := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+					bfod_count += bfod_empower_bonus * MatchTimingHelpers._get_empower_amount(match_state, bfod_controller_id, bfod_source2)
 			var bfod_opponent := MatchTimingHelpers._get_player_state(match_state, bfod_opponent_id)
 			if not bfod_opponent.is_empty():
 				var bfod_deck: Array = bfod_opponent.get(ZONE_DECK, [])

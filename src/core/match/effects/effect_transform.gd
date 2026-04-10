@@ -132,10 +132,13 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				tihr_candidates.append(tihr_seed)
 			var tihr_keep_ability := bool(effect.get("keep_ability", false))
 			var tihr_source_abilities: Array = []
+			var tihr_origin_name := ""
 			if tihr_keep_ability:
 				var tihr_source := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 				if not tihr_source.is_empty():
 					tihr_source_abilities = tihr_source.get("triggered_abilities", []).duplicate(true)
+					# Track the original card name (before any transforms) for the rules_text tag
+					tihr_origin_name = str(tihr_source.get("_keep_ability_origin", tihr_source.get("name", "")))
 			if not tihr_candidates.is_empty():
 				for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 					if str(card.get("zone", "")) == ZONE_HAND:
@@ -150,6 +153,10 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 								for tihr_ab in tihr_source_abilities:
 									tihr_existing.append(tihr_ab)
 								tihr_card["triggered_abilities"] = tihr_existing
+								if not tihr_origin_name.is_empty():
+									tihr_card["_keep_ability_origin"] = tihr_origin_name
+									var tihr_rules := str(tihr_card.get("rules_text", ""))
+									tihr_card["rules_text"] = "(%s)\n%s" % [tihr_origin_name, tihr_rules]
 		"transform_hand":
 			var th_controller_id := str(trigger.get("controller_player_id", ""))
 			var th_player := MatchTimingHelpers._get_player_state(match_state, th_controller_id)

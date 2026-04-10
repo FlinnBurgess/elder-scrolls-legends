@@ -976,7 +976,7 @@ func _test_empower_banish_per_attribute() -> bool:
 
 
 func _test_empower_permanent_across_turns() -> bool:
-	# Mystic of Ancient Rites: empower bonuses persist across turns
+	# Mystic of Ancient Rites: empower bonuses persist for actions IN HAND only, not deck
 	var match_state := _build_started_match()
 	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
 	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
@@ -986,28 +986,35 @@ func _test_empower_permanent_across_turns() -> bool:
 	ScenarioFixtures.summon_creature(player, match_state, "mystic", "field", 2, 3, [], -1, {
 		"passive_abilities": [{"type": "permanent_empower"}],
 	})
+	# Add an empower action to hand BEFORE dealing damage (so it's in hand during turn end)
+	var storm_in_hand := ScenarioFixtures.add_hand_card(player, "perm_storm_hand", {"card_type": "action", "cost": 0, "triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "deal_damage", "target": "event_target", "amount": 3, "empower_bonus": 1}]}]})
 	# Deal damage twice = empower count 2
 	for i in range(2):
 		var ping := ScenarioFixtures.add_hand_card(player, "ping_perm_%d" % i, {"card_type": "action", "cost": 0, "triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "damage", "target_player": "target_player", "amount": 1}]}]})
 		MatchTiming.play_action_from_hand(match_state, pid, str(ping.get("instance_id", "")), {"target_player_id": oid})
-	# End turn (empower_count=2 should be accumulated into _permanent_empower_accumulated)
+	# End turn (empower_count=2 should be stamped onto hand action cards as _permanent_empower_bonus)
 	MatchTurnLoop.end_turn(match_state, pid)
 	MatchTurnLoop.end_turn(match_state, oid)
-	# New turn: empower_count_this_turn reset to 0, but _permanent_empower_accumulated = 2
+	# New turn: empower_count_this_turn reset to 0
 	var empower_count := int(player.get("empower_count_this_turn", 0))
-	var permanent_accumulated := int(player.get("_permanent_empower_accumulated", 0))
-	# Deal 1 more damage this turn = empower count 1, total empower = 1 + 2 = 3
+	var card_bonus := int(storm_in_hand.get("_permanent_empower_bonus", 0))
+	# Deal 1 more damage this turn = empower count 1, total empower for hand card = 1 + 2 = 3
 	var ping_new := ScenarioFixtures.add_hand_card(player, "ping_perm_new", {"card_type": "action", "cost": 0, "triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "damage", "target_player": "target_player", "amount": 1}]}]})
 	MatchTiming.play_action_from_hand(match_state, pid, str(ping_new.get("instance_id", "")), {"target_player_id": oid})
-	# Play empowered action: base 3 + empower_bonus 1 * total_empower 3 = 6 damage
+	# Play the hand card: base 3 + empower_bonus 1 * (1 this turn + 2 permanent) = 6 damage
 	var target := _summon_generated_creature(match_state, oid, "perm_target", "field", 1, 10)
-	var storm := ScenarioFixtures.add_hand_card(player, "perm_storm", {"card_type": "action", "cost": 0, "triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "deal_damage", "target": "event_target", "amount": 3, "empower_bonus": 1}]}]})
-	MatchTiming.play_action_from_hand(match_state, pid, str(storm.get("instance_id", "")), {"target_instance_id": str(target.get("instance_id", ""))})
+	MatchTiming.play_action_from_hand(match_state, pid, str(storm_in_hand.get("instance_id", "")), {"target_instance_id": str(target.get("instance_id", ""))})
 	var target_health := EvergreenRules.get_remaining_health(target)
+	# Now test that a card NOT in hand during the turn end does NOT get permanent bonus
+	var target2 := _summon_generated_creature(match_state, oid, "perm_target2", "field", 1, 10)
+	var storm_from_deck := ScenarioFixtures.add_hand_card(player, "perm_storm_deck", {"card_type": "action", "cost": 0, "triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "deal_damage", "target": "event_target", "amount": 3, "empower_bonus": 1}]}]})
+	MatchTiming.play_action_from_hand(match_state, pid, str(storm_from_deck.get("instance_id", "")), {"target_instance_id": str(target2.get("instance_id", ""))})
+	var target2_health := EvergreenRules.get_remaining_health(target2)
 	return (
 		_assert(empower_count == 0, "Empower count should reset to 0 at start of new turn, got %d." % empower_count) and
-		_assert(permanent_accumulated == 2, "Permanent empower should accumulate 2 from previous turn, got %d." % permanent_accumulated) and
-		_assert(target_health == 4, "Permanent empower: base 3 + (1+2) empower = 6 damage, 10hp target should have 4hp, got %d." % target_health)
+		_assert(card_bonus == 2, "Hand card should have _permanent_empower_bonus=2 from previous turn, got %d." % card_bonus) and
+		_assert(target_health == 4, "Hand card: base 3 + (1+2) empower = 6 damage, 10hp should have 4hp, got %d." % target_health) and
+		_assert(target2_health == 6, "Deck card: base 3 + 1 empower (no permanent) = 4 damage, 10hp should have 6hp, got %d." % target2_health)
 	)
 
 

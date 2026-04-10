@@ -435,12 +435,12 @@ static func _count_player_attributes(match_state: Dictionary, player_id: String)
 	return seen.size()
 
 
-static func _get_empower_amount(match_state: Dictionary, controller_player_id: String) -> int:
+static func _get_empower_amount(match_state: Dictionary, controller_player_id: String, source_card: Dictionary = {}) -> int:
 	var player := _get_player_state(match_state, controller_player_id)
 	if player.is_empty():
 		return 0
 	ExtendedMechanicPacks.ensure_player_state(player)
-	return int(player.get("empower_count_this_turn", 0)) + int(player.get("_permanent_empower_accumulated", 0))
+	return int(player.get("empower_count_this_turn", 0)) + int(source_card.get("_permanent_empower_bonus", 0))
 
 
 static func _get_player_state(match_state: Dictionary, player_id: String) -> Dictionary:

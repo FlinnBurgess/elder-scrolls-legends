@@ -496,7 +496,7 @@ static func get_effective_play_cost(match_state: Dictionary, player_id: String, 
 		elif per_source == "creatures_died_this_turn":
 			reduction += int(player.get("creatures_died_this_turn", 0)) * per_amount
 		elif per_source == "empower":
-			var empower_total := int(player.get("empower_count_this_turn", 0)) + int(player.get("_permanent_empower_accumulated", 0))
+			var empower_total := int(player.get("empower_count_this_turn", 0)) + int(card.get("_permanent_empower_bonus", 0))
 			reduction += empower_total * per_amount
 		elif per_source == "per_action_played_this_turn":
 			reduction += int(player.get("noncreature_plays_this_turn", 0)) * per_amount

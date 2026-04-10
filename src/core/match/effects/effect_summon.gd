@@ -210,7 +210,8 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var sfe_empower_stat := int(effect.get("empower_stat_bonus", 0))
 				var sfe_stat_bonus := 0
 				if sfe_empower_stat > 0:
-					sfe_stat_bonus = sfe_empower_stat * MatchTimingHelpers._get_empower_amount(match_state, str(trigger.get("controller_player_id", "")))
+					var sfe_source := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+					sfe_stat_bonus = sfe_empower_stat * MatchTimingHelpers._get_empower_amount(match_state, str(trigger.get("controller_player_id", "")), sfe_source)
 				var sfe_template := summon_template
 				if sfe_stat_bonus > 0:
 					sfe_template = summon_template.duplicate(true)
@@ -889,7 +890,8 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			if src_max_cost >= 0:
 				var src_empower_cost := int(effect.get("empower_bonus_cost", 0))
 				if src_empower_cost > 0:
-					src_max_cost += src_empower_cost * MatchTimingHelpers._get_empower_amount(match_state, str(trigger.get("controller_player_id", "")))
+					var src_source := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+					src_max_cost += src_empower_cost * MatchTimingHelpers._get_empower_amount(match_state, str(trigger.get("controller_player_id", "")), src_source)
 				src_filter["max_cost"] = src_max_cost
 			var src_delegated := {"op": "summon_random_from_catalog", "filter": src_filter}
 			for src_key in ["lane_id", "target_lane_id"]:
