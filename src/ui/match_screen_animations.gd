@@ -31,6 +31,8 @@ func _record_feedback_from_events(events: Array) -> void:
 	var draw_stacks := {}
 	var rune_stacks := {}
 	var milled_instance_ids: Array = []
+	var alduin_source_id := ""
+	var alduin_destroyed_ids: Array = []
 	var now = _screen._feedback_now_ms()
 	for event in events:
 		if typeof(event) != TYPE_DICTIONARY:
@@ -75,7 +77,16 @@ func _record_feedback_from_events(events: Array) -> void:
 					"stack_index": ward_stack,
 					"expires_at_ms": now + _screen.DAMAGE_FEEDBACK_DURATION_MS,
 				})
+			"creature_summoned":
+				var cs_source_id := str(event.get("source_instance_id", ""))
+				if not cs_source_id.is_empty():
+					var cs_card: Dictionary = _screen._card_from_instance_id(cs_source_id)
+					if str(cs_card.get("definition_id", "")) == "hos_neu_alduin":
+						alduin_source_id = cs_source_id
 			"creature_destroyed":
+				var destroyed_instance_id := str(event.get("instance_id", ""))
+				if not alduin_source_id.is_empty() and not destroyed_instance_id.is_empty():
+					alduin_destroyed_ids.append(destroyed_instance_id)
 				var row_key := "%s:%s" % [str(event.get("lane_id", "")), str(event.get("controller_player_id", ""))]
 				var removal_stack := int(removal_stacks.get(row_key, 0))
 				removal_stacks[row_key] = removal_stack + 1
@@ -261,6 +272,8 @@ func _record_feedback_from_events(events: Array) -> void:
 				milled_cards.append(mcard)
 		if not milled_cards.is_empty():
 			_screen._feedback._animate_mill_reveal(milled_cards)
+	if not alduin_source_id.is_empty() and not alduin_destroyed_ids.is_empty():
+		_animate_alduin_board_wipe(alduin_source_id, alduin_destroyed_ids)
 
 
 func _animate_card_draw(player_id: String, instance_id: String, stack_index: int) -> void:
@@ -443,3 +456,169 @@ func _detach_prophecy_card(instance_id: String) -> void:
 		vbox.visible = false
 	_screen._status_message = "Click a friendly lane slot to summon %s." % _screen._card_name(card)
 	_screen._refresh_ui()
+
+
+func _animate_alduin_board_wipe(alduin_instance_id: String, destroyed_ids: Array) -> void:
+	var viewport_size: Vector2 = _screen.get_viewport_rect().size
+
+	# Snapshot destroyed creature buttons before _refresh_ui() frees them
+	# Each entry captures position, size, and vertical center for sweep timing
+	var targets: Array = []
+	for did in destroyed_ids:
+		var btn: Button = _screen._card_buttons.get(did) as Button
+		if btn != null and is_instance_valid(btn):
+			var btn_size: Vector2 = btn.get_meta("card_size", btn.size)
+			var btn_pos: Vector2 = btn.global_position
+			targets.append({"position": btn_pos, "size": btn_size, "center_y": btn_pos.y + btn_size.y * 0.5})
+	if targets.is_empty():
+		return
+
+	# Find the vertical range the sweep must cover (from lowest card to highest)
+	var min_y: float = viewport_size.y
+	var max_y: float = 0.0
+	for t in targets:
+		var cy: float = t["center_y"]
+		min_y = minf(min_y, cy)
+		max_y = maxf(max_y, cy)
+	# Start below the screen and end above it so the arc runs fully off-screen
+	var sweep_start_y: float = viewport_size.y + 60.0
+	var sweep_end_y: float = -60.0
+	var sweep_range: float = sweep_start_y - sweep_end_y
+
+	# Build animation container overlay
+	var container := Control.new()
+	container.name = "alduin_board_wipe"
+	container.z_index = 490
+	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	container.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	_screen.add_child(container)
+
+	# Create card stand-in overlays that persist until the sweep reaches them
+	# These mask the fact that the real cards are already removed by _refresh_ui()
+	var card_overlays: Array = []
+	for i in range(targets.size()):
+		var t: Dictionary = targets[i]
+		var overlay := PanelContainer.new()
+		overlay.name = "alduin_card_%d" % i
+		overlay.position = t["position"]
+		overlay.size = t["size"]
+		overlay.custom_minimum_size = t["size"]
+		overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		overlay.z_index = 489
+		_screen._apply_panel_style(overlay, Color(0.18, 0.14, 0.10, 0.95), Color(0.4, 0.3, 0.2, 0.8), 1, 4)
+		container.add_child(overlay)
+		card_overlays.append(overlay)
+
+	# Build the sweeping fire arc — a thick curved Line2D with a fire shader
+	var arc := Line2D.new()
+	arc.name = "alduin_arc"
+	arc.width = 40.0
+	arc.default_color = Color.WHITE
+	arc.z_index = 493
+	arc.texture_mode = Line2D.LINE_TEXTURE_TILE
+	# Pronounced downward curve, extending past both screen edges
+	var arc_segments := 48
+	var arc_curve_depth := 50.0
+	var arc_overshoot := 120.0
+	for i in range(arc_segments + 1):
+		var t_frac: float = float(i) / float(arc_segments)
+		var x: float = -arc_overshoot + t_frac * (viewport_size.x + arc_overshoot * 2.0)
+		var curve_y: float = sin(t_frac * PI) * -arc_curve_depth
+		arc.add_point(Vector2(x, curve_y))
+	arc.position = Vector2(0, sweep_start_y)
+	# Fire shader
+	var fire_shader := Shader.new()
+	fire_shader.code = _alduin_fire_shader_code()
+	var fire_material := ShaderMaterial.new()
+	fire_material.shader = fire_shader
+	arc.material = fire_material
+	container.add_child(arc)
+
+	# Animate the arc sweeping upward
+	var sweep_duration := 2.0
+	var arc_tween: Tween = _screen.create_tween()
+	arc_tween.tween_property(arc, "position:y", sweep_end_y, sweep_duration).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
+
+	# For each card overlay, calculate when the sweep reaches it and trigger glow + fade
+	for i in range(targets.size()):
+		var t: Dictionary = targets[i]
+		var overlay: PanelContainer = card_overlays[i]
+		# How far through the sweep before the arc reaches this card's center_y
+		var progress: float = (sweep_start_y - t["center_y"]) / sweep_range
+		var delay: float = clampf(progress * sweep_duration, 0.1, sweep_duration)
+		var glow_tween: Tween = _screen.create_tween()
+		glow_tween.tween_interval(delay)
+		# Flash bright
+		glow_tween.tween_property(overlay, "modulate", Color(3.0, 2.0, 1.0, 1.0), 0.12).set_ease(Tween.EASE_OUT)
+		# Fade and shrink out
+		glow_tween.tween_property(overlay, "modulate", Color(1.5, 0.8, 0.4, 0.0), 0.5).set_ease(Tween.EASE_IN)
+		glow_tween.parallel().tween_property(overlay, "scale", Vector2(0.7, 0.7), 0.5).set_ease(Tween.EASE_IN)
+
+	# Clean up container after animation completes
+	var cleanup_tween: Tween = _screen.create_tween()
+	cleanup_tween.tween_interval(sweep_duration + 1.0)
+	cleanup_tween.tween_callback(func():
+		if is_instance_valid(container):
+			container.queue_free()
+	)
+
+
+func _alduin_fire_shader_code() -> String:
+	return """
+shader_type canvas_item;
+
+// Procedural noise helpers
+float hash(vec2 p) {
+	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+float noise(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	float a = hash(i);
+	float b = hash(i + vec2(1.0, 0.0));
+	float c = hash(i + vec2(0.0, 1.0));
+	float d = hash(i + vec2(1.0, 1.0));
+	return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+float fbm(vec2 p) {
+	float val = 0.0;
+	float amp = 0.5;
+	for (int i = 0; i < 4; i++) {
+		val += amp * noise(p);
+		p *= 2.1;
+		amp *= 0.5;
+	}
+	return val;
+}
+
+void fragment() {
+	vec2 uv = UV;
+
+	// Vertical distance from center (0 at center, 1 at edges)
+	float edge_dist = abs(uv.y - 0.5) * 2.0;
+
+	// Turbulent fire noise — scrolls upward and across
+	vec2 noise_uv = vec2(uv.x * 6.0, uv.y * 3.0 - TIME * 4.0);
+	float n = fbm(noise_uv);
+	float n2 = fbm(noise_uv * 1.8 + vec2(5.3, -TIME * 2.0));
+
+	// Shape: fade at edges with noisy boundary
+	float shape = 1.0 - smoothstep(0.3 + n * 0.25, 0.9, edge_dist);
+
+	// Color gradient: white core -> yellow -> orange -> red -> transparent
+	vec3 col_core = vec3(1.0, 0.95, 0.8);
+	vec3 col_mid = vec3(1.0, 0.6, 0.1);
+	vec3 col_edge = vec3(0.8, 0.15, 0.02);
+	float color_t = edge_dist + n2 * 0.3;
+	vec3 col = mix(col_core, col_mid, smoothstep(0.0, 0.4, color_t));
+	col = mix(col, col_edge, smoothstep(0.35, 0.8, color_t));
+
+	// Flickering intensity
+	float flicker = 0.85 + 0.15 * noise(vec2(uv.x * 3.0, TIME * 8.0));
+
+	COLOR = vec4(col * flicker, shape * 0.95);
+}
+"""
