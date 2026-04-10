@@ -51,6 +51,14 @@ func _refresh_ui() -> void:
 				arrow_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		elif not is_pending_summon_source and not has_action_preview and not _screen._overlays._has_active_prophecy_overlay(arrow_id):
 			_screen._targeting._cancel_targeting_mode_silent()
+	# Hide Alduin's lane card during board wipe animation (use modulate instead of
+	# visible so the button still participates in container layout and has a valid
+	# global_position for the fly-to-board animation)
+	if not _screen._animations._board_wipe_hidden_id.is_empty():
+		var wipe_btn: Button = _screen._card_buttons.get(_screen._animations._board_wipe_hidden_id)
+		if wipe_btn != null:
+			wipe_btn.modulate = Color(1, 1, 1, 0)
+			wipe_btn.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_screen._feedback._process_overdraw_queue()
 	var _refresh_elapsed := Time.get_ticks_msec() - _refresh_start
 	print("[REFRESH] _refresh_ui END took %dms" % _refresh_elapsed)

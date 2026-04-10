@@ -4,6 +4,7 @@ extends RefCounted
 var _screen  # MatchScreen reference
 var _feedback_sequence := 0
 var _floating_card_ids: Dictionary = {}
+var _board_wipe_hidden_id := ""  # Instance ID to hide from board during Alduin animation
 
 
 const PRESET_FULL_RECT = Control.PRESET_FULL_RECT
@@ -460,30 +461,23 @@ func _detach_prophecy_card(instance_id: String) -> void:
 
 func _animate_alduin_board_wipe(alduin_instance_id: String, destroyed_ids: Array) -> void:
 	var viewport_size: Vector2 = _screen.get_viewport_rect().size
+	var center: Vector2 = viewport_size * 0.5
+	# Ring must expand far enough to clear all screen corners
+	var max_radius: float = center.length() + 80.0
+
+	# Hide Alduin from the board until the animation finishes
+	_board_wipe_hidden_id = alduin_instance_id
 
 	# Snapshot destroyed creature buttons before _refresh_ui() frees them
-	# Each entry captures position, size, and vertical center for sweep timing
 	var targets: Array = []
 	for did in destroyed_ids:
 		var btn: Button = _screen._card_buttons.get(did) as Button
 		if btn != null and is_instance_valid(btn):
 			var btn_size: Vector2 = btn.get_meta("card_size", btn.size)
 			var btn_pos: Vector2 = btn.global_position
-			targets.append({"position": btn_pos, "size": btn_size, "center_y": btn_pos.y + btn_size.y * 0.5})
-	if targets.is_empty():
-		return
-
-	# Find the vertical range the sweep must cover (from lowest card to highest)
-	var min_y: float = viewport_size.y
-	var max_y: float = 0.0
-	for t in targets:
-		var cy: float = t["center_y"]
-		min_y = minf(min_y, cy)
-		max_y = maxf(max_y, cy)
-	# Start below the screen and end above it so the arc runs fully off-screen
-	var sweep_start_y: float = viewport_size.y + 60.0
-	var sweep_end_y: float = -60.0
-	var sweep_range: float = sweep_start_y - sweep_end_y
+			var btn_center: Vector2 = btn_pos + btn_size * 0.5
+			var dist: float = center.distance_to(btn_center)
+			targets.append({"position": btn_pos, "size": btn_size, "distance": dist})
 
 	# Build animation container overlay
 	var container := Control.new()
@@ -493,8 +487,35 @@ func _animate_alduin_board_wipe(alduin_instance_id: String, destroyed_ids: Array
 	container.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	_screen.add_child(container)
 
-	# Create card stand-in overlays that persist until the sweep reaches them
-	# These mask the fact that the real cards are already removed by _refresh_ui()
+	# Dimmer behind Alduin card — MOUSE_FILTER_STOP blocks all board interactions
+	var dimmer := ColorRect.new()
+	dimmer.color = Color(0.0, 0.0, 0.0, 0.0)
+	dimmer.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	dimmer.mouse_filter = Control.MOUSE_FILTER_STOP
+	dimmer.z_index = 494
+	container.add_child(dimmer)
+
+	# Display Alduin card in the center of the screen, scaled up for drama
+	var alduin_card: Dictionary = _screen._card_from_instance_id(alduin_instance_id)
+	var card_size: Vector2 = _screen.CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+	var card_scale := 1.5
+	var card_wrapper := Control.new()
+	card_wrapper.name = "alduin_center_card"
+	card_wrapper.size = card_size
+	card_wrapper.custom_minimum_size = card_size
+	card_wrapper.position = center - card_size * 0.5
+	card_wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card_wrapper.z_index = 500
+	card_wrapper.pivot_offset = card_size * 0.5
+	if not alduin_card.is_empty():
+		var component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+		component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		component.apply_card(alduin_card, _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+		card_wrapper.add_child(component)
+	container.add_child(card_wrapper)
+
+	# Create card stand-in overlays that persist until the ring reaches them
 	var card_overlays: Array = []
 	for i in range(targets.size()):
 		var t: Dictionary = targets[i]
@@ -509,58 +530,101 @@ func _animate_alduin_board_wipe(alduin_instance_id: String, destroyed_ids: Array
 		container.add_child(overlay)
 		card_overlays.append(overlay)
 
-	# Build the sweeping fire arc — a thick curved Line2D with a fire shader
-	var arc := Line2D.new()
-	arc.name = "alduin_arc"
-	arc.width = 40.0
-	arc.default_color = Color.WHITE
-	arc.z_index = 493
-	arc.texture_mode = Line2D.LINE_TEXTURE_TILE
-	# Pronounced downward curve, extending past both screen edges
-	var arc_segments := 48
-	var arc_curve_depth := 50.0
-	var arc_overshoot := 120.0
-	for i in range(arc_segments + 1):
-		var t_frac: float = float(i) / float(arc_segments)
-		var x: float = -arc_overshoot + t_frac * (viewport_size.x + arc_overshoot * 2.0)
-		var curve_y: float = sin(t_frac * PI) * -arc_curve_depth
-		arc.add_point(Vector2(x, curve_y))
-	arc.position = Vector2(0, sweep_start_y)
-	# Fire shader
+	# Build the expanding fire ring — Line2D circle centered on screen
+	var ring := Line2D.new()
+	ring.name = "alduin_ring"
+	ring.width = 40.0
+	ring.default_color = Color.WHITE
+	ring.z_index = 495
+	ring.texture_mode = Line2D.LINE_TEXTURE_TILE
+	ring.position = center
+	# Fire shader on the ring
 	var fire_shader := Shader.new()
 	fire_shader.code = _alduin_fire_shader_code()
 	var fire_material := ShaderMaterial.new()
 	fire_material.shader = fire_shader
-	arc.material = fire_material
-	container.add_child(arc)
+	ring.material = fire_material
+	container.add_child(ring)
 
-	# Animate the arc sweeping upward
-	var sweep_duration := 2.0
-	var arc_tween: Tween = _screen.create_tween()
-	arc_tween.tween_property(arc, "position:y", sweep_end_y, sweep_duration).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
+	# Animation timing
+	var ring_segments := 64
+	var ring_duration := 2.0
+	var hold_duration := 0.6
 
-	# For each card overlay, calculate when the sweep reaches it and trigger glow + fade
+	# Phase 1: Fade in dimmer + Alduin card, hold briefly
+	var dim_tween: Tween = _screen.create_tween()
+	dim_tween.tween_property(dimmer, "color:a", 0.5, 0.3)
+
+	var card_enter_tween: Tween = _screen.create_tween()
+	card_wrapper.modulate = Color(1, 1, 1, 0)
+	card_wrapper.scale = Vector2(card_scale * 0.85, card_scale * 0.85)
+	card_enter_tween.tween_property(card_wrapper, "modulate:a", 1.0, 0.3).set_ease(Tween.EASE_OUT)
+	card_enter_tween.parallel().tween_property(card_wrapper, "scale", Vector2(card_scale, card_scale), 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+
+	# Phase 2: After hold, expand the fire ring outward from center
+	var ring_tween: Tween = _screen.create_tween()
+	ring_tween.tween_interval(hold_duration)
+	ring_tween.tween_method(_set_ring_radius.bind(ring, ring_segments), 0.0, max_radius, ring_duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+
+	# Fade dimmer as ring expands, then animate Alduin card to its board position
+	var move_start: float = hold_duration + ring_duration + 0.4
+	var move_duration := 0.5
+	var dim_exit_tween: Tween = _screen.create_tween()
+	dim_exit_tween.tween_interval(move_start)
+	dim_exit_tween.tween_property(dimmer, "color:a", 0.0, 0.4).set_ease(Tween.EASE_IN)
+
+	var card_exit_tween: Tween = _screen.create_tween()
+	card_exit_tween.tween_interval(move_start)
+	card_exit_tween.tween_callback(func():
+		# Look up Alduin's board button position (hidden but exists after refresh)
+		var board_btn: Button = _screen._card_buttons.get(alduin_instance_id) as Button
+		if board_btn != null and is_instance_valid(board_btn):
+			var board_size: Vector2 = board_btn.get_meta("card_size", board_btn.size)
+			var board_pos: Vector2 = board_btn.global_position
+			var board_center: Vector2 = board_pos + board_size * 0.5
+			# Animate to board position — target position accounts for pivot_offset
+			var target_pos: Vector2 = board_center - card_size * 0.5
+			var target_scale_val: float = board_size.x / card_size.x
+			var t: Tween = _screen.create_tween()
+			t.set_parallel(true)
+			t.tween_property(card_wrapper, "position", target_pos, move_duration).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+			t.tween_property(card_wrapper, "scale", Vector2(target_scale_val, target_scale_val), move_duration).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+		else:
+			# Fallback: just fade out if we can't find the board position
+			var t: Tween = _screen.create_tween()
+			t.tween_property(card_wrapper, "modulate:a", 0.0, 0.3).set_ease(Tween.EASE_IN)
+	)
+
+	# For each card overlay, trigger glow + fade when the ring reaches its distance
 	for i in range(targets.size()):
 		var t: Dictionary = targets[i]
 		var overlay: PanelContainer = card_overlays[i]
-		# How far through the sweep before the arc reaches this card's center_y
-		var progress: float = (sweep_start_y - t["center_y"]) / sweep_range
-		var delay: float = clampf(progress * sweep_duration, 0.1, sweep_duration)
+		var dist: float = t["distance"]
+		# Map distance to time within the ring expansion phase
+		var progress: float = dist / max_radius
+		var delay: float = hold_duration + clampf(progress * ring_duration, 0.05, ring_duration)
 		var glow_tween: Tween = _screen.create_tween()
 		glow_tween.tween_interval(delay)
-		# Flash bright
 		glow_tween.tween_property(overlay, "modulate", Color(3.0, 2.0, 1.0, 1.0), 0.12).set_ease(Tween.EASE_OUT)
-		# Fade and shrink out
 		glow_tween.tween_property(overlay, "modulate", Color(1.5, 0.8, 0.4, 0.0), 0.5).set_ease(Tween.EASE_IN)
 		glow_tween.parallel().tween_property(overlay, "scale", Vector2(0.7, 0.7), 0.5).set_ease(Tween.EASE_IN)
 
-	# Clean up container after animation completes
+	# Clean up container after card reaches board position
 	var cleanup_tween: Tween = _screen.create_tween()
-	cleanup_tween.tween_interval(sweep_duration + 1.0)
+	cleanup_tween.tween_interval(move_start + move_duration)
 	cleanup_tween.tween_callback(func():
+		_board_wipe_hidden_id = ""
+		_screen._refresh._refresh_ui()
 		if is_instance_valid(container):
 			container.queue_free()
 	)
+
+
+func _set_ring_radius(radius: float, ring: Line2D, segments: int) -> void:
+	ring.clear_points()
+	for i in range(segments + 1):
+		var angle: float = TAU * float(i) / float(segments)
+		ring.add_point(Vector2(cos(angle) * radius, sin(angle) * radius))
 
 
 func _alduin_fire_shader_code() -> String:
