@@ -1,17 +1,5 @@
 [
 	{
-		"card_id": "aw_neu_the_ruby_throne",
-		"name": "The Ruby Throne",
-		"card_type": "support",
-		"cost": 3,
-		"attributes": [
-			"neutral"
-		],
-		"rules_text": "Ongoing\nSummon: Crown a creature.\nAt the end of each player's turn, give crowned creatures +1/+1.\nIf there is no crowned creature in play, when either player summons a Unique creature, crown it.",
-		"stripped_text": "Summon: Crown a creature.\nAt the end of each player's turn, give crowned creatures +1/+1.\nIf there is no crowned creature in play, when either player summons a Unique creature, crown it.",
-		"complexity": 186
-	},
-	{
 		"card_id": "moe_end_ruin_shambler",
 		"name": "Ruin Shambler",
 		"card_type": "creature",
@@ -3722,18 +3710,6 @@
 		],
 		"rules_text": "Draw a copy of a random creature from your opponent's deck.",
 		"stripped_text": "Draw a copy of a random creature from your opponent's deck.",
-		"complexity": 59
-	},
-	{
-		"card_id": "agi_ungolim_the_listener",
-		"name": "Ungolim the Listener",
-		"card_type": "creature",
-		"cost": 1,
-		"attributes": [
-			"agility"
-		],
-		"rules_text": "Summon: Shuffle three Brotherhood Assassins into your deck.",
-		"stripped_text": "Summon: Shuffle three Brotherhood Assassins into your deck.",
 		"complexity": 59
 	},
 	{

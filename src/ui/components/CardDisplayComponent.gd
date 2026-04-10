@@ -117,6 +117,7 @@ var _gate_level_badge: Label
 var _quantity_badge: Label
 var _charges_badge: Label
 var _ongoing_badge: Label
+var _crowned_badge: Label
 var _pips_container: HBoxContainer
 
 
@@ -529,6 +530,16 @@ func _build_internal_nodes() -> void:
 	_ongoing_badge.visible = false
 	_content_root.add_child(_ongoing_badge)
 
+	_crowned_badge = Label.new()
+	_crowned_badge.name = "CrownedBadge"
+	_crowned_badge.text = "Crowned"
+	_crowned_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_crowned_badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_crowned_badge.add_theme_font_size_override("font_size", 11)
+	_crowned_badge.add_theme_color_override("font_color", Color(0.95, 0.88, 0.6, 1.0))
+	_crowned_badge.visible = false
+	_content_root.add_child(_crowned_badge)
+
 	_pips_container = HBoxContainer.new()
 	_pips_container.name = "PipsContainer"
 	_pips_container.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -553,6 +564,7 @@ func _refresh_all() -> void:
 	_refresh_quantity_badge()
 	_refresh_charges_badge()
 	_refresh_ongoing_badge()
+	_refresh_crowned_badge()
 	_refresh_deck_grey_out()
 
 
@@ -1713,6 +1725,40 @@ func _refresh_ongoing_badge() -> void:
 	style.corner_radius_bottom_left = 3
 	style.corner_radius_bottom_right = 3
 	_ongoing_badge.add_theme_stylebox_override("normal", style)
+
+
+func _refresh_crowned_badge() -> void:
+	if _crowned_badge == null:
+		return
+	if _presentation_mode != PRESENTATION_CREATURE_BOARD_MINIMAL:
+		_crowned_badge.visible = false
+		return
+	var markers = _card_data.get("status_markers", [])
+	if typeof(markers) != TYPE_ARRAY or not markers.has("crowned"):
+		_crowned_badge.visible = false
+		return
+	_crowned_badge.visible = true
+	var scale := _layout_scale(PRESENTATION_CREATURE_BOARD_MINIMAL)
+	var badge_w := _art_frame.size.x * 0.5
+	var badge_h := 18.0 * scale
+	_crowned_badge.add_theme_font_size_override("font_size", _scaled_int(11, scale))
+	_crowned_badge.size = Vector2(badge_w, badge_h)
+	_crowned_badge.position = Vector2(
+		_art_frame.position.x + (_art_frame.size.x - badge_w) * 0.5,
+		_art_frame.position.y + float(_scaled_border_width(2, scale))
+	)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.0, 0.0, 0.0, 0.82)
+	style.border_color = Color(0.95, 0.88, 0.6, 0.5)
+	style.border_width_top = 1
+	style.border_width_bottom = 1
+	style.border_width_left = 1
+	style.border_width_right = 1
+	style.corner_radius_top_left = 3
+	style.corner_radius_top_right = 3
+	style.corner_radius_bottom_left = 3
+	style.corner_radius_bottom_right = 3
+	_crowned_badge.add_theme_stylebox_override("normal", style)
 
 
 func _set_mouse_passthrough_recursive(node: Node) -> void:

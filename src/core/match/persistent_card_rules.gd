@@ -60,6 +60,7 @@ static func play_support_from_hand(match_state: Dictionary, player_id: String, i
 		"played_for_free": bool(options.get("played_for_free", false)),
 		"reason": str(options.get("reason", "play_support")),
 	}])
+	_check_support_on_play_target_mode(match_state, card)
 	return {"is_valid": true, "errors": [], "card": card, "events": timing_result.get("processed_events", []), "trigger_resolutions": timing_result.get("trigger_resolutions", [])}
 
 
@@ -775,6 +776,32 @@ static func _check_item_on_play_target_mode(match_state: Dictionary, item_card: 
 		"mandatory": false,
 		"allowed_families": ["on_play"],
 	})
+
+
+static func _check_support_on_play_target_mode(match_state: Dictionary, support_card: Dictionary) -> void:
+	var controller_id := str(support_card.get("controller_player_id", ""))
+	var instance_id := str(support_card.get("instance_id", ""))
+	var raw_triggers = support_card.get("triggered_abilities", [])
+	if typeof(raw_triggers) != TYPE_ARRAY:
+		return
+	for ab in raw_triggers:
+		if typeof(ab) != TYPE_DICTIONARY:
+			continue
+		if str(ab.get("family", "")) != "on_play":
+			continue
+		if str(ab.get("target_mode", "")).is_empty():
+			continue
+		var valid := MatchTiming.get_all_valid_targets(match_state, instance_id)
+		if valid.is_empty():
+			return
+		var pending_arr: Array = match_state.get("pending_summon_effect_targets", [])
+		pending_arr.append({
+			"player_id": controller_id,
+			"source_instance_id": instance_id,
+			"mandatory": false,
+			"allowed_families": ["on_play"],
+		})
+		return
 
 
 static func _apply_item_untargeted_on_play_effects(match_state: Dictionary, item_card: Dictionary, wielder_instance_id: String) -> void:

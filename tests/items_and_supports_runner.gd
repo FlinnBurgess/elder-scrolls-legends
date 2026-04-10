@@ -31,7 +31,11 @@ func _run_all_tests() -> bool:
 		_test_horse_armor_sets_premium_on_wielder() and
 		_test_fifth_support_rejected_when_zone_full() and
 		_test_play_support_with_sacrifice() and
-		_test_play_support_sacrifice_rejects_when_not_full()
+		_test_play_support_sacrifice_rejects_when_not_full() and
+		_test_support_on_play_target_mode_queues_pending_target() and
+		_test_support_on_play_target_grants_crowned_status() and
+		_test_crowned_creatures_receive_end_of_turn_buff() and
+		_test_auto_crown_skips_when_crowned_creature_exists()
 	)
 
 
@@ -466,6 +470,103 @@ func _build_deck(prefix: String, size: int) -> Array:
 	for index in range(size):
 		deck.append("%s_card_%02d" % [prefix, index + 1])
 	return deck
+
+
+func _test_support_on_play_target_mode_queues_pending_target() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player["player_id"])
+	# Place a creature on board to be a valid target
+	var creature := _summon_creature(player, match_state, "crown_target", "field", 3, 3, 0)
+	# Add a support with on_play target_mode to hand
+	var support := _add_hand_card(player, "ruby_throne_test", {
+		"card_type": "support",
+		"cost": 3,
+		"support_uses": 0,
+		"triggered_abilities": [{"family": "on_play", "target_mode": "any_creature", "effects": [{"op": "grant_status", "target": "chosen_target", "status_id": "crowned"}]}],
+	})
+	var support_id := str(support["instance_id"])
+	var result := PersistentCardRules.play_support_from_hand(match_state, pid, support_id)
+	if not _assert(bool(result.get("is_valid", false)), "Support on_play target: play should be valid."):
+		return false
+	return _assert(MatchTiming.has_pending_summon_effect_target(match_state, pid), "Support on_play target: should queue a pending summon effect target.")
+
+
+func _test_support_on_play_target_grants_crowned_status() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player["player_id"])
+	var creature := _summon_creature(player, match_state, "crown_me", "field", 2, 4, 0)
+	var creature_id := str(creature["instance_id"])
+	var support := _add_hand_card(player, "ruby_throne_grant", {
+		"card_type": "support",
+		"cost": 0,
+		"support_uses": 0,
+		"triggered_abilities": [{"family": "on_play", "target_mode": "any_creature", "effects": [{"op": "grant_status", "target": "chosen_target", "status_id": "crowned"}]}],
+	})
+	PersistentCardRules.play_support_from_hand(match_state, pid, str(support["instance_id"]))
+	# Resolve the pending target
+	var resolve := MatchTiming.resolve_pending_summon_effect_target(match_state, pid, {"target_instance_id": creature_id})
+	if not _assert(bool(resolve.get("is_valid", false)), "Crown grant: resolve should be valid."):
+		return false
+	var lane_card := _find_lane_card(match_state, "field", pid, "crown_me")
+	var markers = lane_card.get("status_markers", [])
+	return _assert(typeof(markers) == TYPE_ARRAY and markers.has("crowned"), "Crown grant: creature should have 'crowned' status marker.")
+
+
+func _test_crowned_creatures_receive_end_of_turn_buff() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player["player_id"])
+	# Place a creature and manually grant crowned status
+	var creature := _summon_creature(player, match_state, "crowned_buff", "field", 2, 3, 0)
+	var creature_id := str(creature["instance_id"])
+	EvergreenRules.add_status(creature, "crowned")
+	# Add a support with end_of_turn that buffs crowned creatures
+	var support := _add_hand_card(player, "throne_buff", {
+		"card_type": "support",
+		"cost": 0,
+		"support_uses": 0,
+		"triggered_abilities": [{"family": "end_of_turn", "required_zone": "support", "effects": [{"op": "modify_stats", "target": "crowned_creatures", "power": 1, "health": 1}]}],
+	})
+	PersistentCardRules.play_support_from_hand(match_state, pid, str(support["instance_id"]))
+	var power_before := EvergreenRules.get_power(creature)
+	var health_before := EvergreenRules.get_remaining_health(creature)
+	# Fire end of turn
+	MatchTurnLoop.end_turn(match_state, pid)
+	var lane_card := _find_lane_card(match_state, "field", pid, "crowned_buff")
+	if lane_card.is_empty():
+		return _assert(false, "Crown buff: creature should still be in lane.")
+	var power_after := EvergreenRules.get_power(lane_card)
+	var health_after := EvergreenRules.get_remaining_health(lane_card)
+	return (
+		_assert(power_after == power_before + 1, "Crown buff: power should increase by 1, got %d -> %d." % [power_before, power_after]) and
+		_assert(health_after == health_before + 1, "Crown buff: health should increase by 1, got %d -> %d." % [health_before, health_after])
+	)
+
+
+func _test_auto_crown_skips_when_crowned_creature_exists() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player["player_id"])
+	# Place a creature and manually crown it
+	var already_crowned := _summon_creature(player, match_state, "already_crowned", "field", 3, 3, 0, {"is_unique": true})
+	EvergreenRules.add_status(already_crowned, "crowned")
+	# Add a support with the auto-crown-on-unique trigger
+	var support := _add_hand_card(player, "auto_crown_support", {
+		"card_type": "support",
+		"cost": 0,
+		"support_uses": 0,
+		"triggered_abilities": [{"family": "on_friendly_summon", "required_zone": "support", "required_no_crowned_creature": true, "required_summon_unique": true, "effects": [{"op": "grant_status", "target": "event_summoned_creature", "status_id": "crowned"}]}],
+	})
+	PersistentCardRules.play_support_from_hand(match_state, pid, str(support["instance_id"]))
+	# Summon a second unique creature — should NOT get crowned because one already exists
+	var second_unique := _summon_creature(player, match_state, "second_unique", "field", 2, 2, 1, {"is_unique": true})
+	# Fire the summon event so triggers run
+	MatchTiming.publish_events(match_state, [{"event_type": "creature_summoned", "player_id": pid, "source_instance_id": str(second_unique["instance_id"]), "source_controller_player_id": pid, "lane_id": "field"}])
+	var second_card := _find_lane_card(match_state, "field", pid, "second_unique")
+	var markers = second_card.get("status_markers", [])
+	return _assert(typeof(markers) != TYPE_ARRAY or not markers.has("crowned"), "Auto-crown: second unique should NOT get crowned when a crowned creature already exists.")
 
 
 func _assert(condition: bool, message: String) -> bool:

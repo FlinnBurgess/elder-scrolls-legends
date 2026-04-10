@@ -652,13 +652,14 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 				break
 		if not recip_found:
 			return false
-	# 19. required_no_crowned_creature — no friendly creature has crowned: true
+	# 19. required_no_crowned_creature — no creature in play has crowned status
 	if bool(descriptor.get("required_no_crowned_creature", false)):
-		var rncc_controller := str(trigger.get("controller_player_id", ""))
-		var rncc_creatures := MatchTimingHelpers._player_lane_creatures(match_state, rncc_controller)
-		for rncc_card in rncc_creatures:
-			if bool(rncc_card.get("crowned", false)):
-				return false
+		for rncc_lane in match_state.get("lanes", []):
+			var rncc_slots: Dictionary = rncc_lane.get("player_slots", {})
+			for rncc_pid in rncc_slots.keys():
+				for rncc_card in rncc_slots[rncc_pid]:
+					if typeof(rncc_card) == TYPE_DICTIONARY and EvergreenRules.has_raw_status(rncc_card, "crowned"):
+						return false
 	# 20. required_summon_unique — the summoned creature has is_unique: true
 	if bool(descriptor.get("required_summon_unique", false)):
 		var rsu_card := MatchTimingHelpers._find_card_anywhere(match_state, str(event.get("source_instance_id", "")))
