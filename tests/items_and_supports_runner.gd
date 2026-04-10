@@ -39,7 +39,8 @@ func _run_all_tests() -> bool:
 		_test_altar_of_despair_escalating_cost() and
 		_test_altar_of_despair_sweet_roll_fallback() and
 		_test_orsinium_forge_escalates_plate_stats_per_use() and
-		_test_skyshard_on_card_drawn_buffs_creature()
+		_test_skyshard_on_card_drawn_buffs_creature() and
+		_test_dark_rift_summons_atronach_after_five_activations()
 	)
 
 
@@ -799,6 +800,49 @@ func _test_skyshard_on_card_drawn_buffs_creature() -> bool:
 		_assert(actual_cost == 5, "Skyshard: drawn creature cost should be 3+2=5, got %d." % actual_cost) and
 		_assert(actual_power == 4, "Skyshard: drawn creature power should be 2+2=4, got %d." % actual_power) and
 		_assert(actual_health == 4, "Skyshard: drawn creature health should be 2+2=4, got %d." % actual_health)
+	)
+
+
+func _test_dark_rift_summons_atronach_after_five_activations() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player["player_id"])
+	var support := _add_hand_card(player, "int_dark_rift", {
+		"card_type": "support",
+		"cost": 3,
+		"support_uses": 5,
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ACTIVATE,
+			"required_zone": "support",
+			"effects": [
+				{"op": "damage", "target_player": "opponent", "amount": 1},
+				{"op": "summon_from_effect", "require_source_uses_exhausted": true, "lane_id": "random", "card_template": {
+					"definition_id": "int_storm_atronach", "name": "Storm Atronach",
+					"card_type": "creature", "subtypes": ["Daedra", "Atronach"],
+					"attributes": ["intelligence"], "cost": 6,
+					"power": 7, "health": 5, "base_power": 7, "base_health": 5,
+					"keywords": ["ward"], "rules_text": "Ward",
+				}},
+			],
+		}],
+	})
+	PersistentCardRules.play_support_from_hand(match_state, pid, support["instance_id"])
+	# Activate 5 times (once per turn)
+	for i in range(5):
+		PersistentCardRules.activate_support(match_state, pid, support["instance_id"])
+		if i < 4:
+			MatchTurnLoop.end_turn(match_state, pid)
+			MatchTurnLoop.end_turn(match_state, match_state["active_player_id"])
+	# After 5 activations, support should be discarded and a Storm Atronach summoned
+	var atronach := _find_lane_card(match_state, "field", pid, "int_storm_atronach")
+	if atronach.is_empty():
+		atronach = _find_lane_card(match_state, "shadow", pid, "int_storm_atronach")
+	return (
+		_assert(not atronach.is_empty(), "Dark Rift: Storm Atronach should be summoned after 5 activations.") and
+		_assert(EvergreenRules.get_power(atronach) == 7, "Dark Rift: Storm Atronach should have 7 power.") and
+		_assert(EvergreenRules.get_health(atronach) == 5, "Dark Rift: Storm Atronach should have 5 health.") and
+		_assert(EvergreenRules.has_keyword(atronach, "ward"), "Dark Rift: Storm Atronach should have Ward.") and
+		_assert(_contains_instance(player["discard"], support["instance_id"]), "Dark Rift: support should be in discard after exhaustion.")
 	)
 
 

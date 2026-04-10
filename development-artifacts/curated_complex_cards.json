@@ -1,17 +1,5 @@
 [
 	{
-		"card_id": "moe_agi_devious_bandit",
-		"name": "Devious Bandit",
-		"card_type": "creature",
-		"cost": 6,
-		"attributes": [
-			"agility"
-		],
-		"rules_text": "Summon: Deal 3 damage to your opponent and you gain 3 health.\nDevious Bandit has the Pilfer abilities of all your creatures.",
-		"stripped_text": "Summon: Deal 3 damage to your opponent and you gain 3 health.\nDevious Bandit has the Pilfer abilities of all your creatures.",
-		"complexity": 124
-	},
-	{
 		"card_id": "int_dark_rift",
 		"name": "Dark Rift",
 		"card_type": "support",
