@@ -89,6 +89,7 @@ func _run_all_tests() -> bool:
 		_test_adoring_fan_waits_when_lanes_full() and
 		_test_upgrade_chain_summon_advances_and_caps() and
 		_test_upgrade_chain_overflows_to_other_lane() and
+		_test_summon_from_effect_overflows_to_other_lane() and
 		_test_reanimate_action_summons_from_discard() and
 		_test_summon_from_discard_exact_cost_filter() and
 		_test_monster_perfection_lab_equips_item_from_deck() and
@@ -3495,6 +3496,36 @@ func _test_upgrade_chain_overflows_to_other_lane() -> bool:
 			found_in_shadow = true
 			break
 	return _assert(found_in_shadow, "Upgrade chain should overflow to the other lane when source lane is full.")
+
+
+func _test_summon_from_effect_overflows_to_other_lane() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Add 3 supports so count_source "friendly_supports" returns 3
+	for i in range(3):
+		player.get("support", []).append({"instance_id": "support_%d" % i, "definition_id": "test_support_%d" % i, "card_type": "support", "support_uses_remaining": 3})
+	# Summon a creature with summon: summon 1 token per friendly support in same lane
+	var token_template := {"definition_id": "t_soldier", "name": "Soldier", "card_type": "creature", "subtypes": ["Imperial"], "attributes": ["willpower"], "cost": 2, "power": 2, "health": 2, "base_power": 2, "base_health": 2}
+	var summoner := ScenarioFixtures.add_hand_card(player, "sfe_overflow_summoner", {
+		"card_type": "creature", "cost": 0, "power": 3, "health": 2,
+		"triggered_abilities": [{"family": "summon", "effects": [{"op": "summon_from_effect", "lane": "same", "card_template": token_template, "count_source": "friendly_supports"}]}],
+	})
+	# Fill field lane to 3/4 so only 1 slot remains (summoner will take it)
+	for i in range(3):
+		ScenarioFixtures.summon_creature(player, match_state, "sfe_filler_%d" % i, "field", 1, 1)
+	if not _assert(_lane_creatures(match_state, "field", pid).size() == 3, "Field lane should have 3 creatures before summon."):
+		return false
+	# Summon the summoner to field — takes the last slot, then 3 tokens need to overflow
+	var summon_result := LaneRules.summon_from_hand(match_state, pid, str(summoner.get("instance_id", "")), "field")
+	if not _assert(bool(summon_result.get("is_valid", false)), "Summoner should summon successfully."):
+		return false
+	# All 3 tokens should appear in shadow lane (overflow)
+	var shadow_soldiers: Array = []
+	for card in _lane_creatures(match_state, "shadow", pid):
+		if str(card.get("definition_id", "")) == "t_soldier":
+			shadow_soldiers.append(card)
+	return _assert(shadow_soldiers.size() == 3, "All 3 tokens should overflow to shadow lane, found %d." % shadow_soldiers.size())
 
 
 func _test_reanimate_action_summons_from_discard() -> bool:

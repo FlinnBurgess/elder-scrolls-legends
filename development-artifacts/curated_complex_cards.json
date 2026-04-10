@@ -1,31 +1,5 @@
 [
 	{
-		"card_id": "hom_agi_naryu_virian",
-		"name": "Naryu Virian",
-		"card_type": "creature",
-		"cost": 6,
-		"attributes": [
-			"agility"
-		],
-		"rules_text": "Summon: Summon a 0/1 Target with Guard for your opponent in each lane.\nFriendly creatures have \\\"Slay: +1/+1 and Lethal.\\\"",
-		"stripped_text": "Summon: Summon a 0/1 Target with Guard for your opponent in each lane.\nFriendly creatures have \\\"Slay: +1/+1 and Lethal.\\\"",
-		"complexity": 122
-	},
-	{
-		"card_id": "aw_tri_ayrenn_dominion_queen",
-		"name": "Ayrenn, Dominion Queen",
-		"card_type": "creature",
-		"cost": 8,
-		"attributes": [
-			"intelligence",
-			"willpower",
-			"agility"
-		],
-		"rules_text": "Drain\nSummon: Draw a random action from your discard pile.\nWhen you draw an action on your turn, deal 1 damage to your opponent.",
-		"stripped_text": "Summon: Draw a random action from your discard pile.\nWhen you draw an action on your turn, deal 1 damage to your opponent.",
-		"complexity": 122
-	},
-	{
 		"card_id": "moe_wil_cygnus_standard_bearer",
 		"name": "Cygnus Standard Bearer",
 		"card_type": "creature",

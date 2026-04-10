@@ -685,7 +685,7 @@ func _refresh_visibility() -> void:
 	# Attribute icons visibility is managed by _refresh_attribute_icons based on card data
 	_attack_badge.visible = is_creature and (full or creature_minimal)
 	_health_badge.visible = is_creature and (full or creature_minimal)
-	_ward_overlay.visible = _interactive and is_creature and EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_WARD)
+	_ward_overlay.visible = _interactive and is_creature and (EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_WARD) or EvergreenRules.has_status(_card_data, EvergreenRules.STATUS_DAMAGE_IMMUNE) or bool(_card_data.get("aura_damage_immune", false)))
 	_premium_overlay.visible = bool(_card_data.get("_premium", false))
 	_shackle_overlay.visible = _interactive and is_creature and (creature_minimal) and (EvergreenRules.has_raw_status(_card_data, EvergreenRules.STATUS_SHACKLED) or bool(_card_data.get("cannot_attack", false)))
 	var show_lethal := _interactive and is_creature and (full or creature_minimal) and EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_LETHAL)

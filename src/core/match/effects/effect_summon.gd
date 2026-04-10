@@ -235,16 +235,33 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var sfe_count := MatchEffectParams._resolve_count_multiplier(match_state, trigger, event, effect)
 				for player_id in summon_players:
 					for s_lane_id in summon_lane_ids:
+						var sfe_active_lane: String = s_lane_id
 						for _sfe_i in range(sfe_count):
 							var generated_card := MatchMutations.build_generated_card(match_state, player_id, sfe_template)
-							var summon_result := MatchMutations.summon_card_to_lane(match_state, player_id, generated_card, s_lane_id, {
+							var summon_result := MatchMutations.summon_card_to_lane(match_state, player_id, generated_card, sfe_active_lane, {
 								"slot_index": int(effect.get("slot_index", -1)),
 								"source_zone": MatchMutations.ZONE_GENERATED,
 							})
 							if not bool(summon_result.get("is_valid", false)):
-								break
+								# Overflow to another lane with open slots
+								var sfe_overflowed := false
+								for sfe_of_lane in match_state.get("lanes", []):
+									var sfe_of_lid := str(sfe_of_lane.get("lane_id", ""))
+									if sfe_of_lid == sfe_active_lane or sfe_of_lid.is_empty():
+										continue
+									var sfe_of_open := MatchTimingHelpers._get_lane_open_slots(match_state, sfe_of_lid, player_id)
+									if int(sfe_of_open.get("open_slots", 0)) > 0:
+										sfe_active_lane = sfe_of_lid
+										summon_result = MatchMutations.summon_card_to_lane(match_state, player_id, generated_card, sfe_active_lane, {
+											"slot_index": int(effect.get("slot_index", -1)),
+											"source_zone": MatchMutations.ZONE_GENERATED,
+										})
+										sfe_overflowed = bool(summon_result.get("is_valid", false))
+										break
+								if not sfe_overflowed:
+									break
 							generated_events.append_array(summon_result.get("events", []))
-							generated_events.append(MatchSummonTiming._build_summon_event(summon_result["card"], player_id, s_lane_id, int(summon_result.get("slot_index", -1)), reason))
+							generated_events.append(MatchSummonTiming._build_summon_event(summon_result["card"], player_id, sfe_active_lane, int(summon_result.get("slot_index", -1)), reason))
 							if bool(summon_result.get("granted_cover", false)):
 								generated_events.append({"event_type": "status_granted", "source_instance_id": str(summon_result["card"].get("instance_id", "")), "target_instance_id": str(summon_result["card"].get("instance_id", "")), "status_id": "cover"})
 							if bool(effect.get("silenced", false)):
