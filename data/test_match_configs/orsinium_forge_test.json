@@ -1,0 +1,58 @@
+{
+  "name": "Orsinium Forge",
+  "description": "Test Orsinium Forge's escalating plates with item-synergy creatures",
+  "board_profile": "standard_versus",
+  "turn_number": 1,
+  "first_player": "player_1",
+  "player_1": {
+    "health": 30,
+    "max_magicka": 12,
+    "current_magicka": 12,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [
+      "aw_str_orsinium_forge",
+      "str_rihad_battlemage",
+      "str_rihad_horseman",
+      "str_whirling_duelist",
+      "int_dragonstar_rider",
+      "str_improvised_weapon"
+    ],
+    "deck": [
+      "str_steel_scimitar",
+      "str_heavy_battleaxe",
+      "int_sparksmith",
+      "str_wrothgar_forge",
+      "int_tome_of_alteration"
+    ],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      {"definition_id": "str_whiterun_trooper", "can_attack": true}
+    ],
+    "shadow_creatures": [
+      {"definition_id": "end_fharun_defender", "can_attack": true}
+    ]
+  },
+  "player_2": {
+    "health": 30,
+    "max_magicka": 2,
+    "current_magicka": 2,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": ["hom_end_vvardvark"],
+    "deck": ["hom_end_vvardvark", "hom_end_vvardvark"],
+    "discard": [],
+    "field_creatures": [
+      "hom_end_vvardvark",
+      "hom_end_vvardvark",
+      "hom_end_vvardvark"
+    ],
+    "shadow_creatures": [
+      "hom_end_vvardvark",
+      "hom_end_vvardvark"
+    ]
+  }
+}

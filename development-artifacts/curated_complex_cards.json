@@ -1,17 +1,5 @@
 [
 	{
-		"card_id": "aw_str_orsinium_forge",
-		"name": "Orsinium Forge",
-		"card_type": "support",
-		"cost": 5,
-		"attributes": [
-			"strength"
-		],
-		"rules_text": "Uses: 3\nActivate: Equip a creature with a +1/+1 Orsinium Plate. Then increase the power and health of Orsinium Plates this equips by 1.",
-		"stripped_text": "Uses: 3\nActivate: Equip a creature with a +1/+1 Orsinium Plate. Then increase the power and health of Orsinium Plates this equips by 1.",
-		"complexity": 135
-	},
-	{
 		"card_id": "mc_dual_dark_mane",
 		"name": "Dark Mane",
 		"card_type": "creature",
@@ -3978,18 +3966,6 @@
 		"complexity": 52
 	},
 	{
-		"card_id": "str_rihad_horseman",
-		"name": "Rihad Horseman",
-		"card_type": "creature",
-		"cost": 2,
-		"attributes": [
-			"strength"
-		],
-		"rules_text": "+3/+0 and Breakthrough while equipped with an item.",
-		"stripped_text": "+3/+0 and Breakthrough while equipped with an item.",
-		"complexity": 51
-	},
-	{
 		"card_id": "hos_int_echo_of_akatosh",
 		"name": "Echo of Akatosh",
 		"card_type": "creature",
@@ -4025,18 +4001,6 @@
 		"rules_text": "Ward\nSummon: +1/+1 for each action in your discard pile.",
 		"stripped_text": "Summon: +1/+1 for each action in your discard pile.",
 		"complexity": 51
-	},
-	{
-		"card_id": "int_dragonstar_rider",
-		"name": "Dragonstar Rider",
-		"card_type": "creature",
-		"cost": 5,
-		"attributes": [
-			"intelligence"
-		],
-		"rules_text": "When Dragonstar Rider equips an item, draw a card.",
-		"stripped_text": "When Dragonstar Rider equips an item, draw a card.",
-		"complexity": 50
 	},
 	{
 		"card_id": "agi_spider_lair",

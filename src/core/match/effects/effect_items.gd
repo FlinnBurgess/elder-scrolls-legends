@@ -269,6 +269,28 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			var ei_template: Dictionary = ei_template_raw if typeof(ei_template_raw) == TYPE_DICTIONARY else {}
 			if ei_template.is_empty():
 				return
+			# Escalate generated item stats per use (e.g. Orsinium Forge)
+			var ei_escalate: Dictionary = effect.get("escalate_per_use", {})
+			if not ei_escalate.is_empty():
+				var ei_source := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+				if not ei_source.is_empty():
+					var ei_use_count := int(ei_source.get("_escalation_count", 0))
+					ei_template = ei_template.duplicate(true)
+					for ei_key in ei_escalate:
+						ei_template[ei_key] = int(ei_template.get(ei_key, 0)) + ei_use_count * int(ei_escalate[ei_key])
+					# Update the generated item's rules_text to reflect current stats
+					var ei_esc_power := int(ei_template.get("equip_power_bonus", 0))
+					var ei_esc_health := int(ei_template.get("equip_health_bonus", 0))
+					ei_template["rules_text"] = "+%d/+%d" % [ei_esc_power, ei_esc_health]
+					# Increment escalation counter for next use
+					ei_source["_escalation_count"] = ei_use_count + 1
+					# Update the source card's rules_text to reflect next use bonus
+					var ei_next_power := ei_esc_power + int(ei_escalate.get("equip_power_bonus", 0))
+					var ei_next_health := ei_esc_health + int(ei_escalate.get("equip_health_bonus", 0))
+					ei_source["rules_text"] = "Uses: %d\nActivate: Equip a creature with a +%d/+%d %s." % [
+						int(ei_source.get("remaining_support_uses", ei_source.get("support_uses", 0))),
+						ei_next_power, ei_next_health, str(ei_template.get("name", "Item"))]
+					GameLogger.trc("Timing", "escalate_item", "use:%d,power:%d,health:%d" % [ei_use_count + 1, ei_esc_power, ei_esc_health])
 			var ei_targets := MatchTargeting._resolve_card_targets(match_state, trigger, event, effect)
 			GameLogger.trc("Timing", "equip_gen_item", "targets:%d,filter_def:%s,target_type:%s" % [ei_targets.size(), str(effect.get("target_filter_definition_id", "")), str(effect.get("target", ""))])
 			for card in ei_targets:

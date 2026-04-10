@@ -37,7 +37,8 @@ func _run_all_tests() -> bool:
 		_test_crowned_creatures_receive_end_of_turn_buff() and
 		_test_auto_crown_skips_when_crowned_creature_exists() and
 		_test_altar_of_despair_escalating_cost() and
-		_test_altar_of_despair_sweet_roll_fallback()
+		_test_altar_of_despair_sweet_roll_fallback() and
+		_test_orsinium_forge_escalates_plate_stats_per_use()
 	)
 
 
@@ -675,6 +676,61 @@ func _find_support(player: Dictionary, instance_id: String) -> Dictionary:
 		if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) == instance_id:
 			return card
 	return {}
+
+
+func _test_orsinium_forge_escalates_plate_stats_per_use() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player["player_id"])
+	var target_a := _summon_creature(player, match_state, "forge_target_a", "field", 2, 2, 0)
+	var target_b := _summon_creature(player, match_state, "forge_target_b", "field", 3, 3, 1)
+	var target_c := _summon_creature(player, match_state, "forge_target_c", "field", 1, 1, 2)
+	var plate_template := {
+		"definition_id": "orsinium_plate", "name": "Orsinium Plate", "card_type": "item",
+		"attributes": ["strength"], "cost": 1, "power": 0, "health": 0,
+		"base_power": 0, "base_health": 0, "equip_power_bonus": 1, "equip_health_bonus": 1,
+		"rules_text": "+1/+1",
+	}
+	var forge := _add_hand_card(player, "orsinium_forge", {
+		"card_type": "support", "cost": 0, "support_uses": 3,
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ACTIVATE, "target_mode": "friendly_creature", "effects": [{
+			"op": "equip_generated_item", "target": "chosen_target",
+			"escalate_per_use": {"equip_power_bonus": 1, "equip_health_bonus": 1},
+			"card_template": plate_template,
+		}]}],
+	})
+	PersistentCardRules.play_support_from_hand(match_state, pid, forge["instance_id"])
+
+	# 1st activation: plate should be +1/+1
+	PersistentCardRules.activate_support(match_state, pid, forge["instance_id"], {"target_instance_id": target_a["instance_id"]})
+	if not (
+		_assert(EvergreenRules.get_power(target_a) == 3, "1st plate should give +1 power.") and
+		_assert(EvergreenRules.get_health(target_a) == 3, "1st plate should give +1 health.")
+	):
+		return false
+
+	# Advance turn so we can activate again
+	MatchTurnLoop.end_turn(match_state, pid)
+	MatchTurnLoop.end_turn(match_state, match_state["active_player_id"])
+
+	# 2nd activation: plate should be +2/+2
+	PersistentCardRules.activate_support(match_state, pid, forge["instance_id"], {"target_instance_id": target_b["instance_id"]})
+	if not (
+		_assert(EvergreenRules.get_power(target_b) == 5, "2nd plate should give +2 power (3+2).") and
+		_assert(EvergreenRules.get_health(target_b) == 5, "2nd plate should give +2 health (3+2).")
+	):
+		return false
+
+	# Advance turn
+	MatchTurnLoop.end_turn(match_state, pid)
+	MatchTurnLoop.end_turn(match_state, match_state["active_player_id"])
+
+	# 3rd activation: plate should be +3/+3
+	PersistentCardRules.activate_support(match_state, pid, forge["instance_id"], {"target_instance_id": target_c["instance_id"]})
+	return (
+		_assert(EvergreenRules.get_power(target_c) == 4, "3rd plate should give +3 power (1+3).") and
+		_assert(EvergreenRules.get_health(target_c) == 4, "3rd plate should give +3 health (1+3).")
+	)
 
 
 func _assert(condition: bool, message: String) -> bool:
