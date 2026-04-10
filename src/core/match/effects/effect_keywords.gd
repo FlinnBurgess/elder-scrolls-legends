@@ -384,7 +384,10 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					var gsa_triggers = card.get("triggered_abilities", [])
 					if typeof(gsa_triggers) != TYPE_ARRAY:
 						gsa_triggers = []
-					gsa_triggers.append({"family": FAMILY_SLAY, "required_zone": ZONE_LANE, "effects": gsa_effects})
+					var gsa_ability: Dictionary = {"family": FAMILY_SLAY, "required_zone": ZONE_LANE, "effects": gsa_effects}
+					if bool(effect.get("expires_end_of_turn", false)):
+						gsa_ability["_temporary"] = true
+					gsa_triggers.append(gsa_ability)
 					card["triggered_abilities"] = gsa_triggers
 					generated_events.append({"event_type": "ability_granted", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "ability": "slay"})
 		"destroy_and_transfer_keywords":

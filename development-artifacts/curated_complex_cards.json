@@ -1,43 +1,5 @@
 [
 	{
-		"card_id": "tc_tri_enchanted_ring",
-		"name": "Enchanted Ring",
-		"card_type": "item",
-		"cost": 1,
-		"attributes": [
-			"strength",
-			"intelligence",
-			"endurance"
-		],
-		"rules_text": "Mobilize\n+1/+1\nSummon: Equip the wielder with all copies of Enchanted Ring from your discard pile. Then if the wielder has three or more items, draw a card.",
-		"stripped_text": "Mobilize\nSummon: Equip the wielder with all copies of Enchanted Ring from your discard pile. Then if the wielder has three or more items, draw a card.",
-		"complexity": 150
-	},
-	{
-		"card_id": "mc_end_hist_grove",
-		"name": "Hist Grove",
-		"card_type": "support",
-		"cost": 4,
-		"attributes": [
-			"endurance"
-		],
-		"rules_text": "Ongoing\nSummon: +1 max magicka.\nAt the start of your turn, if you have 15 or more max magicka, sacrifice this to summon an 8/8 Swamp Leviathan in each lane.",
-		"stripped_text": "Summon: +1 max magicka.\nAt the start of your turn, if you have 15 or more max magicka, sacrifice this to summon an 8/8 Swamp Leviathan in each lane.",
-		"complexity": 148
-	},
-	{
-		"card_id": "joo_agi_dead_drop",
-		"name": "Dead Drop",
-		"card_type": "action",
-		"cost": 0,
-		"attributes": [
-			"agility"
-		],
-		"rules_text": "Give a friendly creature \\\"Slay: Put a Completed Contract into your hand\\\" this turn. It may move to attack creatures in the other lane this turn.",
-		"stripped_text": "Give a friendly creature \\\"Slay: Put a Completed Contract into your hand\\\" this turn. It may move to attack creatures in the other lane this turn.",
-		"complexity": 146
-	},
-	{
 		"card_id": "mhc_neu_altar_of_despair",
 		"name": "Altar of Despair",
 		"card_type": "support",

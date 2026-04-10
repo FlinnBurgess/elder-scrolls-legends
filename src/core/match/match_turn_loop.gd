@@ -309,6 +309,18 @@ static func _clear_temporary_stat_bonuses(match_state: Dictionary) -> void:
 					continue
 				EvergreenRules.clear_temporary_stat_bonuses(card, current_turn)
 				EvergreenRules.clear_temporary_keywords(card, current_turn)
+				var ta_list: Array = card.get("triggered_abilities", [])
+				var ta_filtered: Array = ta_list.filter(func(ta):
+					if bool(ta.get("_temporary", false)):
+						return false
+					if ta.has("expires_on_turn") and int(ta.get("expires_on_turn", -1)) < current_turn:
+						return false
+					if ta.has("_expires_on_turn") and int(ta.get("_expires_on_turn", -1)) < current_turn:
+						return false
+					return true
+				)
+				if ta_filtered.size() != ta_list.size():
+					card["triggered_abilities"] = ta_filtered
 				var temp_statuses: Array = card.get("_temp_statuses", [])
 				for status_id in temp_statuses:
 					EvergreenRules.remove_status(card, str(status_id))
