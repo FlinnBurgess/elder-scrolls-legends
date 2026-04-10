@@ -1,53 +1,5 @@
 [
 	{
-		"card_id": "cwc_wil_phalanx_exemplar",
-		"name": "Phalanx Exemplar",
-		"card_type": "creature",
-		"cost": 5,
-		"attributes": [
-			"willpower"
-		],
-		"rules_text": "Guard\nWhen your opponent draws a Prophecy from a rune being destroyed, put a 1/2 Septim Guardsman with Guard into your hand.",
-		"stripped_text": "When your opponent draws a Prophecy from a rune being destroyed, put a 1/2 Septim Guardsman with Guard into your hand.",
-		"complexity": 118
-	},
-	{
-		"card_id": "hos_neu_barbas",
-		"name": "Barbas",
-		"card_type": "creature",
-		"cost": 5,
-		"attributes": [
-			"neutral"
-		],
-		"rules_text": "Summon: Choose one —\nStay: Gains +1/+1 and Guard.\nFetch: Put a random Daedra into your hand.\nRoll Over: Gains Charge.",
-		"stripped_text": "Summon: Choose one —\nStay: Gains +1/+1 and Guard.\nFetch: Put a random Daedra into your hand.\nRoll Over: Gains Charge.",
-		"complexity": 117
-	},
-	{
-		"card_id": "hom_wil_morag_tong_nightblade",
-		"name": "Morag Tong Nightblade",
-		"card_type": "creature",
-		"cost": 4,
-		"attributes": [
-			"willpower"
-		],
-		"rules_text": "Summon: Summon a 0/1 Target with Guard for your opponent.\nSlay: Draw a card. If it's an action, reduce its cost to 0.",
-		"stripped_text": "Summon: Summon a 0/1 Target with Guard for your opponent.\nSlay: Draw a card. If it's an action, reduce its cost to 0.",
-		"complexity": 117
-	},
-	{
-		"card_id": "hom_agi_cornerclub_gambler",
-		"name": "Cornerclub Gambler",
-		"card_type": "creature",
-		"cost": 3,
-		"attributes": [
-			"agility"
-		],
-		"rules_text": "Summon: You must discard a card. At the start of your turn, draw two cards and Cornerclub Gambler loses this ability.",
-		"stripped_text": "Summon: You must discard a card. At the start of your turn, draw two cards and Cornerclub Gambler loses this ability.",
-		"complexity": 117
-	},
-	{
 		"card_id": "aw_agi_daedric_titan",
 		"name": "Daedric Titan",
 		"card_type": "creature",
