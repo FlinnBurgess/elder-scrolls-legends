@@ -226,6 +226,31 @@ func _apply_card_feedback_decoration(button: Button, card: Dictionary, surface: 
 	button.modulate = modulate_color
 
 
+func _animate_unaffordable_flash(instance_id: String) -> void:
+	var button: Button = _screen._card_buttons.get(instance_id)
+	if button == null or not is_instance_valid(button):
+		return
+	var display_component = button.get_meta("card_display_component") if button.has_meta("card_display_component") else null
+	var cost_label: Label = null
+	if display_component != null and is_instance_valid(display_component):
+		cost_label = display_component.find_child("CostLabel", true, false)
+	# Flash the cost label red and pulse its size
+	if cost_label != null and is_instance_valid(cost_label):
+		var flash_color := Color(1.0, 0.15, 0.15, 1.0)
+		var original_color: Color = cost_label.get_theme_color("font_color")
+		var original_size: int = cost_label.get_theme_font_size("font_size")
+		var pulse_size := int(original_size * 1.35)
+		cost_label.add_theme_color_override("font_color", flash_color)
+		cost_label.add_theme_font_size_override("font_size", pulse_size)
+		var label_tween: Tween = _screen.create_tween()
+		label_tween.tween_interval(0.25)
+		label_tween.tween_callback(func():
+			if is_instance_valid(cost_label):
+				cost_label.add_theme_color_override("font_color", original_color)
+				cost_label.add_theme_font_size_override("font_size", original_size)
+		)
+
+
 func _refresh_avatar_target_glow(avatar: Control, player_id: String) -> void:
 	var existing := avatar.find_child("avatar_target_glow", false, false)
 	if existing != null:

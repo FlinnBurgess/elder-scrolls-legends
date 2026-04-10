@@ -1,6 +1,6 @@
 {
-  "name": "Cygnus Standard Bearer Support Synergy",
-  "description": "Test Cygnus Standard Bearer's summon (Imperial Soldier per friendly support) and on_friendly_support_played trigger",
+  "name": "Conjuration Tutor Test",
+  "description": "Test Atronach copy-to-other-lane trigger and Lava Atronach shuffle",
   "board_profile": "standard_versus",
   "turn_number": 1,
   "first_player": "player_1",
@@ -12,24 +12,22 @@
     "has_ring": false,
     "ring_charges": 0,
     "hand": [
-      "moe_wil_cygnus_standard_bearer",
-      "wil_divine_fervor",
-      "wil_elixir_of_the_defender",
-      "hos_wil_elixir_of_vitality",
-      "neu_elixir_of_conflict",
-      "aw_int_ravaging_elixir"
+      "mc_int_conjuration_tutor",
+      "int_flame_atronach",
+      "int_frost_atronach",
+      "int_storm_atronach",
+      "hom_int_temple_conjurer",
+      "int_breton_conjurer"
     ],
     "deck": [
-      "end_necromancers_amulet",
-      "neu_mundus_stone",
-      "db_agi_brotherhood_sanctuary",
-      "joo_int_elixir_of_potency"
+      "mc_int_lava_atronach",
+      "mc_int_lava_atronach",
+      "mc_int_lava_atronach",
+      "int_high_rock_summoner",
+      "hom_int_mighty_conjuring"
     ],
     "discard": [],
-    "supports": [
-      "end_elixir_of_vigor",
-      "agi_elixir_of_light_feet"
-    ],
+    "supports": [],
     "field_creatures": [],
     "shadow_creatures": []
   },
@@ -42,7 +40,6 @@
     "ring_charges": 0,
     "hand": [],
     "deck": [
-      "hom_end_vvardvark",
       "hom_end_vvardvark",
       "hom_end_vvardvark",
       "hom_end_vvardvark"

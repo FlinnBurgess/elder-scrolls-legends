@@ -1080,57 +1080,102 @@ func _show_player_choice_overlay() -> void:
 	title.add_theme_color_override("font_color", Color(0.95, 0.9, 0.72, 1.0))
 	vbox.add_child(title)
 
-	var hbox := HBoxContainer.new()
-	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	hbox.add_theme_constant_override("separation", 20)
-	vbox.add_child(hbox)
+	var layout := str(choice.get("layout", ""))
+	var use_grid := layout == "grid" and mode == "card"
 
-	for oi in range(options.size()):
-		var raw_option = options[oi]
-		var option: Dictionary = raw_option if typeof(raw_option) == TYPE_DICTIONARY else {}
-		var label := str(raw_option) if typeof(raw_option) == TYPE_STRING else str(option.get("label", "Option %d" % (oi + 1)))
-		var description := str(option.get("description", ""))
+	if use_grid:
+		var scroll := ScrollContainer.new()
+		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		scroll.mouse_filter = Control.MOUSE_FILTER_PASS
+		vbox.add_child(scroll)
 
-		if mode == "card" and option.has("card"):
+		var card_size: Vector2 = _screen.CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+		var grid := GridContainer.new()
+		grid.columns = maxi(1, int(_screen.get_viewport_rect().size.x - 120) / int(card_size.x + 10))
+		grid.add_theme_constant_override("h_separation", 10)
+		grid.add_theme_constant_override("v_separation", 10)
+		grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		grid.mouse_filter = Control.MOUSE_FILTER_PASS
+		scroll.add_child(grid)
+
+		for oi in range(options.size()):
+			var option: Dictionary = options[oi] if typeof(options[oi]) == TYPE_DICTIONARY else {}
 			var card_button := Button.new()
-			var base_size: Vector2 = _screen.CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
-			var card_scale := 1.5
-			card_button.custom_minimum_size = base_size * card_scale
-			var card_display = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
-			card_display.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			card_display.scale = Vector2(card_scale, card_scale)
-			card_button.add_child(card_display)
-			card_display.apply_card(option["card"], _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
-			_screen._apply_button_style(card_button, Color(0.12, 0.13, 0.17, 0.95), Color(0.4, 0.38, 0.5, 0.8), Color.WHITE)
+			card_button.custom_minimum_size = card_size
+			var empty_style := StyleBoxEmpty.new()
+			card_button.add_theme_stylebox_override("normal", empty_style)
+			var hover_style := StyleBoxFlat.new()
+			hover_style.bg_color = Color(0.4, 0.2, 0.5, 0.6)
+			hover_style.corner_radius_top_left = 6
+			hover_style.corner_radius_top_right = 6
+			hover_style.corner_radius_bottom_left = 6
+			hover_style.corner_radius_bottom_right = 6
+			card_button.add_theme_stylebox_override("hover", hover_style)
+			card_button.add_theme_stylebox_override("pressed", empty_style)
+			card_button.add_theme_stylebox_override("focus", empty_style)
+
+			if option.has("card"):
+				var component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+				component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				component.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+				component.apply_card(option["card"], _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+				card_button.add_child(component)
+
 			var idx := oi
 			card_button.pressed.connect(func(): _screen._on_player_choice_selected(idx))
-			hbox.add_child(card_button)
-		else:
-			var btn := Button.new()
-			btn.custom_minimum_size = Vector2(180, 80)
-			var btn_vbox := VBoxContainer.new()
-			btn_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-			btn_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			var btn_label := Label.new()
-			btn_label.text = label
-			btn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			btn_label.add_theme_font_size_override("font_size", 18)
-			btn_label.add_theme_color_override("font_color", Color(0.95, 0.92, 0.82, 1.0))
-			btn_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			btn_vbox.add_child(btn_label)
-			if not description.is_empty():
-				var desc_label := Label.new()
-				desc_label.text = description
-				desc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-				desc_label.add_theme_font_size_override("font_size", 13)
-				desc_label.add_theme_color_override("font_color", Color(0.75, 0.72, 0.65, 0.9))
-				desc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				btn_vbox.add_child(desc_label)
-			btn.add_child(btn_vbox)
-			_screen._apply_button_style(btn, Color(0.15, 0.14, 0.2, 0.95), Color(0.5, 0.45, 0.55, 0.8), Color.WHITE)
-			var idx := oi
-			btn.pressed.connect(func(): _screen._on_player_choice_selected(idx))
-			hbox.add_child(btn)
+			grid.add_child(card_button)
+	else:
+		var hbox := HBoxContainer.new()
+		hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		hbox.add_theme_constant_override("separation", 20)
+		vbox.add_child(hbox)
+
+		for oi in range(options.size()):
+			var raw_option = options[oi]
+			var option: Dictionary = raw_option if typeof(raw_option) == TYPE_DICTIONARY else {}
+			var label := str(raw_option) if typeof(raw_option) == TYPE_STRING else str(option.get("label", "Option %d" % (oi + 1)))
+			var description := str(option.get("description", ""))
+
+			if mode == "card" and option.has("card"):
+				var card_button := Button.new()
+				var base_size: Vector2 = _screen.CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+				var card_scale := 1.5
+				card_button.custom_minimum_size = base_size * card_scale
+				var card_display = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+				card_display.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				card_display.scale = Vector2(card_scale, card_scale)
+				card_button.add_child(card_display)
+				card_display.apply_card(option["card"], _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+				_screen._apply_button_style(card_button, Color(0.12, 0.13, 0.17, 0.95), Color(0.4, 0.38, 0.5, 0.8), Color.WHITE)
+				var idx := oi
+				card_button.pressed.connect(func(): _screen._on_player_choice_selected(idx))
+				hbox.add_child(card_button)
+			else:
+				var btn := Button.new()
+				btn.custom_minimum_size = Vector2(180, 80)
+				var btn_vbox := VBoxContainer.new()
+				btn_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+				btn_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				var btn_label := Label.new()
+				btn_label.text = label
+				btn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				btn_label.add_theme_font_size_override("font_size", 18)
+				btn_label.add_theme_color_override("font_color", Color(0.95, 0.92, 0.82, 1.0))
+				btn_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				btn_vbox.add_child(btn_label)
+				if not description.is_empty():
+					var desc_label := Label.new()
+					desc_label.text = description
+					desc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+					desc_label.add_theme_font_size_override("font_size", 13)
+					desc_label.add_theme_color_override("font_color", Color(0.75, 0.72, 0.65, 0.9))
+					desc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+					btn_vbox.add_child(desc_label)
+				btn.add_child(btn_vbox)
+				_screen._apply_button_style(btn, Color(0.15, 0.14, 0.2, 0.95), Color(0.5, 0.45, 0.55, 0.8), Color.WHITE)
+				var idx := oi
+				btn.pressed.connect(func(): _screen._on_player_choice_selected(idx))
+				hbox.add_child(btn)
 
 	_screen.add_child(overlay)
 	_player_choice_overlay_state = {"overlay": overlay}

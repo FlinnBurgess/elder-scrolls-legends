@@ -36,7 +36,8 @@ func _build_card_button(card: Dictionary, public_view: bool, surface := "default
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.focus_mode = Control.FOCUS_NONE
 	var no_action = surface == "lane" and _screen._selected_action_mode(card) == _screen.SELECTION_MODE_NONE
-	button.mouse_default_cursor_shape = Control.CURSOR_ARROW if (locked and interaction_state == "default") or no_action else Control.CURSOR_POINTING_HAND
+	var unaffordable_hand = surface == "hand" and muted
+	button.mouse_default_cursor_shape = Control.CURSOR_ARROW if (locked and interaction_state == "default") or no_action or unaffordable_hand else Control.CURSOR_POINTING_HAND
 	button.set_meta("instance_id", instance_id)
 	button.set_meta("surface", surface)
 	button.set_meta("presentation_locked", locked)
@@ -243,10 +244,12 @@ func _build_card_display_component(card: Dictionary, surface: String, instance_i
 	var display_card := card.duplicate(true)
 	if surface == "lane" and _screen.EvergreenRules.is_cover_active(_screen._match_state, card):
 		display_card["_cover_active"] = true
-	if surface == "hand" and str(card.get("controller_player_id", "")) == _screen._active_player_id():
-		var effective_cost = _screen.PersistentCardRules.get_effective_play_cost(_screen._match_state, _screen._active_player_id(), card)
+	if surface == "hand":
+		var hand_controller := str(card.get("controller_player_id", ""))
+		var effective_cost = _screen.PersistentCardRules.get_effective_play_cost(_screen._match_state, hand_controller, card)
 		display_card["_effective_cost"] = effective_cost
-		_apply_empower_text_updates(display_card, _screen._active_player_id())
+		if hand_controller == _screen._active_player_id():
+			_apply_empower_text_updates(display_card, hand_controller)
 	component.apply_card(display_card, _screen._card_display._card_presentation_mode(card, surface))
 	if component.has_method("set_wax_wane_phases"):
 		component.set_wax_wane_phases(_get_wax_wane_phases_for_card(card))

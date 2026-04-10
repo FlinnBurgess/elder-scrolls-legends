@@ -531,6 +531,8 @@ static func build_generated_card(match_state: Dictionary, controller_player_id: 
 		card["base_power"] = max_magicka
 		card["base_health"] = max_magicka
 		card.erase("stats_from_max_magicka")
+	if not card.has("_base_cost"):
+		card["_base_cost"] = int(card.get("cost", 0))
 	EvergreenRules.ensure_card_state(card)
 	if str(card.get("definition_id", "")) == PLAYING_CARD_ID:
 		_apply_playing_card_mutation(match_state, card)

@@ -85,8 +85,21 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			if not rohc_opponent.is_empty():
 				var rohc_hand: Array = rohc_opponent.get(ZONE_HAND, [])
 				if not rohc_hand.is_empty():
-					var rohc_idx := MatchEffectParams._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_reveal_hand", rohc_hand.size())
-					generated_events.append({"event_type": "opponent_hand_card_revealed", "source_instance_id": str(trigger.get("source_instance_id", "")), "controller_player_id": rohc_controller_id, "revealed_card": rohc_hand[rohc_idx].duplicate(true)})
+					var rohc_source_id := str(trigger.get("source_instance_id", ""))
+					var rohc_source := MatchTimingHelpers._find_card_anywhere(match_state, rohc_source_id)
+					var rohc_revealed: Array = rohc_source.get("_revealed_hand_ids", []) if not rohc_source.is_empty() else []
+					var rohc_candidates: Array = []
+					for rohc_card in rohc_hand:
+						if str(rohc_card.get("instance_id", "")) not in rohc_revealed:
+							rohc_candidates.append(rohc_card)
+					if not rohc_candidates.is_empty():
+						var rohc_idx := MatchEffectParams._deterministic_index(match_state, rohc_source_id + "_reveal_hand", rohc_candidates.size())
+						var rohc_picked: Dictionary = rohc_candidates[rohc_idx]
+						if not rohc_source.is_empty():
+							if not rohc_source.has("_revealed_hand_ids"):
+								rohc_source["_revealed_hand_ids"] = []
+							rohc_source["_revealed_hand_ids"].append(str(rohc_picked.get("instance_id", "")))
+						generated_events.append({"event_type": "opponent_hand_card_revealed", "source_instance_id": rohc_source_id, "controller_player_id": rohc_controller_id, "revealed_card": rohc_picked.duplicate(true)})
 		"mark_target":
 			var mt_source := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):

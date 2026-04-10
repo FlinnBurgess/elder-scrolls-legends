@@ -461,6 +461,8 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 	card["card_type"] = str(definition.get("card_type", "creature"))
 	if not is_mutated:
 		card["cost"] = int(definition.get("cost", 0))
+	if not card.has("_base_cost"):
+		card["_base_cost"] = int(definition.get("cost", 0))
 	card["power"] = int(definition.get("base_power", 0))
 	card["health"] = int(definition.get("base_health", 0))
 	card["rarity"] = str(definition.get("rarity", "common"))
@@ -1011,6 +1013,14 @@ func _try_play_hovered_hand_card_to_lane(lane_index: int) -> void:
 	var card := _card_from_instance_id(instance_id)
 	if card.is_empty():
 		return
+	# Block unaffordable cards
+	if not bool(card.get("_play_for_free", false)):
+		var effective_cost := PersistentCardRules.get_effective_play_cost(_match_state, _active_player_id(), card)
+		var player := _player_state(_active_player_id())
+		var available := int(player.get("current_magicka", 0)) + int(player.get("temporary_magicka", 0))
+		if effective_cost > available:
+			_feedback._animate_unaffordable_flash(instance_id)
+			return
 	var mode = _selection._selected_action_mode(card)
 	# Only creatures and non-targeted actions can be played directly to a lane
 	if mode != SELECTION_MODE_SUMMON and not (mode == SELECTION_MODE_ACTION and not _targeting._action_needs_explicit_target(card)):
@@ -1914,6 +1924,14 @@ func _on_card_pressed(instance_id: String) -> void:
 		return
 	if _hand._is_local_hand_card(instance_id):
 		var card := _card_from_instance_id(instance_id)
+		# Block unaffordable hand cards — flash cost label red + pulse
+		if not bool(card.get("_play_for_free", false)) and not _overlays._is_pending_prophecy_card(card):
+			var effective_cost := PersistentCardRules.get_effective_play_cost(_match_state, _active_player_id(), card)
+			var player := _player_state(_active_player_id())
+			var available := int(player.get("current_magicka", 0)) + int(player.get("temporary_magicka", 0))
+			if effective_cost > available:
+				_feedback._animate_unaffordable_flash(instance_id)
+				return
 		var mode = _selection._selected_action_mode(card)
 		if mode == SELECTION_MODE_ITEM:
 			_selection._enter_targeting_mode(instance_id)

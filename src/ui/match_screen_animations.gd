@@ -146,6 +146,11 @@ func _record_feedback_from_events(events: Array) -> void:
 					var revealed_card: Dictionary = event.get("revealed_card", {})
 					if not revealed_card.is_empty():
 						_screen._animate_deck_card_reveal(revealed_card)
+			"opponent_hand_card_revealed":
+				if str(event.get("controller_player_id", "")) == _screen._local_player_id():
+					var ohcr_card: Dictionary = event.get("revealed_card", {})
+					if not ohcr_card.is_empty():
+						_animate_opponent_hand_card_reveal(ohcr_card)
 			"treasure_hunt_revealed":
 				if str(event.get("controller_player_id", "")) == _screen._local_player_id():
 					var th_card: Dictionary = event.get("revealed_card", {})
@@ -617,6 +622,45 @@ func _animate_alduin_board_wipe(alduin_instance_id: String, destroyed_ids: Array
 		_screen._refresh._refresh_ui()
 		if is_instance_valid(container):
 			container.queue_free()
+	)
+
+
+func _animate_opponent_hand_card_reveal(revealed_card: Dictionary) -> void:
+	var card_size = _screen._hand_card_display_size()
+	var viewport_size = _screen.get_viewport_rect().size
+
+	var card_back := PanelContainer.new()
+	card_back.name = "hand_reveal_card_back"
+	card_back.custom_minimum_size = card_size
+	card_back.size = card_size
+	_screen._apply_panel_style(card_back, Color(0.18, 0.12, 0.30, 0.98), Color(0.55, 0.35, 0.65, 0.92), 2, 0)
+
+	var pos_x: float = (viewport_size.x - card_size.x) * 0.5
+	var pos_y: float = viewport_size.y * 0.10 + 12.0
+	card_back.position = Vector2(pos_x, pos_y)
+	card_back.z_index = 600
+
+	_screen._prophecy_card_overlay.add_child(card_back)
+
+	card_back.pivot_offset = Vector2(card_back.size.x * 0.5, card_back.size.y * 0.5)
+	var tween = _screen.create_tween()
+	tween.tween_property(card_back, "scale:x", 0.0, 0.2)
+	tween.tween_callback(func():
+		for child in card_back.get_children():
+			child.queue_free()
+		var component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+		component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		component.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		component.apply_card(revealed_card, _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+		card_back.add_child(component)
+	)
+	tween.tween_property(card_back, "scale:x", 1.0, 0.2)
+	tween.tween_interval(1.5)
+	tween.tween_property(card_back, "modulate:a", 0.0, 0.4)
+	tween.finished.connect(func():
+		if is_instance_valid(card_back):
+			card_back.queue_free()
+		_screen._refresh_ui()
 	)
 
 

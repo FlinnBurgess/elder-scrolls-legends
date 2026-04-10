@@ -181,6 +181,16 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 										if int(sfe_uc_other_open.get("open_slots", 0)) > 0:
 											summon_lane_ids[0] = sfe_uc_lid
 										break
+			if summon_template.is_empty() and effect.has("copy_of"):
+				var sfe_copy_source := str(effect.get("copy_of", ""))
+				var sfe_copy_cards := MatchTargeting._resolve_card_targets_by_name(match_state, trigger, event, sfe_copy_source)
+				if not sfe_copy_cards.is_empty():
+					var sfe_copy_base: Dictionary = sfe_copy_cards[0].duplicate(true)
+					sfe_copy_base.erase("instance_id")
+					sfe_copy_base.erase("status_markers")
+					sfe_copy_base.erase("zone")
+					sfe_copy_base.erase("_spawned_by_instance_id")
+					summon_template = sfe_copy_base
 			if summon_template.is_empty():
 				for source_card in MatchTargeting._resolve_card_targets_by_name(match_state, trigger, event, str(effect.get("source_target", "event_source"))):
 					for s_lane_id in summon_lane_ids:
@@ -238,6 +248,9 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						var sfe_active_lane: String = s_lane_id
 						for _sfe_i in range(sfe_count):
 							var generated_card := MatchMutations.build_generated_card(match_state, player_id, sfe_template)
+							var sfe_trigger_src := str(trigger.get("source_instance_id", ""))
+							if not sfe_trigger_src.is_empty():
+								generated_card["_spawned_by_instance_id"] = sfe_trigger_src
 							var summon_result := MatchMutations.summon_card_to_lane(match_state, player_id, generated_card, sfe_active_lane, {
 								"slot_index": int(effect.get("slot_index", -1)),
 								"source_zone": MatchMutations.ZONE_GENERATED,

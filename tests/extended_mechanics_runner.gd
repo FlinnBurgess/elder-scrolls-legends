@@ -107,7 +107,9 @@ func _run_all_tests() -> bool:
 		_test_magicka_aura_visible_to_aura_conditions() and
 		_test_grant_keyword_to_all_copies_spreads_to_hand_and_deck() and
 		_test_haskill_random_cost_trigger_draws_on_match() and
-		_test_haskill_random_cost_trigger_no_draw_on_mismatch()
+		_test_haskill_random_cost_trigger_no_draw_on_mismatch() and
+		_test_shuffle_into_deck_respects_count() and
+		_test_on_friendly_summon_copy_no_infinite_loop()
 	)
 
 
@@ -4041,6 +4043,51 @@ func _test_haskill_random_cost_trigger_no_draw_on_mismatch() -> bool:
 	return (
 		_assert(hand_after == hand_before - 1, "Playing a card NOT matching Haskill's cost should NOT draw (hand size: %d -> %d, expected %d)." % [hand_before, hand_after, hand_before - 1]) and
 		_assert(int(haskill.get("active_cost_trigger", -1)) == chosen_cost, "Haskill's cost should NOT change when the played card doesn't match.")
+	)
+
+
+func _test_shuffle_into_deck_respects_count() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var deck_before: int = player.get("deck", []).size()
+	var token_template := {"definition_id": "t_lava_atronach", "name": "Lava Atronach", "card_type": "creature", "subtypes": ["Daedra", "Atronach"], "attributes": ["intelligence"], "cost": 7, "power": 8, "health": 8, "base_power": 8, "base_health": 8, "keywords": ["breakthrough", "guard", "ward"]}
+	var summoner := ScenarioFixtures.add_hand_card(player, "sid_count_summoner", {
+		"card_type": "creature", "cost": 0, "power": 3, "health": 3,
+		"triggered_abilities": [{"family": "summon", "effects": [{"op": "shuffle_into_deck", "card_template": token_template, "count": 3}]}],
+	})
+	var summon_result := LaneRules.summon_from_hand(match_state, pid, str(summoner.get("instance_id", "")), "field")
+	if not _assert(bool(summon_result.get("is_valid", false)), "Summoner should summon successfully."):
+		return false
+	var deck_after: int = player.get("deck", []).size()
+	var added: int = deck_after - deck_before
+	return _assert(added == 3, "shuffle_into_deck with count:3 should add 3 cards to deck, got %d." % added)
+
+
+func _test_on_friendly_summon_copy_no_infinite_loop() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Place a creature with on_friendly_summon: summon copy_of event_summoned_creature in other lane
+	# (like Conjuration Tutor's second ability)
+	ScenarioFixtures.summon_creature(player, match_state, "copy_summoner", "field", 3, 3, [], -1, {
+		"triggered_abilities": [{"family": "on_friendly_summon", "required_zone": "lane", "required_summon_subtype": "Atronach", "effects": [{"op": "summon_from_effect", "lane": "other", "copy_of": "event_summoned_creature"}]}],
+	})
+	# Now summon an Atronach from hand — should create 1 copy, not infinite
+	var atronach := ScenarioFixtures.add_hand_card(player, "test_atronach", {
+		"card_type": "creature", "cost": 0, "power": 5, "health": 5,
+		"subtypes": ["Daedra", "Atronach"],
+	})
+	var summon_result := LaneRules.summon_from_hand(match_state, pid, str(atronach.get("instance_id", "")), "field")
+	if not _assert(bool(summon_result.get("is_valid", false)), "Atronach should summon successfully."):
+		return false
+	# Original Atronach in field + copy_summoner in field = 2 field creatures
+	var field_count := _lane_creatures(match_state, "field", pid).size()
+	# Copy should be in shadow lane = 1 shadow creature
+	var shadow_count := _lane_creatures(match_state, "shadow", pid).size()
+	return (
+		_assert(field_count == 2, "Field should have copy_summoner + atronach = 2, got %d." % field_count) and
+		_assert(shadow_count == 1, "Shadow should have 1 copy (no infinite loop), got %d." % shadow_count)
 	)
 
 

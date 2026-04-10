@@ -251,7 +251,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				for bdp_id in bdp_ids:
 					var bdp_result := MatchMutations.banish_card(match_state, bdp_id, {"reason": reason})
 					generated_events.append_array(bdp_result.get("events", []))
-		"steal_from_discard", "draw_from_opponent_discard":
+		"steal_from_discard":
 			var sfd_controller_id := str(trigger.get("controller_player_id", ""))
 			var sfd_opponent_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), sfd_controller_id)
 			var sfd_opponent := MatchTimingHelpers._get_player_state(match_state, sfd_opponent_id)
@@ -281,6 +281,66 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 							"from_player_id": sfd_opponent_id,
 							"to_player_id": sfd_controller_id,
 						})
+		"_steal_specific_from_opponent_discard":
+			var ssod_controller_id := str(trigger.get("controller_player_id", ""))
+			var ssod_opponent_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), ssod_controller_id)
+			var ssod_opponent := MatchTimingHelpers._get_player_state(match_state, ssod_opponent_id)
+			var ssod_controller := MatchTimingHelpers._get_player_state(match_state, ssod_controller_id)
+			var ssod_target_id := str(effect.get("instance_id", ""))
+			if not ssod_opponent.is_empty() and not ssod_controller.is_empty() and not ssod_target_id.is_empty():
+				var ssod_discard: Array = ssod_opponent.get(ZONE_DISCARD, [])
+				var ssod_stolen: Dictionary = {}
+				for ssod_card in ssod_discard:
+					if str(ssod_card.get("instance_id", "")) == ssod_target_id:
+						ssod_stolen = ssod_card
+						break
+				if not ssod_stolen.is_empty():
+					ssod_discard.erase(ssod_stolen)
+					MatchMutations.restore_definition_state(ssod_stolen)
+					ssod_stolen["zone"] = ZONE_HAND
+					ssod_stolen["controller_player_id"] = ssod_controller_id
+					ssod_stolen["owner_player_id"] = ssod_controller_id
+					ssod_controller.get(ZONE_HAND, []).append(ssod_stolen)
+					generated_events.append({
+						"event_type": "card_stolen_from_discard",
+						"source_instance_id": str(trigger.get("source_instance_id", "")),
+						"stolen_instance_id": ssod_target_id,
+						"from_player_id": ssod_opponent_id,
+						"to_player_id": ssod_controller_id,
+					})
+		"draw_from_opponent_discard":
+			var dfod_controller_id := str(trigger.get("controller_player_id", ""))
+			var dfod_opponent_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), dfod_controller_id)
+			var dfod_opponent := MatchTimingHelpers._get_player_state(match_state, dfod_opponent_id)
+			var dfod_controller := MatchTimingHelpers._get_player_state(match_state, dfod_controller_id)
+			if not dfod_opponent.is_empty() and not dfod_controller.is_empty():
+				var dfod_discard: Array = dfod_opponent.get(ZONE_DISCARD, [])
+				if not dfod_discard.is_empty():
+					var dfod_filter := str(effect.get("filter_card_type", ""))
+					var dfod_candidates: Array = []
+					for dfod_card in dfod_discard:
+						if dfod_filter.is_empty() or str(dfod_card.get("card_type", "")) == dfod_filter:
+							dfod_candidates.append(dfod_card)
+					if not dfod_candidates.is_empty():
+						var dfod_source_id := str(trigger.get("source_instance_id", ""))
+						var dfod_options: Array = []
+						var dfod_effects: Array = []
+						for dfod_card in dfod_candidates:
+							dfod_options.append({"label": str(dfod_card.get("name", "")), "card": dfod_card.duplicate(true), "_instance_id": str(dfod_card.get("instance_id", ""))})
+							dfod_effects.append([{"op": "_steal_specific_from_opponent_discard", "instance_id": str(dfod_card.get("instance_id", ""))}])
+						var dfod_pending: Array = match_state.get("pending_player_choices", [])
+						dfod_pending.append({
+							"player_id": dfod_controller_id,
+							"source_instance_id": dfod_source_id,
+							"prompt": "Choose a card to steal from opponent's discard:",
+							"mode": "card",
+							"layout": "grid",
+							"options": dfod_options,
+							"effects_per_option": dfod_effects,
+							"trigger": trigger.duplicate(true),
+							"event": event.duplicate(true),
+						})
+						generated_events.append({"event_type": "player_choice_pending", "player_id": dfod_controller_id})
 		"banish_from_opponent_deck":
 			var bfod_controller_id := str(trigger.get("controller_player_id", ""))
 			var bfod_opponent_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), bfod_controller_id)
@@ -339,17 +399,19 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						generated_events.append_array(bbnfo_result.get("events", []))
 		"shuffle_into_deck":
 			var sid_template: Dictionary = effect.get("card_template", {})
+			var sid_count := int(effect.get("count", 1))
 			if not sid_template.is_empty():
 				for player_id in MatchTargeting._resolve_player_targets(match_state, trigger, event, effect):
-					var sid_card := MatchMutations.build_generated_card(match_state, player_id, sid_template)
 					var sid_player := MatchTimingHelpers._get_player_state(match_state, player_id)
 					if sid_player.is_empty():
 						return
 					var sid_deck: Array = sid_player.get(ZONE_DECK, [])
-					sid_card["zone"] = ZONE_DECK
-					var sid_pos := MatchEffectParams._deterministic_index(match_state, str(sid_card.get("instance_id", "")), sid_deck.size() + 1)
-					sid_deck.insert(sid_pos, sid_card)
-					generated_events.append({"event_type": "card_shuffled_to_deck", "player_id": player_id, "source_instance_id": str(trigger.get("source_instance_id", "")), "inserted_instance_id": str(sid_card.get("instance_id", "")), "reason": reason})
+					for _sid_i in range(sid_count):
+						var sid_card := MatchMutations.build_generated_card(match_state, player_id, sid_template)
+						sid_card["zone"] = ZONE_DECK
+						var sid_pos := MatchEffectParams._deterministic_index(match_state, str(sid_card.get("instance_id", "")), sid_deck.size() + 1)
+						sid_deck.insert(sid_pos, sid_card)
+						generated_events.append({"event_type": "card_shuffled_to_deck", "player_id": player_id, "source_instance_id": str(trigger.get("source_instance_id", "")), "inserted_instance_id": str(sid_card.get("instance_id", "")), "reason": reason})
 		"shuffle_copies_to_deck":
 			var sctd_count := int(effect.get("count", 1))
 			var sctd_cost_override: Variant = effect.get("cost_override", null)

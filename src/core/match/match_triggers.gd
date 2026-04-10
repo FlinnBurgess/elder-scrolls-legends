@@ -774,6 +774,13 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 		var event_source_id := str(event.get("source_instance_id", event.get("subject_instance_id", "")))
 		if event_source_id == str(trigger.get("source_instance_id", "")):
 			return false
+	# Prevent infinite summon loops: if the summoned creature was spawned by this trigger's source, skip
+	if str(event.get("event_type", "")) == "creature_summoned":
+		var _spawned_check_id := str(event.get("source_instance_id", ""))
+		if not _spawned_check_id.is_empty():
+			var _spawned_card := MatchTimingHelpers._find_card_anywhere(match_state, _spawned_check_id)
+			if not _spawned_card.is_empty() and str(_spawned_card.get("_spawned_by_instance_id", "")) == str(trigger.get("source_instance_id", "")):
+				return false
 	if bool(descriptor.get("require_same_lane", false)):
 		var trigger_lane_index := int(trigger.get("lane_index", -1))
 		var event_lane_id := str(event.get("lane_id", ""))
