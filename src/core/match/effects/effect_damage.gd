@@ -663,21 +663,28 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 		"destroy_front_rune_and_steal_draw":
 			var dfrsd_controller_id := str(trigger.get("controller_player_id", ""))
 			var dfrsd_opponent_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), dfrsd_controller_id)
+			var dfrsd_source_id := str(trigger.get("source_instance_id", ""))
+			# Destroy front rune — sets opponent HP to threshold (or 0 if no runes)
+			var dfrsd_rune_result: Dictionary = _MT().destroy_front_rune(match_state, dfrsd_opponent_id, {
+				"source_instance_id": dfrsd_source_id,
+				"source_controller_player_id": dfrsd_controller_id,
+				"causing_player_id": dfrsd_controller_id,
+			})
+			generated_events.append_array(dfrsd_rune_result.get("events", []))
+			if bool(dfrsd_rune_result.get("player_lost", false)):
+				return
+			# Steal top card from opponent's deck into controller's hand
 			var dfrsd_opponent := MatchTimingHelpers._get_player_state(match_state, dfrsd_opponent_id)
-			if not dfrsd_opponent.is_empty():
-				var dfrsd_thresholds: Array = dfrsd_opponent.get("rune_thresholds", [])
-				if not dfrsd_thresholds.is_empty():
-					var dfrsd_front: int = int(dfrsd_thresholds[0])
-					dfrsd_thresholds.erase(dfrsd_front)
-					generated_events.append({"event_type": EVENT_RUNE_BROKEN, "player_id": dfrsd_opponent_id, "threshold": dfrsd_front, "source_instance_id": str(trigger.get("source_instance_id", ""))})
-				# Draw from opponent's deck to controller's hand
-				var dfrsd_opp_deck: Array = dfrsd_opponent.get(ZONE_DECK, [])
-				if not dfrsd_opp_deck.is_empty():
-					var dfrsd_stolen: Dictionary = dfrsd_opp_deck.pop_back()
-					dfrsd_stolen["zone"] = ZONE_HAND
-					dfrsd_stolen["controller_player_id"] = dfrsd_controller_id
-					dfrsd_stolen["owner_player_id"] = dfrsd_controller_id
-					var dfrsd_controller := MatchTimingHelpers._get_player_state(match_state, dfrsd_controller_id)
-					if not dfrsd_controller.is_empty():
-						dfrsd_controller.get(ZONE_HAND, []).append(dfrsd_stolen)
-						generated_events.append({"event_type": "card_stolen_from_discard", "source_instance_id": str(trigger.get("source_instance_id", "")), "stolen_instance_id": str(dfrsd_stolen.get("instance_id", "")), "from_player_id": dfrsd_opponent_id, "to_player_id": dfrsd_controller_id})
+			var dfrsd_opp_deck: Array = dfrsd_opponent.get(ZONE_DECK, [])
+			if not dfrsd_opp_deck.is_empty():
+				var dfrsd_stolen: Dictionary = dfrsd_opp_deck.pop_back()
+				dfrsd_stolen["zone"] = ZONE_HAND
+				dfrsd_stolen["controller_player_id"] = dfrsd_controller_id
+				dfrsd_stolen["owner_player_id"] = dfrsd_controller_id
+				var dfrsd_controller := MatchTimingHelpers._get_player_state(match_state, dfrsd_controller_id)
+				if not dfrsd_controller.is_empty():
+					dfrsd_controller.get(ZONE_HAND, []).append(dfrsd_stolen)
+					generated_events.append({"event_type": "card_stolen_from_discard", "source_instance_id": dfrsd_source_id, "stolen_instance_id": str(dfrsd_stolen.get("instance_id", "")), "from_player_id": dfrsd_opponent_id, "to_player_id": dfrsd_controller_id})
+					# If the stolen card is a Prophecy, offer it to the controller for free play
+					if _MT()._can_open_prophecy_window(match_state, dfrsd_controller_id, dfrsd_stolen):
+						generated_events.append(_MT()._open_prophecy_window(match_state, dfrsd_controller_id, dfrsd_stolen, {"source_instance_id": dfrsd_source_id}))

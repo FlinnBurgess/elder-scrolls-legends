@@ -90,7 +90,10 @@ func _run_all_tests() -> bool:
 		_test_summon_from_discard_exact_cost_filter() and
 		_test_monster_perfection_lab_equips_item_from_deck() and
 		_test_monster_perfection_lab_no_trigger_without_3_items() and
-		_test_monster_perfection_lab_decline_keeps_lab()
+		_test_monster_perfection_lab_decline_keeps_lab() and
+		_test_ultimate_heist_drops_hp_to_rune_threshold() and
+		_test_ultimate_heist_stolen_prophecy_opens_window() and
+		_test_ultimate_heist_no_runes_kills_opponent()
 	)
 
 
@@ -3561,6 +3564,78 @@ func _test_monster_perfection_lab_decline_keeps_lab() -> bool:
 		_assert(str(lab_card.get("zone", "")) == "support", "Lab should remain in support zone after decline, got: %s." % str(lab_card.get("zone", ""))) and
 		_assert(deck_after.size() == 1, "Deck should be untouched after decline, got %d." % deck_after.size()) and
 		_assert(creature.get("attached_items", []).size() == 3, "Creature should still have 3 items after decline, got %d." % creature.get("attached_items", []).size())
+	)
+
+
+func _make_heist_action(player_state: Dictionary) -> Dictionary:
+	return ScenarioFixtures.add_hand_card(player_state, "the_ultimate_heist", {
+		"card_type": "action",
+		"cost": 0,
+		"triggered_abilities": [{"family": "on_play", "effects": [{"op": "destroy_front_rune_and_steal_draw"}]}],
+	})
+
+
+func _test_ultimate_heist_drops_hp_to_rune_threshold() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	opponent["health"] = 30
+	opponent["rune_thresholds"] = [25, 20, 15, 10, 5]
+	# Add a non-prophecy card to opponent's deck so the draw doesn't open a prophecy window
+	var deck_card := ScenarioFixtures.make_card(oid, "filler", {"zone": "deck", "card_type": "creature", "cost": 1, "power": 1, "health": 1})
+	opponent.get("deck", []).append(deck_card)
+	var heist := _make_heist_action(player)
+	var play_result := MatchTiming.play_action_from_hand(match_state, pid, str(heist.get("instance_id", "")))
+	return (
+		_assert(bool(play_result.get("is_valid", false)), "Ultimate Heist: play should be valid.") and
+		_assert(int(opponent.get("health", -1)) == 25, "Ultimate Heist: opponent HP should drop to 25, got %d." % int(opponent.get("health", -1))) and
+		_assert(opponent.get("rune_thresholds", []).size() == 4, "Ultimate Heist: opponent should have 4 runes left, got %d." % opponent.get("rune_thresholds", []).size())
+	)
+
+
+func _test_ultimate_heist_stolen_prophecy_opens_window() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	opponent["health"] = 30
+	opponent["rune_thresholds"] = [25, 20, 15, 10, 5]
+	# Add a prophecy card to opponent's deck (top = last element)
+	var prophecy_card := ScenarioFixtures.make_card(oid, "stolen_prophecy", {"zone": "deck", "card_type": "action", "cost": 4, "rules_tags": ["prophecy"]})
+	opponent.get("deck", []).append(prophecy_card)
+	var heist := _make_heist_action(player)
+	var play_result := MatchTiming.play_action_from_hand(match_state, pid, str(heist.get("instance_id", "")))
+	if not _assert(bool(play_result.get("is_valid", false)), "Ultimate Heist prophecy: play should be valid."):
+		return false
+	# The stolen prophecy should be in the controller's hand
+	var found_in_hand := false
+	for card in player.get("hand", []):
+		if str(card.get("instance_id", "")) == str(prophecy_card.get("instance_id", "")):
+			found_in_hand = true
+			break
+	return (
+		_assert(found_in_hand, "Ultimate Heist prophecy: stolen card should be in controller's hand.") and
+		_assert(MatchTiming.has_pending_prophecy(match_state, pid), "Ultimate Heist prophecy: should open a prophecy window for the controller.")
+	)
+
+
+func _test_ultimate_heist_no_runes_kills_opponent() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	opponent["health"] = 30
+	opponent["rune_thresholds"] = []
+	var heist := _make_heist_action(player)
+	var play_result := MatchTiming.play_action_from_hand(match_state, pid, str(heist.get("instance_id", "")))
+	return (
+		_assert(bool(play_result.get("is_valid", false)), "Ultimate Heist no runes: play should be valid.") and
+		_assert(int(opponent.get("health", -1)) == 0, "Ultimate Heist no runes: opponent HP should be 0, got %d." % int(opponent.get("health", -1))) and
+		_assert(str(match_state.get("winner_player_id", "")) == pid, "Ultimate Heist no runes: controller should win the match.")
 	)
 
 
