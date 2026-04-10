@@ -118,31 +118,54 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 		"sacrifice_and_summon_from_deck":
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				var sasd_controller_id := str(card.get("controller_player_id", ""))
-				var sasd_cost := int(card.get("cost", 0))
-				var sasd_target_cost := sasd_cost + int(effect.get("cost_offset", 1))
 				var sasd_location := MatchMutations.find_card_location(match_state, str(card.get("instance_id", "")))
 				var sasd_lane_id := str(sasd_location.get("lane_id", ""))
+				# Resolve escalating target cost from the source card (e.g. Altar of Despair)
+				var sasd_source_id := str(trigger.get("source_instance_id", ""))
+				var sasd_source := MatchTimingHelpers._find_card_anywhere(match_state, sasd_source_id)
+				var sasd_esc_key := str(effect.get("escalating_filter_key", ""))
+				var sasd_esc_start := int(effect.get("escalating_start", 1))
+				var sasd_esc_increment := int(effect.get("escalating_increment", 1))
+				var sasd_target_cost: int
+				if not sasd_esc_key.is_empty() and not sasd_source.is_empty():
+					var sasd_esc_state_key := "_escalating_" + sasd_esc_key
+					sasd_target_cost = int(sasd_source.get(sasd_esc_state_key, sasd_esc_start))
+				else:
+					sasd_target_cost = int(card.get("cost", 0)) + int(effect.get("cost_offset", 1))
+				# Sacrifice the chosen creature
 				var sasd_sac := MatchMutations.sacrifice_card(match_state, sasd_controller_id, str(card.get("instance_id", "")), {"reason": reason})
 				generated_events.append_array(sasd_sac.get("events", []))
 				generated_events.append({"event_type": EVENT_CREATURE_DESTROYED, "instance_id": str(card.get("instance_id", "")), "controller_player_id": sasd_controller_id, "lane_id": sasd_lane_id})
 				var sasd_player := MatchTimingHelpers._get_player_state(match_state, sasd_controller_id)
-				if not sasd_player.is_empty():
+				if not sasd_player.is_empty() and not sasd_lane_id.is_empty():
 					var sasd_deck: Array = sasd_player.get(ZONE_DECK, [])
 					var sasd_candidates: Array = []
 					for sasd_card in sasd_deck:
 						if str(sasd_card.get("card_type", "")) == CARD_TYPE_CREATURE and int(sasd_card.get("cost", 0)) == sasd_target_cost:
 							sasd_candidates.append(sasd_card)
+					var sasd_summon_target: Dictionary
 					if not sasd_candidates.is_empty():
-						var sasd_idx := MatchEffectParams._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_sac_summon", sasd_candidates.size())
-						var sasd_summon_target: Dictionary = sasd_candidates[sasd_idx]
+						var sasd_idx := MatchEffectParams._deterministic_index(match_state, sasd_source_id + "_sac_summon", sasd_candidates.size())
+						sasd_summon_target = sasd_candidates[sasd_idx]
 						sasd_deck.erase(sasd_summon_target)
 						sasd_summon_target.erase("zone")
-						if not sasd_lane_id.is_empty():
-							var sasd_result := MatchMutations.summon_card_to_lane(match_state, sasd_controller_id, sasd_summon_target, sasd_lane_id, {"source_zone": ZONE_DECK})
-							if bool(sasd_result.get("is_valid", false)):
-								generated_events.append_array(sasd_result.get("events", []))
-								generated_events.append(MatchSummonTiming._build_summon_event(sasd_result["card"], sasd_controller_id, sasd_lane_id, int(sasd_result.get("slot_index", -1)), reason))
-								_MT()._check_summon_abilities(match_state, sasd_result["card"])
+					else:
+						# No matching creature — generate a Sweet Roll
+						var sasd_sweet_template := {"definition_id": "neu_sweet_roll", "name": "Sweet Roll", "card_type": "creature", "subtypes": ["Pastry"], "attributes": ["neutral"], "cost": 1, "power": 0, "health": 1, "base_power": 0, "base_health": 1, "rules_text": "There were no creatures to fetch, so we gave you this Sweet Roll. If a creature eats it, heal them.", "triggered_abilities": [{"family": "last_gasp", "effects": [{"op": "restore_creature_health", "target": "event_killer"}]}]}
+						sasd_summon_target = MatchMutations.build_generated_card(match_state, sasd_controller_id, sasd_sweet_template)
+					var sasd_result := MatchMutations.summon_card_to_lane(match_state, sasd_controller_id, sasd_summon_target, sasd_lane_id, {"source_zone": ZONE_DECK})
+					if bool(sasd_result.get("is_valid", false)):
+						generated_events.append_array(sasd_result.get("events", []))
+						generated_events.append(MatchSummonTiming._build_summon_event(sasd_result["card"], sasd_controller_id, sasd_lane_id, int(sasd_result.get("slot_index", -1)), reason))
+						_MT()._check_summon_abilities(match_state, sasd_result["card"])
+				# Increment the escalating counter and update rules_text
+				if not sasd_esc_key.is_empty() and not sasd_source.is_empty():
+					var sasd_esc_state_key := "_escalating_" + sasd_esc_key
+					var sasd_next_cost := sasd_target_cost + sasd_esc_increment
+					sasd_source[sasd_esc_state_key] = sasd_next_cost
+					var sasd_rules_tpl := str(effect.get("rules_text_template", ""))
+					if not sasd_rules_tpl.is_empty():
+						sasd_source["rules_text"] = sasd_rules_tpl.replace("{cost}", str(sasd_next_cost))
 		"sacrifice_and_equip_from_deck":
 			# Queue a cancellable targeting phase — player picks a creature with 3+ items
 			var saed_controller_id := str(trigger.get("controller_player_id", ""))

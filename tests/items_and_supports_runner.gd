@@ -35,7 +35,9 @@ func _run_all_tests() -> bool:
 		_test_support_on_play_target_mode_queues_pending_target() and
 		_test_support_on_play_target_grants_crowned_status() and
 		_test_crowned_creatures_receive_end_of_turn_buff() and
-		_test_auto_crown_skips_when_crowned_creature_exists()
+		_test_auto_crown_skips_when_crowned_creature_exists() and
+		_test_altar_of_despair_escalating_cost() and
+		_test_altar_of_despair_sweet_roll_fallback()
 	)
 
 
@@ -567,6 +569,112 @@ func _test_auto_crown_skips_when_crowned_creature_exists() -> bool:
 	var second_card := _find_lane_card(match_state, "field", pid, "second_unique")
 	var markers = second_card.get("status_markers", [])
 	return _assert(typeof(markers) != TYPE_ARRAY or not markers.has("crowned"), "Auto-crown: second unique should NOT get crowned when a crowned creature already exists.")
+
+
+func _test_altar_of_despair_escalating_cost() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player["player_id"])
+	# Add creatures to deck at costs 1, 2, 3
+	var deck: Array = player["deck"]
+	deck.clear()
+	for cost_val in [1, 2, 3]:
+		deck.append({
+			"instance_id": "%s_deck_c%d" % [pid, cost_val],
+			"definition_id": "test_creature_%d" % cost_val,
+			"name": "Test Creature %d" % cost_val,
+			"card_type": "creature",
+			"cost": cost_val,
+			"power": cost_val,
+			"health": cost_val,
+			"base_power": cost_val,
+			"base_health": cost_val,
+			"keywords": [],
+			"triggered_abilities": [],
+			"owner_player_id": pid,
+			"controller_player_id": pid,
+			"zone": "deck",
+		})
+	# Add the altar as a support
+	var altar := _add_hand_card(player, "altar_of_despair_test", {
+		"card_type": "support",
+		"cost": 0,
+		"support_uses": 12,
+		"effect_ids": ["activate"],
+		"triggered_abilities": [{"family": "activate", "target_mode": "friendly_creature", "effects": [{"op": "sacrifice_and_summon_from_deck", "target": "chosen_target", "filter": {"card_type": "creature"}, "escalating_filter_key": "altar_cost", "escalating_filter_field": "cost", "escalating_increment": 1, "escalating_start": 1, "rules_text_template": "Uses: 12\nActivate: Sacrifice a creature to summon a creature from your deck that costs {cost}, then increase the cost of creatures this summons by 1."}]}],
+	})
+	var altar_id := str(altar["instance_id"])
+	PersistentCardRules.play_support_from_hand(match_state, pid, altar_id)
+	# Place 3 sacrifice fodder creatures in the field lane
+	var fodder_ids: Array = []
+	for i in range(3):
+		var fodder := _summon_creature(player, match_state, "fodder_%d" % i, "field", 1, 1, i)
+		fodder_ids.append(str(fodder["instance_id"]))
+	# Activate altar 3 times, each time selecting a fodder creature
+	var summoned_costs: Array = []
+	for i in range(3):
+		var result := PersistentCardRules.activate_support(match_state, pid, altar_id, {"target_instance_id": fodder_ids[i]})
+		if not _assert(bool(result.get("is_valid", false)), "Altar activation %d should be valid." % (i + 1)):
+			return false
+		# Reset activation count for next use in same turn
+		var altar_card := _find_support(player, altar_id)
+		altar_card["activations_this_turn"] = 0
+	# Check that the summoned creatures match escalating costs
+	var field_lane: Dictionary = {}
+	for lane in match_state.get("lanes", []):
+		if str(lane.get("lane_id", "")) == "field":
+			field_lane = lane
+			break
+	var player_slots: Array = field_lane.get("player_slots", {}).get(pid, [])
+	for slot_card in player_slots:
+		if typeof(slot_card) == TYPE_DICTIONARY and str(slot_card.get("definition_id", "")).begins_with("test_creature_"):
+			summoned_costs.append(int(slot_card.get("cost", 0)))
+	summoned_costs.sort()
+	return (
+		_assert(summoned_costs.size() == 3, "Altar: should summon 3 creatures, got %d." % summoned_costs.size()) and
+		_assert(summoned_costs == [1, 2, 3], "Altar: escalating costs should be [1, 2, 3], got %s." % str(summoned_costs))
+	)
+
+
+func _test_altar_of_despair_sweet_roll_fallback() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player["player_id"])
+	# Empty deck — no creatures to summon
+	player["deck"].clear()
+	# Add the altar as a support
+	var altar := _add_hand_card(player, "altar_sweet_roll_test", {
+		"card_type": "support",
+		"cost": 0,
+		"support_uses": 12,
+		"effect_ids": ["activate"],
+		"triggered_abilities": [{"family": "activate", "target_mode": "friendly_creature", "effects": [{"op": "sacrifice_and_summon_from_deck", "target": "chosen_target", "filter": {"card_type": "creature"}, "escalating_filter_key": "altar_cost", "escalating_filter_field": "cost", "escalating_increment": 1, "escalating_start": 1}]}],
+	})
+	var altar_id := str(altar["instance_id"])
+	PersistentCardRules.play_support_from_hand(match_state, pid, altar_id)
+	# Place a single fodder creature
+	var fodder := _summon_creature(player, match_state, "sweet_roll_fodder", "field", 1, 1, 0)
+	var fodder_id := str(fodder["instance_id"])
+	# Activate altar — should sacrifice and summon a Sweet Roll
+	var result := PersistentCardRules.activate_support(match_state, pid, altar_id, {"target_instance_id": fodder_id})
+	if not _assert(bool(result.get("is_valid", false)), "Altar sweet roll: activation should be valid."):
+		return false
+	# Check that a Sweet Roll was summoned in the field lane
+	var found_sweet_roll := false
+	for lane in match_state.get("lanes", []):
+		if str(lane.get("lane_id", "")) == "field":
+			for slot_card in lane.get("player_slots", {}).get(pid, []):
+				if typeof(slot_card) == TYPE_DICTIONARY and str(slot_card.get("definition_id", "")) == "neu_sweet_roll":
+					found_sweet_roll = true
+					break
+	return _assert(found_sweet_roll, "Altar: should summon a Sweet Roll when no matching creature in deck.")
+
+
+func _find_support(player: Dictionary, instance_id: String) -> Dictionary:
+	for card in player.get("support", []):
+		if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) == instance_id:
+			return card
+	return {}
 
 
 func _assert(condition: bool, message: String) -> bool:

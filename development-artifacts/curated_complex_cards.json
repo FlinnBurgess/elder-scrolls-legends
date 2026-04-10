@@ -1,17 +1,5 @@
 [
 	{
-		"card_id": "mhc_neu_altar_of_despair",
-		"name": "Altar of Despair",
-		"card_type": "support",
-		"cost": 6,
-		"attributes": [
-			"neutral"
-		],
-		"rules_text": "Uses: 12\nActivate: Sacrifice a creature to summon a creature from your deck that costs 1, then increase the cost of creatures this summons by 1.",
-		"stripped_text": "Uses: 12\nActivate: Sacrifice a creature to summon a creature from your deck that costs 1, then increase the cost of creatures this summons by 1.",
-		"complexity": 144
-	},
-	{
 		"card_id": "moe_agi_corinthe_brawler",
 		"name": "Corinthe Brawler",
 		"card_type": "creature",
