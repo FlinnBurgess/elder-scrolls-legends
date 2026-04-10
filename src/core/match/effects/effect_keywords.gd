@@ -107,7 +107,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					"keyword_id": pick,
 				})
 		"grant_keyword_to_all_copies":
-			var gktac_keyword := str(effect.get("keyword_id", ""))
+			var gktac_keyword := str(event.get("keyword_id", effect.get("keyword_id", "")))
 			var gktac_name := ""
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				gktac_name = str(card.get("name", ""))

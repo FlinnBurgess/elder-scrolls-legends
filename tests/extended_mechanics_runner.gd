@@ -102,7 +102,8 @@ func _run_all_tests() -> bool:
 		_test_conditional_drawn_card_bonus_sets_base_cost() and
 		_test_banish_by_name_from_opponent() and
 		_test_double_max_magicka_gain_works_on_first_gain() and
-		_test_magicka_aura_visible_to_aura_conditions()
+		_test_magicka_aura_visible_to_aura_conditions() and
+		_test_grant_keyword_to_all_copies_spreads_to_hand_and_deck()
 	)
 
 
@@ -2497,6 +2498,41 @@ func _test_guess_opponent_card_varies_per_instance() -> bool:
 		_assert(first_options.size() == 2, "First Caius should show exactly 2 options.") and
 		_assert(second_options.size() == 2, "Second Caius should show exactly 2 options.") and
 		_assert(labels_differ, "Different Caius instances should show different card pairs (got %s both times)." % [str(first_labels)])
+	)
+
+
+func _test_grant_keyword_to_all_copies_spreads_to_hand_and_deck() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var nereid_abilities := [
+		{"family": "summon", "effects": [{"op": "grant_random_keyword", "target": "self"}]},
+		{"family": "on_keyword_gained", "required_zone": "lane", "effects": [{"op": "grant_keyword_to_all_copies", "target": "self", "subtype": "Nereid"}]},
+	]
+	var sister_in_hand := ScenarioFixtures.add_hand_card(player, "nereid_sister_a", {
+		"card_type": "creature", "cost": 0, "power": 4, "health": 5, "name": "Nereid Sister",
+		"triggered_abilities": nereid_abilities,
+	})
+	var sister_in_hand_2 := ScenarioFixtures.add_hand_card(player, "nereid_sister_b", {
+		"card_type": "creature", "cost": 0, "power": 4, "health": 5, "name": "Nereid Sister",
+		"triggered_abilities": nereid_abilities,
+	})
+	var sister_in_deck := ScenarioFixtures.make_card(pid, "nereid_sister_c", {
+		"card_type": "creature", "cost": 0, "power": 4, "health": 5, "name": "Nereid Sister",
+		"triggered_abilities": nereid_abilities,
+	})
+	sister_in_deck["zone"] = "deck"
+	player["deck"].append(sister_in_deck)
+	LaneRules.summon_from_hand(match_state, pid, str(sister_in_hand.get("instance_id", "")), "field", {})
+	var summoned_keywords: Array = sister_in_hand.get("granted_keywords", [])
+	if not _assert(summoned_keywords.size() > 0, "Summoned Nereid Sister should gain a random keyword."):
+		return false
+	var granted_keyword: String = str(summoned_keywords[0])
+	var hand_keywords: Array = sister_in_hand_2.get("granted_keywords", [])
+	var deck_keywords: Array = sister_in_deck.get("granted_keywords", [])
+	return (
+		_assert(hand_keywords.has(granted_keyword), "Nereid Sister in hand should receive the granted keyword '%s' (got: %s)." % [granted_keyword, str(hand_keywords)]) and
+		_assert(deck_keywords.has(granted_keyword), "Nereid Sister in deck should receive the granted keyword '%s' (got: %s)." % [granted_keyword, str(deck_keywords)])
 	)
 
 

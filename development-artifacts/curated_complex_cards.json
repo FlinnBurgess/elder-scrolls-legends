@@ -1,29 +1,5 @@
 [
 	{
-		"card_id": "mc_end_pure_blood_elder",
-		"name": "Pure-Blood Elder",
-		"card_type": "creature",
-		"cost": 7,
-		"attributes": [
-			"endurance"
-		],
-		"rules_text": "When you gain max magicka, double the amount you gain.\nWhile you have 18 or more max magicka, Pure-Blood Elder has +8/+8 and Breakthrough.",
-		"stripped_text": "When you gain max magicka, double the amount you gain.\nWhile you have 18 or more max magicka, Pure-Blood Elder has +8/+8 and Breakthrough.",
-		"complexity": 138
-	},
-	{
-		"card_id": "aw_int_nereid_sister",
-		"name": "Nereid Sister",
-		"card_type": "creature",
-		"cost": 5,
-		"attributes": [
-			"intelligence"
-		],
-		"rules_text": "Summon: Gain a random Keyword.\nWhen Nereid Sister gains a Keyword, give all friendly Nereid Sisters in play, hand, and deck that keyword.",
-		"stripped_text": "Summon: Gain a random Keyword.\nWhen Nereid Sister gains a Keyword, give all friendly Nereid Sisters in play, hand, and deck that keyword.",
-		"complexity": 137
-	},
-	{
 		"card_id": "iom_neu_haskill",
 		"name": "Haskill",
 		"card_type": "creature",

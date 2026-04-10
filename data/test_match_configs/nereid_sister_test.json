@@ -1,0 +1,49 @@
+{
+  "name": "Nereid Sister — Keyword Spread",
+  "description": "Test Nereid Sister's random keyword gain and keyword spreading to all Nereid copies",
+  "board_profile": "standard_versus",
+  "turn_number": 1,
+  "first_player": "player_1",
+  "player_1": {
+    "health": 30,
+    "max_magicka": 15,
+    "current_magicka": 15,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [
+      "aw_int_nereid_sister",
+      "aw_int_nereid_sister",
+      "aw_int_nereid_sister",
+      "int_farsight_nereid",
+      "int_fate_weaver"
+    ],
+    "deck": [
+      "aw_int_nereid_sister",
+      "int_farsight_nereid",
+      "int_elusive_schemer",
+      "int_elusive_schemer"
+    ],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [],
+    "shadow_creatures": []
+  },
+  "player_2": {
+    "health": 30,
+    "max_magicka": 1,
+    "current_magicka": 1,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [],
+    "deck": [
+      "hom_end_vvardvark",
+      "hom_end_vvardvark",
+      "hom_end_vvardvark"
+    ],
+    "discard": [],
+    "field_creatures": ["hom_end_vvardvark", "hom_end_vvardvark"],
+    "shadow_creatures": ["hom_end_vvardvark", "hom_end_vvardvark"]
+  }
+}
