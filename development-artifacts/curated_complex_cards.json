@@ -1,28 +1,5 @@
 [
 	{
-		"card_id": "db_end_gravesinger",
-		"card_type": "creature",
-		"cost": 10,
-		"attributes": [
-			"endurance"
-		],
-		"rules_text": "At the start of your turn, summon the highest cost creature from your discard pile and give it Charge. At the end of the turn, put it on the bottom of your deck.",
-		"stripped_text": "At the start of your turn, summon the highest cost creature from your discard pile and give it Charge. At the end of the turn, put it on the bottom of your deck.",
-		"complexity": 161
-	},
-	{
-		"card_id": "moe_str_flamespear_dragon",
-		"name": "Flamespear Dragon",
-		"card_type": "creature",
-		"cost": 4,
-		"attributes": [
-			"strength"
-		],
-		"rules_text": "When your opponent summons a creature, Flamespear Dragon aims at it. At the start of your turn, Flamespear Dragon deals 1 damage to the creature it's aiming at.",
-		"stripped_text": "When your opponent summons a creature, Flamespear Dragon aims at it. At the start of your turn, Flamespear Dragon deals 1 damage to the creature it's aiming at.",
-		"complexity": 160
-	},
-	{
 		"card_id": "iom_neu_gates_of_madness",
 		"name": "Gates of Madness",
 		"card_type": "support",

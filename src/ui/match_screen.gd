@@ -1501,9 +1501,11 @@ func _on_lane_card_mouse_entered(button: Button, instance_id: String) -> void:
 	var side := "player" if str(card.get("controller_player_id", "")) == _local_player_id() else "opponent"
 	_error_report_hovered_type = "card"
 	_error_report_hovered_context = "%s (in %s, %s side)" % [str(card.get("name", instance_id)), _lane_name(lane_id), side]
+	_hover._show_aim_line(instance_id)
 
 
 func _on_lane_card_mouse_exited(instance_id: String) -> void:
+	_hover._clear_aim_line()
 	if str(_hover._lane_hover_preview_pending.get("instance_id", "")) == instance_id:
 		_hover._lane_hover_preview_pending = {}
 	if _lane_hover_preview_instance_id == instance_id:

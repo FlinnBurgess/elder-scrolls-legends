@@ -4,6 +4,7 @@ extends RefCounted
 var _screen  # MatchScreen reference
 var _lane_hover_preview_pending := {}
 var _support_hover_preview_pending := {}
+var _aim_line_control: Control
 
 
 const PRESET_FULL_RECT = Control.PRESET_FULL_RECT
@@ -158,6 +159,7 @@ func _process_lane_card_hover_preview() -> void:
 
 
 func _clear_lane_card_hover_preview() -> void:
+	_clear_aim_line()
 	_lane_hover_preview_pending = {}
 	_screen._lane_hover_preview_instance_id = ""
 	_screen._lane_hover_preview_button_ref = null
@@ -223,3 +225,64 @@ func _on_support_card_mouse_exited(instance_id: String) -> void:
 	if _screen._error_report_hovered_type == "card":
 		_screen._error_report_hovered_type = ""
 		_screen._error_report_hovered_context = ""
+
+
+func _show_aim_line(source_instance_id: String) -> void:
+	_clear_aim_line()
+	var source_card: Dictionary = _screen._card_from_instance_id(source_instance_id)
+	var target_id := str(source_card.get("_aimed_at_instance_id", ""))
+	if target_id.is_empty():
+		return
+	var source_button: Button = _screen._card_buttons.get(source_instance_id) as Button
+	var target_button: Button = _screen._card_buttons.get(target_id) as Button
+	if source_button == null or target_button == null:
+		return
+	if not is_instance_valid(source_button) or not is_instance_valid(target_button):
+		return
+	if _screen._card_hover_preview_layer == null:
+		return
+	_aim_line_control = _AimLineDrawer.new(
+		_screen._card_hover_preview_layer,
+		source_button,
+		target_button
+	)
+	_aim_line_control.name = "aim_line"
+	_aim_line_control.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_aim_line_control.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	_screen._card_hover_preview_layer.add_child(_aim_line_control)
+
+
+func _clear_aim_line() -> void:
+	if _aim_line_control != null and is_instance_valid(_aim_line_control):
+		_aim_line_control.queue_free()
+	_aim_line_control = null
+
+
+class _AimLineDrawer extends Control:
+	var _layer: Control
+	var _source_button: Button
+	var _target_button: Button
+
+	func _init(layer: Control, source: Button, target: Button) -> void:
+		_layer = layer
+		_source_button = source
+		_target_button = target
+
+	func _process(_delta: float) -> void:
+		queue_redraw()
+
+	func _draw() -> void:
+		if not is_instance_valid(_source_button) or not is_instance_valid(_target_button):
+			return
+		if not is_instance_valid(_layer):
+			return
+		var layer_origin := _layer.get_global_rect().position
+		var source_center := _source_button.get_global_rect().get_center() - layer_origin
+		var target_center := _target_button.get_global_rect().get_center() - layer_origin
+		# Draw a glowing aim line
+		draw_line(source_center, target_center, Color(1.0, 0.3, 0.1, 0.25), 6.0, true)
+		draw_line(source_center, target_center, Color(1.0, 0.4, 0.15, 0.5), 3.0, true)
+		draw_line(source_center, target_center, Color(1.0, 0.6, 0.2, 0.8), 1.5, true)
+		# Draw a small circle at the target end
+		draw_circle(target_center, 6.0, Color(1.0, 0.3, 0.1, 0.5))
+		draw_circle(target_center, 3.0, Color(1.0, 0.6, 0.2, 0.9))
