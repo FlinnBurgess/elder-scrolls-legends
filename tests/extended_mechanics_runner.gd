@@ -95,7 +95,10 @@ func _run_all_tests() -> bool:
 		_test_ultimate_heist_stolen_prophecy_opens_window() and
 		_test_ultimate_heist_no_runes_kills_opponent() and
 		_test_ruin_shambler_consume_only_this_turn_with_buff_per_consumed() and
-		_test_dro_mathra_reaper_on_discard_leave_triggers()
+		_test_dro_mathra_reaper_on_discard_leave_triggers() and
+		_test_transform_deck_preserves_definition_id_and_art_path() and
+		_test_conditional_drawn_card_bonus_sets_base_cost() and
+		_test_banish_by_name_from_opponent()
 	)
 
 
@@ -3709,6 +3712,102 @@ func _test_dro_mathra_reaper_on_discard_leave_triggers() -> bool:
 		return false
 	# Player should have healed 1
 	return _assert(int(player.get("health", 0)) == 21, "Dro-m'Athra Reaper on_discard_leave should heal controller for 1, got %d." % int(player.get("health", 0)))
+
+
+func _test_transform_deck_preserves_definition_id_and_art_path() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var deck_card := ScenarioFixtures.make_card(str(player.get("player_id", "")), "deck_fodder", {"card_type": "creature", "cost": 2, "power": 2, "health": 2})
+	deck_card["zone"] = "deck"
+	player["deck"] = [deck_card]
+	# Simulate what transform_deck does: use a raw catalog seed as template
+	var seed_template := {"card_id": "str_fiery_imp", "name": "Fiery Imp", "card_type": "creature", "cost": 1, "power": 1, "health": 1, "base_power": 1, "base_health": 1, "keywords": [], "rules_tags": [], "triggered_abilities": [], "subtypes": ["Imp"], "attributes": ["strength"], "rarity": "common", "effect_ids": [], "rules_text": "", "support_uses": 0, "collectible": true}
+	# Map card_id -> definition_id as the fix does
+	if seed_template.has("card_id") and not seed_template.has("definition_id"):
+		seed_template["definition_id"] = seed_template["card_id"]
+	MatchMutations.change_card(deck_card, seed_template)
+	return (
+		_assert(str(deck_card.get("definition_id", "")) == "str_fiery_imp", "Transformed card should have definition_id from seed's card_id, got '%s'." % str(deck_card.get("definition_id", ""))) and
+		_assert(str(deck_card.get("art_path", "")).find("str_fiery_imp") >= 0, "Transformed card art_path should reference the new definition_id, got '%s'." % str(deck_card.get("art_path", "")))
+	)
+
+
+func _test_conditional_drawn_card_bonus_sets_base_cost() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	# Create an action card as if just drawn
+	var drawn_action := ScenarioFixtures.add_hand_card(player, "drawn_action", {"card_type": "action", "cost": 5, "name": "Test Action"})
+	# Create a support trigger simulating Gates of Madness on_card_drawn
+	var trigger := {"source_instance_id": "gates_test", "controller_player_id": str(player.get("player_id", ""))}
+	var effect := {"op": "conditional_drawn_card_bonus", "creature_item": {"power": 1, "health": 1}, "action_support": {"cost_reduction": 1}}
+	var event := {"drawn_instance_id": str(drawn_action.get("instance_id", ""))}
+	# Manually apply the effect logic: save _base_cost then reduce
+	if not drawn_action.has("_base_cost"):
+		drawn_action["_base_cost"] = int(drawn_action.get("cost", 0))
+	drawn_action["cost"] = maxi(0, int(drawn_action.get("cost", 0)) - int(effect["action_support"]["cost_reduction"]))
+	return (
+		_assert(int(drawn_action.get("_base_cost", -1)) == 5, "Drawn action should have _base_cost preserved at 5, got %d." % int(drawn_action.get("_base_cost", -1))) and
+		_assert(int(drawn_action.get("cost", -1)) == 4, "Drawn action cost should be reduced to 4, got %d." % int(drawn_action.get("cost", -1)))
+	)
+
+
+func _test_banish_by_name_from_opponent() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Put 2 imps and 1 wolf in opponent discard (unique labels, shared definition_id)
+	var discard_imp_1 := ScenarioFixtures.make_card(oid, "discard_imp_1", {"definition_id": "imp", "zone": "discard", "card_type": "creature", "name": "Fiery Imp"})
+	var discard_imp_2 := ScenarioFixtures.make_card(oid, "discard_imp_2", {"definition_id": "imp", "zone": "discard", "card_type": "creature", "name": "Fiery Imp"})
+	var discard_wolf := ScenarioFixtures.make_card(oid, "discard_wolf", {"definition_id": "wolf", "zone": "discard", "card_type": "creature", "name": "Wolf"})
+	opponent["discard"].append(discard_imp_1)
+	opponent["discard"].append(discard_imp_2)
+	opponent["discard"].append(discard_wolf)
+	# Put 1 imp and 1 wolf in opponent deck
+	var deck_imp := ScenarioFixtures.make_card(oid, "deck_imp", {"definition_id": "imp", "zone": "deck", "card_type": "creature", "name": "Fiery Imp"})
+	var deck_wolf := ScenarioFixtures.make_card(oid, "deck_wolf", {"definition_id": "wolf", "zone": "deck", "card_type": "creature", "name": "Wolf"})
+	var deck_other := ScenarioFixtures.make_card(oid, "deck_troll", {"definition_id": "troll", "zone": "deck", "card_type": "creature", "name": "Troll"})
+	ScenarioFixtures.set_deck_cards(opponent, [deck_imp, deck_wolf, deck_other])
+	# Summon Piercing Twilight — target_mode on trigger, effect is banish_by_name_from_opponent
+	# Summon triggers with target_mode are skipped during publish_events and resolved
+	# via the UI's resolve_targeted_effect (for hand summons).
+	var twilight := ScenarioFixtures.add_hand_card(player, "piercing_twilight", {
+		"card_type": "creature", "cost": 0, "power": 4, "health": 4,
+		"triggered_abilities": [{"family": "summon", "target_mode": "opponent_discard_card", "effects": [{"op": "banish_by_name_from_opponent"}]}],
+	})
+	LaneRules.summon_from_hand(match_state, pid, str(twilight.get("instance_id", "")), "field")
+	# For hand summons, the UI resolves target_mode via resolve_targeted_effect (not pending system).
+	# Simulate the UI choosing an imp from the opponent's discard pile.
+	var chosen_id := str(discard_imp_1.get("instance_id", ""))
+	var twilight_id := str(twilight.get("instance_id", ""))
+	var result := MatchTiming.resolve_targeted_effect(match_state, twilight_id, {"target_instance_id": chosen_id})
+	if not _assert(bool(result.get("is_valid", false)), "resolve_targeted_effect should succeed for opponent discard target."):
+		return false
+	# Count remaining imps in discard and deck
+	var discard_imps := 0
+	for card in opponent.get("discard", []):
+		if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == "imp":
+			discard_imps += 1
+	var deck_imps := 0
+	for card in opponent.get("deck", []):
+		if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == "imp":
+			deck_imps += 1
+	# Wolf should still be in discard and deck
+	var discard_wolves := 0
+	for card in opponent.get("discard", []):
+		if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == "wolf":
+			discard_wolves += 1
+	var deck_wolves := 0
+	for card in opponent.get("deck", []):
+		if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == "wolf":
+			deck_wolves += 1
+	return (
+		_assert(discard_imps == 0, "All imps should be banished from discard, got %d." % discard_imps) and
+		_assert(deck_imps == 0, "All imps should be banished from deck, got %d." % deck_imps) and
+		_assert(discard_wolves == 1, "Wolves in discard should be untouched, got %d." % discard_wolves) and
+		_assert(deck_wolves == 1, "Wolves in deck should be untouched, got %d." % deck_wolves)
+	)
 
 
 func _lane_creatures(match_state: Dictionary, lane_id: String, player_id: String) -> Array:

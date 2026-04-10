@@ -15,6 +15,7 @@ var _hand_selection_state := {}
 var _top_deck_choice_state := {}
 var _player_choice_overlay_state := {}
 var _deck_selection_overlay_state := {}
+var _opponent_discard_selection_state := {}
 var _pending_exalt := {}
 
 
@@ -899,6 +900,128 @@ func _dismiss_consume_selection_overlay() -> void:
 	if overlay != null and is_instance_valid(overlay):
 		overlay.queue_free()
 	_consume_selection_overlay_state = {}
+
+
+# --- Opponent discard selection overlay (Piercing Twilight etc.) ---
+
+
+func _show_opponent_discard_selection_overlay(valid_targets: Array) -> void:
+	_dismiss_opponent_discard_selection_overlay()
+	var local_id = _screen._local_player_id()
+	var opponent_id := ""
+	for player in _screen._match_state.get("players", []):
+		if typeof(player) == TYPE_DICTIONARY and str(player.get("player_id", "")) != local_id:
+			opponent_id = str(player.get("player_id", ""))
+			break
+	if opponent_id.is_empty():
+		return
+	var opponent: Dictionary = _screen._player_state(opponent_id)
+	if opponent.is_empty():
+		return
+	var discard_pile: Array = opponent.get("discard", [])
+	var valid_ids: Dictionary = {}
+	for t in valid_targets:
+		var tid := str(t.get("instance_id", ""))
+		if not tid.is_empty():
+			valid_ids[tid] = true
+	var candidate_cards: Array = []
+	for card in discard_pile:
+		if typeof(card) == TYPE_DICTIONARY and valid_ids.has(str(card.get("instance_id", ""))):
+			candidate_cards.append(card)
+	if candidate_cards.is_empty():
+		return
+
+	var overlay := Control.new()
+	overlay.name = "OpponentDiscardSelectionOverlay"
+	overlay.z_index = 470
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var bg := ColorRect.new()
+	bg.color = Color(0.07, 0.03, 0.1, 0.88)
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.add_child(bg)
+
+	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 40)
+	margin.add_theme_constant_override("margin_right", 40)
+	margin.add_theme_constant_override("margin_top", 30)
+	margin.add_theme_constant_override("margin_bottom", 30)
+	margin.mouse_filter = Control.MOUSE_FILTER_PASS
+	overlay.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_BEGIN
+	vbox.add_theme_constant_override("separation", 14)
+	vbox.mouse_filter = Control.MOUSE_FILTER_PASS
+	margin.add_child(vbox)
+
+	var title_label := Label.new()
+	title_label.text = "Choose a card to banish from opponent's discard pile"
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_label.add_theme_font_size_override("font_size", 24)
+	title_label.add_theme_color_override("font_color", Color(0.8, 0.6, 0.95, 1.0))
+	vbox.add_child(title_label)
+
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.mouse_filter = Control.MOUSE_FILTER_PASS
+	vbox.add_child(scroll)
+
+	var card_size = _screen.CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+	var grid := GridContainer.new()
+	grid.columns = maxi(1, int(_screen.get_viewport_rect().size.x - 120) / int(card_size.x + 10))
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.mouse_filter = Control.MOUSE_FILTER_PASS
+	scroll.add_child(grid)
+
+	for card in candidate_cards:
+		var instance_id := str(card.get("instance_id", ""))
+		var card_button := Button.new()
+		card_button.name = "OpponentDiscardChoice_%s" % instance_id
+		card_button.custom_minimum_size = card_size
+		var empty_style := StyleBoxEmpty.new()
+		card_button.add_theme_stylebox_override("normal", empty_style)
+		var hover_style := StyleBoxFlat.new()
+		hover_style.bg_color = Color(0.4, 0.2, 0.5, 0.6)
+		hover_style.corner_radius_top_left = 6
+		hover_style.corner_radius_top_right = 6
+		hover_style.corner_radius_bottom_left = 6
+		hover_style.corner_radius_bottom_right = 6
+		card_button.add_theme_stylebox_override("hover", hover_style)
+		card_button.add_theme_stylebox_override("pressed", empty_style)
+		card_button.add_theme_stylebox_override("focus", empty_style)
+
+		var component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+		component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		component.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		component.apply_card(card, _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+		card_button.add_child(component)
+
+		card_button.pressed.connect(_on_opponent_discard_card_chosen.bind(instance_id))
+		grid.add_child(card_button)
+
+	_screen.add_child(overlay)
+	_opponent_discard_selection_state = {"overlay": overlay}
+	_screen._status_message = "Choose a card to banish from opponent's discard pile"
+
+
+func _on_opponent_discard_card_chosen(instance_id: String) -> void:
+	_dismiss_opponent_discard_selection_overlay()
+	_screen._targeting._resolve_summon_target_card(instance_id)
+
+
+func _dismiss_opponent_discard_selection_overlay() -> void:
+	if _opponent_discard_selection_state.is_empty():
+		return
+	var overlay: Control = _opponent_discard_selection_state.get("overlay")
+	if overlay != null and is_instance_valid(overlay):
+		overlay.queue_free()
+	_opponent_discard_selection_state = {}
 
 
 # --- Player choice overlay ---

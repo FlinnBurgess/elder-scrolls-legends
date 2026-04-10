@@ -180,7 +180,10 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					for i in range(td_deck.size()):
 						var td_card: Dictionary = td_deck[i]
 						var td_idx := MatchEffectParams._deterministic_index(match_state, str(td_card.get("instance_id", "")) + "_transform_deck", td_collectible.size())
-						MatchMutations.change_card(td_card, td_collectible[td_idx])
+						var td_template: Dictionary = td_collectible[td_idx].duplicate(true)
+						if td_template.has("card_id") and not td_template.has("definition_id"):
+							td_template["definition_id"] = td_template["card_id"]
+						MatchMutations.change_card(td_card, td_template)
 					generated_events.append({"event_type": "deck_transformed", "source_instance_id": str(trigger.get("source_instance_id", "")), "player_id": td_controller_id, "count": td_deck.size()})
 		"change":
 			var change_template := MatchSummonTiming._resolve_effect_template(match_state, trigger, event, effect)

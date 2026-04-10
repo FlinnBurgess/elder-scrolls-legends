@@ -281,7 +281,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 							"from_player_id": sfd_opponent_id,
 							"to_player_id": sfd_controller_id,
 						})
-		"banish_from_opponent_deck", "banish_by_name_from_opponent":
+		"banish_from_opponent_deck":
 			var bfod_controller_id := str(trigger.get("controller_player_id", ""))
 			var bfod_opponent_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), bfod_controller_id)
 			var bfod_count := int(effect.get("count", 2))
@@ -310,6 +310,33 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					var bfod_result := MatchMutations.banish_card(match_state, bfod_id, {"reason": reason})
 					generated_events.append_array(bfod_result.get("events", []))
 					banished_count += 1
+		"banish_by_name_from_opponent":
+			var bbnfo_controller_id := str(trigger.get("controller_player_id", ""))
+			var bbnfo_opponent_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), bbnfo_controller_id)
+			var bbnfo_chosen_id := str(trigger.get("_chosen_target_id", ""))
+			var bbnfo_chosen := MatchTimingHelpers._find_card_anywhere(match_state, bbnfo_chosen_id) if not bbnfo_chosen_id.is_empty() else {}
+			var bbnfo_def_id := str(bbnfo_chosen.get("definition_id", "")) if not bbnfo_chosen.is_empty() else ""
+			if not bbnfo_def_id.is_empty():
+				var bbnfo_opponent := MatchTimingHelpers._get_player_state(match_state, bbnfo_opponent_id)
+				if not bbnfo_opponent.is_empty():
+					# Banish from discard pile
+					var bbnfo_discard: Array = bbnfo_opponent.get(ZONE_DISCARD, [])
+					var bbnfo_discard_ids: Array = []
+					for bbnfo_card in bbnfo_discard:
+						if typeof(bbnfo_card) == TYPE_DICTIONARY and str(bbnfo_card.get("definition_id", "")) == bbnfo_def_id:
+							bbnfo_discard_ids.append(str(bbnfo_card.get("instance_id", "")))
+					for bbnfo_id in bbnfo_discard_ids:
+						var bbnfo_result := MatchMutations.banish_card(match_state, bbnfo_id, {"reason": reason})
+						generated_events.append_array(bbnfo_result.get("events", []))
+					# Banish from deck
+					var bbnfo_deck: Array = bbnfo_opponent.get(ZONE_DECK, [])
+					var bbnfo_deck_ids: Array = []
+					for bbnfo_card in bbnfo_deck:
+						if typeof(bbnfo_card) == TYPE_DICTIONARY and str(bbnfo_card.get("definition_id", "")) == bbnfo_def_id:
+							bbnfo_deck_ids.append(str(bbnfo_card.get("instance_id", "")))
+					for bbnfo_id in bbnfo_deck_ids:
+						var bbnfo_result := MatchMutations.banish_card(match_state, bbnfo_id, {"reason": reason})
+						generated_events.append_array(bbnfo_result.get("events", []))
 		"shuffle_into_deck":
 			var sid_template: Dictionary = effect.get("card_template", {})
 			if not sid_template.is_empty():

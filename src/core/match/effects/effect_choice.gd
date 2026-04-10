@@ -167,6 +167,8 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					var cdcb_as: Dictionary = effect["action_support"]
 					var cdcb_reduction := int(cdcb_as.get("cost_reduction", 0))
 					if cdcb_reduction > 0:
+						if not cdcb_drawn.has("_base_cost"):
+							cdcb_drawn["_base_cost"] = int(cdcb_drawn.get("cost", 0))
 						cdcb_drawn["cost"] = maxi(0, int(cdcb_drawn.get("cost", 0)) - cdcb_reduction)
 						generated_events.append({"event_type": "cost_reduced", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": cdcb_drawn_id, "reduction": cdcb_reduction, "reason": reason})
 		"look_draw_discard":

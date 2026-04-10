@@ -1,29 +1,5 @@
 [
 	{
-		"card_id": "iom_neu_gates_of_madness",
-		"name": "Gates of Madness",
-		"card_type": "support",
-		"cost": 3,
-		"attributes": [
-			"neutral"
-		],
-		"rules_text": "Ongoing\nSummon: Transform your deck into random cards.\nWhen you draw a creature or item, give it +1/+1.\nWhen you draw an action or support, reduce its cost by 1.",
-		"stripped_text": "Summon: Transform your deck into random cards.\nWhen you draw a creature or item, give it +1/+1.\nWhen you draw an action or support, reduce its cost by 1.",
-		"complexity": 153
-	},
-	{
-		"card_id": "fsc_int_piercing_twilight",
-		"name": "Piercing Twilight",
-		"card_type": "creature",
-		"cost": 4,
-		"attributes": [
-			"intelligence"
-		],
-		"rules_text": "Guard\nSummon: Choose a card in your opponent's discard pile. Banish all cards from your opponent's discard pile and deck with the same name as the chosen card.",
-		"stripped_text": "Summon: Choose a card in your opponent's discard pile. Banish all cards from your opponent's discard pile and deck with the same name as the chosen card.",
-		"complexity": 153
-	},
-	{
 		"card_id": "tc_tri_enchanted_ring",
 		"name": "Enchanted Ring",
 		"card_type": "item",

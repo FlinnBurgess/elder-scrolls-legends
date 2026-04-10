@@ -300,6 +300,8 @@ func _cancel_targeting_mode_silent() -> void:
 
 
 func _check_summon_target_mode(source_instance_id: String) -> void:
+	if not _pending_summon_target.is_empty():
+		return  # Already handled by pending summon effect target path
 	var card = _screen._card_from_instance_id(source_instance_id)
 	if card.is_empty():
 		return
@@ -326,11 +328,20 @@ func _check_summon_target_mode(source_instance_id: String) -> void:
 	var valid_targets = _screen.MatchTiming.get_all_valid_targets(_screen._match_state, source_instance_id)
 	if valid_targets.is_empty():
 		return  # Fizzle silently — no valid targets
+	# Check if any ability uses opponent_discard_card — show overlay instead of board targeting
+	var uses_opponent_discard := false
+	for ab in abilities:
+		if str(ab.get("target_mode", "")) == "opponent_discard_card":
+			uses_opponent_discard = true
+			break
 	_pending_summon_target = {
 		"source_instance_id": source_instance_id,
 	}
 	_screen._selected_instance_id = source_instance_id
-	_screen._enter_targeting_mode(source_instance_id)
+	if uses_opponent_discard:
+		_screen._overlays._show_opponent_discard_selection_overlay(valid_targets)
+	else:
+		_screen._enter_targeting_mode(source_instance_id)
 	_screen._status_message = _summon_target_prompt(card, abilities)
 	if not _is_pending_summon_mandatory():
 		_show_summon_skip_button()
@@ -438,6 +449,7 @@ func _cancel_summon_target_mode() -> void:
 	_pending_summon_target = {}
 	_dismiss_summon_skip_button()
 	_dismiss_vision_card_overlay()
+	_screen._overlays._dismiss_opponent_discard_selection_overlay()
 	_screen._cancel_targeting_mode()
 	_screen._status_message = "Effect declined."
 	_screen._refresh_ui()
@@ -499,13 +511,24 @@ func _refresh_pending_summon_effect_target() -> void:
 	if valid_targets.is_empty():
 		_screen.MatchTiming.decline_pending_summon_effect_target(_screen._match_state, local_id)
 		return
+	# Determine effective target mode for overlay routing
+	var effective_tm := choice_tm
+	if effective_tm.is_empty():
+		for ab in _screen.MatchTiming.get_target_mode_abilities(card):
+			var tm := str(ab.get("target_mode", ""))
+			if not tm.is_empty():
+				effective_tm = tm
+				break
 	_pending_summon_target = {
 		"source_instance_id": source_id,
 		"is_effect_summon": true,
 		"_choice_target_mode": choice_tm,
 	}
 	_screen._selected_instance_id = source_id
-	_screen._enter_targeting_mode(source_id)
+	if effective_tm == "opponent_discard_card":
+		_screen._overlays._show_opponent_discard_selection_overlay(valid_targets)
+	else:
+		_screen._enter_targeting_mode(source_id)
 	if not choice_tm.is_empty():
 		_screen._status_message = _summon_target_prompt(card, [{"target_mode": choice_tm}])
 	else:
@@ -539,13 +562,24 @@ func _check_pending_summon_effect_target() -> void:
 	if valid_targets.is_empty():
 		_screen.MatchTiming.decline_pending_summon_effect_target(_screen._match_state, local_id)
 		return
+	# Determine effective target mode for overlay routing
+	var effective_tm := choice_tm
+	if effective_tm.is_empty():
+		for ab in _screen.MatchTiming.get_target_mode_abilities(card):
+			var tm := str(ab.get("target_mode", ""))
+			if not tm.is_empty():
+				effective_tm = tm
+				break
 	_pending_summon_target = {
 		"source_instance_id": source_id,
 		"is_effect_summon": true,
 		"_choice_target_mode": choice_tm,
 	}
 	_screen._selected_instance_id = source_id
-	_screen._enter_targeting_mode(source_id)
+	if effective_tm == "opponent_discard_card":
+		_screen._overlays._show_opponent_discard_selection_overlay(valid_targets)
+	else:
+		_screen._enter_targeting_mode(source_id)
 	if not choice_tm.is_empty():
 		_screen._status_message = _summon_target_prompt(card, [{"target_mode": choice_tm}])
 	else:
