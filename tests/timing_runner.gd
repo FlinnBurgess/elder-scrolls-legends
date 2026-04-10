@@ -36,7 +36,8 @@ func _run_all_tests() -> bool:
 		_test_trigger_wane_queues_targeted_wax_wane_for_other_friendly() and
 		_test_slay_does_not_fire_on_stat_reduction_kill() and
 		_test_play_random_from_deck_creates_free_plays() and
-		_test_decline_pending_free_play_keeps_card_in_hand()
+		_test_decline_pending_free_play_keeps_card_in_hand() and
+		_test_copy_pilfer_abilities_fires_all_friendly_pilfer_triggers()
 	)
 
 
@@ -373,6 +374,7 @@ func _summon_creature(player: Dictionary, match_state: Dictionary, label: String
 		"health": health,
 		"keywords": keywords.duplicate(),
 		"triggered_abilities": extra.get("triggered_abilities", []).duplicate(true),
+		"passive_abilities": extra.get("passive_abilities", []).duplicate(true),
 	})
 	var summon_options := {}
 	if slot_index >= 0:
@@ -398,6 +400,7 @@ func _add_hand_card(player: Dictionary, label: String, extra: Dictionary = {}) -
 		"granted_keywords": extra.get("granted_keywords", []).duplicate(),
 		"status_markers": extra.get("status_markers", []).duplicate(),
 		"triggered_abilities": extra.get("triggered_abilities", []).duplicate(true),
+		"passive_abilities": extra.get("passive_abilities", []).duplicate(true),
 		"power_bonus": int(extra.get("power_bonus", 0)),
 		"health_bonus": int(extra.get("health_bonus", 0)),
 	}
@@ -792,6 +795,50 @@ func _test_decline_pending_free_play_keeps_card_in_hand() -> bool:
 	if not _assert(not still_free, "decline test: _play_for_free flag should be removed after decline."):
 		return false
 	return _assert(not MatchTiming.has_pending_free_play(match_state, player_id), "decline test: no pending free play should remain.")
+
+
+func _test_copy_pilfer_abilities_fires_all_friendly_pilfer_triggers() -> bool:
+	# Devious Bandit: copy_pilfer_abilities passive should copy pilfer triggers from all friendly creatures
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	# Summon two creatures with different pilfer abilities
+	var pilferer_a := _summon_creature(active_player, match_state, "pilferer_a", "field", 2, 2, [], 0, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_PILFER,
+			"required_zone": "lane",
+			"effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 0}],
+		}]
+	})
+	var pilferer_b := _summon_creature(active_player, match_state, "pilferer_b", "field", 1, 1, [], 1, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_PILFER,
+			"required_zone": "lane",
+			"effects": [{"op": "modify_stats", "target": "self", "power": 0, "health": 1}],
+		}]
+	})
+	# Summon the copier with copy_pilfer_abilities passive
+	var copier := _summon_creature(active_player, match_state, "copier", "field", 3, 3, [], 2, {
+		"passive_abilities": [{"type": "copy_pilfer_abilities"}],
+	})
+	_target_ready_for_attack(copier, match_state)
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], copier["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	if not _assert(result["is_valid"], "copy_pilfer: combat should resolve."):
+		return false
+	var pilfer_resolutions := []
+	for r in result.get("trigger_resolutions", []):
+		if str(r.get("family", "")) == MatchTiming.FAMILY_PILFER:
+			pilfer_resolutions.append(r)
+	if not _assert(pilfer_resolutions.size() == 2, "copy_pilfer: copier should fire 2 copied pilfer triggers. Got %d." % pilfer_resolutions.size()):
+		return false
+	# The copied effects target self (the copier), so copier should get +1/+1
+	return (
+		_assert(copier["power_bonus"] == 1, "copy_pilfer: copier should gain +1 power from copied pilfer A. Got %d." % copier["power_bonus"]) and
+		_assert(copier["health_bonus"] == 1, "copy_pilfer: copier should gain +1 health from copied pilfer B. Got %d." % copier["health_bonus"])
+	)
 
 
 func _assert(condition: bool, message: String) -> bool:

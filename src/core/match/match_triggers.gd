@@ -81,6 +81,8 @@ static func rebuild_trigger_registry(match_state: Dictionary) -> Array:
 	_inject_granted_triggers(match_state, registry, lanes)
 	# copy_expertise_abilities: Master of Incunabula copies all friendly expertise triggers
 	_inject_copied_expertise_triggers(registry, lanes)
+	# copy_pilfer_abilities: Devious Bandit copies all friendly pilfer triggers
+	_inject_copied_pilfer_triggers(registry, lanes)
 	# Inject virtual triggers for active adventure boons
 	BoonRules.inject_boon_triggers(match_state, registry)
 	# Inject virtual triggers for lane effects
@@ -131,6 +133,51 @@ static func _inject_copied_expertise_triggers(registry: Array, lanes: Array) -> 
 								"lane_index": lane_index,
 								"slot_index": slot_index,
 								"descriptor": ce_trigger.duplicate(true),
+							})
+
+
+static func _inject_copied_pilfer_triggers(registry: Array, lanes: Array) -> void:
+	# Find creatures with copy_pilfer_abilities passive
+	for lane_index in range(lanes.size()):
+		var lane: Dictionary = lanes[lane_index]
+		for player_id in lane.get("player_slots", {}).keys():
+			var slots: Array = lane.get("player_slots", {}).get(player_id, [])
+			for slot_index in range(slots.size()):
+				var card = slots[slot_index]
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				if not EvergreenRules._has_passive(card, "copy_pilfer_abilities"):
+					continue
+				if EvergreenRules.has_raw_status(card, EvergreenRules.STATUS_SILENCED):
+					continue
+				var copier_id := str(card.get("instance_id", ""))
+				var copier_controller := str(card.get("controller_player_id", player_id))
+				# Collect pilfer triggers from all other friendly creatures
+				for cp_lane_index in range(lanes.size()):
+					for cp_card in lanes[cp_lane_index].get("player_slots", {}).get(copier_controller, []):
+						if typeof(cp_card) != TYPE_DICTIONARY:
+							continue
+						if str(cp_card.get("instance_id", "")) == copier_id:
+							continue
+						var cp_triggers = cp_card.get("triggered_abilities", [])
+						if typeof(cp_triggers) != TYPE_ARRAY:
+							continue
+						for cp_idx in range(cp_triggers.size()):
+							var cp_trigger = cp_triggers[cp_idx]
+							if typeof(cp_trigger) != TYPE_DICTIONARY:
+								continue
+							if str(cp_trigger.get("family", "")) != "pilfer":
+								continue
+							registry.append({
+								"trigger_id": "%s_copied_pilfer_%s_%d" % [copier_id, str(cp_card.get("instance_id", "")), cp_idx],
+								"trigger_index": -1,
+								"source_instance_id": copier_id,
+								"owner_player_id": copier_controller,
+								"controller_player_id": copier_controller,
+								"source_zone": ZONE_LANE,
+								"lane_index": lane_index,
+								"slot_index": slot_index,
+								"descriptor": cp_trigger.duplicate(true),
 							})
 
 

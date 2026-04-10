@@ -1,17 +1,5 @@
 [
 	{
-		"card_id": "aw_int_soul_shred",
-		"name": "Soul Shred",
-		"card_type": "action",
-		"cost": 5,
-		"attributes": [
-			"intelligence"
-		],
-		"rules_text": "For each attribute your opponent is playing, Banish the top 2 cards of your opponent's deck.\nEmpower: +1 card per attribute.",
-		"stripped_text": "For each attribute your opponent is playing, Banish the top 2 cards of your opponent's deck.\nEmpower: +1 card per attribute.",
-		"complexity": 124
-	},
-	{
 		"card_id": "moe_agi_devious_bandit",
 		"name": "Devious Bandit",
 		"card_type": "creature",
