@@ -1,18 +1,5 @@
 [
 	{
-		"card_id": "dual_general_tullius",
-		"name": "General Tullius",
-		"card_type": "creature",
-		"cost": 6,
-		"attributes": [
-			"willpower",
-			"endurance"
-		],
-		"rules_text": "Summon: Summon a 2/2 Colovian Trooper with Guard in each lane.\nWhen a friendly creature dies, General Tullius gains +1/+1.",
-		"stripped_text": "Summon: Summon a 2/2 Colovian Trooper with Guard in each lane.\nWhen a friendly creature dies, General Tullius gains +1/+1.",
-		"complexity": 122
-	},
-	{
 		"card_id": "hom_agi_naryu_virian",
 		"name": "Naryu Virian",
 		"card_type": "creature",
