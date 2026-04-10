@@ -402,6 +402,8 @@ static func _matches_trigger_role(match_state: Dictionary, trigger: Dictionary, 
 			if bool(event.get("is_retaliation_kill", false)):
 				return false
 			var killer_id := str(event.get("destroyed_by_instance_id", ""))
+			if killer_id.is_empty():
+				return false
 			if killer_id == source_instance_id:
 				return true
 			# Item triggers: the host creature is the killer, not the item itself

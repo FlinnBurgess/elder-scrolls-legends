@@ -139,6 +139,10 @@ static func play_item_from_hand(match_state: Dictionary, player_id: String, inst
 	if not bool(validation.get("is_valid", false)):
 		return validation
 	var item_card: Dictionary = validation["card"]
+	if bool(item_card.get("_play_for_free", false)):
+		options["played_for_free"] = true
+		item_card.erase("_play_for_free")
+		MatchTiming.consume_pending_free_play(match_state, instance_id)
 
 	var target_card: Dictionary = {}
 	var generated_events: Array = []
@@ -400,9 +404,10 @@ static func _validate_hand_card(match_state: Dictionary, player_id: String, inst
 	var card: Dictionary = location["card"]
 	if str(card.get("card_type", "")) != expected_type:
 		return _invalid_result("Card %s is not a %s." % [instance_id, expected_type])
-	if not played_for_free and get_effective_play_cost(match_state, player_id, card) > _get_available_magicka(_get_player_state(match_state, player_id)):
+	var is_free := played_for_free or bool(card.get("_play_for_free", false))
+	if not is_free and get_effective_play_cost(match_state, player_id, card) > _get_available_magicka(_get_player_state(match_state, player_id)):
 		return _invalid_result("Player does not have enough magicka to play %s." % instance_id)
-	if not played_for_free:
+	if not is_free:
 		var card_cost := get_effective_play_cost(match_state, player_id, card)
 		var player_state := _get_player_state(match_state, player_id)
 		var cost_locks: Array = player_state.get("cost_locks", [])

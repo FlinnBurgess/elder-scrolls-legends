@@ -29,9 +29,10 @@ func _init(screen) -> void:
 	_screen = screen
 
 
-func _detach_hand_card(instance_id: String) -> void:
+func _detach_hand_card(instance_id: String, skip_select := false) -> void:
 	_cancel_detached_card_silent()
-	_screen.select_card(instance_id)
+	if not skip_select:
+		_screen.select_card(instance_id)
 	var button: Button = _screen._card_buttons.get(instance_id)
 	if button != null:
 		button.visible = false

@@ -33,7 +33,10 @@ func _run_all_tests() -> bool:
 		_test_slay_draw_from_discard_player_choice() and
 		_test_on_move_only_fires_for_moved_creature() and
 		_test_wax_wane_target_mode_not_queued_at_end_of_turn() and
-		_test_trigger_wane_queues_targeted_wax_wane_for_other_friendly()
+		_test_trigger_wane_queues_targeted_wax_wane_for_other_friendly() and
+		_test_slay_does_not_fire_on_stat_reduction_kill() and
+		_test_play_random_from_deck_creates_free_plays() and
+		_test_decline_pending_free_play_keeps_card_in_hand()
 	)
 
 
@@ -646,6 +649,149 @@ func _test_trigger_wane_queues_targeted_wax_wane_for_other_friendly() -> bool:
 		_assert(stat_health > 2, "Non-targeted wane should fire immediately via trigger_wane: health should be > 2, got %d." % stat_health) and
 		_assert(has_targeted_pending, "Targeted wane should be queued as pending_turn_trigger_target, not skipped.")
 	)
+
+
+func _test_slay_does_not_fire_on_stat_reduction_kill() -> bool:
+	# A creature with slay in lane should NOT get slay credit when an enemy
+	# dies from a stat debuff (e.g. Drain Vitality -1/-1 on a 1/1).
+	var match_state := _build_started_match(20, 0)
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var slayer := _summon_creature(player, match_state, "slayer", "field", 3, 3, [], 0, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_SLAY,
+			"required_zone": "lane",
+			"effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 1}],
+		}]
+	})
+	var victim := _summon_creature(opponent, match_state, "victim", "field", 1, 1, [], 0)
+	_reset_timing_logs(match_state)
+	# Apply -1/-1 stat debuff to reduce the victim to 0 health
+	EvergreenRules.apply_stat_bonus(victim, -1, -1, "action")
+	# Publish a stats_modified event so publish_events runs and the aura death
+	# check detects the 0-health creature
+	var timing_result := MatchTiming.publish_events(match_state, [{
+		"event_type": "stats_modified",
+		"source_instance_id": "external_action",
+		"target_instance_id": str(victim.get("instance_id", "")),
+		"power_bonus": -1,
+		"health_bonus": -1,
+	}])
+	var families := _families_from_resolutions(timing_result.get("trigger_resolutions", []))
+	var has_death := false
+	for evt in timing_result.get("processed_events", []):
+		if str(evt.get("event_type", "")) == "creature_destroyed":
+			has_death = true
+			break
+	return (
+		_assert(has_death, "Victim should die from 0 health after stat reduction.") and
+		_assert(not families.has(MatchTiming.FAMILY_SLAY), "Slay should NOT trigger from stat-reduction kill (no combat killer).")
+	)
+
+
+func _add_deck_card(player: Dictionary, label: String, extra: Dictionary = {}) -> Dictionary:
+	var card := {
+		"instance_id": "%s_%s" % [player["player_id"], label],
+		"definition_id": "test_%s" % label,
+		"owner_player_id": player["player_id"],
+		"controller_player_id": player["player_id"],
+		"zone": "deck",
+		"card_type": str(extra.get("card_type", "creature")),
+		"cost": int(extra.get("cost", 1)),
+		"power": int(extra.get("power", 0)),
+		"health": int(extra.get("health", 0)),
+		"keywords": extra.get("keywords", []).duplicate(),
+		"triggered_abilities": extra.get("triggered_abilities", []).duplicate(true),
+	}
+	player["deck"].append(card)
+	return card
+
+
+func _test_play_random_from_deck_creates_free_plays() -> bool:
+	var match_state := _build_started_match(10, 0)
+	var player: Dictionary = match_state["players"][0]
+	var player_id := str(player["player_id"])
+	# Clear deck and seed with one of each type
+	player["deck"].clear()
+	var deck_creature := _add_deck_card(player, "deck_creature", {"card_type": "creature", "power": 3, "health": 3})
+	var deck_item := _add_deck_card(player, "deck_item", {"card_type": "item"})
+	var deck_support := _add_deck_card(player, "deck_support", {"card_type": "support"})
+	var deck_action := _add_deck_card(player, "deck_action", {"card_type": "action"})
+	# Create the Siege-like action card with 4x play_random_from_deck
+	var siege := _add_hand_card(player, "siege", {
+		"card_type": "action",
+		"cost": 0,
+		"triggered_abilities": [{"family": "on_play", "effects": [
+			{"op": "play_random_from_deck", "filter": {"card_type": "creature"}},
+			{"op": "play_random_from_deck", "filter": {"card_type": "item"}},
+			{"op": "play_random_from_deck", "filter": {"card_type": "support"}},
+			{"op": "play_random_from_deck", "filter": {"card_type": "action"}},
+		]}],
+	})
+	MatchTiming.play_action_from_hand(match_state, player_id, str(siege["instance_id"]), {})
+	# Deck should be empty — all 4 cards pulled
+	if not _assert(player["deck"].size() == 0, "play_random_from_deck: deck should be empty after pulling one of each type."):
+		return false
+	# Hand should have the 4 cards
+	var hand_ids: Array = []
+	for card in player["hand"]:
+		hand_ids.append(str(card.get("instance_id", "")))
+	if not _assert(hand_ids.has(str(deck_creature["instance_id"])), "play_random_from_deck: creature should be in hand."):
+		return false
+	if not _assert(hand_ids.has(str(deck_item["instance_id"])), "play_random_from_deck: item should be in hand."):
+		return false
+	if not _assert(hand_ids.has(str(deck_support["instance_id"])), "play_random_from_deck: support should be in hand."):
+		return false
+	if not _assert(hand_ids.has(str(deck_action["instance_id"])), "play_random_from_deck: action should be in hand."):
+		return false
+	# All 4 should be pending free plays
+	var fp_arr: Array = match_state.get("pending_free_plays", [])
+	if not _assert(fp_arr.size() == 4, "play_random_from_deck: should create 4 pending free plays, got %d." % fp_arr.size()):
+		return false
+	# Each should have _play_for_free flag
+	for card in player["hand"]:
+		if str(card.get("instance_id", "")) in [str(deck_creature["instance_id"]), str(deck_item["instance_id"]), str(deck_support["instance_id"]), str(deck_action["instance_id"])]:
+			if not _assert(bool(card.get("_play_for_free", false)), "play_random_from_deck: card %s should have _play_for_free flag." % str(card.get("instance_id", ""))):
+				return false
+	return true
+
+
+func _test_decline_pending_free_play_keeps_card_in_hand() -> bool:
+	var match_state := _build_started_match(10, 0)
+	var player: Dictionary = match_state["players"][0]
+	var player_id := str(player["player_id"])
+	# Clear deck and seed with a creature
+	player["deck"].clear()
+	var deck_creature := _add_deck_card(player, "deck_creature", {"card_type": "creature", "power": 2, "health": 2})
+	# Create action that plays random creature from deck
+	var action_card := _add_hand_card(player, "pull_action", {
+		"card_type": "action",
+		"cost": 0,
+		"triggered_abilities": [{"family": "on_play", "effects": [
+			{"op": "play_random_from_deck", "filter": {"card_type": "creature"}},
+		]}],
+	})
+	MatchTiming.play_action_from_hand(match_state, player_id, str(action_card["instance_id"]), {})
+	# Verify card is in hand with free play
+	if not _assert(MatchTiming.has_pending_free_play(match_state, player_id), "decline test: should have pending free play."):
+		return false
+	# Decline it
+	var result := MatchTiming.decline_pending_free_play(match_state, player_id)
+	if not _assert(bool(result.get("is_valid", false)), "decline test: decline should succeed."):
+		return false
+	# Card should still be in hand
+	var found := false
+	var still_free := false
+	for card in player["hand"]:
+		if str(card.get("instance_id", "")) == str(deck_creature["instance_id"]):
+			found = true
+			still_free = bool(card.get("_play_for_free", false))
+			break
+	if not _assert(found, "decline test: card should remain in hand after decline."):
+		return false
+	if not _assert(not still_free, "decline test: _play_for_free flag should be removed after decline."):
+		return false
+	return _assert(not MatchTiming.has_pending_free_play(match_state, player_id), "decline test: no pending free play should remain.")
 
 
 func _assert(condition: bool, message: String) -> bool:

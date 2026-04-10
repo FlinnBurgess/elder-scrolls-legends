@@ -1,29 +1,5 @@
 [
 	{
-		"card_id": "hos_neu_young_dragonborn",
-		"name": "Young Dragonborn",
-		"card_type": "creature",
-		"cost": 3,
-		"attributes": [
-			"neutral"
-		],
-		"rules_text": "When Young Dragonborn Slays a Dragon, put a random Shout into your hand.\nAfter you play a Shout, Young Dragonborn gains +1/+1.",
-		"stripped_text": "When Young Dragonborn Slays a Dragon, put a random Shout into your hand.\nAfter you play a Shout, Young Dragonborn gains +1/+1.",
-		"complexity": 126
-	},
-	{
-		"card_id": "fhc_neu_siege_of_stros_mkai",
-		"name": "Siege of Stros M'Kai",
-		"card_type": "action",
-		"cost": 10,
-		"attributes": [
-			"neutral"
-		],
-		"rules_text": "If you started the game with no duplicate cards in your deck, play a random creature, item, support and action from your deck.",
-		"stripped_text": "If you started the game with no duplicate cards in your deck, play a random creature, item, support and action from your deck.",
-		"complexity": 126
-	},
-	{
 		"card_id": "aw_int_soul_shred",
 		"name": "Soul Shred",
 		"card_type": "action",

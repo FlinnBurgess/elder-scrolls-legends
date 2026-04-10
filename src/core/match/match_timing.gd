@@ -782,6 +782,24 @@ static func consume_pending_free_play(match_state: Dictionary, instance_id: Stri
 			return
 
 
+static func decline_pending_free_play(match_state: Dictionary, player_id: String) -> Dictionary:
+	ensure_match_state(match_state)
+	var pending := get_pending_free_play(match_state, player_id)
+	if pending.is_empty():
+		return {"is_valid": false}
+	var instance_id := str(pending.get("instance_id", ""))
+	# Remove from pending queue
+	consume_pending_free_play(match_state, instance_id)
+	# Strip the _play_for_free flag so the card stays in hand as a normal card
+	var player := MatchTimingHelpers._get_player_state(match_state, player_id)
+	if not player.is_empty():
+		for card in player.get("hand", []):
+			if str(card.get("instance_id", "")) == instance_id:
+				card.erase("_play_for_free")
+				break
+	return {"is_valid": true, "declined_instance_id": instance_id}
+
+
 static func has_pending_top_deck_choice(match_state: Dictionary, player_id: String = "") -> bool:
 	return not get_pending_top_deck_choice(match_state, player_id).is_empty()
 

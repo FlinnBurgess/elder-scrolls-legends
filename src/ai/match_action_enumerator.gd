@@ -59,6 +59,7 @@ const KIND_CHOOSE_SUMMON_EFFECT_TARGET := "choose_summon_effect_target"
 const KIND_DECLINE_SUMMON_EFFECT_TARGET := "decline_summon_effect_target"
 const KIND_CHOOSE_TURN_TRIGGER_TARGET := "choose_turn_trigger_target"
 const KIND_DECLINE_TURN_TRIGGER_TARGET := "decline_turn_trigger_target"
+const KIND_DECLINE_FREE_PLAY := "decline_free_play"
 const ACTION_KIND_ORDER := {
 	KIND_SUMMON_CREATURE: 10,
 	KIND_DECLINE_PROPHECY: 11,
@@ -251,6 +252,10 @@ static func enumerate_legal_actions(match_state: Dictionary, player_id: String =
 		actions.append_array(_enumerate_item_plays(match_state, decision_player_id, false))
 		actions.append_array(_enumerate_support_activations(match_state, decision_player_id))
 		actions.append_array(_enumerate_action_plays(match_state, decision_player_id, false))
+		if MatchTiming.has_pending_free_play(match_state, decision_player_id):
+			actions.append(_build_descriptor(KIND_DECLINE_FREE_PLAY, match_state, decision_player_id, {}, {}, {
+				"timing_window": TIMING_ACTION,
+			}))
 		actions.append(_build_descriptor(KIND_END_TURN, match_state, decision_player_id, {}, {}, {
 			"timing_window": TIMING_ACTION,
 			"order_key": ACTION_KIND_ORDER[KIND_END_TURN],
@@ -344,6 +349,8 @@ static func _action_is_legal_inner(match_state: Dictionary, action: Dictionary) 
 			return bool(MatchTiming.resolve_pending_hand_selection(_lightweight_clone(match_state), player_id, str(parameters.get("chosen_instance_id", ""))).get("is_valid", false))
 		KIND_DECLINE_HAND_SELECTION:
 			return bool(MatchTiming.decline_pending_hand_selection(_lightweight_clone(match_state), player_id).get("is_valid", false))
+		KIND_DECLINE_FREE_PLAY:
+			return MatchTiming.has_pending_free_play(match_state, player_id)
 		KIND_TOP_DECK_DISCARD:
 			return bool(MatchTiming.resolve_pending_top_deck_choice(_lightweight_clone(match_state), player_id, true).get("is_valid", false))
 		KIND_TOP_DECK_KEEP:

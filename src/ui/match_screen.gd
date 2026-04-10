@@ -109,6 +109,7 @@ var _targeting: RefCounted  # MatchScreenTargeting
 var _history: RefCounted  # MatchScreenHistory
 var _match_state: Dictionary = {}
 var _selected_instance_id := ""
+var _pending_free_play_detach_id := ""
 var _selected_pile_player_id := ""
 var _selected_pile_zone := ""
 var _status_message := ""
@@ -1253,7 +1254,8 @@ func _refresh_free_play_state() -> void:
 			_selection._enter_targeting_mode(fp_instance_id)
 			_status_message = "Choose a target for this free item."
 		else:
-			_status_message = "Play this card for free."
+			_pending_free_play_detach_id = fp_instance_id
+			_status_message = "Place this card or right-click to add to hand."
 
 
 func _has_local_pending_free_play() -> bool:
@@ -1265,6 +1267,26 @@ func _selected_card_has_free_play() -> bool:
 		return false
 	var card := _card_from_instance_id(_selected_instance_id)
 	return bool(card.get("_play_for_free", false))
+
+
+func _decline_current_free_play() -> void:
+	var result := MatchTiming.decline_pending_free_play(_match_state, _local_player_id())
+	if not _targeting._targeting_arrow_state.is_empty():
+		_selection._cancel_targeting_mode()
+	if not _hand._detached_card_state.is_empty():
+		_hand._cancel_detached_card_silent()
+	_selected_instance_id = ""
+	var declined_name := ""
+	if bool(result.get("is_valid", false)):
+		var declined_id := str(result.get("declined_instance_id", ""))
+		if not declined_id.is_empty():
+			var card := _card_from_instance_id(declined_id)
+			declined_name = str(card.get("name", ""))
+	if not declined_name.is_empty():
+		_status_message = "%s added to hand." % declined_name
+	else:
+		_status_message = "Card added to hand."
+	_refresh._refresh_ui()
 
 
 func _enter_top_deck_choice_mode() -> void:
@@ -1787,17 +1809,23 @@ func _input(event: InputEvent) -> void:
 					_targeting._cancel_summon_target_mode()
 				get_viewport().set_input_as_handled()
 			elif not _targeting._targeting_arrow_state.is_empty():
-				if not _selected_card_has_free_play():
+				if _selected_card_has_free_play():
+					_decline_current_free_play()
+				else:
 					_selection._cancel_targeting_mode()
 				get_viewport().set_input_as_handled()
 			elif not _hand._detached_card_state.is_empty():
-				if not _selected_card_has_free_play():
+				if _selected_card_has_free_play():
+					_decline_current_free_play()
+				else:
 					_hand._cancel_detached_card()
 				_hand._drag_state = {}
 				_hand._drag_active = false
 				get_viewport().set_input_as_handled()
 			elif not _selected_instance_id.is_empty():
-				if not _selected_card_has_free_play():
+				if _selected_card_has_free_play():
+					_decline_current_free_play()
+				else:
 					clear_selection()
 				get_viewport().set_input_as_handled()
 

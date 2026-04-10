@@ -31,6 +31,10 @@ func _refresh_ui() -> void:
 	_refresh_match_end_overlay()
 	_screen._history._scan_and_refresh_match_history()
 	_screen._feedback._apply_presentation_feedback()
+	if not _screen._pending_free_play_detach_id.is_empty():
+		var detach_id: String = _screen._pending_free_play_detach_id
+		_screen._pending_free_play_detach_id = ""
+		_screen._hand._detach_hand_card.call_deferred(detach_id, true)
 	if not _screen._hand._detached_card_state.is_empty():
 		var detached_id: String = str(_screen._hand._detached_card_state.get("instance_id", ""))
 		var detached_button: Button = _screen._card_buttons.get(detached_id)

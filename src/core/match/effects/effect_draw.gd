@@ -642,20 +642,36 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			var prfd_player := MatchTimingHelpers._get_player_state(match_state, prfd_controller_id)
 			if not prfd_player.is_empty():
 				var prfd_deck: Array = prfd_player.get(ZONE_DECK, [])
-				if not prfd_deck.is_empty():
-					var prfd_idx := MatchEffectParams._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_play_random", prfd_deck.size())
-					var prfd_card: Dictionary = prfd_deck[prfd_idx]
-					prfd_deck.remove_at(prfd_idx)
-					prfd_card.erase("zone")
-					var prfd_type := str(prfd_card.get("card_type", ""))
-					if prfd_type == CARD_TYPE_CREATURE:
-						var prfd_lane := MatchSummonTiming._resolve_summon_lane_id(match_state, trigger, event, effect, prfd_controller_id)
-						if not prfd_lane.is_empty():
-							var prfd_result := MatchMutations.summon_card_to_lane(match_state, prfd_controller_id, prfd_card, prfd_lane, {"source_zone": ZONE_DECK})
-							if bool(prfd_result.get("is_valid", false)):
-								generated_events.append_array(prfd_result.get("events", []))
-								generated_events.append(MatchSummonTiming._build_summon_event(prfd_result["card"], prfd_controller_id, prfd_lane, int(prfd_result.get("slot_index", -1)), reason))
-								_MT()._check_summon_abilities(match_state, prfd_result["card"])
+				var prfd_filter: Dictionary = effect.get("filter", {}) if typeof(effect.get("filter", null)) == TYPE_DICTIONARY else {}
+				var prfd_filter_type := str(prfd_filter.get("card_type", ""))
+				# Build list of candidate indices matching the filter
+				var prfd_candidates: Array = []
+				for prfd_i in range(prfd_deck.size()):
+					var prfd_deck_card: Dictionary = prfd_deck[prfd_i]
+					if not prfd_filter_type.is_empty() and str(prfd_deck_card.get("card_type", "")) != prfd_filter_type:
+						continue
+					prfd_candidates.append(prfd_i)
+				if not prfd_candidates.is_empty():
+					var prfd_pick: int = prfd_candidates[MatchEffectParams._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_play_random_" + prfd_filter_type, prfd_candidates.size())]
+					var prfd_card: Dictionary = prfd_deck[prfd_pick]
+					prfd_deck.remove_at(prfd_pick)
+					prfd_card["zone"] = ZONE_HAND
+					prfd_card["_play_for_free"] = true
+					var prfd_hand: Array = prfd_player.get(ZONE_HAND, [])
+					prfd_hand.append(prfd_card)
+					var prfd_source_id := str(trigger.get("source_instance_id", ""))
+					var prfd_fp_arr: Array = match_state.get("pending_free_plays", [])
+					prfd_fp_arr.append({"player_id": prfd_controller_id, "instance_id": str(prfd_card.get("instance_id", "")), "source_instance_id": prfd_source_id})
+					match_state["pending_free_plays"] = prfd_fp_arr
+					generated_events.append({
+						"event_type": "card_drawn",
+						"player_id": prfd_controller_id,
+						"source_instance_id": prfd_source_id,
+						"drawn_instance_id": str(prfd_card.get("instance_id", "")),
+						"source_zone": ZONE_DECK,
+						"target_zone": ZONE_HAND,
+						"reason": reason,
+					})
 		"play_top_of_deck":
 			var ptod_controller_id := str(trigger.get("controller_player_id", ""))
 			var ptod_player := MatchTimingHelpers._get_player_state(match_state, ptod_controller_id)
