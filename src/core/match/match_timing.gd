@@ -1703,6 +1703,69 @@ static func _check_slay_target_mode(match_state: Dictionary, event: Dictionary) 
 		break  # Only queue once per slay event
 
 
+## Check if a card_played event should trigger on_friendly_wax/on_friendly_wane abilities
+## with target_mode on other friendly creatures. If so, queue pending_summon_effect_targets
+## so the player can pick the target (these are excluded from auto-pick in _trigger_matches_event).
+static func _check_on_friendly_wax_wane_target_mode(match_state: Dictionary, event: Dictionary) -> void:
+	if str(event.get("event_type", "")) != EVENT_CARD_PLAYED:
+		return
+	var playing_player_id := str(event.get("playing_player_id", event.get("player_id", "")))
+	if playing_player_id.is_empty():
+		return
+	var player := MatchTimingHelpers._get_player_state(match_state, playing_player_id)
+	if player.is_empty():
+		return
+	var wax_wane_state := str(player.get("wax_wane_state", "wax"))
+	var dual_wax_wane := bool(player.get("_dual_wax_wane", false))
+	var played_instance_id := str(event.get("source_instance_id", ""))
+	# Determine which families to check based on current phase
+	var families_to_check: Array = []
+	if wax_wane_state == "wax" or dual_wax_wane:
+		families_to_check.append(FAMILY_ON_FRIENDLY_WAX)
+	if wax_wane_state == "wane" or dual_wax_wane:
+		families_to_check.append(FAMILY_ON_FRIENDLY_WANE)
+	if families_to_check.is_empty():
+		return
+	for lane in match_state.get("lanes", []):
+		var slots: Array = lane.get("player_slots", {}).get(playing_player_id, [])
+		for card in slots:
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			var instance_id := str(card.get("instance_id", ""))
+			# exclude_self: the played card itself shouldn't trigger its own on_friendly_wax/wane
+			if instance_id == played_instance_id:
+				continue
+			if EvergreenRules.has_raw_status(card, EvergreenRules.STATUS_SILENCED):
+				continue
+			var abilities = card.get("triggered_abilities", [])
+			if typeof(abilities) != TYPE_ARRAY:
+				continue
+			for descriptor in abilities:
+				if typeof(descriptor) != TYPE_DICTIONARY:
+					continue
+				var family := str(descriptor.get("family", ""))
+				if not families_to_check.has(family):
+					continue
+				if str(descriptor.get("target_mode", "")).is_empty():
+					continue
+				if not bool(descriptor.get("enabled", true)):
+					continue
+				if descriptor.has("required_zone") and str(descriptor.get("required_zone", "")) != ZONE_LANE:
+					continue
+				var tm := str(descriptor.get("target_mode", ""))
+				var valid_targets := MatchTargeting.get_valid_targets_for_mode(match_state, instance_id, tm, descriptor)
+				if valid_targets.is_empty():
+					continue
+				var controller_id := str(card.get("controller_player_id", playing_player_id))
+				var pending_arr: Array = match_state.get("pending_summon_effect_targets", [])
+				pending_arr.append({
+					"player_id": controller_id,
+					"source_instance_id": instance_id,
+					"mandatory": false,
+					"allowed_families": [family],
+				})
+
+
 ## Check if a played action card has multi-target on_play triggers (two_creatures, three_creatures)
 ## and queue pending target selections for each target needed.
 static func _check_action_multi_target_abilities(match_state: Dictionary, card: Dictionary) -> void:
@@ -2974,6 +3037,8 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 		# Queue player-targeted slay triggers (e.g. Mulaamnir) after the event's
 		# non-targeted slay triggers have already resolved.
 		_check_slay_target_mode(match_state, event)
+		# Queue player-targeted on_friendly_wax/wane triggers (e.g. Frazzled Alfiq deal 1 damage)
+		_check_on_friendly_wax_wane_target_mode(match_state, event)
 	var aura_kw_events := MatchAuras.recalculate_auras(match_state)
 	for raw_aura_kw_event in aura_kw_events:
 		queue.append(MatchTimingHelpers._normalize_event(match_state, raw_aura_kw_event, {}))

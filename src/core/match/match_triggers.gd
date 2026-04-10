@@ -34,6 +34,8 @@ const FAMILY_VETERAN := "veteran"
 const FAMILY_ITEM_DETACHED := "item_detached"
 const FAMILY_WAX := "wax"
 const FAMILY_WANE := "wane"
+const FAMILY_ON_FRIENDLY_WAX := "on_friendly_wax"
+const FAMILY_ON_FRIENDLY_WANE := "on_friendly_wane"
 
 const PLAYER_ZONE_ORDER := [ZONE_HAND, ZONE_SUPPORT, ZONE_DISCARD, ZONE_BANISHED, ZONE_DECK]
 const ZONE_PRIORITY := {
@@ -346,6 +348,10 @@ static func _trigger_matches_event(match_state: Dictionary, trigger: Dictionary,
 			else:
 				return false
 		else:
+			# on_friendly_wax/wane with target_mode require player targeting —
+			# they are queued via pending_summon_effect_targets, not auto-picked.
+			if inject_family == FAMILY_ON_FRIENDLY_WAX or inject_family == FAMILY_ON_FRIENDLY_WANE:
+				return false
 			var source_id := str(trigger.get("source_instance_id", ""))
 			var tm := str(descriptor.get("target_mode", ""))
 			var valid_targets := MatchTargeting.get_valid_targets_for_mode(match_state, source_id, tm, trigger)

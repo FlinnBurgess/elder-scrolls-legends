@@ -56,6 +56,7 @@ func _run_all_tests() -> bool:
 		_test_wax_and_wane_pack() and
 		_test_dual_wax_wane() and
 		_test_wax_creature_turn_trigger() and
+		_test_on_friendly_wax_target_mode() and
 		_test_aldora_the_daring_pack() and
 		_test_mistveil_warden_pack() and
 		_test_murkwater_guide_pack() and
@@ -1460,6 +1461,60 @@ func _test_wax_creature_turn_trigger() -> bool:
 		_assert(not creature2.is_empty(), "Second creature should be summoned.") and
 		_assert(c2_power == 1, "Wane effect gives +0/+2, power stays at 1.") and
 		_assert(c2_health == 3, "Wane effect should fire on summon: 1 + 2 = 3 health.")
+	)
+
+
+func _test_on_friendly_wax_target_mode() -> bool:
+	# Frazzled Alfiq's on_friendly_wax has target_mode: "creature_or_player" —
+	# playing another wax card should queue pending_summon_effect_targets for the Alfiq,
+	# NOT auto-fire at the opponent. Player picks the damage target.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Pre-place Frazzled Alfiq in field lane
+	var alfiq := ScenarioFixtures.summon_creature(player, match_state, "frazzled_alfiq", "field", 1, 2, [], -1, {
+		"cost": 2,
+		"triggered_abilities": [
+			{"family": "wax", "required_zone": "lane", "target_mode": "creature_or_player", "effects": [{"op": "deal_damage", "target": "chosen_target", "amount": 1}]},
+			{"family": "wane", "required_zone": "lane", "effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 1}]},
+			{"family": "on_friendly_wax", "required_zone": "lane", "target_mode": "creature_or_player", "effects": [{"op": "deal_damage", "target": "chosen_target", "amount": 1}]},
+			{"family": "on_friendly_wane", "required_zone": "lane", "effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 1}]},
+		],
+	})
+	# Resolve Alfiq's own wax summon target (picks opponent face)
+	if MatchTiming.has_pending_summon_effect_target(match_state, pid):
+		MatchTiming.resolve_pending_summon_effect_target(match_state, pid, {"target_player_id": oid})
+	var opponent_health_after_alfiq := int(opponent.get("health", 30))
+	# Place an enemy creature as a potential damage target
+	var enemy := ScenarioFixtures.summon_creature(opponent, match_state, "enemy_target", "field", 0, 3)
+	var enemy_id := str(enemy.get("instance_id", ""))
+	# Add a cheap wax creature to hand and play it during wax phase
+	var wax_buddy := ScenarioFixtures.add_hand_card(player, "wax_buddy", {
+		"card_type": "creature",
+		"cost": 0,
+		"triggered_abilities": [
+			{"family": "wax", "required_zone": "lane", "effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 0}]},
+		],
+	})
+	# Opponent health before playing buddy
+	var opp_hp_before := int(opponent.get("health", 30))
+	LaneRules.summon_from_hand(match_state, pid, str(wax_buddy.get("instance_id", "")), "field", {})
+	# Alfiq's on_friendly_wax should NOT auto-fire — instead it should queue pending targeting
+	var opp_hp_after_play := int(opponent.get("health", 30))
+	var has_pending := MatchTiming.has_pending_summon_effect_target(match_state, pid)
+	if not _assert(has_pending, "on_friendly_wax with target_mode should queue pending_summon_effect_targets."):
+		return false
+	# Opponent health should be unchanged (no auto-fire)
+	if not _assert(opp_hp_after_play == opp_hp_before, "on_friendly_wax should NOT auto-fire damage before player picks target. HP: %d -> %d" % [opp_hp_before, opp_hp_after_play]):
+		return false
+	# Resolve targeting — pick the enemy creature
+	var resolve := MatchTiming.resolve_pending_summon_effect_target(match_state, pid, {"target_instance_id": enemy_id})
+	var enemy_health_after := EvergreenRules.get_remaining_health(enemy)
+	return (
+		_assert(bool(resolve.get("is_valid", false)), "Resolving on_friendly_wax target should succeed.") and
+		_assert(enemy_health_after == 2, "Enemy creature should take 1 damage from on_friendly_wax, health: 3 -> 2, got %d." % enemy_health_after)
 	)
 
 

@@ -1,0 +1,59 @@
+{
+  "name": "Frazzled Alfiq Wax/Wane Triggers",
+  "description": "Test Frazzled Alfiq's on_friendly_wax and on_friendly_wane passive triggers when playing other Wax/Wane cards",
+  "board_profile": "standard_versus",
+  "turn_number": 1,
+  "first_player": "player_1",
+  "player_1": {
+    "health": 30,
+    "max_magicka": 12,
+    "current_magicka": 12,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [
+      "moe_wil_moon_bishop",
+      "moe_int_cartel_arcanist",
+      "moe_int_goutfang_adept",
+      "moe_agi_moonphase_suthay",
+      "moe_neu_lunar_sway",
+      "moe_neu_moon_gate"
+    ],
+    "deck": [
+      "moe_agi_rebellion_general",
+      "moe_end_servant_of_ja_khajay",
+      "moe_wil_alfiq_illusionist",
+      "moe_str_war_hardened_senche"
+    ],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [],
+    "shadow_creatures": [
+      { "definition_id": "moe_int_frazzled_alfiq", "can_attack": false }
+    ]
+  },
+  "player_2": {
+    "health": 30,
+    "max_magicka": 2,
+    "current_magicka": 2,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [],
+    "deck": [
+      "hom_end_vvardvark",
+      "hom_end_vvardvark",
+      "hom_end_vvardvark",
+      "hom_end_vvardvark"
+    ],
+    "discard": [],
+    "field_creatures": [
+      "hom_end_vvardvark",
+      "hom_end_vvardvark"
+    ],
+    "shadow_creatures": [
+      "hom_end_vvardvark",
+      "hom_end_vvardvark"
+    ]
+  }
+}

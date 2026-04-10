@@ -1,29 +1,5 @@
 [
 	{
-		"card_id": "int_dark_rift",
-		"name": "Dark Rift",
-		"card_type": "support",
-		"cost": 3,
-		"attributes": [
-			"intelligence"
-		],
-		"rules_text": "Uses: 5\nActivate: Deal 1 damage to your opponent. If Dark Rift has dealt 5 damage, sacrifice it to summon a Storm Atronach.",
-		"stripped_text": "Uses: 5\nActivate: Deal 1 damage to your opponent. If Dark Rift has dealt 5 damage, sacrifice it to summon a Storm Atronach.",
-		"complexity": 123
-	},
-	{
-		"card_id": "moe_int_frazzled_alfiq",
-		"name": "Frazzled Alfiq",
-		"card_type": "creature",
-		"cost": 2,
-		"attributes": [
-			"intelligence"
-		],
-		"rules_text": "Wax: Deal 1 damage.\nWane: +1/+1\nAfter you play another card Waxed, deal 1 damage.\nAfter you play another card Waned, +1/+1.",
-		"stripped_text": "Wax: Deal 1 damage.\nWane: +1/+1\nAfter you play another card Waxed, deal 1 damage.\nAfter you play another card Waned, +1/+1.",
-		"complexity": 123
-	},
-	{
 		"card_id": "dual_general_tullius",
 		"name": "General Tullius",
 		"card_type": "creature",
