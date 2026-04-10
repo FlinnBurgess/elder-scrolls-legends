@@ -1,31 +1,6 @@
 [
 	{
-		"card_id": "hos_neu_alduin",
-		"name": "Alduin",
-		"card_type": "creature",
-		"cost": 20,
-		"attributes": [
-			"neutral"
-		],
-		"rules_text": "Costs 2 less for each Dragon in your discard pile.\nSummon: Destroy all other creatures.\nAt the start of your turn, summon a random Dragon from your discard pile.",
-		"stripped_text": "Costs 2 less for each Dragon in your discard pile.\nSummon: Destroy all other creatures.\nAt the start of your turn, summon a random Dragon from your discard pile.",
-		"complexity": 161
-	},
-	{
-		"card_id": "moe_agi_rebellion_general",
-		"name": "Rebellion General",
-		"card_type": "creature",
-		"cost": 4,
-		"attributes": [
-			"agility"
-		],
-		"rules_text": "Wax: +1/+0 and trigger the Wax of each non-Rebellion General friendly creature.\nWane: +0/+1 and trigger the Wane of each non-Rebellion General friendly creature.",
-		"stripped_text": "Wax: +1/+0 and trigger the Wax of each non-Rebellion General friendly creature.\nWane: +0/+1 and trigger the Wane of each non-Rebellion General friendly creature.",
-		"complexity": 161
-	},
-	{
 		"card_id": "db_end_gravesinger",
-		"name": "Gravesinger",
 		"card_type": "creature",
 		"cost": 10,
 		"attributes": [

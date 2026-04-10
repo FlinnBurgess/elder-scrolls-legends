@@ -996,6 +996,7 @@ func play_selected_to_lane(lane_id: String, slot_index := -1) -> Dictionary:
 	var finalized := _finalize_engine_result(result, "Played %s into %s." % [_card_display._card_name(card), _lane_name(lane_id)])
 	if bool(finalized.get("is_valid", false)):
 		_targeting._check_summon_target_mode(saved_instance_id)
+		_selection._check_pending_turn_trigger_target()
 	return finalized
 
 

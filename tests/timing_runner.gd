@@ -31,7 +31,9 @@ func _run_all_tests() -> bool:
 		_test_summon_deal_damage_chosen_target_player() and
 		_test_item_slay_trigger_fires_and_destroys_item() and
 		_test_slay_draw_from_discard_player_choice() and
-		_test_on_move_only_fires_for_moved_creature()
+		_test_on_move_only_fires_for_moved_creature() and
+		_test_wax_wane_target_mode_not_queued_at_end_of_turn() and
+		_test_trigger_wane_queues_targeted_wax_wane_for_other_friendly()
 	)
 
 
@@ -564,11 +566,86 @@ func _test_on_move_only_fires_for_moved_creature() -> bool:
 	)
 
 
+func _test_wax_wane_target_mode_not_queued_at_end_of_turn() -> bool:
+	# Wax/wane abilities with target_mode (e.g. Servant of Ja-Kha'jay's Wane: Silence)
+	# should only fire on summon, NOT be queued as pending turn triggers at end of turn.
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var player_id := str(active_player.get("player_id", ""))
+	var opponent_id := str(opponent.get("player_id", ""))
+	# Place a creature with wane: silence (target_mode) in lane
+	var servant := _summon_creature(active_player, match_state, "servant", "field", 2, 2, [], -1, {
+		"triggered_abilities": [
+			{"family": MatchTiming.FAMILY_WAX, "required_zone": "lane", "effects": [{"op": "modify_stats", "target": "self", "power": 2, "health": 2}]},
+			{"family": MatchTiming.FAMILY_WANE, "required_zone": "lane", "target_mode": "any_creature", "effects": [{"op": "silence", "target": "chosen_target"}]},
+		],
+	})
+	# End turn to toggle to wane phase
+	MatchTurnLoop.end_turn(match_state, player_id)
+	MatchTurnLoop.end_turn(match_state, opponent_id)
+	# Now player is in wane phase. Queue turn trigger targets (as happens when clicking End Turn)
+	MatchTiming.queue_turn_trigger_targets(match_state, player_id)
+	var pending_turn: Array = match_state.get("pending_turn_trigger_targets", [])
+	return (
+		_assert(not servant.is_empty(), "Servant should be in lane.") and
+		_assert(pending_turn.is_empty(), "Wax/wane target_mode abilities should NOT be queued as turn triggers at end of turn.")
+	)
+
+
 func _build_deck(prefix: String, size: int) -> Array:
 	var deck: Array = []
 	for index in range(size):
 		deck.append("%s_card_%02d" % [prefix, index + 1])
 	return deck
+
+
+func _test_trigger_wane_queues_targeted_wax_wane_for_other_friendly() -> bool:
+	# Rebellion General's trigger_wane should queue targeted wane abilities
+	# (like Servant of Ja-Kha'jay's silence) as pending_turn_trigger_targets
+	# instead of skipping them.
+	var match_state := _build_started_match(20, 0)
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var player_id := str(player["player_id"])
+	# Put player in wane phase so wane triggers fire on summon
+	player["wax_wane_state"] = "wane"
+	# Summon an enemy creature (silence target)
+	var enemy := _summon_creature(opponent, match_state, "enemy_target", "field", 3, 3)
+	# Summon a creature with non-targeted wane (stat buff, should fire immediately)
+	var stat_creature := _summon_creature(player, match_state, "stat_wane", "field", 2, 2, [], -1, {
+		"triggered_abilities": [
+			{"family": "wane", "required_zone": "lane", "effects": [{"op": "modify_stats", "target": "self", "power": 0, "health": 1}]},
+		],
+	})
+	# Summon a creature with targeted wane (silence, needs player selection)
+	var targeted_creature := _summon_creature(player, match_state, "targeted_wane", "field", 2, 2, [], -1, {
+		"triggered_abilities": [
+			{"family": "wane", "required_zone": "lane", "target_mode": "any_creature", "effects": [{"op": "silence", "target": "chosen_target"}]},
+		],
+	})
+	# Summon the "rebellion general" — has trigger_wane on all_other_friendly
+	var general := _summon_creature(player, match_state, "rebellion_general", "field", 4, 4, [], -1, {
+		"triggered_abilities": [
+			{"family": "wane", "required_zone": "lane", "effects": [
+				{"op": "modify_stats", "target": "self", "power": 0, "health": 1},
+				{"op": "trigger_wane", "target": "all_other_friendly"},
+			]},
+		],
+	})
+	# The non-targeted wane on stat_creature should have fired (bonus applied)
+	var stat_health := int(stat_creature.get("health", 0)) + int(stat_creature.get("health_bonus", 0)) - int(stat_creature.get("damage_marked", 0))
+	# The targeted wane on targeted_creature should be queued as a pending target
+	var pending: Array = match_state.get("pending_turn_trigger_targets", [])
+	var has_targeted_pending := false
+	for entry in pending:
+		if str(entry.get("source_instance_id", "")) == str(targeted_creature.get("instance_id", "")):
+			has_targeted_pending = true
+			break
+	return (
+		_assert(stat_health > 2, "Non-targeted wane should fire immediately via trigger_wane: health should be > 2, got %d." % stat_health) and
+		_assert(has_targeted_pending, "Targeted wane should be queued as pending_turn_trigger_target, not skipped.")
+	)
 
 
 func _assert(condition: bool, message: String) -> bool:

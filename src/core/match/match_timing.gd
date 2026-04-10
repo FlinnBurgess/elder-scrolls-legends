@@ -1364,91 +1364,13 @@ static func consume_pending_forced_play(match_state: Dictionary, player_id: Stri
 	return entry
 
 
-## Pending turn trigger target system — for wax/wane and end_of_turn triggers with target_mode.
+## Pending turn trigger target system — for end_of_turn and expertise triggers with target_mode.
 ## These triggers need the player to pick a target before the effect fires.
+## NOTE: Wax/wane target-mode abilities are NOT queued here — they fire on summon only,
+## handled by _check_summon_effect_target_mode.
 
 static func queue_turn_trigger_targets(match_state: Dictionary, player_id: String) -> void:
 	ensure_match_state(match_state)
-	var ww_families := [FAMILY_WAX, FAMILY_WANE]
-	var player := MatchTimingHelpers._get_player_state(match_state, player_id)
-	if player.is_empty():
-		return
-	var wax_wane_state := str(player.get("wax_wane_state", "wax"))
-	var matching_family := FAMILY_WAX if wax_wane_state == "wax" else FAMILY_WANE
-	for lane in match_state.get("lanes", []):
-		var lane_index := int(lane.get("lane_index", 0))
-		var slots: Array = lane.get("player_slots", {}).get(player_id, [])
-		for slot_index in range(slots.size()):
-			var card = slots[slot_index]
-			if typeof(card) != TYPE_DICTIONARY:
-				continue
-			var abilities = card.get("triggered_abilities", [])
-			if typeof(abilities) != TYPE_ARRAY:
-				continue
-			for trigger_index in range(abilities.size()):
-				var descriptor = abilities[trigger_index]
-				if typeof(descriptor) != TYPE_DICTIONARY:
-					continue
-				var family := str(descriptor.get("family", ""))
-				if family != matching_family:
-					continue
-				if str(descriptor.get("target_mode", "")).is_empty():
-					continue  # No target needed, fires automatically
-				if not bool(descriptor.get("enabled", true)):
-					continue
-				if descriptor.has("required_zone") and str(descriptor.get("required_zone", "")) != ZONE_LANE:
-					continue
-				# Check for dual wax/wane: also queue the opposite family's target triggers
-				var instance_id := str(card.get("instance_id", ""))
-				var valid := MatchTargeting.get_valid_targets_for_mode(match_state, instance_id, str(descriptor.get("target_mode", "")), descriptor)
-				if valid.is_empty():
-					continue  # No valid targets, fizzle silently
-				var pending_arr: Array = match_state.get("pending_turn_trigger_targets", [])
-				pending_arr.append({
-					"player_id": player_id,
-					"source_instance_id": instance_id,
-					"trigger_index": trigger_index,
-					"target_mode": str(descriptor.get("target_mode", "")),
-					"family": family,
-				})
-	# Also queue opposite-phase target triggers if dual wax/wane is active
-	if bool(player.get("_dual_wax_wane", false)):
-		var dual_family := FAMILY_WANE if wax_wane_state == "wax" else FAMILY_WAX
-		for lane in match_state.get("lanes", []):
-			var lane_index := int(lane.get("lane_index", 0))
-			var slots: Array = lane.get("player_slots", {}).get(player_id, [])
-			for slot_index in range(slots.size()):
-				var card = slots[slot_index]
-				if typeof(card) != TYPE_DICTIONARY:
-					continue
-				var abilities = card.get("triggered_abilities", [])
-				if typeof(abilities) != TYPE_ARRAY:
-					continue
-				for trigger_index in range(abilities.size()):
-					var descriptor = abilities[trigger_index]
-					if typeof(descriptor) != TYPE_DICTIONARY:
-						continue
-					if str(descriptor.get("family", "")) != dual_family:
-						continue
-					if str(descriptor.get("target_mode", "")).is_empty():
-						continue
-					if not bool(descriptor.get("enabled", true)):
-						continue
-					if descriptor.has("required_zone") and str(descriptor.get("required_zone", "")) != ZONE_LANE:
-						continue
-					var instance_id := str(card.get("instance_id", ""))
-					var valid := MatchTargeting.get_valid_targets_for_mode(match_state, instance_id, str(descriptor.get("target_mode", "")), descriptor)
-					if valid.is_empty():
-						continue
-					var pending_arr: Array = match_state.get("pending_turn_trigger_targets", [])
-					pending_arr.append({
-						"player_id": player_id,
-						"source_instance_id": instance_id,
-						"trigger_index": trigger_index,
-						"target_mode": str(descriptor.get("target_mode", "")),
-						"family": dual_family,
-					})
-	# Also queue end_of_turn and expertise triggers with target_mode
 	_queue_end_of_turn_trigger_targets(match_state, player_id)
 	_queue_expertise_trigger_targets(match_state, player_id)
 
@@ -3478,9 +3400,22 @@ static func _fire_wax_wane_on_other_friendly(match_state: Dictionary, controller
 					continue
 				if descriptor.has("required_zone") and str(descriptor.get("required_zone", "")) != ZONE_LANE:
 					continue
-				if not str(descriptor.get("target_mode", "")).is_empty():
-					continue  # Target-mode triggers need pending selection; skip here
 				var instance_id := str(card.get("instance_id", ""))
+				var target_mode := str(descriptor.get("target_mode", ""))
+				if not target_mode.is_empty():
+					# Queue targeted triggers for player selection instead of skipping
+					var valid := MatchTargeting.get_valid_targets_for_mode(match_state, instance_id, target_mode, descriptor)
+					if valid.is_empty():
+						continue  # No valid targets, fizzle silently
+					var pending_arr: Array = match_state.get("pending_turn_trigger_targets", [])
+					pending_arr.append({
+						"player_id": controller_id,
+						"source_instance_id": instance_id,
+						"trigger_index": trigger_index,
+						"target_mode": target_mode,
+						"family": family,
+					})
+					continue
 				var synthetic_trigger := {
 					"trigger_id": "%s_forced_%s_%d" % [instance_id, family, trigger_index],
 					"trigger_index": trigger_index,

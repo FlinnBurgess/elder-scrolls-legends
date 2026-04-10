@@ -392,6 +392,9 @@ static func _check_missing_effects(card: Dictionary) -> void:
 		# "destroy" maps to "destroy" or "destroy_creature" op or "lethal" keyword
 		if id == "destroy" and ("destroy" in configured_ops or "destroy_creature" in configured_ops or "lethal" in keywords):
 			continue
+		# "wax_wane" covered by having wax and/or wane families
+		if id == "wax_wane" and ("wax" in configured_families or "wane" in configured_families):
+			continue
 		# "empower" is handled via empower_bonus/empower_stat_bonus/empower_bonus_cost params
 		# on existing ops, or via self_cost_reduction with type "empower", or via permanent_empower passive
 		if id == "empower":

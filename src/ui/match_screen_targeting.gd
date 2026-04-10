@@ -367,11 +367,13 @@ func _resolve_summon_target_card(target_instance_id: String) -> void:
 		var result = _screen.MatchTiming.resolve_pending_summon_effect_target(_screen._match_state, _screen._local_player_id(), {"target_instance_id": target_instance_id})
 		_screen._finalize_engine_result(result, "Targeted %s." % _screen._card_name(_screen._card_from_instance_id(target_instance_id)))
 		_screen._check_deferred_betray()
+		_screen._check_pending_turn_trigger_target()
 	else:
 		var result = _screen.MatchTiming.resolve_targeted_effect(_screen._match_state, source_id, {"target_instance_id": target_instance_id})
 		_screen._finalize_engine_result(result, "Targeted %s." % _screen._card_name(_screen._card_from_instance_id(target_instance_id)))
 		_check_pending_summon_effect_target()
 		_screen._check_deferred_betray()
+		_screen._check_pending_turn_trigger_target()
 
 
 func _resolve_summon_target_player(player_id: String) -> void:
@@ -404,11 +406,13 @@ func _resolve_summon_target_player(player_id: String) -> void:
 		var result = _screen.MatchTiming.resolve_pending_summon_effect_target(_screen._match_state, _screen._local_player_id(), {"target_player_id": player_id})
 		_screen._finalize_engine_result(result, "Targeted %s." % _screen._player_name(player_id))
 		_screen._check_deferred_betray()
+		_screen._check_pending_turn_trigger_target()
 	else:
 		var result = _screen.MatchTiming.resolve_targeted_effect(_screen._match_state, source_id, {"target_player_id": player_id})
 		_screen._finalize_engine_result(result, "Targeted %s." % _screen._player_name(player_id))
 		_check_pending_summon_effect_target()
 		_screen._check_deferred_betray()
+		_screen._check_pending_turn_trigger_target()
 
 
 func _is_pending_summon_mandatory() -> bool:
