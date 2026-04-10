@@ -1,30 +1,5 @@
 [
 	{
-		"card_id": "mc_dual_dark_mane",
-		"name": "Dark Mane",
-		"card_type": "creature",
-		"cost": 2,
-		"attributes": [
-			"willpower",
-			"agility"
-		],
-		"rules_text": "When you summon a creature in this lane, if it's full, Dark Mane moves.\nWhen Dark Mane moves, it gains +2/+0 and Drain this turn.",
-		"stripped_text": "When you summon a creature in this lane, if it's full, Dark Mane moves.\nWhen Dark Mane moves, it gains +2/+0 and Drain this turn.",
-		"complexity": 129
-	},
-	{
-		"card_id": "mc_end_skyshard",
-		"name": "Skyshard",
-		"card_type": "support",
-		"cost": 3,
-		"attributes": [
-			"endurance"
-		],
-		"rules_text": "Ongoing\nSummon: Draw a random creature from your deck.\nWhen you draw a creature on your turn, increase its cost by 2 and give it +2/+2.",
-		"stripped_text": "Summon: Draw a random creature from your deck.\nWhen you draw a creature on your turn, increase its cost by 2 and give it +2/+2.",
-		"complexity": 127
-	},
-	{
 		"card_id": "hos_neu_young_dragonborn",
 		"name": "Young Dragonborn",
 		"card_type": "creature",

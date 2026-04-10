@@ -517,7 +517,7 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 	if not rdct_type.is_empty():
 		var rdct_actual := str(event.get("drawn_card_type", ""))
 		if rdct_actual.is_empty():
-			var rdct_card := MatchTimingHelpers._find_card_anywhere(match_state, str(event.get("source_instance_id", "")))
+			var rdct_card := MatchTimingHelpers._find_card_anywhere(match_state, str(event.get("drawn_instance_id", event.get("source_instance_id", ""))))
 			rdct_actual = str(rdct_card.get("card_type", ""))
 		if rdct_actual != rdct_type:
 			return false

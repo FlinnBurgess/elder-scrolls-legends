@@ -612,55 +612,53 @@ func _show_test_match_picker() -> void:
 
 	var bg := ColorRect.new()
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0, 0, 0, 0.7)
+	bg.color = Color(0, 0, 0, 0.6)
 	_test_match_picker.add_child(bg)
 
-	# Centre the panel using anchors — anchor to centre, then offset by half-size
+	# Centre the panel using anchors
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(500, 0)
+	panel.custom_minimum_size = Vector2(560, 0)
 	panel.anchor_left = 0.5
 	panel.anchor_right = 0.5
 	panel.anchor_top = 0.5
 	panel.anchor_bottom = 0.5
-	panel.offset_left = -250
-	panel.offset_right = 250
-	panel.offset_top = -250
-	panel.offset_bottom = 250
+	panel.offset_left = -280
+	panel.offset_right = 280
+	panel.offset_top = -260
+	panel.offset_bottom = 260
 	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	UITheme.style_panel(panel)
 	_test_match_picker.add_child(panel)
 
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 24)
-	margin.add_theme_constant_override("margin_right", 24)
-	margin.add_theme_constant_override("margin_top", 24)
-	margin.add_theme_constant_override("margin_bottom", 24)
+	margin.add_theme_constant_override("margin_left", 32)
+	margin.add_theme_constant_override("margin_right", 32)
+	margin.add_theme_constant_override("margin_top", 28)
+	margin.add_theme_constant_override("margin_bottom", 28)
 	panel.add_child(margin)
 
 	var outer_vbox := VBoxContainer.new()
-	outer_vbox.add_theme_constant_override("separation", 8)
+	outer_vbox.add_theme_constant_override("separation", 12)
 	margin.add_child(outer_vbox)
 
 	var title := Label.new()
 	title.text = "Test Match Configs"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 22)
+	UITheme.style_title(title, 28)
 	outer_vbox.add_child(title)
 
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 8)
-	outer_vbox.add_child(spacer)
+	outer_vbox.add_child(UITheme.make_separator(0.0))
 
 	if configs.is_empty():
 		var empty_label := Label.new()
 		empty_label.text = "No test matches configured"
 		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		empty_label.add_theme_font_size_override("font_size", 16)
-		empty_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6, 1.0))
+		empty_label.add_theme_font_size_override("font_size", 18)
+		empty_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
 		empty_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		outer_vbox.add_child(empty_label)
 	else:
-		# Scrollable list of configs
 		var scroll := ScrollContainer.new()
 		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		scroll.custom_minimum_size = Vector2(0, 100)
@@ -683,27 +681,28 @@ func _show_test_match_picker() -> void:
 			if not desc.is_empty():
 				btn_text += "  —  " + desc
 			launch_btn.text = btn_text
-			launch_btn.custom_minimum_size = Vector2(400, 44)
+			launch_btn.custom_minimum_size = Vector2(0, 52)
 			launch_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			launch_btn.clip_text = true
+			UITheme.style_button(launch_btn, 20)
 			var filename: String = config_entry.get("filename", "")
 			launch_btn.pressed.connect(_on_test_match_selected.bind(filename))
 			row.add_child(launch_btn)
 
 			var delete_btn := Button.new()
 			delete_btn.text = "X"
-			delete_btn.custom_minimum_size = Vector2(36, 44)
+			delete_btn.custom_minimum_size = Vector2(52, 52)
 			delete_btn.tooltip_text = "Delete this config"
+			UITheme.style_button_accent(delete_btn, Color(0.8, 0.3, 0.3), 18)
 			delete_btn.pressed.connect(_on_test_match_delete.bind(filename))
 			row.add_child(delete_btn)
 
-	var bottom_spacer := Control.new()
-	bottom_spacer.custom_minimum_size = Vector2(0, 8)
-	outer_vbox.add_child(bottom_spacer)
+	outer_vbox.add_child(UITheme.make_separator(0.0))
 
 	var back_btn := Button.new()
 	back_btn.text = "Back"
-	back_btn.custom_minimum_size = Vector2(0, 44)
+	back_btn.custom_minimum_size = Vector2(0, 48)
+	UITheme.style_button(back_btn, 22, true)
 	back_btn.pressed.connect(_on_test_match_picker_back)
 	outer_vbox.add_child(back_btn)
 

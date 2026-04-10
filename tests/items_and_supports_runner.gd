@@ -38,7 +38,8 @@ func _run_all_tests() -> bool:
 		_test_auto_crown_skips_when_crowned_creature_exists() and
 		_test_altar_of_despair_escalating_cost() and
 		_test_altar_of_despair_sweet_roll_fallback() and
-		_test_orsinium_forge_escalates_plate_stats_per_use()
+		_test_orsinium_forge_escalates_plate_stats_per_use() and
+		_test_skyshard_on_card_drawn_buffs_creature()
 	)
 
 
@@ -730,6 +731,74 @@ func _test_orsinium_forge_escalates_plate_stats_per_use() -> bool:
 	return (
 		_assert(EvergreenRules.get_power(target_c) == 4, "3rd plate should give +3 power (1+3).") and
 		_assert(EvergreenRules.get_health(target_c) == 4, "3rd plate should give +3 health (1+3).")
+	)
+
+
+func _test_skyshard_on_card_drawn_buffs_creature() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player["player_id"])
+	# Place Skyshard support in the support zone
+	var skyshard := {
+		"instance_id": pid + "_skyshard",
+		"definition_id": "mc_end_skyshard",
+		"name": "Skyshard",
+		"card_type": "support",
+		"cost": 3,
+		"support_uses": 0,
+		"owner_player_id": pid,
+		"controller_player_id": pid,
+		"zone": "support",
+		"keywords": [],
+		"triggered_abilities": [{
+			"family": "on_card_drawn",
+			"required_zone": "support",
+			"required_controller_turn": true,
+			"required_drawn_card_type": "creature",
+			"effects": [
+				{"op": "modify_cost", "target": "event_drawn_card", "amount": 2},
+				{"op": "modify_stats", "target": "event_drawn_card", "power": 2, "health": 2},
+			],
+		}],
+	}
+	player["support"].append(skyshard)
+	# Clear deck and add a creature with known stats at the top (pop_back draws last)
+	player["deck"].clear()
+	var creature_card := {
+		"instance_id": pid + "_test_creature",
+		"definition_id": "test_creature",
+		"name": "Test Creature",
+		"card_type": "creature",
+		"cost": 3,
+		"power": 2,
+		"health": 2,
+		"base_power": 2,
+		"base_health": 2,
+		"keywords": [],
+		"triggered_abilities": [],
+		"owner_player_id": pid,
+		"controller_player_id": pid,
+		"zone": "deck",
+	}
+	player["deck"].append(creature_card)
+	# End two turns so player 1's turn restarts and draws the creature
+	MatchTurnLoop.end_turn(match_state, pid)
+	MatchTurnLoop.end_turn(match_state, match_state["active_player_id"])
+	# Find the drawn creature in hand
+	var drawn: Dictionary = {}
+	for card in player["hand"]:
+		if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == "test_creature":
+			drawn = card
+			break
+	if not _assert(not drawn.is_empty(), "Skyshard: creature should be drawn into hand."):
+		return false
+	var actual_cost := int(drawn.get("cost", -1))
+	var actual_power := EvergreenRules.get_power(drawn)
+	var actual_health := EvergreenRules.get_health(drawn)
+	return (
+		_assert(actual_cost == 5, "Skyshard: drawn creature cost should be 3+2=5, got %d." % actual_cost) and
+		_assert(actual_power == 4, "Skyshard: drawn creature power should be 2+2=4, got %d." % actual_power) and
+		_assert(actual_health == 4, "Skyshard: drawn creature health should be 2+2=4, got %d." % actual_health)
 	)
 
 

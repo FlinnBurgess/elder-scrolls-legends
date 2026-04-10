@@ -308,7 +308,10 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 		"modify_cost":
 			var mc_amount := int(effect.get("amount", -1))
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
-				card["cost"] = maxi(0, int(card.get("cost", 0)) + mc_amount)
+				var mc_original := int(card.get("cost", 0))
+				if not card.has("_base_cost"):
+					card["_base_cost"] = mc_original
+				card["cost"] = maxi(0, mc_original + mc_amount)
 				generated_events.append({
 					"event_type": "cost_modified",
 					"source_instance_id": str(trigger.get("source_instance_id", "")),
