@@ -1,29 +1,5 @@
 [
 	{
-		"card_id": "moe_agi_corinthe_brawler",
-		"name": "Corinthe Brawler",
-		"card_type": "creature",
-		"cost": 5,
-		"attributes": [
-			"agility"
-		],
-		"rules_text": "Wax: +1/+1 and your opponent can't target Corinthe Brawler with actions.\nWane: Gain 1 magicka this turn for each enemy creature in this lane.",
-		"stripped_text": "Wax: +1/+1 and your opponent can't target Corinthe Brawler with actions.\nWane: Gain 1 magicka this turn for each enemy creature in this lane.",
-		"complexity": 141
-	},
-	{
-		"card_id": "joo_end_miscarcand_lich",
-		"name": "Miscarcand Lich",
-		"card_type": "creature",
-		"cost": 4,
-		"attributes": [
-			"endurance"
-		],
-		"rules_text": "Summon: Choose an enemy creature.\nAt the start of your turn, if the chosen creature is alive, summon a 1/1 Risen Dead with Guard in its lane.",
-		"stripped_text": "Summon: Choose an enemy creature.\nAt the start of your turn, if the chosen creature is alive, summon a 1/1 Risen Dead with Guard in its lane.",
-		"complexity": 141
-	},
-	{
 		"card_id": "mc_end_pure_blood_elder",
 		"name": "Pure-Blood Elder",
 		"card_type": "creature",

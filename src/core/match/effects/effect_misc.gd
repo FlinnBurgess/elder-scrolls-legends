@@ -88,9 +88,12 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					var rohc_idx := MatchEffectParams._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_reveal_hand", rohc_hand.size())
 					generated_events.append({"event_type": "opponent_hand_card_revealed", "source_instance_id": str(trigger.get("source_instance_id", "")), "controller_player_id": rohc_controller_id, "revealed_card": rohc_hand[rohc_idx].duplicate(true)})
 		"mark_target":
+			var mt_source := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				card["_marked_by"] = str(trigger.get("source_instance_id", ""))
 				card["_mark_effect"] = effect.get("mark_effect", {})
+				if not mt_source.is_empty():
+					mt_source["_aimed_at_instance_id"] = str(card.get("instance_id", ""))
 				generated_events.append({"event_type": "creature_marked", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", ""))})
 		"mark_for_resummon":
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
