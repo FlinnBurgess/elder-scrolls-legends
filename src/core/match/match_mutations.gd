@@ -291,6 +291,8 @@ static func move_card_to_zone(match_state: Dictionary, instance_id: String, zone
 		reset_transient_state(card)
 	if zone_name == ZONE_HAND:
 		apply_first_turn_hand_cost(match_state, card, target_player_id)
+	if zone_name == ZONE_DISCARD:
+		card["entered_discard_on_turn"] = int(match_state.get("turn_number", 0))
 	return {
 		"is_valid": true,
 		"errors": [],

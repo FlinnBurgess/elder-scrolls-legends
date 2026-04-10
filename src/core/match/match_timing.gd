@@ -203,7 +203,7 @@ const FAMILY_SPECS := {
 	FAMILY_ON_FRIENDLY_TREASURE_FOUND: {"event_type": "treasure_found", "window": WINDOW_AFTER, "match_role": "controller"},
 	FAMILY_ON_INVADE: {"event_type": "invade_triggered", "window": WINDOW_AFTER, "match_role": "controller"},
 	FAMILY_ON_MAX_MAGICKA_GAIN_2: {"event_type": "max_magicka_gained", "window": WINDOW_AFTER, "match_role": "target_player_is_controller"},
-	FAMILY_ON_DISCARD_LEAVE: {"event_type": "card_moved", "window": WINDOW_AFTER, "match_role": "subject"},
+	FAMILY_ON_DISCARD_LEAVE: {"event_type": "card_moved", "window": WINDOW_AFTER, "match_role": "controller", "required_event_source_zone": "discard"},
 	FAMILY_ON_MAGICKA_THRESHOLD: {"event_type": "magicka_restored", "window": WINDOW_AFTER, "match_role": "target_player_is_controller"},
 }
 

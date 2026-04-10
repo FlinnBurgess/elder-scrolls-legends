@@ -251,14 +251,22 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			var cacidt_player := MatchTimingHelpers._get_player_state(match_state, cacidt_controller_id)
 			if not cacidt_player.is_empty():
 				var cacidt_discard: Array = cacidt_player.get(ZONE_DISCARD, [])
+				var cacidt_turn := int(match_state.get("turn_number", 0))
 				var cacidt_targets: Array = []
 				for cacidt_card in cacidt_discard:
-					if typeof(cacidt_card) == TYPE_DICTIONARY and str(cacidt_card.get("card_type", "")) == CARD_TYPE_CREATURE:
+					if typeof(cacidt_card) == TYPE_DICTIONARY and str(cacidt_card.get("card_type", "")) == CARD_TYPE_CREATURE and int(cacidt_card.get("entered_discard_on_turn", -1)) == cacidt_turn:
 						cacidt_targets.append(cacidt_card)
 				if not cacidt_targets.is_empty():
 					generated_events.append({"event_type": "mass_consume", "source_instance_id": cacidt_source_id, "player_id": cacidt_controller_id, "count": cacidt_targets.size()})
+				var cacidt_buff: Dictionary = effect.get("buff_per_consumed", {})
+				var cacidt_power_per := int(cacidt_buff.get("power", 0))
+				var cacidt_health_per := int(cacidt_buff.get("health", 0))
 				for cacidt_target in cacidt_targets:
-					var cacidt_result := MatchMutations.consume_card(match_state, cacidt_controller_id, cacidt_source_id, str(cacidt_target.get("instance_id", "")), {"reason": reason})
+					var cacidt_opts := {"reason": reason}
+					if not cacidt_buff.is_empty():
+						cacidt_opts["power_gain"] = cacidt_power_per
+						cacidt_opts["health_gain"] = cacidt_health_per
+					var cacidt_result := MatchMutations.consume_card(match_state, cacidt_controller_id, cacidt_source_id, str(cacidt_target.get("instance_id", "")), cacidt_opts)
 					generated_events.append_array(cacidt_result.get("events", []))
 		"optional_consume_for_keyword":
 			# Handled via pending consume selection

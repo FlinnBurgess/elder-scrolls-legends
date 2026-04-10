@@ -30,6 +30,7 @@ func _record_feedback_from_events(events: Array) -> void:
 	var removal_stacks := {}
 	var draw_stacks := {}
 	var rune_stacks := {}
+	var milled_instance_ids: Array = []
 	var now = _screen._feedback_now_ms()
 	for event in events:
 		if typeof(event) != TYPE_DICTIONARY:
@@ -161,7 +162,9 @@ func _record_feedback_from_events(events: Array) -> void:
 				if str(event.get("target_player_id", "")) == _screen._local_player_id():
 					_screen._queue_status_toast("Magicka restored!", Color(0.3, 0.6, 1.0))
 			"card_milled":
-				_screen._queue_status_toast("Card milled", Color(0.6, 0.5, 0.4))
+				var cm_id := str(event.get("milled_instance_id", ""))
+				if not cm_id.is_empty():
+					milled_instance_ids.append(cm_id)
 			"cost_modified":
 				var cm_amount := int(event.get("amount", 0))
 				var cm_text := "+%d Cost" % cm_amount if cm_amount > 0 else "%d Cost" % cm_amount
@@ -250,6 +253,14 @@ func _record_feedback_from_events(events: Array) -> void:
 				var cu_value := int(event.get("value", 0))
 				var cu_threshold := int(event.get("threshold", 0))
 				_screen._queue_creature_toast(str(event.get("source_instance_id", "")), "%d/%d" % [cu_value, cu_threshold], Color.WHITE)
+	if not milled_instance_ids.is_empty():
+		var milled_cards: Array = []
+		for mid in milled_instance_ids:
+			var mcard: Dictionary = _screen._card_from_instance_id(mid)
+			if not mcard.is_empty():
+				milled_cards.append(mcard)
+		if not milled_cards.is_empty():
+			_screen._feedback._animate_mill_reveal(milled_cards)
 
 
 func _animate_card_draw(player_id: String, instance_id: String, stack_index: int) -> void:

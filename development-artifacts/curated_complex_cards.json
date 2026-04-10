@@ -1,29 +1,5 @@
 [
 	{
-		"card_id": "moe_end_ruin_shambler",
-		"name": "Ruin Shambler",
-		"card_type": "creature",
-		"cost": 4,
-		"attributes": [
-			"endurance"
-		],
-		"rules_text": "Summon: Discard the top three cards of your deck, then Consume all creatures that entered your discard pile this turn. Ruin Shambler gains +1/+1 for each creature consumed.",
-		"stripped_text": "Summon: Discard the top three cards of your deck, then Consume all creatures that entered your discard pile this turn. Ruin Shambler gains +1/+1 for each creature consumed.",
-		"complexity": 172
-	},
-	{
-		"card_id": "moe_agi_apex_predator",
-		"name": "Apex Predator",
-		"card_type": "creature",
-		"cost": 5,
-		"attributes": [
-			"agility"
-		],
-		"rules_text": "When Apex Predator moves, deal 2 damage to your opponent and you gain 2 health.\nAt the end of your turn, if there are no enemy creatures in this lane, move Apex Predator.",
-		"stripped_text": "When Apex Predator moves, deal 2 damage to your opponent and you gain 2 health.\nAt the end of your turn, if there are no enemy creatures in this lane, move Apex Predator.",
-		"complexity": 170
-	},
-	{
 		"card_id": "hos_neu_alduin",
 		"name": "Alduin",
 		"card_type": "creature",
@@ -312,18 +288,6 @@
 		],
 		"rules_text": "Wax: Deal 1 damage.\nWane: +1/+1\nAfter you play another card Waxed, deal 1 damage.\nAfter you play another card Waned, +1/+1.",
 		"stripped_text": "Wax: Deal 1 damage.\nWane: +1/+1\nAfter you play another card Waxed, deal 1 damage.\nAfter you play another card Waned, +1/+1.",
-		"complexity": 123
-	},
-	{
-		"card_id": "moe_end_dro_mathra_reaper",
-		"name": "Dro-m'Athra Reaper",
-		"card_type": "creature",
-		"cost": 2,
-		"attributes": [
-			"endurance"
-		],
-		"rules_text": "Summon: Consume a creature.\nWhen a creature leaves your discard pile, Dro-m'Athra Reaper gains +0/+1 and you gain 1 health.",
-		"stripped_text": "Summon: Consume a creature.\nWhen a creature leaves your discard pile, Dro-m'Athra Reaper gains +0/+1 and you gain 1 health.",
 		"complexity": 123
 	},
 	{

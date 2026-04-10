@@ -477,6 +477,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				for card in hand:
 					if typeof(card) == TYPE_DICTIONARY:
 						card["zone"] = ZONE_DISCARD
+						card["entered_discard_on_turn"] = int(match_state.get("turn_number", 0))
 						discard.append(card)
 						generated_events.append({"event_type": "card_discarded", "player_id": player_id, "instance_id": str(card.get("instance_id", "")), "source": "discard_hand", "reason": reason})
 				hand.clear()
@@ -496,6 +497,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					return
 				var top_card: Dictionary = deck.pop_back()
 				top_card["zone"] = ZONE_DISCARD
+				top_card["entered_discard_on_turn"] = int(match_state.get("turn_number", 0))
 				var discard: Array = player.get(ZONE_DISCARD, [])
 				discard.append(top_card)
 				generated_events.append({
@@ -554,6 +556,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						break
 					var milled_card: Dictionary = mill_deck.pop_back()
 					milled_card["zone"] = ZONE_DISCARD
+					milled_card["entered_discard_on_turn"] = int(match_state.get("turn_number", 0))
 					mill_discard.push_front(milled_card)
 					generated_events.append({
 						"event_type": "card_milled",

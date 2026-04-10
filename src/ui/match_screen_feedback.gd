@@ -823,6 +823,80 @@ func _animate_deck_card_reveal(revealed_card: Dictionary) -> void:
 	)
 
 
+func _animate_mill_reveal(milled_cards: Array) -> void:
+	var card_size: Vector2 = _screen._hand_card_display_size()
+	var viewport_size: Vector2 = _screen.get_viewport_rect().size
+	var count := milled_cards.size()
+	var gap := 16.0
+	var total_width: float = card_size.x * count + gap * (count - 1)
+	var start_x: float = (viewport_size.x - total_width) * 0.5
+	var pos_y: float = (viewport_size.y - card_size.y) * 0.5
+
+	var container := Control.new()
+	container.name = "mill_reveal_container"
+	container.z_index = 500
+	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	container.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	_screen.add_child(container)
+
+	var dimmer := ColorRect.new()
+	dimmer.color = Color(0.0, 0.0, 0.0, 0.0)
+	dimmer.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	dimmer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	container.add_child(dimmer)
+	var dim_tween: Tween = _screen.create_tween()
+	dim_tween.tween_property(dimmer, "color:a", 0.55, 0.2)
+
+	var title := Label.new()
+	title.text = "Milled"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_color_override("font_color", Color(0.7, 0.55, 0.4))
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title.position = Vector2(start_x, pos_y - 30)
+	title.size = Vector2(total_width, 28)
+	container.add_child(title)
+
+	for i in range(count):
+		var card: Dictionary = milled_cards[i]
+		var panel := PanelContainer.new()
+		panel.name = "mill_card_%d" % i
+		panel.custom_minimum_size = card_size
+		panel.size = card_size
+		panel.position = Vector2(start_x + i * (card_size.x + gap), pos_y)
+		panel.pivot_offset = Vector2(card_size.x * 0.5, card_size.y * 0.5)
+		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_screen._apply_panel_style(panel, Color(0.35, 0.22, 0.12, 0.98), Color(0.57, 0.44, 0.27, 0.92), 2, 6)
+		panel.scale = Vector2(1.0, 1.0)
+		container.add_child(panel)
+
+		var delay: float = float(i) * 0.15
+		var tween: Tween = _screen.create_tween()
+		if delay > 0.0:
+			tween.tween_interval(delay)
+		tween.tween_property(panel, "scale:x", 0.0, 0.15).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_SINE)
+		tween.tween_callback(func():
+			for child in panel.get_children():
+				child.queue_free()
+			var component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+			component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+			component.apply_card(card, _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+			panel.add_child(component)
+		)
+		tween.tween_property(panel, "scale:x", 1.0, 0.2).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+
+	var total_flip_time: float = float(count - 1) * 0.15 + 0.35
+	var dismiss_tween: Tween = _screen.create_tween()
+	dismiss_tween.tween_interval(total_flip_time + 1.2)
+	dismiss_tween.tween_property(container, "modulate:a", 0.0, 0.4)
+	dismiss_tween.tween_callback(func():
+		if is_instance_valid(container):
+			container.queue_free()
+		_screen._refresh_ui()
+	)
+
+
 func _animate_scroll_flip(source_card: Dictionary, chosen_label: String, chosen_description: String) -> void:
 	var card_size = _screen._hand_card_display_size()
 	var viewport_size = _screen.get_viewport_rect().size

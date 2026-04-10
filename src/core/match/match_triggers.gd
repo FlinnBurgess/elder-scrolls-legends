@@ -723,7 +723,7 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 		var cost_check_card := MatchTimingHelpers._find_card_anywhere(match_state, str(event.get("source_instance_id", "")))
 		if cost_check_card.is_empty() or int(cost_check_card.get("cost", 999)) > max_source_cost:
 			return false
-	var required_event_source_zone := str(descriptor.get("required_event_source_zone", ""))
+	var required_event_source_zone := str(descriptor.get("required_event_source_zone", family_spec.get("required_event_source_zone", "")))
 	if not required_event_source_zone.is_empty() and str(event.get("source_zone", "")) != required_event_source_zone:
 		return false
 	var required_event_target_zone := str(descriptor.get("required_event_target_zone", ""))

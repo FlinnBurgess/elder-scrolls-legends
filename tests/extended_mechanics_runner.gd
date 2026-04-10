@@ -93,7 +93,9 @@ func _run_all_tests() -> bool:
 		_test_monster_perfection_lab_decline_keeps_lab() and
 		_test_ultimate_heist_drops_hp_to_rune_threshold() and
 		_test_ultimate_heist_stolen_prophecy_opens_window() and
-		_test_ultimate_heist_no_runes_kills_opponent()
+		_test_ultimate_heist_no_runes_kills_opponent() and
+		_test_ruin_shambler_consume_only_this_turn_with_buff_per_consumed() and
+		_test_dro_mathra_reaper_on_discard_leave_triggers()
 	)
 
 
@@ -3637,6 +3639,76 @@ func _test_ultimate_heist_no_runes_kills_opponent() -> bool:
 		_assert(int(opponent.get("health", -1)) == 0, "Ultimate Heist no runes: opponent HP should be 0, got %d." % int(opponent.get("health", -1))) and
 		_assert(str(match_state.get("winner_player_id", "")) == pid, "Ultimate Heist no runes: controller should win the match.")
 	)
+
+
+func _test_ruin_shambler_consume_only_this_turn_with_buff_per_consumed() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Pre-populate discard with a creature from a previous turn (should NOT be consumed)
+	var old_discard := ScenarioFixtures.make_card(pid, "old_discard", {
+		"card_type": "creature", "cost": 2, "power": 5, "health": 5,
+	})
+	old_discard["zone"] = "discard"
+	old_discard["entered_discard_on_turn"] = -1
+	player["discard"] = [old_discard]
+	# Stack deck with 3 creatures (will be milled)
+	ScenarioFixtures.set_deck_cards(player, [
+		ScenarioFixtures.make_card(pid, "mill_c", {"card_type": "creature", "cost": 1, "power": 3, "health": 3}),
+		ScenarioFixtures.make_card(pid, "mill_b", {"card_type": "creature", "cost": 1, "power": 2, "health": 2}),
+		ScenarioFixtures.make_card(pid, "mill_a", {"card_type": "creature", "cost": 1, "power": 1, "health": 1}),
+	])
+	# Add Ruin Shambler to hand: summon: mill 3, consume all creatures in discard this turn +1/+1 each
+	var shambler := ScenarioFixtures.add_hand_card(player, "ruin_shambler", {
+		"card_type": "creature", "cost": 0, "power": 1, "health": 1,
+		"triggered_abilities": [{"family": "summon", "effects": [
+			{"op": "mill", "target_player": "controller", "count": 3},
+			{"op": "consume_all_creatures_in_discard_this_turn", "target": "self", "buff_per_consumed": {"power": 1, "health": 1}},
+		]}],
+	})
+	var shambler_id := str(shambler.get("instance_id", ""))
+	var summon_result := LaneRules.summon_from_hand(match_state, pid, shambler_id, "field")
+	if not _assert(bool(summon_result.get("is_valid", false)), "Ruin Shambler: summon should be valid."):
+		return false
+	# Should have consumed only the 3 milled creatures (this turn), not the old discard
+	# Base 1/1 + 3 * (+1/+1) = 4/4
+	var power := EvergreenRules.get_power(shambler)
+	var health := EvergreenRules.get_health(shambler)
+	if not _assert(power == 4 and health == 4, "Ruin Shambler should be 4/4 (1/1 base + 3x +1/+1), got %d/%d." % [power, health]):
+		return false
+	# The old discard creature should still be in discard (not consumed)
+	return _assert(_contains_instance(player.get("discard", []), str(old_discard.get("instance_id", ""))), "Ruin Shambler should NOT consume creatures from previous turns.")
+
+
+func _test_dro_mathra_reaper_on_discard_leave_triggers() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	player["health"] = 20
+	# Summon Dro-m'Athra Reaper with on_discard_leave: +0/+1 to self, heal controller 1
+	var reaper := ScenarioFixtures.summon_creature(player, match_state, "reaper", "field", 3, 2, [], -1, {
+		"triggered_abilities": [
+			{"family": "on_discard_leave", "required_zone": "lane", "effects": [
+				{"op": "modify_stats", "target": "self", "power": 0, "health": 1},
+				{"op": "heal", "target_player": "controller", "amount": 1},
+			]},
+		],
+	})
+	# Put a creature in discard
+	var meal := ScenarioFixtures.make_card(pid, "meal", {
+		"card_type": "creature", "cost": 1, "power": 1, "health": 1,
+	})
+	meal["zone"] = "discard"
+	player["discard"] = [meal]
+	# Consume the creature (moves it from discard to banished → card_moved event with source_zone=discard)
+	var consume_result := MatchMutations.consume_card(match_state, pid, str(reaper.get("instance_id", "")), str(meal.get("instance_id", "")), {"reason": "test"})
+	MatchTiming.publish_events(match_state, consume_result.get("events", []))
+	# Reaper should have triggered: +0/+1
+	var reaper_health := EvergreenRules.get_health(reaper)
+	if not _assert(reaper_health >= 4, "Dro-m'Athra Reaper should get +0/+1 when creature leaves discard, got health %d (expected >=4: base 2 + consume_stat 1 + on_discard_leave 1)." % reaper_health):
+		return false
+	# Player should have healed 1
+	return _assert(int(player.get("health", 0)) == 21, "Dro-m'Athra Reaper on_discard_leave should heal controller for 1, got %d." % int(player.get("health", 0)))
 
 
 func _lane_creatures(match_state: Dictionary, lane_id: String, player_id: String) -> Array:
