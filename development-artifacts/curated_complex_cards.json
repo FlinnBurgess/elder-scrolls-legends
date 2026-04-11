@@ -1,41 +1,5 @@
 [
 	{
-		"card_id": "db_wil_the_black_dragon",
-		"name": "The Black Dragon",
-		"card_type": "creature",
-		"cost": 4,
-		"attributes": [
-			"willpower"
-		],
-		"rules_text": "Immune to Lethal.\nSlay: Discard all creatures from your opponent's deck with the same name as the slain creature.",
-		"stripped_text": "Immune to Lethal.\nSlay: Discard all creatures from your opponent's deck with the same name as the slain creature.",
-		"complexity": 113
-	},
-	{
-		"card_id": "hos_end_dragon_cult_ghost",
-		"name": "Dragon Cult Ghost",
-		"card_type": "creature",
-		"cost": 1,
-		"attributes": [
-			"endurance"
-		],
-		"rules_text": "Spend all your available magicka to play Dragon Cult Ghost. Its power and health are equal to the magicka spent.",
-		"stripped_text": "Spend all your available magicka to play Dragon Cult Ghost. Its power and health are equal to the magicka spent.",
-		"complexity": 112
-	},
-	{
-		"card_id": "joo_str_unfinished_business",
-		"name": "Unfinished Business",
-		"card_type": "action",
-		"cost": 6,
-		"attributes": [
-			"strength"
-		],
-		"rules_text": "Costs 3 less for each friendly Wounded creature.\nUnsummon a creature. Then you may unsummon a friendly creature.",
-		"stripped_text": "Costs 3 less for each friendly Wounded creature.\nUnsummon a creature. Then you may unsummon a friendly creature.",
-		"complexity": 112
-	},
-	{
 		"card_id": "joo_int_hannibal_traven",
 		"name": "Hannibal Traven",
 		"card_type": "creature",

@@ -529,6 +529,15 @@ func _refresh_pending_summon_effect_target() -> void:
 		_screen._overlays._show_opponent_discard_selection_overlay(valid_targets)
 	else:
 		_screen._enter_targeting_mode(source_id)
+		# Action cards move to discard on play, so _enter_targeting_mode won't
+		# create the board preview automatically. Re-create it for the second
+		# phase so the player can still see what card is resolving.
+		var ref_card_type := str(card.get("card_type", ""))
+		if ref_card_type == "action" and _targeting_arrow_state.get("action_preview") == null:
+			var ref_preview = _screen._selection._create_targeting_action_preview(source_id, card)
+			_targeting_arrow_state["action_preview"] = ref_preview
+			var ref_preview_size: Vector2 = ref_preview.size
+			_targeting_arrow_state["origin"] = ref_preview.position + Vector2(ref_preview_size.x * 0.5, 0.0)
 	if not choice_tm.is_empty():
 		_screen._status_message = _summon_target_prompt(card, [{"target_mode": choice_tm}])
 	else:
@@ -580,6 +589,15 @@ func _check_pending_summon_effect_target() -> void:
 		_screen._overlays._show_opponent_discard_selection_overlay(valid_targets)
 	else:
 		_screen._enter_targeting_mode(source_id)
+		# Action cards move to discard on play, so _enter_targeting_mode won't
+		# create the board preview automatically. Re-create it for the second
+		# phase so the player can still see what card is resolving.
+		var src_card_type := str(card.get("card_type", ""))
+		if src_card_type == "action" and _targeting_arrow_state.get("action_preview") == null:
+			var preview = _screen._selection._create_targeting_action_preview(source_id, card)
+			_targeting_arrow_state["action_preview"] = preview
+			var preview_size: Vector2 = preview.size
+			_targeting_arrow_state["origin"] = preview.position + Vector2(preview_size.x * 0.5, 0.0)
 	if not choice_tm.is_empty():
 		_screen._status_message = _summon_target_prompt(card, [{"target_mode": choice_tm}])
 	else:

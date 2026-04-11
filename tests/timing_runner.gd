@@ -38,7 +38,8 @@ func _run_all_tests() -> bool:
 		_test_play_random_from_deck_creates_free_plays() and
 		_test_decline_pending_free_play_keeps_card_in_hand() and
 		_test_copy_pilfer_abilities_fires_all_friendly_pilfer_triggers() and
-		_test_item_on_attack_trigger_fires_for_host_creature()
+		_test_item_on_attack_trigger_fires_for_host_creature() and
+		_test_slay_discard_matching_from_opponent_deck()
 	)
 
 
@@ -873,6 +874,45 @@ func _test_item_on_attack_trigger_fires_for_host_creature() -> bool:
 		_assert(on_attack_resolutions.size() == 1, "Item on_attack should fire once. Got %d." % on_attack_resolutions.size()) and
 		_assert(enemy_a_dmg >= 1, "Enemy A should take 1 damage from Staff of Sparks. Got %d." % enemy_a_dmg) and
 		_assert(enemy_b_dmg >= 1, "Enemy B should take 1 damage from Staff of Sparks. Got %d." % enemy_b_dmg)
+	)
+
+
+func _test_slay_discard_matching_from_opponent_deck() -> bool:
+	var match_state := _build_started_match(10, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	# Slayer with discard_matching_from_opponent_deck slay effect
+	var slayer := _summon_creature(active_player, match_state, "black_dragon", "field", 5, 5, [], 0, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_SLAY,
+			"required_zone": "lane",
+			"effects": [{"op": "discard_matching_from_opponent_deck", "match": "slain_creature_name"}],
+		}]
+	})
+	# Victim in lane — use a shared definition_id so deck copies match
+	var victim := _summon_creature(opponent, match_state, "imp", "field", 1, 1, [], 0)
+	# Add 3 deck cards with the same definition_id as the victim
+	for i in range(3):
+		var deck_card := _add_deck_card(opponent, "deck_imp_%d" % i)
+		deck_card["definition_id"] = victim["definition_id"]
+	# Add 1 deck card with a different definition_id (should not be discarded)
+	_add_deck_card(opponent, "other_creature")
+	_target_ready_for_attack(slayer, match_state)
+	_target_ready_for_attack(victim, match_state)
+	var deck_before: int = opponent["deck"].size()
+	var discard_before: int = opponent["discard"].size()
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], slayer["instance_id"], {
+		"type": "creature",
+		"instance_id": victim["instance_id"],
+	})
+	var deck_after: int = opponent["deck"].size()
+	var discard_after: int = opponent["discard"].size()
+	var deck_removed := deck_before - deck_after
+	var discard_added := discard_after - discard_before
+	return (
+		_assert(result["is_valid"], "Attack should resolve.") and
+		_assert(deck_removed == 3, "3 matching cards should be removed from opponent deck. Got %d." % deck_removed) and
+		_assert(discard_added >= 4, "Victim + 3 matching deck cards should enter discard. Got %d." % discard_added)
 	)
 
 

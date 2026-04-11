@@ -289,7 +289,8 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var p := MatchTimingHelpers._get_player_state(match_state, ctrl_id)
 				if p.is_empty():
 					return
-				var available := int(p.get("current_magicka", 0)) + int(p.get("temporary_magicka", 0))
+				var cost_paid := int(card.get("cost", 0))
+				var available := int(p.get("current_magicka", 0)) + int(p.get("temporary_magicka", 0)) + cost_paid
 				p["current_magicka"] = 0
 				p["temporary_magicka"] = 0
 				if available > 0:

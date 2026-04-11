@@ -25,7 +25,8 @@ func _run_all_tests() -> bool:
 		_test_direct_player_attack_emits_events_and_applies_drain() and
 		_test_attack_refreshes_on_controller_next_turn() and
 		_test_guards_both_lanes_cross_lane_targeting() and
-		_test_move_to_attack_into_shadow_lane_loses_cover()
+		_test_move_to_attack_into_shadow_lane_loses_cover() and
+		_test_grants_immunity_lethal_survives_combat()
 	)
 
 
@@ -357,6 +358,29 @@ func _build_deck(prefix: String, size: int) -> Array:
 	for index in range(size):
 		deck.append("%s_card_%02d" % [prefix, index + 1])
 	return deck
+
+
+func _test_grants_immunity_lethal_survives_combat() -> bool:
+	var match_state := _build_started_match(18, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var immune_creature := _summon_creature(active_player, match_state, "lethal_immune", "field", 5, 5)
+	immune_creature["grants_immunity"] = ["lethal"]
+	var lethal_defender := _summon_creature(opponent, match_state, "lethal_defender", "field", 2, 2, ["lethal"])
+	_target_ready_for_attack(immune_creature, match_state)
+	_target_ready_for_attack(lethal_defender, match_state)
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], immune_creature["instance_id"], {
+		"type": "creature",
+		"instance_id": lethal_defender["instance_id"],
+	})
+	var immune_loc := MatchMutations.find_card_location(match_state, immune_creature["instance_id"])
+	var defender_loc := MatchMutations.find_card_location(match_state, lethal_defender["instance_id"])
+	return (
+		_assert(result["is_valid"], "Attack should resolve.") and
+		_assert(str(immune_loc.get("zone", "")) == "lane", "Lethal-immune creature should survive in lane. Got zone: %s." % str(immune_loc.get("zone", ""))) and
+		_assert(str(defender_loc.get("zone", "")) == "discard", "Lethal defender should be destroyed. Got zone: %s." % str(defender_loc.get("zone", ""))) and
+		_assert(int(immune_creature.get("damage_marked", 0)) == 2, "Immune creature should take 2 damage. Got %d." % int(immune_creature.get("damage_marked", 0)))
+	)
 
 
 func _assert(condition: bool, message: String) -> bool:

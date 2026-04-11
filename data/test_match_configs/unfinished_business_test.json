@@ -1,0 +1,57 @@
+{
+  "name": "Unfinished Business",
+  "description": "Test cost reduction from wounded creatures, unsummon enemy + optional self-bounce for summon re-triggers",
+  "board_profile": "standard_versus",
+  "turn_number": 1,
+  "first_player": "player_1",
+  "player_1": {
+    "health": 30,
+    "max_magicka": 12,
+    "current_magicka": 12,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [
+      "joo_str_unfinished_business",
+      "joo_str_unfinished_business",
+      "str_grahtwood_ambusher",
+      "str_skaven_pyromancer",
+      "str_triumphant_jarl",
+      "moe_str_fear_totem"
+    ],
+    "deck": [
+      "str_belligerent_giant",
+      "str_sharpshooter_scout",
+      "str_afflicted_alit",
+      "str_earthbone_spinner"
+    ],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      { "definition_id": "str_whiterun_trooper", "can_attack": true, "damage_marked": 1 },
+      { "definition_id": "str_rampaging_minotaur", "can_attack": true, "damage_marked": 1 }
+    ],
+    "shadow_creatures": [
+      { "definition_id": "str_sharpshooter_scout", "can_attack": true, "damage_marked": 0 }
+    ]
+  },
+  "player_2": {
+    "health": 30,
+    "max_magicka": 2,
+    "current_magicka": 2,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": ["hom_end_vvardvark"],
+    "deck": ["hom_end_vvardvark", "hom_end_vvardvark"],
+    "discard": [],
+    "field_creatures": [
+      { "definition_id": "end_fharun_defender", "can_attack": false },
+      { "definition_id": "end_young_mammoth", "can_attack": false }
+    ],
+    "shadow_creatures": [
+      { "definition_id": "hom_end_vvardvark", "can_attack": false },
+      { "definition_id": "hom_end_vvardvark", "can_attack": false }
+    ]
+  }
+}

@@ -455,9 +455,16 @@ static func get_attached_items(card: Dictionary) -> Array:
 
 
 static func is_creature_destroyed(card: Dictionary, destroyed_by_lethal: bool) -> bool:
-	if destroyed_by_lethal and not _has_temporary_immunity(card, "lethal"):
+	if destroyed_by_lethal and not _has_temporary_immunity(card, "lethal") and not _has_grants_immunity(card, "lethal"):
 		return true
 	return get_remaining_health(card) <= 0
+
+
+static func _has_grants_immunity(card: Dictionary, immunity_type: String) -> bool:
+	var gi = card.get("grants_immunity", [])
+	if typeof(gi) == TYPE_ARRAY:
+		return gi.has(immunity_type)
+	return false
 
 
 static func _has_temporary_immunity(card: Dictionary, immunity_type: String) -> bool:

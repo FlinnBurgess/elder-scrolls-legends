@@ -35,7 +35,7 @@ func _run() -> void:
 
 	# Segment count is always at least DEFAULT_SEGMENTS (12), with locked filler segments
 	# No bonus: turn 7 player with max 7 should show 12 segments (5 locked)
-	component.set_magicka_values(1, 7, 0, 0)
+	component.set_magicka_values(1, 7)
 	await process_frame
 	if not _assert(component.get_segment_count() == 12, "Segment count should be DEFAULT_SEGMENTS (12), got %d." % component.get_segment_count()):
 		quit(1)
@@ -56,7 +56,7 @@ func _run() -> void:
 		quit(1)
 		return
 
-	component.set_magicka_values(4, 6, 1, 0)
+	component.set_magicka_values(4, 6, 1)
 	await process_frame
 	if not _assert(component.get_display_text() == "5/6", "Temporary magicka should increase spendable text without changing the max denominator."):
 		quit(1)
@@ -89,19 +89,8 @@ func _run() -> void:
 		quit(1)
 		return
 
-	# Tree Minder scenario on turn 3: gaining +1 max magicka adds a bonus segment (12 -> 13)
-	# Before: turn 3, max 3, no bonus -> 12 segments
-	component.apply_player_state({
-		"current_magicka": 3,
-		"max_magicka": 3,
-		"temporary_magicka": 0,
-		"turns_started": 3,
-	})
-	await process_frame
-	if not _assert(component.get_segment_count() == 12, "Pre-gain segment count should be 12, got %d." % component.get_segment_count()):
-		quit(1)
-		return
-	# After Tree Minder: max goes to 4 but turns_started is still 3 -> bonus 1 -> 13 segments
+	# Segments always capped at 12, even when max magicka exceeds 12
+	# Tree Minder scenario: max goes to 4 on turn 3 -> still 12 segments, display updates
 	component.apply_player_state({
 		"current_magicka": 1,
 		"max_magicka": 4,
@@ -109,29 +98,17 @@ func _run() -> void:
 		"turns_started": 3,
 	})
 	await process_frame
-	if not _assert(component.get_segment_count() == 13, "Post-gain segment count should be 13 (12 + 1 bonus), got %d." % component.get_segment_count()):
+	if not _assert(component.get_segment_count() == 12, "Segment count should stay at 12 even with max magicka bonus, got %d." % component.get_segment_count()):
 		quit(1)
 		return
-	if not _assert(component.get_display_text() == "1/4", "Post-gain display should show 1/4."):
+	if not _assert(component.get_display_text() == "1/4", "Display should show 1/4."):
 		quit(1)
 		return
-	if not _assert(component.get_segment_states() == _expected_states(1, 0, 3, 9), "Post-gain should show 1 remaining, 3 spent, 9 locked."):
-		quit(1)
-		return
-
-	# Next turn: turns_started catches up, bonus stays -> still 13 segments
-	component.apply_player_state({
-		"current_magicka": 5,
-		"max_magicka": 5,
-		"temporary_magicka": 0,
-		"turns_started": 4,
-	})
-	await process_frame
-	if not _assert(component.get_segment_count() == 13, "Next turn should still be 13 segments (bonus persists), got %d." % component.get_segment_count()):
+	if not _assert(component.get_segment_states() == _expected_states(1, 0, 3, 8), "Should show 1 remaining, 3 spent, 8 locked."):
 		quit(1)
 		return
 
-	# Beyond-12 with bonus: turn 12, max 14 (two Tree Minders over the game) -> 14 segments
+	# Beyond-12 max magicka: turn 12, max 14 -> still 12 segments, display shows 9/14
 	component.apply_player_state({
 		"current_magicka": 9,
 		"max_magicka": 14,
@@ -139,13 +116,13 @@ func _run() -> void:
 		"turns_started": 12,
 	})
 	await process_frame
-	if not _assert(component.get_segment_count() == 14, "Segment count should grow to 14 when max is 14 (2 bonus), got %d." % component.get_segment_count()):
+	if not _assert(component.get_segment_count() == 12, "Segment count should stay at 12 even with max 14, got %d." % component.get_segment_count()):
 		quit(1)
 		return
 	if not _assert(component.get_display_text() == "9/14", "Display should show 9/14 when max is 14."):
 		quit(1)
 		return
-	if not _assert(component.get_segment_states() == _expected_states(9, 0, 5, 0), "14-segment state should be 9 remaining, 5 spent, 0 locked."):
+	if not _assert(component.get_segment_states() == _expected_states(9, 0, 3, 0), "12-segment state with max 14 should be 9 remaining, 3 spent, 0 locked."):
 		quit(1)
 		return
 

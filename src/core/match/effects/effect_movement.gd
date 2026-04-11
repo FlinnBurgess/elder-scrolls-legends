@@ -621,15 +621,14 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			var dmfod_controller_id := str(trigger.get("controller_player_id", ""))
 			var dmfod_opponent_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), dmfod_controller_id)
 			var dmfod_opponent := MatchTimingHelpers._get_player_state(match_state, dmfod_opponent_id)
-			var dmfod_target_name := ""
-			for dmfod_card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
-				dmfod_target_name = str(dmfod_card.get("name", ""))
-				break
-			if not dmfod_opponent.is_empty() and not dmfod_target_name.is_empty():
+			var dmfod_slain_id := str(event.get("instance_id", ""))
+			var dmfod_slain := MatchTimingHelpers._find_card_anywhere(match_state, dmfod_slain_id)
+			var dmfod_target_def_id := str(dmfod_slain.get("definition_id", ""))
+			if not dmfod_opponent.is_empty() and not dmfod_target_def_id.is_empty():
 				var dmfod_deck: Array = dmfod_opponent.get(ZONE_DECK, [])
 				var dmfod_ids: Array = []
 				for dmfod_card in dmfod_deck:
-					if str(dmfod_card.get("name", "")) == dmfod_target_name:
+					if str(dmfod_card.get("definition_id", "")) == dmfod_target_def_id:
 						dmfod_ids.append(str(dmfod_card.get("instance_id", "")))
 				for dmfod_id in dmfod_ids:
 					var dmfod_result := MatchMutations.discard_card(match_state, dmfod_id, {"reason": reason})
