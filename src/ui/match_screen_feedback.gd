@@ -736,6 +736,64 @@ func _animate_enemy_attack_arrow(action: Dictionary, _result: Dictionary) -> voi
 	)
 
 
+func _start_deferred_visual_animation(pending: Array) -> void:
+	var arrows: Array[Line2D] = []
+	# Group pending entries by source creature for multi-target arrows
+	var by_source: Dictionary = {}
+	for entry in pending:
+		var trigger: Dictionary = entry.get("trigger", {})
+		var event: Dictionary = entry.get("event", {})
+		var source_id := str(trigger.get("source_instance_id", ""))
+		if not by_source.has(source_id):
+			by_source[source_id] = []
+		by_source[source_id].append({"target_id": str(event.get("target_instance_id", "")), "amount": int(event.get("amount", 0))})
+	for source_id in by_source.keys():
+		var source_button: Button = _screen._card_buttons.get(source_id)
+		if source_button == null or not is_instance_valid(source_button):
+			continue
+		var source_card_size: Vector2 = source_button.get_meta("card_size", source_button.size)
+		var arrow_start := source_button.global_position + Vector2(source_card_size.x * 0.5, 0.0)
+		for target_info in by_source[source_id]:
+			var target_id: String = target_info["target_id"]
+			var target_button: Button = _screen._card_buttons.get(target_id)
+			if target_button == null or not is_instance_valid(target_button):
+				continue
+			var target_card_size: Vector2 = target_button.get_meta("card_size", target_button.size)
+			var arrow_end := target_button.global_position + Vector2(target_card_size.x * 0.5, target_card_size.y)
+			var arrow := Line2D.new()
+			arrow.width = 5.0
+			arrow.default_color = Color(1.0, 0.85, 0.3, 0.95)
+			arrow.z_index = 500
+			arrow.antialiased = true
+			_screen._prophecy_card_overlay.add_child(arrow)
+			arrows.append(arrow)
+			var tween = _screen.create_tween()
+			tween.tween_method(func(progress: float):
+				_draw_spell_reveal_arrow_partial(progress, arrow, arrow_start, arrow_end)
+			, 0.0, 1.0, 0.25)
+	if arrows.is_empty():
+		_resolve_deferred_visual_effects()
+		return
+	var cleanup_tween = _screen.create_tween()
+	cleanup_tween.tween_interval(0.55)
+	cleanup_tween.tween_callback(func():
+		for arrow in arrows:
+			if arrow != null and is_instance_valid(arrow):
+				arrow.queue_free()
+		_resolve_deferred_visual_effects()
+	)
+
+
+func _resolve_deferred_visual_effects() -> void:
+	var result: Dictionary = _screen.MatchTiming.resolve_pending_visual_effects(_screen._match_state)
+	if bool(result.get("is_valid", false)):
+		_screen._animations._record_feedback_from_events(_screen._copy_array(result.get("events", [])))
+	_screen._refresh._refresh_ui()
+	_screen._targeting._check_pending_secondary_target()
+	_screen._targeting._check_pending_summon_effect_target()
+	_screen._selection._check_pending_forced_play()
+
+
 static func _has_support_activation_target(action: Dictionary) -> bool:
 	var params: Dictionary = action.get("parameters", {})
 	return not str(params.get("target_instance_id", "")).is_empty() or not str(params.get("target_player_id", "")).is_empty()

@@ -153,7 +153,11 @@ func _layout_local_hand_cards(hand_surface: Control, cards: Array[Button], card_
 		var button := cards[index]
 		var instance_id := str(button.get_meta("instance_id", ""))
 		var card = _screen._find_card_in_player_hand(_screen.PLAYER_ORDER[1], instance_id)
-		var affordable: bool = not card.is_empty() and int(card.get("cost", 0)) <= available_magicka
+		var effective_cost: int = int(card.get("cost", 0))
+		if not card.is_empty():
+			var hand_controller := str(card.get("controller_player_id", ""))
+			effective_cost = _screen.PersistentCardRules.get_effective_play_cost(_screen._match_state, hand_controller, card)
+		var affordable: bool = not card.is_empty() and effective_cost <= available_magicka
 		var position := Vector2(start_x + overlap_step * index, base_y - (affordable_rise if affordable else 0.0))
 		button.size = card_size
 		button.position = position

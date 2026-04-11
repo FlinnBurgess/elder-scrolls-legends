@@ -111,7 +111,12 @@ func _run_all_tests() -> bool:
 		_test_shuffle_into_deck_respects_count() and
 		_test_on_friendly_summon_copy_no_infinite_loop() and
 		_test_hannibal_traven_learn_and_last_gasp_queues_free_plays() and
-		_test_sotha_sil_end_of_turn_summons_imperfect_with_exalted()
+		_test_sotha_sil_end_of_turn_summons_imperfect_with_exalted() and
+		_test_renegade_magister_doubles_action_damage() and
+		_test_renegade_magister_aoe_doubles_each_target() and
+		_test_renegade_magister_no_loop_on_own_damage() and
+		_test_renegade_magister_ignores_friendly_creature_damage() and
+		_test_delayed_destroy_fires_at_start_of_turn()
 	)
 
 
@@ -4197,6 +4202,158 @@ func _test_sotha_sil_end_of_turn_summons_imperfect_with_exalted() -> bool:
 		if str(c.get("definition_id", "")) == "hom_int_awakened_imperfect":
 			imperfect_count += 1
 	return _assert(imperfect_count == 1, "Sotha Sil end_of_turn should summon 1 Awakened Imperfect when exalted creature in play, got %d." % imperfect_count)
+
+
+func _test_renegade_magister_doubles_action_damage() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Summon Renegade Magister in field lane
+	var magister := ScenarioFixtures.summon_creature(player, match_state, "renegade_magister", "field", 5, 5, [], -1, {
+		"definition_id": "mc_int_renegade_magister",
+		"triggered_abilities": [{"family": "after_friendly_action_damages_enemy", "required_zone": "lane", "effects": [{"op": "deal_damage", "target": "event_damaged_creature", "amount_source": "event_damage_amount"}]}],
+	})
+	# Summon an enemy creature with 10 health in field lane
+	var enemy := ScenarioFixtures.summon_creature(opponent, match_state, "enemy_target", "field", 1, 10)
+	# Play Firebolt (deal 2 damage to a creature)
+	var firebolt := ScenarioFixtures.add_hand_card(player, "firebolt", {
+		"card_type": "action", "cost": 0,
+		"action_target_mode": "any_creature",
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "deal_damage", "target": "event_target", "amount": 2}]}],
+	})
+	var result := MatchTiming.play_action_from_hand(match_state, pid, str(firebolt.get("instance_id", "")), {"target_instance_id": str(enemy.get("instance_id", ""))})
+	if not _assert(bool(result.get("is_valid", false)), "Renegade Magister: Firebolt should be playable."):
+		return false
+	# Enemy should take 2 (Firebolt) + 2 (Magister) = 4 damage, leaving 6hp
+	return _assert(EvergreenRules.get_remaining_health(enemy) == 6, "Renegade Magister: enemy should take 4 total damage (2 + 2), got %dhp remaining." % EvergreenRules.get_remaining_health(enemy))
+
+
+func _test_renegade_magister_aoe_doubles_each_target() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Summon Renegade Magister in field lane
+	var magister := ScenarioFixtures.summon_creature(player, match_state, "renegade_magister", "field", 5, 5, [], -1, {
+		"definition_id": "mc_int_renegade_magister",
+		"triggered_abilities": [{"family": "after_friendly_action_damages_enemy", "required_zone": "lane", "effects": [{"op": "deal_damage", "target": "event_damaged_creature", "amount_source": "event_damage_amount"}]}],
+	})
+	# Summon two enemy creatures in field lane
+	var enemy1 := ScenarioFixtures.summon_creature(opponent, match_state, "enemy1", "field", 1, 10)
+	var enemy2 := ScenarioFixtures.summon_creature(opponent, match_state, "enemy2", "field", 1, 10)
+	# Play "deal 2 to all enemies" (like an AoE action)
+	var aoe := ScenarioFixtures.add_hand_card(player, "test_aoe", {
+		"card_type": "action", "cost": 0,
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "deal_damage", "target": "all_enemies", "amount": 2}]}],
+	})
+	var result := MatchTiming.play_action_from_hand(match_state, pid, str(aoe.get("instance_id", "")), {})
+	if not _assert(bool(result.get("is_valid", false)), "Renegade Magister AoE: action should be playable."):
+		return false
+	# Each enemy takes 2 (AoE) + 2 (Magister) = 4 damage, leaving 6hp
+	return (
+		_assert(EvergreenRules.get_remaining_health(enemy1) == 6, "Renegade Magister AoE: enemy1 should have 6hp, got %d." % EvergreenRules.get_remaining_health(enemy1)) and
+		_assert(EvergreenRules.get_remaining_health(enemy2) == 6, "Renegade Magister AoE: enemy2 should have 6hp, got %d." % EvergreenRules.get_remaining_health(enemy2))
+	)
+
+
+func _test_renegade_magister_no_loop_on_own_damage() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	# Summon Renegade Magister
+	var magister := ScenarioFixtures.summon_creature(player, match_state, "renegade_magister", "field", 5, 5, [], -1, {
+		"definition_id": "mc_int_renegade_magister",
+		"triggered_abilities": [{"family": "after_friendly_action_damages_enemy", "required_zone": "lane", "effects": [{"op": "deal_damage", "target": "event_damaged_creature", "amount_source": "event_damage_amount"}]}],
+	})
+	# Enemy with enough health to survive multiple hits
+	var enemy := ScenarioFixtures.summon_creature(opponent, match_state, "enemy_target", "field", 1, 20)
+	# Firebolt deals 2 -> Magister deals 2 -> should NOT re-trigger (total = 4, not infinite)
+	var firebolt := ScenarioFixtures.add_hand_card(player, "firebolt", {
+		"card_type": "action", "cost": 0,
+		"action_target_mode": "any_creature",
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "deal_damage", "target": "event_target", "amount": 2}]}],
+	})
+	var result := MatchTiming.play_action_from_hand(match_state, pid, str(firebolt.get("instance_id", "")), {"target_instance_id": str(enemy.get("instance_id", ""))})
+	if not _assert(bool(result.get("is_valid", false)), "Renegade Magister no-loop: Firebolt should be playable."):
+		return false
+	# 20 - 2 - 2 = 16. If it looped, health would be much lower.
+	return _assert(EvergreenRules.get_remaining_health(enemy) == 16, "Renegade Magister no-loop: enemy should have 16hp (no infinite loop), got %d." % EvergreenRules.get_remaining_health(enemy))
+
+
+func _test_renegade_magister_ignores_friendly_creature_damage() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	# Summon Renegade Magister
+	var magister := ScenarioFixtures.summon_creature(player, match_state, "renegade_magister", "field", 5, 5, [], -1, {
+		"definition_id": "mc_int_renegade_magister",
+		"triggered_abilities": [{"family": "after_friendly_action_damages_enemy", "required_zone": "lane", "effects": [{"op": "deal_damage", "target": "event_damaged_creature", "amount_source": "event_damage_amount"}]}],
+	})
+	# Friendly creature that will be targeted by our own AoE
+	var friendly := ScenarioFixtures.summon_creature(player, match_state, "friendly_target", "field", 1, 10)
+	# AoE that hits all creatures (including friendly)
+	var aoe := ScenarioFixtures.add_hand_card(player, "test_aoe_all", {
+		"card_type": "action", "cost": 0,
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "deal_damage", "target": "all_enemies", "amount": 3}, {"op": "deal_damage", "target": "all_friendly", "amount": 3}]}],
+	})
+	var result := MatchTiming.play_action_from_hand(match_state, pid, str(aoe.get("instance_id", "")), {})
+	if not _assert(bool(result.get("is_valid", false)), "Renegade Magister friendly: AoE should be playable."):
+		return false
+	# Friendly creature should only take 3 from AoE, not doubled (Magister ignores friendly damage)
+	return _assert(EvergreenRules.get_remaining_health(friendly) == 7, "Renegade Magister: friendly creature should only take 3 damage (not doubled), got %dhp." % EvergreenRules.get_remaining_health(friendly))
+
+
+func _test_delayed_destroy_fires_at_start_of_turn() -> bool:
+	# Player 0 goes first, opponent goes second
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 10, "first_player_index": 0})
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Summon an enemy creature as the delayed destroy target
+	var target := ScenarioFixtures.summon_creature(opponent, match_state, "target_creature", "field", 2, 3)
+	var target_id := str(target.get("instance_id", ""))
+	# Create Writ of Execution analog in hand with delayed_destroy + on_destroy_effects
+	var writ := ScenarioFixtures.add_hand_card(player, "writ_of_execution", {
+		"card_type": "action",
+		"cost": 4,
+		"effect_ids": ["destroy"],
+		"action_target_mode": "enemy_creature",
+		"triggered_abilities": [{"family": "on_play", "effects": [{"op": "delayed_destroy", "target": "event_target", "trigger_at": "start_of_turn", "on_destroy_effects": [{"op": "generate_card_to_hand", "card_template": {"definition_id": "completed_contract", "name": "Completed Contract", "card_type": "action", "attributes": ["willpower"], "cost": 0, "power": 0, "health": 0, "base_power": 0, "base_health": 0, "rules_text": "Gain 1 magicka.", "triggered_abilities": [{"family": "on_play", "effects": [{"op": "gain_magicka", "amount": 1}]}]}}]}]}],
+	})
+	# Play the Writ targeting the enemy creature
+	var play_result := MatchTiming.play_action_from_hand(match_state, pid, str(writ.get("instance_id", "")), {"target_instance_id": target_id})
+	if not _assert(bool(play_result.get("is_valid", false)), "Delayed destroy: Writ should be playable."):
+		return false
+	# Pending delayed destroys should be queued
+	var dd_pending: Array = match_state.get("pending_delayed_destroys", [])
+	if not _assert(dd_pending.size() == 1, "Delayed destroy: should have 1 pending entry, got %d." % dd_pending.size()):
+		return false
+	# Target should still be alive
+	if not _assert(_card_in_zone(match_state, target_id, "lane"), "Delayed destroy: target should still be in lane before turn cycle."):
+		return false
+	# End player turn, opponent turn starts and ends, then player's turn starts
+	MatchTurnLoop.end_turn(match_state, pid)
+	MatchTurnLoop.end_turn(match_state, oid)
+	# Now it's player's turn again — delayed destroy should have fired
+	if not _assert(not _card_in_zone(match_state, target_id, "lane"), "Delayed destroy: target should be destroyed after controller's turn starts."):
+		return false
+	# Completed Contract should be in hand
+	var found_contract := false
+	for card in player.get("hand", []):
+		if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == "completed_contract":
+			found_contract = true
+			break
+	if not _assert(found_contract, "Delayed destroy: Completed Contract should be generated in hand."):
+		return false
+	# Pending should be cleared
+	dd_pending = match_state.get("pending_delayed_destroys", [])
+	return _assert(dd_pending.is_empty(), "Delayed destroy: pending list should be empty after resolution.")
 
 
 func _lane_creatures(match_state: Dictionary, lane_id: String, player_id: String) -> Array:

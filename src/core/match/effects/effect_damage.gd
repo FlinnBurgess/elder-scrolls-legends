@@ -158,6 +158,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					"target_instance_id": str(card.get("instance_id", "")),
 					"target_type": "creature",
 					"amount": applied,
+					"damage_kind": "ability",
 					"reason": reason,
 				})
 				if dd_has_drain and applied > 0 and not bool(damage_result.get("ward_removed", false)):
@@ -569,6 +570,10 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					"source_instance_id": str(trigger.get("source_instance_id", "")),
 				})
 				match_state["pending_delayed_destroys"] = dd_pending
+				var dd_markers: Array = card.get("status_markers", [])
+				if not dd_markers.has("marked_for_death"):
+					dd_markers.append("marked_for_death")
+					card["status_markers"] = dd_markers
 				generated_events.append({"event_type": "delayed_destroy_scheduled", "target_instance_id": str(card.get("instance_id", "")), "reason": reason})
 		"destroy_creature_end_of_turn":
 			var dceot_source := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))

@@ -5,6 +5,8 @@ var _screen  # MatchScreen reference
 var _feedback_sequence := 0
 var _floating_card_ids: Dictionary = {}
 var _board_wipe_hidden_id := ""  # Instance ID to hide from board during Alduin animation
+var _soulburst_pending: Dictionary = {}  # Pending Soulburst animation data
+var _soulburst_target_id := ""  # Instance ID to suppress hover during Soulburst animation
 
 
 const PRESET_FULL_RECT = Control.PRESET_FULL_RECT
@@ -34,6 +36,7 @@ func _record_feedback_from_events(events: Array) -> void:
 	var milled_instance_ids: Array = []
 	var alduin_source_id := ""
 	var alduin_destroyed_ids: Array = []
+	var soulburst_target_id := ""
 	var now = _screen._feedback_now_ms()
 	for event in events:
 		if typeof(event) != TYPE_DICTIONARY:
@@ -78,6 +81,12 @@ func _record_feedback_from_events(events: Array) -> void:
 					"stack_index": ward_stack,
 					"expires_at_ms": now + _screen.DAMAGE_FEEDBACK_DURATION_MS,
 				})
+			"card_played":
+				var cp_source_id := str(event.get("source_instance_id", ""))
+				if not cp_source_id.is_empty():
+					var cp_card: Dictionary = _screen._card_from_instance_id(cp_source_id)
+					if str(cp_card.get("definition_id", "")) == "aw_neu_soulburst":
+						soulburst_target_id = str(event.get("target_instance_id", ""))
 			"creature_summoned":
 				var cs_source_id := str(event.get("source_instance_id", ""))
 				if not cs_source_id.is_empty():
@@ -280,6 +289,16 @@ func _record_feedback_from_events(events: Array) -> void:
 			_screen._feedback._animate_mill_reveal(milled_cards)
 	if not alduin_source_id.is_empty() and not alduin_destroyed_ids.is_empty():
 		_animate_alduin_board_wipe(alduin_source_id, alduin_destroyed_ids)
+	if not soulburst_target_id.is_empty():
+		var sb_btn: Button = _screen._card_buttons.get(soulburst_target_id) as Button
+		if sb_btn != null and is_instance_valid(sb_btn):
+			var sb_size: Vector2 = sb_btn.get_meta("card_size", sb_btn.size)
+			var sb_pos: Vector2 = sb_btn.global_position
+			_soulburst_pending = {
+				"target_instance_id": soulburst_target_id,
+				"target_position": sb_pos,
+				"target_size": sb_size,
+			}
 
 
 func _animate_card_draw(player_id: String, instance_id: String, stack_index: int) -> void:
@@ -625,6 +644,114 @@ func _animate_alduin_board_wipe(alduin_instance_id: String, destroyed_ids: Array
 	)
 
 
+func _animate_soulburst(data: Dictionary) -> void:
+	var viewport_size: Vector2 = _screen.get_viewport_rect().size
+	var target_pos: Vector2 = data.get("target_position", Vector2.ZERO)
+	var target_size: Vector2 = data.get("target_size", Vector2(100, 140))
+	var target_center: Vector2 = target_pos + target_size * 0.5
+	var max_radius: float = viewport_size.length() + 80.0
+
+	# Keep real card button visible — burn overlay renders on top during glow
+	var target_id := str(data.get("target_instance_id", ""))
+	_soulburst_target_id = target_id
+	var real_btn: Button = _screen._card_buttons.get(target_id) as Button
+	if real_btn != null and is_instance_valid(real_btn):
+		real_btn.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	# Build animation container overlay
+	var container := Control.new()
+	container.name = "soulburst_animation"
+	container.z_index = 490
+	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	container.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	_screen.add_child(container)
+
+	# Dimmer — blocks board interaction during animation
+	var dimmer := ColorRect.new()
+	dimmer.color = Color(0.0, 0.0, 0.0, 0.0)
+	dimmer.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	dimmer.mouse_filter = Control.MOUSE_FILTER_STOP
+	dimmer.z_index = 489
+	container.add_child(dimmer)
+
+	# Target creature stand-in — purple burning card
+	var target_overlay := ColorRect.new()
+	target_overlay.name = "soulburst_target"
+	target_overlay.position = target_pos
+	target_overlay.size = target_size
+	target_overlay.custom_minimum_size = target_size
+	target_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	target_overlay.z_index = 495
+	target_overlay.pivot_offset = target_size * 0.5
+	target_overlay.color = Color.WHITE
+	var burn_shader := ShaderMaterial.new()
+	var shader := Shader.new()
+	shader.code = _soulburst_burn_shader_code()
+	burn_shader.shader = shader
+	burn_shader.set_shader_parameter("intensity", 0.0)
+	target_overlay.material = burn_shader
+	container.add_child(target_overlay)
+
+	# Purple ring — Line2D circle centered on target creature
+	var ring := Line2D.new()
+	ring.name = "soulburst_ring"
+	ring.width = 24.0
+	ring.default_color = Color(0.6, 0.15, 0.85, 0.9)
+	ring.z_index = 496
+	ring.antialiased = true
+	ring.position = target_center
+	container.add_child(ring)
+
+	# Animation timing
+	var glow_duration := 1.2
+	var ring_duration := 0.6
+
+	# Phase 1: Fade in dimmer + target burns brighter over time
+	var dim_tween: Tween = _screen.create_tween()
+	dim_tween.tween_property(dimmer, "color:a", 0.35, 0.3)
+
+	target_overlay.modulate = Color(1, 1, 1, 0)
+	var glow_tween: Tween = _screen.create_tween()
+	glow_tween.tween_property(target_overlay, "modulate:a", 1.0, 0.25).set_ease(Tween.EASE_OUT)
+	# Ramp shader intensity from 0 to 1 over the glow phase
+	glow_tween.parallel().tween_method(func(v: float): burn_shader.set_shader_parameter("intensity", v), 0.0, 1.0, glow_duration).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+
+	# Phase 2: Card vanishes instantly when ring fires — both real button and overlay
+	var ring_segments := 48
+	var ring_tween: Tween = _screen.create_tween()
+	ring_tween.tween_interval(glow_duration)
+	ring_tween.tween_callback(func():
+		target_overlay.visible = false
+		if real_btn != null and is_instance_valid(real_btn):
+			real_btn.modulate.a = 0.0
+	)
+	ring_tween.tween_method(_set_ring_radius.bind(ring, ring_segments), 0.0, max_radius, ring_duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+
+	# Ring fades as it expands
+	var ring_fade_tween: Tween = _screen.create_tween()
+	ring_fade_tween.tween_interval(glow_duration)
+	ring_fade_tween.tween_property(ring, "default_color:a", 0.0, ring_duration).set_ease(Tween.EASE_IN)
+
+	# Phase 3: Cleanup — refresh UI to show aftermath (banished + damage)
+	var total_duration: float = glow_duration + ring_duration + 0.15
+	var cleanup_tween: Tween = _screen.create_tween()
+	cleanup_tween.tween_interval(total_duration)
+	cleanup_tween.tween_property(dimmer, "color:a", 0.0, 0.25)
+	cleanup_tween.tween_callback(func():
+		_soulburst_target_id = ""
+		_screen._refresh._refresh_ui()
+		var pending_visual: Array = _screen._match_state.get("pending_visual_effects", [])
+		if not pending_visual.is_empty():
+			_screen._feedback._start_deferred_visual_animation.call_deferred(pending_visual)
+		else:
+			_screen._targeting._check_pending_secondary_target()
+			_screen._targeting._check_pending_summon_effect_target()
+			_screen._selection._check_pending_forced_play()
+		if is_instance_valid(container):
+			container.queue_free()
+	)
+
+
 func _animate_opponent_hand_card_reveal(revealed_card: Dictionary) -> void:
 	var card_size = _screen._hand_card_display_size()
 	var viewport_size = _screen.get_viewport_rect().size
@@ -728,5 +855,76 @@ void fragment() {
 	float flicker = 0.85 + 0.15 * noise(vec2(uv.x * 3.0, TIME * 8.0));
 
 	COLOR = vec4(col * flicker, shape * 0.95);
+}
+"""
+
+
+func _soulburst_burn_shader_code() -> String:
+	return """
+shader_type canvas_item;
+
+uniform float intensity : hint_range(0.0, 1.0) = 0.0;
+
+float hash(vec2 p) {
+	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+float noise(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	float a = hash(i);
+	float b = hash(i + vec2(1.0, 0.0));
+	float c = hash(i + vec2(0.0, 1.0));
+	float d = hash(i + vec2(1.0, 1.0));
+	return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+float fbm(vec2 p) {
+	float val = 0.0;
+	float amp = 0.5;
+	for (int i = 0; i < 5; i++) {
+		val += amp * noise(p);
+		p *= 2.2;
+		amp *= 0.5;
+	}
+	return val;
+}
+
+void fragment() {
+	vec2 uv = UV;
+
+	// Turbulent fire noise — scrolls upward
+	vec2 noise_uv = vec2(uv.x * 4.0, uv.y * 3.0 - TIME * 3.0);
+	float n = fbm(noise_uv);
+	float n2 = fbm(noise_uv * 1.5 + vec2(3.7, -TIME * 1.5));
+
+	// Edge burn: fire creeps inward from edges as intensity rises
+	float edge_x = min(uv.x, 1.0 - uv.x);
+	float edge_y = min(uv.y, 1.0 - uv.y);
+	float edge_dist = min(edge_x, edge_y);
+	float burn_edge = smoothstep(0.0, 0.25 + (1.0 - intensity) * 0.3, edge_dist + n * 0.15);
+
+	// Color: dark purple core -> bright magenta/violet -> white-hot at peak
+	vec3 col_dark = vec3(0.15, 0.02, 0.25);
+	vec3 col_purple = vec3(0.55, 0.1, 0.75);
+	vec3 col_bright = vec3(0.85, 0.4, 1.0);
+	vec3 col_hot = vec3(1.0, 0.85, 1.0);
+
+	float color_t = intensity * (0.7 + n2 * 0.3);
+	vec3 col = mix(col_dark, col_purple, smoothstep(0.0, 0.3, color_t));
+	col = mix(col, col_bright, smoothstep(0.25, 0.65, color_t));
+	col = mix(col, col_hot, smoothstep(0.6, 1.0, color_t));
+
+	// Flickering embers
+	float flicker = 0.8 + 0.2 * noise(vec2(uv.x * 5.0, TIME * 10.0));
+
+	// Overall alpha: visible card shape that brightens with intensity
+	float alpha = burn_edge * (0.6 + intensity * 0.4);
+
+	// Emission boost — gets overbright near the end
+	float emission = 1.0 + intensity * intensity * 2.0;
+
+	COLOR = vec4(col * flicker * emission, alpha);
 }
 """

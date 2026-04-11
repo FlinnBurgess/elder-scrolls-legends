@@ -886,6 +886,18 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 		var rss_subtypes = rss_source.get("subtypes", [])
 		if typeof(rss_subtypes) != TYPE_ARRAY or not rss_subtypes.has(required_source_subtype):
 			return false
+	var required_source_card_type := str(descriptor.get("required_source_card_type", family_spec.get("required_source_card_type", "")))
+	if not required_source_card_type.is_empty():
+		var rsct_source := MatchTimingHelpers._find_card_anywhere(match_state, str(event.get("source_instance_id", "")))
+		if rsct_source.is_empty() or str(rsct_source.get("card_type", "")) != required_source_card_type:
+			return false
+	if bool(descriptor.get("required_target_is_enemy", family_spec.get("required_target_is_enemy", false))):
+		var rtie_target_id := str(event.get("target_instance_id", ""))
+		if rtie_target_id.is_empty():
+			return false
+		var rtie_target := MatchTimingHelpers._find_card_anywhere(match_state, rtie_target_id)
+		if rtie_target.is_empty() or str(rtie_target.get("controller_player_id", "")) == str(trigger.get("controller_player_id", "")):
+			return false
 	return ExtendedMechanicPacks.matches_additional_conditions(match_state, trigger, descriptor, event)
 
 

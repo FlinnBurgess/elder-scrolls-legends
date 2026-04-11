@@ -291,6 +291,7 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int 
 	GameLogger.start_match(match_state)
 	# Store state but don't start the turn yet - wait for player mulligan
 	_match_state = match_state
+	_match_state["_defer_visual_effects"] = true
 	# Build AI play profile from deck archetype and quality. The profile shapes
 	# how aggressively/defensively the AI plays and how precise its decisions are.
 	_ai_system._ai_options = MatchScreenAIClass._build_ai_play_profile(ai_options, card_by_id)
@@ -396,6 +397,7 @@ func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_confi
 		_apply_adventure_augments(match_state, PLAYER_ORDER[1])
 	GameLogger.start_match(match_state)
 	_match_state = match_state
+	_match_state["_defer_visual_effects"] = true
 	_ai_system._ai_options = MatchScreenAIClass._build_ai_play_profile(ai_options, card_by_id)
 	_match_state["ai_options"] = _ai_system._ai_options
 	_overlays._mulligan_card_by_id = card_by_id
@@ -581,6 +583,7 @@ func start_test_match(test_state: Dictionary) -> void:
 	ExtendedMechanicPacks.apply_cheesemancer_mutations(test_state)
 	GameLogger.start_match(test_state)
 	_match_state = test_state
+	_match_state["_defer_visual_effects"] = true
 	_test_match_mode = true
 	_rebuild_pause_overlay()
 	_ai_system._ai_options = {}
@@ -631,6 +634,7 @@ func start_puzzle_match(puzzle_state: Dictionary, puzzle_config: Dictionary = {}
 	_hydrate_all_zones(puzzle_state, card_by_id)
 	GameLogger.start_match(puzzle_state)
 	_match_state = puzzle_state
+	_match_state["_defer_visual_effects"] = true
 	_ai_system._ai_options = ai_options
 	_scenario_id = LOCAL_MATCH_AI_SCENARIO_ID
 	_selected_instance_id = ""
@@ -787,6 +791,7 @@ func resume_from_state(saved_state: Dictionary) -> void:
 	_hydrate_all_zones(saved_state, card_by_id)
 	GameLogger.start_match(saved_state)
 	_match_state = saved_state
+	_match_state["_defer_visual_effects"] = true
 	# Restore AI play profile from saved state (persisted during match start).
 	_ai_system._ai_options = _match_state.get("ai_options", {})
 	_scenario_id = LOCAL_MATCH_AI_SCENARIO_ID
@@ -934,6 +939,7 @@ func load_scenario(scenario_id: String) -> bool:
 		return false
 	_scenario_id = scenario_id
 	_match_state = next_state
+	_match_state["_defer_visual_effects"] = true
 	GameLogger.start_match(next_state)
 	_selected_instance_id = ""
 	_last_turn_owner_id = ""
@@ -1523,6 +1529,8 @@ func _on_multi_card_choice_selected(chosen_index: int) -> void:
 
 
 func _on_lane_card_mouse_entered(button: Button, instance_id: String) -> void:
+	if instance_id == _animations._soulburst_target_id:
+		return
 	_hover._clear_lane_card_hover_preview()
 	_hover._lane_hover_preview_pending = {
 		"instance_id": instance_id,
@@ -2241,8 +2249,18 @@ func _finalize_engine_result(result: Dictionary, success_message: String, clear_
 			match_state_changed.emit(_match_state.duplicate(true))
 	else:
 		_status_message = str(result.get("errors", ["Action failed."])[0])
+	if bool(result.get("is_valid", false)) and not _animations._soulburst_pending.is_empty():
+		var sb_data: Dictionary = _animations._soulburst_pending.duplicate()
+		_animations._soulburst_pending = {}
+		_animations._animate_soulburst.call_deferred(sb_data)
+		return result
+	_animations._soulburst_pending = {}
 	_refresh._refresh_ui()
 	if bool(result.get("is_valid", false)):
+		var pending_visual: Array = _match_state.get("pending_visual_effects", [])
+		if not pending_visual.is_empty():
+			_feedback._start_deferred_visual_animation.call_deferred(pending_visual)
+			return result
 		_targeting._check_pending_secondary_target()
 		_targeting._check_pending_summon_effect_target()
 		_selection._check_pending_forced_play()

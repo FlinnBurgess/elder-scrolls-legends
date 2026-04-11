@@ -186,7 +186,7 @@ const FAMILY_SPECS := {
 	FAMILY_ON_RALLY: {"event_type": "rally_triggered", "window": WINDOW_AFTER, "match_role": "controller"},
 	FAMILY_ON_SUPPORT_COUNT_REACHED: {"event_type": EVENT_CARD_PLAYED, "window": WINDOW_AFTER, "match_role": "controller", "required_played_card_type": "support"},
 	FAMILY_ON_OPPONENT_CARD_DRAWN: {"event_type": EVENT_CARD_DRAWN, "window": WINDOW_AFTER, "match_role": "opponent_player"},
-	FAMILY_AFTER_FRIENDLY_ACTION_DAMAGES_ENEMY: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "controller", "damage_kind": "ability"},
+	FAMILY_AFTER_FRIENDLY_ACTION_DAMAGES_ENEMY: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "controller", "damage_kind": "ability", "target_type": "creature", "required_source_card_type": "action", "required_target_is_enemy": true, "deferred_visual": true},
 	FAMILY_ON_FRIENDLY_PILFER_OR_DRAIN: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "controller", "target_type": "player", "min_amount": 1},
 	FAMILY_ON_FRIENDLY_CREATURE_DEATH_COUNT: {"event_type": EVENT_CREATURE_DESTROYED, "window": WINDOW_AFTER, "match_role": "opponent_player"},
 	FAMILY_ON_ENEMY_STAT_REDUCTION: {"event_type": "stats_modified", "window": WINDOW_AFTER, "match_role": "opponent_player", "require_negative_stat_bonus": true},
@@ -236,6 +236,8 @@ static func ensure_match_state(match_state: Dictionary) -> void:
 	ExtendedMechanicPacks.ensure_match_state(match_state)
 	if not match_state.has("pending_event_queue") or typeof(match_state["pending_event_queue"]) != TYPE_ARRAY:
 		match_state["pending_event_queue"] = []
+	if not match_state.has("pending_visual_effects") or typeof(match_state["pending_visual_effects"]) != TYPE_ARRAY:
+		match_state["pending_visual_effects"] = []
 	if not match_state.has("replay_log") or typeof(match_state["replay_log"]) != TYPE_ARRAY:
 		match_state["replay_log"] = []
 	if not match_state.has("event_log") or typeof(match_state["event_log"]) != TYPE_ARRAY:
@@ -3017,12 +3019,20 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 			"event_type": str(event.get("event_type", "")),
 			"timing_window": str(event.get("timing_window", WINDOW_AFTER)),
 		})
+		var _defer_visual := bool(match_state.get("_defer_visual_effects", false))
 		for trigger in MatchTriggers._find_matching_triggers(match_state, event):
 			var resolution := MatchTriggers._build_trigger_resolution(match_state, trigger, event)
 			trigger_resolutions.append(resolution)
 			GameLogger.log_trigger_resolution(match_state, resolution, trigger)
 			MatchTriggers._mark_once_trigger_if_needed(match_state, trigger)
 			MatchTimingHelpers._append_replay_entry(match_state, resolution)
+			if _defer_visual:
+				var _dv_family := str(trigger.get("descriptor", {}).get("family", ""))
+				var _dv_spec: Dictionary = FAMILY_SPECS.get(_dv_family, {})
+				if bool(_dv_spec.get("deferred_visual", false)):
+					var _dv_pending: Array = match_state["pending_visual_effects"]
+					_dv_pending.append({"trigger": trigger.duplicate(true), "event": event.duplicate(true), "resolution": resolution.duplicate(true)})
+					continue
 			for generated_event in MatchEffectApplication._apply_effects(match_state, trigger, event, resolution):
 				queue.append(MatchTimingHelpers._normalize_event(match_state, generated_event, {
 					"parent_event_id": str(event.get("event_id", "")),
@@ -3136,6 +3146,26 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 	}
 	match_state["last_timing_result"] = result
 	return result
+
+
+static func resolve_pending_visual_effects(match_state: Dictionary) -> Dictionary:
+	ensure_match_state(match_state)
+	var pending: Array = match_state.get("pending_visual_effects", [])
+	if pending.is_empty():
+		return {"is_valid": true, "events": [], "trigger_resolutions": []}
+	match_state["pending_visual_effects"] = []
+	var all_generated: Array = []
+	for entry in pending:
+		var trigger: Dictionary = entry.get("trigger", {})
+		var event: Dictionary = entry.get("event", {})
+		var resolution: Dictionary = entry.get("resolution", {})
+		all_generated.append_array(MatchEffectApplication._apply_effects(match_state, trigger, event, resolution))
+	var timing_result := publish_events(match_state, all_generated)
+	return {
+		"is_valid": true,
+		"events": timing_result.get("processed_events", []),
+		"trigger_resolutions": timing_result.get("trigger_resolutions", []),
+	}
 
 
 static func _run_budget_summon_loop(match_state: Dictionary, trigger: Dictionary, controller_id: String, budget: int, summon_count: int) -> Array:
@@ -3691,3 +3721,59 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 
 static func _build_trigger_resolution(match_state: Dictionary, trigger: Dictionary, event: Dictionary) -> Dictionary:
 	return MatchTriggers._build_trigger_resolution(match_state, trigger, event)
+
+
+static func process_delayed_destroys(match_state: Dictionary, player_id: String) -> void:
+	var pending: Array = match_state.get("pending_delayed_destroys", [])
+	if pending.is_empty():
+		return
+	var remaining: Array = []
+	var events: Array = []
+	for entry in pending:
+		if str(entry.get("controller_player_id", "")) != player_id:
+			remaining.append(entry)
+			continue
+		var target_id := str(entry.get("target_instance_id", ""))
+		# Find target in lanes (must still be on board)
+		var target: Dictionary = {}
+		var lane_id := ""
+		for lane in match_state.get("lanes", []):
+			for player_slots in lane.get("player_slots", {}).values():
+				for card in player_slots:
+					if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) == target_id:
+						target = card
+						lane_id = str(lane.get("lane_id", ""))
+						break
+				if not target.is_empty():
+					break
+			if not target.is_empty():
+				break
+		if target.is_empty():
+			# Target already gone (e.g. killed or bounced) — skip
+			continue
+		var d_result := MatchMutations.discard_card(match_state, target_id, {"reason": "delayed_destroy"})
+		events.append({
+			"event_type": EVENT_CREATURE_DESTROYED,
+			"instance_id": target_id,
+			"controller_player_id": str(target.get("controller_player_id", "")),
+			"lane_id": lane_id,
+		})
+		events.append_array(d_result.get("events", []))
+		# Run on_destroy_effects (e.g. generate Completed Contract)
+		var on_destroy: Array = entry.get("on_destroy_effects", [])
+		if not on_destroy.is_empty():
+			var dd_trigger := {
+				"controller_player_id": player_id,
+				"source_instance_id": str(entry.get("source_instance_id", "")),
+				"descriptor": {"family": "delayed_destroy_resolution", "effects": on_destroy},
+			}
+			var dd_event := {
+				"event_type": "delayed_destroy_resolved",
+				"instance_id": target_id,
+				"controller_player_id": player_id,
+			}
+			var dd_events := MatchEffectApplication._apply_effects(match_state, dd_trigger, dd_event, {})
+			events.append_array(dd_events)
+	match_state["pending_delayed_destroys"] = remaining
+	if not events.is_empty():
+		publish_events(match_state, events)

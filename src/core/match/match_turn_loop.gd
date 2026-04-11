@@ -195,6 +195,7 @@ static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionar
 		for hand_card in player.get("hand", []):
 			if typeof(hand_card) == TYPE_DICTIONARY:
 				MatchMutations.apply_first_turn_hand_cost(match_state, hand_card, player_id)
+	MatchTiming.process_delayed_destroys(match_state, player_id)
 	if str(match_state.get("winner_player_id", "")).is_empty():
 		match_state["phase"] = PHASE_ACTION
 		events.append({
