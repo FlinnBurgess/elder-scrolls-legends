@@ -13,6 +13,12 @@ func _init(screen) -> void:
 	_screen = screen
 
 
+func _acting_player_id(card: Dictionary) -> String:
+	if bool(card.get("_play_for_free", false)):
+		return str(card.get("controller_player_id", ""))
+	return _screen._active_player_id()
+
+
 func target_selected_card(target_instance_id: String) -> Dictionary:
 	var selected_card = _screen._selected_card()
 	if selected_card.is_empty():
@@ -33,7 +39,7 @@ func target_selected_card(target_instance_id: String) -> Dictionary:
 		if _screen._is_pending_prophecy_card(selected_card):
 			result = _screen.MatchTiming.play_pending_prophecy(_screen._match_state, str(selected_card.get("controller_player_id", "")), _screen._selected_instance_id, {"target_instance_id": target_instance_id})
 		else:
-			result = _screen.PersistentCardRules.play_item_from_hand(_screen._match_state, _screen._active_player_id(), _screen._selected_instance_id, {"target_instance_id": target_instance_id})
+			result = _screen.PersistentCardRules.play_item_from_hand(_screen._match_state, _acting_player_id(selected_card), _screen._selected_instance_id, {"target_instance_id": target_instance_id})
 	elif bool(selected_location.get("is_valid", false)) and str(selected_location.get("zone", "")) == _screen.MatchMutations.ZONE_HAND and str(selected_card.get("card_type", "")) == "action":
 		# Lane-targeting actions: redirect creature clicks to the creature's lane
 		if str(selected_card.get("action_target_mode", "")) == "choose_lane":
@@ -49,7 +55,7 @@ func target_selected_card(target_instance_id: String) -> Dictionary:
 		if _screen._is_pending_prophecy_card(selected_card):
 			result = _screen.MatchTiming.play_pending_prophecy(_screen._match_state, str(selected_card.get("controller_player_id", "")), _screen._selected_instance_id, {"target_instance_id": target_instance_id})
 		else:
-			result = _screen.MatchTiming.play_action_from_hand(_screen._match_state, _screen._active_player_id(), _screen._selected_instance_id, {"target_instance_id": target_instance_id})
+			result = _screen.MatchTiming.play_action_from_hand(_screen._match_state, _acting_player_id(selected_card), _screen._selected_instance_id, {"target_instance_id": target_instance_id})
 	elif bool(selected_location.get("is_valid", false)) and str(selected_location.get("zone", "")) == _screen.MatchMutations.ZONE_SUPPORT:
 		result = _screen.PersistentCardRules.activate_support(_screen._match_state, _screen._active_player_id(), _screen._selected_instance_id, {"target_instance_id": target_instance_id})
 	elif bool(selected_location.get("is_valid", false)) and str(selected_location.get("zone", "")) == _screen.MatchMutations.ZONE_LANE:
@@ -269,7 +275,7 @@ func _play_action_to_lane(lane_id: String) -> void:
 	if _screen._is_pending_prophecy_card(card):
 		result = _screen.MatchTiming.play_pending_prophecy(_screen._match_state, str(card.get("controller_player_id", "")), _screen._selected_instance_id, options)
 	else:
-		result = _screen.MatchTiming.play_action_from_hand(_screen._match_state, _screen._active_player_id(), _screen._selected_instance_id, options)
+		result = _screen.MatchTiming.play_action_from_hand(_screen._match_state, _acting_player_id(card), _screen._selected_instance_id, options)
 	var finalized = _screen._finalize_engine_result(result, "Played %s." % _screen._card_name(card))
 	if bool(finalized.get("is_valid", false)):
 		_screen._check_betray_mode(saved_instance_id, saved_card)
@@ -281,7 +287,7 @@ func _play_mobilize_item_to_lane(lane_id: String) -> void:
 		return
 	var saved_instance_id = _screen._selected_instance_id
 	_screen._cancel_targeting_mode()
-	var result = _screen.PersistentCardRules.play_item_from_hand(_screen._match_state, _screen._active_player_id(), saved_instance_id, {"lane_id": lane_id})
+	var result = _screen.PersistentCardRules.play_item_from_hand(_screen._match_state, _acting_player_id(card), saved_instance_id, {"lane_id": lane_id})
 	var finalized = _screen._finalize_engine_result(result, "Mobilized %s." % _screen._card_name(card))
 	if not bool(finalized.get("is_valid", false)):
 		_screen._report_invalid_interaction(str(finalized.get("message", "Cannot Mobilize here.")), {"lane_ids": [lane_id]})

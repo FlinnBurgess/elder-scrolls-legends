@@ -63,6 +63,8 @@ static func ensure_player_state(player: Dictionary) -> void:
 		player["creatures_died_this_turn"] = 0
 	if not player.has("invades_this_turn"):
 		player["invades_this_turn"] = 0
+	if not player.has("card_types_played_this_turn"):
+		player["card_types_played_this_turn"] = []
 	if not player.has("wax_wane_state"):
 		player["wax_wane_state"] = WAX
 
@@ -82,6 +84,7 @@ static func reset_turn_state(player: Dictionary) -> void:
 	player["creature_summons_this_turn"] = 0
 	player["creatures_died_this_turn"] = 0
 	player["invades_this_turn"] = 0
+	player["card_types_played_this_turn"] = []
 	player["pilfer_or_drain_count_this_turn"] = 0
 	player["lanes_creature_damaged_opponent_this_turn"] = []
 	player["_double_summon_this_turn"] = false
@@ -101,7 +104,12 @@ static func observe_event(match_state: Dictionary, event: Dictionary) -> void:
 			return
 		ensure_player_state(player)
 		player["cards_played_this_turn"] = int(player.get("cards_played_this_turn", 0)) + 1
-		if str(event.get("card_type", "")) != "creature":
+		var _ct := str(event.get("card_type", ""))
+		var _ctptt: Array = player.get("card_types_played_this_turn", [])
+		if _ct != "" and not _ctptt.has(_ct):
+			_ctptt.append(_ct)
+			player["card_types_played_this_turn"] = _ctptt
+		if _ct != "creature":
 			player["noncreature_plays_this_turn"] = int(player.get("noncreature_plays_this_turn", 0)) + 1
 		return
 	if event_type == "creature_destroyed":

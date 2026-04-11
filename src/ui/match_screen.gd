@@ -995,7 +995,8 @@ func play_selected_to_lane(lane_id: String, slot_index := -1) -> Dictionary:
 		var _prophecy_pid := str(card.get("controller_player_id", ""))
 		result = MatchTiming.play_pending_prophecy(_match_state, _prophecy_pid, _selected_instance_id, options.merged({"lane_id": lane_id}, true))
 	else:
-		result = LaneRules.summon_from_hand(_match_state, _active_player_id(), _selected_instance_id, lane_id, options)
+		var summon_pid := str(card.get("controller_player_id", "")) if bool(card.get("_play_for_free", false)) else _active_player_id()
+		result = LaneRules.summon_from_hand(_match_state, summon_pid, _selected_instance_id, lane_id, options)
 	var finalized := _finalize_engine_result(result, "Played %s into %s." % [_card_display._card_name(card), _lane_name(lane_id)])
 	if bool(finalized.get("is_valid", false)):
 		_targeting._check_summon_target_mode(saved_instance_id)
@@ -2339,12 +2340,15 @@ func _is_local_prophecy_interrupt_open() -> bool:
 
 
 func _local_player_has_pending_interrupt() -> bool:
-	return _is_local_prophecy_interrupt_open() or not _targeting._pending_summon_target.is_empty() or not _targeting._pending_secondary_target_state.is_empty() or _overlays._has_local_pending_discard_choice() or _has_local_pending_consume_selection() or _overlays._has_local_pending_deck_selection() or not _overlays._hand_selection_state.is_empty() or MatchTiming.has_pending_summon_effect_target(_match_state, _local_player_id()) or MatchTiming.has_pending_forced_play(_match_state, _local_player_id())
+	return _is_local_prophecy_interrupt_open() or not _targeting._pending_summon_target.is_empty() or not _targeting._pending_secondary_target_state.is_empty() or _overlays._has_local_pending_discard_choice() or _has_local_pending_consume_selection() or _overlays._has_local_pending_deck_selection() or not _overlays._hand_selection_state.is_empty() or MatchTiming.has_pending_summon_effect_target(_match_state, _local_player_id()) or MatchTiming.has_pending_forced_play(_match_state, _local_player_id()) or _has_local_pending_free_play()
 
 
 func _target_lane_player_id() -> String:
-	if _overlays._is_pending_prophecy_card(_selection._selected_card()):
-		return str(_selection._selected_card().get("controller_player_id", ""))
+	var card: Dictionary = _selection._selected_card()
+	if _overlays._is_pending_prophecy_card(card):
+		return str(card.get("controller_player_id", ""))
+	if bool(card.get("_play_for_free", false)):
+		return str(card.get("controller_player_id", ""))
 	return _active_player_id()
 
 

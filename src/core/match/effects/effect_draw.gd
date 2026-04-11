@@ -679,16 +679,23 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var ptod_deck: Array = ptod_player.get(ZONE_DECK, [])
 				if not ptod_deck.is_empty():
 					var ptod_card: Dictionary = ptod_deck.pop_back()
-					ptod_card.erase("zone")
-					var ptod_type := str(ptod_card.get("card_type", ""))
-					if ptod_type == CARD_TYPE_CREATURE:
-						var ptod_lane := MatchSummonTiming._resolve_summon_lane_id(match_state, trigger, event, effect, ptod_controller_id)
-						if not ptod_lane.is_empty():
-							var ptod_result := MatchMutations.summon_card_to_lane(match_state, ptod_controller_id, ptod_card, ptod_lane, {"source_zone": ZONE_DECK})
-							if bool(ptod_result.get("is_valid", false)):
-								generated_events.append_array(ptod_result.get("events", []))
-								generated_events.append(MatchSummonTiming._build_summon_event(ptod_result["card"], ptod_controller_id, ptod_lane, int(ptod_result.get("slot_index", -1)), reason))
-								_MT()._check_summon_abilities(match_state, ptod_result["card"])
+					ptod_card["zone"] = ZONE_HAND
+					ptod_card["_play_for_free"] = true
+					var ptod_hand: Array = ptod_player.get(ZONE_HAND, [])
+					ptod_hand.append(ptod_card)
+					var ptod_source_id := str(trigger.get("source_instance_id", ""))
+					var ptod_fp_arr: Array = match_state.get("pending_free_plays", [])
+					ptod_fp_arr.append({"player_id": ptod_controller_id, "instance_id": str(ptod_card.get("instance_id", "")), "source_instance_id": ptod_source_id})
+					match_state["pending_free_plays"] = ptod_fp_arr
+					generated_events.append({
+						"event_type": "card_drawn",
+						"player_id": ptod_controller_id,
+						"source_instance_id": ptod_source_id,
+						"drawn_instance_id": str(ptod_card.get("instance_id", "")),
+						"source_zone": ZONE_DECK,
+						"target_zone": ZONE_HAND,
+						"reason": reason,
+					})
 		"play_prophecy_from_hand":
 			# Mark that the player should play a prophecy from hand — this needs a pending choice
 			var ppfh_controller_id := str(trigger.get("controller_player_id", ""))

@@ -718,7 +718,7 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 		var recip_creatures := MatchTimingHelpers._player_lane_creatures(match_state, recip_controller)
 		var recip_found := false
 		for recip_card in recip_creatures:
-			if bool(recip_card.get("exalted", false)):
+			if EvergreenRules.has_status(recip_card, EvergreenRules.STATUS_EXALTED):
 				recip_found = true
 				break
 		if not recip_found:
@@ -954,4 +954,3 @@ static func _is_once_trigger_consumed(match_state: Dictionary, trigger: Dictiona
 		if bool(resolved_turn_triggers.get(str(trigger.get("trigger_id", "")), false)):
 			return true
 	return false
-

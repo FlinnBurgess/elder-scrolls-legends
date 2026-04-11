@@ -393,9 +393,14 @@ static func activate_support(match_state: Dictionary, player_id: String, instanc
 
 
 static func _validate_hand_card(match_state: Dictionary, player_id: String, instance_id: String, expected_type: String, action_name: String, played_for_free: bool) -> Dictionary:
-	var owner_validation := _validate_action_owner(match_state, player_id, action_name)
-	if not bool(owner_validation.get("is_valid", false)):
-		return owner_validation
+	# Skip active-player check when the card is a pending free play (e.g. Altar of Spellmaking during opponent's turn)
+	if not played_for_free:
+		var loc_check := MatchMutations.find_card_location(match_state, instance_id)
+		var is_free_play_card := bool(loc_check.get("is_valid", false)) and bool(loc_check.get("card", {}).get("_play_for_free", false))
+		if not is_free_play_card:
+			var owner_validation := _validate_action_owner(match_state, player_id, action_name)
+			if not bool(owner_validation.get("is_valid", false)):
+				return owner_validation
 	var location := MatchMutations.find_card_location(match_state, instance_id)
 	if not bool(location.get("is_valid", false)):
 		return location

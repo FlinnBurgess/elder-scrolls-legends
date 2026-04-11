@@ -2582,9 +2582,10 @@ static func play_pending_prophecy(match_state: Dictionary, player_id: String, in
 
 static func play_action_from_hand(match_state: Dictionary, player_id: String, instance_id: String, options: Dictionary = {}) -> Dictionary:
 	ensure_match_state(match_state)
-	var action_owner_validation := MatchTimingHelpers._validate_action_owner(match_state, player_id, "Action play")
-	if not bool(action_owner_validation.get("is_valid", false)):
-		return action_owner_validation
+	if not has_pending_free_play(match_state, player_id):
+		var action_owner_validation := MatchTimingHelpers._validate_action_owner(match_state, player_id, "Action play")
+		if not bool(action_owner_validation.get("is_valid", false)):
+			return action_owner_validation
 	var player := MatchTimingHelpers._get_player_state(match_state, player_id)
 	if player.is_empty():
 		return MatchTimingHelpers._invalid_result("Unknown player_id: %s" % player_id)

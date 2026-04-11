@@ -42,7 +42,8 @@ func _run_all_tests() -> bool:
 		_test_skyshard_on_card_drawn_buffs_creature() and
 		_test_dark_rift_summons_atronach_after_five_activations() and
 		_test_transform_card_updates_definition_id_from_raw_seed() and
-		_test_transform_card_updates_base_cost()
+		_test_transform_card_updates_base_cost() and
+		_test_altar_of_spellmaking_plays_top_of_deck()
 	)
 
 
@@ -918,6 +919,66 @@ func _test_transform_card_updates_base_cost() -> bool:
 		_assert(result["is_valid"], "Transform should succeed.") and
 		_assert(int(transformed.get("cost", 0)) == 6, "Transform should update cost to 6. Got %d." % int(transformed.get("cost", 0))) and
 		_assert(int(transformed.get("_base_cost", 0)) == 6, "Transform should update _base_cost to match new cost. Got %d." % int(transformed.get("_base_cost", 0)))
+	)
+
+
+func _test_altar_of_spellmaking_plays_top_of_deck() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player["player_id"])
+	# Place a creature in the deck (at the end = top of deck since pop_back is used)
+	var deck_creature := {
+		"instance_id": pid + "_deck_mammoth",
+		"definition_id": "deck_mammoth",
+		"name": "Young Mammoth",
+		"card_type": "creature",
+		"cost": 4,
+		"power": 4,
+		"health": 4,
+		"keywords": [],
+		"triggered_abilities": [],
+		"owner_player_id": pid,
+		"controller_player_id": pid,
+		"zone": "deck",
+	}
+	player["deck"].append(deck_creature)
+	# Add the Altar of Spellmaking support with end_of_turn trigger
+	var altar := _add_hand_card(player, "altar_of_spellmaking", {
+		"card_type": "support",
+		"cost": 0,
+		"support_uses": 0,
+		"triggered_abilities": [{"family": "end_of_turn", "required_zone": "support", "required_card_types_played_this_turn": {"types": ["creature", "action", "item", "support"]}, "effects": [{"op": "play_top_of_deck"}]}],
+	})
+	PersistentCardRules.play_support_from_hand(match_state, pid, str(altar["instance_id"]))
+	# Summon a creature from hand (registers "creature" type)
+	var creature := _add_hand_card(player, "test_creature", {"card_type": "creature", "cost": 0, "power": 1, "health": 1})
+	LaneRules.summon_from_hand(match_state, pid, str(creature["instance_id"]), "field")
+	# Play an item on it (registers "item" type)
+	var item := _add_hand_card(player, "test_item", {"card_type": "item", "cost": 0, "equip_power_bonus": 1})
+	PersistentCardRules.play_item_from_hand(match_state, pid, str(item["instance_id"]), {"target_instance_id": str(creature["instance_id"])})
+	# Manually add "action" to card_types_played_this_turn (avoids action targeting complexity)
+	var types_arr: Array = player.get("card_types_played_this_turn", [])
+	if not types_arr.has("action"):
+		types_arr.append("action")
+		player["card_types_played_this_turn"] = types_arr
+	# End turn — the Altar's end_of_turn trigger should fire and move the top card to hand as a free play
+	var hand_before: int = player["hand"].size()
+	MatchTurnLoop.end_turn(match_state, pid)
+	# The deck creature should now be in hand marked as a free play
+	var found_in_hand := false
+	for card in player.get("hand", []):
+		if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) == pid + "_deck_mammoth":
+			found_in_hand = true
+			break
+	var pending: Array = match_state.get("pending_free_plays", [])
+	var found_pending := false
+	for entry in pending:
+		if typeof(entry) == TYPE_DICTIONARY and str(entry.get("instance_id", "")) == pid + "_deck_mammoth":
+			found_pending = true
+			break
+	return (
+		_assert(found_in_hand, "Altar of Spellmaking: top card should be moved to hand.") and
+		_assert(found_pending, "Altar of Spellmaking: top card should be registered as a pending free play.")
 	)
 
 

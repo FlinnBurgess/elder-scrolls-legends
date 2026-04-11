@@ -41,7 +41,7 @@ func _selected_action_mode(card: Dictionary) -> String:
 		if prophecy_type == "action":
 			return _screen.SELECTION_MODE_ACTION
 		return _screen.SELECTION_MODE_NONE
-	if str(card.get("controller_player_id", "")) != _screen._active_player_id():
+	if str(card.get("controller_player_id", "")) != _screen._active_player_id() and not bool(card.get("_play_for_free", false)):
 		return _screen.SELECTION_MODE_NONE
 	var location = _screen.MatchMutations.find_card_location(_screen._match_state, str(card.get("instance_id", "")))
 	if not bool(location.get("is_valid", false)):
@@ -171,10 +171,11 @@ func _validate_selected_lane_play(lane_id: String, player_id: String, slot_index
 	var card := _selected_card()
 	if not _selected_card_wants_lane(card, player_id):
 		return {"is_valid": false, "message": "Select a creature that can be summoned into %s." % _screen._lane_name(lane_id)}
+	var acting_pid: String = str(card.get("controller_player_id", "")) if bool(card.get("_play_for_free", false)) else _screen._active_player_id()
 	if _selected_action_mode(card) == _screen.SELECTION_MODE_ACTION:
 		var action_state: Dictionary = _screen._match_state.duplicate(true)
 		_screen.GameLogger.suppress()
-		var action_validation = _screen.MatchTiming.play_action_from_hand(action_state, _screen._active_player_id(), _screen._selected_instance_id, {"lane_id": lane_id})
+		var action_validation = _screen.MatchTiming.play_action_from_hand(action_state, acting_pid, _screen._selected_instance_id, {"lane_id": lane_id})
 		_screen.GameLogger.unsuppress()
 		return action_validation
 	if _screen._overlays._is_pending_prophecy_card(card):
@@ -183,7 +184,7 @@ func _validate_selected_lane_play(lane_id: String, player_id: String, slot_index
 		var prophecy_validation = _screen.MatchTiming.play_pending_prophecy(prophecy_state, str(card.get("controller_player_id", "")), _screen._selected_instance_id, {"lane_id": lane_id, "slot_index": slot_index})
 		_screen.GameLogger.unsuppress()
 		return prophecy_validation
-	return _screen.LaneRules.validate_summon_from_hand(_screen._match_state, _screen._active_player_id(), _screen._selected_instance_id, lane_id, {"slot_index": slot_index})
+	return _screen.LaneRules.validate_summon_from_hand(_screen._match_state, acting_pid, _screen._selected_instance_id, lane_id, {"slot_index": slot_index})
 
 
 func _is_card_target_valid_for_selected(target_instance_id: String) -> bool:
@@ -402,6 +403,8 @@ func _can_resolve_selected_action(card: Dictionary) -> bool:
 		_screen._status_message = "Resolve the pending Prophecy before taking other actions."
 		return false
 	if _screen._overlays._is_pending_prophecy_card(card):
+		return true
+	if bool(card.get("_play_for_free", false)):
 		return true
 	var controller_player_id := str(card.get("controller_player_id", ""))
 	if controller_player_id != _screen._active_player_id():

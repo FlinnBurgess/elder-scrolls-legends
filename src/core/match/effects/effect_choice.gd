@@ -483,27 +483,34 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				if typeof(pla_learned) == TYPE_ARRAY:
 					var pla_controller := str(trigger.get("controller_player_id", ""))
 					var pla_source_id := str(trigger.get("source_instance_id", ""))
+					var pla_player := MatchTimingHelpers._get_player_state(match_state, pla_controller)
+					if pla_player.is_empty():
+						return
+					var pla_discard: Array = pla_player.get("discard", [])
+					var pla_hand: Array = pla_player.get("hand", [])
+					var pla_fp_arr: Array = match_state.get("pending_free_plays", [])
 					for pla_action in pla_learned:
 						if typeof(pla_action) != TYPE_DICTIONARY:
 							continue
-						var pla_abilities = pla_action.get("triggered_abilities", [])
-						if typeof(pla_abilities) != TYPE_ARRAY:
+						var pla_inst_id := str(pla_action.get("instance_id", ""))
+						if pla_inst_id.is_empty():
 							continue
-						for pla_ab in pla_abilities:
-							if typeof(pla_ab) == TYPE_DICTIONARY and str(pla_ab.get("family", "")) == FAMILY_ON_PLAY:
-								var pla_tm := str(pla_ab.get("target_mode", ""))
-								var pla_trigger := trigger.duplicate(true)
-								pla_trigger["descriptor"] = pla_ab
-								if not pla_tm.is_empty():
-									# Auto-resolve random valid target for learned actions
-									var pla_valid := MatchTargeting.get_valid_targets_for_mode(match_state, pla_source_id, pla_tm, pla_ab)
-									if not pla_valid.is_empty():
-										var pla_pick_idx := MatchEffectParams._deterministic_index(match_state, pla_source_id + "_learned_" + str(pla_action.get("name", "")), pla_valid.size())
-										var pla_pick: Dictionary = pla_valid[pla_pick_idx]
-										if pla_pick.has("instance_id"):
-											pla_trigger["_chosen_target_id"] = str(pla_pick.get("instance_id", ""))
-										elif pla_pick.has("player_id"):
-											pla_trigger["_chosen_target_player_id"] = str(pla_pick.get("player_id", ""))
-										generated_events.append_array(_MT()._apply_effects(match_state, pla_trigger, event, {}))
-								else:
-									generated_events.append_array(_MT()._apply_effects(match_state, pla_trigger, event, {}))
+						# Find this learned action in the discard pile
+						var pla_found_idx := -1
+						for pla_i in range(pla_discard.size()):
+							var pla_dc = pla_discard[pla_i]
+							if typeof(pla_dc) == TYPE_DICTIONARY and str(pla_dc.get("instance_id", "")) == pla_inst_id:
+								pla_found_idx = pla_i
+								break
+						if pla_found_idx < 0:
+							continue
+						# Move from discard to hand as a free play
+						var pla_card: Dictionary = pla_discard[pla_found_idx]
+						pla_discard.remove_at(pla_found_idx)
+						MatchMutations.restore_definition_state(pla_card)
+						pla_card["zone"] = "hand"
+						pla_card["_play_for_free"] = true
+						pla_hand.append(pla_card)
+						pla_fp_arr.append({"player_id": pla_controller, "instance_id": pla_inst_id, "source_instance_id": pla_source_id})
+						generated_events.append({"event_type": "card_drawn", "player_id": pla_controller, "instance_id": pla_inst_id, "source_zone": "discard", "target_zone": "hand", "reason": "learned_action_replay"})
+					match_state["pending_free_plays"] = pla_fp_arr

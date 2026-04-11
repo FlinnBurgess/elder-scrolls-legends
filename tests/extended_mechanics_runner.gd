@@ -109,7 +109,9 @@ func _run_all_tests() -> bool:
 		_test_haskill_random_cost_trigger_draws_on_match() and
 		_test_haskill_random_cost_trigger_no_draw_on_mismatch() and
 		_test_shuffle_into_deck_respects_count() and
-		_test_on_friendly_summon_copy_no_infinite_loop()
+		_test_on_friendly_summon_copy_no_infinite_loop() and
+		_test_hannibal_traven_learn_and_last_gasp_queues_free_plays() and
+		_test_sotha_sil_end_of_turn_summons_imperfect_with_exalted()
 	)
 
 
@@ -4096,6 +4098,105 @@ func _test_on_friendly_summon_copy_no_infinite_loop() -> bool:
 		_assert(field_count == 2, "Field should have copy_summoner + atronach = 2, got %d." % field_count) and
 		_assert(shadow_count == 1, "Shadow should have 1 copy (no infinite loop), got %d." % shadow_count)
 	)
+
+
+func _test_hannibal_traven_learn_and_last_gasp_queues_free_plays() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Summon Hannibal Traven with learn_action + last_gasp abilities
+	var hannibal := ScenarioFixtures.summon_creature(player, match_state, "hannibal", "field", 5, 5, [], -1, {
+		"triggered_abilities": [
+			{"family": "after_action_played", "required_zone": "lane", "effects": [{"op": "learn_action", "target": "event_action"}]},
+			{"family": "last_gasp", "effects": [{"op": "play_learned_actions"}]},
+		],
+	})
+	if not _assert(not hannibal.is_empty(), "Hannibal should summon successfully."):
+		return false
+	# Give opponent a creature for Hannibal to suicide into
+	var enemy := ScenarioFixtures.summon_creature(opponent, match_state, "enemy_blocker", "field", 5, 5)
+	# Play two cheap actions while Hannibal is in lane
+	var action_a := ScenarioFixtures.add_hand_card(player, "bolt_a", {
+		"card_type": "action", "cost": 0,
+		"action_target_mode": "creature_or_player",
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "effects": [{"op": "deal_damage", "target": "event_target", "amount": 1}]}],
+	})
+	var action_b := ScenarioFixtures.add_hand_card(player, "bolt_b", {
+		"card_type": "action", "cost": 0,
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "effects": [{"op": "damage", "target_player": "target_player", "amount": 1}]}],
+	})
+	var action_a_id := str(action_a.get("instance_id", ""))
+	var action_b_id := str(action_b.get("instance_id", ""))
+	# Play action A targeting enemy creature
+	var play_a := MatchTiming.play_action_from_hand(match_state, pid, action_a_id, {"target_instance_id": str(enemy.get("instance_id", ""))})
+	if not _assert(bool(play_a.get("is_valid", false)), "Action A should be playable: %s" % str(play_a.get("errors", []))):
+		return false
+	# Play action B targeting opponent
+	var play_b := MatchTiming.play_action_from_hand(match_state, pid, action_b_id, {"target_player_id": oid})
+	if not _assert(bool(play_b.get("is_valid", false)), "Action B should be playable: %s" % str(play_b.get("errors", []))):
+		return false
+	# Both actions should now be in discard and learned by Hannibal
+	var learned: Array = hannibal.get("_learned_actions", [])
+	if not _assert(learned.size() == 2, "Hannibal should have learned 2 actions, got %d." % learned.size()):
+		return false
+	# Kill Hannibal by attacking into the enemy (mutual kill: 5 vs 5)
+	ScenarioFixtures.ready_for_attack(hannibal, match_state)
+	var attack := MatchCombat.resolve_attack(match_state, pid, str(hannibal.get("instance_id", "")), {"type": "creature", "instance_id": str(enemy.get("instance_id", ""))})
+	if not _assert(bool(attack.get("is_valid", false)), "Attack should resolve: %s" % str(attack.get("errors", []))):
+		return false
+	# After Last Gasp, learned actions should be in hand as free plays
+	var hand: Array = player.get("hand", [])
+	var hand_ids: Array = []
+	for c in hand:
+		hand_ids.append(str(c.get("instance_id", "")))
+	var pending_fps: Array = match_state.get("pending_free_plays", [])
+	var pending_ids: Array = []
+	for fp in pending_fps:
+		pending_ids.append(str(fp.get("instance_id", "")))
+	return (
+		_assert(hand_ids.has(action_a_id), "Action A should be back in hand after Last Gasp (hand: %s)." % str(hand_ids)) and
+		_assert(hand_ids.has(action_b_id), "Action B should be back in hand after Last Gasp (hand: %s)." % str(hand_ids)) and
+		_assert(pending_ids.has(action_a_id), "Action A should be in pending_free_plays (pending: %s)." % str(pending_ids)) and
+		_assert(pending_ids.has(action_b_id), "Action B should be in pending_free_plays (pending: %s)." % str(pending_ids))
+	)
+
+
+func _test_sotha_sil_end_of_turn_summons_imperfect_with_exalted() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	player["max_magicka"] = 15
+	player["current_magicka"] = 15
+	# Summon Sotha Sil with end_of_turn: summon Awakened Imperfect if exalted creature in play
+	var sotha_sil := ScenarioFixtures.summon_creature(player, match_state, "sotha_sil", "field", 8, 8, [], -1, {
+		"triggered_abilities": [
+			{"family": "end_of_turn", "required_zone": "lane", "required_exalted_creature_in_play": true, "effects": [
+				{"op": "summon_from_effect", "lane": "same", "card_template": {
+					"definition_id": "hom_int_awakened_imperfect",
+					"name": "Awakened Imperfect",
+					"card_type": "creature",
+					"subtypes": ["Automaton"],
+					"attributes": ["neutral"],
+					"cost": 8, "power": 8, "health": 8, "base_power": 8, "base_health": 8,
+					"keywords": ["breakthrough", "guard"],
+					"rules_text": "Breakthrough, Guard",
+				}},
+			]},
+		],
+	})
+	# Mark Sotha Sil as exalted
+	EvergreenRules.add_status(sotha_sil, EvergreenRules.STATUS_EXALTED)
+	# End turn — should summon an Awakened Imperfect
+	MatchTurnLoop.end_turn(match_state, pid)
+	var field_creatures := _lane_creatures(match_state, "field", pid)
+	var imperfect_count := 0
+	for c in field_creatures:
+		if str(c.get("definition_id", "")) == "hom_int_awakened_imperfect":
+			imperfect_count += 1
+	return _assert(imperfect_count == 1, "Sotha Sil end_of_turn should summon 1 Awakened Imperfect when exalted creature in play, got %d." % imperfect_count)
 
 
 func _lane_creatures(match_state: Dictionary, lane_id: String, player_id: String) -> Array:
