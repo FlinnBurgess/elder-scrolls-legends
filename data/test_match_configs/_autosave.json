@@ -9,7 +9,21 @@
 		"discard": [],
 		"field_creatures": [
 			null,
-			null
+			{
+				"can_attack": true,
+				"definition_id": "hos_str_aelas_huntmate",
+				"power_bonus": -3.0
+			},
+			{
+				"can_attack": true,
+				"definition_id": "aw_int_abnur_tharn",
+				"power_bonus": -5.0
+			},
+			{
+				"can_attack": true,
+				"definition_id": "cwc_neu_abomination",
+				"power_bonus": -1.0
+			}
 		],
 		"hand": [],
 		"health": 30.0,
@@ -31,28 +45,37 @@
 	"player": {
 		"current_magicka": 12.0,
 		"deck": [
-			"int_abecean_navigator"
+			"int_abecean_navigator",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"iom_str_cloak",
+			"hom_end_daedric_crescent"
 		],
-		"discard": [],
+		"discard": [
+			"str_afflicted_alit",
+			"str_afflicted_alit",
+			"int_abecean_navigator",
+			"moe_str_imbued_minotaur"
+		],
 		"field_creatures": [
 			null,
 			null,
-			"str_reive_blademaster"
+			"db_wil_chanter_of_akatosh"
 		],
 		"hand": [
 			"wil_piercing_javelin",
-			"str_rapid_shot",
-			"iom_end_xavara_atronach",
-			"neu_halls_of_the_dwemer"
+			"db_int_corsair_ship",
+			"hom_wil_umbra",
+			"moe_end_arise",
+			"wil_calm"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [
-			"aw_end_imperial_lackey",
-			"joo_str_mehrunes_dagons_flayer"
-		],
-		"supports": []
+		"shadow_creatures": [],
+		"supports": [
+			"cwc_wil_reconstruction_engine"
+		]
 	},
 	"type": "kill"
 }

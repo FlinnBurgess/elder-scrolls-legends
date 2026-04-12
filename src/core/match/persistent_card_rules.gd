@@ -59,6 +59,7 @@ static func play_support_from_hand(match_state: Dictionary, player_id: String, i
 		"played_cost": int(card.get("cost", 0)),
 		"played_for_free": bool(options.get("played_for_free", false)),
 		"reason": str(options.get("reason", "play_support")),
+		"lane_id": str(options.get("lane_id", "")),
 	}])
 	_check_support_on_play_target_mode(match_state, card)
 	return {"is_valid": true, "errors": [], "card": card, "events": timing_result.get("processed_events", []), "trigger_resolutions": timing_result.get("trigger_resolutions", [])}

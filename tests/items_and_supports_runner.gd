@@ -9,6 +9,7 @@ const LaneRules = preload("res://src/core/match/lane_rules.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
 const MatchActionEnumerator = preload("res://src/ai/match_action_enumerator.gd")
 const MatchTargeting = preload("res://src/core/match/match_targeting.gd")
+const ScenarioFixtures = preload("res://tests/support/scenario_fixtures.gd")
 
 
 func _initialize() -> void:
@@ -46,7 +47,13 @@ func _run_all_tests() -> bool:
 		_test_transform_card_updates_base_cost() and
 		_test_altar_of_spellmaking_plays_top_of_deck() and
 		_test_priest_of_mara_equips_amulets_via_dual_target() and
-		_test_support_last_gasp_draw_filtered_applies_post_draw_buff()
+		_test_support_last_gasp_draw_filtered_applies_post_draw_buff() and
+		_test_support_on_play_summon_from_effect_with_chosen_lane() and
+		_test_support_activate_summon_from_effect_chosen_lane() and
+		# Umbra forced attack
+		_test_umbra_forced_attack_hits_enemy_creature() and
+		_test_umbra_forced_attack_skips_when_no_enemies() and
+		_test_umbra_forced_attack_respects_guards()
 	)
 
 
@@ -1111,6 +1118,218 @@ func _test_support_last_gasp_draw_filtered_applies_post_draw_buff() -> bool:
 	return (
 		_assert(effective_power == 4, "Drawn Daedra should have 2 base + 2 buff = 4 power, got %d." % effective_power) and
 		_assert(effective_health == 5, "Drawn Daedra should have 3 base + 2 buff = 5 health, got %d." % effective_health)
+	)
+
+
+func _test_support_on_play_summon_from_effect_with_chosen_lane() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid: String = player["player_id"]
+	var support := _add_hand_card(player, "corsair_ship", {
+		"card_type": "support", "cost": 0, "support_uses": 0,
+		"triggered_abilities": [{
+			"family": "on_play",
+			"effects": [{"op": "summon_from_effect", "lane": "chosen", "card_template": {
+				"definition_id": "corsair_token", "name": "Corsair", "card_type": "creature",
+				"attributes": ["intelligence"], "cost": 1, "power": 1, "health": 1,
+				"base_power": 1, "base_health": 1, "subtypes": ["Breton"], "rules_text": "",
+			}}],
+		}],
+	})
+	var result := PersistentCardRules.play_support_from_hand(match_state, pid, support["instance_id"], {"lane_id": "field"})
+	if not _assert(bool(result.get("is_valid", false)), "Support play should succeed."):
+		return false
+	var found := false
+	for lane in match_state.get("lanes", []):
+		if str(lane.get("lane_id", "")) == "field":
+			for card in lane.get("player_slots", {}).get(pid, []):
+				if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == "corsair_token":
+					found = true
+	if not _assert(found, "Corsair token should be summoned in the field lane."):
+		return false
+	# Test pending lane selection path (no lane_id → creates pending → resolve with lane)
+	var match_state3 := _build_started_match()
+	var player3: Dictionary = match_state3["players"][0]
+	var pid3: String = player3["player_id"]
+	var ship3 := _add_hand_card(player3, "corsair_ship3", {
+		"card_type": "support", "cost": 0, "support_uses": 0,
+		"triggered_abilities": [
+			{"family": "on_play", "effects": [{"op": "summon_from_effect", "lane": "chosen", "card_template": {
+				"definition_id": "corsair_token3", "name": "Corsair", "card_type": "creature",
+				"attributes": ["intelligence"], "cost": 1, "power": 1, "health": 1,
+				"base_power": 1, "base_health": 1, "subtypes": ["Breton"], "rules_text": "",
+			}}]},
+			{"family": "on_friendly_summon", "required_zone": "support", "effects": [{"op": "equip_generated_item", "target": "event_summoned_creature", "card_template": {
+				"definition_id": "steel_dagger", "name": "Steel Dagger", "card_type": "item",
+				"attributes": ["neutral"], "cost": 1, "power": 0, "health": 0,
+				"base_power": 0, "base_health": 0, "equip_power_bonus": 1, "rules_text": "+1/+0",
+			}}]},
+		],
+	})
+	var result3 := PersistentCardRules.play_support_from_hand(match_state3, pid3, ship3["instance_id"])
+	if not _assert(bool(result3.get("is_valid", false)), "Pending lane: support play should succeed."):
+		return false
+	if not _assert(MatchTiming.has_pending_support_lane_selection(match_state3, pid3), "Pending lane selection should exist after playing support without lane_id."):
+		return false
+	var resolve3 := MatchTiming.resolve_pending_support_lane_selection(match_state3, pid3, "field")
+	if not _assert(bool(resolve3.get("is_valid", false)), "Pending lane resolution should succeed."):
+		return false
+	var corsair3 := {}
+	for lane in match_state3.get("lanes", []):
+		if str(lane.get("lane_id", "")) == "field":
+			for card in lane.get("player_slots", {}).get(pid3, []):
+				if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == "corsair_token3":
+					corsair3 = card
+	if not _assert(not corsair3.is_empty(), "Pending lane: Corsair should be in field lane."):
+		return false
+	var dagger_equipped: bool = not corsair3.get("attached_items", []).is_empty()
+	if not _assert(dagger_equipped, "Pending lane: on_friendly_summon should equip Steel Dagger to Corsair. Items: %s" % str(corsair3.get("attached_items", []))):
+		return false
+	# Also verify action enumerator generates lane variants for such supports
+	var match_state2 := _build_started_match()
+	var player2: Dictionary = match_state2["players"][0]
+	var pid2: String = player2["player_id"]
+	_add_hand_card(player2, "corsair_ship2", {
+		"card_type": "support", "cost": 0, "support_uses": 0,
+		"triggered_abilities": [{
+			"family": "on_play",
+			"effects": [{"op": "summon_from_effect", "lane": "chosen", "card_template": {
+				"definition_id": "corsair_token2", "name": "Corsair", "card_type": "creature",
+				"attributes": ["intelligence"], "cost": 1, "power": 1, "health": 1,
+				"base_power": 1, "base_health": 1, "subtypes": ["Breton"], "rules_text": "",
+			}}],
+		}],
+	})
+	var actions := MatchActionEnumerator.enumerate_legal_actions(match_state2, pid2)
+	var support_actions: Array = []
+	for action in actions.get("actions", []):
+		if str(action.get("kind", "")) == "play_support" and str(action.get("source_card", {}).get("definition_id", "")) == "corsair_ship2":
+			support_actions.append(action)
+	return _assert(support_actions.size() >= 2, "Support with lane-chosen summon should enumerate at least 2 lane variants, got %d." % support_actions.size())
+
+
+func _test_support_activate_summon_from_effect_chosen_lane() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid: String = player["player_id"]
+	# Summon a creature in the shadow lane to target
+	var target := _summon_creature(player, match_state, "dwemer_target", "shadow", 3, 3, 0)
+	# Create a support that on activate gives -1/-1 and summons a token in the chosen target's lane
+	var support := _add_hand_card(player, "recon_engine", {
+		"card_type": "support", "cost": 0, "support_uses": 5,
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ACTIVATE,
+			"target_mode": "friendly_creature",
+			"effects": [
+				{"op": "modify_stats", "target": "chosen_target", "power": -1, "health": -1},
+				{"op": "summon_from_effect", "lane": "chosen", "card_template": {
+					"definition_id": "recon_spider", "name": "Reconstructed Spider", "card_type": "creature",
+					"attributes": ["neutral"], "cost": 1, "power": 1, "health": 1,
+					"base_power": 1, "base_health": 1, "subtypes": ["Dwemer"], "rules_text": "",
+				}},
+			],
+		}],
+	})
+	PersistentCardRules.play_support_from_hand(match_state, pid, support["instance_id"])
+	var result := PersistentCardRules.activate_support(match_state, pid, support["instance_id"], {"target_instance_id": target["instance_id"]})
+	if not _assert(bool(result.get("is_valid", false)), "Reconstruction Engine activate should succeed."):
+		return false
+	# Verify the spider was summoned in the shadow lane (same lane as the target)
+	var spider_found := false
+	for lane in match_state.get("lanes", []):
+		if str(lane.get("lane_id", "")) == "shadow":
+			for card in lane.get("player_slots", {}).get(pid, []):
+				if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == "recon_spider":
+					spider_found = true
+	return _assert(spider_found, "Reconstructed Spider should be summoned in shadow lane (chosen target's lane).")
+
+
+func _make_umbra_item(player_id: String) -> Dictionary:
+	return {
+		"instance_id": player_id + "_umbra",
+		"definition_id": "hom_wil_umbra",
+		"name": "Umbra",
+		"card_type": "item",
+		"cost": 6,
+		"equip_power_bonus": 3,
+		"equip_health_bonus": 5,
+		"grants_forced_attack_at_turn_start": true,
+		"owner_player_id": player_id,
+		"controller_player_id": player_id,
+		"zone": "attached_item",
+	}
+
+
+func _attach_umbra(creature: Dictionary, player_id: String) -> void:
+	EvergreenRules.ensure_card_state(creature)
+	creature["attached_items"].append(_make_umbra_item(player_id))
+
+
+func _end_turn_and_start_next(match_state: Dictionary) -> void:
+	var active_pid := str(match_state.get("active_player_id", ""))
+	MatchTurnLoop.end_turn(match_state, active_pid)
+
+
+func _test_umbra_forced_attack_hits_enemy_creature() -> bool:
+	var match_state := _build_started_match()
+	ScenarioFixtures.set_rng_seed(match_state, 42)
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player.get("player_id", ""))
+	# Summon a wielder for player 0 in field lane
+	var wielder := ScenarioFixtures.summon_creature(player, match_state, "umbra_wielder", "field", 2, 5)
+	_attach_umbra(wielder, pid)
+	ScenarioFixtures.ready_for_attack(wielder, match_state)
+	# Summon an enemy creature in the same lane
+	var enemy := ScenarioFixtures.summon_creature(opponent, match_state, "enemy_target", "field", 1, 6)
+	# End player 0's turn, then end player 1's turn → starts player 0's turn → Umbra fires
+	_end_turn_and_start_next(match_state)
+	_end_turn_and_start_next(match_state)
+	# Wielder has 2+3=5 power from Umbra, enemy had 6 health → should have 5 damage
+	var enemy_damage := int(enemy.get("damage_marked", 0))
+	var wielder_attacked := bool(wielder.get("has_attacked_this_turn", false))
+	return (
+		_assert(enemy_damage == 5, "Umbra forced attack: enemy should take 5 damage (2 base + 3 Umbra), got %d." % enemy_damage) and
+		_assert(wielder_attacked, "Umbra forced attack: wielder should be marked as having attacked this turn.")
+	)
+
+
+func _test_umbra_forced_attack_skips_when_no_enemies() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player.get("player_id", ""))
+	# Summon wielder in field lane with Umbra, no enemies
+	var wielder := ScenarioFixtures.summon_creature(player, match_state, "umbra_wielder", "field", 2, 5)
+	_attach_umbra(wielder, pid)
+	ScenarioFixtures.ready_for_attack(wielder, match_state)
+	# End player 0's turn, then end player 1's turn → starts player 0's turn
+	_end_turn_and_start_next(match_state)
+	_end_turn_and_start_next(match_state)
+	var wielder_attacked := bool(wielder.get("has_attacked_this_turn", false))
+	return _assert(not wielder_attacked, "Umbra forced attack: wielder should NOT have attacked when no enemy creatures exist.")
+
+
+func _test_umbra_forced_attack_respects_guards() -> bool:
+	var match_state := _build_started_match()
+	ScenarioFixtures.set_rng_seed(match_state, 99)
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player.get("player_id", ""))
+	# Summon wielder in field lane with Umbra
+	var wielder := ScenarioFixtures.summon_creature(player, match_state, "umbra_wielder", "field", 2, 5)
+	_attach_umbra(wielder, pid)
+	ScenarioFixtures.ready_for_attack(wielder, match_state)
+	# Summon non-guard and guard enemy in the same lane
+	var non_guard := ScenarioFixtures.summon_creature(opponent, match_state, "enemy_no_guard", "field", 1, 6)
+	var guard := ScenarioFixtures.summon_creature(opponent, match_state, "enemy_guard", "field", 1, 6, ["guard"])
+	# Cycle turns so Umbra fires on player 0's next turn start
+	_end_turn_and_start_next(match_state)
+	_end_turn_and_start_next(match_state)
+	var guard_damage := int(guard.get("damage_marked", 0))
+	var non_guard_damage := int(non_guard.get("damage_marked", 0))
+	return (
+		_assert(guard_damage == 5, "Umbra forced attack: guard should take 5 damage, got %d." % guard_damage) and
+		_assert(non_guard_damage == 0, "Umbra forced attack: non-guard should take 0 damage when guard exists, got %d." % non_guard_damage)
 	)
 
 

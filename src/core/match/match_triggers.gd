@@ -346,6 +346,9 @@ static func _trigger_matches_event(match_state: Dictionary, trigger: Dictionary,
 			var evt_player := str(event.get("target_player_id", ""))
 			if not evt_target.is_empty():
 				trigger["_chosen_target_id"] = evt_target
+				var _clt_loc := MatchMutations.find_card_location(match_state, evt_target)
+				if not str(_clt_loc.get("lane_id", "")).is_empty():
+					trigger["_chosen_lane_id"] = str(_clt_loc.get("lane_id", ""))
 			elif not evt_player.is_empty():
 				trigger["_chosen_target_player_id"] = evt_player
 			else:
@@ -366,6 +369,9 @@ static func _trigger_matches_event(match_state: Dictionary, trigger: Dictionary,
 			var chosen_pid := str(chosen.get("player_id", ""))
 			if not chosen_id.is_empty():
 				trigger["_chosen_target_id"] = chosen_id
+				var _cla_loc := MatchMutations.find_card_location(match_state, chosen_id)
+				if not str(_cla_loc.get("lane_id", "")).is_empty():
+					trigger["_chosen_lane_id"] = str(_cla_loc.get("lane_id", ""))
 			elif not chosen_pid.is_empty():
 				trigger["_chosen_target_player_id"] = chosen_pid
 			else:
@@ -791,13 +797,18 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 		var event_source_id := str(event.get("source_instance_id", event.get("subject_instance_id", "")))
 		if event_source_id == str(trigger.get("source_instance_id", "")):
 			return false
-	# Prevent infinite summon loops: if the summoned creature was spawned by this trigger's source, skip
+	# Prevent infinite summon loops: if the summoned creature was spawned by this trigger's
+	# source AND by the same trigger family, skip. Different families on the same card
+	# (e.g. on_play summon + on_friendly_summon equip) should still fire.
 	if str(event.get("event_type", "")) == "creature_summoned":
 		var _spawned_check_id := str(event.get("source_instance_id", ""))
 		if not _spawned_check_id.is_empty():
 			var _spawned_card := MatchTimingHelpers._find_card_anywhere(match_state, _spawned_check_id)
 			if not _spawned_card.is_empty() and str(_spawned_card.get("_spawned_by_instance_id", "")) == str(trigger.get("source_instance_id", "")):
-				return false
+				var _spawned_family := str(_spawned_card.get("_spawned_by_family", ""))
+				var _trigger_family := str(descriptor.get("family", ""))
+				if _spawned_family.is_empty() or _spawned_family == _trigger_family:
+					return false
 	if bool(descriptor.get("require_same_lane", false)):
 		var trigger_lane_index := int(trigger.get("lane_index", -1))
 		var event_lane_id := str(event.get("lane_id", ""))

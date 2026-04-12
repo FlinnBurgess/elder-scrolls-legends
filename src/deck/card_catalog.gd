@@ -156,6 +156,8 @@ static func _build_card(seed: Dictionary, registry) -> Dictionary:
 		card["_empower_target_bonus"] = int(seed["_empower_target_bonus"])
 	if seed.has("transform_on_exhausted"):
 		card["transform_on_exhausted"] = seed["transform_on_exhausted"].duplicate(true)
+	if seed.has("grants_forced_attack_at_turn_start"):
+		card["grants_forced_attack_at_turn_start"] = true
 	return card
 
 
@@ -230,6 +232,8 @@ static func _seed(card_id: String, name: String, attributes: Array, card_type: S
 		result["art_path"] = str(extra["art_path"])
 	if extra.has("transform_on_exhausted"):
 		result["transform_on_exhausted"] = extra["transform_on_exhausted"].duplicate(true)
+	if extra.has("grants_forced_attack_at_turn_start"):
+		result["grants_forced_attack_at_turn_start"] = true
 	return result
 
 
@@ -926,7 +930,7 @@ static func _card_seeds() -> Array:
 		_seed("hom_wil_prison_ship", "Prison Ship", ["willpower"], "creature", 3, 0, 5, {"set_id": HOM_SET_ID, "release_group_id": HOM_RELEASE_GROUP_ID, "rarity": "rare", "effect_ids": ["shackle", "summon"], "subtypes": ["Defense"], "rules_text": "Summon: Shackle an enemy creature while you have Prison Ship.", "triggered_abilities": [{"family": "summon", "target_mode": "enemy_creature", "effects": [{"op": "shackle", "target": "chosen_target", "persistent_while_source_alive": true}]}], "deck_code_id": "mq"}),
 		_seed("hom_wil_shrine_guardian", "Shrine Guardian", ["willpower"], "creature", 8, 8, 8, {"set_id": HOM_SET_ID, "release_group_id": HOM_RELEASE_GROUP_ID, "rarity": "epic", "keywords": ["guard"], "effect_ids": ["modify_stats"], "subtypes": ["Daedra"], "rules_text": "Guard\nWhen your opponent summons a creature, reduce its power to 0 until the start of your turn.", "triggered_abilities": [{"family": "on_enemy_summon", "required_zone": "lane", "effects": [{"op": "set_power", "target": "event_summoned_creature", "value": 0, "duration": "start_of_next_turn"}]}], "deck_code_id": "of"}),
 		_seed("hom_wil_stand_watch", "Stand Watch", ["willpower"], "action", 2, 0, 0, {"set_id": HOM_SET_ID, "release_group_id": HOM_RELEASE_GROUP_ID, "rules_tags": ["prophecy"], "effect_ids": ["draw", "summon"], "rules_text": "Prophecy\nGive a creature Guard. Draw a card.", "action_target_mode": "any_creature", "triggered_abilities": [{"family": "on_play", "effects": [{"op": "grant_keyword", "target": "event_target", "keyword_id": "guard"}, {"op": "draw_cards", "target_player": "controller", "count": 1}]}], "deck_code_id": "pl"}),
-		_seed("hom_wil_umbra", "Umbra", ["willpower"], "item", 6, 0, 0, {"set_id": HOM_SET_ID, "release_group_id": HOM_RELEASE_GROUP_ID, "rarity": "legendary", "is_unique": true, "effect_ids": ["equip", "modify_stats"], "rules_text": "+3/+5\nAt the start of your turn, the wielder Battles an enemy creature of Umbra's choosing.", "equip_power_bonus": 3, "equip_health_bonus": 5, "triggered_abilities": [{"family": "start_of_turn", "required_zone": "lane", "effects": [{"op": "battle_random_enemy", "target": "host"}]}], "deck_code_id": "rd"}),
+		_seed("hom_wil_umbra", "Umbra", ["willpower"], "item", 6, 0, 0, {"set_id": HOM_SET_ID, "release_group_id": HOM_RELEASE_GROUP_ID, "rarity": "legendary", "is_unique": true, "effect_ids": ["equip", "modify_stats", "combat"], "rules_text": "+3/+5\nAt the start of your turn, the wielder attacks a random enemy creature.", "equip_power_bonus": 3, "equip_health_bonus": 5, "grants_forced_attack_at_turn_start": true, "deck_code_id": "rd"}),
 		_seed("hom_wil_vivec", "Vivec", ["willpower"], "creature", 5, 5, 5, {"set_id": HOM_SET_ID, "release_group_id": HOM_RELEASE_GROUP_ID, "rarity": "legendary", "is_unique": true, "effect_ids": ["modify_stats"], "subtypes": ["God"], "rules_text": "Exalt 3: +5/+5\nWhile you have an Exalted creature in play, you can't lose the game.", "triggered_abilities": [{"family": "summon", "exalt_cost": 3, "effects": [{"op": "modify_stats", "target": "self", "power": 5, "health": 5}]}], "passive_abilities": [{"type": "cannot_lose", "condition": "has_exalted_creature"}], "deck_code_id": "rt"}),
 		_seed("hom_wil_vivec_city_pilgrim", "Vivec City Pilgrim", ["willpower"], "creature", 2, 2, 2, {"set_id": HOM_SET_ID, "release_group_id": HOM_RELEASE_GROUP_ID, "keywords": ["drain"], "subtypes": ["Nord"], "rules_text": "Drain\nExalt 3: +2/+2.", "triggered_abilities": [{"family": "summon", "exalt_cost": 3, "effects": [{"op": "modify_stats", "target": "self", "power": 2, "health": 2}]}], "deck_code_id": "ru"}),
 		_seed("hom_wil_warclaw_mercenary", "Warclaw Mercenary", ["willpower"], "creature", 2, 2, 2, {"set_id": HOM_SET_ID, "release_group_id": HOM_RELEASE_GROUP_ID, "keywords": ["rally"], "subtypes": ["Khajiit"], "rules_text": "Rally", "deck_code_id": "rB"}),

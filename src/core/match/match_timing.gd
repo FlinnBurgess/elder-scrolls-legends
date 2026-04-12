@@ -16,6 +16,7 @@ const MatchTriggers = preload("res://src/core/match/match_triggers.gd")
 const MatchTargeting = preload("res://src/core/match/match_targeting.gd")
 const MatchSummonTiming = preload("res://src/core/match/match_summon_timing.gd")
 const MatchEffectApplication = preload("res://src/core/match/match_effect_application.gd")
+const EffectSummon = preload("res://src/core/match/effects/effect_summon.gd")
 
 const ZONE_HAND := "hand"
 const ZONE_DECK := "deck"
@@ -274,6 +275,8 @@ static func ensure_match_state(match_state: Dictionary) -> void:
 		match_state["pending_consume_selections"] = []
 	if not match_state.has("pending_deck_selections") or typeof(match_state["pending_deck_selections"]) != TYPE_ARRAY:
 		match_state["pending_deck_selections"] = []
+	if not match_state.has("pending_support_lane_selections") or typeof(match_state["pending_support_lane_selections"]) != TYPE_ARRAY:
+		match_state["pending_support_lane_selections"] = []
 	if not match_state.has("pending_forced_plays") or typeof(match_state["pending_forced_plays"]) != TYPE_ARRAY:
 		match_state["pending_forced_plays"] = []
 	if not match_state.has("pending_budget_summons") or typeof(match_state["pending_budget_summons"]) != TYPE_ARRAY:
@@ -1219,6 +1222,47 @@ static func get_pending_summon_effect_target(match_state: Dictionary, player_id:
 	return {}
 
 
+static func has_pending_support_lane_selection(match_state: Dictionary, player_id: String = "") -> bool:
+	return not get_pending_support_lane_selection(match_state, player_id).is_empty()
+
+
+static func get_pending_support_lane_selection(match_state: Dictionary, player_id: String = "") -> Dictionary:
+	ensure_match_state(match_state)
+	for raw in match_state.get("pending_support_lane_selections", []):
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		if not player_id.is_empty() and str(raw.get("player_id", "")) != player_id:
+			continue
+		return raw.duplicate(true)
+	return {}
+
+
+static func resolve_pending_support_lane_selection(match_state: Dictionary, player_id: String, lane_id: String) -> Dictionary:
+	ensure_match_state(match_state)
+	var pending: Array = match_state.get("pending_support_lane_selections", [])
+	var idx := -1
+	var entry := {}
+	for i in range(pending.size()):
+		if typeof(pending[i]) != TYPE_DICTIONARY:
+			continue
+		if str(pending[i].get("player_id", "")) == player_id:
+			idx = i
+			entry = pending[i]
+			break
+	if idx == -1:
+		return {"is_valid": false, "errors": ["No pending support lane selection for player."]}
+	pending.remove_at(idx)
+	var trigger: Dictionary = entry.get("trigger", {})
+	var event: Dictionary = entry.get("event", {})
+	var effect: Dictionary = entry.get("effect", {})
+	event["lane_id"] = lane_id
+	var generated_events: Array = []
+	var ctx := {"descriptor": trigger.get("descriptor", {}), "reason": str(trigger.get("descriptor", {}).get("family", "trigger"))}
+	EffectSummon.apply("summon_from_effect", match_state, trigger, event, effect, generated_events, ctx)
+	var timing_result := publish_events(match_state, generated_events)
+	return {"is_valid": true, "events": timing_result.get("processed_events", []), "trigger_resolutions": timing_result.get("trigger_resolutions", [])}
+
+
 static func resolve_pending_summon_effect_target(match_state: Dictionary, player_id: String, target_info: Dictionary) -> Dictionary:
 	ensure_match_state(match_state)
 	var pending: Array = match_state.get("pending_summon_effect_targets", [])
@@ -1241,6 +1285,10 @@ static func resolve_pending_summon_effect_target(match_state: Dictionary, player
 		var deferred_trigger: Dictionary = entry.get("_choice_trigger", {}).duplicate(true)
 		var deferred_event: Dictionary = entry.get("_choice_event", {}).duplicate(true)
 		deferred_trigger["_chosen_target_id"] = chosen_id
+		if not chosen_id.is_empty():
+			var _dcl_loc := MatchMutations.find_card_location(match_state, chosen_id)
+			if not str(_dcl_loc.get("lane_id", "")).is_empty():
+				deferred_trigger["_chosen_lane_id"] = str(_dcl_loc.get("lane_id", ""))
 		if not chosen_player_id.is_empty():
 			deferred_trigger["_chosen_target_player_id"] = chosen_player_id
 		var desc: Dictionary = deferred_trigger.get("descriptor", {})

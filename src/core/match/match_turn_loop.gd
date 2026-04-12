@@ -9,6 +9,7 @@ const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const MatchTimingHelpers = preload("res://src/core/match/match_timing_helpers.gd")
 const MatchEffectParams = preload("res://src/core/match/match_effect_params.gd")
 const MatchSummonTiming = preload("res://src/core/match/match_summon_timing.gd")
+const MatchCombat = preload("res://src/core/match/match_combat.gd")
 const GameLogger = preload("res://src/core/match/game_logger.gd")
 const PHASE_READY_FOR_FIRST_TURN := "ready_for_first_turn"
 const PHASE_ACTION := "action"
@@ -224,6 +225,7 @@ static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionar
 		match_state["phase"] = "complete"
 	if not events.is_empty():
 		MatchTiming.publish_events(match_state, events)
+	_resolve_forced_attacks(match_state, player_id)
 	_process_discard_return_timers(match_state, player_id)
 	return match_state
 
@@ -403,3 +405,75 @@ static func _find_player_index(players: Array, player_id: String) -> int:
 		if players[index].get("player_id", "") == player_id:
 			return index
 	return -1
+
+
+static func _resolve_forced_attacks(match_state: Dictionary, player_id: String) -> void:
+	if not str(match_state.get("winner_player_id", "")).is_empty():
+		return
+	var opposing_id := _get_next_player_id(match_state.get("players", []), player_id)
+	if opposing_id.is_empty():
+		return
+	var lanes: Array = match_state.get("lanes", [])
+	for lane_index in range(lanes.size()):
+		var lane: Dictionary = lanes[lane_index]
+		var player_slots: Array = lane.get("player_slots", {}).get(player_id, [])
+		for card in player_slots:
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			if not _has_forced_attack_item(card):
+				continue
+			var target := _pick_forced_attack_target(match_state, card, lane_index, player_id, opposing_id)
+			if target.is_empty():
+				GameLogger.trc("Turn", "_resolve_forced_attacks", "skip:%s,no_targets" % str(card.get("name", card.get("instance_id", ""))))
+				continue
+			GameLogger.trc("Turn", "_resolve_forced_attacks", "atk:%s,tgt:%s" % [str(card.get("instance_id", "")), str(target.get("instance_id", ""))])
+			MatchCombat.resolve_attack(match_state, player_id, str(card.get("instance_id", "")), target)
+			if not str(match_state.get("winner_player_id", "")).is_empty():
+				return
+
+
+static func _has_forced_attack_item(card: Dictionary) -> bool:
+	for item in EvergreenRules.get_attached_items(card):
+		if typeof(item) == TYPE_DICTIONARY and bool(item.get("grants_forced_attack_at_turn_start", false)):
+			return true
+	return false
+
+
+static func _pick_forced_attack_target(match_state: Dictionary, attacker: Dictionary, lane_index: int, _player_id: String, opposing_id: String) -> Dictionary:
+	var lanes: Array = match_state.get("lanes", [])
+	if lane_index < 0 or lane_index >= lanes.size():
+		return {}
+	# Collect guards for this lane (including guards_both_lanes from other lanes)
+	var guard_ids: Array = []
+	var lane: Dictionary = lanes[lane_index]
+	var enemy_slots: Array = lane.get("player_slots", {}).get(opposing_id, [])
+	for card in enemy_slots:
+		if typeof(card) != TYPE_DICTIONARY:
+			continue
+		if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_GUARD):
+			guard_ids.append(str(card.get("instance_id", "")))
+	for other_li in range(lanes.size()):
+		if other_li == lane_index:
+			continue
+		for card in lanes[other_li].get("player_slots", {}).get(opposing_id, []):
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_GUARD) and EvergreenRules.has_status(card, "guards_both_lanes"):
+				var cid := str(card.get("instance_id", ""))
+				if not guard_ids.has(cid):
+					guard_ids.append(cid)
+	var attacker_ignores_guard := EvergreenRules.has_status(attacker, "ignore_guard")
+	var has_guards := not guard_ids.is_empty() and not attacker_ignores_guard
+	# Build candidate list from same-lane enemies
+	var candidates: Array = []
+	for card in enemy_slots:
+		if typeof(card) != TYPE_DICTIONARY:
+			continue
+		var cid := str(card.get("instance_id", ""))
+		if has_guards and not guard_ids.has(cid):
+			continue
+		candidates.append(card)
+	if candidates.is_empty():
+		return {}
+	var pick: Dictionary = candidates[MatchEffectParams._deterministic_index(match_state, str(attacker.get("instance_id", "")) + "_forced_atk", candidates.size())]
+	return {"type": "creature", "instance_id": str(pick.get("instance_id", ""))}

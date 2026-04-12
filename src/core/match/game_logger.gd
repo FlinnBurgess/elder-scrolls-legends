@@ -393,6 +393,9 @@ static func _check_missing_effects(card: Dictionary) -> void:
 		# "destroy" maps to "destroy" or "destroy_creature" op or "lethal" keyword
 		if id == "destroy" and ("destroy" in configured_ops or "destroy_creature" in configured_ops or "lethal" in keywords):
 			continue
+		# "equip" maps to "equip_item" or "equip_generated_item" ops
+		if id == "equip" and ("equip_item" in configured_ops or "equip_generated_item" in configured_ops):
+			continue
 		# "transform" maps to ops like "transform_in_hand_to_random", "transform_hand", etc.
 		if id == "transform":
 			var has_transform_op := false

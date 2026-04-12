@@ -617,6 +617,17 @@ func _check_pending_summon_effect_target() -> void:
 	_screen._refresh_ui()
 
 
+func _check_pending_support_lane_selection() -> void:
+	var local_id = _screen._local_player_id()
+	if not _screen.MatchTiming.has_pending_support_lane_selection(_screen._match_state, local_id):
+		return
+	var pending = _screen.MatchTiming.get_pending_support_lane_selection(_screen._match_state, local_id)
+	var source_id := str(pending.get("source_instance_id", ""))
+	_screen._enter_targeting_mode(source_id)
+	_screen._status_message = "Choose a lane."
+	_screen._refresh_ui()
+
+
 func _summon_target_prompt(card: Dictionary, abilities: Array) -> String:
 	var card_name := str(card.get("name", ""))
 	var modes: Array = []

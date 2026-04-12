@@ -669,12 +669,14 @@ static func _enumerate_support_plays(match_state: Dictionary, player_id: String)
 				if action_is_legal(match_state, descriptor):
 					actions.append(descriptor)
 		else:
-			var descriptor := _build_descriptor(KIND_PLAY_SUPPORT, match_state, player_id, card, {}, {
-				"timing_window": TIMING_ACTION,
-				"order_key": ACTION_KIND_ORDER[KIND_PLAY_SUPPORT],
-			})
-			if action_is_legal(match_state, descriptor):
-				actions.append(descriptor)
+			var requirements := _collect_target_requirements(_play_triggers(card))
+			for parameters in _expand_target_parameter_sets(match_state, requirements):
+				var descriptor := _build_descriptor(KIND_PLAY_SUPPORT, match_state, player_id, card, parameters, {
+					"timing_window": TIMING_ACTION,
+					"order_key": ACTION_KIND_ORDER[KIND_PLAY_SUPPORT],
+				})
+				if action_is_legal(match_state, descriptor):
+					actions.append(descriptor)
 	return actions
 
 

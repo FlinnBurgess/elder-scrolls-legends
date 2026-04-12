@@ -573,7 +573,8 @@ func _check_semantic(card_id: String, card_name: String, card_type: String, rule
 	if _text_has_phrase(rules_text, "At the start of your turn") and "start_of_turn" not in families:
 		# Check for scheduling ops (delayed_destroy with trigger_at: start_of_turn)
 		# and summoned tokens that have their own start_of_turn triggers
-		if not _has_scheduling_op(triggers, "start_of_turn") and not _has_token_trigger(triggers, "start_of_turn"):
+		# Also skip if the card uses grants_forced_attack_at_turn_start (e.g. Umbra)
+		if not _has_scheduling_op(triggers, "start_of_turn") and not _has_token_trigger(triggers, "start_of_turn") and not bool(card.get("grants_forced_attack_at_turn_start", false)):
 			findings.append(_finding(card_id, card_name, "error", "missing_start_of_turn_trigger",
 				"Rules text says 'At the start of your turn' but no start_of_turn trigger found",
 				{"families": families}))

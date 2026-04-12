@@ -71,6 +71,17 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var single_lane_id := str(effect.get("lane_id", effect.get("target_lane_id", effect.get("lane", event.get("lane_id", "")))))
 				if single_lane_id == "chosen":
 					single_lane_id = str(trigger.get("_chosen_lane_id", event.get("lane_id", "")))
+					if single_lane_id.is_empty():
+						var _pls_arr: Array = match_state.get("pending_support_lane_selections", [])
+						_pls_arr.append({
+							"player_id": str(trigger.get("controller_player_id", "")),
+							"source_instance_id": str(trigger.get("source_instance_id", "")),
+							"effect": effect.duplicate(true),
+							"trigger": trigger.duplicate(true),
+							"event": event.duplicate(true),
+						})
+						generated_events.append({"event_type": "support_lane_selection_pending", "player_id": str(trigger.get("controller_player_id", "")), "source_instance_id": str(trigger.get("source_instance_id", ""))})
+						return
 				if single_lane_id == "same_as_target" or single_lane_id == "same_as_marked_target":
 					var _sat_target_id := ""
 					if single_lane_id == "same_as_marked_target":
@@ -252,6 +263,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 							var sfe_trigger_src := str(trigger.get("source_instance_id", ""))
 							if not sfe_trigger_src.is_empty():
 								generated_card["_spawned_by_instance_id"] = sfe_trigger_src
+								generated_card["_spawned_by_family"] = str(descriptor.get("family", ""))
 							var summon_result := MatchMutations.summon_card_to_lane(match_state, player_id, generated_card, sfe_active_lane, {
 								"slot_index": int(effect.get("slot_index", -1)),
 								"source_zone": MatchMutations.ZONE_GENERATED,
@@ -637,6 +649,9 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var sfdc_max_cost := int(effect.get("max_cost", 999))
 				var sfdc_min_cost := int(effect.get("min_cost", 0))
 				var sfdc_exact_cost := int(effect.get("exact_cost", -1))
+				var sfdc_cost_source := str(effect.get("cost_source", ""))
+				if sfdc_cost_source == "played_action":
+					sfdc_exact_cost = int(event.get("played_cost", -1))
 				var sfdc_filter_type := str(effect.get("filter_card_type", CARD_TYPE_CREATURE))
 				var sfdc_candidates: Array = []
 				for sfdc_card in sfdc_deck:

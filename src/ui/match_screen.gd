@@ -532,6 +532,8 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 		card["_empower_target_bonus"] = int(definition["_empower_target_bonus"])
 	if definition.has("transform_on_exhausted"):
 		card["transform_on_exhausted"] = definition["transform_on_exhausted"].duplicate(true)
+	if definition.has("grants_forced_attack_at_turn_start"):
+		card["grants_forced_attack_at_turn_start"] = true
 	var innate_statuses: Array = definition.get("innate_statuses", [])
 	if not innate_statuses.is_empty():
 		card["innate_statuses"] = innate_statuses.duplicate(true)
@@ -2024,6 +2026,13 @@ func _on_lane_row_gui_input(event: InputEvent, lane_id: String, player_id: Strin
 		_finalize_engine_result(result, "Activated support.")
 		accept_event()
 		return
+	if not _targeting._targeting_arrow_state.is_empty() and MatchTiming.has_pending_support_lane_selection(_match_state, _active_player_id()):
+		_targeting._cancel_targeting_mode_silent()
+		_selected_instance_id = ""
+		var result := MatchTiming.resolve_pending_support_lane_selection(_match_state, _active_player_id(), lane_id)
+		_finalize_engine_result(result, "Summoned creature.")
+		accept_event()
+		return
 	# Mobilize: item in targeting mode can be played to a lane (summon Recruit + equip)
 	if not _targeting._targeting_arrow_state.is_empty() and _selection._selected_action_mode(card) == SELECTION_MODE_ITEM:
 		if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_MOBILIZE):
@@ -2069,6 +2078,13 @@ func _on_lane_panel_gui_input(event: InputEvent, lane_id: String) -> void:
 			accept_event()
 			return
 		_targeting._play_action_to_lane(lane_id)
+		accept_event()
+		return
+	if not _targeting._targeting_arrow_state.is_empty() and MatchTiming.has_pending_support_lane_selection(_match_state, _active_player_id()):
+		_targeting._cancel_targeting_mode_silent()
+		_selected_instance_id = ""
+		var result := MatchTiming.resolve_pending_support_lane_selection(_match_state, _active_player_id(), lane_id)
+		_finalize_engine_result(result, "Summoned creature.")
 		accept_event()
 		return
 	# Mobilize: item in targeting mode can be played to a lane (summon Recruit + equip)
@@ -2117,6 +2133,12 @@ func _on_lane_pressed(lane_id: String) -> void:
 		_selected_instance_id = ""
 		var result := PersistentCardRules.activate_support(_match_state, _active_player_id(), support_id, {"lane_id": lane_id})
 		_finalize_engine_result(result, "Activated support.")
+		return
+	if not _targeting._targeting_arrow_state.is_empty() and MatchTiming.has_pending_support_lane_selection(_match_state, _active_player_id()):
+		_targeting._cancel_targeting_mode_silent()
+		_selected_instance_id = ""
+		var result := MatchTiming.resolve_pending_support_lane_selection(_match_state, _active_player_id(), lane_id)
+		_finalize_engine_result(result, "Summoned creature.")
 		return
 	var target_player := _target_lane_player_id()
 	if not _selection._selected_support_row_target_player_id(card).is_empty():
@@ -2270,6 +2292,7 @@ func _finalize_engine_result(result: Dictionary, success_message: String, clear_
 			return result
 		_targeting._check_pending_secondary_target()
 		_targeting._check_pending_summon_effect_target()
+		_targeting._check_pending_support_lane_selection()
 		_selection._check_pending_forced_play()
 	return result
 

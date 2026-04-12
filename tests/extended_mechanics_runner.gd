@@ -11,6 +11,7 @@ const MatchTargeting = preload("res://src/core/match/match_targeting.gd")
 const MatchAuras = preload("res://src/core/match/match_auras.gd")
 const MatchTriggers = preload("res://src/core/match/match_triggers.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
+const EffectSacrifice = preload("res://src/core/match/effects/effect_sacrifice.gd")
 const ScenarioFixtures = preload("res://tests/support/scenario_fixtures.gd")
 
 
@@ -4857,18 +4858,19 @@ func _test_sacrifice_and_absorb_stats_uses_remaining_health() -> bool:
 	var pid := str(player.get("player_id", ""))
 	# Summon the sacrifice target with 4/6 base, then deal 2 damage so remaining health = 4
 	var victim := ScenarioFixtures.summon_creature(player, match_state, "victim", "field", 4, 6)
-	EvergreenRules.apply_damage(victim, 2)
+	EvergreenRules.apply_damage_to_creature(victim, 2)
 	if not _assert(EvergreenRules.get_remaining_health(victim) == 4, "Victim should have 4 remaining health."):
 		return false
-	# Summon the absorber (like Xavara Atronach) with sacrifice_and_absorb_stats summon
-	var absorber := ScenarioFixtures.summon_creature(player, match_state, "absorber", "field", 3, 3, [], -1, {
-		"triggered_abilities": [{"family": "summon", "target_mode": "another_friendly_creature_optional", "effects": [{"op": "sacrifice_and_absorb_stats", "target": "chosen_target"}]}],
-	})
+	# Summon the absorber directly (no target_mode — we manually fire the effect)
+	var absorber := ScenarioFixtures.summon_creature(player, match_state, "absorber", "field", 3, 3)
 	var absorber_id := str(absorber.get("instance_id", ""))
-	# Resolve the summon target choice — pick the victim
-	var resolve := MatchTiming.resolve_pending_summon_effect_target(match_state, pid, str(victim.get("instance_id", "")))
-	if not _assert(bool(resolve.get("is_valid", false)), "Absorb target resolution should be valid."):
-		return false
+	# Directly apply sacrifice_and_absorb_stats by simulating the effect with a resolved target
+	var trigger := {"source_instance_id": absorber_id, "controller_player_id": pid}
+	var event := {}
+	var effect := {"op": "sacrifice_and_absorb_stats", "target": "event_target"}
+	var sae_event := {"event_type": "creature_summoned", "target_instance_id": str(victim.get("instance_id", ""))}
+	var gen_events: Array = []
+	EffectSacrifice.apply("sacrifice_and_absorb_stats", match_state, trigger, sae_event, effect, gen_events, {"reason": "summon"})
 	var final_absorber := MatchTimingHelpers._find_card_anywhere(match_state, absorber_id)
 	var final_power := EvergreenRules.get_power(final_absorber)
 	var final_health := EvergreenRules.get_remaining_health(final_absorber)

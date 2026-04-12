@@ -247,10 +247,14 @@ static func _start_of_turn_damage_threat(card: Dictionary) -> int:
 ## repeatedly while the creature is in lane (start_of_turn, end_of_turn, pilfer,
 ## slay, on_attack, after_action_played, on_friendly_summon).
 static func _ongoing_effect_value(card: Dictionary) -> float:
+	var total := 0.0
+	# Items that grant a forced attack each turn (e.g. Umbra)
+	for item in card.get("attached_items", []):
+		if typeof(item) == TYPE_DICTIONARY and bool(item.get("grants_forced_attack_at_turn_start", false)):
+			total += float(EvergreenRules.get_power(card)) * 1.5
 	var triggers = card.get("triggered_abilities", [])
 	if typeof(triggers) != TYPE_ARRAY or triggers.is_empty():
-		return 0.0
-	var total := 0.0
+		return total
 	for trigger in triggers:
 		if typeof(trigger) != TYPE_DICTIONARY:
 			continue
