@@ -64,10 +64,7 @@
 		],
 		"hand": [
 			"wil_piercing_javelin",
-			"db_int_corsair_ship",
-			"hom_wil_umbra",
-			"moe_end_arise",
-			"wil_calm"
+			"hom_wil_umbra"
 		],
 		"has_ring": false,
 		"health": 30.0,

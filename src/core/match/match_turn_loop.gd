@@ -426,8 +426,14 @@ static func _resolve_forced_attacks(match_state: Dictionary, player_id: String) 
 			if target.is_empty():
 				GameLogger.trc("Turn", "_resolve_forced_attacks", "skip:%s,no_targets" % str(card.get("name", card.get("instance_id", ""))))
 				continue
-			GameLogger.trc("Turn", "_resolve_forced_attacks", "atk:%s,tgt:%s" % [str(card.get("instance_id", "")), str(target.get("instance_id", ""))])
-			MatchCombat.resolve_attack(match_state, player_id, str(card.get("instance_id", "")), target)
+			var attacker_id := str(card.get("instance_id", ""))
+			GameLogger.trc("Turn", "_resolve_forced_attacks", "atk:%s,tgt:%s" % [attacker_id, str(target.get("instance_id", ""))])
+			# Store metadata for the UI to animate an arrow (attack resolves immediately)
+			match_state["_last_forced_attack"] = {
+				"attacker_instance_id": attacker_id,
+				"target_instance_id": str(target.get("instance_id", "")),
+			}
+			MatchCombat.resolve_attack(match_state, player_id, attacker_id, target)
 			if not str(match_state.get("winner_player_id", "")).is_empty():
 				return
 

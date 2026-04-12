@@ -740,6 +740,43 @@ func _animate_enemy_attack_arrow(action: Dictionary, _result: Dictionary) -> voi
 	)
 
 
+func _animate_forced_attack_arrow(info: Dictionary) -> void:
+	var attacker_id := str(info.get("attacker_instance_id", ""))
+	var target_id := str(info.get("target_instance_id", ""))
+
+	var attacker_button: Button = _screen._card_buttons.get(attacker_id)
+	var target_button: Button = _screen._card_buttons.get(target_id)
+	if attacker_button == null or not is_instance_valid(attacker_button) or target_button == null or not is_instance_valid(target_button):
+		_screen._refresh_ui()
+		return
+
+	var atk_size: Vector2 = attacker_button.get_meta("card_size", attacker_button.size)
+	var tgt_size: Vector2 = target_button.get_meta("card_size", target_button.size)
+	var arrow_start := attacker_button.global_position + Vector2(atk_size.x * 0.5, 0.0)
+	var arrow_end := target_button.global_position + Vector2(tgt_size.x * 0.5, tgt_size.y)
+
+	var arrow := Line2D.new()
+	arrow.width = 5.0
+	arrow.default_color = Color(0.95, 0.25, 0.2, 0.92)
+	arrow.z_index = 500
+	arrow.antialiased = true
+	_screen._prophecy_card_overlay.add_child(arrow)
+
+	var tween = _screen.create_tween()
+	tween.tween_method(func(progress: float):
+		_draw_spell_reveal_arrow_partial(progress, arrow, arrow_start, arrow_end)
+	, 0.0, 1.0, 0.3)
+	tween.tween_interval(0.35)
+	tween.tween_callback(func():
+		if arrow != null and is_instance_valid(arrow):
+			arrow.queue_free()
+		_screen._refresh_ui()
+		var pending_visual: Array = _screen._match_state.get("pending_visual_effects", [])
+		if not pending_visual.is_empty():
+			_start_deferred_visual_animation.call_deferred(pending_visual)
+	)
+
+
 func _start_deferred_visual_animation(pending: Array) -> void:
 	var arrows: Array[Line2D] = []
 	# Group pending entries by source creature for multi-target arrows

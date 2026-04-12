@@ -25,3 +25,15 @@ Play a dramatic card-specific animation before the board updates. All engine eff
 **Use when:** A specific card needs a dramatic visual (explosion, board wipe, transformation) that should play BEFORE the board updates to show results. Unlike `deferred-visual-arrow`, this does not defer engine resolution.
 
 **Key files:** `match_screen_animations.gd` (pending state, detection, animation), `match_screen.gd` (intercept in `_finalize_engine_result`)
+
+---
+
+### [Turn-Start Forced Attack Arrow](ui_patterns/turn-start-forced-attack-arrow.md)
+
+**ID:** `turn-start-forced-attack-arrow`
+
+Animate a red arrow from attacker to target for attacks that resolve automatically at the start of a turn. The arrow plays on the pre-damage board state, then refreshes to show the result. Engine resolves immediately and stores `_last_forced_attack` metadata for the UI.
+
+**Use when:** A card forces a creature to automatically attack an enemy creature at the start of the controller's turn (e.g. Umbra's "the wielder attacks a random enemy creature").
+
+**Key files:** `match_turn_loop.gd` (resolve + metadata), `match_screen.gd` / `match_screen_ai.gd` (detection + skip refresh), `match_screen_feedback.gd` (arrow animation + deferred refresh)

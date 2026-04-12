@@ -1160,10 +1160,16 @@ func _complete_end_turn(player_id: String) -> void:
 			_status_message = "Puzzle Complete!"
 			_refresh._refresh_ui()
 			return
-	_refresh._refresh_ui()
-	var pending_visual: Array = _match_state.get("pending_visual_effects", [])
-	if not pending_visual.is_empty():
-		_feedback._start_deferred_visual_animation.call_deferred(pending_visual)
+	var forced_attack_info: Dictionary = _match_state.get("_last_forced_attack", {})
+	_match_state.erase("_last_forced_attack")
+	if not forced_attack_info.is_empty():
+		# Skip refresh — arrow animates on pre-damage board, then refreshes in callback
+		_feedback._animate_forced_attack_arrow.call_deferred(forced_attack_info)
+	else:
+		_refresh._refresh_ui()
+		var pending_visual: Array = _match_state.get("pending_visual_effects", [])
+		if not pending_visual.is_empty():
+			_feedback._start_deferred_visual_animation.call_deferred(pending_visual)
 	if _arena_mode:
 		match_state_changed.emit(_match_state.duplicate(true))
 

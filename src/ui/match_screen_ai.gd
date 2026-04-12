@@ -153,11 +153,18 @@ func _execute_local_match_ai_step() -> Dictionary:
 		elif is_enemy and str(action.get("kind", "")) == _screen.MatchActionEnumerator.KIND_ACTIVATE_SUPPORT and _screen._feedback._has_support_activation_target(action):
 			_screen._animate_enemy_support_activation_arrow(action, result)
 		else:
-			_screen._refresh_ui()
-			# Check for deferred visual effects (e.g. beast form targeted summon arrow)
-			var pending_visual: Array = _screen._match_state.get("pending_visual_effects", [])
-			if not pending_visual.is_empty():
-				_screen._feedback._start_deferred_visual_animation.call_deferred(pending_visual)
+			# Forced attack arrow (e.g. Umbra at start of turn): skip refresh
+			# so the arrow animates on the pre-damage board, then refresh after
+			var forced_atk: Dictionary = _screen._match_state.get("_last_forced_attack", {})
+			if not forced_atk.is_empty():
+				_screen._match_state.erase("_last_forced_attack")
+				_screen._feedback._animate_forced_attack_arrow.call_deferred(forced_atk)
+			else:
+				_screen._refresh_ui()
+				# Check for deferred visual effects (e.g. beast form targeted summon arrow)
+				var pending_visual: Array = _screen._match_state.get("pending_visual_effects", [])
+				if not pending_visual.is_empty():
+					_screen._feedback._start_deferred_visual_animation.call_deferred(pending_visual)
 	if _screen._arena_mode:
 		_screen.match_state_changed.emit(_screen._match_state.duplicate(true))
 	return {
