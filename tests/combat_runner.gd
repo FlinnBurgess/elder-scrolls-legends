@@ -27,7 +27,8 @@ func _run_all_tests() -> bool:
 		_test_guards_both_lanes_cross_lane_targeting() and
 		_test_move_to_attack_into_shadow_lane_loses_cover() and
 		_test_grants_immunity_lethal_survives_combat() and
-		_test_amulet_of_mara_blocks_attack_between_wielders()
+		_test_amulet_of_mara_blocks_attack_between_wielders() and
+		_test_escalating_damage_sets_counter_on_card()
 	)
 
 
@@ -418,6 +419,42 @@ func _test_amulet_of_mara_blocks_attack_between_wielders() -> bool:
 		_assert(not bool(blocked.get("is_valid", false)), "Amulet of Mara wielder should NOT be able to attack another amulet wielder.") and
 		_assert(bool(allowed.get("is_valid", false)), "Amulet of Mara wielder should be able to attack enemies without amulet.") and
 		_assert(bool(face.get("is_valid", false)), "Amulet of Mara wielder should be able to attack face.")
+	)
+
+
+func _test_escalating_damage_sets_counter_on_card() -> bool:
+	var match_state := _build_started_match(18, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(active_player["player_id"])
+	var opid := str(opponent["player_id"])
+	var attacker := _summon_creature(active_player, match_state, "escalator", "field", 3, 5)
+	attacker["triggered_abilities"] = [{"family": "on_attack", "required_zone": "lane", "effects": [{"op": "escalating_damage", "target_player": "opponent", "base_amount": 2, "increment": 2, "counter_key": "esc_counter"}]}]
+	attacker["effect_ids"] = ["damage"]
+	_target_ready_for_attack(attacker, match_state)
+
+	# First attack — should deal 2 escalating damage and set counter to 2
+	var result := MatchCombat.resolve_attack(match_state, pid, attacker["instance_id"], {
+		"type": "player",
+		"player_id": opid,
+	})
+	if not (
+		_assert(result["is_valid"], "First escalating attack should resolve.") and
+		_assert(int(attacker.get("esc_counter", 0)) == 2, "Counter should be 2 after first attack, got %d." % int(attacker.get("esc_counter", 0)))
+	):
+		return false
+
+	# Second attack — counter should increment to 4
+	_target_ready_for_attack(attacker, match_state)
+	MatchTurnLoop.end_turn(match_state, pid)
+	MatchTurnLoop.end_turn(match_state, opid)
+	var result2 := MatchCombat.resolve_attack(match_state, pid, attacker["instance_id"], {
+		"type": "player",
+		"player_id": opid,
+	})
+	return (
+		_assert(result2["is_valid"], "Second escalating attack should resolve.") and
+		_assert(int(attacker.get("esc_counter", 0)) == 4, "Counter should be 4 after second attack, got %d." % int(attacker.get("esc_counter", 0)))
 	)
 
 

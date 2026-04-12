@@ -42,7 +42,8 @@
 		"hand": [
 			"wil_piercing_javelin",
 			"str_rapid_shot",
-			"iom_end_xavara_atronach"
+			"iom_end_xavara_atronach",
+			"neu_halls_of_the_dwemer"
 		],
 		"has_ring": false,
 		"health": 30.0,
@@ -51,9 +52,7 @@
 			"aw_end_imperial_lackey",
 			"joo_str_mehrunes_dagons_flayer"
 		],
-		"supports": [
-			"mc_neu_yagrums_workshop"
-		]
+		"supports": []
 	},
 	"type": "kill"
 }

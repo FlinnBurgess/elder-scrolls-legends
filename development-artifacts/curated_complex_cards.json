@@ -1,29 +1,5 @@
 [
 	{
-		"card_id": "joo_str_mehrunes_dagons_flayer",
-		"name": "Mehrunes Dagon's Flayer",
-		"card_type": "creature",
-		"cost": 3,
-		"attributes": [
-			"strength"
-		],
-		"rules_text": "At the start of your turn, deal 1 damage to another friendly creature and give it +2/+0.",
-		"stripped_text": "At the start of your turn, deal 1 damage to another friendly creature and give it +2/+0.",
-		"complexity": 88
-	},
-	{
-		"card_id": "neu_halls_of_the_dwemer",
-		"name": "Halls of the Dwemer",
-		"card_type": "support",
-		"cost": 6,
-		"attributes": [
-			"neutral"
-		],
-		"rules_text": "Ongoing\nSummon: Put a 0/3 Dwarven Spider with Guard into your hand. Friendly Dwemer have +3/+0.",
-		"stripped_text": "Summon: Put a 0/3 Dwarven Spider with Guard into your hand. Friendly Dwemer have +3/+0.",
-		"complexity": 87
-	},
-	{
 		"card_id": "hos_neu_dragon_mound",
 		"name": "Dragon Mound",
 		"card_type": "support",

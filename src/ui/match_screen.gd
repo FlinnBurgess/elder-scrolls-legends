@@ -1606,7 +1606,9 @@ func _add_hover_preview_to_layer(card: Dictionary, instance_id: String, name_pre
 	var component = CARD_DISPLAY_COMPONENT_SCENE.instantiate()
 	component.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	component.apply_card(card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+	var display_card := card.duplicate(true)
+	_card_surface._apply_escalating_damage_text_updates(display_card)
+	component.apply_card(display_card, CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
 	if component.has_method("set_wax_wane_phases"):
 		component.set_wax_wane_phases(_card_surface._get_wax_wane_phases_for_card(card))
 	if component.has_method("set_relationship_context_callback"):
