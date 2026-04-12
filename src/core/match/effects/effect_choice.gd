@@ -387,8 +387,51 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				"trigger": trigger.duplicate(true),
 				"event": event.duplicate(true),
 			})
+		"complete_stitch":
+			# Resolve the Mecinar stitch after the player chose which creature's text to keep
+			var cs_controller_id := str(trigger.get("controller_player_id", ""))
+			var cs_stitch_data: Dictionary = effect.get("_stitch_data", {})
+			var cs_chosen_idx := int(effect.get("chosen_creature_index", 0))
+			var cs_sources: Array = cs_stitch_data.get("source_creatures", [])
+			if cs_sources.size() == 2 and not cs_controller_id.is_empty():
+				var cs_chosen: Dictionary = cs_sources[cs_chosen_idx]
+				var cs_power := int(cs_stitch_data.get("combined_power", 0))
+				var cs_health := int(cs_stitch_data.get("combined_health", 0))
+				var cs_cost := int(cs_stitch_data.get("combined_cost", 0))
+				var cs_template: Dictionary = {
+					"definition_id": "cwc_neu_abomination",
+					"name": "Abomination",
+					"card_type": "creature",
+					"subtypes": ["Fabricant"],
+					"attributes": ["neutral"],
+					"cost": cs_cost,
+					"power": cs_power,
+					"health": cs_health,
+					"base_power": cs_power,
+					"base_health": cs_health,
+					"keywords": cs_chosen.get("keywords", []).duplicate(true),
+					"rules_text": str(cs_chosen.get("rules_text", "")),
+				}
+				# Copy abilities and auras from the chosen creature
+				var cs_triggered: Array = cs_chosen.get("triggered_abilities", [])
+				if not cs_triggered.is_empty():
+					cs_template["triggered_abilities"] = cs_triggered.duplicate(true)
+				for cs_key in ["aura", "cost_reduction_aura", "cost_increase_aura", "grants_immunity", "grants_trigger", "magicka_aura", "self_immunity", "passive_abilities", "effect_ids", "rules_tags"]:
+					if cs_chosen.has(cs_key):
+						var cs_val = cs_chosen[cs_key]
+						cs_template[cs_key] = cs_val.duplicate(true) if typeof(cs_val) == TYPE_ARRAY or typeof(cs_val) == TYPE_DICTIONARY else cs_val
+				var cs_card := MatchMutations.build_generated_card(match_state, cs_controller_id, cs_template)
+				var cs_lane_id := MatchSummonTiming._resolve_summon_lane_id(match_state, trigger, event, effect, cs_controller_id)
+				if not cs_lane_id.is_empty():
+					var cs_result := MatchMutations.summon_card_to_lane(match_state, cs_controller_id, cs_card, cs_lane_id, {"source_zone": ZONE_GENERATED})
+					if bool(cs_result.get("is_valid", false)):
+						generated_events.append_array(cs_result.get("events", []))
+						var cs_summon_event := MatchSummonTiming._build_summon_event(cs_result["card"], cs_controller_id, cs_lane_id, int(cs_result.get("slot_index", -1)), reason)
+						cs_summon_event["_stitch_source_creatures"] = cs_sources.duplicate(true)
+						generated_events.append(cs_summon_event)
+						_MT()._check_summon_abilities(match_state, cs_result["card"])
 		"stitch_creatures_from_decks":
-			# Mecinar: combine top creature of each deck into an Abomination
+			# Mecinar: pull top creature from each deck, let player choose which text to keep
 			var scfd_controller_id := str(trigger.get("controller_player_id", ""))
 			var scfd_opponent_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), scfd_controller_id)
 			var scfd_player := MatchTimingHelpers._get_player_state(match_state, scfd_controller_id)
@@ -410,36 +453,39 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						break
 				var scfd_power := int(scfd_p_creature.get("power", scfd_p_creature.get("base_power", 0))) + int(scfd_o_creature.get("power", scfd_o_creature.get("base_power", 0)))
 				var scfd_health := int(scfd_p_creature.get("health", scfd_p_creature.get("base_health", 0))) + int(scfd_o_creature.get("health", scfd_o_creature.get("base_health", 0)))
-				var scfd_keywords: Array = []
-				for kw in scfd_p_creature.get("keywords", []):
-					if not scfd_keywords.has(str(kw)):
-						scfd_keywords.append(str(kw))
-				for kw in scfd_o_creature.get("keywords", []):
-					if not scfd_keywords.has(str(kw)):
-						scfd_keywords.append(str(kw))
-				var scfd_template: Dictionary = {
-					"definition_id": "cwc_neu_abomination",
-					"name": "Abomination",
-					"card_type": "creature",
-					"subtypes": ["Fabricant"],
-					"attributes": ["neutral"],
-					"cost": 0,
-					"power": scfd_power,
-					"health": scfd_health,
-					"base_power": scfd_power,
-					"base_health": scfd_health,
-					"keywords": scfd_keywords,
+				var scfd_cost := maxi(int(scfd_p_creature.get("cost", scfd_p_creature.get("_base_cost", 0))), int(scfd_o_creature.get("cost", scfd_o_creature.get("_base_cost", 0))))
+				# Queue a player choice to pick which creature's text/abilities to keep
+				var scfd_shared_data := {
+					"combined_power": scfd_power,
+					"combined_health": scfd_health,
+					"combined_cost": scfd_cost,
+					"source_creatures": [scfd_p_creature.duplicate(true), scfd_o_creature.duplicate(true)],
 				}
-				var scfd_card := MatchMutations.build_generated_card(match_state, scfd_controller_id, scfd_template)
-				var scfd_lane_id := MatchSummonTiming._resolve_summon_lane_id(match_state, trigger, event, effect, scfd_controller_id)
-				if not scfd_lane_id.is_empty():
-					var scfd_result := MatchMutations.summon_card_to_lane(match_state, scfd_controller_id, scfd_card, scfd_lane_id, {"source_zone": ZONE_GENERATED})
-					if bool(scfd_result.get("is_valid", false)):
-						generated_events.append_array(scfd_result.get("events", []))
-						var scfd_summon_event := MatchSummonTiming._build_summon_event(scfd_result["card"], scfd_controller_id, scfd_lane_id, int(scfd_result.get("slot_index", -1)), reason)
-						scfd_summon_event["_stitch_source_creatures"] = [scfd_p_creature.duplicate(true), scfd_o_creature.duplicate(true)]
-						generated_events.append(scfd_summon_event)
-						_MT()._check_summon_abilities(match_state, scfd_result["card"])
+				var scfd_options: Array = []
+				var scfd_effects: Array = []
+				for ci in range(2):
+					var scfd_src: Dictionary = [scfd_p_creature, scfd_o_creature][ci]
+					scfd_options.append({
+						"label": str(scfd_src.get("name", "Creature %d" % (ci + 1))),
+						"card": scfd_src.duplicate(true),
+					})
+					scfd_effects.append([{
+						"op": "complete_stitch",
+						"chosen_creature_index": ci,
+						"_stitch_data": scfd_shared_data,
+					}])
+				var scfd_pending: Array = match_state.get("pending_player_choices", [])
+				scfd_pending.append({
+					"player_id": scfd_controller_id,
+					"source_instance_id": str(trigger.get("source_instance_id", "")),
+					"prompt": "Choose a card text to keep:",
+					"mode": "card",
+					"options": scfd_options,
+					"effects_per_option": scfd_effects,
+					"trigger": trigger.duplicate(true),
+					"event": event.duplicate(true),
+				})
+				generated_events.append({"event_type": "player_choice_pending", "player_id": scfd_controller_id})
 		"random_sub_effect":
 			var rse_choices_raw = effect.get("choices", [])
 			var rse_choices: Array = rse_choices_raw if typeof(rse_choices_raw) == TYPE_ARRAY else []

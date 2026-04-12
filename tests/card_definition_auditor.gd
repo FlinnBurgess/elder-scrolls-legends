@@ -213,7 +213,7 @@ const RECOGNIZED_OPS := [
 	"conditional_drawn_card_bonus", "conditional_lane_bonus", "learn_action",
 	"look_draw_discard", "look_give_draw", "optional_discard_and_summon",
 	"play_learned_actions", "random_sub_effect", "secretly_choose_creature",
-	"select_card_from_hand", "stitch_creatures_from_decks",
+	"complete_stitch", "select_card_from_hand", "stitch_creatures_from_decks",
 	# Misc
 	"add_counter", "aim_at", "buff_random_hand_card",
 	"grant_aura_by_chosen_subtype", "log", "mark_for_resummon",
@@ -257,7 +257,7 @@ const CHOICE_PROVIDING_OPS := [
 	"choose_card_in_hand_and_shuffle_copies",
 	"choose_cost_lock", "select_card_from_hand", "optional_discard_and_summon",
 	"build_custom_fabricant", "fabricate_choose_ability",
-	"stitch_creatures_from_decks", "guess_opponent_card",
+	"complete_stitch", "stitch_creatures_from_decks", "guess_opponent_card",
 	"reveal_and_copy_from_opponent_deck", "waves_of_the_fallen_choice",
 	"merchant_offer", "trade_hand_card_for_opponent_hand",
 	"vision_and_transform", "discover_from_catalog",

@@ -505,7 +505,8 @@ func _detach_prophecy_card(instance_id: String) -> void:
 func _animate_abomination_stitch(abomination_instance_id: String, source_creatures: Array) -> void:
 	var viewport_size: Vector2 = _screen.get_viewport_rect().size
 	var center: Vector2 = viewport_size * 0.5
-	var card_size: Vector2 = _screen.CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+	var card_size: Vector2 = _screen.CARD_DISPLAY_COMPONENT_SCRIPT.CREATURE_BOARD_MINIMUM_SIZE
+	var presentation_mode: String = _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_CREATURE_BOARD_MINIMAL
 
 	# Hide the Abomination from the board until the animation finishes
 	_stitch_hidden_id = abomination_instance_id
@@ -544,7 +545,7 @@ func _animate_abomination_stitch(abomination_instance_id: String, source_creatur
 		var left_component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
 		left_component.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		left_component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		left_component.apply_card(source_creatures[0], _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+		left_component.apply_card(source_creatures[0], presentation_mode)
 		left_wrapper.add_child(left_component)
 	container.add_child(left_wrapper)
 
@@ -560,7 +561,7 @@ func _animate_abomination_stitch(abomination_instance_id: String, source_creatur
 		var right_component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
 		right_component.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		right_component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		right_component.apply_card(source_creatures[1], _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+		right_component.apply_card(source_creatures[1], presentation_mode)
 		right_wrapper.add_child(right_component)
 	container.add_child(right_wrapper)
 
@@ -588,7 +589,7 @@ func _animate_abomination_stitch(abomination_instance_id: String, source_creatur
 		var abom_component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
 		abom_component.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		abom_component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		abom_component.apply_card(abomination_card, _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+		abom_component.apply_card(abomination_card, presentation_mode)
 		abom_wrapper.add_child(abom_component)
 	container.add_child(abom_wrapper)
 

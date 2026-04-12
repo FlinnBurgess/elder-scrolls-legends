@@ -1,67 +1,5 @@
 [
 	{
-		"card_id": "mc_int_renegade_magister",
-		"name": "Renegade Magister",
-		"card_type": "creature",
-		"cost": 5,
-		"attributes": [
-			"intelligence"
-		],
-		"rules_text": "After a friendly action damages an enemy creature, Renegade Magister deals that much damage to that creature.",
-		"stripped_text": "After a friendly action damages an enemy creature, Renegade Magister deals that much damage to that creature.",
-		"complexity": 109
-	},
-	{
-		"card_id": "aw_neu_soulburst",
-		"name": "Soulburst",
-		"card_type": "action",
-		"cost": 13,
-		"attributes": [
-			"neutral"
-		],
-		"rules_text": "Costs 1 less for each Unique creature in your discard pile.\nBanish a creature. Deal 3 damage to all enemies.",
-		"stripped_text": "Costs 1 less for each Unique creature in your discard pile.\nBanish a creature. Deal 3 damage to all enemies.",
-		"complexity": 108
-	},
-	{
-		"card_id": "cwc_neu_mecinar",
-		"name": "Mecinar",
-		"card_type": "creature",
-		"cost": 8,
-		"attributes": [
-			"neutral"
-		],
-		"rules_text": "Summon: Stitch together the top creature from both decks to create an Abomination and put it into your hand.",
-		"stripped_text": "Summon: Stitch together the top creature from both decks to create an Abomination and put it into your hand.",
-		"complexity": 108
-	},
-	{
-		"card_id": "tc_tri_ordinator_of_the_almsivi",
-		"name": "Ordinator of the Almsivi",
-		"card_type": "creature",
-		"cost": 2,
-		"attributes": [
-			"intelligence",
-			"willpower",
-			"endurance"
-		],
-		"rules_text": "Guard\nExalt 3: +2/+2\nOrdinator of the Almsivi is permanently Shackled unless you have an Exalted creature in play.",
-		"stripped_text": "Exalt 3: +2/+2\nOrdinator of the Almsivi is permanently Shackled unless you have an Exalted creature in play.",
-		"complexity": 108
-	},
-	{
-		"card_id": "int_divayth_fyr",
-		"name": "Divayth Fyr",
-		"card_type": "creature",
-		"cost": 11,
-		"attributes": [
-			"intelligence"
-		],
-		"rules_text": "Summon: Deal 6 damage to a random enemy.\nAt the start of your turn, Divayth Fyr summons a Daughter of Fyr.",
-		"stripped_text": "Summon: Deal 6 damage to a random enemy.\nAt the start of your turn, Divayth Fyr summons a Daughter of Fyr.",
-		"complexity": 106
-	},
-	{
 		"card_id": "end_disciple_of_namira",
 		"name": "Disciple of Namira",
 		"card_type": "creature",
@@ -4161,18 +4099,6 @@
 		],
 		"rules_text": "Banish a creature with 0 power.",
 		"stripped_text": "Banish a creature with 0 power.",
-		"complexity": 31
-	},
-	{
-		"card_id": "joo_agi_arenthia_guerrilla",
-		"name": "Arenthia Guerrilla",
-		"card_type": "creature",
-		"cost": 3,
-		"attributes": [
-			"agility"
-		],
-		"rules_text": "Lethal on your opponent's turn.",
-		"stripped_text": "Lethal on your opponent's turn.",
 		"complexity": 31
 	},
 	{

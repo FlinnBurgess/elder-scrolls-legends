@@ -164,7 +164,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						var sfe_uc_card: Dictionary = sfe_uc_loc["card"]
 						var sfe_uc_idx := mini(int(sfe_uc_card.get("_upgrade_chain_index", 0)), sfe_uc.size() - 1)
 						summon_template = sfe_uc[sfe_uc_idx]
-						var sfe_uc_next := mini(sfe_uc_idx + 1, sfe_uc.size() - 1)
+						var sfe_uc_next := (sfe_uc_idx + 1) % sfe_uc.size() if bool(effect.get("upgrade_chain_loop", false)) else mini(sfe_uc_idx + 1, sfe_uc.size() - 1)
 						sfe_uc_card["_upgrade_chain_index"] = sfe_uc_next
 						var sfe_uc_next_name := str(sfe_uc[sfe_uc_next].get("name", ""))
 						var sfe_uc_prefix := str(effect.get("upgrade_chain_text_prefix", ""))

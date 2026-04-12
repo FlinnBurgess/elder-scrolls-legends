@@ -13,18 +13,22 @@ A description of the UI behavior needed (e.g., "animate a line between two creat
 
 ## Workflow
 
-### Step 1 — Read the catalog
+### Step 1 — Read the index
 
-Read `development-artifacts/reusable_ui_patterns.md` in full.
+Read `development-artifacts/reusable_ui_patterns.md`. This is a signpost file — each entry has enough context (summary, use-when, key files) to judge relevance without reading the full pattern.
 
 ### Step 2 — Match patterns
 
-For each pattern in the catalog, evaluate whether it matches the user's described need. Consider:
+For each pattern in the index, evaluate whether it matches the user's described need. Consider:
 - Does the visual behavior match? (arrows, animations, floating numbers, overlays)
 - Does the timing/flow match? (deferred effects, immediate feedback, multi-phase)
 - Could the pattern be adapted even if it's not an exact match?
 
-### Step 3 — Report findings
+### Step 3 — Read matching pattern files
+
+For each pattern that looks like a match, read its full file from `development-artifacts/ui_patterns/<pattern-id>.md` to get implementation details, reuse instructions, and examples.
+
+### Step 4 — Report findings
 
 For each matching pattern, report:
 

@@ -5,7 +5,9 @@ description: Add a reusable UI pattern to the catalog. Use when a new UI feature
 
 # Add UI Pattern
 
-Document a newly built UI pattern in `development-artifacts/reusable_ui_patterns.md` so it can be found and reused for future cards and mechanics.
+Document a newly built UI pattern so it can be found and reused for future cards and mechanics.
+
+Patterns are stored as individual files in `development-artifacts/ui_patterns/`, with an index in `development-artifacts/reusable_ui_patterns.md`.
 
 ## Arguments
 
@@ -22,17 +24,15 @@ Read the relevant source files to understand:
 - What files are involved
 - How to reuse it for a new card/mechanic (step-by-step)
 
-### Step 2 — Read existing catalog
+### Step 2 — Check for duplicates
 
-Read `development-artifacts/reusable_ui_patterns.md` to understand the format and check for duplicates. If the pattern already exists, update it instead of adding a duplicate.
+Read `development-artifacts/reusable_ui_patterns.md` to check if the pattern already exists. If it does, update the existing pattern file instead of creating a new one.
 
-### Step 3 — Write the entry
+### Step 3 — Write the pattern file
 
-Append a new section to the catalog using this structure:
+Create a new file in `development-artifacts/ui_patterns/<pattern-id>.md` using this structure:
 
 ```markdown
----
-
 ## [Pattern Name]
 
 **Pattern ID:** `kebab-case-id`
@@ -63,6 +63,26 @@ Step-by-step reuse instructions.
 Concrete example showing the pattern in use.
 ```
 
-### Step 4 — Confirm
+### Step 4 — Update the index
+
+Add an entry to `development-artifacts/reusable_ui_patterns.md` with this structure:
+
+```markdown
+---
+
+### [Pattern Name](ui_patterns/<pattern-id>.md)
+
+**ID:** `pattern-id`
+
+One-sentence summary of what the pattern does.
+
+**Use when:** Brief description of when to reach for this pattern.
+
+**Key files:** The main files involved (short list)
+```
+
+The index entry should have enough context that someone scanning it can tell whether the pattern is relevant to their need — but all implementation details belong in the individual file.
+
+### Step 5 — Confirm
 
 Tell the user the pattern has been added and summarize what was documented.
