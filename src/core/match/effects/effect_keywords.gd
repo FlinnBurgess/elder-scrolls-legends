@@ -433,8 +433,12 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			var msisswtd_player := MatchTimingHelpers._get_player_state(match_state, msisswtd_controller_id)
 			if not msisswtd_player.is_empty():
 				var msisswtd_deck: Array = msisswtd_player.get(ZONE_DECK, [])
-				if not msisswtd_deck.is_empty():
-					var msisswtd_top: Dictionary = msisswtd_deck.back()
+				var msisswtd_top := {}
+				for msisswtd_i in range(msisswtd_deck.size() - 1, -1, -1):
+					if str(msisswtd_deck[msisswtd_i].get("card_type", "")) == "creature":
+						msisswtd_top = msisswtd_deck[msisswtd_i]
+						break
+				if not msisswtd_top.is_empty():
 					var msisswtd_top_subtypes = msisswtd_top.get("subtypes", [])
 					if typeof(msisswtd_top_subtypes) == TYPE_ARRAY:
 						for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):

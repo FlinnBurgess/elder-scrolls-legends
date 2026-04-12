@@ -1,0 +1,59 @@
+{
+  "name": "Training Grounds",
+  "description": "Test the ongoing support that gives +1/+1 to summoned creatures sharing a type with top of deck",
+  "board_profile": "standard_versus",
+  "turn_number": 1,
+  "first_player": "player_1",
+  "player_1": {
+    "health": 30,
+    "max_magicka": 12,
+    "current_magicka": 12,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [
+      "mc_neu_training_grounds",
+      "wil_septim_guardsman",
+      "wil_cheydinhal_sapper",
+      "wil_kvatch_soldier",
+      "wil_skingrad_patroller",
+      "wil_imperial_legionnaire",
+      "str_fiery_imp"
+    ],
+    "deck": [
+      "neu_crushing_blow",
+      "wil_bruma_profiteer",
+      "wil_hero_of_anvil",
+      "wil_legion_praefect",
+      "wil_pillaging_tribune",
+      "wil_tower_alchemist"
+    ],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [],
+    "shadow_creatures": []
+  },
+  "player_2": {
+    "health": 30,
+    "max_magicka": 2,
+    "current_magicka": 2,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [],
+    "deck": [
+      "hom_end_vvardvark",
+      "hom_end_vvardvark",
+      "hom_end_vvardvark"
+    ],
+    "discard": [],
+    "field_creatures": [
+      "hom_end_vvardvark",
+      "hom_end_vvardvark"
+    ],
+    "shadow_creatures": [
+      "hom_end_vvardvark",
+      "hom_end_vvardvark"
+    ]
+  }
+}

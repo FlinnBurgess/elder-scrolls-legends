@@ -1,17 +1,5 @@
 [
 	{
-		"card_id": "mc_neu_training_grounds",
-		"name": "Training Grounds",
-		"card_type": "support",
-		"cost": 4,
-		"attributes": [
-			"neutral"
-		],
-		"rules_text": "Ongoing\nWhen you summon a creature, give it +1/+1 if it shares a type with the top creature in your deck.",
-		"stripped_text": "When you summon a creature, give it +1/+1 if it shares a type with the top creature in your deck.",
-		"complexity": 97
-	},
-	{
 		"card_id": "moe_neu_lunar_sway",
 		"name": "Lunar Sway",
 		"card_type": "action",
