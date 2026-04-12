@@ -2737,6 +2737,49 @@ static func apply_hand_selection_effect(match_state: Dictionary, player_id: Stri
 			pfp_arr.append({"player_id": player_id, "instance_id": str(chosen_card.get("instance_id", "")), "source_instance_id": source_instance_id})
 			match_state["pending_free_plays"] = pfp_arr
 			return [{"event_type": "free_play_granted", "player_id": player_id, "instance_id": str(chosen_card.get("instance_id", "")), "source_instance_id": source_instance_id}]
+		"discard_and_summon_from_discard":
+			# Discard chosen card from hand
+			var das_player := _get_player_state(match_state, player_id)
+			if das_player.is_empty():
+				return []
+			var das_hand: Array = das_player.get("hand", [])
+			var das_idx := -1
+			for i in range(das_hand.size()):
+				if typeof(das_hand[i]) == TYPE_DICTIONARY and str(das_hand[i].get("instance_id", "")) == str(chosen_card.get("instance_id", "")):
+					das_idx = i
+					break
+			if das_idx < 0:
+				return []
+			var das_removed: Dictionary = das_hand[das_idx]
+			das_hand.remove_at(das_idx)
+			das_removed["zone"] = "discard"
+			das_player.get("discard", []).append(das_removed)
+			var das_events: Array = [{"event_type": "card_discarded", "player_id": player_id, "source_instance_id": source_instance_id, "discarded_instance_id": str(chosen_card.get("instance_id", "")), "source": "hand_selection", "reason": "discard_and_summon"}]
+			# Summon creature from template
+			var das_template: Dictionary = then_context.get("card_template", {})
+			if das_template.is_empty():
+				return das_events
+			var das_lane_val := str(then_context.get("lane", "same"))
+			# Resolve the source creature's lane
+			var das_source_loc := MatchMutations.find_card_location(match_state, source_instance_id)
+			var das_source_lane := str(das_source_loc.get("lane_id", "field"))
+			var das_target_lane := das_source_lane
+			if das_lane_val == "other" or das_lane_val == "other_lane":
+				for das_lane in match_state.get("lanes", []):
+					var das_lid := str(das_lane.get("lane_id", ""))
+					if das_lid != das_source_lane and not das_lid.is_empty():
+						das_target_lane = das_lid
+						break
+			var das_card := MatchMutations.build_generated_card(match_state, player_id, das_template)
+			das_card["_spawned_by_instance_id"] = source_instance_id
+			var das_summon := MatchMutations.summon_card_to_lane(match_state, player_id, das_card, das_target_lane, {"source_zone": MatchMutations.ZONE_GENERATED})
+			if not bool(das_summon.get("is_valid", false)):
+				return das_events
+			das_events.append_array(das_summon.get("events", []))
+			das_events.append({"event_type": EVENT_CREATURE_SUMMONED, "instance_id": str(das_card.get("instance_id", "")), "player_id": player_id, "lane_id": das_target_lane, "slot_index": int(das_summon.get("slot_index", -1)), "source_instance_id": source_instance_id, "power": int(das_card.get("power", 0)), "health": int(das_card.get("health", 0)), "card_name": str(das_card.get("name", "")), "reason": "discard_and_summon"})
+			if bool(das_summon.get("granted_cover", false)):
+				das_events.append({"event_type": "status_granted", "source_instance_id": str(das_card.get("instance_id", "")), "target_instance_id": str(das_card.get("instance_id", "")), "status_id": "cover"})
+			return das_events
 	return []
 
 

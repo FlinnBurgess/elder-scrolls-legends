@@ -285,7 +285,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						"source_instance_id": str(trigger.get("source_instance_id", "")),
 						"candidate_instance_ids": odas_card_ids,
 						"then_op": "discard_and_summon_from_discard",
-						"then_context": effect.get("summon_context", {}),
+						"then_context": {"card_template": effect.get("card_template", {}), "lane": str(effect.get("lane", "same"))},
 						"prompt": "Choose a card to discard, or press Escape to skip.",
 					})
 		"build_custom_fabricant":

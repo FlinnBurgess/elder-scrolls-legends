@@ -119,7 +119,9 @@ func _run_all_tests() -> bool:
 		_test_delayed_destroy_fires_at_start_of_turn() and
 		_test_consume_and_copy_veteran_single_consume_then_copies_ability() and
 		_test_consume_and_copy_veteran_fires_on_veteran_trigger() and
-		_test_strange_brew_transforms_hand_creature_with_cost_reduction()
+		_test_strange_brew_transforms_hand_creature_with_cost_reduction() and
+		_test_optional_discard_and_summon_discards_and_summons_to_other_lane() and
+		_test_blind_moth_priest_glow_flag()
 	)
 
 
@@ -4494,6 +4496,97 @@ func _test_strange_brew_transforms_hand_creature_with_cost_reduction() -> bool:
 	if not _assert(final_cost == 3, "Strange Brew: cost should be 3 (5 - 2 reduction), got %d." % final_cost):
 		return false
 	return true
+
+
+func _test_optional_discard_and_summon_discards_and_summons_to_other_lane() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Add a fodder card to hand so there's something to discard
+	var fodder := ScenarioFixtures.add_hand_card(player, "fodder", {
+		"card_type": "action", "cost": 1,
+	})
+	var fodder_id := str(fodder.get("instance_id", ""))
+	# Summon Fortress Guard analog in field lane with optional_discard_and_summon
+	var guard := ScenarioFixtures.summon_creature(player, match_state, "fortress_guard", "field", 3, 4, ["guard"], -1, {
+		"triggered_abilities": [{"family": "summon", "effects": [{"op": "optional_discard_and_summon", "discard_count": 1, "card_template": {"definition_id": "colovian_trooper", "name": "Colovian Trooper", "card_type": "creature", "subtypes": ["Imperial"], "attributes": ["willpower"], "cost": 2, "power": 2, "health": 2, "base_power": 2, "base_health": 2, "keywords": ["guard"], "rules_text": "Guard"}, "lane": "other"}]}],
+	})
+	if guard.is_empty():
+		return _assert(false, "Fortress Guard analog should summon.")
+	# Should have a pending hand selection
+	var selection := MatchTiming.get_pending_hand_selection(match_state, pid)
+	if not _assert(not selection.is_empty(), "optional_discard_and_summon: should create pending hand selection."):
+		return false
+	if not _assert(str(selection.get("then_op", "")) == "discard_and_summon_from_discard", "optional_discard_and_summon: then_op should be discard_and_summon_from_discard."):
+		return false
+	# Resolve by choosing the fodder card
+	var resolve_result := MatchTiming.resolve_pending_hand_selection(match_state, pid, fodder_id)
+	if not _assert(bool(resolve_result.get("is_valid", false)), "optional_discard_and_summon: resolve should be valid."):
+		return false
+	# Fodder should be in discard
+	var found_in_discard := false
+	for card in player.get("discard", []):
+		if str(card.get("instance_id", "")) == fodder_id:
+			found_in_discard = true
+			break
+	if not _assert(found_in_discard, "optional_discard_and_summon: chosen card should be in discard."):
+		return false
+	# Colovian Trooper should be in the shadow lane (other lane from field)
+	var shadow_creatures := _lane_creatures(match_state, "shadow", pid)
+	var found_trooper := false
+	for card in shadow_creatures:
+		if str(card.get("definition_id", "")) == "colovian_trooper":
+			found_trooper = true
+			if not _assert(int(card.get("power", 0)) == 2 and int(card.get("health", 0)) == 2, "optional_discard_and_summon: Colovian Trooper should be 2/2."):
+				return false
+			break
+	return _assert(found_trooper, "optional_discard_and_summon: Colovian Trooper should be summoned in shadow lane.")
+
+
+func _test_blind_moth_priest_glow_flag() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Summon Blind Moth Priest for player
+	var priest := ScenarioFixtures.summon_creature(player, match_state, "blind_moth_priest", "field", 2, 3, [], -1, {
+		"definition_id": "joo_wil_blind_moth_priest",
+	})
+	# Put a prophecy card on top of opponent's deck
+	var prophecy_card := ScenarioFixtures.make_card(oid, "prophecy_top", {
+		"card_type": "creature", "cost": 1, "power": 1, "health": 1,
+		"rules_tags": ["prophecy"],
+	})
+	opponent["deck"] = [prophecy_card]
+	# Recalculate auras — should set _blind_moth_active
+	MatchAuras.recalculate_auras(match_state)
+	var priest_on_board := _find_lane_card(match_state, "field", pid, "joo_wil_blind_moth_priest")
+	if not _assert(not priest_on_board.is_empty(), "blind_moth_priest: Priest should be on the board."):
+		return false
+	if not _assert(bool(priest_on_board.get("_blind_moth_active", false)), "blind_moth_priest: Should glow when opponent has prophecy on top of deck."):
+		return false
+	# Replace opponent's deck with a non-prophecy card
+	var normal_card := ScenarioFixtures.make_card(oid, "normal_top", {
+		"card_type": "creature", "cost": 1, "power": 1, "health": 1,
+	})
+	opponent["deck"] = [normal_card]
+	MatchAuras.recalculate_auras(match_state)
+	priest_on_board = _find_lane_card(match_state, "field", pid, "joo_wil_blind_moth_priest")
+	if not _assert(not bool(priest_on_board.get("_blind_moth_active", false)), "blind_moth_priest: Should NOT glow when opponent has no prophecy on top."):
+		return false
+	# Empty deck — should not glow
+	opponent["deck"] = []
+	MatchAuras.recalculate_auras(match_state)
+	priest_on_board = _find_lane_card(match_state, "field", pid, "joo_wil_blind_moth_priest")
+	if not _assert(not bool(priest_on_board.get("_blind_moth_active", false)), "blind_moth_priest: Should NOT glow when opponent deck is empty."):
+		return false
+	# Not the controller's turn — should not glow even with prophecy on top
+	opponent["deck"] = [prophecy_card]
+	match_state["priority_player_id"] = oid
+	MatchAuras.recalculate_auras(match_state)
+	priest_on_board = _find_lane_card(match_state, "field", pid, "joo_wil_blind_moth_priest")
+	return _assert(not bool(priest_on_board.get("_blind_moth_active", false)), "blind_moth_priest: Should NOT glow on opponent's turn.")
 
 
 func _lane_creatures(match_state: Dictionary, lane_id: String, player_id: String) -> Array:

@@ -273,7 +273,45 @@ static func recalculate_auras(match_state: Dictionary) -> Array:
 							"keyword_id": str(kw),
 							"reason": "aura",
 						})
+	# Step 5: Blind Moth Priest — glow when opponent has a Prophecy on top of their deck
+	_refresh_blind_moth_priest(match_state, lanes)
+
 	return aura_keyword_events
+
+
+static func _refresh_blind_moth_priest(match_state: Dictionary, lanes: Array) -> void:
+	var priority_player_id := str(match_state.get("priority_player_id", ""))
+	for lane in lanes:
+		var player_slots_by_id: Dictionary = lane.get("player_slots", {})
+		for player_id in player_slots_by_id.keys():
+			for card in player_slots_by_id[player_id]:
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				if str(card.get("definition_id", "")) != "joo_wil_blind_moth_priest":
+					card.erase("_blind_moth_active")
+					continue
+				# Only glows on the controller's turn
+				if player_id != priority_player_id:
+					card["_blind_moth_active"] = false
+					continue
+				# Check opponent's top deck card for Prophecy
+				var opponent := _get_opponent(match_state, player_id)
+				var deck: Array = opponent.get("deck", [])
+				if deck.is_empty():
+					card["_blind_moth_active"] = false
+					continue
+				var top_card = deck.back()
+				if typeof(top_card) != TYPE_DICTIONARY:
+					card["_blind_moth_active"] = false
+					continue
+				card["_blind_moth_active"] = MatchTimingHelpers._is_prophecy_card(top_card)
+
+
+static func _get_opponent(match_state: Dictionary, player_id: String) -> Dictionary:
+	for player in match_state.get("players", []):
+		if typeof(player) == TYPE_DICTIONARY and str(player.get("player_id", "")) != player_id:
+			return player
+	return {}
 
 
 static func _has_triggered_ability_family(card: Dictionary, family: String) -> bool:

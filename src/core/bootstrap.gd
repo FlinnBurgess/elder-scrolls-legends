@@ -98,6 +98,7 @@ func _show_main_menu() -> void:
 		["Adventure", _on_adventure_pressed],
 		["Arena", _on_arena_pressed],
 		["Puzzles", _on_puzzles_pressed],
+		["Test Match Creator", _on_test_match_creator_pressed],
 		["Deck Builder", _on_deckbuilder_pressed],
 	]
 	for entry in buttons_data:
@@ -224,6 +225,21 @@ func _on_puzzle_back() -> void:
 	_show_main_menu()
 
 
+func _on_test_match_creator_pressed() -> void:
+	GameLogger.trc("App", "screen", "to:test_match_creator")
+	_main_menu.visible = false
+	var builder := PuzzleBuilderScreenScript.new()
+	builder.builder_mode = "test_match"
+	builder.name = "TestMatchCreator"
+	builder.back_requested.connect(func():
+		builder.queue_free()
+		_show_main_menu()
+	)
+	builder.play_requested.connect(_on_builder_play.bind(builder))
+	add_child(builder)
+	_active_screen = builder
+
+
 func _on_puzzle_builder_requested() -> void:
 	_open_puzzle_builder()
 
@@ -257,6 +273,11 @@ func _on_builder_back(builder: Control) -> void:
 
 func _on_builder_play(config: Dictionary, builder: Control) -> void:
 	builder.visible = false
+
+	if builder.builder_mode == "test_match":
+		_on_builder_play_test_match(config, builder)
+		return
+
 	_current_puzzle_config = config
 	_current_puzzle_entry = {}
 	var puzzle_state := PuzzleConfigScript.build_puzzle_match_state(config)
@@ -284,6 +305,24 @@ func _on_builder_play(config: Dictionary, builder: Control) -> void:
 	add_child(match_screen)
 	_active_screen = match_screen
 	match_screen.start_puzzle_match(puzzle_state, config, "", ai_options)
+
+
+func _on_builder_play_test_match(config: Dictionary, builder: Control) -> void:
+	var test_state := PuzzleConfigScript.build_test_match_state(config)
+	var match_screen := MatchScreen.new()
+	match_screen.name = "TestMatchCreatorMatch"
+	match_screen.test_match_restart_requested.connect(func():
+		match_screen.queue_free()
+		_on_builder_play_test_match(config, builder)
+	)
+	match_screen.return_to_main_menu_requested.connect(func():
+		match_screen.queue_free()
+		builder.visible = true
+		_active_screen = builder
+	)
+	add_child(match_screen)
+	_active_screen = match_screen
+	match_screen.start_test_match(test_state)
 
 
 func _show_deck_select_screen() -> void:

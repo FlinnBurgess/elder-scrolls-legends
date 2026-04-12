@@ -94,6 +94,80 @@ static func build_puzzle_match_state(config: Dictionary) -> Dictionary:
 	}
 
 
+static func build_test_match_state(config: Dictionary) -> Dictionary:
+	var p_cfg: Dictionary = config.get("player", {})
+	var e_cfg: Dictionary = config.get("enemy", {})
+
+	var p_health := int(p_cfg.get("health", 30))
+	var e_health := int(e_cfg.get("health", 30))
+	var p_max_magicka := int(p_cfg.get("max_magicka", 12))
+	var p_cur_magicka := int(p_cfg.get("current_magicka", p_max_magicka))
+	var e_max_magicka := int(e_cfg.get("max_magicka", 3))
+	var e_cur_magicka := int(e_cfg.get("current_magicka", e_max_magicka))
+	var has_ring := bool(p_cfg.get("has_ring", false))
+
+	var p_hand_ids := _to_string_array(p_cfg.get("hand", []))
+	var p_deck_ids := _to_string_array(p_cfg.get("deck", []))
+	var p_discard_ids := _to_string_array(p_cfg.get("discard", []))
+	var p_support_ids := _to_string_array(p_cfg.get("supports", []))
+	var p_field := _build_lane_creatures("player_1", p_cfg.get("field_creatures", []))
+	var p_shadow := _build_lane_creatures("player_1", p_cfg.get("shadow_creatures", []))
+
+	var e_hand_ids := _to_string_array(e_cfg.get("hand", []))
+	var e_deck_ids := _to_string_array(e_cfg.get("deck", []))
+	var e_discard_ids := _to_string_array(e_cfg.get("discard", []))
+	var e_support_ids := _to_string_array(e_cfg.get("supports", []))
+	var e_field := _build_lane_creatures("player_2", e_cfg.get("field_creatures", []))
+	var e_shadow := _build_lane_creatures("player_2", e_cfg.get("shadow_creatures", []))
+
+	_reassign_instance_ids("player_1", p_hand_ids, p_deck_ids, p_field, p_shadow, p_discard_ids)
+	_reassign_instance_ids("player_2", e_hand_ids, e_deck_ids, e_field, e_shadow, e_discard_ids)
+
+	var p_runes := _runes_for_health(p_health)
+	var e_runes := _runes_for_health(e_health)
+
+	var p1 := _build_player("player_1", p_health, p_max_magicka, p_cur_magicka,
+		p_runes, has_ring, 3 if has_ring else 0, p_hand_ids, p_deck_ids, p_discard_ids)
+	var p2 := _build_player("player_2", e_health, e_max_magicka, e_cur_magicka,
+		e_runes, false, 0, e_hand_ids, e_deck_ids, e_discard_ids)
+
+	var p1_support_start: int = p_hand_ids.size() + p_deck_ids.size() + p_discard_ids.size() + p_field.size() + p_shadow.size() + 1
+	for i in range(p_support_ids.size()):
+		p1["support"].append(_make_card("player_1", p_support_ids[i], "support", p1_support_start + i))
+	var p2_support_start: int = e_hand_ids.size() + e_deck_ids.size() + e_discard_ids.size() + e_field.size() + e_shadow.size() + 1
+	for i in range(e_support_ids.size()):
+		p2["support"].append(_make_card("player_2", e_support_ids[i], "support", p2_support_start + i))
+
+	var lanes := _build_lanes(config.get("lanes", []), p_field, p_shadow, e_field, e_shadow)
+
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+
+	return {
+		"rules_version": "0.1.0",
+		"match_format": "standard_versus",
+		"phase": "action",
+		"turn_number": 1,
+		"winner_player_id": "",
+		"event_log": [],
+		"replay_log": [],
+		"pending_event_queue": [],
+		"trigger_registry": [],
+		"last_timing_result": {"processed_events": [], "trigger_resolutions": []},
+		"resolved_once_triggers": {},
+		"next_event_sequence": 0,
+		"next_trigger_resolution_sequence": 0,
+		"starting_player_id": "player_1",
+		"active_player_id": "player_1",
+		"priority_player_id": "player_1",
+		"rng_seed": rng.randi(),
+		"rng_state": rng.state,
+		"players": [p1, p2],
+		"lanes": lanes,
+		"mulligan": {"pending_player_ids": []},
+	}
+
+
 static func validate_config(config: Dictionary) -> Dictionary:
 	var errors: Array[String] = []
 	var name_str := str(config.get("name", ""))

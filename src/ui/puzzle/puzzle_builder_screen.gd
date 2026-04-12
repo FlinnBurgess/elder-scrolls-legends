@@ -14,6 +14,7 @@ const CardDisplayComponentScript = preload("res://src/ui/components/CardDisplayC
 const PuzzlePersistenceScript = preload("res://src/puzzle/puzzle_persistence.gd")
 const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
 
+var builder_mode := "puzzle"  # "puzzle" or "test_match"
 var _config: Dictionary = {}
 var _card_by_id: Dictionary = {}
 var _lane_types: Array = []
@@ -196,7 +197,7 @@ func _build_top_bar(parent: VBoxContainer) -> void:
 
 	# Puzzle name — in the top bar
 	_name_input = LineEdit.new()
-	_name_input.placeholder_text = "Puzzle Name"
+	_name_input.placeholder_text = "Test Match Name" if builder_mode == "test_match" else "Puzzle Name"
 	_name_input.max_length = 40
 	_name_input.custom_minimum_size = Vector2(300, 56)
 	_name_input.add_theme_font_size_override("font_size", 22)
@@ -221,78 +222,82 @@ func _build_top_bar(parent: VBoxContainer) -> void:
 	_name_input.text_changed.connect(func(t): _config["name"] = t)
 	bar.add_child(_name_input)
 
-	# Kill/Survive toggle — centered with panel background
-	var toggle_spacer_left := Control.new()
-	toggle_spacer_left.size_flags_horizontal = SIZE_EXPAND_FILL
-	bar.add_child(toggle_spacer_left)
+	if builder_mode == "puzzle":
+		# Kill/Survive toggle — centered with panel background
+		var toggle_spacer_left := Control.new()
+		toggle_spacer_left.size_flags_horizontal = SIZE_EXPAND_FILL
+		bar.add_child(toggle_spacer_left)
 
-	var toggle_panel := PanelContainer.new()
-	var toggle_style := StyleBoxFlat.new()
-	toggle_style.bg_color = UITheme.PANEL_BG
-	toggle_style.border_color = UITheme.PANEL_BORDER
-	toggle_style.set_border_width_all(2)
-	toggle_style.set_corner_radius_all(6)
-	toggle_style.content_margin_left = 20
-	toggle_style.content_margin_right = 20
-	toggle_style.content_margin_top = 8
-	toggle_style.content_margin_bottom = 8
-	toggle_panel.add_theme_stylebox_override("panel", toggle_style)
-	bar.add_child(toggle_panel)
+		var toggle_panel := PanelContainer.new()
+		var toggle_style := StyleBoxFlat.new()
+		toggle_style.bg_color = UITheme.PANEL_BG
+		toggle_style.border_color = UITheme.PANEL_BORDER
+		toggle_style.set_border_width_all(2)
+		toggle_style.set_corner_radius_all(6)
+		toggle_style.content_margin_left = 20
+		toggle_style.content_margin_right = 20
+		toggle_style.content_margin_top = 8
+		toggle_style.content_margin_bottom = 8
+		toggle_panel.add_theme_stylebox_override("panel", toggle_style)
+		bar.add_child(toggle_panel)
 
-	var toggle_row := HBoxContainer.new()
-	#toggle_row.add_theme_constant_override("separation", 6)
-	toggle_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	toggle_panel.add_child(toggle_row)
+		var toggle_row := HBoxContainer.new()
+		toggle_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		toggle_panel.add_child(toggle_row)
 
-	var kill_label := Label.new()
-	kill_label.text = "KILL"
-	kill_label.add_theme_font_size_override("font_size", 26)
-	kill_label.add_theme_color_override("font_color", UITheme.GOLD_BRIGHT)
+		var kill_label := Label.new()
+		kill_label.text = "KILL"
+		kill_label.add_theme_font_size_override("font_size", 26)
+		kill_label.add_theme_color_override("font_color", UITheme.GOLD_BRIGHT)
 
-	var survive_label := Label.new()
-	survive_label.text = "SURVIVE"
-	survive_label.add_theme_font_size_override("font_size", 26)
-	survive_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+		var survive_label := Label.new()
+		survive_label.text = "SURVIVE"
+		survive_label.add_theme_font_size_override("font_size", 26)
+		survive_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
 
-	_type_toggle = CheckButton.new()
-	_type_toggle.text = ""
-	_type_toggle.button_pressed = false
-	_type_toggle.custom_minimum_size = Vector2(0, 44)
-	_type_toggle.size_flags_horizontal = SIZE_SHRINK_CENTER
-	_type_toggle.toggled.connect(func(pressed):
-		_config["type"] = "survive" if pressed else "kill"
-		kill_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED if pressed else UITheme.GOLD_BRIGHT)
-		survive_label.add_theme_color_override("font_color", UITheme.GOLD_BRIGHT if pressed else UITheme.TEXT_MUTED)
-	)
+		_type_toggle = CheckButton.new()
+		_type_toggle.text = ""
+		_type_toggle.button_pressed = false
+		_type_toggle.custom_minimum_size = Vector2(0, 44)
+		_type_toggle.size_flags_horizontal = SIZE_SHRINK_CENTER
+		_type_toggle.toggled.connect(func(pressed):
+			_config["type"] = "survive" if pressed else "kill"
+			kill_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED if pressed else UITheme.GOLD_BRIGHT)
+			survive_label.add_theme_color_override("font_color", UITheme.GOLD_BRIGHT if pressed else UITheme.TEXT_MUTED)
+		)
 
-	toggle_row.add_child(kill_label)
-	toggle_row.add_child(_type_toggle)
-	toggle_row.add_child(survive_label)
+		toggle_row.add_child(kill_label)
+		toggle_row.add_child(_type_toggle)
+		toggle_row.add_child(survive_label)
 
-	var toggle_spacer_right := Control.new()
-	toggle_spacer_right.size_flags_horizontal = SIZE_EXPAND_FILL
-	bar.add_child(toggle_spacer_right)
+		var toggle_spacer_right := Control.new()
+		toggle_spacer_right.size_flags_horizontal = SIZE_EXPAND_FILL
+		bar.add_child(toggle_spacer_right)
 
-	var save_btn := Button.new()
-	save_btn.text = "Save"
-	save_btn.custom_minimum_size = Vector2(110, 56)
-	UITheme.style_button(save_btn, 20)
-	save_btn.pressed.connect(_on_save)
-	bar.add_child(save_btn)
+		var save_btn := Button.new()
+		save_btn.text = "Save"
+		save_btn.custom_minimum_size = Vector2(110, 56)
+		UITheme.style_button(save_btn, 20)
+		save_btn.pressed.connect(_on_save)
+		bar.add_child(save_btn)
 
-	var export_btn := Button.new()
-	export_btn.text = "Export"
-	export_btn.custom_minimum_size = Vector2(110, 56)
-	UITheme.style_button(export_btn, 20)
-	export_btn.pressed.connect(_on_export)
-	bar.add_child(export_btn)
+		var export_btn := Button.new()
+		export_btn.text = "Export"
+		export_btn.custom_minimum_size = Vector2(110, 56)
+		UITheme.style_button(export_btn, 20)
+		export_btn.pressed.connect(_on_export)
+		bar.add_child(export_btn)
 
-	var import_btn := Button.new()
-	import_btn.text = "Import"
-	import_btn.custom_minimum_size = Vector2(110, 56)
-	UITheme.style_button(import_btn, 20)
-	import_btn.pressed.connect(_show_import_dialog)
-	bar.add_child(import_btn)
+		var import_btn := Button.new()
+		import_btn.text = "Import"
+		import_btn.custom_minimum_size = Vector2(110, 56)
+		UITheme.style_button(import_btn, 20)
+		import_btn.pressed.connect(_show_import_dialog)
+		bar.add_child(import_btn)
+	else:
+		var spacer := Control.new()
+		spacer.size_flags_horizontal = SIZE_EXPAND_FILL
+		bar.add_child(spacer)
 
 	var play_btn := Button.new()
 	play_btn.text = "Play"
@@ -1010,11 +1015,12 @@ func _on_play() -> void:
 	_sync_config_from_ui()
 	var play_config := _config.duplicate(true)
 	if str(play_config.get("name", "")).strip_edges().is_empty():
-		play_config["name"] = "Untitled Puzzle"
-	var validation := PuzzleConfigScript.validate_config(play_config)
-	if not bool(validation.get("valid", false)):
-		_show_error_popup("Cannot play", validation.get("errors", []))
-		return
+		play_config["name"] = "Untitled Test Match" if builder_mode == "test_match" else "Untitled Puzzle"
+	if builder_mode == "puzzle":
+		var validation := PuzzleConfigScript.validate_config(play_config)
+		if not bool(validation.get("valid", false)):
+			_show_error_popup("Cannot play", validation.get("errors", []))
+			return
 	play_requested.emit(play_config)
 
 
@@ -1169,7 +1175,8 @@ func _show_error_popup(title_text: String, errors: Array) -> void:
 
 func _sync_config_from_ui() -> void:
 	_config["name"] = _name_input.text
-	_config["type"] = "survive" if _type_toggle.button_pressed else "kill"
+	if _type_toggle != null:
+		_config["type"] = "survive" if _type_toggle.button_pressed else "kill"
 
 
 func _sync_ui_from_config() -> void:
