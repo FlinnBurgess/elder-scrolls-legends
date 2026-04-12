@@ -1,43 +1,5 @@
 [
 	{
-		"card_id": "hom_tri_sun_in_shadow",
-		"name": "Sun-in-Shadow",
-		"card_type": "creature",
-		"cost": 5,
-		"attributes": [
-			"intelligence",
-			"agility",
-			"endurance"
-		],
-		"rules_text": "Summon: Permanently Shackle another friendly creature to draw an action of your choice from your deck.",
-		"stripped_text": "Summon: Permanently Shackle another friendly creature to draw an action of your choice from your deck.",
-		"complexity": 102
-	},
-	{
-		"card_id": "tc_end_midnight_burial",
-		"name": "Midnight Burial",
-		"card_type": "action",
-		"cost": 1,
-		"attributes": [
-			"endurance"
-		],
-		"rules_text": "Betray\nChoose a creature in your deck. Create a copy of that creature in your discard pile and give it +1/+1.",
-		"stripped_text": "Choose a creature in your deck. Create a copy of that creature in your discard pile and give it +1/+1.",
-		"complexity": 102
-	},
-	{
-		"card_id": "end_black_worm_necromancer",
-		"name": "Black Worm Necromancer",
-		"card_type": "creature",
-		"cost": 6,
-		"attributes": [
-			"endurance"
-		],
-		"rules_text": "Summon: If you have more health than your opponent, summon a random creature from your discard pile.",
-		"stripped_text": "Summon: If you have more health than your opponent, summon a random creature from your discard pile.",
-		"complexity": 100
-	},
-	{
 		"card_id": "moe_int_vastarie",
 		"name": "Vastarie",
 		"card_type": "creature",

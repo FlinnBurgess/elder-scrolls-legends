@@ -2066,7 +2066,7 @@ static func resolve_pending_deck_selection(match_state: Dictionary, player_id: S
 			chosen_card["zone"] = ZONE_HAND
 			var dch_hand: Array = player.get(ZONE_HAND, [])
 			dch_hand.append(chosen_card)
-			generated_events.append({"event_type": "card_drawn", "player_id": player_id, "instance_id": str(chosen_card.get("instance_id", "")), "source": "draw_from_deck_filtered", "reason": str(then_context.get("reason", "deck_selection"))})
+			generated_events.append({"event_type": "card_drawn", "player_id": player_id, "drawn_instance_id": str(chosen_card.get("instance_id", "")), "source": "draw_from_deck_filtered", "reason": str(then_context.get("reason", "deck_selection"))})
 		"summon_creature_from_deck":
 			deck.remove_at(chosen_idx)
 			chosen_card.erase("zone")
