@@ -45,7 +45,8 @@ func _run_all_tests() -> bool:
 		_test_transform_card_updates_definition_id_from_raw_seed() and
 		_test_transform_card_updates_base_cost() and
 		_test_altar_of_spellmaking_plays_top_of_deck() and
-		_test_priest_of_mara_equips_amulets_via_dual_target()
+		_test_priest_of_mara_equips_amulets_via_dual_target() and
+		_test_support_last_gasp_draw_filtered_applies_post_draw_buff()
 	)
 
 
@@ -1052,6 +1053,65 @@ func _test_priest_of_mara_equips_amulets_via_dual_target() -> bool:
 	# Guard creature should NOT be a valid secondary target — verify by checking it has no amulet
 	var guard_health := EvergreenRules.get_remaining_health(guard)
 	return _assert(guard_health == 4, "Guard creature should NOT have received an amulet, health should still be 4, got %d." % guard_health)
+
+
+func _test_support_last_gasp_draw_filtered_applies_post_draw_buff() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	# Place a Daedra creature in the deck for draw_filtered to find
+	var daedra_card := {
+		"instance_id": "player_1_deck_daedra",
+		"definition_id": "test_daedra",
+		"name": "Test Daedra",
+		"card_type": "creature",
+		"subtypes": ["Daedra"],
+		"cost": 3,
+		"power": 2,
+		"health": 3,
+		"base_power": 2,
+		"base_health": 3,
+		"keywords": [],
+		"triggered_abilities": [],
+		"owner_player_id": player["player_id"],
+		"controller_player_id": player["player_id"],
+		"zone": "deck",
+	}
+	player["deck"] = [daedra_card]
+	# Create a support with 1 use, activate trigger, and last_gasp draw_filtered + buff
+	var support := _add_hand_card(player, "sigil_stone", {
+		"card_type": "support",
+		"cost": 1,
+		"activation_cost": 0,
+		"support_uses": 1,
+		"triggered_abilities": [
+			{
+				"family": MatchTiming.FAMILY_ACTIVATE,
+				"required_zone": "support",
+				"effects": [{"op": "modify_stats", "target": "self", "power": 0, "health": 0}],
+			},
+			{
+				"family": "last_gasp",
+				"effects": [{"op": "draw_filtered", "filter": {"subtype": "Daedra"}, "post_draw_modify": {"power": 2, "health": 2}}],
+			},
+		],
+	})
+	PersistentCardRules.play_support_from_hand(match_state, player["player_id"], support["instance_id"])
+	# Activate — uses the last charge, triggering exhaustion and last_gasp
+	PersistentCardRules.activate_support(match_state, player["player_id"], support["instance_id"], {})
+	# The Daedra should have been drawn into hand with +2/+2 buff
+	var drawn := {}
+	for hand_card in player["hand"]:
+		if typeof(hand_card) == TYPE_DICTIONARY and str(hand_card.get("instance_id", "")) == "player_1_deck_daedra":
+			drawn = hand_card
+			break
+	if not _assert(not drawn.is_empty(), "Last gasp draw_filtered should draw the Daedra into hand."):
+		return false
+	var effective_power := EvergreenRules.get_power(drawn)
+	var effective_health := EvergreenRules.get_remaining_health(drawn)
+	return (
+		_assert(effective_power == 4, "Drawn Daedra should have 2 base + 2 buff = 4 power, got %d." % effective_power) and
+		_assert(effective_health == 5, "Drawn Daedra should have 3 base + 2 buff = 5 health, got %d." % effective_health)
+	)
 
 
 func _assert(condition: bool, message: String) -> bool:

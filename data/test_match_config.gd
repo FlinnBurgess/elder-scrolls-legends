@@ -9,11 +9,46 @@ extends RefCounted
 ## The match starts at the action phase — mulligan is skipped entirely.
 ## Deck order is preserved exactly as listed (index 0 is drawn first).
 
+const PuzzleConfigScript = preload("res://src/puzzle/puzzle_config.gd")
 const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
 const CONFIGS_DIR := "res://data/test_match_configs/"
+const AUTOSAVE_FILENAME := "_autosave.json"
 
 
-## List all available test match config files. Returns an array of dicts:
+## Save a config as the autosave (overwrites any previous autosave).
+static func save_autosave(config: Dictionary) -> void:
+	var path := CONFIGS_DIR + AUTOSAVE_FILENAME
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		push_error("TestMatchConfig: Cannot write autosave to %s" % path)
+		return
+	file.store_string(JSON.stringify(config, "\t"))
+
+
+## Load the autosave config. Returns empty dict if none exists.
+static func load_autosave() -> Dictionary:
+	return _load_config_file(AUTOSAVE_FILENAME)
+
+
+## Check whether an autosave config exists.
+static func has_autosave() -> bool:
+	return FileAccess.file_exists(CONFIGS_DIR + AUTOSAVE_FILENAME)
+
+
+## Build a match state from the autosave config.
+static func build_test_match_state_from_autosave() -> Dictionary:
+	return build_test_match_state_from_file(AUTOSAVE_FILENAME)
+
+
+## Delete the autosave config.
+static func reset_autosave() -> bool:
+	var path := CONFIGS_DIR + AUTOSAVE_FILENAME
+	if not FileAccess.file_exists(path):
+		return true
+	return DirAccess.remove_absolute(path) == OK
+
+
+## List all available test match config files (excludes autosave). Returns an array of dicts:
 ## [{ "filename": "armory_lane.json", "name": "...", "description": "..." }, ...]
 static func list_configs() -> Array:
 	var entries: Array = []
@@ -23,7 +58,7 @@ static func list_configs() -> Array:
 	dir.list_dir_begin()
 	var file_name := dir.get_next()
 	while not file_name.is_empty():
-		if file_name.ends_with(".json"):
+		if file_name.ends_with(".json") and file_name != AUTOSAVE_FILENAME:
 			var config := _load_config_file(file_name)
 			if not config.is_empty():
 				entries.append({
@@ -46,11 +81,14 @@ static func delete_config(filename: String) -> bool:
 
 
 ## Build a full match state dictionary from a named config file.
+## Automatically detects builder format (player/enemy) vs standard format (player_1/player_2).
 static func build_test_match_state_from_file(filename: String) -> Dictionary:
 	var config := _load_config_file(filename)
 	if config.is_empty():
 		push_error("TestMatchConfig: Failed to load config '%s'" % filename)
 		return {}
+	if config.has("player"):
+		return PuzzleConfigScript.build_test_match_state(config)
 	return build_test_match_state(config)
 
 

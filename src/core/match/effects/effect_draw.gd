@@ -149,10 +149,8 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				if not post_draw_mod.is_empty():
 					var mod_power := int(post_draw_mod.get("power", 0))
 					var mod_health := int(post_draw_mod.get("health", 0))
-					if mod_power != 0:
-						picked_card["power_modifier"] = int(picked_card.get("power_modifier", 0)) + mod_power
-					if mod_health != 0:
-						picked_card["health_modifier"] = int(picked_card.get("health_modifier", 0)) + mod_health
+					if mod_power != 0 or mod_health != 0:
+						EvergreenRules.apply_stat_bonus(picked_card, mod_power, mod_health, "post_draw_modify")
 				generated_events.append({
 					"event_type": "card_drawn",
 					"player_id": player_id,

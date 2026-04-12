@@ -1,53 +1,5 @@
 [
 	{
-		"card_id": "tc_agi_obstinate_goat",
-		"name": "Obstinate Goat",
-		"card_type": "creature",
-		"cost": 2,
-		"attributes": [
-			"agility"
-		],
-		"rules_text": "Summon: If the top card of your deck is an Animal, draw it. Otherwise, put it on the bottom.",
-		"stripped_text": "Summon: If the top card of your deck is an Animal, draw it. Otherwise, put it on the bottom.",
-		"complexity": 92
-	},
-	{
-		"card_id": "joo_neu_great_sigil_stone",
-		"name": "Great Sigil Stone",
-		"card_type": "support",
-		"cost": 4,
-		"attributes": [
-			"neutral"
-		],
-		"rules_text": "Uses: 3\nActivate: Invade.\nLast Gasp: Draw a random Daedra from your deck and give it +2/+2.",
-		"stripped_text": "Uses: 3\nActivate: Invade.\nLast Gasp: Draw a random Daedra from your deck and give it +2/+2.",
-		"complexity": 91
-	},
-	{
-		"card_id": "cwc_end_hallowed_deathpriest",
-		"name": "Hallowed Deathpriest",
-		"card_type": "creature",
-		"cost": 5,
-		"attributes": [
-			"endurance"
-		],
-		"rules_text": "Summon: Transform the highest cost creature in your opponent's hand into a Shriveled Mummy.",
-		"stripped_text": "Summon: Transform the highest cost creature in your opponent's hand into a Shriveled Mummy.",
-		"complexity": 91
-	},
-	{
-		"card_id": "agi_spider_daedra",
-		"name": "Spider Daedra",
-		"card_type": "creature",
-		"cost": 8,
-		"attributes": [
-			"agility"
-		],
-		"rules_text": "Summon: Fill your lanes with 2/1 Spiderlings.\nLast Gasp: Destroy all friendly Spiderlings.",
-		"stripped_text": "Summon: Fill your lanes with 2/1 Spiderlings.\nLast Gasp: Destroy all friendly Spiderlings.",
-		"complexity": 90
-	},
-	{
 		"card_id": "hom_wil_shrine_guardian",
 		"name": "Shrine Guardian",
 		"card_type": "creature",

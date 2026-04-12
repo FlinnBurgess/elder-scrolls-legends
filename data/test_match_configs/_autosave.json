@@ -1,0 +1,48 @@
+{
+	"enemy": {
+		"current_magicka": 12,
+		"deck": [],
+		"discard": [],
+		"field_creatures": [],
+		"hand": [
+			"hos_str_aela_the_huntress",
+			"cwc_neu_abomination"
+		],
+		"health": 30.0,
+		"max_magicka": 12,
+		"shadow_creatures": [],
+		"supports": []
+	},
+	"lanes": [
+		{
+			"lane_type": "field",
+			"width": 4.0
+		},
+		{
+			"lane_type": "shadow",
+			"width": 4.0
+		}
+	],
+	"name": "",
+	"player": {
+		"current_magicka": 12.0,
+		"deck": [],
+		"discard": [],
+		"field_creatures": [
+			null,
+			null,
+			null
+		],
+		"hand": [
+			"cwc_end_hallowed_deathpriest",
+			"wil_piercing_javelin",
+			"agi_spider_daedra"
+		],
+		"has_ring": false,
+		"health": 30.0,
+		"max_magicka": 12.0,
+		"shadow_creatures": [],
+		"supports": []
+	},
+	"type": "kill"
+}

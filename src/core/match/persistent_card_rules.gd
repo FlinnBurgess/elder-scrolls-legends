@@ -387,6 +387,7 @@ static func activate_support(match_state: Dictionary, player_id: String, instanc
 						"controller_player_id": player_id,
 					}
 					var lg_resolution := MatchTiming._build_trigger_resolution(match_state, fake_trigger, fake_event)
+					GameLogger.log_trigger_resolution(match_state, lg_resolution, fake_trigger)
 					exhaustion_events.append_array(MatchTiming._apply_effects(match_state, fake_trigger, fake_event, lg_resolution))
 		var exhaustion_timing := MatchTiming.publish_events(match_state, exhaustion_events)
 		processed_events.append_array(exhaustion_timing.get("processed_events", []))

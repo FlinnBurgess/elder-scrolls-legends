@@ -640,6 +640,7 @@ func _show_test_match_picker() -> void:
 		_test_match_picker = null
 
 	var configs := TestMatchConfig.list_configs()
+	var has_autosave := TestMatchConfig.has_autosave()
 
 	_main_menu.visible = false
 
@@ -689,7 +690,38 @@ func _show_test_match_picker() -> void:
 
 	outer_vbox.add_child(UITheme.make_separator(0.0))
 
-	if configs.is_empty():
+	# Autosave section
+	if has_autosave:
+		var autosave_config := TestMatchConfig.load_autosave()
+		var autosave_row := HBoxContainer.new()
+		autosave_row.add_theme_constant_override("separation", 8)
+		outer_vbox.add_child(autosave_row)
+
+		var autosave_btn := Button.new()
+		var autosave_name := str(autosave_config.get("name", "")).strip_edges()
+		var autosave_text := autosave_name if not autosave_name.is_empty() else "Test Match Creator (Autosave)"
+		var autosave_desc := str(autosave_config.get("description", ""))
+		if not autosave_desc.is_empty():
+			autosave_text += "  —  " + autosave_desc
+		autosave_btn.text = autosave_text
+		autosave_btn.custom_minimum_size = Vector2(0, 52)
+		autosave_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		autosave_btn.clip_text = true
+		UITheme.style_button(autosave_btn, 20)
+		autosave_btn.pressed.connect(_on_test_match_selected.bind(TestMatchConfig.AUTOSAVE_FILENAME))
+		autosave_row.add_child(autosave_btn)
+
+		var reset_btn := Button.new()
+		reset_btn.text = "Reset"
+		reset_btn.custom_minimum_size = Vector2(80, 52)
+		reset_btn.tooltip_text = "Delete the autosave config"
+		UITheme.style_button_accent(reset_btn, Color(0.8, 0.3, 0.3), 18)
+		reset_btn.pressed.connect(_on_test_match_reset_autosave)
+		autosave_row.add_child(reset_btn)
+
+		outer_vbox.add_child(UITheme.make_separator(0.0))
+
+	if configs.is_empty() and not has_autosave:
 		var empty_label := Label.new()
 		empty_label.text = "No test matches configured"
 		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -697,7 +729,7 @@ func _show_test_match_picker() -> void:
 		empty_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
 		empty_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		outer_vbox.add_child(empty_label)
-	else:
+	elif not configs.is_empty():
 		var scroll := ScrollContainer.new()
 		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		scroll.custom_minimum_size = Vector2(0, 100)
@@ -775,6 +807,11 @@ func _on_test_match_selected(filename: String) -> void:
 func _on_test_match_restart(match_screen: Control) -> void:
 	match_screen.queue_free()
 	_on_test_match_selected(_current_test_match_filename)
+
+
+func _on_test_match_reset_autosave() -> void:
+	TestMatchConfig.reset_autosave()
+	_show_test_match_picker()
 
 
 func _on_test_match_delete(filename: String) -> void:

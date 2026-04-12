@@ -12,6 +12,7 @@ const PuzzleCardSearchOverlayScript = preload("res://src/ui/puzzle/puzzle_card_s
 const PuzzleCreatureModifyOverlayScript = preload("res://src/ui/puzzle/puzzle_creature_modify_overlay.gd")
 const CardDisplayComponentScript = preload("res://src/ui/components/CardDisplayComponent.gd")
 const PuzzlePersistenceScript = preload("res://src/puzzle/puzzle_persistence.gd")
+const TestMatchConfigScript = preload("res://data/test_match_config.gd")
 const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
 
 var builder_mode := "puzzle"  # "puzzle" or "test_match"
@@ -62,6 +63,10 @@ var _pending_list_side := ""
 func _ready() -> void:
 	_load_data()
 	_init_default_config()
+	if builder_mode == "test_match" and TestMatchConfigScript.has_autosave():
+		var saved := TestMatchConfigScript.load_autosave()
+		if not saved.is_empty():
+			_config = saved
 	_hover_timer = Timer.new()
 	_hover_timer.one_shot = true
 	_hover_timer.wait_time = HOVER_DELAY
@@ -219,7 +224,7 @@ func _build_top_bar(parent: VBoxContainer) -> void:
 	name_focus.set_content_margin_all(12)
 	_name_input.add_theme_stylebox_override("focus", name_focus)
 	_name_input.add_theme_color_override("caret_color", UITheme.GOLD)
-	_name_input.text_changed.connect(func(t): _config["name"] = t)
+	_name_input.text_changed.connect(func(t): _config["name"] = t; _autosave())
 	bar.add_child(_name_input)
 
 	if builder_mode == "puzzle":
@@ -264,6 +269,7 @@ func _build_top_bar(parent: VBoxContainer) -> void:
 			_config["type"] = "survive" if pressed else "kill"
 			kill_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED if pressed else UITheme.GOLD_BRIGHT)
 			survive_label.add_theme_color_override("font_color", UITheme.GOLD_BRIGHT if pressed else UITheme.TEXT_MUTED)
+			_autosave()
 		)
 
 		toggle_row.add_child(kill_label)
@@ -298,6 +304,13 @@ func _build_top_bar(parent: VBoxContainer) -> void:
 		var spacer := Control.new()
 		spacer.size_flags_horizontal = SIZE_EXPAND_FILL
 		bar.add_child(spacer)
+
+		var reset_btn := Button.new()
+		reset_btn.text = "Reset"
+		reset_btn.custom_minimum_size = Vector2(110, 56)
+		UITheme.style_button_accent(reset_btn, Color(0.8, 0.3, 0.3), 20)
+		reset_btn.pressed.connect(_on_reset_test_match)
+		bar.add_child(reset_btn)
 
 	var play_btn := Button.new()
 	play_btn.text = "Play"
@@ -344,27 +357,29 @@ func _refresh_board() -> void:
 	# Player health/magicka/ring
 	_build_player_settings_row()
 
+	_autosave()
+
 
 func _build_enemy_settings_row() -> void:
-	_enemy_settings_container.add_child(_labeled("Enemy Health:", _make_spin(1, 99, int(_config.get("enemy", {}).get("health", 30)), func(v): _config["enemy"]["health"] = int(v)), true))
+	_enemy_settings_container.add_child(_labeled("Enemy Health:", _make_spin(1, 99, int(_config.get("enemy", {}).get("health", 30)), func(v): _config["enemy"]["health"] = int(v); _autosave()), true))
 	_enemy_health_spin = _enemy_settings_container.get_child(_enemy_settings_container.get_child_count() - 1).get_child(1)
 
-	_enemy_settings_container.add_child(_labeled("Enemy Magicka:", _make_magicka_input(str(int(_config.get("enemy", {}).get("max_magicka", 3))), func(t): _config["enemy"]["max_magicka"] = _parse_int(t, 3); _config["enemy"]["current_magicka"] = _parse_int(t, 3))))
+	_enemy_settings_container.add_child(_labeled("Enemy Magicka:", _make_magicka_input(str(int(_config.get("enemy", {}).get("max_magicka", 3))), func(t): _config["enemy"]["max_magicka"] = _parse_int(t, 3); _config["enemy"]["current_magicka"] = _parse_int(t, 3); _autosave())))
 	_enemy_magicka_input = _enemy_settings_container.get_child(_enemy_settings_container.get_child_count() - 1).get_child(1)
 
 
 func _build_player_settings_row() -> void:
-	_player_settings_container.add_child(_labeled("Player Health:", _make_spin(1, 99, int(_config.get("player", {}).get("health", 30)), func(v): _config["player"]["health"] = int(v)), true))
+	_player_settings_container.add_child(_labeled("Player Health:", _make_spin(1, 99, int(_config.get("player", {}).get("health", 30)), func(v): _config["player"]["health"] = int(v); _autosave()), true))
 	_player_health_spin = _player_settings_container.get_child(_player_settings_container.get_child_count() - 1).get_child(1)
 
-	_player_settings_container.add_child(_labeled("Player Magicka:", _make_magicka_input(str(int(_config.get("player", {}).get("max_magicka", 12))), func(t): _config["player"]["max_magicka"] = _parse_int(t, 12); _config["player"]["current_magicka"] = _parse_int(t, 12))))
+	_player_settings_container.add_child(_labeled("Player Magicka:", _make_magicka_input(str(int(_config.get("player", {}).get("max_magicka", 12))), func(t): _config["player"]["max_magicka"] = _parse_int(t, 12); _config["player"]["current_magicka"] = _parse_int(t, 12); _autosave())))
 	_player_magicka_input = _player_settings_container.get_child(_player_settings_container.get_child_count() - 1).get_child(1)
 
 	_ring_check = CheckBox.new()
 	_ring_check.text = "Ring of Magicka"
 	_ring_check.button_pressed = bool(_config.get("player", {}).get("has_ring", false))
 	UITheme.style_checkbox(_ring_check, 24)
-	_ring_check.toggled.connect(func(v): _config["player"]["has_ring"] = v)
+	_ring_check.toggled.connect(func(v): _config["player"]["has_ring"] = v; _autosave())
 	_player_settings_container.add_child(_ring_check)
 
 
@@ -393,6 +408,7 @@ func _build_lane_config_row(lane_widths: Array) -> void:
 	_select_lane_dropdown(_left_lane_type_dropdown, str(_config["lanes"][0].get("lane_type", "field")))
 	_left_lane_type_dropdown.item_selected.connect(func(idx):
 		_config["lanes"][0]["lane_type"] = str(_left_lane_type_dropdown.get_item_text(idx))
+		_autosave()
 	)
 	lane1_box.add_child(_left_lane_type_dropdown)
 
@@ -436,6 +452,7 @@ func _build_lane_config_row(lane_widths: Array) -> void:
 	_select_lane_dropdown(_right_lane_type_dropdown, str(_config["lanes"][1].get("lane_type", "shadow")))
 	_right_lane_type_dropdown.item_selected.connect(func(idx):
 		_config["lanes"][1]["lane_type"] = str(_right_lane_type_dropdown.get_item_text(idx))
+		_autosave()
 	)
 	lane2_box.add_child(_right_lane_type_dropdown)
 
@@ -975,6 +992,20 @@ func _dismiss_hover_preview() -> void:
 
 func _get_side_cfg(side: String) -> Dictionary:
 	return _config.get(side, {})
+
+
+func _autosave() -> void:
+	if builder_mode != "test_match":
+		return
+	_sync_config_from_ui()
+	TestMatchConfigScript.save_autosave(_config)
+
+
+func _on_reset_test_match() -> void:
+	TestMatchConfigScript.reset_autosave()
+	_init_default_config()
+	_sync_ui_from_config()
+	_refresh_board()
 
 
 func _on_save() -> void:
