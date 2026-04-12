@@ -219,6 +219,10 @@ static func _validate_creature_attack_target(match_state: Dictionary, attacker_l
 	if not is_friendly_target and _is_cover_active(match_state, defender) and not _has_keyword(defender, EvergreenRules.KEYWORD_GUARD):
 		return _invalid_result("Covered creatures cannot be attacked by enemy creatures.")
 
+	# Amulet of Mara: wielders can't attack other Amulet of Mara wielders
+	if _has_attached_item(attacker_lookup["card"], "mc_wil_amulet_of_mara") and _has_attached_item(defender, "mc_wil_amulet_of_mara"):
+		return _invalid_result("This creature can't attack another creature equipped with an Amulet of Mara.")
+
 	var attacker_ignores_guard := EvergreenRules.has_status(attacker_lookup["card"], "ignore_guard")
 	if not is_friendly_target and not effective_guards.is_empty() and not _has_keyword(defender, EvergreenRules.KEYWORD_GUARD) and not attacker_ignores_guard:
 		return _invalid_result("Guard creatures in lane %s must be attacked first." % defender_lookup["lane_id"])
@@ -882,6 +886,16 @@ static func _ensure_array(value) -> Array:
 	if typeof(value) == TYPE_ARRAY:
 		return value
 	return []
+
+
+static func _has_attached_item(card: Dictionary, definition_id: String) -> bool:
+	var items = card.get("attached_items", [])
+	if typeof(items) != TYPE_ARRAY:
+		return false
+	for item in items:
+		if typeof(item) == TYPE_DICTIONARY and str(item.get("definition_id", "")) == definition_id:
+			return true
+	return false
 
 
 static func _invalid_result(message: String) -> Dictionary:

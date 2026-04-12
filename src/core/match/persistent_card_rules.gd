@@ -327,6 +327,8 @@ static func activate_support(match_state: Dictionary, player_id: String, instanc
 	var has_unlimited := _has_unlimited_support_uses(match_state, player_id)
 	if card.has("remaining_support_uses") and card.get("remaining_support_uses") != null and not has_unlimited:
 		card["remaining_support_uses"] = maxi(0, int(card.get("remaining_support_uses", 0)) - 1)
+	# Check for creature_in_hand activate triggers and create pending hand selections
+	_check_activate_hand_selection(match_state, card, player_id, instance_id)
 	var timing_result := MatchTiming.publish_events(match_state, [{
 		"event_type": MatchTiming.EVENT_SUPPORT_ACTIVATED,
 		"player_id": player_id,
@@ -390,6 +392,45 @@ static func activate_support(match_state: Dictionary, player_id: String, instanc
 		processed_events.append_array(exhaustion_timing.get("processed_events", []))
 		trigger_resolutions.append_array(exhaustion_timing.get("trigger_resolutions", []))
 	return {"is_valid": true, "errors": [], "card": card, "events": processed_events, "trigger_resolutions": trigger_resolutions}
+
+
+static func _check_activate_hand_selection(match_state: Dictionary, card: Dictionary, player_id: String, instance_id: String) -> void:
+	var raw_triggers = card.get("triggered_abilities", [])
+	if typeof(raw_triggers) != TYPE_ARRAY:
+		return
+	for ab in raw_triggers:
+		if typeof(ab) != TYPE_DICTIONARY:
+			continue
+		if str(ab.get("family", "")) != "activate":
+			continue
+		if str(ab.get("target_mode", "")) != "creature_in_hand":
+			continue
+		var player := MatchTimingHelpers._get_player_state(match_state, player_id)
+		if player.is_empty():
+			return
+		var candidates: Array = []
+		for hand_card in player.get("hand", []):
+			if typeof(hand_card) == TYPE_DICTIONARY and str(hand_card.get("card_type", "")) == "creature":
+				candidates.append(str(hand_card.get("instance_id", "")))
+		if candidates.is_empty():
+			return
+		var effects: Array = ab.get("effects", [])
+		var then_op := ""
+		var then_context := {}
+		if not effects.is_empty() and typeof(effects[0]) == TYPE_DICTIONARY:
+			then_op = str(effects[0].get("op", ""))
+			then_context = effects[0].duplicate(true)
+			then_context.erase("op")
+		MatchTiming.ensure_match_state(match_state)
+		match_state["pending_hand_selections"].append({
+			"player_id": player_id,
+			"source_instance_id": instance_id,
+			"candidate_instance_ids": candidates,
+			"then_op": then_op,
+			"then_context": then_context,
+			"prompt": "Choose a creature in your hand.",
+		})
+		return
 
 
 static func _validate_hand_card(match_state: Dictionary, player_id: String, instance_id: String, expected_type: String, action_name: String, played_for_free: bool) -> Dictionary:

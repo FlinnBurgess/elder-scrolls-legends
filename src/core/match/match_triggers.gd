@@ -293,6 +293,9 @@ static func _append_card_triggers(registry: Array, card, zone_name: String, cont
 				continue
 			if tm_family == FAMILY_ON_PLAY and not str(descriptor.get("secondary_target_mode", "")).is_empty():
 				continue
+			# creature_in_hand triggers use pending_hand_selections system
+			if tm_mode == "creature_in_hand" and (tm_family == FAMILY_ON_PLAY or tm_family == FAMILY_ACTIVATE):
+				continue
 			# Item on_play triggers with target_mode use pending system (equip target != ability target)
 			if tm_family == FAMILY_ON_PLAY and str(card.get("card_type", "")) == "item":
 				continue

@@ -2606,6 +2606,42 @@ static func card_matches_hand_selection_filter(card: Dictionary, filter: Diction
 
 static func apply_hand_selection_effect(match_state: Dictionary, player_id: String, source_instance_id: String, chosen_card: Dictionary, then_op: String, then_context: Dictionary) -> Array:
 	match then_op:
+		"transform_in_hand_to_random":
+			var tihr_cost_increase := int(then_context.get("cost_increase", 0))
+			var tihr_cost_reduce := int(then_context.get("cost_reduce", 0))
+			var tihr_filter_type := str(then_context.get("filter_card_type", ""))
+			var tihr_filter_dict: Dictionary = then_context.get("filter", {}) if typeof(then_context.get("filter", null)) == TYPE_DICTIONARY else {}
+			if tihr_filter_type.is_empty():
+				tihr_filter_type = str(tihr_filter_dict.get("card_type", ""))
+			# Default to the chosen card's type so creatures transform into creatures, etc.
+			if tihr_filter_type.is_empty():
+				tihr_filter_type = str(chosen_card.get("card_type", ""))
+			var tihr_filter_rarity := str(tihr_filter_dict.get("rarity", ""))
+			var tihr_target_cost := int(chosen_card.get("cost", 0)) + tihr_cost_increase
+			var tihr_seeds: Array = get_catalog_seeds()
+			var tihr_candidates: Array = []
+			for tihr_seed in tihr_seeds:
+				if not bool(tihr_seed.get("collectible", true)):
+					continue
+				if not tihr_filter_type.is_empty() and str(tihr_seed.get("card_type", "")) != tihr_filter_type:
+					continue
+				if not tihr_filter_rarity.is_empty() and str(tihr_seed.get("rarity", "")) != tihr_filter_rarity:
+					continue
+				if tihr_cost_increase > 0 and int(tihr_seed.get("cost", 0)) != tihr_target_cost:
+					continue
+				tihr_candidates.append(tihr_seed)
+			if tihr_candidates.is_empty():
+				return []
+			var tihr_idx := MatchEffectParams._deterministic_index(match_state, str(chosen_card.get("instance_id", "")) + "_transform_random", tihr_candidates.size())
+			var tihr_template: Dictionary = tihr_candidates[tihr_idx]
+			var tihr_result := MatchMutations.transform_card(match_state, str(chosen_card.get("instance_id", "")), tihr_template, {"reason": "hand_selection_transform"})
+			var tihr_events: Array = tihr_result.get("events", [])
+			if tihr_cost_reduce > 0:
+				var tihr_transformed := _find_card_anywhere(match_state, str(chosen_card.get("instance_id", "")))
+				if not tihr_transformed.is_empty():
+					var tihr_old_cost := int(tihr_transformed.get("cost", 0))
+					tihr_transformed["cost"] = maxi(0, tihr_old_cost - tihr_cost_reduce)
+			return tihr_events
 		"upgrade_shout":
 			return _resolve_shout_upgrade_for_card(match_state, player_id, chosen_card)
 		"modify_card_cost":

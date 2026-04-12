@@ -8,6 +8,7 @@ const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const LaneRules = preload("res://src/core/match/lane_rules.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
 const MatchActionEnumerator = preload("res://src/ai/match_action_enumerator.gd")
+const MatchTargeting = preload("res://src/core/match/match_targeting.gd")
 
 
 func _initialize() -> void:
@@ -43,7 +44,8 @@ func _run_all_tests() -> bool:
 		_test_dark_rift_summons_atronach_after_five_activations() and
 		_test_transform_card_updates_definition_id_from_raw_seed() and
 		_test_transform_card_updates_base_cost() and
-		_test_altar_of_spellmaking_plays_top_of_deck()
+		_test_altar_of_spellmaking_plays_top_of_deck() and
+		_test_priest_of_mara_equips_amulets_via_dual_target()
 	)
 
 
@@ -980,6 +982,76 @@ func _test_altar_of_spellmaking_plays_top_of_deck() -> bool:
 		_assert(found_in_hand, "Altar of Spellmaking: top card should be moved to hand.") and
 		_assert(found_pending, "Altar of Spellmaking: top card should be registered as a pending free play.")
 	)
+
+
+func _test_priest_of_mara_equips_amulets_via_dual_target() -> bool:
+	# Priest of Mara: Summon with target_mode enemy_creature + secondary_target_mode friendly_creature_without_guard.
+	# Primary pick equips Amulet of Mara to the chosen enemy, secondary pick equips to chosen friendly (no Guard).
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Pre-place a friendly creature (no Guard) and a Guard creature in field lane
+	var friendly := _summon_creature(player, match_state, "friendly_soldier", "field", 2, 4, -1)
+	var friendly_id := str(friendly.get("instance_id", ""))
+	var guard := _summon_creature(player, match_state, "friendly_guard", "field", 1, 4, -1, {"keywords": ["guard"]})
+	var guard_id := str(guard.get("instance_id", ""))
+	# Pre-place an enemy creature
+	var enemy := _summon_creature(opponent, match_state, "enemy_target", "field", 1, 3, -1)
+	var enemy_id := str(enemy.get("instance_id", ""))
+	# Add Priest of Mara to hand
+	var amulet_template := {
+		"definition_id": "mc_wil_amulet_of_mara", "name": "Amulet of Mara",
+		"card_type": "item", "attributes": ["willpower"], "cost": 0,
+		"power": 0, "health": 0, "base_power": 0, "base_health": 0,
+		"equip_health_bonus": 1,
+		"rules_text": "+0/+1\nThe wielder can't attack other creatures equipped with an Amulet of Mara.",
+	}
+	var priest := _add_hand_card(player, "priest_of_mara", {
+		"card_type": "creature", "cost": 3, "power": 2, "health": 5,
+		"triggered_abilities": [{
+			"family": "summon", "target_mode": "enemy_creature",
+			"secondary_target_mode": "friendly_creature_without_guard",
+			"effects": [
+				{"op": "equip_generated_item", "target": "chosen_target", "card_template": amulet_template},
+				{"op": "equip_generated_item", "target": "chosen_target", "card_template": amulet_template},
+			],
+		}],
+	})
+	var priest_id := str(priest.get("instance_id", ""))
+	# Play Priest — trigger system skips summon+target_mode; UI detects target_mode abilities
+	LaneRules.summon_from_hand(match_state, pid, priest_id, "field", {})
+	var abilities := MatchTargeting.get_target_mode_abilities(_find_lane_card(match_state, "field", pid, "priest_of_mara"))
+	if not _assert(not abilities.is_empty(), "Priest of Mara should have target_mode abilities detected."):
+		return false
+	# Enemy health before amulet
+	var enemy_health_before := EvergreenRules.get_remaining_health(enemy)
+	# Resolve primary target via resolve_targeted_effect — pick the enemy creature
+	var resolve1 := MatchTiming.resolve_targeted_effect(match_state, priest_id, {"target_instance_id": enemy_id})
+	if not _assert(bool(resolve1.get("is_valid", false)), "Primary target resolution (enemy) should succeed."):
+		return false
+	# Enemy should now have the amulet equipped (+0/+1)
+	var enemy_health_after := EvergreenRules.get_remaining_health(enemy)
+	if not _assert(enemy_health_after == enemy_health_before + 1, "Enemy should gain +1 health from Amulet of Mara, got %d -> %d." % [enemy_health_before, enemy_health_after]):
+		return false
+	# Should have queued a pending_summon_effect_targets entry for the secondary target
+	if not _assert(MatchTiming.has_pending_summon_effect_target(match_state, pid), "Priest of Mara should queue secondary pending target for friendly creature without Guard."):
+		return false
+	# Resolve secondary target — pick the friendly soldier (no Guard)
+	var friendly_health_before := EvergreenRules.get_remaining_health(friendly)
+	var resolve2 := MatchTiming.resolve_pending_summon_effect_target(match_state, pid, {"target_instance_id": friendly_id})
+	if not _assert(bool(resolve2.get("is_valid", false)), "Secondary target resolution (friendly) should succeed."):
+		return false
+	var friendly_health_after := EvergreenRules.get_remaining_health(friendly)
+	if not _assert(friendly_health_after == friendly_health_before + 1, "Friendly should gain +1 health from Amulet of Mara, got %d -> %d." % [friendly_health_before, friendly_health_after]):
+		return false
+	# No more pending targets
+	if not _assert(not MatchTiming.has_pending_summon_effect_target(match_state, pid), "No more pending targets after both amulets equipped."):
+		return false
+	# Guard creature should NOT be a valid secondary target — verify by checking it has no amulet
+	var guard_health := EvergreenRules.get_remaining_health(guard)
+	return _assert(guard_health == 4, "Guard creature should NOT have received an amulet, health should still be 4, got %d." % guard_health)
 
 
 func _assert(condition: bool, message: String) -> bool:

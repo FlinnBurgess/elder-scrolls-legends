@@ -26,7 +26,8 @@ func _run_all_tests() -> bool:
 		_test_attack_refreshes_on_controller_next_turn() and
 		_test_guards_both_lanes_cross_lane_targeting() and
 		_test_move_to_attack_into_shadow_lane_loses_cover() and
-		_test_grants_immunity_lethal_survives_combat()
+		_test_grants_immunity_lethal_survives_combat() and
+		_test_amulet_of_mara_blocks_attack_between_wielders()
 	)
 
 
@@ -380,6 +381,43 @@ func _test_grants_immunity_lethal_survives_combat() -> bool:
 		_assert(str(immune_loc.get("zone", "")) == "lane", "Lethal-immune creature should survive in lane. Got zone: %s." % str(immune_loc.get("zone", ""))) and
 		_assert(str(defender_loc.get("zone", "")) == "discard", "Lethal defender should be destroyed. Got zone: %s." % str(defender_loc.get("zone", ""))) and
 		_assert(int(immune_creature.get("damage_marked", 0)) == 2, "Immune creature should take 2 damage. Got %d." % int(immune_creature.get("damage_marked", 0)))
+	)
+
+
+func _test_amulet_of_mara_blocks_attack_between_wielders() -> bool:
+	var match_state := _build_started_match(18, 0)
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player.get("player_id", ""))
+	var amulet := {"instance_id": "amulet_1", "definition_id": "mc_wil_amulet_of_mara", "name": "Amulet of Mara", "card_type": "item"}
+	var amulet2 := {"instance_id": "amulet_2", "definition_id": "mc_wil_amulet_of_mara", "name": "Amulet of Mara", "card_type": "item"}
+	# Attacker with amulet
+	var attacker := _summon_creature(player, match_state, "mara_attacker", "field", 3, 3)
+	_target_ready_for_attack(attacker, match_state)
+	attacker["attached_items"] = [amulet]
+	# Enemy with amulet
+	var enemy_with_amulet := _summon_creature(opponent, match_state, "mara_enemy", "field", 2, 2)
+	_target_ready_for_attack(enemy_with_amulet, match_state)
+	enemy_with_amulet["attached_items"] = [amulet2]
+	# Enemy without amulet
+	var enemy_no_amulet := _summon_creature(opponent, match_state, "plain_enemy", "field", 2, 2)
+	_target_ready_for_attack(enemy_no_amulet, match_state)
+	# Attack amulet-wielder should be blocked
+	var blocked := MatchCombat.validate_attack(match_state, pid, str(attacker.get("instance_id", "")), {
+		"type": "creature", "instance_id": str(enemy_with_amulet.get("instance_id", "")),
+	})
+	# Attack non-amulet enemy should be allowed
+	var allowed := MatchCombat.validate_attack(match_state, pid, str(attacker.get("instance_id", "")), {
+		"type": "creature", "instance_id": str(enemy_no_amulet.get("instance_id", "")),
+	})
+	# Attack face should be allowed
+	var face := MatchCombat.validate_attack(match_state, pid, str(attacker.get("instance_id", "")), {
+		"type": "player", "player_id": str(opponent.get("player_id", "")),
+	})
+	return (
+		_assert(not bool(blocked.get("is_valid", false)), "Amulet of Mara wielder should NOT be able to attack another amulet wielder.") and
+		_assert(bool(allowed.get("is_valid", false)), "Amulet of Mara wielder should be able to attack enemies without amulet.") and
+		_assert(bool(face.get("is_valid", false)), "Amulet of Mara wielder should be able to attack face.")
 	)
 
 

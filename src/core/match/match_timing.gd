@@ -1788,7 +1788,32 @@ static func _check_action_multi_target_abilities(match_state: Dictionary, card: 
 			target_count = 2
 		elif tm == "three_creatures":
 			target_count = 3
-		if target_count > 0:
+		if tm == "creature_in_hand":
+			# Hand-targeting: create pending_hand_selection for the player to pick a creature
+			var cih_player := MatchTimingHelpers._get_player_state(match_state, controller_id)
+			if not cih_player.is_empty():
+				var cih_candidates: Array = []
+				for cih_card in cih_player.get(ZONE_HAND, []):
+					if typeof(cih_card) == TYPE_DICTIONARY and str(cih_card.get("card_type", "")) == CARD_TYPE_CREATURE:
+						cih_candidates.append(str(cih_card.get("instance_id", "")))
+				if not cih_candidates.is_empty():
+					var cih_effects: Array = ab.get("effects", [])
+					var cih_op := ""
+					var cih_context := {}
+					if not cih_effects.is_empty() and typeof(cih_effects[0]) == TYPE_DICTIONARY:
+						cih_op = str(cih_effects[0].get("op", ""))
+						cih_context = cih_effects[0].duplicate(true)
+						cih_context.erase("op")
+					match_state["pending_hand_selections"].append({
+						"player_id": controller_id,
+						"source_instance_id": instance_id,
+						"candidate_instance_ids": cih_candidates,
+						"then_op": cih_op,
+						"then_context": cih_context,
+						"prompt": "Choose a creature in your hand.",
+					})
+			break
+		elif target_count > 0:
 			# Multi-target: collect N targets sequentially
 			card["_multi_target_ids"] = []
 			card["_multi_target_count"] = target_count

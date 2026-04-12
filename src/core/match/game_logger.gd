@@ -393,6 +393,15 @@ static func _check_missing_effects(card: Dictionary) -> void:
 		# "destroy" maps to "destroy" or "destroy_creature" op or "lethal" keyword
 		if id == "destroy" and ("destroy" in configured_ops or "destroy_creature" in configured_ops or "lethal" in keywords):
 			continue
+		# "transform" maps to ops like "transform_in_hand_to_random", "transform_hand", etc.
+		if id == "transform":
+			var has_transform_op := false
+			for op in configured_ops:
+				if str(op).begins_with("transform"):
+					has_transform_op = true
+					break
+			if has_transform_op:
+				continue
 		# "wax_wane" covered by having wax and/or wane families
 		if id == "wax_wane" and ("wax" in configured_families or "wane" in configured_families):
 			continue

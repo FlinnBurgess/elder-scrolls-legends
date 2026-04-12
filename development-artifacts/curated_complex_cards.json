@@ -1,29 +1,5 @@
 [
 	{
-		"card_id": "tc_int_strange_brew",
-		"name": "Strange Brew",
-		"card_type": "action",
-		"cost": 1,
-		"attributes": [
-			"intelligence"
-		],
-		"rules_text": "Transform a creature in your hand into a random creature that costs 2 more. Reduce its cost by 2.",
-		"stripped_text": "Transform a creature in your hand into a random creature that costs 2 more. Reduce its cost by 2.",
-		"complexity": 97
-	},
-	{
-		"card_id": "mc_wil_priest_of_mara",
-		"name": "Priest of Mara",
-		"card_type": "creature",
-		"cost": 3,
-		"attributes": [
-			"willpower"
-		],
-		"rules_text": "Summon: Equip an Amulet of Mara to an enemy creature and another friendly creature without Guard.",
-		"stripped_text": "Summon: Equip an Amulet of Mara to an enemy creature and another friendly creature without Guard.",
-		"complexity": 97
-	},
-	{
 		"card_id": "mc_neu_training_grounds",
 		"name": "Training Grounds",
 		"card_type": "support",

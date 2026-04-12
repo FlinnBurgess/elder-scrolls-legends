@@ -118,7 +118,8 @@ func _run_all_tests() -> bool:
 		_test_renegade_magister_ignores_friendly_creature_damage() and
 		_test_delayed_destroy_fires_at_start_of_turn() and
 		_test_consume_and_copy_veteran_single_consume_then_copies_ability() and
-		_test_consume_and_copy_veteran_fires_on_veteran_trigger()
+		_test_consume_and_copy_veteran_fires_on_veteran_trigger() and
+		_test_strange_brew_transforms_hand_creature_with_cost_reduction()
 	)
 
 
@@ -4443,6 +4444,56 @@ func _test_consume_and_copy_veteran_fires_on_veteran_trigger() -> bool:
 	var p := EvergreenRules.get_power(outcast_card)
 	var h := EvergreenRules.get_health(outcast_card)
 	return _assert(p == 8 and h == 8, "Pact Outcast veteran: should be 8/8 (5+3/5+3 max stats), got %d/%d." % [p, h])
+
+
+func _test_strange_brew_transforms_hand_creature_with_cost_reduction() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	# Add Strange Brew to hand (action, cost 1)
+	var brew := ScenarioFixtures.add_hand_card(player, "tc_int_strange_brew", {
+		"card_type": "action",
+		"cost": 1,
+		"triggered_abilities": [{"family": "on_play", "target_mode": "creature_in_hand", "effects": [{"op": "transform_in_hand_to_random", "cost_increase": 2, "cost_reduce": 2}]}],
+	})
+	var brew_id := str(brew.get("instance_id", ""))
+	# Add a creature in hand (cost 3) as the transform target
+	var creature := ScenarioFixtures.add_hand_card(player, "test_creature", {
+		"card_type": "creature",
+		"cost": 3,
+		"power": 2,
+		"health": 2,
+	})
+	var creature_id := str(creature.get("instance_id", ""))
+	# Play the action
+	var play_result := MatchTiming.play_action_from_hand(match_state, player_id, brew_id, {"lane_id": "field"})
+	if not _assert(bool(play_result.get("is_valid", false)), "Strange Brew: play should be valid."):
+		return false
+	# Should create a pending hand selection
+	var selection := MatchTiming.get_pending_hand_selection(match_state, player_id)
+	if not _assert(not selection.is_empty(), "Strange Brew: should create pending hand selection."):
+		return false
+	if not _assert(str(selection.get("then_op", "")) == "transform_in_hand_to_random", "Strange Brew: then_op should be transform_in_hand_to_random, got '%s'." % str(selection.get("then_op", ""))):
+		return false
+	# Resolve the hand selection by choosing the creature
+	var resolve_result := MatchTiming.resolve_pending_hand_selection(match_state, player_id, creature_id)
+	if not _assert(bool(resolve_result.get("is_valid", false)), "Strange Brew: resolving hand selection should be valid."):
+		return false
+	# The creature should have been transformed — its definition_id should no longer be "test_creature"
+	var transformed := MatchTimingHelpers._find_card_anywhere(match_state, creature_id)
+	if not _assert(not transformed.is_empty(), "Strange Brew: transformed card should still exist."):
+		return false
+	if not _assert(str(transformed.get("definition_id", "")) != "test_creature", "Strange Brew: creature should be transformed to a different card, still '%s'." % str(transformed.get("definition_id", ""))):
+		return false
+	# The transformed card should still be a creature (not a support or action)
+	if not _assert(str(transformed.get("card_type", "")) == "creature", "Strange Brew: transformed card should be a creature, got '%s'." % str(transformed.get("card_type", ""))):
+		return false
+	# The transformed card's cost should be reduced by 2 from whatever it was transformed into
+	# Since it was a cost-3 creature transformed into a cost-5 creature, reduced by 2 → cost 3
+	var final_cost := int(transformed.get("cost", -1))
+	if not _assert(final_cost == 3, "Strange Brew: cost should be 3 (5 - 2 reduction), got %d." % final_cost):
+		return false
+	return true
 
 
 func _lane_creatures(match_state: Dictionary, lane_id: String, player_id: String) -> Array:

@@ -122,14 +122,9 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			var tihr_controller_id := str(trigger.get("controller_player_id", ""))
 			var tihr_filter_dict: Dictionary = effect.get("filter", {}) if typeof(effect.get("filter", null)) == TYPE_DICTIONARY else {}
 			var tihr_filter_type := str(effect.get("filter_card_type", tihr_filter_dict.get("card_type", "")))
+			var tihr_cost_increase := int(effect.get("cost_increase", 0))
+			var tihr_cost_reduce := int(effect.get("cost_reduce", 0))
 			var tihr_seeds: Array = ExtendedMechanicPacks.get_catalog_seeds()
-			var tihr_candidates: Array = []
-			for tihr_seed in tihr_seeds:
-				if not bool(tihr_seed.get("collectible", true)):
-					continue
-				if not tihr_filter_type.is_empty() and str(tihr_seed.get("card_type", "")) != tihr_filter_type:
-					continue
-				tihr_candidates.append(tihr_seed)
 			var tihr_keep_ability := bool(effect.get("keep_ability", false))
 			var tihr_source_abilities: Array = []
 			var tihr_origin_name := ""
@@ -139,24 +134,43 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					tihr_source_abilities = tihr_source.get("triggered_abilities", []).duplicate(true)
 					# Track the original card name (before any transforms) for the rules_text tag
 					tihr_origin_name = str(tihr_source.get("_keep_ability_origin", tihr_source.get("name", "")))
-			if not tihr_candidates.is_empty():
-				for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
-					if str(card.get("zone", "")) == ZONE_HAND:
-						var tihr_idx := MatchEffectParams._deterministic_index(match_state, str(card.get("instance_id", "")) + "_transform_random", tihr_candidates.size())
-						var tihr_template: Dictionary = tihr_candidates[tihr_idx]
-						var tihr_result := MatchMutations.transform_card(match_state, str(card.get("instance_id", "")), tihr_template, {"reason": reason})
-						generated_events.append_array(tihr_result.get("events", []))
-						if tihr_keep_ability and not tihr_source_abilities.is_empty():
-							var tihr_card := MatchTimingHelpers._find_card_anywhere(match_state, str(card.get("instance_id", "")))
-							if not tihr_card.is_empty():
-								var tihr_existing: Array = tihr_card.get("triggered_abilities", [])
-								for tihr_ab in tihr_source_abilities:
-									tihr_existing.append(tihr_ab)
-								tihr_card["triggered_abilities"] = tihr_existing
-								if not tihr_origin_name.is_empty():
-									tihr_card["_keep_ability_origin"] = tihr_origin_name
-									var tihr_rules := str(tihr_card.get("rules_text", ""))
-									tihr_card["rules_text"] = "(%s)\n%s" % [tihr_origin_name, tihr_rules]
+			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
+				if str(card.get("zone", "")) != ZONE_HAND:
+					continue
+				# Default to the target card's type so creatures transform into creatures, etc.
+				var tihr_resolved_type := tihr_filter_type if not tihr_filter_type.is_empty() else str(card.get("card_type", ""))
+				var tihr_candidates: Array = []
+				var tihr_target_cost := int(card.get("cost", 0)) + tihr_cost_increase
+				for tihr_seed in tihr_seeds:
+					if not bool(tihr_seed.get("collectible", true)):
+						continue
+					if not tihr_resolved_type.is_empty() and str(tihr_seed.get("card_type", "")) != tihr_resolved_type:
+						continue
+					if tihr_cost_increase > 0 and int(tihr_seed.get("cost", 0)) != tihr_target_cost:
+						continue
+					tihr_candidates.append(tihr_seed)
+				if tihr_candidates.is_empty():
+					continue
+				var tihr_idx := MatchEffectParams._deterministic_index(match_state, str(card.get("instance_id", "")) + "_transform_random", tihr_candidates.size())
+				var tihr_template: Dictionary = tihr_candidates[tihr_idx]
+				var tihr_result := MatchMutations.transform_card(match_state, str(card.get("instance_id", "")), tihr_template, {"reason": reason})
+				generated_events.append_array(tihr_result.get("events", []))
+				if tihr_cost_reduce > 0:
+					var tihr_transformed := MatchTimingHelpers._find_card_anywhere(match_state, str(card.get("instance_id", "")))
+					if not tihr_transformed.is_empty():
+						var tihr_old_cost := int(tihr_transformed.get("cost", 0))
+						tihr_transformed["cost"] = maxi(0, tihr_old_cost - tihr_cost_reduce)
+				if tihr_keep_ability and not tihr_source_abilities.is_empty():
+					var tihr_card := MatchTimingHelpers._find_card_anywhere(match_state, str(card.get("instance_id", "")))
+					if not tihr_card.is_empty():
+						var tihr_existing: Array = tihr_card.get("triggered_abilities", [])
+						for tihr_ab in tihr_source_abilities:
+							tihr_existing.append(tihr_ab)
+						tihr_card["triggered_abilities"] = tihr_existing
+						if not tihr_origin_name.is_empty():
+							tihr_card["_keep_ability_origin"] = tihr_origin_name
+							var tihr_rules := str(tihr_card.get("rules_text", ""))
+							tihr_card["rules_text"] = "(%s)\n%s" % [tihr_origin_name, tihr_rules]
 		"transform_hand":
 			var th_controller_id := str(trigger.get("controller_player_id", ""))
 			var th_player := MatchTimingHelpers._get_player_state(match_state, th_controller_id)
