@@ -2705,15 +2705,25 @@ static func play_action_from_hand(match_state: Dictionary, player_id: String, in
 				action_cost_reduction += sr_amount
 		elif sr_source == "per_opponent_undead":
 			var opp_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), player_id)
+			var opp_state: Dictionary = {}
+			for p in match_state.get("players", []):
+				if str(p.get("player_id", "")) == opp_id:
+					opp_state = p
+			var opp_undead_creatures: Array = []
 			for lane in match_state.get("lanes", []):
 				for c in lane.get("player_slots", {}).get(opp_id, []):
 					if typeof(c) == TYPE_DICTIONARY:
-						var subtypes = c.get("subtypes", [])
-						if typeof(subtypes) == TYPE_ARRAY:
-							for st in subtypes:
-								if str(st) == "Skeleton" or str(st) == "Vampire" or str(st) == "Spirit" or str(st) == "Mummy":
-									action_cost_reduction += sr_amount
-									break
+						opp_undead_creatures.append(c)
+			for c in opp_state.get("discard", []):
+				if typeof(c) == TYPE_DICTIONARY and str(c.get("card_type", "")) == "creature":
+					opp_undead_creatures.append(c)
+			for c in opp_undead_creatures:
+				var subtypes = c.get("subtypes", [])
+				if typeof(subtypes) == TYPE_ARRAY:
+					for st in subtypes:
+						if str(st) == "Skeleton" or str(st) == "Vampire" or str(st) == "Spirit" or str(st) == "Mummy":
+							action_cost_reduction += sr_amount
+							break
 		elif sr_source == "per_dragon_in_discard":
 			for c in player.get("discard", []):
 				if typeof(c) == TYPE_DICTIONARY and str(c.get("card_type", "")) == "creature":

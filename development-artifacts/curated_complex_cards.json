@@ -1,30 +1,5 @@
 [
 	{
-		"card_id": "mc_dual_prankster_mage",
-		"name": "Prankster Mage",
-		"card_type": "creature",
-		"cost": 5,
-		"attributes": [
-			"intelligence",
-			"agility"
-		],
-		"rules_text": "Ward\nWhile Prankster Mage has a Ward, he has Guard.\nWhen Prankster Mage's Ward is broken, he has Cover.",
-		"stripped_text": "While Prankster Mage has a Ward, he has Guard.\nWhen Prankster Mage's Ward is broken, he has Cover.",
-		"complexity": 98
-	},
-	{
-		"card_id": "dg_wil_the_end_of_vampires",
-		"name": "The End of Vampires",
-		"card_type": "action",
-		"cost": 7,
-		"attributes": [
-			"willpower"
-		],
-		"rules_text": "Cost 1 less for each undead creature in your opponent's lanes and discard pile.\nBanish a creature.",
-		"stripped_text": "Cost 1 less for each undead creature in your opponent's lanes and discard pile.\nBanish a creature.",
-		"complexity": 98
-	},
-	{
 		"card_id": "tc_int_strange_brew",
 		"name": "Strange Brew",
 		"card_type": "action",

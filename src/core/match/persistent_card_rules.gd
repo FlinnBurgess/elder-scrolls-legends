@@ -543,18 +543,26 @@ static func get_effective_play_cost(match_state: Dictionary, player_id: String, 
 				reduction += per_amount
 		elif per_source == "per_opponent_undead":
 			var opp_id := ""
+			var opp_state: Dictionary = {}
 			for p in match_state.get("players", []):
 				if str(p.get("player_id", "")) != player_id:
 					opp_id = str(p.get("player_id", ""))
+					opp_state = p
+			var opp_creatures: Array = []
 			for lane in match_state.get("lanes", []):
 				for c in lane.get("player_slots", {}).get(opp_id, []):
 					if typeof(c) == TYPE_DICTIONARY:
-						var subtypes = c.get("subtypes", [])
-						if typeof(subtypes) == TYPE_ARRAY:
-							for st in subtypes:
-								if str(st) == "Skeleton" or str(st) == "Vampire" or str(st) == "Spirit" or str(st) == "Mummy":
-									reduction += per_amount
-									break
+						opp_creatures.append(c)
+			for c in opp_state.get("discard", []):
+				if typeof(c) == TYPE_DICTIONARY and str(c.get("card_type", "")) == "creature":
+					opp_creatures.append(c)
+			for c in opp_creatures:
+				var subtypes = c.get("subtypes", [])
+				if typeof(subtypes) == TYPE_ARRAY:
+					for st in subtypes:
+						if str(st) == "Skeleton" or str(st) == "Vampire" or str(st) == "Spirit" or str(st) == "Mummy":
+							reduction += per_amount
+							break
 		elif per_source == "per_dragon_in_discard":
 			for c in player.get("discard", []):
 				if typeof(c) == TYPE_DICTIONARY and str(c.get("card_type", "")) == "creature":

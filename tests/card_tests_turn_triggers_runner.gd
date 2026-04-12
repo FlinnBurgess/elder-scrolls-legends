@@ -53,6 +53,8 @@ func _run_all_tests() -> bool:
 		_test_alduin_summon_destroys_all_other_creatures() and
 		_test_alduin_start_of_turn_summons_dragon_from_discard() and
 		_test_alduin_cost_reduction_per_dragon_in_discard() and
+		# The End of Vampires — per_opponent_undead cost reduction
+		_test_end_of_vampires_counts_opponent_discard_undead() and
 		# Disciple of Namira (518)
 		_test_disciple_of_namira_draws_per_friendly_death() and
 		_test_disciple_of_namira_no_draw_for_enemy_death() and
@@ -524,6 +526,40 @@ func _test_alduin_cost_reduction_per_dragon_in_discard() -> bool:
 	# Check effective cost — should be 20 - (3 * 2) = 14
 	var effective_cost: int = PersistentCardRules.get_effective_play_cost(match_state, pid, alduin)
 	return _assert(effective_cost == 14, "Alduin with 3 Dragons in discard should cost 14, got %d" % effective_cost)
+
+
+# ──────────────────────────────────────────────────────────────────────
+# The End of Vampires — "Cost 1 less for each undead creature in your
+# opponent's lanes and discard pile. Banish a creature."
+# ──────────────────────────────────────────────────────────────────────
+
+func _test_end_of_vampires_counts_opponent_discard_undead() -> bool:
+	var match_state := _build_started_match()
+	var player := ScenarioFixtures.player(match_state, 0)
+	var opponent := ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Add The End of Vampires to hand
+	var eov: Dictionary = _catalog_helper.add_to_hand(player, "dg_wil_the_end_of_vampires")
+	if eov.is_empty():
+		return _assert(false, "Failed to add The End of Vampires to hand")
+	var base_cost: int = int(eov.get("cost", 0))
+	if not _assert(base_cost == 7, "Base cost should be 7, got %d" % base_cost):
+		return false
+	# Put a Vampire in opponent's lane
+	ScenarioFixtures.summon_creature(opponent, match_state, "opp_vamp", "field", 3, 3, [], -1, {
+		"cost": 3, "subtypes": ["Vampire"],
+	})
+	# Put a Skeleton in opponent's discard
+	var skeleton := ScenarioFixtures.make_card(oid, "opp_skel", {
+		"definition_id": "test_skeleton", "card_type": "creature",
+		"cost": 1, "power": 1, "health": 1, "subtypes": ["Skeleton"],
+	})
+	skeleton["zone"] = "discard"
+	opponent["discard"].append(skeleton)
+	# Effective cost should be 7 - 2 = 5 (1 in lane + 1 in discard)
+	var effective_cost: int = PersistentCardRules.get_effective_play_cost(match_state, pid, eov)
+	return _assert(effective_cost == 5, "End of Vampires with 1 Vampire in lane + 1 Skeleton in discard should cost 5, got %d" % effective_cost)
 
 
 # ──────────────────────────────────────────────────────────────────────
