@@ -105,6 +105,24 @@ static func recalculate_auras(match_state: Dictionary) -> Array:
 			power_bonus *= count
 			health_bonus *= count
 
+		# Handle power_per_friendly_subtype: +1 power for each friendly creature matching any listed subtype (excluding self)
+		var ppfs = aura.get("power_per_friendly_subtype", [])
+		if typeof(ppfs) == TYPE_ARRAY and not ppfs.is_empty():
+			var ppfs_count := 0
+			var ppfs_source_iid := str(source_card.get("instance_id", ""))
+			for ppfs_lane in lanes:
+				for ppfs_card in ppfs_lane.get("player_slots", {}).get(source_player_id, []):
+					if typeof(ppfs_card) != TYPE_DICTIONARY:
+						continue
+					if str(ppfs_card.get("instance_id", "")) == ppfs_source_iid:
+						continue
+					var ppfs_subtypes: Array = ppfs_card.get("subtypes", [])
+					for st in ppfs:
+						if ppfs_subtypes.has(st):
+							ppfs_count += 1
+							break
+			power_bonus += ppfs_count
+
 		# Find targets
 		var targets := _get_aura_targets(match_state, source_card, source_player_id, source_lane_index, aura)
 		for target in targets:

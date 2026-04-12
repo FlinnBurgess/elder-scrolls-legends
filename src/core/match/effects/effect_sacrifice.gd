@@ -252,22 +252,27 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					"trigger_index": int(trigger.get("trigger_index", 0)),
 				})
 		"consume_or_sacrifice":
-			# Player chooses to consume from discard
-			var cos_controller_id := str(trigger.get("controller_player_id", ""))
-			var cos_source_id := str(trigger.get("source_instance_id", ""))
-			var cos_candidates = _MT().get_consume_candidates(match_state, cos_controller_id)
-			if not cos_candidates.is_empty():
-				var cos_candidate_ids: Array = []
-				for cos_c in cos_candidates:
-					cos_candidate_ids.append(str(cos_c.get("instance_id", "")))
-				var cos_pending: Array = match_state.get("pending_consume_selections", [])
-				cos_pending.append({
-					"player_id": cos_controller_id,
-					"source_instance_id": cos_source_id,
-					"candidate_instance_ids": cos_candidate_ids,
-					"has_target_mode": false,
-					"trigger_index": int(trigger.get("trigger_index", 0)),
-				})
+			# Skip if already resolved via consume selection (resolve_consume_selection re-applies effects)
+			if trigger.get("_consumed_card_info", {}).is_empty():
+				var cos_controller_id := str(trigger.get("controller_player_id", ""))
+				var cos_source_id := str(trigger.get("source_instance_id", ""))
+				var cos_candidates = _MT().get_consume_candidates(match_state, cos_controller_id)
+				if not cos_candidates.is_empty():
+					var cos_candidate_ids: Array = []
+					for cos_c in cos_candidates:
+						cos_candidate_ids.append(str(cos_c.get("instance_id", "")))
+					var cos_pending: Array = match_state.get("pending_consume_selections", [])
+					cos_pending.append({
+						"player_id": cos_controller_id,
+						"source_instance_id": cos_source_id,
+						"candidate_instance_ids": cos_candidate_ids,
+						"has_target_mode": false,
+						"trigger_index": int(trigger.get("trigger_index", 0)),
+					})
+				else:
+					var cos_sac := MatchMutations.sacrifice_card(match_state, cos_controller_id, cos_source_id, {"reason": reason})
+					generated_events.append_array(cos_sac.get("events", []))
+					generated_events.append({"event_type": EVENT_CREATURE_DESTROYED, "instance_id": cos_source_id, "controller_player_id": cos_controller_id})
 		"consume_all_creatures_in_discard_this_turn":
 			var cacidt_controller_id := str(trigger.get("controller_player_id", ""))
 			var cacidt_source_id := str(trigger.get("source_instance_id", ""))

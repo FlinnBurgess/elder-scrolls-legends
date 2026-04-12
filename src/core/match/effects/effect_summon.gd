@@ -373,6 +373,9 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			copy_template.erase("status_markers")
 			var copy_player_id := str(trigger.get("controller_player_id", ""))
 			var gen_card := MatchMutations.build_generated_card(match_state, copy_player_id, copy_template)
+			var copy_trigger_src := str(trigger.get("source_instance_id", ""))
+			if not copy_trigger_src.is_empty():
+				gen_card["_spawned_by_instance_id"] = copy_trigger_src
 			var summon_res := MatchMutations.summon_card_to_lane(match_state, copy_player_id, gen_card, other_lane_id, {
 				"source_zone": MatchMutations.ZONE_GENERATED,
 			})

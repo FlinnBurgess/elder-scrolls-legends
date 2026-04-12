@@ -1,6 +1,6 @@
 {
-  "name": "Sun-in-Shadow Test",
-  "description": "Test Sun-in-Shadow's Summon: permanently shackle a friendly creature to tutor an action from deck",
+  "name": "Tenarr Zalviit Nightstalker",
+  "description": "Test consume-or-sacrifice: starts turn with/without creatures in discard",
   "board_profile": "standard_versus",
   "turn_number": 1,
   "first_player": "player_1",
@@ -12,22 +12,19 @@
     "has_ring": false,
     "ring_charges": 0,
     "hand": [
-      "hom_tri_sun_in_shadow",
-      "int_brutal_ashlander",
-      "int_wardcrafter",
-      "int_shrieking_harpy",
-      "str_nord_firebrand"
+      "moe_agi_tenarr_zalviit_nightstalker",
+      "moe_agi_tenarr_zalviit_nightstalker",
+      "str_fiery_imp",
+      "str_fiery_imp",
+      "moe_agi_illicit_butcher",
+      "moe_int_midnight_trespasser"
     ],
     "deck": [
-      "int_lightning_bolt",
-      "int_ice_storm",
-      "int_cruel_firebloom",
-      "int_firebolt",
-      "hos_agi_drain_vitality",
-      "int_brutal_ashlander",
-      "int_brutal_ashlander",
-      "str_whiterun_trooper",
-      "end_fharun_defender"
+      "moe_agi_tenarr_zalviit_nightstalker",
+      "moe_str_euraxian_berserker",
+      "moe_end_nibenese_mercenary",
+      "str_fiery_imp",
+      "str_fiery_imp"
     ],
     "discard": [],
     "supports": [],
@@ -44,12 +41,7 @@
     "hand": ["hom_end_vvardvark"],
     "deck": ["hom_end_vvardvark", "hom_end_vvardvark", "hom_end_vvardvark"],
     "discard": [],
-    "field_creatures": [
-      "hom_end_vvardvark",
-      "hom_end_vvardvark"
-    ],
-    "shadow_creatures": [
-      "hom_end_vvardvark"
-    ]
+    "field_creatures": ["hom_end_vvardvark", "hom_end_vvardvark"],
+    "shadow_creatures": ["hom_end_vvardvark"]
   }
 }

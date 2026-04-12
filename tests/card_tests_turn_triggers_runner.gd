@@ -56,6 +56,10 @@ func _run_all_tests() -> bool:
 		# Disciple of Namira (518)
 		_test_disciple_of_namira_draws_per_friendly_death() and
 		_test_disciple_of_namira_no_draw_for_enemy_death() and
+		# Tenarr Zalviit Nightstalker — consume_or_sacrifice
+		_test_tenarr_sacrifices_with_empty_discard() and
+		_test_tenarr_consumes_with_creature_in_discard() and
+		_test_tenarr_survives_after_consuming() and
 		true
 	)
 
@@ -606,3 +610,81 @@ func _test_disciple_of_namira_no_draw_for_enemy_death() -> bool:
 	var hand_after: int = player.get("hand", []).size()
 	var drawn: int = hand_after - hand_before
 	return _assert(drawn == 0, "Disciple of Namira should not draw for enemy deaths, drew %d" % drawn)
+
+
+# ──────────────────────────────────────────────────���───────────────────
+# Tenarr Zalviit Nightstalker — "At the start of your turn, Consume
+# a creature. If you can't, sacrifice Tenarr Zalviit Nightstalker."
+# ──────────────────────────────────────────────────────────────────────
+
+func _test_tenarr_sacrifices_with_empty_discard() -> bool:
+	var match_state := _build_started_match()
+	var player := ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var tenarr: Dictionary = _catalog_helper.summon(player, match_state, "moe_agi_tenarr_zalviit_nightstalker", "field")
+	if tenarr.is_empty():
+		return _assert(false, "Failed to summon Tenarr Zalviit Nightstalker")
+	var instance_id := str(tenarr.get("instance_id", ""))
+	# Discard is empty — next turn should sacrifice Tenarr
+	_end_turn_and_start_next(match_state)  # our turn ends
+	_end_turn_and_start_next(match_state)  # opponent turn ends, our turn starts
+	var still_in_lane := _find_lane_card(match_state, "field", pid, "moe_agi_tenarr_zalviit_nightstalker")
+	return _assert(still_in_lane.is_empty(), "Tenarr should be sacrificed when discard is empty")
+
+
+func _test_tenarr_consumes_with_creature_in_discard() -> bool:
+	var match_state := _build_started_match()
+	var player := ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var tenarr: Dictionary = _catalog_helper.summon(player, match_state, "moe_agi_tenarr_zalviit_nightstalker", "field")
+	if tenarr.is_empty():
+		return _assert(false, "Failed to summon Tenarr Zalviit Nightstalker")
+	# Put a creature in discard
+	var fodder := ScenarioFixtures.make_card(pid, "fodder_creature", {
+		"definition_id": "test_fodder", "card_type": "creature", "cost": 1,
+		"power": 1, "health": 1, "name": "Fodder Creature",
+	})
+	fodder["zone"] = "discard"
+	player["discard"].append(fodder)
+	# Advance to our next turn — triggers consume_or_sacrifice
+	_end_turn_and_start_next(match_state)  # our turn ends
+	_end_turn_and_start_next(match_state)  # opponent turn ends, our turn starts
+	# Pending consume selection should exist
+	var has_pending := MatchTiming.has_pending_consume_selection(match_state, pid)
+	if not has_pending:
+		return _assert(false, "Should have pending consume selection when creature is in discard")
+	# Resolve the consume
+	var consume_result := MatchTiming.resolve_consume_selection(match_state, pid, str(fodder.get("instance_id", "")))
+	if not bool(consume_result.get("is_valid", false)):
+		return _assert(false, "Consume selection should be valid")
+	# Fodder should be banished from discard
+	var discard: Array = player.get("discard", [])
+	var fodder_still_in_discard := false
+	for card in discard:
+		if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) == str(fodder.get("instance_id", "")):
+			fodder_still_in_discard = true
+	return _assert(not fodder_still_in_discard, "Consumed creature should be banished from discard")
+
+
+func _test_tenarr_survives_after_consuming() -> bool:
+	var match_state := _build_started_match()
+	var player := ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var tenarr: Dictionary = _catalog_helper.summon(player, match_state, "moe_agi_tenarr_zalviit_nightstalker", "field")
+	if tenarr.is_empty():
+		return _assert(false, "Failed to summon Tenarr Zalviit Nightstalker")
+	# Put a creature in discard
+	var fodder := ScenarioFixtures.make_card(pid, "fodder_creature2", {
+		"definition_id": "test_fodder2", "card_type": "creature", "cost": 1,
+		"power": 1, "health": 1, "name": "Fodder Creature 2",
+	})
+	fodder["zone"] = "discard"
+	player["discard"].append(fodder)
+	# Advance to our next turn
+	_end_turn_and_start_next(match_state)
+	_end_turn_and_start_next(match_state)
+	# Resolve consume
+	MatchTiming.resolve_consume_selection(match_state, pid, str(fodder.get("instance_id", "")))
+	# Tenarr should still be alive in lane
+	var still_in_lane := _find_lane_card(match_state, "field", pid, "moe_agi_tenarr_zalviit_nightstalker")
+	return _assert(not still_in_lane.is_empty(), "Tenarr should survive after successfully consuming a creature")
