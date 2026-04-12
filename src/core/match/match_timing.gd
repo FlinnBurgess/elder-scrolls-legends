@@ -1897,6 +1897,7 @@ static func resolve_consume_selection(match_state: Dictionary, player_id: String
 		"health": EvergreenRules.get_health(consumed_card),
 		"subtypes": consumed_card.get("subtypes", []),
 		"keywords": consumed_card.get("keywords", []).duplicate(),
+		"triggered_abilities": consumed_card.get("triggered_abilities", []).duplicate(true),
 	}
 	# Consume (banish) the selected card — power_gain/health_gain = 0 since effects handle bonuses
 	var consume_result := MatchMutations.consume_card(match_state, player_id, source_id, chosen_instance_id, {
@@ -1967,6 +1968,39 @@ static func resolve_consume_selection(match_state: Dictionary, player_id: String
 		var effect_publish := publish_events(match_state, generated_events)
 		all_events.append_array(effect_publish.get("processed_events", []))
 		all_resolutions.append_array(effect_publish.get("trigger_resolutions", []))
+	# consume_and_copy_veteran: fire consumed creature's veteran effects immediately
+	var _cacv_effects: Array = ability.get("effects", [])
+	for _cacv_eff in _cacv_effects:
+		if typeof(_cacv_eff) == TYPE_DICTIONARY and str(_cacv_eff.get("op", "")) == "consume_and_copy_veteran":
+			var _cacv_consumed_triggers: Array = consumed_info.get("triggered_abilities", [])
+			for _cacv_t in _cacv_consumed_triggers:
+				if typeof(_cacv_t) == TYPE_DICTIONARY and str(_cacv_t.get("family", "")) == FAMILY_VETERAN:
+					var _cacv_vet_effects: Array = _cacv_t.get("effects", [])
+					if _cacv_vet_effects.is_empty():
+						break
+					var _cacv_vet_trigger := {
+						"trigger_id": "%s_consume_veteran_fired" % source_id,
+						"trigger_index": trigger_index,
+						"source_instance_id": source_id,
+						"owner_player_id": str(source_card.get("owner_player_id", controller_id)),
+						"controller_player_id": controller_id,
+						"source_zone": ZONE_LANE,
+						"lane_index": lane_index,
+						"slot_index": slot_index,
+						"descriptor": _cacv_t.duplicate(true),
+					}
+					var _cacv_vet_resolution := MatchTriggers._build_trigger_resolution(match_state, _cacv_vet_trigger, event)
+					GameLogger.log_trigger_resolution(match_state, _cacv_vet_resolution, _cacv_vet_trigger)
+					var _cacv_vet_events := MatchEffectApplication._apply_effects(match_state, _cacv_vet_trigger, event, _cacv_vet_resolution)
+					if not _cacv_vet_events.is_empty():
+						var _cacv_pub := publish_events(match_state, _cacv_vet_events)
+						all_events.append_array(_cacv_pub.get("processed_events", []))
+						all_resolutions.append_array(_cacv_pub.get("trigger_resolutions", []))
+					break
+			break
+	# Clear stale consumed info so future triggers (e.g. veteran) don't see it as post-consume
+	if not source_card.is_empty() and source_card.has("_consumed_card_info"):
+		source_card.erase("_consumed_card_info")
 	return {"is_valid": true, "events": all_events, "trigger_resolutions": all_resolutions}
 
 

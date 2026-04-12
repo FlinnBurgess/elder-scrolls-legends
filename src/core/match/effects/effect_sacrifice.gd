@@ -315,31 +315,29 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 		"consume_and_copy_veteran":
 			var cacv_controller_id := str(trigger.get("controller_player_id", ""))
 			var cacv_source_id := str(trigger.get("source_instance_id", ""))
-			var cacv_player := MatchTimingHelpers._get_player_state(match_state, cacv_controller_id)
-			if not cacv_player.is_empty():
-				var cacv_discard: Array = cacv_player.get(ZONE_DISCARD, [])
-				var cacv_candidates: Array = []
-				for cacv_card in cacv_discard:
-					if typeof(cacv_card) != TYPE_DICTIONARY or str(cacv_card.get("card_type", "")) != CARD_TYPE_CREATURE:
-						continue
-					var cacv_triggers = cacv_card.get("triggered_abilities", [])
-					if typeof(cacv_triggers) == TYPE_ARRAY:
-						for cacv_t in cacv_triggers:
-							if typeof(cacv_t) == TYPE_DICTIONARY and str(cacv_t.get("family", "")) == FAMILY_VETERAN:
-								cacv_candidates.append(cacv_card)
-								break
-				if not cacv_candidates.is_empty():
+			# Only check the trigger dict — source card may have stale _consumed_card_info from prior consume
+			var cacv_consumed_info: Dictionary = trigger.get("_consumed_card_info", {})
+			if not cacv_consumed_info.is_empty():
+				# Post-consume: veteran effects are fired by resolve_consume_selection
+				pass
+			else:
+				# Pre-consume: create pending consume selection (any creature in discard)
+				var cacv_player := MatchTimingHelpers._get_player_state(match_state, cacv_controller_id)
+				if not cacv_player.is_empty():
+					var cacv_discard: Array = cacv_player.get(ZONE_DISCARD, [])
 					var cacv_candidate_ids: Array = []
-					for cacv_c in cacv_candidates:
-						cacv_candidate_ids.append(str(cacv_c.get("instance_id", "")))
-					var cacv_pending: Array = match_state.get("pending_consume_selections", [])
-					cacv_pending.append({
-						"player_id": cacv_controller_id,
-						"source_instance_id": cacv_source_id,
-						"candidate_instance_ids": cacv_candidate_ids,
-						"has_target_mode": false,
-						"trigger_index": int(trigger.get("trigger_index", 0)),
-					})
+					for cacv_card in cacv_discard:
+						if typeof(cacv_card) == TYPE_DICTIONARY and str(cacv_card.get("card_type", "")) == CARD_TYPE_CREATURE:
+							cacv_candidate_ids.append(str(cacv_card.get("instance_id", "")))
+					if not cacv_candidate_ids.is_empty():
+						var cacv_pending: Array = match_state.get("pending_consume_selections", [])
+						cacv_pending.append({
+							"player_id": cacv_controller_id,
+							"source_instance_id": cacv_source_id,
+							"candidate_instance_ids": cacv_candidate_ids,
+							"has_target_mode": false,
+							"trigger_index": int(trigger.get("trigger_index", 0)),
+						})
 		"consume_and_reduce_matching_subtype_cost":
 			var carmsc_controller_id := str(trigger.get("controller_player_id", ""))
 			var carmsc_source_id := str(trigger.get("source_instance_id", ""))

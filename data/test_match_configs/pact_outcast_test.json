@@ -1,0 +1,60 @@
+{
+	"name": "Pact Outcast — Consume & Copy Veteran",
+	"description": "Test Pact Outcast's Summon/Veteran consume-and-copy-veteran ability with varied veteran creatures in discard",
+	"board_profile": "standard_versus",
+	"turn_number": 1,
+	"first_player": "player_1",
+	"player_1": {
+		"health": 30,
+		"max_magicka": 12,
+		"current_magicka": 12,
+		"rune_thresholds": [25, 20, 15, 10, 5],
+		"has_ring": false,
+		"ring_charges": 0,
+		"hand": [
+			"tc_tri_pact_outcast",
+			"tc_tri_pact_outcast",
+			"tc_tri_pact_outcast",
+			"aw_end_black_marsh_prodigy",
+			"aw_agi_invoker_of_the_hist",
+			"aw_str_jorunns_vanguard"
+		],
+		"deck": [
+			"tc_tri_pact_outcast",
+			"aw_end_steel_eyed_visionary",
+			"aw_agi_shadowscale_hunter",
+			"aw_str_pact_shieldbearer",
+			"aw_tri_forerunner_of_the_pact"
+		],
+		"discard": [
+			"aw_end_black_marsh_prodigy",
+			"aw_agi_invoker_of_the_hist",
+			"aw_str_jorunns_vanguard",
+			"aw_end_steel_eyed_visionary",
+			"aw_agi_inspiring_soldier",
+			"aw_str_windhelm_gatekeeper"
+		],
+		"supports": [],
+		"field_creatures": [],
+		"shadow_creatures": []
+	},
+	"player_2": {
+		"health": 30,
+		"max_magicka": 2,
+		"current_magicka": 2,
+		"rune_thresholds": [25, 20, 15, 10, 5],
+		"has_ring": false,
+		"ring_charges": 0,
+		"hand": ["hom_end_vvardvark"],
+		"deck": ["hom_end_vvardvark", "hom_end_vvardvark", "hom_end_vvardvark"],
+		"discard": [],
+		"field_creatures": [
+			{"definition_id": "str_fiery_imp", "can_attack": false},
+			{"definition_id": "str_whiterun_trooper", "can_attack": false}
+		],
+		"shadow_creatures": [
+			{"definition_id": "str_fiery_imp", "can_attack": false},
+			{"definition_id": "str_whiterun_trooper", "can_attack": false}
+		]
+	}
+}

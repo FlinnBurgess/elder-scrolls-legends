@@ -1,31 +1,5 @@
 [
 	{
-		"card_id": "agi_soulrest_marshal",
-		"name": "Soulrest Marshal",
-		"card_type": "creature",
-		"cost": 6,
-		"attributes": [
-			"agility"
-		],
-		"rules_text": "Summon: If you have more health than your opponent, the next card you play this turn costs 6 less.",
-		"stripped_text": "Summon: If you have more health than your opponent, the next card you play this turn costs 6 less.",
-		"complexity": 98
-	},
-	{
-		"card_id": "tc_tri_pact_outcast",
-		"name": "Pact Outcast",
-		"card_type": "creature",
-		"cost": 5,
-		"attributes": [
-			"strength",
-			"agility",
-			"endurance"
-		],
-		"rules_text": "Guard\nSummon and Veteran: Consume a creature. Pact Outcast uses the consumed creature's veteran ability.",
-		"stripped_text": "Summon and Veteran: Consume a creature. Pact Outcast uses the consumed creature's veteran ability.",
-		"complexity": 98
-	},
-	{
 		"card_id": "mc_dual_prankster_mage",
 		"name": "Prankster Mage",
 		"card_type": "creature",

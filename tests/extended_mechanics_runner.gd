@@ -116,7 +116,9 @@ func _run_all_tests() -> bool:
 		_test_renegade_magister_aoe_doubles_each_target() and
 		_test_renegade_magister_no_loop_on_own_damage() and
 		_test_renegade_magister_ignores_friendly_creature_damage() and
-		_test_delayed_destroy_fires_at_start_of_turn()
+		_test_delayed_destroy_fires_at_start_of_turn() and
+		_test_consume_and_copy_veteran_single_consume_then_copies_ability() and
+		_test_consume_and_copy_veteran_fires_on_veteran_trigger()
 	)
 
 
@@ -4354,6 +4356,93 @@ func _test_delayed_destroy_fires_at_start_of_turn() -> bool:
 	# Pending should be cleared
 	dd_pending = match_state.get("pending_delayed_destroys", [])
 	return _assert(dd_pending.is_empty(), "Delayed destroy: pending list should be empty after resolution.")
+
+
+func _test_consume_and_copy_veteran_single_consume_then_copies_ability() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Put a creature with a veteran ability (+4/+4) in the discard pile
+	var meal := ScenarioFixtures.make_card(pid, "veteran_meal", {
+		"card_type": "creature", "cost": 3, "power": 1, "health": 1,
+		"triggered_abilities": [{"family": "veteran", "required_zone": "lane", "effects": [{"op": "modify_stats", "target": "self", "power": 4, "health": 4}]}],
+	})
+	meal["zone"] = "discard"
+	player["discard"] = [meal]
+	# Add Pact Outcast analog to hand: summon consume_and_copy_veteran
+	var outcast := ScenarioFixtures.add_hand_card(player, "pact_outcast", {
+		"card_type": "creature", "cost": 0, "power": 5, "health": 5,
+		"triggered_abilities": [
+			{"family": "summon", "effects": [{"op": "consume_and_copy_veteran", "target_mode": "any_creature"}]},
+			{"family": "veteran", "effects": [{"op": "consume_and_copy_veteran", "target_mode": "any_creature"}]},
+		],
+	})
+	var outcast_id := str(outcast.get("instance_id", ""))
+	# Summon — should create a pending consume selection
+	var summon_result := LaneRules.summon_from_hand(match_state, pid, outcast_id, "field")
+	if not _assert(bool(summon_result.get("is_valid", false)), "Pact Outcast: summon should be valid."):
+		return false
+	if not _assert(MatchTiming.has_pending_consume_selection(match_state, pid), "Pact Outcast: should have pending consume after summon."):
+		return false
+	# Resolve consume — pick the veteran meal
+	var meal_id := str(meal.get("instance_id", ""))
+	var consume_result := MatchTiming.resolve_consume_selection(match_state, pid, meal_id)
+	if not _assert(bool(consume_result.get("is_valid", false)), "Pact Outcast: consume selection should be valid."):
+		return false
+	# Should NOT have another pending consume (no infinite loop)
+	if not _assert(not MatchTiming.has_pending_consume_selection(match_state, pid), "Pact Outcast: should NOT have another pending consume after resolving."):
+		return false
+	# The consumed veteran ability (+4/+4) should have fired immediately on the outcast
+	var outcast_card := MatchTimingHelpers._find_card_anywhere(match_state, outcast_id)
+	var p := EvergreenRules.get_power(outcast_card)
+	var h := EvergreenRules.get_health(outcast_card)
+	return _assert(p == 9 and h == 9, "Pact Outcast: should be 9/9 (5/5 base + 4/4 veteran) after consuming, got %d/%d." % [p, h])
+
+
+func _test_consume_and_copy_veteran_fires_on_veteran_trigger() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	# Summon Pact Outcast analog in lane — already consumed once on summon (simulate by placing directly)
+	var outcast := ScenarioFixtures.summon_creature(player, match_state, "pact_outcast", "field", 5, 5, [], -1, {
+		"triggered_abilities": [
+			{"family": "summon", "effects": [{"op": "consume_and_copy_veteran", "target_mode": "any_creature"}]},
+			{"family": "veteran", "effects": [{"op": "consume_and_copy_veteran", "target_mode": "any_creature"}]},
+		],
+	})
+	var outcast_id := str(outcast.get("instance_id", ""))
+	# Put a veteran creature (+3/+3) in discard for the veteran-trigger consume
+	var meal := ScenarioFixtures.make_card(pid, "veteran_meal_2", {
+		"card_type": "creature", "cost": 2, "power": 2, "health": 2,
+		"triggered_abilities": [{"family": "veteran", "required_zone": "lane", "effects": [{"op": "modify_stats", "target": "self", "power": 3, "health": 3}]}],
+	})
+	meal["zone"] = "discard"
+	player["discard"] = [meal]
+	# Enemy blocker to attack into
+	var blocker := ScenarioFixtures.summon_creature(opponent, match_state, "blocker", "field", 1, 1)
+	ScenarioFixtures.ready_for_attack(outcast, match_state)
+	# Attack — should trigger veteran, which fires consume_and_copy_veteran pre-consume
+	var attack_result := MatchCombat.resolve_attack(match_state, pid, outcast_id, {
+		"type": "creature", "instance_id": str(blocker.get("instance_id", "")),
+	})
+	if not _assert(bool(attack_result.get("is_valid", false)), "Pact Outcast veteran: attack should resolve."):
+		return false
+	# Should have a pending consume selection from the veteran trigger
+	if not _assert(MatchTiming.has_pending_consume_selection(match_state, pid), "Pact Outcast veteran: should have pending consume after veteran trigger fires."):
+		return false
+	# Resolve the consume
+	var meal_id := str(meal.get("instance_id", ""))
+	var consume_result := MatchTiming.resolve_consume_selection(match_state, pid, meal_id)
+	if not _assert(bool(consume_result.get("is_valid", false)), "Pact Outcast veteran: consume selection should resolve."):
+		return false
+	if not _assert(not MatchTiming.has_pending_consume_selection(match_state, pid), "Pact Outcast veteran: no pending consume after resolving."):
+		return false
+	# Outcast should have +3/+3 from the consumed veteran ability (get_health is max, not current)
+	var outcast_card := MatchTimingHelpers._find_card_anywhere(match_state, outcast_id)
+	var p := EvergreenRules.get_power(outcast_card)
+	var h := EvergreenRules.get_health(outcast_card)
+	return _assert(p == 8 and h == 8, "Pact Outcast veteran: should be 8/8 (5+3/5+3 max stats), got %d/%d." % [p, h])
 
 
 func _lane_creatures(match_state: Dictionary, lane_id: String, player_id: String) -> Array:
