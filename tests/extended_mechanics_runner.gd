@@ -52,6 +52,7 @@ func _run_all_tests() -> bool:
 		_test_invade_gate_ward_target() and
 		_test_summon_daedra_by_gate_level() and
 		_test_treasure_hunt_and_consume_pack() and
+		_test_optional_consume_for_keyword_grants_drain() and
 		_test_treasure_hunt_count_based() and
 		_test_wax_and_wane_pack() and
 		_test_dual_wax_wane() and
@@ -121,7 +122,8 @@ func _run_all_tests() -> bool:
 		_test_consume_and_copy_veteran_fires_on_veteran_trigger() and
 		_test_strange_brew_transforms_hand_creature_with_cost_reduction() and
 		_test_optional_discard_and_summon_discards_and_summons_to_other_lane() and
-		_test_blind_moth_priest_glow_flag()
+		_test_blind_moth_priest_glow_flag() and
+		_test_emperors_attendant_hand_selection_modify_stats()
 	)
 
 
@@ -1344,6 +1346,30 @@ func _test_consume_reuse() -> bool:
 	)
 
 
+func _test_optional_consume_for_keyword_grants_drain() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var player_id := str(player.get("player_id", ""))
+	var opponent_id := str(opponent.get("player_id", ""))
+	var fledgling := ScenarioFixtures.summon_creature(player, match_state, "fledgling", "field", 4, 3, [], -1, {
+		"triggered_abilities": [{"family": "start_of_turn", "required_zone": "lane", "effects": [{"op": "optional_consume_for_keyword", "target": "self", "keyword_id": "drain", "duration": "end_of_turn"}]}],
+	})
+	var meal := ScenarioFixtures.summon_creature(player, match_state, "meal", "field", 1, 1)
+	MatchMutations.discard_card(match_state, str(meal.get("instance_id", "")), {"reason": "test_setup"})
+	# End both turns so player's start_of_turn fires, creating a pending consume selection
+	MatchTurnLoop.end_turn(match_state, player_id)
+	MatchTurnLoop.end_turn(match_state, opponent_id)
+	var has_pending := MatchTiming.has_pending_consume_selection(match_state, player_id)
+	if not _assert(has_pending, "optional_consume_for_keyword should create a pending consume selection"):
+		return false
+	# Resolve consume selection
+	var resolve_result := MatchTiming.resolve_consume_selection(match_state, player_id, str(meal.get("instance_id", "")))
+	if not _assert(bool(resolve_result.get("is_valid", false)), "resolve_consume_selection should succeed"):
+		return false
+	return _assert(EvergreenRules.has_keyword(fledgling, "drain"), "optional_consume_for_keyword should grant drain after consuming a creature")
+
+
 func _test_wax_and_wane_pack() -> bool:
 	var match_state := _build_started_match()
 	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
@@ -2220,7 +2246,9 @@ func _test_treasure_map_pack() -> bool:
 		_test_treasure_map_keyword_hunt() and
 		_test_treasure_map_zero_cost_hunt() and
 		_test_treasure_map_removes_from_deck() and
-		_test_treasure_map_count_based_hunt()
+		_test_treasure_map_count_based_hunt() and
+		_test_draw_if_top_deck_subtype_draws_animal() and
+		_test_draw_if_top_deck_subtype_moves_non_animal_to_bottom()
 	)
 
 
@@ -4594,3 +4622,102 @@ func _lane_creatures(match_state: Dictionary, lane_id: String, player_id: String
 		if str(lane.get("lane_id", "")) == lane_id:
 			return lane.get("player_slots", {}).get(player_id, [])
 	return []
+
+
+func _test_draw_if_top_deck_subtype_draws_animal() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Set up deck: top card is a Beast (Animal)
+	var beast_card := ScenarioFixtures.make_card(pid, "deck_beast", {
+		"card_type": "creature", "cost": 3, "power": 2, "health": 2,
+		"subtypes": ["Beast"],
+	})
+	var filler_card := ScenarioFixtures.make_card(pid, "deck_filler", {
+		"card_type": "creature", "cost": 1, "power": 1, "health": 1,
+	})
+	ScenarioFixtures.set_deck_cards(player, [filler_card, beast_card])  # beast on top (back)
+	# Add Obstinate Goat analog to hand
+	var goat := ScenarioFixtures.add_hand_card(player, "obstinate_goat", {
+		"card_type": "creature", "cost": 0, "power": 3, "health": 2,
+		"triggered_abilities": [{"family": "summon", "effects": [{"op": "draw_if_top_deck_subtype", "subtype": "Beast", "else_bottom": true}]}],
+	})
+	var hand_before: int = player.get("hand", []).size()
+	LaneRules.summon_from_hand(match_state, pid, str(goat.get("instance_id", "")), "field")
+	# Beast was on top — should have been drawn into hand
+	var hand_after: int = player.get("hand", []).size()
+	var deck_after: Array = player.get("deck", [])
+	if not _assert(ScenarioFixtures.contains_instance(player.get("hand", []), str(beast_card.get("instance_id", ""))),
+		"draw_if_top_deck_subtype: Beast should be drawn into hand."):
+		return false
+	return _assert(deck_after.size() == 1, "draw_if_top_deck_subtype: deck should have 1 card remaining, got %d." % deck_after.size())
+
+
+func _test_draw_if_top_deck_subtype_moves_non_animal_to_bottom() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Set up deck: top card is NOT a Beast
+	var non_beast := ScenarioFixtures.make_card(pid, "deck_nord", {
+		"card_type": "creature", "cost": 3, "power": 2, "health": 2,
+		"subtypes": ["Nord"],
+	})
+	var bottom_card := ScenarioFixtures.make_card(pid, "deck_bottom", {
+		"card_type": "creature", "cost": 1, "power": 1, "health": 1,
+	})
+	ScenarioFixtures.set_deck_cards(player, [bottom_card, non_beast])  # non_beast on top (back)
+	# Add Obstinate Goat analog to hand
+	var goat := ScenarioFixtures.add_hand_card(player, "obstinate_goat", {
+		"card_type": "creature", "cost": 0, "power": 3, "health": 2,
+		"triggered_abilities": [{"family": "summon", "effects": [{"op": "draw_if_top_deck_subtype", "subtype": "Beast", "else_bottom": true}]}],
+	})
+	var hand_before: int = player.get("hand", []).size()
+	LaneRules.summon_from_hand(match_state, pid, str(goat.get("instance_id", "")), "field")
+	# Non-beast was on top — should NOT be drawn, should be moved to bottom
+	var hand_after: int = player.get("hand", []).size()
+	var deck_after: Array = player.get("deck", [])
+	if not _assert(hand_after == hand_before - 1, "draw_if_top_deck_subtype else_bottom: hand should not gain cards (goat left hand). Before: %d, After: %d" % [hand_before, hand_after]):
+		return false
+	if not _assert(deck_after.size() == 2, "draw_if_top_deck_subtype else_bottom: deck should still have 2 cards, got %d." % deck_after.size()):
+		return false
+	# The non-beast should now be at the bottom (index 0), and bottom_card should be on top (back)
+	var new_top_id := str(deck_after.back().get("instance_id", ""))
+	var new_bottom_id := str(deck_after[0].get("instance_id", ""))
+	if not _assert(new_top_id == str(bottom_card.get("instance_id", "")),
+		"draw_if_top_deck_subtype else_bottom: bottom_card should now be on top. Got: %s" % new_top_id):
+		return false
+	return _assert(new_bottom_id == str(non_beast.get("instance_id", "")),
+		"draw_if_top_deck_subtype else_bottom: non-beast should now be on bottom. Got: %s" % new_bottom_id)
+
+
+func _test_emperors_attendant_hand_selection_modify_stats() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Add a creature in hand as a candidate for the buff
+	var hand_creature := ScenarioFixtures.add_hand_card(player, "hand_target", {
+		"card_type": "creature", "cost": 3, "power": 2, "health": 3,
+	})
+	var hand_creature_id := str(hand_creature.get("instance_id", ""))
+	# Summon Emperor's Attendant analog (power 1) with select_card_from_hand + modify_stats
+	var attendant := ScenarioFixtures.summon_creature(player, match_state, "emperors_attendant", "field", 1, 1, [], -1, {
+		"triggered_abilities": [{"family": "summon", "effects": [{"op": "select_card_from_hand", "filter": {"card_type": "creature"}, "then_op": "modify_stats", "then_context": {"power_source": "self_power", "health_source": "self_power"}, "prompt": "Choose a creature in your hand to buff."}]}],
+	})
+	if attendant.is_empty():
+		return _assert(false, "Emperor's Attendant should summon.")
+	# Should have a pending hand selection
+	var selection := MatchTiming.get_pending_hand_selection(match_state, pid)
+	if not _assert(not selection.is_empty(), "Emperor's Attendant: should create a pending hand selection."):
+		return false
+	if not _assert(str(selection.get("then_op", "")) == "modify_stats", "Emperor's Attendant: then_op should be modify_stats."):
+		return false
+	# Resolve by choosing the hand creature
+	var resolve_result := MatchTiming.resolve_pending_hand_selection(match_state, pid, hand_creature_id)
+	if not _assert(bool(resolve_result.get("is_valid", false)), "Emperor's Attendant: resolving hand selection should be valid."):
+		return false
+	# The hand creature should now have +1/+1 (attendant power was 1)
+	var final_power := EvergreenRules.get_power(hand_creature)
+	var final_health := EvergreenRules.get_health(hand_creature)
+	if not _assert(final_power == 3, "Emperor's Attendant: hand creature power should be 3 (2+1), got %d." % final_power):
+		return false
+	return _assert(final_health == 4, "Emperor's Attendant: hand creature health should be 4 (3+1), got %d." % final_health)

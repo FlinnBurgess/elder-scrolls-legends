@@ -21,7 +21,10 @@ func _run_all_tests() -> bool:
 		_test_temporary_magicka_spends_first_and_expires() and
 		_test_creature_summon_spends_temporary_magicka_first() and
 		_test_unaffordable_creature_summon_fails_without_spending() and
-		_test_ring_of_magicka_uses_one_charge_per_turn_and_is_destroyed()
+		_test_ring_of_magicka_uses_one_charge_per_turn_and_is_destroyed() and
+		_test_first_turn_hand_magicka_grants_temporary_magicka() and
+		_test_first_turn_hand_magicka_does_not_apply_on_later_turns() and
+		_test_first_turn_hand_cost_reduces_card_cost()
 	)
 
 
@@ -194,6 +197,54 @@ func _test_ring_of_magicka_uses_one_charge_per_turn_and_is_destroyed() -> bool:
 		return false
 
 	return _assert(second_player["ring_of_magicka_charges"] == 0 and not second_player["has_ring_of_magicka"], "Destroyed Ring should stay unavailable after the final charge is spent.")
+
+
+func _test_first_turn_hand_magicka_grants_temporary_magicka() -> bool:
+	var match_state := _prepare_ready_match(10, 0)
+	if not _assert(not match_state.is_empty(), "Expected first_turn_hand_magicka fixture to initialize."):
+		return false
+
+	var first_player: Dictionary = match_state["players"][0]
+	var magicka_card := _append_creature_to_hand(first_player, "elder", 5, 4, 5)
+	magicka_card["first_turn_hand_magicka"] = 1
+
+	MatchTurnLoop.begin_first_turn(match_state)
+	return (
+		_assert(first_player["temporary_magicka"] == 1, "Card with first_turn_hand_magicka should grant temporary magicka on first turn.") and
+		_assert(int(magicka_card.get("cost", 0)) == 5, "Card with first_turn_hand_magicka should not have its cost changed.")
+	)
+
+
+func _test_first_turn_hand_magicka_does_not_apply_on_later_turns() -> bool:
+	var match_state := _prepare_ready_match(10, 0)
+	if not _assert(not match_state.is_empty(), "Expected later turn magicka fixture to initialize."):
+		return false
+
+	MatchTurnLoop.begin_first_turn(match_state)
+	var first_player: Dictionary = match_state["players"][0]
+	MatchTurnLoop.end_turn(match_state, first_player["player_id"])
+	MatchTurnLoop.end_turn(match_state, match_state["players"][1]["player_id"])
+
+	var magicka_card := _append_creature_to_hand(first_player, "elder_late", 5, 4, 5)
+	magicka_card["first_turn_hand_magicka"] = 1
+
+	return _assert(first_player["temporary_magicka"] == 0, "Card with first_turn_hand_magicka should not grant bonus on later turns.")
+
+
+func _test_first_turn_hand_cost_reduces_card_cost() -> bool:
+	var match_state := _prepare_ready_match(10, 0)
+	if not _assert(not match_state.is_empty(), "Expected first_turn_hand_cost fixture to initialize."):
+		return false
+
+	var first_player: Dictionary = match_state["players"][0]
+	var cost_card := _append_creature_to_hand(first_player, "butcher", 3, 3, 2)
+	cost_card["first_turn_hand_cost"] = 1
+
+	MatchTurnLoop.begin_first_turn(match_state)
+	return (
+		_assert(int(cost_card.get("cost", 0)) == 1, "Card with first_turn_hand_cost should have its cost set on first turn.") and
+		_assert(first_player["temporary_magicka"] == 0, "Card with first_turn_hand_cost should not grant temporary magicka.")
+	)
 
 
 func _prepare_ready_match(deck_size: int, first_player_index: int) -> Dictionary:

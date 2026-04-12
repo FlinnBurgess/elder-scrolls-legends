@@ -516,6 +516,8 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 		card["self_immunity"] = definition["self_immunity"].duplicate(true)
 	if definition.has("first_turn_hand_cost"):
 		card["first_turn_hand_cost"] = int(definition["first_turn_hand_cost"])
+	if definition.has("first_turn_hand_magicka"):
+		card["first_turn_hand_magicka"] = int(definition["first_turn_hand_magicka"])
 	if definition.has("self_cost_reduction"):
 		card["self_cost_reduction"] = definition["self_cost_reduction"].duplicate(true)
 	if definition.has("passive_abilities"):

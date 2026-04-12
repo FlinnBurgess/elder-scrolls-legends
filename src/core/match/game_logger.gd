@@ -240,9 +240,9 @@ static func _log_creature_destroyed(match_state: Dictionary, event: Dictionary) 
 
 static func _log_card_drawn(match_state: Dictionary, event: Dictionary) -> void:
 	var player_id := str(event.get("player_id", ""))
-	var source_id := str(event.get("source_instance_id", ""))
-	var card := _find_card(match_state, source_id)
-	var card_name := str(card.get("name", source_id)) if not card.is_empty() else source_id
+	var drawn_id := str(event.get("drawn_instance_id", ""))
+	var card := _find_card(match_state, drawn_id)
+	var card_name := str(card.get("name", drawn_id)) if not card.is_empty() else drawn_id
 	_write("[DRAW] %s drew \"%s\"" % [player_id, card_name])
 
 

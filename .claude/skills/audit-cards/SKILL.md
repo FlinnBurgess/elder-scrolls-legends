@@ -71,7 +71,7 @@ Similarly, verify all `"family"` values exist in `FAMILY_SPECS` and all `action_
 
 ### Step 1c — Unimplemented Effect Sweep
 
-Scan every `_seed()` call for cards that have `rules_text` describing an active ability but **no implementation data** backing it — no `triggered_abilities`, no `aura`, no `innate_statuses`, no `self_immunity`, no `grants_trigger`, no `grants_immunity`, no `equip_power_bonus`/`equip_health_bonus`, and no `first_turn_hand_cost`.
+Scan every `_seed()` call for cards that have `rules_text` describing an active ability but **no implementation data** backing it — no `triggered_abilities`, no `aura`, no `innate_statuses`, no `self_immunity`, no `grants_trigger`, no `grants_immunity`, no `equip_power_bonus`/`equip_health_bonus`, no `first_turn_hand_cost`, and no `first_turn_hand_magicka`.
 
 Exclude cards where `rules_text`:
 - Is empty or absent

@@ -203,9 +203,13 @@ static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionar
 		if not drawn_cards.is_empty():
 			drawn_instance_id = str(drawn_cards[0].get("instance_id", ""))
 	if int(player.get("turns_started", 0)) == 1:
+		var first_turn_magicka_bonus := 0
 		for hand_card in player.get("hand", []):
 			if typeof(hand_card) == TYPE_DICTIONARY:
 				MatchMutations.apply_first_turn_hand_cost(match_state, hand_card, player_id)
+				first_turn_magicka_bonus += int(hand_card.get("first_turn_hand_magicka", 0))
+		if first_turn_magicka_bonus > 0:
+			player["temporary_magicka"] = int(player.get("temporary_magicka", 0)) + first_turn_magicka_bonus
 	MatchTiming.process_delayed_destroys(match_state, player_id)
 	if str(match_state.get("winner_player_id", "")).is_empty():
 		match_state["phase"] = PHASE_ACTION

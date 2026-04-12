@@ -297,21 +297,43 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					var cacidt_result := MatchMutations.consume_card(match_state, cacidt_controller_id, cacidt_source_id, str(cacidt_target.get("instance_id", "")), cacidt_opts)
 					generated_events.append_array(cacidt_result.get("events", []))
 		"optional_consume_for_keyword":
-			# Handled via pending consume selection
 			var ocfk_controller_id := str(trigger.get("controller_player_id", ""))
-			var ocfk_candidates = _MT().get_consume_candidates(match_state, ocfk_controller_id)
-			if not ocfk_candidates.is_empty():
-				var ocfk_candidate_ids: Array = []
-				for ocfk_c in ocfk_candidates:
-					ocfk_candidate_ids.append(str(ocfk_c.get("instance_id", "")))
-				var ocfk_pending: Array = match_state.get("pending_consume_selections", [])
-				ocfk_pending.append({
-					"player_id": ocfk_controller_id,
-					"source_instance_id": str(trigger.get("source_instance_id", "")),
-					"candidate_instance_ids": ocfk_candidate_ids,
-					"has_target_mode": false,
-					"trigger_index": int(trigger.get("trigger_index", 0)),
-				})
+			var ocfk_consumed_info: Dictionary = trigger.get("_consumed_card_info", {})
+			if not ocfk_consumed_info.is_empty():
+				# Post-consume: grant the keyword to the source card
+				var ocfk_keyword := str(effect.get("keyword_id", ""))
+				var ocfk_is_temp := str(effect.get("duration", "")) == "end_of_turn"
+				for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
+					EvergreenRules.ensure_card_state(card)
+					var ocfk_already_had := EvergreenRules.has_keyword(card, ocfk_keyword)
+					var ocfk_granted: Array = card.get("granted_keywords", [])
+					if not ocfk_granted.has(ocfk_keyword):
+						ocfk_granted.append(ocfk_keyword)
+						card["granted_keywords"] = ocfk_granted
+					if ocfk_is_temp:
+						EvergreenRules.add_temporary_keyword(card, ocfk_keyword, int(match_state.get("turn_number", 0)))
+					if not ocfk_already_had:
+						generated_events.append({
+							"event_type": "keyword_granted",
+							"source_instance_id": str(trigger.get("source_instance_id", "")),
+							"target_instance_id": str(card.get("instance_id", "")),
+							"keyword_id": ocfk_keyword,
+						})
+			else:
+				# Pre-consume: create pending consume selection
+				var ocfk_candidates = _MT().get_consume_candidates(match_state, ocfk_controller_id)
+				if not ocfk_candidates.is_empty():
+					var ocfk_candidate_ids: Array = []
+					for ocfk_c in ocfk_candidates:
+						ocfk_candidate_ids.append(str(ocfk_c.get("instance_id", "")))
+					var ocfk_pending: Array = match_state.get("pending_consume_selections", [])
+					ocfk_pending.append({
+						"player_id": ocfk_controller_id,
+						"source_instance_id": str(trigger.get("source_instance_id", "")),
+						"candidate_instance_ids": ocfk_candidate_ids,
+						"has_target_mode": false,
+						"trigger_index": int(trigger.get("trigger_index", 0)),
+					})
 		"consume_and_copy_veteran":
 			var cacv_controller_id := str(trigger.get("controller_player_id", ""))
 			var cacv_source_id := str(trigger.get("source_instance_id", ""))

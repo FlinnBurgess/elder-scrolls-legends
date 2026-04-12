@@ -112,6 +112,24 @@ static func build_test_match_state(config: Dictionary) -> Dictionary:
 		board_profile_id
 	)
 
+	# Apply first-turn hand effects (cost reduction / magicka bonus)
+	if turn_number == 1:
+		var catalog_result := CardCatalog.load_default()
+		var card_by_id: Dictionary = catalog_result.get("card_by_id", {})
+		for player in [p1, p2]:
+			var magicka_bonus := 0
+			for hand_card in player.get("hand", []):
+				var def_id := str(hand_card.get("definition_id", ""))
+				var definition: Dictionary = card_by_id.get(def_id, {})
+				if definition.has("first_turn_hand_cost"):
+					hand_card["cost"] = int(definition["first_turn_hand_cost"])
+					hand_card["first_turn_hand_cost"] = int(definition["first_turn_hand_cost"])
+				if definition.has("first_turn_hand_magicka"):
+					hand_card["first_turn_hand_magicka"] = int(definition["first_turn_hand_magicka"])
+					magicka_bonus += int(definition["first_turn_hand_magicka"])
+			if magicka_bonus > 0:
+				player["temporary_magicka"] = int(player.get("temporary_magicka", 0)) + magicka_bonus
+
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 

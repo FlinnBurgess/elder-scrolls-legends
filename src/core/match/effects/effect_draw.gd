@@ -440,18 +440,25 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 		"draw_if_top_deck_subtype":
 			var ditds_controller_id := str(trigger.get("controller_player_id", ""))
 			var ditds_player := MatchTimingHelpers._get_player_state(match_state, ditds_controller_id)
+			GameLogger.trc("EffDraw", "ditds_start", "ctrl:%s,player_empty:%s" % [ditds_controller_id, str(ditds_player.is_empty())])
 			if not ditds_player.is_empty():
 				var ditds_deck: Array = ditds_player.get(ZONE_DECK, [])
+				GameLogger.trc("EffDraw", "ditds_deck", "size:%d" % ditds_deck.size())
 				if not ditds_deck.is_empty():
 					var ditds_top: Dictionary = ditds_deck.back()
 					var ditds_filter_subtype := str(effect.get("subtype", effect.get("filter_subtype", "")))
 					var ditds_subtypes = ditds_top.get("subtypes", [])
+					GameLogger.trc("EffDraw", "ditds_check", "top:%s,filter:%s,subtypes:%s" % [str(ditds_top.get("name", ditds_top.get("definition_id", "?"))), ditds_filter_subtype, str(ditds_subtypes)])
 					if typeof(ditds_subtypes) == TYPE_ARRAY and ditds_subtypes.has(ditds_filter_subtype):
+						GameLogger.trc("EffDraw", "ditds_draw", "matched:%s" % ditds_filter_subtype)
 						var ditds_draw = _MT().draw_cards(match_state, ditds_controller_id, 1, {"reason": reason, "source_instance_id": str(trigger.get("source_instance_id", ""))})
 						generated_events.append_array(ditds_draw.get("events", []))
 					elif bool(effect.get("else_bottom", false)) and ditds_deck.size() > 1:
+						GameLogger.trc("EffDraw", "ditds_bottom", "moved:%s" % str(ditds_top.get("name", ditds_top.get("definition_id", "?"))))
 						var ditds_moved: Dictionary = ditds_deck.pop_back()
 						ditds_deck.push_front(ditds_moved)
+					else:
+						GameLogger.trc("EffDraw", "ditds_noop", "else_bottom:%s,deck_size:%d" % [str(effect.get("else_bottom", false)), ditds_deck.size()])
 		"draw_if_wielder_has_items":
 			var diwhi_source_id := str(trigger.get("source_instance_id", ""))
 			var diwhi_source := MatchTimingHelpers._find_card_anywhere(match_state, diwhi_source_id)

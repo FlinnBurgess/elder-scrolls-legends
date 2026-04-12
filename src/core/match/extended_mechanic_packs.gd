@@ -2731,6 +2731,20 @@ static func apply_hand_selection_effect(match_state: Dictionary, player_id: Stri
 			tfo_gained["controller_player_id"] = player_id
 			tfo_hand.append(tfo_gained)
 			return [{"event_type": "card_traded", "player_id": player_id, "discarded_id": str(chosen_card.get("instance_id", "")), "gained_id": str(tfo_gained.get("instance_id", ""))}]
+		"modify_stats":
+			var ms_power := int(then_context.get("power", 0))
+			var ms_health := int(then_context.get("health", 0))
+			var ms_power_source := str(then_context.get("power_source", ""))
+			var ms_health_source := str(then_context.get("health_source", ""))
+			if not ms_power_source.is_empty() or not ms_health_source.is_empty():
+				var ms_source_card := _find_card_anywhere(match_state, source_instance_id)
+				if not ms_source_card.is_empty():
+					if ms_power_source == "self_power":
+						ms_power = EvergreenRules.get_power(ms_source_card)
+					if ms_health_source == "self_power":
+						ms_health = EvergreenRules.get_power(ms_source_card)
+			EvergreenRules.apply_stat_bonus(chosen_card, ms_power, ms_health, "hand_selection_modify_stats")
+			return [{"event_type": "card_stats_modified", "source_instance_id": source_instance_id, "target_instance_id": str(chosen_card.get("instance_id", "")), "player_id": player_id, "power": ms_power, "health": ms_health, "zone": "hand"}]
 		"play_card_from_hand_free":
 			chosen_card["_play_for_free"] = true
 			var pfp_arr: Array = match_state.get("pending_free_plays", [])

@@ -511,6 +511,8 @@ static func build_generated_card(match_state: Dictionary, controller_player_id: 
 					card["innate_statuses"] = seed_innate.duplicate(true)
 				if seed.has("first_turn_hand_cost") and not card.has("first_turn_hand_cost"):
 					card["first_turn_hand_cost"] = int(seed["first_turn_hand_cost"])
+				if seed.has("first_turn_hand_magicka") and not card.has("first_turn_hand_magicka"):
+					card["first_turn_hand_magicka"] = int(seed["first_turn_hand_magicka"])
 				break
 	if not card.has("art_path") and not def_id.is_empty():
 		card["art_path"] = "res://assets/images/cards/" + def_id + ".png"

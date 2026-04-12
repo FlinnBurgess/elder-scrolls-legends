@@ -1,41 +1,5 @@
 [
 	{
-		"card_id": "iom_agi_greatwood_elder",
-		"name": "Greatwood Elder",
-		"card_type": "creature",
-		"cost": 5,
-		"attributes": [
-			"agility"
-		],
-		"rules_text": "Guard\nIf Greatwood Elder is in your hand at the start of your first turn, gain 1 magicka this turn.",
-		"stripped_text": "If Greatwood Elder is in your hand at the start of your first turn, gain 1 magicka this turn.",
-		"complexity": 93
-	},
-	{
-		"card_id": "hom_wil_ambitious_hireling",
-		"name": "Ambitious Hireling",
-		"card_type": "creature",
-		"cost": 2,
-		"attributes": [
-			"willpower"
-		],
-		"rules_text": "Summon: Give another friendly creature power and health equal to Ambitious Hireling's power.",
-		"stripped_text": "Summon: Give another friendly creature power and health equal to Ambitious Hireling's power.",
-		"complexity": 92
-	},
-	{
-		"card_id": "aw_end_bishop_of_the_hour",
-		"name": "Bishop of the Hour",
-		"card_type": "creature",
-		"cost": 6,
-		"attributes": [
-			"endurance"
-		],
-		"rules_text": "Summon: If you have another creature in each lane, give the top creature of your deck +5/+5.",
-		"stripped_text": "Summon: If you have another creature in each lane, give the top creature of your deck +5/+5.",
-		"complexity": 92
-	},
-	{
 		"card_id": "tc_agi_obstinate_goat",
 		"name": "Obstinate Goat",
 		"card_type": "creature",
@@ -46,66 +10,6 @@
 		"rules_text": "Summon: If the top card of your deck is an Animal, draw it. Otherwise, put it on the bottom.",
 		"stripped_text": "Summon: If the top card of your deck is an Animal, draw it. Otherwise, put it on the bottom.",
 		"complexity": 92
-	},
-	{
-		"card_id": "dg_agi_knowledge_plagiarist",
-		"name": "Knowledge Plagiarist",
-		"card_type": "creature",
-		"cost": 4,
-		"attributes": [
-			"agility"
-		],
-		"rules_text": "Summon: Knowledge Plagiarist steals an item from your opponent's discard pile and equips it.",
-		"stripped_text": "Summon: Knowledge Plagiarist steals an item from your opponent's discard pile and equips it.",
-		"complexity": 92
-	},
-	{
-		"card_id": "dg_end_vampire_fledgling",
-		"name": "Vampire Fledgling",
-		"card_type": "creature",
-		"cost": 3,
-		"attributes": [
-			"endurance"
-		],
-		"rules_text": "At the start of your turn, Vampire Fledgling may Consume a creature to gain Drain this turn.",
-		"stripped_text": "At the start of your turn, Vampire Fledgling may Consume a creature to gain Drain this turn.",
-		"complexity": 92
-	},
-	{
-		"card_id": "agi_camoran_scout_leader",
-		"name": "Camoran Scout Leader",
-		"card_type": "creature",
-		"cost": 5,
-		"attributes": [
-			"agility"
-		],
-		"rules_text": "Summon: Summon a 2/2 Wood Elf Scout with Charge in each lane with a Wounded enemy creature.",
-		"stripped_text": "Summon: Summon a 2/2 Wood Elf Scout with Charge in each lane with a Wounded enemy creature.",
-		"complexity": 91
-	},
-	{
-		"card_id": "hom_str_imposters_mission",
-		"name": "Imposter's Mission",
-		"card_type": "action",
-		"cost": 4,
-		"attributes": [
-			"strength"
-		],
-		"rules_text": "Summon an Imposter with power and health equal to the power of your most powerful creature.",
-		"stripped_text": "Summon an Imposter with power and health equal to the power of your most powerful creature.",
-		"complexity": 91
-	},
-	{
-		"card_id": "joo_end_emperors_attendant",
-		"name": "Emperor's Attendant",
-		"card_type": "creature",
-		"cost": 2,
-		"attributes": [
-			"endurance"
-		],
-		"rules_text": "Summon: Give a creature in your hand power and health equal to Emperor's Attendant's power.",
-		"stripped_text": "Summon: Give a creature in your hand power and health equal to Emperor's Attendant's power.",
-		"complexity": 91
 	},
 	{
 		"card_id": "joo_neu_great_sigil_stone",
