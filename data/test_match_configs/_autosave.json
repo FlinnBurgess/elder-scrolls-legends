@@ -2,18 +2,16 @@
 	"enemy": {
 		"current_magicka": 12.0,
 		"deck": [
-			"str_afflicted_alit",
-			"str_afflicted_alit",
-			"str_afflicted_alit",
-			"str_afflicted_alit",
-			"str_afflicted_alit"
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark"
 		],
 		"discard": [],
-		"field_creatures": [],
-		"hand": [
-			"hos_str_aela_the_huntress",
-			"cwc_neu_abomination"
+		"field_creatures": [
+			null,
+			null
 		],
+		"hand": [],
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [],
@@ -32,26 +30,27 @@
 	"name": "",
 	"player": {
 		"current_magicka": 12.0,
-		"deck": [],
+		"deck": [
+			"int_abecean_navigator"
+		],
 		"discard": [],
 		"field_creatures": [
 			null,
 			null,
-			"hom_wil_shrine_guardian",
 			"str_reive_blademaster"
 		],
 		"hand": [
 			"wil_piercing_javelin",
-			"cwc_neu_assembled_sanitizer",
-			"hos_neu_barbas",
-			"joo_int_occult_ritemaster",
-			"cwc_neu_assembled_titan",
-			"tc_str_explore"
+			"str_rapid_shot",
+			"iom_end_xavara_atronach"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [],
+		"shadow_creatures": [
+			"aw_end_imperial_lackey",
+			"joo_str_mehrunes_dagons_flayer"
+		],
 		"supports": [
 			"mc_neu_yagrums_workshop"
 		]

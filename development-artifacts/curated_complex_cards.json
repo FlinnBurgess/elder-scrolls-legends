@@ -1,77 +1,5 @@
 [
 	{
-		"card_id": "hom_wil_shrine_guardian",
-		"name": "Shrine Guardian",
-		"card_type": "creature",
-		"cost": 8,
-		"attributes": [
-			"willpower"
-		],
-		"rules_text": "Guard\nWhen your opponent summons a creature, reduce its power to 0 until the start of your turn.",
-		"stripped_text": "When your opponent summons a creature, reduce its power to 0 until the start of your turn.",
-		"complexity": 90
-	},
-	{
-		"card_id": "str_reive_blademaster",
-		"name": "Reive, Blademaster",
-		"card_type": "creature",
-		"cost": 4,
-		"attributes": [
-			"strength"
-		],
-		"rules_text": "When Reive attacks, deal 2 damage to your opponent, then increase the damage dealt by 2.",
-		"stripped_text": "When Reive attacks, deal 2 damage to your opponent, then increase the damage dealt by 2.",
-		"complexity": 88
-	},
-	{
-		"card_id": "str_whirling_duelist",
-		"name": "Whirling Duelist",
-		"card_type": "creature",
-		"cost": 6,
-		"attributes": [
-			"strength"
-		],
-		"rules_text": "When Whirling Duelist equips an item, deal 1 damage to all enemy creatures in this lane.",
-		"stripped_text": "When Whirling Duelist equips an item, deal 1 damage to all enemy creatures in this lane.",
-		"complexity": 88
-	},
-	{
-		"card_id": "neu_dwarven_centurion",
-		"name": "Dwarven Centurion",
-		"card_type": "creature",
-		"cost": 7,
-		"attributes": [
-			"neutral"
-		],
-		"rules_text": "Breakthrough\nWhen Dwarven Centurion takes damage, put a 0/3 Dwarven Spider with Guard into your hand.",
-		"stripped_text": "When Dwarven Centurion takes damage, put a 0/3 Dwarven Spider with Guard into your hand.",
-		"complexity": 88
-	},
-	{
-		"card_id": "hom_int_genius_pathmage",
-		"name": "Genius Pathmage",
-		"card_type": "creature",
-		"cost": 7,
-		"attributes": [
-			"intelligence"
-		],
-		"rules_text": "Summon: Summon a random creature from your deck with cost equal to your current magicka.",
-		"stripped_text": "Summon: Summon a random creature from your deck with cost equal to your current magicka.",
-		"complexity": 88
-	},
-	{
-		"card_id": "aw_end_imperial_lackey",
-		"name": "Imperial Lackey",
-		"card_type": "creature",
-		"cost": 2,
-		"attributes": [
-			"endurance"
-		],
-		"rules_text": "Last Gasp: If you have another creature in each lane, summon a 1/1 Recruit in each lane.",
-		"stripped_text": "Last Gasp: If you have another creature in each lane, summon a 1/1 Recruit in each lane.",
-		"complexity": 88
-	},
-	{
 		"card_id": "joo_str_mehrunes_dagons_flayer",
 		"name": "Mehrunes Dagon's Flayer",
 		"card_type": "creature",
@@ -81,18 +9,6 @@
 		],
 		"rules_text": "At the start of your turn, deal 1 damage to another friendly creature and give it +2/+0.",
 		"stripped_text": "At the start of your turn, deal 1 damage to another friendly creature and give it +2/+0.",
-		"complexity": 88
-	},
-	{
-		"card_id": "iom_end_xavara_atronach",
-		"name": "Xavara Atronach",
-		"card_type": "creature",
-		"cost": 3,
-		"attributes": [
-			"endurance"
-		],
-		"rules_text": "Summon: You may sacrifice another creature to give Xavara Atronach its power and health.",
-		"stripped_text": "Summon: You may sacrifice another creature to give Xavara Atronach its power and health.",
 		"complexity": 88
 	},
 	{

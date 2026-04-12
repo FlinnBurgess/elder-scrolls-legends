@@ -750,7 +750,10 @@ func _start_deferred_visual_animation(pending: Array) -> void:
 		var source_id := str(trigger.get("source_instance_id", ""))
 		if not by_source.has(source_id):
 			by_source[source_id] = []
-		by_source[source_id].append({"target_id": str(event.get("target_instance_id", "")), "amount": int(event.get("amount", 0))})
+		var _dv_target := str(event.get("target_instance_id", ""))
+		if _dv_target.is_empty():
+			_dv_target = str(trigger.get("_chosen_target_id", ""))
+		by_source[source_id].append({"target_id": _dv_target, "amount": int(event.get("amount", 0))})
 	for source_id in by_source.keys():
 		var source_button: Button = _screen._card_buttons.get(source_id)
 		if source_button == null or not is_instance_valid(source_button):

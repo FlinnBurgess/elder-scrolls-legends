@@ -218,7 +218,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				if saas_source.is_empty():
 					return
 				var saas_power := EvergreenRules.get_power(card)
-				var saas_health := EvergreenRules.get_health(card)
+				var saas_health := EvergreenRules.get_remaining_health(card)
 				var saas_sac := MatchMutations.sacrifice_card(match_state, str(card.get("controller_player_id", "")), str(card.get("instance_id", "")), {"reason": reason})
 				generated_events.append_array(saas_sac.get("events", []))
 				generated_events.append({"event_type": EVENT_CREATURE_DESTROYED, "instance_id": str(card.get("instance_id", "")), "controller_player_id": str(card.get("controller_player_id", ""))})

@@ -126,7 +126,8 @@ func _run_all_tests() -> bool:
 		_test_strange_brew_transforms_hand_creature_with_cost_reduction() and
 		_test_optional_discard_and_summon_discards_and_summons_to_other_lane() and
 		_test_blind_moth_priest_glow_flag() and
-		_test_emperors_attendant_hand_selection_modify_stats()
+		_test_emperors_attendant_hand_selection_modify_stats() and
+		_test_sacrifice_and_absorb_stats_uses_remaining_health()
 	)
 
 
@@ -4848,3 +4849,30 @@ func _test_emperors_attendant_hand_selection_modify_stats() -> bool:
 	if not _assert(final_power == 3, "Emperor's Attendant: hand creature power should be 3 (2+1), got %d." % final_power):
 		return false
 	return _assert(final_health == 4, "Emperor's Attendant: hand creature health should be 4 (3+1), got %d." % final_health)
+
+
+func _test_sacrifice_and_absorb_stats_uses_remaining_health() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Summon the sacrifice target with 4/6 base, then deal 2 damage so remaining health = 4
+	var victim := ScenarioFixtures.summon_creature(player, match_state, "victim", "field", 4, 6)
+	EvergreenRules.apply_damage(victim, 2)
+	if not _assert(EvergreenRules.get_remaining_health(victim) == 4, "Victim should have 4 remaining health."):
+		return false
+	# Summon the absorber (like Xavara Atronach) with sacrifice_and_absorb_stats summon
+	var absorber := ScenarioFixtures.summon_creature(player, match_state, "absorber", "field", 3, 3, [], -1, {
+		"triggered_abilities": [{"family": "summon", "target_mode": "another_friendly_creature_optional", "effects": [{"op": "sacrifice_and_absorb_stats", "target": "chosen_target"}]}],
+	})
+	var absorber_id := str(absorber.get("instance_id", ""))
+	# Resolve the summon target choice — pick the victim
+	var resolve := MatchTiming.resolve_pending_summon_effect_target(match_state, pid, str(victim.get("instance_id", "")))
+	if not _assert(bool(resolve.get("is_valid", false)), "Absorb target resolution should be valid."):
+		return false
+	var final_absorber := MatchTimingHelpers._find_card_anywhere(match_state, absorber_id)
+	var final_power := EvergreenRules.get_power(final_absorber)
+	var final_health := EvergreenRules.get_remaining_health(final_absorber)
+	return (
+		_assert(final_power == 7, "Absorber power should be 3+4=7, got %d." % final_power) and
+		_assert(final_health == 7, "Absorber health should be 3+4=7 (remaining, not max), got %d." % final_health)
+	)

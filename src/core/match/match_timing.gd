@@ -3132,7 +3132,7 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 			if _defer_visual:
 				var _dv_family := str(trigger.get("descriptor", {}).get("family", ""))
 				var _dv_spec: Dictionary = FAMILY_SPECS.get(_dv_family, {})
-				if bool(_dv_spec.get("deferred_visual", false)):
+				if bool(_dv_spec.get("deferred_visual", false)) or bool(trigger.get("descriptor", {}).get("deferred_visual", false)):
 					var _dv_pending: Array = match_state["pending_visual_effects"]
 					_dv_pending.append({"trigger": trigger.duplicate(true), "event": event.duplicate(true), "resolution": resolution.duplicate(true)})
 					continue

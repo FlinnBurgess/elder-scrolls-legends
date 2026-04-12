@@ -1159,6 +1159,9 @@ func _complete_end_turn(player_id: String) -> void:
 			_refresh._refresh_ui()
 			return
 	_refresh._refresh_ui()
+	var pending_visual: Array = _match_state.get("pending_visual_effects", [])
+	if not pending_visual.is_empty():
+		_feedback._start_deferred_visual_animation.call_deferred(pending_visual)
 	if _arena_mode:
 		match_state_changed.emit(_match_state.duplicate(true))
 

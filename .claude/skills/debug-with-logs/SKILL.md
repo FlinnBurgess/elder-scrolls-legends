@@ -54,6 +54,12 @@ Present your findings concisely:
 
 3. **Verdict** — State clearly whether the log confirms the reported issue or not. If the evidence is ambiguous, say so and explain why.
 
+## Step 3.5: Add Missing Logging
+
+If there is a gap in the log trace that would help diagnose the current issue (e.g., a code path with no `[TRC]` lines, a trigger that doesn't log its targets, a branch that silently fails), add the necessary logging to the relevant engine or effect code before proceeding with the fix. This makes the current investigation easier and may help diagnose future issues.
+
+After fixing the bug, evaluate the logging you added: if it would be generally useful for debugging other issues that come up later, leave it in. If it's hyper-specific to this one investigation and would just be noise, remove it.
+
 ## Step 4: Fix the Bug
 
 If the log confirms a bug:

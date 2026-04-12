@@ -254,6 +254,7 @@ func _build_card_display_component(card: Dictionary, surface: String, instance_i
 		display_card["_effective_cost"] = effective_cost
 		if hand_controller == _screen._active_player_id():
 			_apply_empower_text_updates(display_card, hand_controller)
+	_apply_escalating_damage_text_updates(display_card)
 	component.apply_card(display_card, _screen._card_display._card_presentation_mode(card, surface))
 	if component.has_method("set_wax_wane_phases"):
 		component.set_wax_wane_phases(_get_wax_wane_phases_for_card(card))
@@ -518,6 +519,31 @@ func _get_wax_wane_phases_for_card(card: Dictionary) -> Array:
 				return ["wax", "wane"]
 			return [phase]
 	return []
+
+
+func _apply_escalating_damage_text_updates(display_card: Dictionary) -> void:
+	var abilities: Array = display_card.get("triggered_abilities", [])
+	for ability in abilities:
+		if typeof(ability) != TYPE_DICTIONARY:
+			continue
+		for effect in ability.get("effects", []):
+			if typeof(effect) != TYPE_DICTIONARY:
+				continue
+			if str(effect.get("op", "")) != "escalating_damage":
+				continue
+			var counter_key := str(effect.get("counter_key", "escalating_counter"))
+			var base_amount := int(effect.get("base_amount", 0))
+			var current_counter := int(display_card.get(counter_key, 0))
+			var next_amount := base_amount + current_counter
+			if next_amount == base_amount:
+				continue
+			var rules_text := str(display_card.get("rules_text", ""))
+			if rules_text.is_empty():
+				continue
+			var regex := RegEx.new()
+			regex.compile("[Dd]eal %d damage" % base_amount)
+			display_card["rules_text"] = regex.sub(rules_text, "Deal %d damage" % next_amount)
+			return
 
 
 func _apply_empower_text_updates(display_card: Dictionary, player_id: String) -> void:
