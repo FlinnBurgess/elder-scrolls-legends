@@ -582,6 +582,13 @@ static func silence_card(card: Dictionary, options: Dictionary = {}, match_state
 
 static func change_card(card: Dictionary, template: Dictionary, options: Dictionary = {}) -> Dictionary:
 	var previous_definition_id := str(card.get("definition_id", ""))
+	# Clear temporary stat bonuses before preserving state. The creature is
+	# becoming a new form — temporary effects from the old form (e.g. Shrine
+	# Guardian's "set power to 0 until start of your turn") should not carry
+	# over. This reverts power_bonus/health_bonus to their permanent values
+	# before we snapshot them for preservation.
+	EvergreenRules.clear_temporary_stat_bonuses(card, 999999)
+	EvergreenRules.clear_temporary_keywords(card, 999999)
 	var preserved := _preserve_card_state(card, {
 		"modifiers": true,
 		"damage": true,
@@ -607,7 +614,7 @@ static func change_card(card: Dictionary, template: Dictionary, options: Diction
 			"source_controller_player_id": str(card.get("controller_player_id", "")),
 			"lane_id": str(card.get("lane_id", "")),
 			"slot_index": int(card.get("slot_index", -1)),
-			"reason": str(options.get("reason", "change")),
+			"reason": "change",
 		})
 	return {"is_valid": true, "errors": [], "card": card, "events": change_events}
 

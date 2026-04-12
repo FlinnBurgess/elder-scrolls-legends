@@ -1248,6 +1248,8 @@ static func resolve_pending_summon_effect_target(match_state: Dictionary, player
 		deferred_trigger["descriptor"] = desc
 		var generated := MatchEffectApplication._apply_effects(match_state, deferred_trigger, deferred_event, {})
 		var timing_result := publish_events(match_state, generated)
+		# Yagrum's Workshop: double targeted summon for neutral cards
+		_maybe_requeue_doubled_summon_target(match_state, entry)
 		var budget_resume := _resume_budget_summons_if_needed(match_state)
 		return {"is_valid": true, "events": timing_result.get("processed_events", []) + budget_resume.get("events", []), "trigger_resolutions": timing_result.get("trigger_resolutions", []) + budget_resume.get("trigger_resolutions", [])}
 	var resolve_options := {}
@@ -1255,11 +1257,43 @@ static func resolve_pending_summon_effect_target(match_state: Dictionary, player
 	if typeof(entry_families) == TYPE_ARRAY and not entry_families.is_empty():
 		resolve_options["allowed_families"] = entry_families
 	var resolve_result := resolve_targeted_effect(match_state, source_id, target_info, resolve_options)
+	# Yagrum's Workshop: double targeted summon for neutral cards
+	if resolve_result.get("is_valid", false):
+		_maybe_requeue_doubled_summon_target(match_state, entry)
 	# Resume any paused budget summon loops
 	var budget_resume := _resume_budget_summons_if_needed(match_state)
 	var combined_events: Array = resolve_result.get("events", []) + budget_resume.get("events", [])
 	var combined_resolutions: Array = resolve_result.get("trigger_resolutions", []) + budget_resume.get("trigger_resolutions", [])
 	return {"is_valid": resolve_result.get("is_valid", false), "events": combined_events, "trigger_resolutions": combined_resolutions}
+
+
+static func _maybe_requeue_doubled_summon_target(match_state: Dictionary, entry: Dictionary) -> void:
+	if bool(entry.get("_doubled", false)):
+		return
+	var source_id := str(entry.get("source_instance_id", ""))
+	var pid := str(entry.get("player_id", ""))
+	var player := MatchTimingHelpers._get_player_state(match_state, pid)
+	if not bool(player.get("_double_summon_this_turn", false)):
+		return
+	# Only double for summon-family entries
+	var entry_families: Array = entry.get("allowed_families", [])
+	if typeof(entry_families) == TYPE_ARRAY and not entry_families.is_empty():
+		if not entry_families.has("summon"):
+			return
+	# Only double for neutral cards
+	var source_card := MatchTimingHelpers._find_card_anywhere(match_state, source_id)
+	if source_card.is_empty():
+		return
+	var attributes = source_card.get("attributes", [])
+	if typeof(attributes) != TYPE_ARRAY:
+		return
+	if not (attributes.is_empty() or attributes.has("neutral")):
+		return
+	# Re-queue for the second firing with _doubled flag
+	var doubled_entry := entry.duplicate(true)
+	doubled_entry["_doubled"] = true
+	var pending_arr: Array = match_state.get("pending_summon_effect_targets", [])
+	pending_arr.push_front(doubled_entry)
 
 
 static func decline_pending_summon_effect_target(match_state: Dictionary, player_id: String) -> Dictionary:

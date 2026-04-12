@@ -1032,6 +1032,9 @@ static func _expand_target_parameter_sets(match_state: Dictionary, requirements:
 											break
 								if aic_immune:
 									continue
+					# Skip creatures with action_immune status (e.g. Ebonthread Cloak)
+					if EvergreenRules.has_raw_status(card, "action_immune"):
+						continue
 				var next_parameters: Dictionary = parameters.duplicate(true)
 				next_parameters["target_instance_id"] = str(card.get("instance_id", ""))
 				expanded_card_sets.append(next_parameters)

@@ -34,6 +34,9 @@ func _run_all_tests() -> bool:
 		_test_yagrums_workshop_clears_at_end_of_turn() and
 		_test_beast_form_pack() and
 		_test_beast_form_change_fires_summon_and_preserves_buffs() and
+		_test_beast_form_targeted_summon_fires_immediately() and
+		_test_set_power_with_duration_expires() and
+		_test_set_power_duration_cleared_on_change() and
 		_test_veteran_hook() and
 		_test_action_pack_matrix() and
 		_test_empower_and_expertise_hooks() and
@@ -480,6 +483,7 @@ func _test_yagrums_workshop_doubles_assemble() -> bool:
 	)
 
 
+
 func _test_yagrums_workshop_clears_at_end_of_turn() -> bool:
 	var match_state := _build_started_match()
 	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
@@ -555,6 +559,129 @@ func _test_beast_form_change_fires_summon_and_preserves_buffs() -> bool:
 		_assert(hand_after > hand_before, "Werewolf summon ability (draw a card) should fire after Beast Form change.") and
 		_assert(EvergreenRules.get_power(beast) == 6, "Changed beast should have 4 base + 2 buff = 6 power.") and
 		_assert(EvergreenRules.get_health(beast) == 6, "Changed beast should have 4 base + 2 buff = 6 health.")
+	)
+
+
+func _test_beast_form_targeted_summon_fires_immediately() -> bool:
+	# When a beast form creature transforms (via rune break), its targeted summon
+	# ability should fire immediately — not be deferred to the controller's next turn.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	# Summon an enemy creature that the werewolf's summon will target
+	var enemy := ScenarioFixtures.summon_creature(opponent, match_state, "enemy_target", "field", 2, 3)
+	# Wound the enemy so it qualifies for "destroy a wounded enemy creature"
+	EvergreenRules.apply_damage_to_creature(enemy, 1)
+	# Create a beast form creature with a targeted summon: destroy a wounded enemy
+	var beast := ScenarioFixtures.summon_creature(player, match_state, "aela_test", "field", 3, 3, [], -1, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_RUNE_BREAK,
+			"match_role": "opponent_player",
+			"required_zone": "lane",
+			"effects": [{
+				"op": "change",
+				"target": "self",
+				"card_template": {
+					"definition_id": "aela_werewolf",
+					"name": "Aela Werewolf",
+					"card_type": "creature",
+					"power": 5, "health": 5,
+					"triggered_abilities": [{"family": "summon", "target_mode": "wounded_enemy_creature", "effects": [{"op": "destroy_creature", "target": "chosen_target"}]}],
+				},
+			}],
+		}],
+	})
+	# Break opponent rune to trigger beast form
+	var damage_result := MatchTiming.apply_player_damage(match_state, str(opponent.get("player_id", "")), 6, {
+		"source_instance_id": str(beast.get("instance_id", "")),
+		"source_controller_player_id": str(player.get("player_id", "")),
+	})
+	MatchTiming.publish_events(match_state, damage_result.get("events", []))
+	# The enemy creature should be destroyed immediately — not deferred
+	var enemy_zone := str(enemy.get("zone", ""))
+	var has_pending := MatchTiming.has_pending_summon_effect_target(match_state, str(player.get("player_id", "")))
+	return (
+		_assert(str(beast.get("definition_id", "")) == "aela_werewolf", "Beast should transform into werewolf form.") and
+		_assert(enemy_zone == "discard", "Wounded enemy should be destroyed immediately by beast form summon, got zone: %s." % enemy_zone) and
+		_assert(not has_pending, "There should be no pending summon effect targets — the targeted summon should have resolved immediately.")
+	)
+
+
+func _test_set_power_with_duration_expires() -> bool:
+	# set_power with duration "start_of_next_turn" should expire at end of turn.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	# Summon Shrine Guardian (player's creature)
+	ScenarioFixtures.summon_creature(player, match_state, "shrine_guardian_test", "field", 8, 8, [EvergreenRules.KEYWORD_GUARD], -1, {
+		"triggered_abilities": [{
+			"family": "on_enemy_summon",
+			"required_zone": "lane",
+			"effects": [{"op": "set_power", "target": "event_summoned_creature", "value": 0, "duration": "start_of_next_turn"}],
+		}],
+	})
+	# Summon an enemy creature — should have its power reduced to 0
+	var enemy := ScenarioFixtures.summon_creature(opponent, match_state, "enemy_creature", "field", 4, 3)
+	var power_after_summon := EvergreenRules.get_power(enemy)
+	if not _assert(power_after_summon == 0, "Enemy creature should have power set to 0 after summon (got %d)." % power_after_summon):
+		return false
+	# End the turn — temporary bonus should be cleared
+	MatchTurnLoop.end_turn(match_state, pid)
+	var power_after_turn_end := EvergreenRules.get_power(enemy)
+	return _assert(power_after_turn_end == 4, "Enemy creature power should revert to 4 after turn ends (got %d)." % power_after_turn_end)
+
+
+func _test_set_power_duration_cleared_on_change() -> bool:
+	# When a creature has a temporary set_power debuff and then transforms via
+	# beast form (change), the temp debuff should be cleared as part of the
+	# change — the creature is becoming a new form and temp effects don't carry.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Shrine Guardian (player's creature) with on_enemy_summon → set power 0
+	ScenarioFixtures.summon_creature(player, match_state, "shrine_guardian_test", "field", 8, 8, [EvergreenRules.KEYWORD_GUARD], -1, {
+		"triggered_abilities": [{
+			"family": "on_enemy_summon",
+			"required_zone": "lane",
+			"effects": [{"op": "set_power", "target": "event_summoned_creature", "value": 0, "duration": "start_of_next_turn"}],
+		}],
+	})
+	# Summon Aela during opponent's turn — Shrine Guardian debuffs her
+	match_state["active_player_id"] = oid
+	var aela := ScenarioFixtures.summon_creature(opponent, match_state, "aela_test", "field", 3, 3, [], -1, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_RUNE_BREAK,
+			"match_role": "opponent_player",
+			"required_zone": "lane",
+			"effects": [{
+				"op": "change",
+				"target": "self",
+				"card_template": {
+					"definition_id": "aela_werewolf",
+					"name": "Aela Werewolf",
+					"card_type": "creature",
+					"power": 5, "health": 5,
+					"triggered_abilities": [],
+				},
+			}],
+		}],
+	})
+	if not _assert(EvergreenRules.get_power(aela) == 0, "Aela should be debuffed to 0 power after summon."):
+		return false
+	# Break PLAYER's rune to trigger Aela's beast form (match_role "opponent_player"
+	# means Aela fires when her controller's opponent = player has a rune broken).
+	var damage_result := MatchTiming.apply_player_damage(match_state, pid, 6, {
+		"source_instance_id": str(aela.get("instance_id", "")),
+		"source_controller_player_id": oid,
+	})
+	MatchTiming.publish_events(match_state, damage_result.get("events", []))
+	var power_after_change := EvergreenRules.get_power(aela)
+	return (
+		_assert(str(aela.get("definition_id", "")) == "aela_werewolf", "Aela should have changed to werewolf form.") and
+		_assert(power_after_change == 5, "Aela werewolf should have 5 power — temp debuff cleared by change (got %d)." % power_after_change)
 	)
 
 

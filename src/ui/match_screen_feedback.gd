@@ -733,6 +733,10 @@ func _animate_enemy_attack_arrow(action: Dictionary, _result: Dictionary) -> voi
 	tween.tween_callback(func():
 		_dismiss_attack_arrow()
 		_screen._refresh_ui()
+		# Check for deferred visual effects (e.g. beast form triggered by rune break from this attack)
+		var pending_visual: Array = _screen._match_state.get("pending_visual_effects", [])
+		if not pending_visual.is_empty():
+			_start_deferred_visual_animation.call_deferred(pending_visual)
 	)
 
 
@@ -1089,29 +1093,40 @@ func _animate_enemy_spell_reveal(action: Dictionary, _result: Dictionary) -> voi
 	tween.tween_callback(func():
 		var target: Dictionary = action.get("target", {})
 		var target_kind := str(target.get("kind", ""))
+		var arrow_end := Vector2.ZERO
+		var has_target := false
 		if target_kind == "card":
 			var target_id := str(target.get("instance_id", ""))
 			var button: Button = _screen._card_buttons.get(target_id)
 			if button != null and is_instance_valid(button):
-				var arrow := Line2D.new()
-				arrow.width = 3.0
-				arrow.default_color = Color(1.0, 0.85, 0.3, 0.95)
-				arrow.z_index = 500
-				_screen._prophecy_card_overlay.add_child(arrow)
-				_screen._overlays._spell_reveal_state["arrow"] = arrow
-				var arrow_start := card_back.global_position + Vector2(card_size.x * 0.5, card_size.y)
 				var target_card_size: Vector2 = button.get_meta("card_size", button.size)
-				var arrow_end := button.global_position + Vector2(target_card_size.x * 0.5, 0.0)
-				var arrow_tween = _screen.create_tween()
-				arrow_tween.tween_method(func(progress: float):
-					_draw_spell_reveal_arrow_partial(progress, arrow, arrow_start, arrow_end)
-				, 0.0, 1.0, 0.3)
-				arrow_tween.tween_interval(0.3)
-				arrow_tween.tween_callback(func():
-					_dismiss_spell_reveal()
-					_screen._refresh_ui()
-				)
-				return
+				arrow_end = button.global_position + Vector2(target_card_size.x * 0.5, 0.0)
+				has_target = true
+		elif target_kind == "player":
+			var target_player_id := str(target.get("player_id", ""))
+			var section: Dictionary = _screen._player_sections.get(target_player_id, {})
+			var avatar: Control = section.get("avatar_component")
+			if avatar != null and is_instance_valid(avatar):
+				arrow_end = avatar.global_position + Vector2(avatar.size.x * 0.5, avatar.size.y * 0.5)
+				has_target = true
+		if has_target:
+			var arrow := Line2D.new()
+			arrow.width = 3.0
+			arrow.default_color = Color(1.0, 0.85, 0.3, 0.95)
+			arrow.z_index = 500
+			_screen._prophecy_card_overlay.add_child(arrow)
+			_screen._overlays._spell_reveal_state["arrow"] = arrow
+			var arrow_start := card_back.global_position + Vector2(card_size.x * 0.5, card_size.y)
+			var arrow_tween = _screen.create_tween()
+			arrow_tween.tween_method(func(progress: float):
+				_draw_spell_reveal_arrow_partial(progress, arrow, arrow_start, arrow_end)
+			, 0.0, 1.0, 0.3)
+			arrow_tween.tween_interval(0.3)
+			arrow_tween.tween_callback(func():
+				_dismiss_spell_reveal()
+				_screen._refresh_ui()
+			)
+			return
 		_dismiss_spell_reveal()
 		_screen._refresh_ui()
 	)
@@ -1201,6 +1216,7 @@ func _animate_enemy_creature_summon_reveal(action: Dictionary, _result: Dictiona
 
 	var params: Dictionary = action.get("parameters", {})
 	var summon_target_id := str(params.get("summon_target_instance_id", ""))
+	var summon_target_player_id := str(params.get("summon_target_player_id", ""))
 
 	var card_size = _screen._hand_card_display_size()
 	var viewport_size = _screen.get_viewport_rect().size
@@ -1237,28 +1253,38 @@ func _animate_enemy_creature_summon_reveal(action: Dictionary, _result: Dictiona
 	tween.tween_property(card_back, "scale:x", 1.0, 0.2)
 	tween.tween_interval(1.0)
 	tween.tween_callback(func():
+		var arrow_end := Vector2.ZERO
+		var has_target := false
 		if not summon_target_id.is_empty():
 			var button: Button = _screen._card_buttons.get(summon_target_id)
 			if button != null and is_instance_valid(button):
-				var arrow := Line2D.new()
-				arrow.width = 3.0
-				arrow.default_color = Color(1.0, 0.85, 0.3, 0.95)
-				arrow.z_index = 500
-				_screen._prophecy_card_overlay.add_child(arrow)
-				_screen._overlays._spell_reveal_state["arrow"] = arrow
-				var arrow_start := card_back.global_position + Vector2(card_size.x * 0.5, card_size.y)
 				var target_card_size: Vector2 = button.get_meta("card_size", button.size)
-				var arrow_end := button.global_position + Vector2(target_card_size.x * 0.5, 0.0)
-				var arrow_tween = _screen.create_tween()
-				arrow_tween.tween_method(func(progress: float):
-					_draw_spell_reveal_arrow_partial(progress, arrow, arrow_start, arrow_end)
-				, 0.0, 1.0, 0.3)
-				arrow_tween.tween_interval(0.3)
-				arrow_tween.tween_callback(func():
-					_dismiss_spell_reveal()
-					_screen._refresh_ui()
-				)
-				return
+				arrow_end = button.global_position + Vector2(target_card_size.x * 0.5, 0.0)
+				has_target = true
+		elif not summon_target_player_id.is_empty():
+			var section: Dictionary = _screen._player_sections.get(summon_target_player_id, {})
+			var avatar: Control = section.get("avatar_component")
+			if avatar != null and is_instance_valid(avatar):
+				arrow_end = avatar.global_position + Vector2(avatar.size.x * 0.5, avatar.size.y * 0.5)
+				has_target = true
+		if has_target:
+			var arrow := Line2D.new()
+			arrow.width = 3.0
+			arrow.default_color = Color(1.0, 0.85, 0.3, 0.95)
+			arrow.z_index = 500
+			_screen._prophecy_card_overlay.add_child(arrow)
+			_screen._overlays._spell_reveal_state["arrow"] = arrow
+			var arrow_start := card_back.global_position + Vector2(card_size.x * 0.5, card_size.y)
+			var arrow_tween = _screen.create_tween()
+			arrow_tween.tween_method(func(progress: float):
+				_draw_spell_reveal_arrow_partial(progress, arrow, arrow_start, arrow_end)
+			, 0.0, 1.0, 0.3)
+			arrow_tween.tween_interval(0.3)
+			arrow_tween.tween_callback(func():
+				_dismiss_spell_reveal()
+				_screen._refresh_ui()
+			)
+			return
 		_dismiss_spell_reveal()
 		_screen._refresh_ui()
 	)

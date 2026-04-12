@@ -385,6 +385,13 @@ static func _trigger_matches_event(match_state: Dictionary, trigger: Dictionary,
 				if _has_pilfer_is_slay_active(match_state, pis_controller):
 					return _matches_conditions(match_state, trigger, descriptor, family_spec, event)
 		return false
+	# Beast form "change" generates a creature_summoned event so the new form's
+	# own summon abilities fire. But other cards (like Shrine Guardian's
+	# on_enemy_summon) should NOT react — it's an in-place transformation, not a
+	# new creature entering the board.
+	if event_type == "creature_summoned" and str(event.get("reason", "")) == "change":
+		if str(trigger.get("source_instance_id", "")) != str(event.get("source_instance_id", "")):
+			return false
 	if not _matches_trigger_role(match_state, trigger, descriptor, family_spec, event):
 		if family == FAMILY_ITEM_DETACHED:
 			GameLogger.trc("Timing", "item_detach_role_fail", "src:%s,evt_src:%s" % [str(trigger.get("source_instance_id", "")), str(event.get("source_instance_id", ""))])

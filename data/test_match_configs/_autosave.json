@@ -1,7 +1,13 @@
 {
 	"enemy": {
-		"current_magicka": 12,
-		"deck": [],
+		"current_magicka": 12.0,
+		"deck": [
+			"str_afflicted_alit",
+			"str_afflicted_alit",
+			"str_afflicted_alit",
+			"str_afflicted_alit",
+			"str_afflicted_alit"
+		],
 		"discard": [],
 		"field_creatures": [],
 		"hand": [
@@ -9,7 +15,7 @@
 			"cwc_neu_abomination"
 		],
 		"health": 30.0,
-		"max_magicka": 12,
+		"max_magicka": 12.0,
 		"shadow_creatures": [],
 		"supports": []
 	},
@@ -31,18 +37,24 @@
 		"field_creatures": [
 			null,
 			null,
-			null
+			"hom_wil_shrine_guardian",
+			"str_reive_blademaster"
 		],
 		"hand": [
-			"cwc_end_hallowed_deathpriest",
 			"wil_piercing_javelin",
-			"agi_spider_daedra"
+			"cwc_neu_assembled_sanitizer",
+			"hos_neu_barbas",
+			"joo_int_occult_ritemaster",
+			"cwc_neu_assembled_titan",
+			"tc_str_explore"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [],
-		"supports": []
+		"supports": [
+			"mc_neu_yagrums_workshop"
+		]
 	},
 	"type": "kill"
 }

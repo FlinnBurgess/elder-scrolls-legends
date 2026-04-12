@@ -66,7 +66,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				var transform_result := MatchMutations.transform_card(match_state, str(card.get("instance_id", "")), transform_template, {"reason": reason})
 				generated_events.append_array(transform_result.get("events", []))
-				_queue_targeted_summon_abilities(match_state, card)
+				_queue_targeted_summon_abilities(match_state, card, generated_events)
 		"conditional_change":
 			var ct_source := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 			if not ct_source.is_empty():
@@ -79,7 +79,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				if not ct_template.is_empty():
 					var ct_result := MatchMutations.change_card(ct_source, ct_template, {"reason": reason})
 					generated_events.append_array(ct_result.get("events", []))
-					_queue_targeted_summon_abilities(match_state, ct_source)
+					_queue_targeted_summon_abilities(match_state, ct_source, generated_events)
 		"transform_in_hand":
 			var tih_controller_id := str(trigger.get("controller_player_id", ""))
 			var tih_template: Dictionary = effect.get("card_template", {})
@@ -213,7 +213,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				var change_result := MatchMutations.change_card(card, change_template, {"reason": reason})
 				generated_events.append_array(change_result.get("events", []))
-				_queue_targeted_summon_abilities(match_state, card)
+				_queue_targeted_summon_abilities(match_state, card, generated_events)
 		"copy":
 			var source_cards := MatchTargeting._resolve_card_targets_by_name(match_state, trigger, event, str(effect.get("source_target", "event_source")))
 			if source_cards.is_empty():
@@ -259,12 +259,13 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					generated_events.append({"event_type": "lane_type_changed", "lane_id": clt_lane_id, "new_type": clt_lane_type, "source_instance_id": str(trigger.get("source_instance_id", ""))})
 
 
-static func _queue_targeted_summon_abilities(match_state: Dictionary, card: Dictionary) -> void:
+static func _queue_targeted_summon_abilities(match_state: Dictionary, card: Dictionary, generated_events: Array = []) -> void:
 	if str(card.get("zone", "")) != ZONE_LANE or str(card.get("card_type", "")) != CARD_TYPE_CREATURE:
 		return
 	var controller_id := str(card.get("controller_player_id", ""))
 	var source_id := str(card.get("instance_id", ""))
-	for ability in card.get("triggered_abilities", []):
+	for ability_index in range(card.get("triggered_abilities", []).size()):
+		var ability: Dictionary = card.get("triggered_abilities", [])[ability_index]
 		if typeof(ability) != TYPE_DICTIONARY:
 			continue
 		if str(ability.get("family", "")) != "summon":
@@ -275,9 +276,44 @@ static func _queue_targeted_summon_abilities(match_state: Dictionary, card: Dict
 		var valid := MatchTargeting.get_valid_targets_for_mode(match_state, source_id, tm, ability)
 		if valid.is_empty():
 			continue
-		var pending_arr: Array = match_state.get("pending_summon_effect_targets", [])
-		pending_arr.append({
-			"player_id": controller_id,
+		# Auto-pick target for targeted summon abilities from change/transform
+		# (they fire during rune breaks on the opponent's turn, so can't wait for controller input).
+		var ctx_id := source_id + "_change_summon_target"
+		var chosen: Dictionary = valid[MatchEffectParams._deterministic_index(match_state, ctx_id, valid.size())]
+		var chosen_id := str(chosen.get("instance_id", ""))
+		if chosen_id.is_empty():
+			continue
+		var lane_index := -1
+		for li in range(match_state.get("lanes", []).size()):
+			var lane: Dictionary = match_state.get("lanes", [])[li]
+			for pid in lane.get("player_slots", {}):
+				for slot_card in lane.get("player_slots", {})[pid]:
+					if typeof(slot_card) == TYPE_DICTIONARY and str(slot_card.get("instance_id", "")) == source_id:
+						lane_index = li
+		var synthetic_trigger := {
+			"trigger_id": "%s_change_summon_%d" % [source_id, ability_index],
+			"trigger_index": ability_index,
 			"source_instance_id": source_id,
-			"mandatory": false,
-		})
+			"owner_player_id": str(card.get("owner_player_id", controller_id)),
+			"controller_player_id": controller_id,
+			"source_zone": ZONE_LANE,
+			"lane_index": lane_index,
+			"slot_index": -1,
+			"descriptor": ability.duplicate(true),
+			"_chosen_target_id": chosen_id,
+		}
+		var synthetic_event := {
+			"event_type": EVENT_CREATURE_SUMMONED,
+			"player_id": controller_id,
+			"source_controller_player_id": controller_id,
+			"target_instance_id": chosen_id,
+		}
+		var resolution := MatchTriggers._build_trigger_resolution(match_state, synthetic_trigger, synthetic_event)
+		# If UI deferred visuals are active, defer the effect resolution so the UI
+		# can draw an arrow from the source to the target before the effect resolves.
+		if bool(match_state.get("_defer_visual_effects", false)):
+			var _pv_pending: Array = match_state.get("pending_visual_effects", [])
+			_pv_pending.append({"trigger": synthetic_trigger.duplicate(true), "event": synthetic_event.duplicate(true), "resolution": resolution.duplicate(true)})
+		else:
+			var resolved := MatchEffectApplication._apply_effects(match_state, synthetic_trigger, synthetic_event, resolution)
+			generated_events.append_array(resolved)

@@ -16,6 +16,7 @@ func _initialize() -> void:
 	_test_pending_prophecy_window_switches_priority(failures)
 	_test_action_variants_include_double_card_and_exalt(failures)
 	_test_action_immune_conditional_excludes_target(failures)
+	_test_action_immune_status_excludes_target(failures)
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)
@@ -276,3 +277,36 @@ func _test_action_immune_conditional_excludes_target(failures: Array) -> void:
 		"Action should enumerate Daedric Titan as a target when creature_in_each_lane condition is NOT met.",
 		failures
 	)
+
+
+func _test_action_immune_status_excludes_target(failures: Array) -> void:
+	# Creature with action_immune status (e.g. from Ebonthread Cloak) should not be targetable by opponent actions
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 10, "first_player_index": 1})
+	var player := ScenarioFixtures.player(match_state, 0)
+	var opponent := ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Player has a creature with action_immune status
+	var giant := ScenarioFixtures.summon_creature(player, match_state, "giant", "field", 10, 10)
+	EvergreenRules.add_status(giant, "action_immune")
+	# Opponent has a targeted action in hand
+	ScenarioFixtures.add_hand_card(opponent, "javelin", {
+		"card_type": "action",
+		"cost": 5,
+		"action_target_mode": "any_creature",
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"required_zone": "discard",
+			"effects": [{"op": "destroy_creature", "target": "event_target"}],
+		}],
+	})
+	var surface := MatchActionEnumerator.enumerate_legal_actions(match_state, oid)
+	var action_plays := _actions_for_kind(surface, "play_action")
+	for action in action_plays:
+		var params: Dictionary = action.get("parameters", {})
+		var target_id := str(params.get("target_instance_id", ""))
+		VerificationAssertions.assert_true(
+			target_id != pid + "_giant",
+			"Action should not target creature with action_immune status (e.g. Ebonthread Cloak).",
+			failures
+		)

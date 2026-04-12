@@ -136,9 +136,13 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				})
 		"set_power":
 			var sp_value := int(effect.get("value", effect.get("amount", 1)))
+			var sp_duration := str(effect.get("duration", ""))
+			var sp_is_temp := sp_duration in ["end_of_turn", "start_of_next_turn"]
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				var power_diff := sp_value - EvergreenRules.get_power(card)
 				EvergreenRules.apply_stat_bonus(card, power_diff, 0, reason)
+				if sp_is_temp:
+					EvergreenRules.add_temporary_stat_bonus(card, power_diff, 0, int(match_state.get("turn_number", 0)))
 				generated_events.append({
 					"event_type": "stats_set",
 					"source_instance_id": str(trigger.get("source_instance_id", "")),
