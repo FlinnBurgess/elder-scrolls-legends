@@ -436,7 +436,9 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					var scfd_result := MatchMutations.summon_card_to_lane(match_state, scfd_controller_id, scfd_card, scfd_lane_id, {"source_zone": ZONE_GENERATED})
 					if bool(scfd_result.get("is_valid", false)):
 						generated_events.append_array(scfd_result.get("events", []))
-						generated_events.append(MatchSummonTiming._build_summon_event(scfd_result["card"], scfd_controller_id, scfd_lane_id, int(scfd_result.get("slot_index", -1)), reason))
+						var scfd_summon_event := MatchSummonTiming._build_summon_event(scfd_result["card"], scfd_controller_id, scfd_lane_id, int(scfd_result.get("slot_index", -1)), reason)
+						scfd_summon_event["_stitch_source_creatures"] = [scfd_p_creature.duplicate(true), scfd_o_creature.duplicate(true)]
+						generated_events.append(scfd_summon_event)
 						_MT()._check_summon_abilities(match_state, scfd_result["card"])
 		"random_sub_effect":
 			var rse_choices_raw = effect.get("choices", [])

@@ -7,6 +7,8 @@ var _floating_card_ids: Dictionary = {}
 var _board_wipe_hidden_id := ""  # Instance ID to hide from board during Alduin animation
 var _soulburst_pending: Dictionary = {}  # Pending Soulburst animation data
 var _soulburst_target_id := ""  # Instance ID to suppress hover during Soulburst animation
+var _soulburst_deferred_events: Array = []  # Rune/draw events deferred until after Soulburst animation
+var _stitch_hidden_id := ""  # Instance ID to hide from board during Mecinar stitch animation
 
 
 const PRESET_FULL_RECT = Control.PRESET_FULL_RECT
@@ -37,6 +39,8 @@ func _record_feedback_from_events(events: Array) -> void:
 	var alduin_source_id := ""
 	var alduin_destroyed_ids: Array = []
 	var soulburst_target_id := ""
+	var stitch_instance_id := ""
+	var stitch_source_creatures: Array = []
 	var now = _screen._feedback_now_ms()
 	for event in events:
 		if typeof(event) != TYPE_DICTIONARY:
@@ -93,6 +97,10 @@ func _record_feedback_from_events(events: Array) -> void:
 					var cs_card: Dictionary = _screen._card_from_instance_id(cs_source_id)
 					if str(cs_card.get("definition_id", "")) == "hos_neu_alduin":
 						alduin_source_id = cs_source_id
+				var cs_stitch_sources: Array = event.get("_stitch_source_creatures", [])
+				if cs_stitch_sources.size() == 2:
+					stitch_instance_id = cs_source_id
+					stitch_source_creatures = cs_stitch_sources
 			"creature_destroyed":
 				var destroyed_instance_id := str(event.get("instance_id", ""))
 				if not alduin_source_id.is_empty() and not destroyed_instance_id.is_empty():
@@ -111,6 +119,9 @@ func _record_feedback_from_events(events: Array) -> void:
 					"expires_at_ms": now + _screen.REMOVAL_FEEDBACK_DURATION_MS,
 				})
 			"card_drawn":
+				if not soulburst_target_id.is_empty():
+					_soulburst_deferred_events.append(event)
+					continue
 				var draw_player_id := str(event.get("player_id", ""))
 				var draw_stack := int(draw_stacks.get(draw_player_id, 0))
 				draw_stacks[draw_player_id] = draw_stack + 1
@@ -131,6 +142,9 @@ func _record_feedback_from_events(events: Array) -> void:
 					_screen._draw_animating_ids.append(drawn_instance_id)
 					_animate_card_draw(draw_player_id, drawn_instance_id, draw_stack)
 			"rune_broken":
+				if not soulburst_target_id.is_empty():
+					_soulburst_deferred_events.append(event)
+					continue
 				var rune_player_id := str(event.get("player_id", ""))
 				var rune_stack := int(rune_stacks.get(rune_player_id, 0))
 				rune_stacks[rune_player_id] = rune_stack + 1
@@ -143,6 +157,9 @@ func _record_feedback_from_events(events: Array) -> void:
 					"expires_at_ms": now + _screen.RUNE_FEEDBACK_DURATION_MS,
 				})
 			"card_overdraw":
+				if not soulburst_target_id.is_empty():
+					_soulburst_deferred_events.append(event)
+					continue
 				var overdraw_instance_id := str(event.get("instance_id", ""))
 				var overdraw_card = _screen._card_from_instance_id(overdraw_instance_id)
 				if not overdraw_card.is_empty():
@@ -287,6 +304,8 @@ func _record_feedback_from_events(events: Array) -> void:
 				milled_cards.append(mcard)
 		if not milled_cards.is_empty():
 			_screen._feedback._animate_mill_reveal(milled_cards)
+	if not stitch_instance_id.is_empty() and stitch_source_creatures.size() == 2:
+		_animate_abomination_stitch(stitch_instance_id, stitch_source_creatures)
 	if not alduin_source_id.is_empty() and not alduin_destroyed_ids.is_empty():
 		_animate_alduin_board_wipe(alduin_source_id, alduin_destroyed_ids)
 	if not soulburst_target_id.is_empty():
@@ -481,6 +500,195 @@ func _detach_prophecy_card(instance_id: String) -> void:
 		vbox.visible = false
 	_screen._status_message = "Click a friendly lane slot to summon %s." % _screen._card_name(card)
 	_screen._refresh_ui()
+
+
+func _animate_abomination_stitch(abomination_instance_id: String, source_creatures: Array) -> void:
+	var viewport_size: Vector2 = _screen.get_viewport_rect().size
+	var center: Vector2 = viewport_size * 0.5
+	var card_size: Vector2 = _screen.CARD_DISPLAY_COMPONENT_SCRIPT.FULL_MINIMUM_SIZE
+
+	# Hide the Abomination from the board until the animation finishes
+	_stitch_hidden_id = abomination_instance_id
+
+	# Build animation container overlay
+	var container := Control.new()
+	container.name = "abomination_stitch"
+	container.z_index = 490
+	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	container.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	_screen.add_child(container)
+
+	# Dimmer — blocks board interaction during animation
+	var dimmer := ColorRect.new()
+	dimmer.color = Color(0.0, 0.0, 0.0, 0.0)
+	dimmer.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	dimmer.mouse_filter = Control.MOUSE_FILTER_STOP
+	dimmer.z_index = 494
+	container.add_child(dimmer)
+
+	# Build card wrappers for the two source creatures, side by side
+	var gap := 40.0
+	var card_scale := 1.0
+	var left_pos := Vector2(center.x - card_size.x - gap * 0.5, center.y - card_size.y * 0.5)
+	var right_pos := Vector2(center.x + gap * 0.5, center.y - card_size.y * 0.5)
+
+	var left_wrapper := Control.new()
+	left_wrapper.name = "stitch_card_left"
+	left_wrapper.size = card_size
+	left_wrapper.custom_minimum_size = card_size
+	left_wrapper.position = left_pos
+	left_wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	left_wrapper.z_index = 500
+	left_wrapper.pivot_offset = card_size * 0.5
+	if source_creatures.size() > 0 and not source_creatures[0].is_empty():
+		var left_component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+		left_component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		left_component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		left_component.apply_card(source_creatures[0], _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+		left_wrapper.add_child(left_component)
+	container.add_child(left_wrapper)
+
+	var right_wrapper := Control.new()
+	right_wrapper.name = "stitch_card_right"
+	right_wrapper.size = card_size
+	right_wrapper.custom_minimum_size = card_size
+	right_wrapper.position = right_pos
+	right_wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	right_wrapper.z_index = 500
+	right_wrapper.pivot_offset = card_size * 0.5
+	if source_creatures.size() > 1 and not source_creatures[1].is_empty():
+		var right_component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+		right_component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		right_component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		right_component.apply_card(source_creatures[1], _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+		right_wrapper.add_child(right_component)
+	container.add_child(right_wrapper)
+
+	# White glow overlay — covers both cards during the merge flash
+	var glow_rect := ColorRect.new()
+	glow_rect.name = "stitch_glow"
+	glow_rect.color = Color(1.0, 1.0, 1.0, 0.0)
+	glow_rect.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	glow_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	glow_rect.z_index = 510
+	container.add_child(glow_rect)
+
+	# Abomination card wrapper — hidden initially, revealed after glow
+	var abomination_card: Dictionary = _screen._card_from_instance_id(abomination_instance_id)
+	var abom_wrapper := Control.new()
+	abom_wrapper.name = "stitch_abomination"
+	abom_wrapper.size = card_size
+	abom_wrapper.custom_minimum_size = card_size
+	abom_wrapper.position = center - card_size * 0.5
+	abom_wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	abom_wrapper.z_index = 505
+	abom_wrapper.pivot_offset = card_size * 0.5
+	abom_wrapper.modulate = Color(1, 1, 1, 0)
+	if not abomination_card.is_empty():
+		var abom_component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+		abom_component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		abom_component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		abom_component.apply_card(abomination_card, _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+		abom_wrapper.add_child(abom_component)
+	container.add_child(abom_wrapper)
+
+	# ── Animation timing ──
+	var fade_in_duration := 0.3
+	var hold_duration := 0.5
+	var slide_duration := 0.5
+	var glow_in_duration := 0.2
+	var glow_hold_duration := 0.15
+	var glow_out_duration := 0.3
+	var abom_hold_duration := 0.6
+	var move_duration := 0.5
+
+	var slide_start: float = fade_in_duration + hold_duration
+	var glow_start: float = slide_start + slide_duration
+	var abom_reveal_start: float = glow_start + glow_in_duration + glow_hold_duration
+	var abom_hold_start: float = abom_reveal_start + glow_out_duration
+	var move_start: float = abom_hold_start + abom_hold_duration
+
+	# Merged center position (both cards overlap at center)
+	var merge_pos := center - card_size * 0.5
+
+	# Phase 1: Fade in dimmer + both cards appear
+	left_wrapper.modulate = Color(1, 1, 1, 0)
+	right_wrapper.modulate = Color(1, 1, 1, 0)
+	left_wrapper.scale = Vector2(0.9, 0.9)
+	right_wrapper.scale = Vector2(0.9, 0.9)
+
+	var dim_tween: Tween = _screen.create_tween()
+	dim_tween.tween_property(dimmer, "color:a", 0.5, fade_in_duration)
+
+	var left_enter: Tween = _screen.create_tween()
+	left_enter.tween_property(left_wrapper, "modulate:a", 1.0, fade_in_duration).set_ease(Tween.EASE_OUT)
+	left_enter.parallel().tween_property(left_wrapper, "scale", Vector2(card_scale, card_scale), fade_in_duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+
+	var right_enter: Tween = _screen.create_tween()
+	right_enter.tween_property(right_wrapper, "modulate:a", 1.0, fade_in_duration).set_ease(Tween.EASE_OUT)
+	right_enter.parallel().tween_property(right_wrapper, "scale", Vector2(card_scale, card_scale), fade_in_duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+
+	# Phase 2: After hold, cards slide toward each other and overlap at center
+	var left_slide: Tween = _screen.create_tween()
+	left_slide.tween_interval(slide_start)
+	left_slide.tween_property(left_wrapper, "position", merge_pos, slide_duration).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+
+	var right_slide: Tween = _screen.create_tween()
+	right_slide.tween_interval(slide_start)
+	right_slide.tween_property(right_wrapper, "position", merge_pos, slide_duration).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+
+	# Phase 3: White glow flash when they overlap
+	var glow_tween: Tween = _screen.create_tween()
+	glow_tween.tween_interval(glow_start)
+	glow_tween.tween_property(glow_rect, "color:a", 0.85, glow_in_duration).set_ease(Tween.EASE_IN)
+	glow_tween.tween_interval(glow_hold_duration)
+	# During glow: hide source cards, reveal Abomination
+	glow_tween.tween_callback(func():
+		left_wrapper.visible = false
+		right_wrapper.visible = false
+		abom_wrapper.modulate = Color(1, 1, 1, 1)
+		abom_wrapper.scale = Vector2(1.15, 1.15)
+	)
+	glow_tween.tween_property(glow_rect, "color:a", 0.0, glow_out_duration).set_ease(Tween.EASE_OUT)
+
+	# Abomination settles to normal scale
+	var abom_scale_tween: Tween = _screen.create_tween()
+	abom_scale_tween.tween_interval(abom_reveal_start)
+	abom_scale_tween.tween_property(abom_wrapper, "scale", Vector2(1.0, 1.0), glow_out_duration + 0.1).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+
+	# Phase 4: After hold, Abomination flies to board position
+	var dim_exit: Tween = _screen.create_tween()
+	dim_exit.tween_interval(move_start)
+	dim_exit.tween_property(dimmer, "color:a", 0.0, 0.4).set_ease(Tween.EASE_IN)
+
+	var card_exit: Tween = _screen.create_tween()
+	card_exit.tween_interval(move_start)
+	card_exit.tween_callback(func():
+		var board_btn: Button = _screen._card_buttons.get(abomination_instance_id) as Button
+		if board_btn != null and is_instance_valid(board_btn):
+			var board_size: Vector2 = board_btn.get_meta("card_size", board_btn.size)
+			var board_pos: Vector2 = board_btn.global_position
+			var board_center: Vector2 = board_pos + board_size * 0.5
+			var target_pos: Vector2 = board_center - card_size * 0.5
+			var target_scale_val: float = board_size.x / card_size.x
+			var t: Tween = _screen.create_tween()
+			t.set_parallel(true)
+			t.tween_property(abom_wrapper, "position", target_pos, move_duration).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+			t.tween_property(abom_wrapper, "scale", Vector2(target_scale_val, target_scale_val), move_duration).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+		else:
+			var t: Tween = _screen.create_tween()
+			t.tween_property(abom_wrapper, "modulate:a", 0.0, 0.3).set_ease(Tween.EASE_IN)
+	)
+
+	# Phase 5: Cleanup — reveal the real board card
+	var cleanup: Tween = _screen.create_tween()
+	cleanup.tween_interval(move_start + move_duration)
+	cleanup.tween_callback(func():
+		_stitch_hidden_id = ""
+		_screen._refresh._refresh_ui()
+		if is_instance_valid(container):
+			container.queue_free()
+	)
 
 
 func _animate_alduin_board_wipe(alduin_instance_id: String, destroyed_ids: Array) -> void:
@@ -739,6 +947,11 @@ func _animate_soulburst(data: Dictionary) -> void:
 	cleanup_tween.tween_property(dimmer, "color:a", 0.0, 0.25)
 	cleanup_tween.tween_callback(func():
 		_soulburst_target_id = ""
+		# Replay deferred rune/draw events that were suppressed during the animation
+		var deferred := _soulburst_deferred_events.duplicate()
+		_soulburst_deferred_events.clear()
+		if not deferred.is_empty():
+			_record_feedback_from_events(deferred)
 		_screen._refresh._refresh_ui()
 		var pending_visual: Array = _screen._match_state.get("pending_visual_effects", [])
 		if not pending_visual.is_empty():

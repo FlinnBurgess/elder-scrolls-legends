@@ -63,6 +63,12 @@ func _refresh_ui() -> void:
 		if wipe_btn != null:
 			wipe_btn.modulate = Color(1, 1, 1, 0)
 			wipe_btn.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Hide Abomination during Mecinar stitch animation
+	if not _screen._animations._stitch_hidden_id.is_empty():
+		var stitch_btn: Button = _screen._card_buttons.get(_screen._animations._stitch_hidden_id)
+		if stitch_btn != null:
+			stitch_btn.modulate = Color(1, 1, 1, 0)
+			stitch_btn.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_screen._feedback._process_overdraw_queue()
 	var _refresh_elapsed := Time.get_ticks_msec() - _refresh_start
 	print("[REFRESH] _refresh_ui END took %dms" % _refresh_elapsed)
