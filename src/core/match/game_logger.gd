@@ -335,15 +335,16 @@ static func _check_missing_effects(card: Dictionary) -> void:
 		var family := str(ability.get("family", ""))
 		if not family.is_empty():
 			configured_families.append(family)
-		var effects: Array = ability.get("effects", [])
-		if typeof(effects) != TYPE_ARRAY:
-			continue
-		for effect in effects:
-			if typeof(effect) != TYPE_DICTIONARY:
+		for _eff_key in ["effects", "plot_effects"]:
+			var effects: Array = ability.get(_eff_key, [])
+			if typeof(effects) != TYPE_ARRAY:
 				continue
-			var op := str(effect.get("op", ""))
-			if not op.is_empty():
-				configured_ops.append(op)
+			for effect in effects:
+				if typeof(effect) != TYPE_DICTIONARY:
+					continue
+				var op := str(effect.get("op", ""))
+				if not op.is_empty():
+					configured_ops.append(op)
 
 	var is_item := card_type == "item"
 	var has_equip_bonus := int(card.get("equip_power_bonus", 0)) != 0 or int(card.get("equip_health_bonus", 0)) != 0

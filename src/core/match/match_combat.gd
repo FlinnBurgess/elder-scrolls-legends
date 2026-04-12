@@ -80,6 +80,8 @@ static func resolve_attack(match_state: Dictionary, player_id: String, attacker_
 			"event_type": "rally_resolved",
 			"source_instance_id": str(attacker.get("instance_id", "")),
 			"target_instance_id": str(rally_result.get("target_instance_id", "")),
+			"player_id": player_id,
+			"controller_player_id": player_id,
 			"power_bonus": int(rally_result.get("power_bonus", 0)),
 			"health_bonus": int(rally_result.get("health_bonus", 0)),
 		})

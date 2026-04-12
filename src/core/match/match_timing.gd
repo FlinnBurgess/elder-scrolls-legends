@@ -183,7 +183,7 @@ const FAMILY_SPECS := {
 	FAMILY_ON_DEAL_DAMAGE_TO_CREATURE: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "source", "target_type": "creature"},
 	FAMILY_ON_ENEMY_DAMAGED: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "opponent_player"},
 	FAMILY_ON_TARGETED_BY_ACTION: {"event_type": "action_targeted", "window": WINDOW_AFTER, "match_role": "target"},
-	FAMILY_ON_RALLY: {"event_type": "rally_triggered", "window": WINDOW_AFTER, "match_role": "controller"},
+	FAMILY_ON_RALLY: {"event_type": "rally_resolved", "window": WINDOW_AFTER, "match_role": "controller"},
 	FAMILY_ON_SUPPORT_COUNT_REACHED: {"event_type": EVENT_CARD_PLAYED, "window": WINDOW_AFTER, "match_role": "controller", "required_played_card_type": "support"},
 	FAMILY_ON_OPPONENT_CARD_DRAWN: {"event_type": EVENT_CARD_DRAWN, "window": WINDOW_AFTER, "match_role": "opponent_player"},
 	FAMILY_AFTER_FRIENDLY_ACTION_DAMAGES_ENEMY: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "controller", "damage_kind": "ability", "target_type": "creature", "required_source_card_type": "action", "required_target_is_enemy": true, "deferred_visual": true},

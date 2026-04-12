@@ -53,6 +53,9 @@ func _run_all_tests() -> bool:
 		_test_alduin_summon_destroys_all_other_creatures() and
 		_test_alduin_start_of_turn_summons_dragon_from_discard() and
 		_test_alduin_cost_reduction_per_dragon_in_discard() and
+		# Disciple of Namira (518)
+		_test_disciple_of_namira_draws_per_friendly_death() and
+		_test_disciple_of_namira_no_draw_for_enemy_death() and
 		true
 	)
 
@@ -517,3 +520,89 @@ func _test_alduin_cost_reduction_per_dragon_in_discard() -> bool:
 	# Check effective cost — should be 20 - (3 * 2) = 14
 	var effective_cost: int = PersistentCardRules.get_effective_play_cost(match_state, pid, alduin)
 	return _assert(effective_cost == 14, "Alduin with 3 Dragons in discard should cost 14, got %d" % effective_cost)
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Disciple of Namira — "At the end of each turn, draw a card for each
+# friendly creature that died in Disciple of Namira's lane."
+# ──────────────────────────────────────────────────────────────────────
+
+func _test_disciple_of_namira_draws_per_friendly_death() -> bool:
+	var match_state := _build_started_match()
+	var player := ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var opponent := ScenarioFixtures.player(match_state, 1)
+	var opid := str(opponent.get("player_id", ""))
+	# Summon Disciple of Namira in field lane
+	var disciple: Dictionary = _catalog_helper.summon(player, match_state, "end_disciple_of_namira", "field")
+	if disciple.is_empty():
+		return _assert(false, "Failed to summon Disciple of Namira")
+	# Summon 3 weak friendly creatures in the same lane
+	var weak1: Dictionary = ScenarioFixtures.summon_creature(player, match_state, "weak1", "field", 1, 1, [], -1, {"cost": 0})
+	var weak2: Dictionary = ScenarioFixtures.summon_creature(player, match_state, "weak2", "field", 1, 1, [], -1, {"cost": 0})
+	var weak3: Dictionary = ScenarioFixtures.summon_creature(player, match_state, "weak3", "field", 1, 1, [], -1, {"cost": 0})
+	# Summon a big enemy in the same lane
+	var big_enemy: Dictionary = ScenarioFixtures.summon_creature(opponent, match_state, "big_enemy", "field", 20, 20, [], -1, {"cost": 0})
+	# Make friendly creatures attack-ready
+	ScenarioFixtures.ready_for_attack(weak1, match_state)
+	ScenarioFixtures.ready_for_attack(weak2, match_state)
+	ScenarioFixtures.ready_for_attack(weak3, match_state)
+	# Ensure deck has enough cards to draw
+	for i in range(5):
+		var filler := ScenarioFixtures.make_card(pid, "filler_%d" % i, {
+			"definition_id": "test_filler_%d" % i, "card_type": "creature",
+			"cost": 1, "power": 1, "health": 1, "name": "Filler %d" % i,
+		})
+		filler["zone"] = "deck"
+		player["deck"].append(filler)
+	# Attack with each weak creature into the big enemy — all 3 die
+	MatchCombat.resolve_attack(match_state, pid, str(weak1.get("instance_id", "")), {
+		"type": "creature", "instance_id": str(big_enemy.get("instance_id", "")),
+	})
+	MatchCombat.resolve_attack(match_state, pid, str(weak2.get("instance_id", "")), {
+		"type": "creature", "instance_id": str(big_enemy.get("instance_id", "")),
+	})
+	MatchCombat.resolve_attack(match_state, pid, str(weak3.get("instance_id", "")), {
+		"type": "creature", "instance_id": str(big_enemy.get("instance_id", "")),
+	})
+	# Record hand size before end of turn
+	var hand_before: int = player.get("hand", []).size()
+	# End turn — Disciple should draw 3 cards (one per friendly death in lane)
+	_end_turn_and_start_next(match_state)
+	var hand_after: int = player.get("hand", []).size()
+	var drawn: int = hand_after - hand_before
+	return _assert(drawn == 3, "Disciple of Namira should draw 3 cards for 3 friendly deaths, drew %d" % drawn)
+
+
+func _test_disciple_of_namira_no_draw_for_enemy_death() -> bool:
+	var match_state := _build_started_match()
+	var player := ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var opponent := ScenarioFixtures.player(match_state, 1)
+	var opid := str(opponent.get("player_id", ""))
+	# Summon Disciple of Namira in field lane
+	var disciple: Dictionary = _catalog_helper.summon(player, match_state, "end_disciple_of_namira", "field")
+	if disciple.is_empty():
+		return _assert(false, "Failed to summon Disciple of Namira")
+	# Summon a strong friendly creature to kill enemy with
+	var attacker: Dictionary = ScenarioFixtures.summon_creature(player, match_state, "attacker", "field", 20, 20, [], -1, {"cost": 0})
+	# Summon 2 weak enemies in the same lane
+	var enemy1: Dictionary = ScenarioFixtures.summon_creature(opponent, match_state, "enemy1", "field", 1, 1, [], -1, {"cost": 0})
+	var enemy2: Dictionary = ScenarioFixtures.summon_creature(opponent, match_state, "enemy2", "field", 1, 1, [], -1, {"cost": 0})
+	# Make attacker ready
+	ScenarioFixtures.ready_for_attack(attacker, match_state)
+	# Kill both enemies
+	MatchCombat.resolve_attack(match_state, pid, str(attacker.get("instance_id", "")), {
+		"type": "creature", "instance_id": str(enemy1.get("instance_id", "")),
+	})
+	ScenarioFixtures.ready_for_attack(attacker, match_state)
+	MatchCombat.resolve_attack(match_state, pid, str(attacker.get("instance_id", "")), {
+		"type": "creature", "instance_id": str(enemy2.get("instance_id", "")),
+	})
+	# Record hand size before end of turn
+	var hand_before: int = player.get("hand", []).size()
+	# End turn — should NOT draw (only enemy creatures died)
+	_end_turn_and_start_next(match_state)
+	var hand_after: int = player.get("hand", []).size()
+	var drawn: int = hand_after - hand_before
+	return _assert(drawn == 0, "Disciple of Namira should not draw for enemy deaths, drew %d" % drawn)

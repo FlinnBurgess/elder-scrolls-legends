@@ -147,7 +147,18 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					"_choice_event": event.duplicate(true),
 					"_choice_target_mode": _ae_deferred_tm,
 				})
-	for raw_effect in descriptor.get("effects", []):
+	# Plot effects: additional effects that fire only when plot condition is met
+	var _pe_plot_effects: Array = descriptor.get("plot_effects", [])
+	var _pe_active_effects: Array = descriptor.get("effects", [])
+	if not _pe_plot_effects.is_empty():
+		var _pe_controller_id := str(trigger.get("controller_player_id", ""))
+		var _pe_controller: Dictionary = MatchTimingHelpers._get_player_state(match_state, _pe_controller_id)
+		if int(_pe_controller.get("cards_played_this_turn", 0)) >= 2:
+			if bool(descriptor.get("plot_replaces", false)):
+				_pe_active_effects = _pe_plot_effects
+			else:
+				_pe_active_effects = _pe_active_effects + _pe_plot_effects
+	for raw_effect in _pe_active_effects:
 		if typeof(raw_effect) != TYPE_DICTIONARY:
 			continue
 		var effect: Dictionary = raw_effect

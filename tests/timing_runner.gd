@@ -39,7 +39,9 @@ func _run_all_tests() -> bool:
 		_test_decline_pending_free_play_keeps_card_in_hand() and
 		_test_copy_pilfer_abilities_fires_all_friendly_pilfer_triggers() and
 		_test_item_on_attack_trigger_fires_for_host_creature() and
-		_test_slay_discard_matching_from_opponent_deck()
+		_test_slay_discard_matching_from_opponent_deck() and
+		_test_skar_drillmaster_copies_rallied_creature_to_hand() and
+		_test_plot_effects_append_when_plot_active()
 	)
 
 
@@ -913,6 +915,92 @@ func _test_slay_discard_matching_from_opponent_deck() -> bool:
 		_assert(result["is_valid"], "Attack should resolve.") and
 		_assert(deck_removed == 3, "3 matching cards should be removed from opponent deck. Got %d." % deck_removed) and
 		_assert(discard_added >= 4, "Victim + 3 matching deck cards should enter discard. Got %d." % discard_added)
+	)
+
+
+func _test_skar_drillmaster_copies_rallied_creature_to_hand() -> bool:
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	# Summon Skar Drillmaster with rally + on_rally copy effect
+	var drillmaster := _summon_creature(active_player, match_state, "drillmaster", "field", 5, 5, ["rally"], 0, {
+		"triggered_abilities": [{"family": "on_rally", "required_zone": "lane", "effects": [{"op": "copy_rallied_creature_to_hand", "bonus_power": 1, "bonus_health": 1}]}],
+	})
+	# Add a creature to hand that rally can buff
+	var hand_creature := _add_hand_card(active_player, "hand_target", {"card_type": "creature", "power": 3, "health": 3, "power_bonus": 2, "health_bonus": 2})
+	var hand_size_before: int = active_player["hand"].size()
+	_target_ready_for_attack(drillmaster, match_state)
+	_reset_timing_logs(match_state)
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], drillmaster["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	var hand_size_after: int = active_player["hand"].size()
+	# Find the generated copy (not the original hand_target)
+	var copy_found := false
+	var copy_power_bonus := 0
+	var copy_health_bonus := 0
+	for card in active_player["hand"]:
+		if str(card.get("instance_id", "")).begins_with(active_player["player_id"] + "_generated"):
+			copy_found = true
+			copy_power_bonus = int(card.get("power_bonus", 0))
+			copy_health_bonus = int(card.get("health_bonus", 0))
+			break
+	return (
+		_assert(result["is_valid"], "Attack should resolve.") and
+		_assert(hand_size_after == hand_size_before + 1, "A copy should be added to hand. Before: %d, After: %d." % [hand_size_before, hand_size_after]) and
+		_assert(copy_found, "A generated copy card should exist in hand.") and
+		_assert(copy_power_bonus == 1, "Copy should have base stats with only +1 from effect, not inherited bonuses. Got: %d." % copy_power_bonus) and
+		_assert(copy_health_bonus == 1, "Copy should have base stats with only +1 from effect, not inherited bonuses. Got: %d." % copy_health_bonus)
+	)
+
+
+func _test_plot_effects_append_when_plot_active() -> bool:
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	# Summon a creature in field lane so there's at least 1 friendly creature
+	_summon_creature(active_player, match_state, "grunt", "field", 1, 1)
+	# Play a filler action to satisfy plot (cards_played_this_turn >= 2 on the second play)
+	var filler := _add_hand_card(active_player, "filler", {
+		"card_type": "action",
+		"cost": 0,
+		"triggered_abilities": [{"family": "on_play", "effects": [{"op": "log", "message": "filler"}]}],
+	})
+	MatchTiming.play_action_from_hand(match_state, active_player["player_id"], filler["instance_id"], {})
+	# Play the action with plot_effects — simulates Crassius' Favor pattern:
+	# base effects summon a token, plot_effects heal per friendly creature in lane
+	var health_before := int(active_player.get("health", 30))
+	var plot_action := _add_hand_card(active_player, "plot_heal", {
+		"card_type": "action",
+		"cost": 0,
+		"triggered_abilities": [{
+			"family": "on_play",
+			"effects": [
+				{"op": "summon_from_effect", "lane": "chosen", "card_template": {
+					"definition_id": "test_token", "name": "Token", "card_type": "creature",
+					"attributes": [], "cost": 0, "power": 1, "health": 1,
+					"base_power": 1, "base_health": 1, "rules_text": "",
+				}},
+			],
+			"plot_effects": [
+				{"op": "heal", "target_player": "controller", "amount": 1, "count_source": "friendly_creatures_chosen_lane"},
+			],
+		}],
+	})
+	var play_result := MatchTiming.play_action_from_hand(match_state, active_player["player_id"], plot_action["instance_id"], {"lane_id": "field"})
+	var health_after := int(active_player.get("health", 0))
+	# Count friendly creatures in field lane (grunt + summoned token = 2)
+	var field_creature_count := 0
+	for lane in match_state.get("lanes", []):
+		if str(lane.get("lane_id", "")) == "field":
+			var slots = lane.get("player_slots", {}).get(active_player["player_id"], [])
+			for card in slots:
+				if typeof(card) == TYPE_DICTIONARY:
+					field_creature_count += 1
+	return (
+		_assert(bool(play_result.get("is_valid", false)), "Plot action should be playable.") and
+		_assert(field_creature_count >= 2, "Token should have been summoned to field lane. Count: %d." % field_creature_count) and
+		_assert(health_after > health_before, "Plot heal effect should have healed controller. Before: %d, After: %d." % [health_before, health_after])
 	)
 
 

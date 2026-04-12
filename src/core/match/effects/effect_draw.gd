@@ -554,6 +554,13 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var crch_template: Dictionary = crch_target.duplicate(true)
 				crch_template.erase("instance_id")
 				crch_template.erase("status_markers")
+				# Reset to base stats — the copy is a fresh version of the card
+				crch_template["power"] = int(crch_template.get("base_power", crch_template.get("power", 0)))
+				crch_template["health"] = int(crch_template.get("base_health", crch_template.get("health", 0)))
+				crch_template["power_bonus"] = 0
+				crch_template["health_bonus"] = 0
+				crch_template["damage_marked"] = 0
+				crch_template.erase("granted_keywords")
 				var crch_bonus_power := int(effect.get("bonus_power", 0))
 				var crch_bonus_health := int(effect.get("bonus_health", 0))
 				var crch_copy := MatchMutations.build_generated_card(match_state, crch_controller, crch_template)

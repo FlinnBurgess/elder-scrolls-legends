@@ -292,7 +292,7 @@ static func _resolve_count_multiplier(match_state: Dictionary, trigger: Dictiona
 			if not ocptt_player.is_empty():
 				count = maxi(0, int(ocptt_player.get("cards_played_this_turn", 0)) - 1)
 		"friendly_creatures_chosen_lane":
-			var fccl_lane_id := str(_event.get("lane_id", ""))
+			var fccl_lane_id := str(trigger.get("_chosen_lane_id", _event.get("lane_id", "")))
 			if not fccl_lane_id.is_empty():
 				for lane in match_state.get("lanes", []):
 					if str(lane.get("lane_id", "")) == fccl_lane_id:

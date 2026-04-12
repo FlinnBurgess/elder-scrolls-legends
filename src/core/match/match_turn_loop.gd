@@ -40,6 +40,9 @@ static func end_turn(match_state: Dictionary, player_id: String) -> Dictionary:
 		"turn_number": int(match_state.get("turn_number", 0)),
 		"source_controller_player_id": player_id,
 	}])
+	# Preserve end-of-turn events (e.g. Disciple of Namira draws) before
+	# _start_turn overwrites last_timing_result with start-of-turn events.
+	var end_of_turn_events: Array = match_state.get("last_timing_result", {}).get("processed_events", []).duplicate(true)
 	MatchTiming.process_end_of_turn_returns(match_state, int(match_state.get("turn_number", 0)))
 	_clear_temporary_stat_bonuses(match_state)
 
@@ -58,7 +61,15 @@ static func end_turn(match_state: Dictionary, player_id: String) -> Dictionary:
 
 	match_state["active_player_id"] = next_player_id
 	match_state["priority_player_id"] = next_player_id
-	return _start_turn(match_state, next_player_id)
+	_start_turn(match_state, next_player_id)
+	# Merge end-of-turn events into the final timing result so the UI
+	# can animate triggers that fired during the turn_ending phase.
+	if not end_of_turn_events.is_empty():
+		var final_result: Dictionary = match_state.get("last_timing_result", {})
+		var combined: Array = end_of_turn_events + final_result.get("processed_events", [])
+		final_result["processed_events"] = combined
+		match_state["last_timing_result"] = final_result
+	return match_state
 
 
 static func gain_temporary_magicka(match_state: Dictionary, player_id: String, amount: int) -> Dictionary:
