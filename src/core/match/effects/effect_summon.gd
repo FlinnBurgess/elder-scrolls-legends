@@ -177,7 +177,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						summon_template = sfe_uc[sfe_uc_idx]
 						var sfe_uc_next := (sfe_uc_idx + 1) % sfe_uc.size() if bool(effect.get("upgrade_chain_loop", false)) else mini(sfe_uc_idx + 1, sfe_uc.size() - 1)
 						sfe_uc_card["_upgrade_chain_index"] = sfe_uc_next
-						var sfe_uc_next_name := str(sfe_uc[sfe_uc_next].get("name", ""))
+						var sfe_uc_next_name := str(MatchMutations._enrich_template_from_catalog(sfe_uc[sfe_uc_next]).get("name", ""))
 						var sfe_uc_prefix := str(effect.get("upgrade_chain_text_prefix", ""))
 						if not sfe_uc_next_name.is_empty() and not sfe_uc_prefix.is_empty():
 							sfe_uc_card["rules_text"] = sfe_uc_prefix + sfe_uc_next_name + "."
@@ -719,7 +719,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					var sfdf_then_op := "summon_support_from_deck" if sfdf_filter_type == "support" else "summon_creature_from_deck"
 					var sfdf_then_context := {"reason": reason}
 					if sfdf_filter_type != "support":
-						sfdf_then_context["lane_id"] = MatchSummonTiming._resolve_summon_lane_id(match_state, trigger, event, effect, sfdf_controller_id)
+						sfdf_then_context["needs_lane_choice"] = true
 					var sfdf_pending: Array = match_state.get("pending_deck_selections", [])
 					sfdf_pending.append({
 						"player_id": sfdf_controller_id,

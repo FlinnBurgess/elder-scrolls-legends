@@ -1218,6 +1218,13 @@ func _dismiss_deck_selection_overlay() -> void:
 	_overlays._deck_selection_overlay_state = {}
 
 
+func _enter_deck_summon_placement(card_data: Dictionary) -> void:
+	var instance_id := str(card_data.get("instance_id", ""))
+	_pending_free_play_detach_id = instance_id
+	_status_message = "Choose a lane for %s." % str(card_data.get("name", "creature"))
+	_refresh_ui()
+
+
 # --- Consume selection overlay ---
 
 

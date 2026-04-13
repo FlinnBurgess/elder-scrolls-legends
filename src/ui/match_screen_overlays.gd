@@ -757,6 +757,11 @@ func _on_deck_selection_chosen(instance_id: String) -> void:
 	var result = _screen.MatchTiming.resolve_pending_deck_selection(_screen._match_state, local_id, instance_id)
 	_screen._dismiss_deck_selection_overlay()
 	if bool(result.get("is_valid", false)):
+		if bool(result.get("needs_lane_choice", false)):
+			var card_data: Dictionary = result.get("card", {})
+			_screen._record_feedback_from_events(_screen._copy_array(result.get("events", [])))
+			_screen._enter_deck_summon_placement(card_data)
+			return
 		var card_name := str(result.get("card", {}).get("name", instance_id))
 		_screen._record_feedback_from_events(_screen._copy_array(result.get("events", [])))
 		_screen._status_message = "Selected %s from deck." % card_name

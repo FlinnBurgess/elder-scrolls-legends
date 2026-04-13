@@ -2212,6 +2212,23 @@ static func resolve_pending_deck_selection(match_state: Dictionary, player_id: S
 		"summon_creature_from_deck":
 			deck.remove_at(chosen_idx)
 			chosen_card.erase("zone")
+			if bool(then_context.get("needs_lane_choice", false)):
+				# Same pattern as play_random_from_deck (Siege of Stros M'Kai):
+				# move card to hand as a free play so the player places it via normal lane-drop
+				chosen_card["zone"] = ZONE_HAND
+				chosen_card["_play_for_free"] = true
+				var nlc_hand: Array = player.get(ZONE_HAND, [])
+				nlc_hand.append(chosen_card)
+				var nlc_fp_arr: Array = match_state.get("pending_free_plays", [])
+				nlc_fp_arr.append({"player_id": player_id, "instance_id": str(chosen_card.get("instance_id", "")), "source_instance_id": source_id})
+				generated_events.append({"event_type": "free_play_granted", "player_id": player_id, "instance_id": str(chosen_card.get("instance_id", "")), "source_instance_id": source_id})
+				var nlc_all_events: Array = []
+				var nlc_all_resolutions: Array = []
+				if not generated_events.is_empty():
+					var nlc_publish := publish_events(match_state, generated_events)
+					nlc_all_events = nlc_publish.get("processed_events", [])
+					nlc_all_resolutions = nlc_publish.get("trigger_resolutions", [])
+				return {"is_valid": true, "events": nlc_all_events, "trigger_resolutions": nlc_all_resolutions, "card": chosen_card}
 			var lane_id := str(then_context.get("lane_id", ""))
 			if lane_id.is_empty():
 				# Default to first lane with space
