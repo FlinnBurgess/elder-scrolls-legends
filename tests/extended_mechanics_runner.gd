@@ -129,7 +129,8 @@ func _run_all_tests() -> bool:
 		_test_blind_moth_priest_glow_flag() and
 		_test_emperors_attendant_hand_selection_modify_stats() and
 		_test_sacrifice_and_absorb_stats_uses_remaining_health() and
-		_test_forsaken_champion_aura_from_targeted_creature()
+		_test_forsaken_champion_aura_from_targeted_creature() and
+		_test_all_other_enemies_excludes_chosen_target()
 	)
 
 
@@ -4941,4 +4942,36 @@ func _test_forsaken_champion_aura_from_targeted_creature() -> bool:
 		_assert(int(aura.get("health", 0)) == 1, "Aura health bonus should be 1.") and
 		_assert(orc_aura_bonus == 1, "Orc should get +1 power from aura, got %d." % orc_aura_bonus) and
 		_assert(elf_aura_bonus == 0, "High Elf should NOT get aura bonus, got %d." % elf_aura_bonus)
+	)
+
+
+func _test_all_other_enemies_excludes_chosen_target() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	# Summon 3 enemy creatures: the chosen target (5hp) and two others (3hp each)
+	var chosen_enemy := ScenarioFixtures.summon_creature(opponent, match_state, "chosen_enemy", "field", 2, 5)
+	var other_enemy1 := ScenarioFixtures.summon_creature(opponent, match_state, "other_enemy1", "field", 2, 3)
+	var other_enemy2 := ScenarioFixtures.summon_creature(opponent, match_state, "other_enemy2", "shadow", 2, 3)
+	var chosen_id := str(chosen_enemy.get("instance_id", ""))
+	# Create a Frostscale Dragon-style creature: deal 4 to chosen, 1 to all other enemies
+	var dragon := ScenarioFixtures.add_hand_card(player, "frostscale", {
+		"card_type": "creature", "cost": 0, "power": 6, "health": 6,
+		"triggered_abilities": [{"family": "summon", "target_mode": "enemy_creature", "effects": [
+			{"op": "deal_damage", "target": "chosen_target", "amount": 4},
+			{"op": "deal_damage", "target": "all_other_enemies", "amount": 1},
+		]}],
+	})
+	LaneRules.summon_from_hand(match_state, pid, str(dragon.get("instance_id", "")), "field", {})
+	MatchTiming._check_summon_effect_target_mode(match_state, _find_lane_card(match_state, "field", pid, "test_frostscale"))
+	MatchTiming.resolve_pending_summon_effect_target(match_state, pid, {"target_instance_id": chosen_id})
+	# Chosen target: 5hp - 4 damage = 1hp (should NOT also take the 1 AoE damage)
+	var chosen_hp := EvergreenRules.get_remaining_health(chosen_enemy)
+	var other1_hp := EvergreenRules.get_remaining_health(other_enemy1)
+	var other2_hp := EvergreenRules.get_remaining_health(other_enemy2)
+	return (
+		_assert(chosen_hp == 1, "all_other_enemies: chosen target should only take 4 damage (5hp -> 1hp), got %dhp." % chosen_hp) and
+		_assert(other1_hp == 2, "all_other_enemies: other enemy1 should take 1 damage (3hp -> 2hp), got %dhp." % other1_hp) and
+		_assert(other2_hp == 2, "all_other_enemies: other enemy2 should take 1 damage (3hp -> 2hp), got %dhp." % other2_hp)
 	)

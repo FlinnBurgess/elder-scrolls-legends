@@ -1,56 +1,5 @@
 [
 	{
-		"card_id": "fsc_neu_wilds_incarnate",
-		"name": "Wilds Incarnate",
-		"card_type": "creature",
-		"cost": 7,
-		"attributes": [
-			"neutral"
-		],
-		"rules_text": "Guard\nSummon: Draw a card if you have 4 runes. Draw an additional card if you have 5 runes.",
-		"stripped_text": "Summon: Draw a card if you have 4 runes. Draw an additional card if you have 5 runes.",
-		"complexity": 85
-	},
-	{
-		"card_id": "mc_dual_frostscale_dragon",
-		"name": "Frostscale Dragon",
-		"card_type": "creature",
-		"cost": 9,
-		"attributes": [
-			"strength",
-			"intelligence"
-		],
-		"rules_text": "Summon: Deal 4 damage to an enemy creature and 1 damage to all other enemy creatures.",
-		"stripped_text": "Summon: Deal 4 damage to an enemy creature and 1 damage to all other enemy creatures.",
-		"complexity": 85
-	},
-	{
-		"card_id": "dual_gortwog_gronagorm",
-		"name": "Gortwog gro-Nagorm",
-		"card_type": "creature",
-		"cost": 6,
-		"attributes": [
-			"strength",
-			"endurance"
-		],
-		"rules_text": "At the start of your turn, summon a random creature from your deck to a random lane.",
-		"stripped_text": "At the start of your turn, summon a random creature from your deck to a random lane.",
-		"complexity": 84
-	},
-	{
-		"card_id": "hos_dual_crusaders_assault",
-		"name": "Crusader's Assault",
-		"card_type": "action",
-		"cost": 3,
-		"attributes": [
-			"strength",
-			"willpower"
-		],
-		"rules_text": "Give a creature +2/+0, Breakthrough, and \\\"Pilfer and Slay: Draw a card\\\" this turn.",
-		"stripped_text": "Give a creature +2/+0, Breakthrough, and \\\"Pilfer and Slay: Draw a card\\\" this turn.",
-		"complexity": 84
-	},
-	{
 		"card_id": "aw_str_lyris_titanborn",
 		"name": "Lyris Titanborn",
 		"card_type": "creature",

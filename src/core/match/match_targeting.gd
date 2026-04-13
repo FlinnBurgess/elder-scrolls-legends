@@ -608,12 +608,12 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 		"all_enemies", "all_other_enemies":
 			var controller_id := str(trigger.get("controller_player_id", ""))
 			var opponent_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), controller_id)
-			var ae_self_id := str(trigger.get("source_instance_id", "")) if target == "all_other_enemies" else ""
+			var ae_exclude_id := str(trigger.get("_chosen_target_id", "")) if target == "all_other_enemies" else ""
 			for lane in match_state.get("lanes", []):
 				var slots = lane.get("player_slots", {}).get(opponent_id, [])
 				for card in slots:
 					if typeof(card) == TYPE_DICTIONARY:
-						if not ae_self_id.is_empty() and str(card.get("instance_id", "")) == ae_self_id:
+						if not ae_exclude_id.is_empty() and str(card.get("instance_id", "")) == ae_exclude_id:
 							continue
 						targets.append(card)
 		"all_friendly", "all_other_friendly", "all_friendly_creatures", "all_friendly_by_subtype", \

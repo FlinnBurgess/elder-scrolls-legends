@@ -387,8 +387,8 @@ static func _check_missing_effects(card: Dictionary) -> void:
 		# Covered by an op in a triggered ability
 		if id in OP_EFFECT_IDS and id in configured_ops:
 			continue
-		# "draw" maps to "draw_cards" op
-		if id == "draw" and "draw_cards" in configured_ops:
+		# "draw" maps to "draw_cards" or "draw_cards_per_runes" op
+		if id == "draw" and ("draw_cards" in configured_ops or "draw_cards_per_runes" in configured_ops):
 			continue
 		# "damage" also maps to "deal_damage" op
 		if id == "damage" and "deal_damage" in configured_ops:

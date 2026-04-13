@@ -347,13 +347,17 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					generated_events.append({"event_type": "card_drawn", "player_id": drcfd_controller, "instance_id": str(drcfd_picked.get("instance_id", "")), "source": "draw_random_creature_from_discard", "reason": reason})
 		"draw_cards_per_runes":
 			var dcpr_controller_id := str(trigger.get("controller_player_id", ""))
-			var dcpr_opponent_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), dcpr_controller_id)
-			var dcpr_opponent := MatchTimingHelpers._get_player_state(match_state, dcpr_opponent_id)
-			if not dcpr_opponent.is_empty():
-				var dcpr_runes_remaining: Array = dcpr_opponent.get("rune_thresholds", [25, 20, 15, 10, 5])
-				var dcpr_destroyed := 5 - dcpr_runes_remaining.size()
-				if dcpr_destroyed > 0:
-					var dcpr_draw_result = _MT().draw_cards(match_state, dcpr_controller_id, dcpr_destroyed, {"reason": reason, "source_instance_id": str(trigger.get("source_instance_id", ""))})
+			var dcpr_player := MatchTimingHelpers._get_player_state(match_state, dcpr_controller_id)
+			if not dcpr_player.is_empty():
+				var dcpr_runes_remaining: Array = dcpr_player.get("rune_thresholds", [25, 20, 15, 10, 5])
+				var dcpr_rune_count: int = dcpr_runes_remaining.size()
+				var dcpr_thresholds: Array = effect.get("rune_thresholds", [])
+				var dcpr_total_draw := 0
+				for dcpr_t in dcpr_thresholds:
+					if typeof(dcpr_t) == TYPE_DICTIONARY and dcpr_rune_count >= int(dcpr_t.get("min_runes", 0)):
+						dcpr_total_draw += int(dcpr_t.get("count", 0))
+				if dcpr_total_draw > 0:
+					var dcpr_draw_result = _MT().draw_cards(match_state, dcpr_controller_id, dcpr_total_draw, {"reason": reason, "source_instance_id": str(trigger.get("source_instance_id", ""))})
 					generated_events.append_array(dcpr_draw_result.get("events", []))
 		"draw_copy_of_consumed":
 			# Draw a copy of the last consumed card — check event for consumed card info

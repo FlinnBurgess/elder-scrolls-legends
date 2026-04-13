@@ -28,7 +28,8 @@ func _run_all_tests() -> bool:
 		_test_fighters_guild_hall_triggers_on_retaliation_damage() and
 		_test_prophecy_item_can_be_thrown_at_enemy() and
 		_test_prevent_rune_draw_heals_instead_of_drawing() and
-		_test_prevent_rune_draw_silenced_does_not_block()
+		_test_prevent_rune_draw_silenced_does_not_block() and
+		_test_draw_cards_per_runes_threshold_logic()
 	)
 
 
@@ -482,6 +483,45 @@ func _families_from_resolutions(resolutions: Array) -> Array:
 
 func _build_deck(prefix: String, size: int) -> Array:
 	return ScenarioFixtures.build_deck(prefix, size)
+
+
+func _test_draw_cards_per_runes_threshold_logic() -> bool:
+	# 5 runes intact → draw 2 (one for ≥4, one for ≥5)
+	var ms5 := _build_started_match(20, 0)
+	var p5: Dictionary = ms5["players"][0]
+	p5["rune_thresholds"] = [25, 20, 15, 10, 5]
+	var hand_before_5 : int = int(p5["hand"].size())
+	_summon_creature(p5, ms5, "wilds_5r", "field", 5, 6, ["guard"], -1, {
+		"triggered_abilities": [{"family": "summon", "effects": [{"op": "draw_cards_per_runes", "rune_thresholds": [{"min_runes": 4, "count": 1}, {"min_runes": 5, "count": 1}]}]}],
+	})
+	# summon_creature adds to hand then summons (net 0), so drawn = hand_after - hand_before
+	var drawn_5 : int = int(p5["hand"].size()) - hand_before_5
+
+	# 4 runes intact → draw 1 (only the ≥4 threshold met)
+	var ms4 := _build_started_match(20, 0)
+	var p4: Dictionary = ms4["players"][0]
+	p4["rune_thresholds"] = [20, 15, 10, 5]
+	var hand_before_4 : int = int(p4["hand"].size())
+	_summon_creature(p4, ms4, "wilds_4r", "field", 5, 6, ["guard"], -1, {
+		"triggered_abilities": [{"family": "summon", "effects": [{"op": "draw_cards_per_runes", "rune_thresholds": [{"min_runes": 4, "count": 1}, {"min_runes": 5, "count": 1}]}]}],
+	})
+	var drawn_4 : int = int(p4["hand"].size()) - hand_before_4
+
+	# 3 runes intact → draw 0 (neither threshold met)
+	var ms3 := _build_started_match(20, 0)
+	var p3: Dictionary = ms3["players"][0]
+	p3["rune_thresholds"] = [15, 10, 5]
+	var hand_before_3 : int = int(p3["hand"].size())
+	_summon_creature(p3, ms3, "wilds_3r", "field", 5, 6, ["guard"], -1, {
+		"triggered_abilities": [{"family": "summon", "effects": [{"op": "draw_cards_per_runes", "rune_thresholds": [{"min_runes": 4, "count": 1}, {"min_runes": 5, "count": 1}]}]}],
+	})
+	var drawn_3 : int = int(p3["hand"].size()) - hand_before_3
+
+	return (
+		_assert(drawn_5 == 2, "With 5 runes, draw_cards_per_runes should draw 2 cards (got %d)." % drawn_5) and
+		_assert(drawn_4 == 1, "With 4 runes, draw_cards_per_runes should draw 1 card (got %d)." % drawn_4) and
+		_assert(drawn_3 == 0, "With 3 runes, draw_cards_per_runes should draw 0 cards (got %d)." % drawn_3)
+	)
 
 
 func _assert(condition: bool, message: String) -> bool:

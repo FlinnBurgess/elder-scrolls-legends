@@ -4,6 +4,10 @@
 		"deck": [
 			"hom_end_vvardvark",
 			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
 			"hom_end_vvardvark"
 		],
 		"discard": [],
@@ -28,7 +32,11 @@
 		"hand": [],
 		"health": 30.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [],
+		"shadow_creatures": [
+			null,
+			"wil_aldmeri_patriot",
+			"neu_ageless_automaton"
+		],
 		"supports": []
 	},
 	"lanes": [
@@ -47,31 +55,24 @@
 		"deck": [
 			"hom_end_vvardvark",
 			"iom_str_cloak",
-			"hom_end_daedric_crescent"
+			"hom_end_daedric_crescent",
+			"hos_str_aelas_huntmate",
+			"exc_neu_adoring_fan"
 		],
 		"discard": [],
 		"field_creatures": [
 			null,
-			"joo_end_brotherhood_vampire",
-			"db_wil_chanter_of_akatosh"
+			null,
+			"hom_end_ald_velothi_assassin"
 		],
 		"hand": [
 			"wil_piercing_javelin",
-			"hom_wil_umbra",
-			"mhc_neu_forsaken_champion",
-			"mhc_neu_illusory_mimic",
-			"fhc_neu_sehts_masterwork",
-			"fsc_neu_wilds_incarnate"
+			"aw_str_lyris_titanborn"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [
-			"exc_neu_adoring_fan",
-			"joo_str_agent_of_mehrunes_dagon",
-			"db_end_ageless_vampire",
-			"hom_end_ald_velothi_assassin"
-		],
+		"shadow_creatures": [],
 		"supports": [
 			"cwc_wil_reconstruction_engine"
 		]
