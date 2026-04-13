@@ -327,6 +327,17 @@ static func _resolve_creature_attack(match_state: Dictionary, validation: Dictio
 		if _atk_name in ["Cliff Racer", "Cliff Hunter", "Cliff Strider"]:
 			if str(defender_damage_target.get("controller_player_id", "")) != str(attacker.get("controller_player_id", "")):
 				damage_to_defender = 0
+	# wounded_enemy_damage immunity: immune to damage from wounded enemy creatures
+	var _atk_gi = attacker_damage_target.get("grants_immunity", [])
+	if typeof(_atk_gi) == TYPE_ARRAY and _atk_gi.has("wounded_enemy_damage"):
+		if EvergreenRules.has_status(defender, EvergreenRules.STATUS_WOUNDED):
+			GameLogger.trc("Combat", "wounded_immune", "card:%s immune to wounded %s" % [str(attacker_damage_target.get("name", "")), str(defender.get("name", ""))])
+			damage_to_attacker = 0
+	var _def_gi = defender_damage_target.get("grants_immunity", [])
+	if typeof(_def_gi) == TYPE_ARRAY and _def_gi.has("wounded_enemy_damage"):
+		if EvergreenRules.has_status(attacker, EvergreenRules.STATUS_WOUNDED):
+			GameLogger.trc("Combat", "wounded_immune", "card:%s immune to wounded %s" % [str(defender_damage_target.get("name", "")), str(attacker.get("name", ""))])
+			damage_to_defender = 0
 	var defender_damage := EvergreenRules.apply_damage_to_creature(defender_damage_target, damage_to_defender)
 	var attacker_damage := EvergreenRules.apply_damage_to_creature(attacker_damage_target, damage_to_attacker)
 	var applied_to_defender := int(defender_damage.get("applied", 0))

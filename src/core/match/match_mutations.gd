@@ -567,6 +567,7 @@ static func silence_card(card: Dictionary, options: Dictionary = {}, match_state
 	card["triggered_abilities"] = []
 	card["power_bonus"] = 0
 	card["health_bonus"] = 0
+	card["health_debuff_marked"] = 0
 	card["status_markers"] = [EvergreenRules.STATUS_SILENCED]
 	card.erase("aura")
 	card.erase("cover_expires_on_turn")
@@ -801,6 +802,7 @@ static func _preserve_card_state(card: Dictionary, flags: Dictionary) -> Diction
 	if bool(flags.get("modifiers", false)):
 		preserved["power_bonus"] = int(card.get("power_bonus", 0))
 		preserved["health_bonus"] = int(card.get("health_bonus", 0))
+		preserved["health_debuff_marked"] = int(card.get("health_debuff_marked", 0))
 		preserved["granted_keywords"] = _clone_variant(card.get("granted_keywords", []))
 	if bool(flags.get("damage", false)):
 		preserved["damage_marked"] = int(card.get("damage_marked", 0))
@@ -830,7 +832,7 @@ static func _restore_card_state(card: Dictionary, preserved: Dictionary, _option
 		card.erase("slot_index")
 	else:
 		card["slot_index"] = preserved["slot_index"]
-	for key in ["power_bonus", "health_bonus", "granted_keywords", "damage_marked", "status_markers", "has_attacked_this_turn", "entered_lane_on_turn"]:
+	for key in ["power_bonus", "health_bonus", "health_debuff_marked", "granted_keywords", "damage_marked", "status_markers", "has_attacked_this_turn", "entered_lane_on_turn"]:
 		if preserved.has(key):
 			card[key] = _clone_variant(preserved[key])
 	if preserved.has("cover_expires_on_turn"):
@@ -842,6 +844,7 @@ static func _restore_card_state(card: Dictionary, preserved: Dictionary, _option
 static func reset_transient_state(card: Dictionary) -> void:
 	card["power_bonus"] = 0
 	card["health_bonus"] = 0
+	card["health_debuff_marked"] = 0
 	card["granted_keywords"] = []
 	card["damage_marked"] = 0
 	card["status_markers"] = []

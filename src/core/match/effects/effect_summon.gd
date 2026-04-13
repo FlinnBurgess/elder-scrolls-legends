@@ -145,7 +145,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						continue
 					var has_wounded := false
 					for card in check_lane.get("player_slots", {}).get(opp_id, []):
-						if typeof(card) == TYPE_DICTIONARY and int(card.get("damage_marked", 0)) > 0:
+						if typeof(card) == TYPE_DICTIONARY and EvergreenRules.has_status(card, EvergreenRules.STATUS_WOUNDED):
 							has_wounded = true
 							break
 					if has_wounded:

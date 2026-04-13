@@ -228,10 +228,13 @@ static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionar
 		if MatchTiming.has_pending_top_deck_choice(match_state, player_id):
 			match_state["deferred_turn_draw_player_id"] = player_id
 		else:
-			MatchTiming.draw_cards(match_state, player_id, 1, {
+			var draw_result := MatchTiming.draw_cards(match_state, player_id, 1, {
 				"reason": MatchTiming.EVENT_TURN_STARTED,
 				"source_controller_player_id": player_id,
 			})
+			var draw_events: Array = draw_result.get("events", [])
+			if not draw_events.is_empty():
+				MatchTiming.publish_events(match_state, draw_events)
 	_resolve_forced_attacks(match_state, player_id)
 	_process_discard_return_timers(match_state, player_id)
 	return match_state

@@ -2110,7 +2110,10 @@ func _on_lane_row_gui_input(event: InputEvent, lane_id: String, player_id: Strin
 		var support_id := _selected_instance_id
 		_targeting._cancel_targeting_mode_silent()
 		_selected_instance_id = ""
-		var result := PersistentCardRules.activate_support(_match_state, _active_player_id(), support_id, {"lane_id": lane_id})
+		var options := {"lane_id": lane_id}
+		if _selection._support_has_choose_lane_and_owner(card):
+			options["target_player_id"] = player_id
+		var result := PersistentCardRules.activate_support(_match_state, _active_player_id(), support_id, options)
 		_finalize_engine_result(result, "Activated support.")
 		accept_event()
 		return

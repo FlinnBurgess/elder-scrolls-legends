@@ -1,53 +1,5 @@
 [
 	{
-		"card_id": "moe_wil_halls_of_colossus",
-		"name": "Halls of Colossus",
-		"card_type": "support",
-		"cost": 12,
-		"attributes": [
-			"willpower"
-		],
-		"rules_text": "Uses: 3\nActivate: Summon a non-Unique Dragon of your choice from your deck.",
-		"stripped_text": "Uses: 3\nActivate: Summon a non-Unique Dragon of your choice from your deck.",
-		"complexity": 75
-	},
-	{
-		"card_id": "joo_int_blast_from_oblivion",
-		"name": "Blast from Oblivion",
-		"card_type": "action",
-		"cost": 3,
-		"attributes": [
-			"intelligence"
-		],
-		"rules_text": "Prophecy\nInvade, then deal damage equal to your Oblivion Gate's level to a creature.",
-		"stripped_text": "Invade, then deal damage equal to your Oblivion Gate's level to a creature.",
-		"complexity": 75
-	},
-	{
-		"card_id": "aw_wil_strategists_map",
-		"name": "Strategist's Map",
-		"card_type": "support",
-		"cost": 3,
-		"attributes": [
-			"willpower"
-		],
-		"rules_text": "Uses: 3\nActivate: Summon a 0/1 Target with Guard for you or your opponent.",
-		"stripped_text": "Uses: 3\nActivate: Summon a 0/1 Target with Guard for you or your opponent.",
-		"complexity": 74
-	},
-	{
-		"card_id": "aw_agi_sai_sahan",
-		"name": "Sai Sahan",
-		"card_type": "creature",
-		"cost": 7,
-		"attributes": [
-			"agility"
-		],
-		"rules_text": "Immune to Wounded enemy creatures.\nSummon: Give all enemy creatures -1/-1.",
-		"stripped_text": "Immune to Wounded enemy creatures.\nSummon: Give all enemy creatures -1/-1.",
-		"complexity": 74
-	},
-	{
 		"card_id": "moe_wil_alfiq_illusionist",
 		"name": "Alfiq Illusionist",
 		"card_type": "creature",

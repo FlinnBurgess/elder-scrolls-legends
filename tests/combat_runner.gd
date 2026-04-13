@@ -28,7 +28,8 @@ func _run_all_tests() -> bool:
 		_test_move_to_attack_into_shadow_lane_loses_cover() and
 		_test_grants_immunity_lethal_survives_combat() and
 		_test_amulet_of_mara_blocks_attack_between_wielders() and
-		_test_escalating_damage_sets_counter_on_card()
+		_test_escalating_damage_sets_counter_on_card() and
+		_test_wounded_enemy_damage_immunity()
 	)
 
 
@@ -455,6 +456,47 @@ func _test_escalating_damage_sets_counter_on_card() -> bool:
 	return (
 		_assert(result2["is_valid"], "Second escalating attack should resolve.") and
 		_assert(int(attacker.get("esc_counter", 0)) == 4, "Counter should be 4 after second attack, got %d." % int(attacker.get("esc_counter", 0)))
+	)
+
+
+func _test_wounded_enemy_damage_immunity() -> bool:
+	var match_state := _build_started_match(18, 0)
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	# Sai Sahan analog: immune to wounded enemy creature damage
+	var sai := _summon_creature(player, match_state, "sai_sahan", "field", 6, 3)
+	sai["grants_immunity"] = ["wounded_enemy_damage"]
+	_target_ready_for_attack(sai, match_state)
+	# Wounded enemy (debuffed — has health_debuff_marked but no damage_marked)
+	var debuffed := _summon_creature(opponent, match_state, "debuffed_enemy", "field", 2, 4)
+	EvergreenRules.apply_stat_bonus(debuffed, -1, -1, "curse")
+	_target_ready_for_attack(debuffed, match_state)
+	# Sai attacks the wounded (debuffed) creature — should take 0 retaliation
+	var result := MatchCombat.resolve_attack(match_state, player["player_id"], sai["instance_id"], {
+		"type": "creature",
+		"instance_id": debuffed["instance_id"],
+	})
+	if not (
+		_assert(result["is_valid"], "Sai attack should resolve.") and
+		_assert(int(sai.get("damage_marked", 0)) == 0, "Sai should take 0 damage from wounded enemy. Got %d." % int(sai.get("damage_marked", 0)))
+	):
+		return false
+	# Non-wounded enemy — Sai should take normal retaliation damage
+	var match_state2 := _build_started_match(18, 0)
+	var player2: Dictionary = match_state2["players"][0]
+	var opponent2: Dictionary = match_state2["players"][1]
+	var sai2 := _summon_creature(player2, match_state2, "sai_sahan2", "field", 6, 5)
+	sai2["grants_immunity"] = ["wounded_enemy_damage"]
+	_target_ready_for_attack(sai2, match_state2)
+	var healthy := _summon_creature(opponent2, match_state2, "healthy_enemy", "field", 3, 8)
+	_target_ready_for_attack(healthy, match_state2)
+	var result2 := MatchCombat.resolve_attack(match_state2, player2["player_id"], sai2["instance_id"], {
+		"type": "creature",
+		"instance_id": healthy["instance_id"],
+	})
+	return (
+		_assert(result2["is_valid"], "Sai attack vs healthy should resolve.") and
+		_assert(int(sai2.get("damage_marked", 0)) == 3, "Sai should take 3 damage from non-wounded enemy. Got %d." % int(sai2.get("damage_marked", 0)))
 	)
 
 

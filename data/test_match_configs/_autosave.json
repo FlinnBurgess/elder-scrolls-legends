@@ -21,12 +21,12 @@
 			{
 				"can_attack": true,
 				"definition_id": "hos_str_aelas_huntmate",
-				"power_bonus": -3.0
+				"power_bonus": -1.0
 			},
 			{
 				"can_attack": true,
 				"definition_id": "aw_int_abnur_tharn",
-				"power_bonus": -5.0
+				"power_bonus": -3.0
 			},
 			"cwc_neu_abomination"
 		],
@@ -71,24 +71,18 @@
 			"hos_wil_a_land_divided",
 			"int_flame_atronach"
 		],
-		"field_creatures": [
-			"neu_ageless_automaton",
-			"db_end_ageless_vampire",
-			"joo_str_agent_of_mehrunes_dagon",
-			"dual_ahnassi"
-		],
+		"field_creatures": [],
 		"hand": [
 			"wil_piercing_javelin",
 			"int_firebolt",
-			"hos_wil_call_of_valor",
-			"tc_neu_call_dragon"
+			"aw_agi_sai_sahan"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [],
 		"supports": [
-			"moe_wil_halls_of_colossus"
+			"aw_wil_strategists_map"
 		]
 	},
 	"type": "kill"

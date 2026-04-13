@@ -50,6 +50,7 @@ func _run_all_tests() -> bool:
 		_test_support_last_gasp_draw_filtered_applies_post_draw_buff() and
 		_test_support_on_play_summon_from_effect_with_chosen_lane() and
 		_test_support_activate_summon_from_effect_chosen_lane() and
+		_test_strategists_map_summons_target_for_chosen_owner() and
 		# Umbra forced attack
 		_test_umbra_forced_attack_hits_enemy_creature() and
 		_test_umbra_forced_attack_skips_when_no_enemies() and
@@ -1247,6 +1248,43 @@ func _test_support_activate_summon_from_effect_chosen_lane() -> bool:
 				if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == "recon_spider":
 					spider_found = true
 	return _assert(spider_found, "Reconstructed Spider should be summoned in shadow lane (chosen target's lane).")
+
+
+func _test_strategists_map_summons_target_for_chosen_owner() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player.get("player_id", ""))
+	var opp_id := str(opponent.get("player_id", ""))
+	# Place Strategist's Map in support zone
+	var map := _add_hand_card(player, "strategists_map", {
+		"card_type": "support", "cost": 0, "support_uses": 3,
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ACTIVATE,
+			"target_mode": "choose_lane_and_owner",
+			"effects": [{"op": "summon_from_effect", "lane": "chosen", "target_player": "target_player", "card_template": {
+				"definition_id": "hom_neu_target", "name": "Target", "card_type": "creature",
+				"attributes": ["neutral"], "cost": 0, "power": 0, "health": 1,
+				"base_power": 0, "base_health": 1, "keywords": ["guard"], "subtypes": ["Defense"],
+				"rules_text": "Guard",
+			}}],
+		}],
+	})
+	PersistentCardRules.play_support_from_hand(match_state, pid, map["instance_id"])
+	# Activate: summon Target on opponent's side of field lane
+	var result := PersistentCardRules.activate_support(match_state, pid, map["instance_id"], {"lane_id": "field", "target_player_id": opp_id})
+	if not _assert(bool(result.get("is_valid", false)), "Strategist's Map activate should succeed."):
+		return false
+	var target_found := false
+	for lane in match_state.get("lanes", []):
+		if str(lane.get("lane_id", "")) != "field":
+			continue
+		for card in lane.get("player_slots", {}).get(opp_id, []):
+			if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == "hom_neu_target":
+				target_found = true
+				if not _assert(EvergreenRules.has_keyword(card, "guard"), "Summoned Target should have Guard."):
+					return false
+	return _assert(target_found, "Strategist's Map should summon a Target on opponent's side of field lane.")
 
 
 func _make_umbra_item(player_id: String) -> Dictionary:

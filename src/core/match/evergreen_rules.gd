@@ -51,6 +51,8 @@ static func ensure_card_state(card: Dictionary) -> void:
 		card["attached_items"] = []
 	if not card.has("damage_marked"):
 		card["damage_marked"] = 0
+	if not card.has("health_debuff_marked"):
+		card["health_debuff_marked"] = 0
 	if not card.has("power_bonus"):
 		card["power_bonus"] = 0
 	if not card.has("health_bonus"):
@@ -263,6 +265,12 @@ static func apply_stat_bonus(card: Dictionary, power_bonus: int, health_bonus: i
 	ensure_card_state(card)
 	card["power_bonus"] = int(card.get("power_bonus", 0)) + power_bonus
 	card["health_bonus"] = int(card.get("health_bonus", 0)) + health_bonus
+	# Track health debuffs for wounded status (debuffs wound even if net bonus is positive)
+	if health_bonus < 0 and _reason != "temp_bonus_expired":
+		card["health_debuff_marked"] = int(card.get("health_debuff_marked", 0)) + absi(health_bonus)
+	elif health_bonus > 0 and _reason == "temp_bonus_expired":
+		# Reverting a temporary debuff — undo the debuff tracking
+		card["health_debuff_marked"] = maxi(0, int(card.get("health_debuff_marked", 0)) - health_bonus)
 	# Items transfer stat buffs through equip bonuses so the creature gains them
 	if str(card.get("card_type", "")) == "item":
 		card["equip_power_bonus"] = int(card.get("equip_power_bonus", 0)) + power_bonus
@@ -512,7 +520,9 @@ static func get_health(card: Dictionary) -> int:
 
 
 static func _sync_wounded_status(card: Dictionary) -> void:
-	if int(card.get("damage_marked", 0)) > 0:
+	if int(card.get("damage_marked", 0)) > 0 \
+		or int(card.get("health_debuff_marked", 0)) > 0 \
+		or int(card.get("aura_health_bonus", 0)) < 0:
 		add_status(card, STATUS_WOUNDED)
 	else:
 		remove_status(card, STATUS_WOUNDED)
