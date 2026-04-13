@@ -62,6 +62,9 @@ func _run_all_tests() -> bool:
 		_test_tenarr_sacrifices_with_empty_discard() and
 		_test_tenarr_consumes_with_creature_in_discard() and
 		_test_tenarr_survives_after_consuming() and
+		# Studious Greybeard — deferred draw
+		_test_studious_greybeard_defers_draw_until_choice_resolved() and
+		_test_studious_greybeard_discard_draws_next_card() and
 		true
 	)
 
@@ -724,3 +727,65 @@ func _test_tenarr_survives_after_consuming() -> bool:
 	# Tenarr should still be alive in lane
 	var still_in_lane := _find_lane_card(match_state, "field", pid, "moe_agi_tenarr_zalviit_nightstalker")
 	return _assert(not still_in_lane.is_empty(), "Tenarr should survive after successfully consuming a creature")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Studious Greybeard — look_at_top_deck_may_discard defers turn draw
+# ──────────────────────────────────────────────────────────────────────────────
+
+func _test_studious_greybeard_defers_draw_until_choice_resolved() -> bool:
+	var match_state := _build_started_match()
+	var player := ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var greybeard: Dictionary = _catalog_helper.summon(player, match_state, "hos_int_studious_greybeard", "field")
+	if greybeard.is_empty():
+		return _assert(false, "Failed to summon Studious Greybeard")
+	# Record hand size before turn cycle
+	_end_turn_and_start_next(match_state)  # end our turn, opponent's turn starts
+	var hand_before: int = player.get("hand", []).size()
+	_end_turn_and_start_next(match_state)  # end opponent turn, our turn starts
+	# Greybeard should have created a pending choice, draw should be deferred
+	if not _assert(MatchTiming.has_pending_top_deck_choice(match_state, pid),
+			"Studious Greybeard should create pending top deck choice at start of turn"):
+		return false
+	if not _assert(player.get("hand", []).size() == hand_before,
+			"Hand size should not increase before resolving top deck choice (got %d, expected %d)" % [player.get("hand", []).size(), hand_before]):
+		return false
+	# Resolve the choice (keep) — now the draw should happen
+	MatchTiming.resolve_pending_top_deck_choice(match_state, pid, false)
+	return _assert(player.get("hand", []).size() == hand_before + 1,
+		"Hand size should increase by 1 after resolving top deck choice (got %d, expected %d)" % [player.get("hand", []).size(), hand_before + 1])
+
+
+func _test_studious_greybeard_discard_draws_next_card() -> bool:
+	var match_state := _build_started_match()
+	var player := ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var greybeard: Dictionary = _catalog_helper.summon(player, match_state, "hos_int_studious_greybeard", "field")
+	if greybeard.is_empty():
+		return _assert(false, "Failed to summon Studious Greybeard")
+	_end_turn_and_start_next(match_state)  # end our turn, opponent's turn starts
+	_end_turn_and_start_next(match_state)  # end opponent turn, our turn starts
+	# Deck should have the card that will be discarded on top, then the card we'll draw
+	var deck: Array = player.get("deck", [])
+	if deck.size() < 2:
+		return _assert(false, "Need at least 2 cards in deck for this test")
+	var top_card_id := str(deck.back().get("instance_id", ""))
+	var second_card_id := str(deck[deck.size() - 2].get("instance_id", ""))
+	# Discard the top card
+	var result := MatchTiming.resolve_pending_top_deck_choice(match_state, pid, true)
+	# The top card should now be in discard
+	var found_in_discard := false
+	for card in player.get("discard", []):
+		if str(card.get("instance_id", "")) == top_card_id:
+			found_in_discard = true
+			break
+	if not _assert(found_in_discard, "Discarded top card should be in discard pile"):
+		return false
+	# The second card should now be in hand (drawn after discard)
+	var found_in_hand := false
+	for card in player.get("hand", []):
+		if str(card.get("instance_id", "")) == second_card_id:
+			found_in_hand = true
+			break
+	return _assert(found_in_hand, "After discarding top card, the next card should be drawn into hand")

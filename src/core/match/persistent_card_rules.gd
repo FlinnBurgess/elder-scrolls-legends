@@ -701,6 +701,10 @@ static func _get_aura_cost_reduction(match_state: Dictionary, player_id: String,
 		var aura_filter_card_type := str(aura.get("filter_card_type", ""))
 		if not aura_filter_card_type.is_empty() and card_type != aura_filter_card_type:
 			continue
+		var aura_filter_card_types = aura.get("filter_card_types", [])
+		if typeof(aura_filter_card_types) == TYPE_ARRAY and not aura_filter_card_types.is_empty():
+			if not aura_filter_card_types.has(card_type):
+				continue
 		if aura.get("filter_deals_damage", false):
 			if not _cost_reduction_condition_met(match_state, player_id, card, "filter_deals_damage", aura):
 				continue

@@ -544,6 +544,21 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 		card["status_markers"] = markers
 
 
+static func _apply_first_turn_hand_effects(match_state: Dictionary) -> void:
+	if int(match_state.get("turn_number", 0)) != 1:
+		return
+	for player in match_state.get("players", []):
+		var player_id := str(player.get("player_id", ""))
+		var magicka_bonus := 0
+		for hand_card in player.get("hand", []):
+			if typeof(hand_card) != TYPE_DICTIONARY:
+				continue
+			MatchMutations.apply_first_turn_hand_cost(match_state, hand_card, player_id)
+			magicka_bonus += int(hand_card.get("first_turn_hand_magicka", 0))
+		if magicka_bonus > 0:
+			player["temporary_magicka"] = int(player.get("temporary_magicka", 0)) + magicka_bonus
+
+
 static func _hydrate_all_zones(match_state: Dictionary, card_by_id: Dictionary) -> void:
 	for player in match_state.get("players", []):
 		for zone_key in ["deck", "hand", "support", "discard", "banished"]:
@@ -584,6 +599,7 @@ func start_test_match(test_state: Dictionary) -> void:
 	var catalog_result := CardCatalog.load_default()
 	var card_by_id: Dictionary = catalog_result.get("card_by_id", {})
 	_hydrate_all_zones(test_state, card_by_id)
+	_apply_first_turn_hand_effects(test_state)
 	ExtendedMechanicPacks.apply_cheesemancer_mutations(test_state)
 	GameLogger.start_match(test_state)
 	_match_state = test_state
@@ -636,6 +652,7 @@ func start_puzzle_match(puzzle_state: Dictionary, puzzle_config: Dictionary = {}
 	var catalog_result := CardCatalog.load_default()
 	var card_by_id: Dictionary = catalog_result.get("card_by_id", {})
 	_hydrate_all_zones(puzzle_state, card_by_id)
+	_apply_first_turn_hand_effects(puzzle_state)
 	GameLogger.start_match(puzzle_state)
 	_match_state = puzzle_state
 	_match_state["_defer_visual_effects"] = true

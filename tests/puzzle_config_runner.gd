@@ -28,6 +28,8 @@ func _initialize() -> void:
 	_test_build_with_ring()
 	_test_build_with_supports()
 	_test_build_with_hand_and_deck()
+	_test_first_turn_hand_cost_puzzle()
+	_test_first_turn_hand_cost_test_match()
 
 	# Codec tests
 	_test_codec_round_trip()
@@ -201,6 +203,28 @@ func _test_build_with_hand_and_deck() -> void:
 	# Deck order: index 0 in config drawn first = last in internal array (pop_back)
 	_assert(p1["deck"][1].get("definition_id") == "execute", "deck bottom (last pop) = first in config")
 	_assert(p1["deck"][0].get("definition_id") == "javelin", "deck top (first pop) = last in config")
+
+
+func _test_first_turn_hand_cost_puzzle() -> void:
+	var config := _minimal_config()
+	config["player"]["hand"] = ["agi_murkwater_butcher"]
+	var state: Dictionary = PuzzleConfigScript.build_puzzle_match_state(config)
+	var p1: Dictionary = state.get("players", [])[0]
+	var hand: Array = p1.get("hand", [])
+	_assert(hand.size() == 1, "puzzle: hand should have 1 card")
+	_assert(int(hand[0].get("cost", -1)) == 1, "puzzle: Murkwater Butcher cost should be reduced to 1, got %d" % int(hand[0].get("cost", -1)))
+	_assert(int(hand[0].get("first_turn_hand_cost", -1)) == 1, "puzzle: should carry first_turn_hand_cost field")
+
+
+func _test_first_turn_hand_cost_test_match() -> void:
+	var config := _minimal_config()
+	config["player"]["hand"] = ["agi_murkwater_butcher"]
+	var state: Dictionary = PuzzleConfigScript.build_test_match_state(config)
+	var p1: Dictionary = state.get("players", [])[0]
+	var hand: Array = p1.get("hand", [])
+	_assert(hand.size() == 1, "test_match: hand should have 1 card")
+	_assert(int(hand[0].get("cost", -1)) == 1, "test_match: Murkwater Butcher cost should be reduced to 1, got %d" % int(hand[0].get("cost", -1)))
+	_assert(int(hand[0].get("first_turn_hand_cost", -1)) == 1, "test_match: should carry first_turn_hand_cost field")
 
 
 # -- Codec Tests --

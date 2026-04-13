@@ -851,11 +851,21 @@ static func resolve_pending_top_deck_choice(match_state: Dictionary, player_id: 
 					"reason": "top_deck_choice",
 				})
 	var timing_result := publish_events(match_state, events)
+	var all_events: Array = timing_result.get("processed_events", []).duplicate(true)
+	# Execute deferred turn draw if this was the blocking choice
+	if str(match_state.get("deferred_turn_draw_player_id", "")) == player_id:
+		if not has_pending_top_deck_choice(match_state, player_id):
+			match_state.erase("deferred_turn_draw_player_id")
+			var draw_result := draw_cards(match_state, player_id, 1, {
+				"reason": EVENT_TURN_STARTED,
+				"source_controller_player_id": player_id,
+			})
+			all_events.append_array(draw_result.get("events", []))
 	return {
 		"is_valid": true,
 		"errors": [],
 		"discarded": discard,
-		"events": timing_result.get("processed_events", []),
+		"events": all_events,
 	}
 
 

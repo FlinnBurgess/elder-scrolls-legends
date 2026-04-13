@@ -192,17 +192,6 @@ static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionar
 			"target_player_id": player_id,
 			"amount": magicka_gained,
 		}])
-	var events: Array = []
-	var drawn_instance_id := ""
-	if not bool(match_state.get("puzzle_suppress_draw", false)):
-		var draw_result := MatchTiming.draw_cards(match_state, player_id, 1, {
-			"reason": MatchTiming.EVENT_TURN_STARTED,
-			"source_controller_player_id": player_id,
-		})
-		events = draw_result.get("events", []).duplicate(true)
-		var drawn_cards: Array = draw_result.get("cards", [])
-		if not drawn_cards.is_empty():
-			drawn_instance_id = str(drawn_cards[0].get("instance_id", ""))
 	if int(player.get("turns_started", 0)) == 1:
 		var first_turn_magicka_bonus := 0
 		for hand_card in player.get("hand", []):
@@ -212,19 +201,30 @@ static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionar
 		if first_turn_magicka_bonus > 0:
 			player["temporary_magicka"] = int(player.get("temporary_magicka", 0)) + first_turn_magicka_bonus
 	MatchTiming.process_delayed_destroys(match_state, player_id)
+	var turn_events: Array = []
 	if str(match_state.get("winner_player_id", "")).is_empty():
 		match_state["phase"] = PHASE_ACTION
-		events.append({
+		turn_events.append({
 			"event_type": MatchTiming.EVENT_TURN_STARTED,
 			"player_id": player_id,
 			"turn_number": int(match_state.get("turn_number", 0)),
 			"source_controller_player_id": player_id,
-			"drawn_instance_id": drawn_instance_id,
 		})
 	else:
 		match_state["phase"] = "complete"
-	if not events.is_empty():
-		MatchTiming.publish_events(match_state, events)
+	if not turn_events.is_empty():
+		MatchTiming.publish_events(match_state, turn_events)
+	# Draw AFTER start-of-turn triggers so effects like look_at_top_deck_may_discard
+	# can inspect/discard the top card before the draw happens.
+	var suppress_draw := bool(match_state.get("puzzle_suppress_draw", false))
+	if not suppress_draw:
+		if MatchTiming.has_pending_top_deck_choice(match_state, player_id):
+			match_state["deferred_turn_draw_player_id"] = player_id
+		else:
+			MatchTiming.draw_cards(match_state, player_id, 1, {
+				"reason": MatchTiming.EVENT_TURN_STARTED,
+				"source_controller_player_id": player_id,
+			})
 	_resolve_forced_attacks(match_state, player_id)
 	_process_discard_return_timers(match_state, player_id)
 	return match_state

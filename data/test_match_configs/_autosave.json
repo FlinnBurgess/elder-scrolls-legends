@@ -17,7 +17,6 @@
 		],
 		"discard": [],
 		"field_creatures": [
-			null,
 			{
 				"can_attack": true,
 				"definition_id": "hos_str_aelas_huntmate",
@@ -28,13 +27,14 @@
 				"definition_id": "aw_int_abnur_tharn",
 				"power_bonus": -5.0
 			},
-			"hom_end_ald_velothi_assassin"
+			"cwc_neu_abomination"
 		],
 		"hand": [],
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [
-			null
+			null,
+			"hom_str_aldruhn_arms_master"
 		],
 		"supports": []
 	},
@@ -57,23 +57,28 @@
 			"hom_end_skeleton_champion",
 			"end_haunting_spirit"
 		],
-		"discard": [],
+		"discard": [
+			"str_bangkorai_butcher",
+			"str_battlerage_orc"
+		],
 		"field_creatures": [
 			null,
 			null,
-			"str_afflicted_alit"
+			null,
+			"aw_int_altmer_flameslinger"
 		],
 		"hand": [
 			"wil_piercing_javelin",
-			"iom_end_wake_the_dead"
+			"aw_tri_emeric_covenant_king",
+			"exc_neu_adoring_fan",
+			"cwc_neu_abandoned_imperfect"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [],
 		"supports": [
-			"cwc_wil_reconstruction_engine",
-			"neu_goldbrand"
+			"aw_tri_transitus_shrine"
 		]
 	},
 	"type": "kill"

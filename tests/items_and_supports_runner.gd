@@ -56,7 +56,9 @@ func _run_all_tests() -> bool:
 		_test_umbra_forced_attack_respects_guards() and
 		# Singleton deck cost reduction
 		_test_sehts_masterwork_reduces_cost_for_singleton_deck() and
-		_test_sehts_masterwork_no_discount_for_duplicate_deck()
+		_test_sehts_masterwork_no_discount_for_duplicate_deck() and
+		# Transitus Shrine type filter
+		_test_transitus_shrine_only_discounts_creatures_and_actions()
 	)
 
 
@@ -1378,6 +1380,42 @@ func _test_sehts_masterwork_no_discount_for_duplicate_deck() -> bool:
 	var hand_card := _add_hand_card(player, "test_cost_card2", {"card_type": "creature", "cost": 5, "power": 3, "health": 3})
 	var effective := PersistentCardRules.get_effective_play_cost(match_state, pid, hand_card)
 	return _assert(effective == 5, "Seht's Masterwork should NOT reduce cost for non-singleton deck, expected 5 got %d." % effective)
+
+
+func _test_transitus_shrine_only_discounts_creatures_and_actions() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player.get("player_id", ""))
+	# Place a creature in each lane so the condition is met
+	ScenarioFixtures.summon_creature(player, match_state, "field_filler", "field", 1, 1)
+	ScenarioFixtures.summon_creature(player, match_state, "shadow_filler", "shadow", 1, 1)
+	# Place Transitus Shrine support
+	var shrine := ScenarioFixtures.make_card(pid, "transitus_shrine", {
+		"card_type": "support",
+		"cost": 3,
+		"support_uses": 0,
+		"cost_reduction_aura": {"target": "friendly_creatures_and_actions", "amount": 1, "condition": "creature_in_each_lane", "filter_card_types": ["creature", "action"]},
+	})
+	shrine["zone"] = "support"
+	player["support"].append(shrine)
+	# Creature in hand: should be discounted
+	var hand_creature := _add_hand_card(player, "ts_creature", {"card_type": "creature", "cost": 5, "power": 3, "health": 3})
+	var creature_cost := PersistentCardRules.get_effective_play_cost(match_state, pid, hand_creature)
+	# Action in hand: should be discounted
+	var hand_action := _add_hand_card(player, "ts_action", {"card_type": "action", "cost": 4})
+	var action_cost := PersistentCardRules.get_effective_play_cost(match_state, pid, hand_action)
+	# Support in hand: should NOT be discounted
+	var hand_support := _add_hand_card(player, "ts_support", {"card_type": "support", "cost": 5, "support_uses": 3})
+	var support_cost := PersistentCardRules.get_effective_play_cost(match_state, pid, hand_support)
+	# Item in hand: should NOT be discounted
+	var hand_item := _add_hand_card(player, "ts_item", {"card_type": "item", "cost": 3})
+	var item_cost := PersistentCardRules.get_effective_play_cost(match_state, pid, hand_item)
+	return (
+		_assert(creature_cost == 4, "Transitus Shrine should discount creature from 5 to 4, got %d." % creature_cost) and
+		_assert(action_cost == 3, "Transitus Shrine should discount action from 4 to 3, got %d." % action_cost) and
+		_assert(support_cost == 5, "Transitus Shrine should NOT discount support, expected 5 got %d." % support_cost) and
+		_assert(item_cost == 3, "Transitus Shrine should NOT discount item, expected 3 got %d." % item_cost)
+	)
 
 
 func _assert(condition: bool, message: String) -> bool:

@@ -31,7 +31,8 @@ func _run_all_tests() -> bool:
 		_test_prevent_rune_draw_silenced_does_not_block() and
 		_test_draw_cards_per_runes_threshold_logic() and
 		_test_destroy_front_rune_draws_card_for_opponent() and
-		_test_destroy_front_rune_does_nothing_when_no_runes()
+		_test_destroy_front_rune_does_nothing_when_no_runes() and
+		_test_any_rune_trigger_fires_once_per_break_for_both_players()
 	)
 
 
@@ -509,6 +510,49 @@ func _test_destroy_front_rune_does_nothing_when_no_runes() -> bool:
 	return (
 		_assert(int(opponent.get("health", 0)) == 3, "destroy_front_rune with no runes should not deal damage, got %d HP." % int(opponent.get("health", 0))) and
 		_assert(opponent["hand"].size() == hand_before, "destroy_front_rune with no runes should not draw a card.")
+	)
+
+
+func _test_any_rune_trigger_fires_once_per_break_for_both_players() -> bool:
+	# A creature with on_enemy_rune_destroyed + match_role:any_player should get +1/+0
+	# per rune break, regardless of which player's rune it was, and only once per break.
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var cadwell := _summon_creature(active_player, match_state, "cadwell", "field", 0, 1, [], 0, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_ENEMY_RUNE_DESTROYED,
+			"match_role": "any_player",
+			"required_zone": "lane",
+			"effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 0}],
+		}]
+	})
+	# Break an enemy rune
+	var attacker := _summon_creature(active_player, match_state, "big_hitter", "field", 6, 6, [], 1)
+	_target_ready_for_attack(attacker, match_state)
+	MatchCombat.resolve_attack(match_state, active_player["player_id"], attacker["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	var power_after_enemy_rune: int = int(cadwell.get("power_bonus", 0))
+
+	# Switch to opponent's turn so they can attack
+	var pid := str(active_player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	MatchTurnLoop.end_turn(match_state, pid)
+
+	# Break a friendly rune (opponent attacks active player)
+	var enemy_attacker := _summon_creature(opponent, match_state, "enemy_hitter", "field", 6, 6, [], 0)
+	_target_ready_for_attack(enemy_attacker, match_state)
+	MatchCombat.resolve_attack(match_state, oid, enemy_attacker["instance_id"], {
+		"type": "player",
+		"player_id": pid,
+	})
+	var power_after_friendly_rune: int = int(cadwell.get("power_bonus", 0))
+
+	return (
+		_assert(power_after_enemy_rune == 1, "any_player rune trigger should give +1/+0 on enemy rune break (got +%d)." % power_after_enemy_rune) and
+		_assert(power_after_friendly_rune == 2, "any_player rune trigger should also fire on friendly rune break (got +%d)." % power_after_friendly_rune)
 	)
 
 
