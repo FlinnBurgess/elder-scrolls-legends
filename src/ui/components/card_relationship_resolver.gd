@@ -25,6 +25,16 @@ static func _resolve_card_relationships(card: Dictionary, relationships: Array, 
 			continue
 		var effects: Array = ability.get("effects", [])
 		_scan_effects_for_card_templates(effects, relationships, seen_card_ids)
+	# Attached items: show each equipped item as an alt-view
+	var attached_items: Array = card.get("attached_items", [])
+	for item in attached_items:
+		if typeof(item) != TYPE_DICTIONARY:
+			continue
+		var item_data: Dictionary = item.duplicate(true)
+		var def_id := str(item_data.get("definition_id", ""))
+		if not item_data.has("art_path") and not def_id.is_empty():
+			item_data["art_path"] = "res://assets/images/cards/" + def_id + ".png"
+		relationships.append({"type": "card", "card_data": item_data})
 	# Shout alt-views: show higher levels as text relationships
 	var shout_levels = card.get("shout_levels", [])
 	if typeof(shout_levels) == TYPE_ARRAY and not shout_levels.is_empty():

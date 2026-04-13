@@ -59,26 +59,30 @@
 		],
 		"discard": [
 			"str_bangkorai_butcher",
-			"str_battlerage_orc"
+			"str_battlerage_orc",
+			"hos_neu_a_night_to_remember",
+			"hos_wil_a_land_divided"
 		],
 		"field_creatures": [
 			null,
 			null,
-			null,
-			"aw_int_altmer_flameslinger"
+			"joo_end_umaril_the_unfeathered",
+			"wil_haafingar_marauder"
 		],
 		"hand": [
 			"wil_piercing_javelin",
-			"aw_tri_emeric_covenant_king",
-			"exc_neu_adoring_fan",
-			"cwc_neu_abandoned_imperfect"
+			"tc_tri_death_scythe",
+			"hos_end_corrupted_shade",
+			"int_firebolt",
+			"hos_neu_a_night_to_remember",
+			"mc_neu_steam_constructor"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [],
 		"supports": [
-			"aw_tri_transitus_shrine"
+			"int_mages_guild_retreat"
 		]
 	},
 	"type": "kill"

@@ -130,7 +130,9 @@ func _run_all_tests() -> bool:
 		_test_emperors_attendant_hand_selection_modify_stats() and
 		_test_sacrifice_and_absorb_stats_uses_remaining_health() and
 		_test_forsaken_champion_aura_from_targeted_creature() and
-		_test_all_other_enemies_excludes_chosen_target()
+		_test_all_other_enemies_excludes_chosen_target() and
+		_test_drain_action_does_not_double_heal() and
+		_test_equip_random_item_fires_on_play_effects()
 	)
 
 
@@ -4974,4 +4976,70 @@ func _test_all_other_enemies_excludes_chosen_target() -> bool:
 		_assert(chosen_hp == 1, "all_other_enemies: chosen target should only take 4 damage (5hp -> 1hp), got %dhp." % chosen_hp) and
 		_assert(other1_hp == 2, "all_other_enemies: other enemy1 should take 1 damage (3hp -> 2hp), got %dhp." % other1_hp) and
 		_assert(other2_hp == 2, "all_other_enemies: other enemy2 should take 1 damage (3hp -> 2hp), got %dhp." % other2_hp)
+	)
+
+
+func _test_drain_action_does_not_double_heal() -> bool:
+	# Regression: Death Scythe had both drain keyword AND an explicit heal effect,
+	# causing double healing. Drain on deal_damage already heals; no extra heal needed.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Set player HP to 20 so we can measure healing
+	player["health"] = 20
+	# Simulate 3 creatures having died this turn
+	player["creatures_died_this_turn"] = 3
+	# Summon an enemy target with enough HP to survive
+	var target := ScenarioFixtures.summon_creature(opponent, match_state, "target_creature", "field", 1, 10)
+	# Create a Death Scythe-like action: drain keyword + deal_damage with creatures_died_this_turn
+	var scythe := ScenarioFixtures.add_hand_card(player, "death_scythe_test", {
+		"card_type": "action", "cost": 0,
+		"keywords": ["drain"],
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "effects": [
+			{"op": "deal_damage", "target": "event_target", "amount_source": "creatures_died_this_turn"},
+		]}],
+	})
+	MatchTiming.play_action_from_hand(match_state, pid, str(scythe.get("instance_id", "")), {"target_instance_id": str(target.get("instance_id", ""))})
+	var target_hp := EvergreenRules.get_remaining_health(target)
+	var player_hp := int(player.get("health", 0))
+	return (
+		_assert(target_hp == 7, "Death Scythe should deal 3 damage (10hp -> 7hp), got %dhp." % target_hp) and
+		_assert(player_hp == 23, "Drain should heal for 3 only (20hp -> 23hp), got %dhp." % player_hp)
+	)
+
+
+func _test_equip_random_item_fires_on_play_effects() -> bool:
+	var match_state := _build_started_match()
+	var pid := "player_1"
+	var oid := "player_2"
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	# Give opponent standard runes and enough HP so a rune breaks
+	opponent["health"] = 30
+	opponent["rune_thresholds"] = [25, 20, 15, 10, 5]
+	# Summon attacker for player
+	var attacker := ScenarioFixtures.summon_creature(player, match_state, "attacker", "field", 6, 5)
+	attacker["entered_lane_on_turn"] = 0
+	# Summon Haafingar Marauder-like creature with on_enemy_rune_destroyed trigger
+	var marauder := ScenarioFixtures.summon_creature(player, match_state, "test_marauder", "field", 1, 3, [], -1, {
+		"triggered_abilities": [{"family": "on_enemy_rune_destroyed", "required_zone": "lane", "effects": [{"op": "equip_random_item_from_catalog", "target": "event_source"}]}],
+	})
+	# Attack face — attacker has 6 power, opponent at 30hp, rune at 25 → breaks
+	var result := MatchCombat.resolve_attack(match_state, pid, str(attacker.get("instance_id", "")), {"type": "player", "player_id": oid})
+	# The attacker should now have an attached item
+	var attached: Array = attacker.get("attached_items", [])
+	# Check that a card_played event was emitted for the item (triggering on_play effects)
+	var events: Array = result.get("events", [])
+	var found_card_played := false
+	for evt in events:
+		if typeof(evt) != TYPE_DICTIONARY:
+			continue
+		if str(evt.get("event_type", "")) == "card_played" and str(evt.get("reason", "")) == "equip_random_item":
+			found_card_played = true
+			break
+	return (
+		_assert(not attached.is_empty(), "Attacker should have an attached item after rune break with Marauder on board.") and
+		_assert(found_card_played, "equip_random_item_from_catalog should emit a card_played event so item on_play effects fire.")
 	)

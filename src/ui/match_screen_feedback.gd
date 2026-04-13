@@ -732,6 +732,12 @@ func _animate_enemy_attack_arrow(action: Dictionary, _result: Dictionary) -> voi
 	tween.tween_interval(0.35)
 	tween.tween_callback(func():
 		_dismiss_attack_arrow()
+		var item_reveal: Dictionary = _screen._match_state.get("_pending_item_reveal", {})
+		if not item_reveal.is_empty():
+			_screen._match_state.erase("_pending_item_reveal")
+			_screen._refresh_ui()
+			_animate_item_equip_reveal.call_deferred(item_reveal)
+			return
 		_screen._refresh_ui()
 		# Check for deferred visual effects (e.g. beast form triggered by rune break from this attack)
 		var pending_visual: Array = _screen._match_state.get("pending_visual_effects", [])
@@ -1241,6 +1247,88 @@ func _animate_enemy_item_reveal(action: Dictionary, _result: Dictionary) -> void
 		_dismiss_spell_reveal()
 		_screen._refresh_ui()
 	)
+
+
+func _animate_item_equip_reveal(reveal_data: Dictionary) -> void:
+	var item_card: Dictionary = reveal_data.get("item_card", {})
+	var target_instance_id := str(reveal_data.get("target_instance_id", ""))
+	if item_card.is_empty():
+		_screen._refresh_ui()
+		return
+
+	var card_size = _screen._hand_card_display_size()
+	var viewport_size = _screen.get_viewport_rect().size
+
+	var card_back := PanelContainer.new()
+	card_back.name = "item_equip_reveal_card_back"
+	card_back.custom_minimum_size = card_size
+	card_back.size = card_size
+	_screen._apply_panel_style(card_back, Color(0.35, 0.22, 0.12, 0.98), Color(0.57, 0.44, 0.27, 0.92), 2, 0)
+
+	var pos_x: float = (viewport_size.x - card_size.x) * 0.5
+	var pos_y: float = viewport_size.y * 0.10 + 12.0
+	card_back.position = Vector2(pos_x, pos_y)
+
+	_screen._prophecy_card_overlay.add_child(card_back)
+	_screen._overlays._spell_reveal_state = {
+		"card_back": card_back,
+		"phase": "animating",
+	}
+
+	card_back.pivot_offset = Vector2(card_back.size.x * 0.5, card_back.size.y * 0.5)
+	var tween = _screen.create_tween()
+	tween.tween_property(card_back, "scale:x", 0.0, 0.2)
+	tween.tween_callback(func():
+		for child in card_back.get_children():
+			child.queue_free()
+		if not item_card.is_empty():
+			var component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
+			component.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+			component.apply_card(item_card, _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+			card_back.add_child(component)
+	)
+	tween.tween_property(card_back, "scale:x", 1.0, 0.2)
+	tween.tween_interval(1.0)
+	tween.tween_callback(func():
+		if not target_instance_id.is_empty():
+			var button: Button = _screen._card_buttons.get(target_instance_id)
+			if button != null and is_instance_valid(button):
+				var arrow := Line2D.new()
+				arrow.width = 3.0
+				arrow.default_color = Color(1.0, 0.85, 0.3, 0.95)
+				arrow.z_index = 500
+				_screen._prophecy_card_overlay.add_child(arrow)
+				_screen._overlays._spell_reveal_state["arrow"] = arrow
+				var arrow_start := card_back.global_position + Vector2(card_size.x * 0.5, card_size.y)
+				var target_card_size: Vector2 = button.get_meta("card_size", button.size)
+				var arrow_end := button.global_position + Vector2(target_card_size.x * 0.5, 0.0)
+				var arrow_tween = _screen.create_tween()
+				arrow_tween.tween_method(func(progress: float):
+					_draw_spell_reveal_arrow_partial(progress, arrow, arrow_start, arrow_end)
+				, 0.0, 1.0, 0.3)
+				arrow_tween.tween_interval(0.3)
+				arrow_tween.tween_callback(func():
+					_dismiss_spell_reveal()
+					_screen._refresh_ui()
+					_check_post_action()
+				)
+				return
+		_dismiss_spell_reveal()
+		_screen._refresh_ui()
+		_check_post_action()
+	)
+
+
+func _check_post_action() -> void:
+	var pending_visual: Array = _screen._match_state.get("pending_visual_effects", [])
+	if not pending_visual.is_empty():
+		_start_deferred_visual_animation.call_deferred(pending_visual)
+		return
+	_screen._targeting._check_pending_secondary_target()
+	_screen._targeting._check_pending_summon_effect_target()
+	_screen._targeting._check_pending_support_lane_selection()
+	_screen._selection._check_pending_forced_play()
 
 
 static func _has_summon_target(action: Dictionary) -> bool:

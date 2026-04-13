@@ -186,6 +186,20 @@ func _position_lane_card_hover_preview(button: Button) -> void:
 	target_position.x = clampf(target_position.x, 0.0, maxf(_screen._card_hover_preview_layer.size.x - preview_size.x, 0.0))
 	target_position.y = clampf(target_position.y, 0.0, maxf(_screen._card_hover_preview_layer.size.y - preview_size.y, 0.0))
 	preview.position = target_position
+	# Position the attached items panel alongside the card preview
+	var items_panel = _screen._card_hover_preview_layer.get_node_or_null("lane_hover_preview_items_%s" % _screen._lane_hover_preview_instance_id) as Control
+	if items_panel != null:
+		var layer_size: Vector2 = _screen._card_hover_preview_layer.size
+		var gap := 8.0
+		var right_x := target_position.x + preview_size.x + gap
+		var left_x: float = target_position.x - items_panel.size.x - gap
+		if right_x + items_panel.size.x <= layer_size.x:
+			items_panel.position.x = right_x
+		elif left_x >= 0.0:
+			items_panel.position.x = left_x
+		else:
+			items_panel.position.x = right_x
+		items_panel.position.y = clampf(target_position.y, 0.0, maxf(layer_size.y - items_panel.size.y, 0.0))
 
 
 func _get_active_hover_preview_component():

@@ -160,11 +160,17 @@ func _execute_local_match_ai_step() -> Dictionary:
 				_screen._match_state.erase("_last_forced_attack")
 				_screen._feedback._animate_forced_attack_arrow.call_deferred(forced_atk)
 			else:
-				_screen._refresh_ui()
-				# Check for deferred visual effects (e.g. beast form targeted summon arrow)
-				var pending_visual: Array = _screen._match_state.get("pending_visual_effects", [])
-				if not pending_visual.is_empty():
-					_screen._feedback._start_deferred_visual_animation.call_deferred(pending_visual)
+				var item_reveal: Dictionary = _screen._match_state.get("_pending_item_reveal", {})
+				if not item_reveal.is_empty():
+					_screen._match_state.erase("_pending_item_reveal")
+					_screen._refresh_ui()
+					_screen._feedback._animate_item_equip_reveal.call_deferred(item_reveal)
+				else:
+					_screen._refresh_ui()
+					# Check for deferred visual effects (e.g. beast form targeted summon arrow)
+					var pending_visual: Array = _screen._match_state.get("pending_visual_effects", [])
+					if not pending_visual.is_empty():
+						_screen._feedback._start_deferred_visual_animation.call_deferred(pending_visual)
 	if _screen._arena_mode:
 		_screen.match_state_changed.emit(_screen._match_state.duplicate(true))
 	return {

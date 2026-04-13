@@ -46,6 +46,7 @@ const MatchScreenOverlaysClass = preload("res://src/ui/match_screen_overlays.gd"
 const MatchScreenBetrayClass = preload("res://src/ui/match_screen_betray.gd")
 const MatchScreenTargetingClass = preload("res://src/ui/match_screen_targeting.gd")
 const ActiveBoonsOverlay = preload("res://src/ui/match/active_boons_overlay.gd")
+const UITheme = preload("res://src/ui/ui_theme.gd")
 const MatchScreenHistoryClass = preload("res://src/ui/match_screen_history.gd")
 
 const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
@@ -1183,10 +1184,16 @@ func _complete_end_turn(player_id: String) -> void:
 		# Skip refresh — arrow animates on pre-damage board, then refreshes in callback
 		_feedback._animate_forced_attack_arrow.call_deferred(forced_attack_info)
 	else:
-		_refresh._refresh_ui()
-		var pending_visual: Array = _match_state.get("pending_visual_effects", [])
-		if not pending_visual.is_empty():
-			_feedback._start_deferred_visual_animation.call_deferred(pending_visual)
+		var item_reveal: Dictionary = _match_state.get("_pending_item_reveal", {})
+		if not item_reveal.is_empty():
+			_match_state.erase("_pending_item_reveal")
+			_refresh._refresh_ui()
+			_feedback._animate_item_equip_reveal.call_deferred(item_reveal)
+		else:
+			_refresh._refresh_ui()
+			var pending_visual: Array = _match_state.get("pending_visual_effects", [])
+			if not pending_visual.is_empty():
+				_feedback._start_deferred_visual_animation.call_deferred(pending_visual)
 	if _arena_mode:
 		match_state_changed.emit(_match_state.duplicate(true))
 
@@ -1653,9 +1660,60 @@ func _show_lane_card_hover_preview(button: Button, card: Dictionary, instance_id
 	if _card_hover_preview_layer == null:
 		return
 	var preview := _add_hover_preview_to_layer(card, instance_id, "lane_hover_preview")
+	var attached_items: Array = card.get("attached_items", [])
+	if not attached_items.is_empty():
+		var items_panel := _build_attached_items_panel(attached_items, instance_id)
+		_card_hover_preview_layer.add_child(items_panel)
 	_lane_hover_preview_instance_id = instance_id
 	_lane_hover_preview_button_ref = weakref(button)
 	_hover._position_lane_card_hover_preview(button)
+
+
+func _build_attached_items_panel(attached_items: Array, instance_id: String) -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.name = "lane_hover_preview_items_%s" % instance_id
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.z_index = 400
+	var style := StyleBoxFlat.new()
+	style.bg_color = UITheme.PANEL_BG
+	style.border_color = UITheme.PANEL_BORDER
+	style.border_width_top = 1
+	style.border_width_bottom = 1
+	style.border_width_left = 1
+	style.border_width_right = 1
+	style.corner_radius_top_left = 4
+	style.corner_radius_top_right = 4
+	style.corner_radius_bottom_left = 4
+	style.corner_radius_bottom_right = 4
+	style.content_margin_left = 18
+	style.content_margin_right = 18
+	style.content_margin_top = 14
+	style.content_margin_bottom = 14
+	panel.add_theme_stylebox_override("panel", style)
+	var vbox := VBoxContainer.new()
+	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var header := Label.new()
+	header.text = "Equipped Items"
+	header.add_theme_font_size_override("font_size", 22)
+	header.add_theme_color_override("font_color", UITheme.GOLD)
+	vbox.add_child(header)
+	var sep := HSeparator.new()
+	sep.add_theme_constant_override("separation", 8)
+	sep.add_theme_stylebox_override("separator", StyleBoxLine.new())
+	(sep.get_theme_stylebox("separator") as StyleBoxLine).color = UITheme.GOLD_DIM
+	vbox.add_child(sep)
+	for i in range(attached_items.size()):
+		var item = attached_items[i]
+		if typeof(item) != TYPE_DICTIONARY:
+			continue
+		var item_name := Label.new()
+		item_name.text = str(item.get("name", "Unknown Item"))
+		item_name.add_theme_font_size_override("font_size", 20)
+		item_name.add_theme_color_override("font_color", UITheme.GOLD_BRIGHT)
+		item_name.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vbox.add_child(item_name)
+	panel.add_child(vbox)
+	return panel
 
 
 func _process_support_card_hover_preview() -> void:
@@ -2307,6 +2365,13 @@ func _finalize_engine_result(result: Dictionary, success_message: String, clear_
 		_animations._animate_soulburst.call_deferred(sb_data)
 		return result
 	_animations._soulburst_pending = {}
+	if bool(result.get("is_valid", false)):
+		var item_reveal: Dictionary = _match_state.get("_pending_item_reveal", {})
+		if not item_reveal.is_empty():
+			_match_state.erase("_pending_item_reveal")
+			_refresh._refresh_ui()
+			_feedback._animate_item_equip_reveal.call_deferred(item_reveal)
+			return result
 	_refresh._refresh_ui()
 	if bool(result.get("is_valid", false)):
 		var pending_visual: Array = _match_state.get("pending_visual_effects", [])

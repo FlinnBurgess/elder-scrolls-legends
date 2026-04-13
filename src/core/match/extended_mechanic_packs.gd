@@ -842,7 +842,25 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				var erfc_gen := MatchMutations.build_generated_card(match_state, erfc_controller_id, erfc_template)
 				var erfc_result := MatchMutations.attach_item_to_creature(match_state, erfc_controller_id, erfc_gen, str(erfc_card.get("instance_id", "")), {"source_zone": MatchMutations.ZONE_GENERATED})
 				if bool(erfc_result.get("is_valid", false)):
+					erfc_events.append({
+						"event_type": "card_played",
+						"playing_player_id": erfc_controller_id,
+						"player_id": erfc_controller_id,
+						"source_instance_id": str(erfc_gen.get("instance_id", "")),
+						"source_controller_player_id": erfc_controller_id,
+						"source_zone": MatchMutations.ZONE_GENERATED,
+						"target_zone": MatchMutations.ZONE_ATTACHED_ITEM,
+						"target_instance_id": str(erfc_card.get("instance_id", "")),
+						"card_type": "item",
+						"played_cost": 0,
+						"played_for_free": true,
+						"reason": "equip_random_item",
+					})
 					erfc_events.append_array(erfc_result.get("events", []))
+					match_state["_pending_item_reveal"] = {
+						"item_card": erfc_gen.duplicate(true),
+						"target_instance_id": str(erfc_card.get("instance_id", "")),
+					}
 			return {"handled": true, "events": erfc_events}
 		"reduce_random_hand_card_cost":
 			var rrhcc_controller_id := str(trigger.get("controller_player_id", ""))
