@@ -177,7 +177,7 @@ const RECOGNIZED_OPS := [
 	"silence", "steal_keywords", "steal_status",
 	# Triggers
 	"copy_summon_ability", "enable_dual_wax_wane", "grant_double_activate",
-	"grant_double_summon_this_turn", "grant_effect_this_turn",
+	"enable_transform_summoned_to_daedra", "grant_double_summon_this_turn", "grant_effect_this_turn",
 	"grant_triggered_ability", "repeat_slay_reward",
 	"trigger_all_friendly_summons", "trigger_exalt_all_friendly",
 	"trigger_friendly_last_gasps", "trigger_summon_ability",

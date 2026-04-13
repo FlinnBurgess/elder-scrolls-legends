@@ -24,6 +24,7 @@ func _initialize() -> void:
 	_test_prioritizes_ongoing_effect_creature(failures)
 	_test_grants_lethal_to_low_power_attacker(failures)
 	_test_plays_lethal_granter_before_trading_expensive_creature(failures)
+	_test_attacks_face_with_risk_free_low_power_creatures(failures)
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)
@@ -269,6 +270,25 @@ func _test_plays_lethal_granter_before_trading_expensive_creature(failures: Arra
 	# rather than trading the 4/4 into the Guard. The interrupt-aware lookahead
 	# sees through "activate → grant Lethal → attack with Lethal creature".
 	_assert_policy_pick(match_state, "activate_support:player_1:player_1_lethal_totem:target=player_1_small_attacker", failures, "Policy should use a Lethal-granting support on a cheap attacker rather than trading an expensive creature into a Guard.")
+
+
+func _test_attacks_face_with_risk_free_low_power_creatures(failures: Array) -> void:
+	# AI has two 1-power creatures in field lane, opponent at 30 HP with no guards.
+	# The AI should attack face for risk-free damage rather than end turn.
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 12, "first_player_index": 0})
+	var player_1: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_2: Dictionary = ScenarioFixtures.player(match_state, 1)
+	player_1["hand"] = []
+	player_2["hand"] = []
+	player_1["health"] = 30
+	player_2["health"] = 30
+	ScenarioFixtures.summon_creature(player_1, match_state, "big_creature", "field", 6, 3, [], 0, {"cost": 0})
+	var attacker_a := ScenarioFixtures.summon_creature(player_2, match_state, "small_a", "field", 1, 2, [], 0, {"cost": 0})
+	var attacker_b := ScenarioFixtures.summon_creature(player_2, match_state, "small_b", "field", 1, 4, [], 0, {"cost": 0})
+	MatchTurnLoop.end_turn(match_state, str(player_1.get("player_id", "")))
+	ScenarioFixtures.ready_for_attack(attacker_a, match_state)
+	ScenarioFixtures.ready_for_attack(attacker_b, match_state)
+	_assert_policy_pick(match_state, "attack:", failures, "AI should attack face with risk-free 1-power creatures, not end turn.")
 
 
 func _assert_policy_pick(match_state: Dictionary, expected_prefix: String, failures: Array, message: String) -> void:

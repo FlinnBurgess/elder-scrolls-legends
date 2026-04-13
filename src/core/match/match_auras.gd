@@ -494,6 +494,9 @@ static func _get_aura_targets(match_state: Dictionary, source_card: Dictionary, 
 			if not filter_kw.is_empty():
 				if not EvergreenRules.has_keyword(card, filter_kw):
 					continue
+			if bool(aura.get("filter_less_power_than_self", false)):
+				if EvergreenRules.get_power(card) >= EvergreenRules.get_power(source_card):
+					continue
 			targets.append(card)
 	return targets
 

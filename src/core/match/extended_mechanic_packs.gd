@@ -88,6 +88,7 @@ static func reset_turn_state(player: Dictionary) -> void:
 	player["pilfer_or_drain_count_this_turn"] = 0
 	player["lanes_creature_damaged_opponent_this_turn"] = []
 	player["_double_summon_this_turn"] = false
+	player["_transform_summoned_to_daedra_this_turn"] = false
 
 
 static func toggle_wax_wane(player: Dictionary) -> void:

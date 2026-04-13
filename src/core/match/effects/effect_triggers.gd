@@ -353,6 +353,12 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			var gda_controller := str(trigger.get("controller_player_id", ""))
 			match_state["double_activate_" + gda_controller] = true
 			generated_events.append({"event_type": "double_activate_granted", "player_id": gda_controller, "reason": reason})
+		"enable_transform_summoned_to_daedra":
+			var etsd_controller_id := str(trigger.get("controller_player_id", ""))
+			var etsd_player := MatchTimingHelpers._get_player_state(match_state, etsd_controller_id)
+			if not etsd_player.is_empty():
+				etsd_player["_transform_summoned_to_daedra_this_turn"] = true
+				generated_events.append({"event_type": "transform_summoned_to_daedra_enabled", "source_instance_id": str(trigger.get("source_instance_id", "")), "player_id": etsd_controller_id})
 		"grant_effect_this_turn":
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				var gettt_ability: Dictionary = effect.get("granted_ability", {})

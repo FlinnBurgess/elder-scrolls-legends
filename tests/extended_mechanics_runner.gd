@@ -133,7 +133,10 @@ func _run_all_tests() -> bool:
 		_test_forsaken_champion_aura_from_targeted_creature() and
 		_test_all_other_enemies_excludes_chosen_target() and
 		_test_drain_action_does_not_double_heal() and
-		_test_equip_random_item_fires_on_play_effects()
+		_test_equip_random_item_fires_on_play_effects() and
+		_test_unicorn_aura_only_grants_charge_to_lower_power() and
+		_test_heretic_conjurer_pilfer_transforms_summoned_to_daedra() and
+		_test_heretic_conjurer_transform_clears_gate_restrictions()
 	)
 
 
@@ -5090,4 +5093,106 @@ func _test_equip_random_item_fires_on_play_effects() -> bool:
 	return (
 		_assert(not attached.is_empty(), "Attacker should have an attached item after rune break with Marauder on board.") and
 		_assert(found_card_played, "equip_random_item_from_catalog should emit a card_played event so item on_play effects fire.")
+	)
+
+
+func _test_unicorn_aura_only_grants_charge_to_lower_power() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	# Unicorn: 2/3 with aura granting Charge to same-lane friendlies with less power
+	var unicorn := ScenarioFixtures.summon_creature(player, match_state, "unicorn", "field", 2, 3, [], -1, {
+		"cost": 3,
+		"aura": {"scope": "same_lane", "target": "other_friendly", "filter_less_power_than_self": true, "keywords": ["charge"]},
+	})
+	# 1-power creature should get Charge (1 < 2)
+	var small := ScenarioFixtures.summon_creature(player, match_state, "small", "field", 1, 1, [], -1, {"cost": 1})
+	# 2-power creature should NOT get Charge (2 == 2, not less)
+	var equal := ScenarioFixtures.summon_creature(player, match_state, "equal", "field", 2, 2, [], -1, {"cost": 2})
+	# 3-power creature should NOT get Charge (3 > 2)
+	var bigger := ScenarioFixtures.summon_creature(player, match_state, "bigger", "field", 3, 3, [], -1, {"cost": 3})
+	MatchAuras.recalculate_auras(match_state)
+	var small_kws: Array = small.get("aura_keywords", [])
+	var equal_kws: Array = equal.get("aura_keywords", [])
+	var bigger_kws: Array = bigger.get("aura_keywords", [])
+	return (
+		_assert(small_kws.has("charge"), "1-power creature should get Charge from Unicorn (power 2).") and
+		_assert(not equal_kws.has("charge"), "2-power creature should NOT get Charge from Unicorn (equal power).") and
+		_assert(not bigger_kws.has("charge"), "3-power creature should NOT get Charge from Unicorn (higher power).")
+	)
+
+
+func _test_heretic_conjurer_pilfer_transforms_summoned_to_daedra() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var opp_id := str(opponent.get("player_id", ""))
+	# Summon a creature with Heretic Conjurer's pilfer ability
+	var conjurer := ScenarioFixtures.summon_creature(player, match_state, "heretic_conjurer", "field", 2, 3, [], -1, {
+		"cost": 5,
+		"triggered_abilities": [{"family": "pilfer", "required_zone": "lane", "effects": [{"op": "enable_transform_summoned_to_daedra"}]}],
+	})
+	ScenarioFixtures.ready_for_attack(conjurer, match_state)
+	# Attack opponent player to trigger pilfer
+	var attack := MatchCombat.resolve_attack(match_state, pid, str(conjurer.get("instance_id", "")), {"type": "player", "player_id": opp_id})
+	if not _assert(bool(attack.get("is_valid", false)), "Pilfer attack should resolve."):
+		return false
+	# Verify the flag was set
+	var p_state := ScenarioFixtures.player(match_state, 0)
+	if not _assert(bool(p_state.get("_transform_summoned_to_daedra_this_turn", false)), "Player should have transform flag after pilfer."):
+		return false
+	# Summon a plain creature from hand — it should be transformed into a Daedra
+	var victim := ScenarioFixtures.add_hand_card(player, "plain_creature", {"card_type": "creature", "cost": 0, "power": 1, "health": 1, "subtypes": ["Nord"]})
+	LaneRules.summon_from_hand(match_state, pid, str(victim.get("instance_id", "")), "field", {})
+	# The card should now be a Daedra (transformed in-place, same instance_id)
+	var transformed := MatchTimingHelpers._find_card_anywhere(match_state, str(victim.get("instance_id", "")))
+	var subtypes: Array = transformed.get("subtypes", [])
+	return (
+		_assert(not transformed.is_empty(), "Transformed creature should still exist in a lane.") and
+		_assert(subtypes.has("Daedra"), "Summoned creature should be transformed into a Daedra (got subtypes: %s)." % [str(subtypes)]) and
+		_assert(str(transformed.get("definition_id", "")) != "plain_creature", "Definition should change from original (got: %s)." % [str(transformed.get("definition_id", ""))])
+	)
+
+
+func _test_heretic_conjurer_transform_clears_gate_restrictions() -> bool:
+	# When Heretic Conjurer's pilfer chains through invade (summoned Daedra has invade summon),
+	# the Oblivion Gate also gets transformed. The gate's cannot_attack and grants_immunity
+	# must be cleared so the resulting Daedra can attack and be silenced normally.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Simulate: set the transform flag directly, then generate an Oblivion Gate and transform it
+	player["_transform_summoned_to_daedra_this_turn"] = true
+	# Build a card with Oblivion Gate properties
+	var gate_template := {
+		"definition_id": "generated_oblivion_gate",
+		"name": "Oblivion Gate",
+		"card_type": "creature",
+		"power": 0,
+		"health": 4,
+		"base_power": 0,
+		"base_health": 4,
+		"cost": 3,
+		"subtypes": ["Portal"],
+		"attributes": ["neutral"],
+		"cannot_attack": true,
+		"grants_immunity": ["silence"],
+		"innate_statuses": ["permanent_shackle"],
+	}
+	var gate := MatchMutations.build_generated_card(match_state, pid, gate_template)
+	var summon_result := MatchMutations.summon_card_to_lane(match_state, pid, gate, "field", {"source_zone": MatchMutations.ZONE_GENERATED})
+	if not _assert(bool(summon_result.get("is_valid", false)), "Gate should summon."):
+		return false
+	var gate_id := str(gate.get("instance_id", ""))
+	# Publish the creature_summoned event — this triggers the transform
+	MatchTiming.publish_events(match_state, [{"event_type": "creature_summoned", "player_id": pid, "source_instance_id": gate_id, "source_controller_player_id": pid, "lane_id": "field"}])
+	var transformed := MatchTimingHelpers._find_card_anywhere(match_state, gate_id)
+	var t_subtypes: Array = transformed.get("subtypes", [])
+	var t_statuses: Array = transformed.get("status_markers", [])
+	return (
+		_assert(not transformed.is_empty(), "Transformed gate should still exist.") and
+		_assert(t_subtypes.has("Daedra"), "Gate should be transformed into a Daedra (got: %s)." % [str(t_subtypes)]) and
+		_assert(not bool(transformed.get("cannot_attack", false)), "cannot_attack should be cleared after transform.") and
+		_assert(not t_statuses.has("permanent_shackle"), "permanent_shackle status should be cleared after transform.") and
+		_assert(transformed.get("grants_immunity", []).is_empty() or not transformed.get("grants_immunity", []).has("silence"), "Silence immunity from gate should be cleared after transform.")
 	)

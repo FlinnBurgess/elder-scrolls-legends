@@ -284,7 +284,15 @@ static func _tactical_bonus(before_state: Dictionary, after_state: Dictionary, a
 			bonus -= 1.15
 		MatchActionEnumerator.KIND_ATTACK:
 			if str(action.get("target", {}).get("kind", "")) == "player":
-				bonus += float(int(before_opponent.get("health", 0)) - int(after_opponent.get("health", 0))) * face_damage_w
+				var face_damage := float(int(before_opponent.get("health", 0)) - int(after_opponent.get("health", 0)))
+				bonus += face_damage * face_damage_w
+				# The state evaluator gives a "can attack now" bonus to attack-ready
+				# creatures (1.2 + power * 0.35). After attacking face the creature
+				# has has_attacked_this_turn=true, so it loses that bonus in the
+				# post-action evaluation. Compensate here so the AI doesn't think
+				# the attack was a net loss — the readiness was converted into
+				# actual face damage, not wasted.
+				bonus += 1.2 + face_damage * 0.35
 				# Compensate for creatures summoned by rune-break side effects
 				# (boons like Runic Ward, prophecy creatures). Breaking runes is
 				# inevitable for winning — without this offset the AI refuses to

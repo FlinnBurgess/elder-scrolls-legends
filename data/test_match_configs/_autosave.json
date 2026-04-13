@@ -21,12 +21,12 @@
 			{
 				"can_attack": true,
 				"definition_id": "hos_str_aelas_huntmate",
-				"power_bonus": -1.0
+				"power_bonus": -5.0
 			},
 			{
 				"can_attack": true,
 				"definition_id": "aw_int_abnur_tharn",
-				"power_bonus": -3.0
+				"power_bonus": -5.0
 			},
 			"cwc_neu_abomination"
 		],
@@ -71,18 +71,27 @@
 			"hos_wil_a_land_divided",
 			"int_flame_atronach"
 		],
-		"field_creatures": [],
+		"field_creatures": [
+			null,
+			null,
+			null,
+			"iom_wil_heretic_conjurer"
+		],
 		"hand": [
 			"wil_piercing_javelin",
 			"int_firebolt",
-			"aw_agi_sai_sahan"
+			"moe_wil_alfiq_illusionist",
+			"cwc_neu_abomination",
+			"moe_int_skeletal_mage"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [],
+		"shadow_creatures": [
+			"joo_agi_unicorn"
+		],
 		"supports": [
-			"aw_wil_strategists_map"
+			"neu_orb_of_vaermina"
 		]
 	},
 	"type": "kill"

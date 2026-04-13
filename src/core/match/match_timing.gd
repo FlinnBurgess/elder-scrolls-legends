@@ -3188,6 +3188,35 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 			"event_type": str(event.get("event_type", "")),
 			"timing_window": str(event.get("timing_window", WINDOW_AFTER)),
 		})
+		# Heretic Conjurer: transform summoned creatures into random Daedra
+		if str(event.get("event_type", "")) == EVENT_CREATURE_SUMMONED and str(event.get("reason", "")) != "transform":
+			var tsd_player_id := str(event.get("source_controller_player_id", event.get("player_id", "")))
+			var tsd_player := MatchTimingHelpers._get_player_state(match_state, tsd_player_id)
+			if bool(tsd_player.get("_transform_summoned_to_daedra_this_turn", false)):
+				var tsd_instance_id := str(event.get("source_instance_id", ""))
+				var tsd_card := MatchTimingHelpers._find_card_anywhere(match_state, tsd_instance_id)
+				if not tsd_card.is_empty() and str(tsd_card.get("card_type", "")) == CARD_TYPE_CREATURE:
+					var tsd_seeds: Array = ExtendedMechanicPacks.get_catalog_seeds()
+					var tsd_candidates: Array = []
+					for tsd_seed in tsd_seeds:
+						if typeof(tsd_seed) != TYPE_DICTIONARY:
+							continue
+						if not bool(tsd_seed.get("collectible", true)):
+							continue
+						if str(tsd_seed.get("card_type", "")) != "creature":
+							continue
+						var tsd_subtypes = tsd_seed.get("subtypes", [])
+						if typeof(tsd_subtypes) == TYPE_ARRAY and tsd_subtypes.has("Daedra"):
+							tsd_candidates.append(tsd_seed)
+					if not tsd_candidates.is_empty():
+						var tsd_pick: Dictionary = tsd_candidates[_deterministic_index(match_state, tsd_instance_id + "_tsd", tsd_candidates.size())]
+						var tsd_template: Dictionary = tsd_pick.duplicate(true)
+						tsd_template["definition_id"] = str(tsd_template.get("card_id", ""))
+						GameLogger.trc("Timing", "transform_summoned_to_daedra", "card:%s,daedra:%s" % [str(tsd_card.get("name", "")), str(tsd_pick.get("name", ""))])
+						var tsd_result := MatchMutations.transform_card(match_state, tsd_instance_id, tsd_template, {"reason": "transform"})
+						for tsd_evt in tsd_result.get("events", []):
+							queue.append(MatchTimingHelpers._normalize_event(match_state, tsd_evt, {"parent_event_id": str(event.get("event_id", ""))}))
+						continue
 		var _defer_visual := bool(match_state.get("_defer_visual_effects", false))
 		for trigger in MatchTriggers._find_matching_triggers(match_state, event):
 			var resolution := MatchTriggers._build_trigger_resolution(match_state, trigger, event)
