@@ -1,17 +1,5 @@
 [
 	{
-		"card_id": "hos_wil_legate_rikke",
-		"name": "Legate Rikke",
-		"card_type": "creature",
-		"cost": 4,
-		"attributes": [
-			"willpower"
-		],
-		"rules_text": "When you summon an Imperial, summon a 1/1 Imperial Grunt in the other lane.",
-		"stripped_text": "When you summon an Imperial, summon a 1/1 Imperial Grunt in the other lane.",
-		"complexity": 75
-	},
-	{
 		"card_id": "moe_wil_halls_of_colossus",
 		"name": "Halls of Colossus",
 		"card_type": "support",

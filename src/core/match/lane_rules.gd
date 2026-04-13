@@ -159,6 +159,8 @@ static func validate_summon_with_sacrifice(match_state: Dictionary, player_id: S
 	var card: Dictionary = player[ZONE_HAND][hand_index]
 	if str(card.get("card_type", "")) != CARD_TYPE_CREATURE:
 		return _invalid_result("Only creatures can be summoned with sacrifice.")
+	if bool(card.get("_play_for_free", false)):
+		options["played_for_free"] = true
 	if not bool(options.get("played_for_free", false)):
 		var play_limit := PersistentCardRules.get_play_limit_per_turn(match_state, player_id)
 		if play_limit >= 0 and int(player.get("cards_played_this_turn", 0)) >= play_limit:
@@ -208,6 +210,8 @@ static func summon_with_sacrifice(match_state: Dictionary, player_id: String, in
 	if hand_index >= 0:
 		ExtendedMechanicPacks.apply_pre_play_options(player[ZONE_HAND][hand_index], options)
 	var hand_card: Dictionary = player.get(ZONE_HAND, [])[hand_index]
+	if bool(hand_card.get("_play_for_free", false)):
+		options["played_for_free"] = true
 	var play_cost := 0 if bool(options.get("played_for_free", false)) else PersistentCardRules.get_effective_play_cost(match_state, player_id, hand_card)
 	if not bool(options.get("played_for_free", false)) and bool(options.get("exalt", false)):
 		play_cost += get_exalt_extra_cost(hand_card)
@@ -230,6 +234,9 @@ static func summon_with_sacrifice(match_state: Dictionary, player_id: String, in
 	if not bool(summon_result.get("is_valid", false)):
 		return summon_result
 	var card: Dictionary = summon_result["card"]
+	if bool(card.get("_play_for_free", false)):
+		card.erase("_play_for_free")
+		MatchTiming.consume_pending_free_play(match_state, str(card.get("instance_id", "")))
 	var play_event := {
 		"event_type": MatchTiming.EVENT_CARD_PLAYED,
 		"playing_player_id": player_id,

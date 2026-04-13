@@ -37,3 +37,15 @@ Animate a red arrow from attacker to target for attacks that resolve automatical
 **Use when:** A card forces a creature to automatically attack an enemy creature at the start of the controller's turn (e.g. Umbra's "the wielder attacks a random enemy creature").
 
 **Key files:** `match_turn_loop.gd` (resolve + metadata), `match_screen.gd` / `match_screen_ai.gd` (detection + skip refresh), `match_screen_feedback.gd` (arrow animation + deferred refresh)
+
+---
+
+### [Deck-to-Hand Free Play with Auto-Detach](ui_patterns/deck-to-hand-free-play.md)
+
+**ID:** `deck-to-hand-free-play`
+
+Move a card from the deck into the player's hand as a free play, then immediately auto-detach it so it follows the cursor for normal lane-drop placement. All hand-play mechanics (lane validation, insertion preview, betray/sacrifice) work automatically.
+
+**Use when:** A card effect pulls a creature from the deck and the player must choose where to place it — lane choice for summoned creatures, target choice for items pulled from deck.
+
+**Key files:** `match_timing.gd` (deck-to-hand + free play entry + early return), `lane_rules.gd` (`_play_for_free` checks in summon and sacrifice), `match_screen_overlays.gd` (detect `needs_lane_choice`), `match_screen.gd` (`_pending_free_play_detach_id`), `match_screen_refresh.gd` (auto-detach)

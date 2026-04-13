@@ -26,6 +26,26 @@ const IDENTITY_FIELDS := [
 ]
 
 
+# If template has a definition_id that matches a catalog seed, use the seed as a
+# base and overlay the template's explicit fields on top.  This lets card effects
+# reference another card by ID alone instead of duplicating its full definition.
+static func _enrich_template_from_catalog(template: Dictionary) -> Dictionary:
+	var def_id := str(template.get("definition_id", ""))
+	if def_id.is_empty():
+		return template
+	for seed in CardCatalog._card_seeds():
+		if typeof(seed) != TYPE_DICTIONARY:
+			continue
+		if str(seed.get("card_id", "")) != def_id:
+			continue
+		var enriched: Dictionary = seed.duplicate(true)
+		enriched["definition_id"] = str(enriched.get("card_id", ""))
+		for key in template:
+			enriched[key] = _clone_variant(template[key])
+		return enriched
+	return template
+
+
 static func find_card_location(match_state: Dictionary, instance_id: String) -> Dictionary:
 	if instance_id.is_empty():
 		return _invalid_result("instance_id is required.")
@@ -495,28 +515,8 @@ static func update_card_owner(match_state: Dictionary, instance_id: String, owne
 static func build_generated_card(match_state: Dictionary, controller_player_id: String, template: Dictionary) -> Dictionary:
 	GameLogger.trc("Mut", "gen_card", "def:%s,ctrl:%s" % [str(template.get("definition_id", template.get("name", "?"))), controller_player_id])
 	match_state["generated_card_sequence"] = int(match_state.get("generated_card_sequence", 0)) + 1
-	var card := template.duplicate(true)
+	var card := _enrich_template_from_catalog(template).duplicate(true)
 	var def_id := str(card.get("definition_id", ""))
-	if not def_id.is_empty() and not card.has("triggered_abilities"):
-		for seed in CardCatalog._card_seeds():
-			if typeof(seed) == TYPE_DICTIONARY and str(seed.get("card_id", "")) == def_id:
-				var seed_abilities: Array = seed.get("triggered_abilities", [])
-				if not seed_abilities.is_empty():
-					card["triggered_abilities"] = seed_abilities.duplicate(true)
-				var seed_effect_ids: Array = seed.get("effect_ids", [])
-				if not seed_effect_ids.is_empty() and not card.has("effect_ids"):
-					card["effect_ids"] = seed_effect_ids.duplicate(true)
-				var seed_aura = seed.get("aura", null)
-				if seed_aura != null and not card.has("aura"):
-					card["aura"] = seed_aura.duplicate(true)
-				var seed_innate: Array = seed.get("innate_statuses", [])
-				if not seed_innate.is_empty() and not card.has("innate_statuses"):
-					card["innate_statuses"] = seed_innate.duplicate(true)
-				if seed.has("first_turn_hand_cost") and not card.has("first_turn_hand_cost"):
-					card["first_turn_hand_cost"] = int(seed["first_turn_hand_cost"])
-				if seed.has("first_turn_hand_magicka") and not card.has("first_turn_hand_magicka"):
-					card["first_turn_hand_magicka"] = int(seed["first_turn_hand_magicka"])
-				break
 	if not card.has("art_path") and not def_id.is_empty():
 		card["art_path"] = "res://assets/images/cards/" + def_id + ".png"
 	card["instance_id"] = "%s_generated_%03d" % [controller_player_id, int(match_state.get("generated_card_sequence", 0))]
@@ -599,10 +599,11 @@ static func change_card(card: Dictionary, template: Dictionary, options: Diction
 		"attack_state": true,
 		"entered_lane": true,
 	})
-	_apply_identity(card, template)
+	var norm_change_template := _enrich_template_from_catalog(template)
+	_apply_identity(card, norm_change_template)
 	# art_path is not an identity field — update from template or derive from new definition_id
-	if template.has("art_path"):
-		card["art_path"] = str(template["art_path"])
+	if norm_change_template.has("art_path"):
+		card["art_path"] = str(norm_change_template["art_path"])
 	else:
 		card["art_path"] = "res://assets/images/cards/" + str(card.get("definition_id", "")) + ".png"
 	_restore_card_state(card, preserved, options)
@@ -652,12 +653,12 @@ static func transform_card(match_state: Dictionary, instance_id: String, templat
 	var previous_definition_id := str(card.get("definition_id", ""))
 	var detached := _move_attached_items_to_owner_discard(match_state, card, {"reason": str(options.get("reason", "transform"))})
 	var preserved := _preserve_card_state(card, {"attack_state": true, "entered_lane": true})
-	# Normalize raw catalog seeds: map card_id → definition_id so _apply_identity
-	# finds the field (raw seeds use "card_id", IDENTITY_FIELDS expects "definition_id")
-	var norm_template := template
-	if template.has("card_id") and not template.has("definition_id"):
-		norm_template = template.duplicate(true)
-		norm_template["definition_id"] = str(template["card_id"])
+	# Enrich minimal templates (e.g. just a definition_id) from the catalog, and
+	# normalize raw catalog seeds (card_id → definition_id).
+	var norm_template := _enrich_template_from_catalog(template)
+	if norm_template.has("card_id") and not norm_template.has("definition_id"):
+		norm_template = norm_template.duplicate(true)
+		norm_template["definition_id"] = str(norm_template["card_id"])
 	_apply_identity(card, norm_template)
 	# art_path is not an identity field — update it from the template or derive from new definition_id
 	var new_def_id := str(card.get("definition_id", ""))

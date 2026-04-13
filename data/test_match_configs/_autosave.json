@@ -58,35 +58,37 @@
 			"end_haunting_spirit",
 			"hos_str_aelas_huntmate",
 			"exc_neu_adoring_fan",
-			"hos_str_aelas_huntmate"
+			"hos_str_aelas_huntmate",
+			"cwc_neu_clockwork_dragon",
+			"mc_dual_frostscale_dragon",
+			"hos_int_icewing_dragon",
+			"hos_neu_alduin"
 		],
 		"discard": [
 			"str_bangkorai_butcher",
 			"str_battlerage_orc",
 			"hos_neu_a_night_to_remember",
-			"hos_wil_a_land_divided"
+			"hos_wil_a_land_divided",
+			"int_flame_atronach"
 		],
 		"field_creatures": [
-			null,
+			"neu_ageless_automaton",
+			"db_end_ageless_vampire",
 			"joo_str_agent_of_mehrunes_dagon",
-			{
-				"can_attack": true,
-				"damage_marked": 2.0,
-				"definition_id": "joo_end_umaril_the_unfeathered"
-			},
-			"hos_end_emperor_titus_mede_ii"
+			"dual_ahnassi"
 		],
 		"hand": [
 			"wil_piercing_javelin",
 			"int_firebolt",
-			"hos_wil_grisly_gourmet"
+			"hos_wil_call_of_valor",
+			"tc_neu_call_dragon"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [],
 		"supports": [
-			"hom_neu_dwemer_puzzle_box"
+			"moe_wil_halls_of_colossus"
 		]
 	},
 	"type": "kill"
