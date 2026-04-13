@@ -1,53 +1,5 @@
 [
 	{
-		"card_id": "db_end_little_girl",
-		"name": "Little Girl",
-		"card_type": "creature",
-		"cost": 4,
-		"attributes": [
-			"endurance"
-		],
-		"rules_text": "At the start of your turn, Little Girl changes into a 5/5 Ageless Vampire with Drain.",
-		"stripped_text": "At the start of your turn, Little Girl changes into a 5/5 Ageless Vampire with Drain.",
-		"complexity": 85
-	},
-	{
-		"card_id": "mhc_neu_forsaken_champion",
-		"name": "Forsaken Champion",
-		"card_type": "creature",
-		"cost": 5,
-		"attributes": [
-			"neutral"
-		],
-		"rules_text": "Summon: Choose a friendly creature. Friendly creatures of the chosen type have +1/+1.",
-		"stripped_text": "Summon: Choose a friendly creature. Friendly creatures of the chosen type have +1/+1.",
-		"complexity": 85
-	},
-	{
-		"card_id": "mhc_neu_illusory_mimic",
-		"name": "Illusory Mimic",
-		"card_type": "creature",
-		"cost": 6,
-		"attributes": [
-			"neutral"
-		],
-		"rules_text": "Summon: Illusory Mimic gains all Keywords that the top three cards of your deck have.",
-		"stripped_text": "Summon: Illusory Mimic gains all Keywords that the top three cards of your deck have.",
-		"complexity": 85
-	},
-	{
-		"card_id": "fhc_neu_sehts_masterwork",
-		"name": "Seht's Masterwork",
-		"card_type": "support",
-		"cost": 3,
-		"attributes": [
-			"neutral"
-		],
-		"rules_text": "Ongoing\nIf you started the game with no duplicate cards in your deck, your cards cost 1 less.",
-		"stripped_text": "If you started the game with no duplicate cards in your deck, your cards cost 1 less.",
-		"complexity": 85
-	},
-	{
 		"card_id": "fsc_neu_wilds_incarnate",
 		"name": "Wilds Incarnate",
 		"card_type": "creature",

@@ -128,7 +128,8 @@ func _run_all_tests() -> bool:
 		_test_optional_discard_and_summon_discards_and_summons_to_other_lane() and
 		_test_blind_moth_priest_glow_flag() and
 		_test_emperors_attendant_hand_selection_modify_stats() and
-		_test_sacrifice_and_absorb_stats_uses_remaining_health()
+		_test_sacrifice_and_absorb_stats_uses_remaining_health() and
+		_test_forsaken_champion_aura_from_targeted_creature()
 	)
 
 
@@ -4877,4 +4878,67 @@ func _test_sacrifice_and_absorb_stats_uses_remaining_health() -> bool:
 	return (
 		_assert(final_power == 7, "Absorber power should be 3+4=7, got %d." % final_power) and
 		_assert(final_health == 7, "Absorber health should be 3+4=7 (remaining, not max), got %d." % final_health)
+	)
+
+
+func _test_forsaken_champion_aura_from_targeted_creature() -> bool:
+	# Forsaken Champion summon should target a friendly creature and grant an aura
+	# that buffs all friendly creatures sharing that creature's subtype.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+
+	# Place an Orc in the field lane
+	var orc := ScenarioFixtures.summon_creature(player, match_state, "orc_ally", "field", 2, 2, [], -1, {"subtypes": ["Orc"]})
+
+	# Place a non-Orc in the field lane (should NOT get the buff)
+	var elf := ScenarioFixtures.summon_creature(player, match_state, "elf_ally", "field", 3, 3, [], -1, {"subtypes": ["High Elf"]})
+
+	# Add Forsaken Champion to hand with its triggered ability
+	var champion := ScenarioFixtures.add_hand_card(player, "forsaken_champion", {
+		"card_type": "creature",
+		"cost": 5,
+		"power": 3,
+		"health": 3,
+		"subtypes": ["Reachman"],
+		"triggered_abilities": [{
+			"family": "summon",
+			"target_mode": "friendly_creature",
+			"effects": [{"op": "grant_aura_by_chosen_subtype", "target": "chosen_target", "power": 1, "health": 1}],
+		}],
+	})
+
+	# Summon Forsaken Champion — summon-family triggers with target_mode use the
+	# pending_summon_effect_targets system, not the normal trigger registry.
+	LaneRules.summon_from_hand(match_state, pid, str(champion.get("instance_id", "")), "field", {})
+	# Queue the pending summon effect target (normally done by UI or _check_summon_abilities)
+	MatchTiming._check_summon_effect_target_mode(match_state, _find_lane_card(match_state, "field", pid, "test_forsaken_champion"))
+	# Resolve targeting by picking the Orc
+	var orc_id := str(orc.get("instance_id", ""))
+	MatchTiming.resolve_pending_summon_effect_target(match_state, pid, {"target_instance_id": orc_id})
+
+	# Find the champion in the lane to check its aura
+	var lane_champion := _find_lane_card(match_state, "field", pid, "test_forsaken_champion")
+	var aura: Dictionary = lane_champion.get("aura", {})
+	var has_subtype_filter := not str(aura.get("filter_subtype", "")).is_empty() or not (aura.get("filter_subtypes_any", []) as Array).is_empty()
+
+	# Recalculate auras and check bonuses
+	MatchAuras.recalculate_auras(match_state)
+
+	var orc_aura_bonus := int(orc.get("aura_power_bonus", 0))
+	var elf_aura_bonus := int(elf.get("aura_power_bonus", 0))
+
+	# No pending_player_choices should have been created (old bugged behavior)
+	var pending: Array = match_state.get("pending_player_choices", [])
+	var no_pending := pending.is_empty()
+
+	return (
+		_assert(not aura.is_empty(), "Forsaken Champion should have an aura dict after summon.") and
+		_assert(has_subtype_filter, "Aura should have a subtype filter from the targeted creature.") and
+		_assert(no_pending, "Should NOT create pending_player_choices — target is chosen via creature targeting, not a choice UI.") and
+		_assert(str(aura.get("filter_subtype", "")) == "Orc", "Aura should filter by targeted creature's subtype 'Orc', got '%s'." % str(aura.get("filter_subtype", ""))) and
+		_assert(int(aura.get("power", 0)) == 1, "Aura power bonus should be 1.") and
+		_assert(int(aura.get("health", 0)) == 1, "Aura health bonus should be 1.") and
+		_assert(orc_aura_bonus == 1, "Orc should get +1 power from aura, got %d." % orc_aura_bonus) and
+		_assert(elf_aura_bonus == 0, "High Elf should NOT get aura bonus, got %d." % elf_aura_bonus)
 	)

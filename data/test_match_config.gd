@@ -120,6 +120,16 @@ static func build_test_match_state(config: Dictionary) -> Dictionary:
 	_reassign_instance_ids("player_2", p2_hand_ids, p2_deck_ids,
 		p2_field_creatures, p2_shadow_creatures, p2_discard_ids)
 
+	# Collect all definition IDs per player for singleton deck detection
+	var p1_all_ids: Array = p1_hand_ids + p1_deck_ids + p1_discard_ids + p1_support_ids
+	for c in p1_field_creatures + p1_shadow_creatures:
+		if typeof(c) == TYPE_DICTIONARY:
+			p1_all_ids.append(str(c.get("definition_id", "")))
+	var p2_all_ids: Array = p2_hand_ids + p2_deck_ids + p2_discard_ids
+	for c in p2_field_creatures + p2_shadow_creatures:
+		if typeof(c) == TYPE_DICTIONARY:
+			p2_all_ids.append(str(c.get("definition_id", "")))
+
 	# Build player states
 	var p1 := _build_player("player_1",
 		int(p1_cfg.get("health", 30)),
@@ -128,7 +138,7 @@ static func build_test_match_state(config: Dictionary) -> Dictionary:
 		_to_int_array(p1_cfg.get("rune_thresholds", [25, 20, 15, 10, 5])),
 		bool(p1_cfg.get("has_ring", false)),
 		int(p1_cfg.get("ring_charges", 0)),
-		p1_hand_ids, p1_deck_ids, turn_number, p1_discard_ids)
+		p1_hand_ids, p1_deck_ids, turn_number, p1_discard_ids, p1_all_ids)
 	var p2 := _build_player("player_2",
 		int(p2_cfg.get("health", 30)),
 		int(p2_cfg.get("max_magicka", 3)),
@@ -136,7 +146,7 @@ static func build_test_match_state(config: Dictionary) -> Dictionary:
 		_to_int_array(p2_cfg.get("rune_thresholds", [])),
 		bool(p2_cfg.get("has_ring", false)),
 		int(p2_cfg.get("ring_charges", 0)),
-		p2_hand_ids, p2_deck_ids, turn_number, p2_discard_ids)
+		p2_hand_ids, p2_deck_ids, turn_number, p2_discard_ids, p2_all_ids)
 
 	# Place pre-played support cards into the support zone
 	var p1_support_start: int = p1["hand"].size() + p1["deck"].size() + p1["discard"].size() + p1_field_creatures.size() + p1_shadow_creatures.size() + 1
@@ -257,7 +267,8 @@ static func _build_lane_creatures(player_id: String, entries) -> Array:
 static func _build_player(player_id: String, health: int, max_magicka: int,
 		current_magicka: int, rune_thresholds: Array, has_ring: bool,
 		ring_charges: int, hand_ids: Array, deck_ids: Array,
-		turn_number: int, discard_ids: Array = []) -> Dictionary:
+		turn_number: int, discard_ids: Array = [],
+		all_definition_ids: Array = []) -> Dictionary:
 	var hand: Array = []
 	for i in range(hand_ids.size()):
 		hand.append(_make_card(player_id, hand_ids[i], "hand", hand.size() + 1))
@@ -271,6 +282,16 @@ static func _build_player(player_id: String, health: int, max_magicka: int,
 	var discard_start_index := hand.size() + deck.size() + 1
 	for i in range(discard_ids.size()):
 		discard.append(_make_card(player_id, discard_ids[i], "discard", discard_start_index + i))
+
+	# Check singleton: use all_definition_ids if provided, otherwise fall back to deck_ids
+	var ids_to_check: Array = all_definition_ids if not all_definition_ids.is_empty() else deck_ids
+	var seen := {}
+	var is_singleton := true
+	for def_id in ids_to_check:
+		if seen.has(def_id):
+			is_singleton = false
+			break
+		seen[def_id] = true
 
 	return {
 		"player_id": player_id,
@@ -290,6 +311,7 @@ static func _build_player(player_id: String, health: int, max_magicka: int,
 		"ring_of_magicka_used_this_turn": false,
 		"mulligan_complete": true,
 		"mulligan_discarded_instance_ids": [],
+		"_singleton_deck": is_singleton,
 	}
 
 

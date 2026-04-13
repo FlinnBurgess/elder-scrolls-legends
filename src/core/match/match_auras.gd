@@ -448,6 +448,7 @@ static func _get_aura_targets(match_state: Dictionary, source_card: Dictionary, 
 	var scope: String = str(aura.get("scope", ""))
 	var target_filter: String = str(aura.get("target", ""))
 	var filter_subtype: String = str(aura.get("filter_subtype", ""))
+	var filter_subtypes_any: Array = aura.get("filter_subtypes_any", [])
 	var filter_attribute: String = str(aura.get("filter_attribute", ""))
 	var source_instance_id := str(source_card.get("instance_id", ""))
 	var targets: Array = []
@@ -475,6 +476,15 @@ static func _get_aura_targets(match_state: Dictionary, source_card: Dictionary, 
 			if not filter_subtype.is_empty():
 				var subtypes: Array = card.get("subtypes", [])
 				if not subtypes.has(filter_subtype):
+					continue
+			if not filter_subtypes_any.is_empty():
+				var subtypes: Array = card.get("subtypes", [])
+				var has_match := false
+				for fsa_st in filter_subtypes_any:
+					if subtypes.has(fsa_st):
+						has_match = true
+						break
+				if not has_match:
 					continue
 			if not filter_attribute.is_empty():
 				var attributes: Array = card.get("attributes", [])

@@ -221,14 +221,24 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				card["_premium"] = true
 				generated_events.append({"event_type": "creature_became_premium", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", ""))})
 		"grant_aura_by_chosen_subtype":
-			# This requires a player choice of subtype — use pending_player_choices
-			var gabcs_controller_id := str(trigger.get("controller_player_id", ""))
-			var gabcs_options: Array = ["Beast", "Orc", "Dark Elf", "Nord", "Khajiit", "Argonian", "Imperial", "High Elf", "Wood Elf", "Breton", "Redguard", "Goblin", "Dragon", "Daedra", "Skeleton", "Spirit", "Vampire"]
-			match_state["pending_player_choices"].append({
-				"player_id": gabcs_controller_id,
-				"source_instance_id": str(trigger.get("source_instance_id", "")),
-				"options": gabcs_options,
-				"then_op": "apply_subtype_aura",
-				"then_context": effect.get("aura_template", {}),
-				"prompt": "Choose a creature type.",
-			})
+			# Resolve the chosen target creature and use its subtypes for the aura filter
+			var gabcs_targets := MatchTargeting._resolve_card_targets(match_state, trigger, event, effect)
+			if not gabcs_targets.is_empty():
+				var gabcs_target: Dictionary = gabcs_targets[0]
+				var gabcs_subtypes: Array = gabcs_target.get("subtypes", [])
+				if not gabcs_subtypes.is_empty():
+					var gabcs_source_id := str(trigger.get("source_instance_id", ""))
+					var gabcs_source := MatchTimingHelpers._find_card_anywhere(match_state, gabcs_source_id)
+					if not gabcs_source.is_empty():
+						var gabcs_aura := {
+							"scope": "all_lanes",
+							"target": "all_friendly",
+							"power": int(effect.get("power", 0)),
+							"health": int(effect.get("health", 0)),
+						}
+						if gabcs_subtypes.size() == 1:
+							gabcs_aura["filter_subtype"] = str(gabcs_subtypes[0])
+						else:
+							gabcs_aura["filter_subtypes_any"] = gabcs_subtypes.duplicate()
+						gabcs_source["aura"] = gabcs_aura
+						generated_events.append({"event_type": "subtype_aura_applied", "source_instance_id": gabcs_source_id, "chosen_subtype": str(gabcs_subtypes[0])})

@@ -151,6 +151,14 @@ static func _build_player_state(player_id: String, deck_definition_ids: Array, r
 		card["zone"] = "hand"
 		opening_hand.append(card)
 
+	var unique_ids := {}
+	var is_singleton := true
+	for def_id in deck_definition_ids:
+		if unique_ids.has(def_id):
+			is_singleton = false
+			break
+		unique_ids[def_id] = true
+
 	return {
 		"player_id": player_id,
 		"health": STANDARD_STARTING_HEALTH,
@@ -168,7 +176,8 @@ static func _build_player_state(player_id: String, deck_definition_ids: Array, r
 		"ring_of_magicka_charges": RING_OF_MAGICKA_CHARGES if receives_ring else 0,
 		"ring_of_magicka_used_this_turn": false,
 		"mulligan_complete": false,
-		"mulligan_discarded_instance_ids": []
+		"mulligan_discarded_instance_ids": [],
+		"_singleton_deck": is_singleton,
 	}
 
 

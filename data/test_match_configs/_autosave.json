@@ -45,31 +45,33 @@
 	"player": {
 		"current_magicka": 12.0,
 		"deck": [
-			"int_abecean_navigator",
-			"hom_end_vvardvark",
 			"hom_end_vvardvark",
 			"iom_str_cloak",
 			"hom_end_daedric_crescent"
 		],
-		"discard": [
-			"str_afflicted_alit",
-			"str_afflicted_alit",
-			"int_abecean_navigator",
-			"moe_str_imbued_minotaur"
-		],
+		"discard": [],
 		"field_creatures": [
 			null,
-			null,
+			"joo_end_brotherhood_vampire",
 			"db_wil_chanter_of_akatosh"
 		],
 		"hand": [
 			"wil_piercing_javelin",
-			"hom_wil_umbra"
+			"hom_wil_umbra",
+			"mhc_neu_forsaken_champion",
+			"mhc_neu_illusory_mimic",
+			"fhc_neu_sehts_masterwork",
+			"fsc_neu_wilds_incarnate"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [],
+		"shadow_creatures": [
+			"exc_neu_adoring_fan",
+			"joo_str_agent_of_mehrunes_dagon",
+			"db_end_ageless_vampire",
+			"hom_end_ald_velothi_assassin"
+		],
 		"supports": [
 			"cwc_wil_reconstruction_engine"
 		]

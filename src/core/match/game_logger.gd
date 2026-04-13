@@ -366,6 +366,9 @@ static func _check_missing_effects(card: Dictionary) -> void:
 		# "modify_stats" on items with equip bonuses
 		if id == "modify_stats" and is_item and (has_equip_bonus or has_equip_keywords):
 			continue
+		# "modify_stats" covered by grant_aura_by_chosen_subtype op
+		if id == "modify_stats" and "grant_aura_by_chosen_subtype" in configured_ops:
+			continue
 		# Covered by a trigger family
 		if id in FAMILY_EFFECT_IDS and id in configured_families:
 			continue

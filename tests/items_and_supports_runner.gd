@@ -53,7 +53,10 @@ func _run_all_tests() -> bool:
 		# Umbra forced attack
 		_test_umbra_forced_attack_hits_enemy_creature() and
 		_test_umbra_forced_attack_skips_when_no_enemies() and
-		_test_umbra_forced_attack_respects_guards()
+		_test_umbra_forced_attack_respects_guards() and
+		# Singleton deck cost reduction
+		_test_sehts_masterwork_reduces_cost_for_singleton_deck() and
+		_test_sehts_masterwork_no_discount_for_duplicate_deck()
 	)
 
 
@@ -1331,6 +1334,50 @@ func _test_umbra_forced_attack_respects_guards() -> bool:
 		_assert(guard_damage == 5, "Umbra forced attack: guard should take 5 damage, got %d." % guard_damage) and
 		_assert(non_guard_damage == 0, "Umbra forced attack: non-guard should take 0 damage when guard exists, got %d." % non_guard_damage)
 	)
+
+
+func _test_sehts_masterwork_reduces_cost_for_singleton_deck() -> bool:
+	# Default _build_started_match uses unique definition IDs so _singleton_deck should be true
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player.get("player_id", ""))
+	# Verify the singleton flag was set
+	if not _assert(bool(player.get("_singleton_deck", false)), "Player with unique deck IDs should have _singleton_deck=true."):
+		return false
+	# Place Seht's Masterwork support with the singleton cost reduction aura
+	var masterwork := ScenarioFixtures.make_card(pid, "sehts_masterwork", {
+		"card_type": "support",
+		"cost": 3,
+		"support_uses": 0,
+		"cost_reduction_aura": {"scope": "hand", "target": "all_friendly", "amount": 1, "required_singleton_deck": true},
+	})
+	masterwork["zone"] = "support"
+	player["support"].append(masterwork)
+	# Add a creature to hand with cost 5
+	var hand_card := _add_hand_card(player, "test_cost_card", {"card_type": "creature", "cost": 5, "power": 3, "health": 3})
+	var effective := PersistentCardRules.get_effective_play_cost(match_state, pid, hand_card)
+	return _assert(effective == 4, "Seht's Masterwork should reduce cost by 1 for singleton deck, expected 4 got %d." % effective)
+
+
+func _test_sehts_masterwork_no_discount_for_duplicate_deck() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player.get("player_id", ""))
+	# Force the singleton flag to false (simulating a deck with duplicates)
+	player["_singleton_deck"] = false
+	# Place Seht's Masterwork support
+	var masterwork := ScenarioFixtures.make_card(pid, "sehts_masterwork2", {
+		"card_type": "support",
+		"cost": 3,
+		"support_uses": 0,
+		"cost_reduction_aura": {"scope": "hand", "target": "all_friendly", "amount": 1, "required_singleton_deck": true},
+	})
+	masterwork["zone"] = "support"
+	player["support"].append(masterwork)
+	# Add a creature to hand with cost 5
+	var hand_card := _add_hand_card(player, "test_cost_card2", {"card_type": "creature", "cost": 5, "power": 3, "health": 3})
+	var effective := PersistentCardRules.get_effective_play_cost(match_state, pid, hand_card)
+	return _assert(effective == 5, "Seht's Masterwork should NOT reduce cost for non-singleton deck, expected 5 got %d." % effective)
 
 
 func _assert(condition: bool, message: String) -> bool:

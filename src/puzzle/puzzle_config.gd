@@ -126,10 +126,20 @@ static func build_test_match_state(config: Dictionary) -> Dictionary:
 	var p_runes := _runes_for_health(p_health)
 	var e_runes := _runes_for_health(e_health)
 
+	# Collect all definition IDs per player for singleton deck detection
+	var p_all_ids: Array = p_hand_ids + p_deck_ids + p_discard_ids + p_support_ids
+	for c in p_field + p_shadow:
+		if typeof(c) == TYPE_DICTIONARY:
+			p_all_ids.append(str(c.get("definition_id", "")))
+	var e_all_ids: Array = e_hand_ids + e_deck_ids + e_discard_ids + e_support_ids
+	for c in e_field + e_shadow:
+		if typeof(c) == TYPE_DICTIONARY:
+			e_all_ids.append(str(c.get("definition_id", "")))
+
 	var p1 := _build_player("player_1", p_health, p_max_magicka, p_cur_magicka,
-		p_runes, has_ring, 3 if has_ring else 0, p_hand_ids, p_deck_ids, p_discard_ids)
+		p_runes, has_ring, 3 if has_ring else 0, p_hand_ids, p_deck_ids, p_discard_ids, p_all_ids)
 	var p2 := _build_player("player_2", e_health, e_max_magicka, e_cur_magicka,
-		e_runes, false, 0, e_hand_ids, e_deck_ids, e_discard_ids)
+		e_runes, false, 0, e_hand_ids, e_deck_ids, e_discard_ids, e_all_ids)
 
 	var p1_support_start: int = p_hand_ids.size() + p_deck_ids.size() + p_discard_ids.size() + p_field.size() + p_shadow.size() + 1
 	for i in range(p_support_ids.size()):
@@ -251,7 +261,7 @@ static func _build_lane_creatures(player_id: String, entries) -> Array:
 static func _build_player(player_id: String, health: int, max_magicka: int,
 		current_magicka: int, rune_thresholds: Array, has_ring: bool,
 		ring_charges: int, hand_ids: Array, deck_ids: Array,
-		discard_ids: Array = []) -> Dictionary:
+		discard_ids: Array = [], all_definition_ids: Array = []) -> Dictionary:
 	var hand: Array = []
 	for i in range(hand_ids.size()):
 		hand.append(_make_card(player_id, hand_ids[i], "hand", hand.size() + 1))
@@ -264,6 +274,15 @@ static func _build_player(player_id: String, health: int, max_magicka: int,
 	var discard_start_index := hand.size() + deck.size() + 1
 	for i in range(discard_ids.size()):
 		discard.append(_make_card(player_id, discard_ids[i], "discard", discard_start_index + i))
+
+	var ids_to_check: Array = all_definition_ids if not all_definition_ids.is_empty() else deck_ids
+	var seen := {}
+	var is_singleton := true
+	for def_id in ids_to_check:
+		if seen.has(def_id):
+			is_singleton = false
+			break
+		seen[def_id] = true
 
 	return {
 		"player_id": player_id,
@@ -283,6 +302,7 @@ static func _build_player(player_id: String, health: int, max_magicka: int,
 		"ring_of_magicka_used_this_turn": false,
 		"mulligan_complete": true,
 		"mulligan_discarded_instance_ids": [],
+		"_singleton_deck": is_singleton,
 	}
 
 

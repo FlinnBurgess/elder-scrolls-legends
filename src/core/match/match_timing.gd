@@ -1120,19 +1120,6 @@ static func _resolve_then_op(match_state: Dictionary, player_id: String, source_
 				cost_triggers.append({"cost": int(chosen_value), "effects": then_context})
 				source_card["cost_triggers"] = cost_triggers
 				events.append({"event_type": "cost_trigger_set", "source_instance_id": source_instance_id, "chosen_cost": int(chosen_value)})
-		"apply_subtype_aura":
-			# Apply the subtype aura to the source card with the chosen subtype as filter
-			var source_card := MatchTimingHelpers._find_card_anywhere(match_state, source_instance_id)
-			if not source_card.is_empty():
-				var aura_template: Dictionary = then_context.duplicate(true)
-				aura_template["filter_subtype"] = chosen_value
-				var existing_auras = source_card.get("aura", {})
-				if typeof(existing_auras) == TYPE_DICTIONARY:
-					# Merge subtype filter into existing aura
-					existing_auras["filter_subtype"] = chosen_value
-				else:
-					source_card["aura"] = aura_template
-				events.append({"event_type": "subtype_aura_applied", "source_instance_id": source_instance_id, "chosen_subtype": chosen_value})
 	return events
 
 
