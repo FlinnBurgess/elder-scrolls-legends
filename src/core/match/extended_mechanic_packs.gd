@@ -587,8 +587,28 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				var dmg_opponent_id := str(dmg_opponent.get("player_id", ""))
 				var dmg_events: Array = []
 				if not dmg_opponent_id.is_empty():
-					var dmg_rune_result: Dictionary = _timing_rules().destroy_front_rune(match_state, dmg_opponent_id, {"source_instance_id": str(trigger.get("source_instance_id", ""))})
+					# If opponent has no runes remaining, the effect does nothing
+					var dfr_opp_thresholds: Array = dmg_opponent.get("rune_thresholds", [])
+					if dfr_opp_thresholds.is_empty():
+						return {"handled": true, "events": dmg_events}
+					var dmg_source_id := str(trigger.get("source_instance_id", ""))
+					var dmg_rune_result: Dictionary = _timing_rules().destroy_front_rune(match_state, dmg_opponent_id, {
+						"source_instance_id": dmg_source_id,
+						"source_controller_player_id": dmg_controller_id,
+						"causing_player_id": dmg_controller_id,
+						"draw_card": true,
+					})
 					dmg_events.append_array(dmg_rune_result.get("events", []))
+					# Draw a card for the opponent on rune break (standard rune break behavior)
+					if not bool(dmg_rune_result.get("player_lost", false)):
+						if not _timing_rules()._has_prevent_rune_draw(match_state, dmg_opponent_id):
+							var dfr_draw: Dictionary = _timing_rules().draw_cards(match_state, dmg_opponent_id, 1, {
+								"reason": "rune_broken",
+								"source_instance_id": dmg_source_id,
+								"source_controller_player_id": dmg_controller_id,
+								"allow_prophecy_interrupt": true,
+							})
+							dmg_events.append_array(dfr_draw.get("events", []))
 				return {"handled": true, "events": dmg_events}
 			var dmg_total := int(dmg_amount_raw) * _count_source_multiplier(match_state, trigger, effect)
 			return {"handled": true, "events": _resolve_player_damage(match_state, trigger, event, effect, dmg_total)}

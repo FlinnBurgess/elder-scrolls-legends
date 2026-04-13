@@ -8,7 +8,12 @@
 			"hom_end_vvardvark",
 			"hom_end_vvardvark",
 			"hom_end_vvardvark",
-			"hom_end_vvardvark"
+			"hom_end_vvardvark",
+			"hos_str_aelas_huntmate",
+			"hos_str_aelas_huntmate",
+			"hos_str_aelas_huntmate",
+			"hos_str_aelas_huntmate",
+			"hos_str_aelas_huntmate"
 		],
 		"discard": [],
 		"field_creatures": [
@@ -23,19 +28,13 @@
 				"definition_id": "aw_int_abnur_tharn",
 				"power_bonus": -5.0
 			},
-			{
-				"can_attack": true,
-				"definition_id": "cwc_neu_abomination",
-				"power_bonus": -1.0
-			}
+			"hom_end_ald_velothi_assassin"
 		],
 		"hand": [],
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [
-			null,
-			"wil_aldmeri_patriot",
-			"neu_ageless_automaton"
+			null
 		],
 		"supports": []
 	},
@@ -53,28 +52,28 @@
 	"player": {
 		"current_magicka": 12.0,
 		"deck": [
-			"hom_end_vvardvark",
-			"iom_str_cloak",
-			"hom_end_daedric_crescent",
-			"hos_str_aelas_huntmate",
-			"exc_neu_adoring_fan"
+			"str_afflicted_alit",
+			"end_deathless_draugr",
+			"hom_end_skeleton_champion",
+			"end_haunting_spirit"
 		],
 		"discard": [],
 		"field_creatures": [
 			null,
 			null,
-			"hom_end_ald_velothi_assassin"
+			"str_afflicted_alit"
 		],
 		"hand": [
 			"wil_piercing_javelin",
-			"aw_str_lyris_titanborn"
+			"iom_end_wake_the_dead"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [],
 		"supports": [
-			"cwc_wil_reconstruction_engine"
+			"cwc_wil_reconstruction_engine",
+			"neu_goldbrand"
 		]
 	},
 	"type": "kill"

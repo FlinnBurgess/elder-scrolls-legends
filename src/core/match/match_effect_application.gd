@@ -158,10 +158,13 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 				_pe_active_effects = _pe_plot_effects
 			else:
 				_pe_active_effects = _pe_active_effects + _pe_plot_effects
+	var _skip_effects: Array = []
 	for raw_effect in _pe_active_effects:
 		if typeof(raw_effect) != TYPE_DICTIONARY:
 			continue
 		var effect: Dictionary = raw_effect
+		if _skip_effects.has(effect):
+			continue
 		if not ExtendedMechanicPacks.effect_is_enabled(match_state, trigger, effect):
 			continue
 		if bool(effect.get("require_event_target_alive", false)):
@@ -171,6 +174,7 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 			var alive_check_card := MatchTimingHelpers._find_card_anywhere(match_state, alive_check_id)
 			if alive_check_card.is_empty() or str(alive_check_card.get("zone", "")) != ZONE_LANE:
 				continue
+		var _pds_before: int = match_state.get("pending_deck_selections", []).size()
 		var op := str(effect.get("op", ""))
 		var ctx := {
 			"descriptor": descriptor,
@@ -228,4 +232,29 @@ static func _apply_effects(match_state: Dictionary, trigger: Dictionary, event: 
 					var lane_result := LaneEffectRules.apply_lane_effect(match_state, trigger, event, resolved_effect)
 					if bool(lane_result.get("handled", false)):
 						generated_events.append_array(lane_result.get("events", []))
+		# Propagate drawn_instance_id from generated card_drawn events so subsequent
+		# effects in this trigger can resolve "last_drawn_card" targets.
+		for _prop_evt in generated_events:
+			if typeof(_prop_evt) == TYPE_DICTIONARY and str(_prop_evt.get("event_type", "")) == "card_drawn":
+				var _prop_id := str(_prop_evt.get("drawn_instance_id", ""))
+				if not _prop_id.is_empty():
+					event["drawn_instance_id"] = _prop_id
+		# If a pending deck selection was just added (player-choice draw), fold any
+		# subsequent modify_stats targeting last_drawn_card into its then_context so
+		# the buff applies when the player picks a card.
+		var _pds_after: int = match_state.get("pending_deck_selections", []).size()
+		if _pds_after > _pds_before:
+			var _pds_entry: Dictionary = match_state["pending_deck_selections"][_pds_after - 1]
+			var _pds_ctx: Dictionary = _pds_entry.get("then_context", {})
+			var _effect_idx := _pe_active_effects.find(raw_effect)
+			if _effect_idx >= 0:
+				for _ri in range(_effect_idx + 1, _pe_active_effects.size()):
+					var _remaining: Variant = _pe_active_effects[_ri]
+					if typeof(_remaining) != TYPE_DICTIONARY:
+						continue
+					if str(_remaining.get("op", "")) == "modify_stats" and str(_remaining.get("target", "")) == "last_drawn_card":
+						_pds_ctx["modify_power"] = _pds_ctx.get("modify_power", 0) + int(_remaining.get("power", 0))
+						_pds_ctx["modify_health"] = _pds_ctx.get("modify_health", 0) + int(_remaining.get("health", 0))
+						_pds_entry["then_context"] = _pds_ctx
+						_skip_effects.append(_remaining)
 	return generated_events

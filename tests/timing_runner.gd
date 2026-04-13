@@ -41,7 +41,9 @@ func _run_all_tests() -> bool:
 		_test_item_on_attack_trigger_fires_for_host_creature() and
 		_test_slay_discard_matching_from_opponent_deck() and
 		_test_skar_drillmaster_copies_rallied_creature_to_hand() and
-		_test_plot_effects_append_when_plot_active()
+		_test_plot_effects_append_when_plot_active() and
+		_test_baandari_opportunist_copy_has_pilfer() and
+		_test_draw_from_deck_filtered_then_modify_stats_last_drawn()
 	)
 
 
@@ -1001,6 +1003,125 @@ func _test_plot_effects_append_when_plot_active() -> bool:
 		_assert(bool(play_result.get("is_valid", false)), "Plot action should be playable.") and
 		_assert(field_creature_count >= 2, "Token should have been summoned to field lane. Count: %d." % field_creature_count) and
 		_assert(health_after > health_before, "Plot heal effect should have healed controller. Before: %d, After: %d." % [health_before, health_after])
+	)
+
+
+func _test_baandari_opportunist_copy_has_pilfer() -> bool:
+	# Upgraded Baandari Opportunist copies should have both summon:draw AND pilfer:shuffle
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	# Use the real card template from the original Baandari's pilfer effect
+	var upgraded_template := {
+		"definition_id": "aw_agi_baandari_opportunist_upgraded",
+		"art_path": "res://assets/images/cards/aw_agi_baandari_opportunist.png",
+		"name": "Baandari Opportunist",
+		"card_type": "creature",
+		"subtypes": ["Khajiit"],
+		"attributes": ["agility"],
+		"cost": 1, "power": 1, "health": 1,
+		"base_power": 1, "base_health": 1,
+		"keywords": ["charge"],
+		"rules_text": "Charge\nSummon: Draw a card.\nPilfer: Shuffle a Baandari Opportunist with \"Summon: Draw a card\" into your deck.",
+	}
+	var baandari := _summon_creature(active_player, match_state, "baandari", "field", 1, 1, ["charge"], 0, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_PILFER,
+			"required_zone": "lane",
+			"effects": [{"op": "shuffle_into_deck", "card_template": upgraded_template}],
+		}],
+	})
+	_target_ready_for_attack(baandari, match_state)
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], baandari["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	if not _assert(result["is_valid"], "baandari_copy: attack should resolve."):
+		return false
+	# Find the generated card in the deck
+	var deck: Array = active_player.get("deck", [])
+	var copy: Dictionary = {}
+	for card in deck:
+		if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == "aw_agi_baandari_opportunist_upgraded":
+			copy = card
+			break
+	if not _assert(not copy.is_empty(), "baandari_copy: upgraded copy should be in deck."):
+		return false
+	var abilities: Array = copy.get("triggered_abilities", [])
+	var has_summon := false
+	var has_pilfer := false
+	for ability in abilities:
+		if typeof(ability) == TYPE_DICTIONARY:
+			match str(ability.get("family", "")):
+				"summon":
+					has_summon = true
+				"pilfer":
+					has_pilfer = true
+	if not (
+		_assert(has_summon, "baandari_copy: upgraded copy should have summon ability.") and
+		_assert(has_pilfer, "baandari_copy: upgraded copy should have pilfer ability.")
+	):
+		return false
+	# Verify second-generation copy also gets both abilities (not double summon)
+	# Simulate the upgraded copy pilfer by generating another card from its pilfer template
+	var pilfer_ability: Dictionary = {}
+	for ability in abilities:
+		if typeof(ability) == TYPE_DICTIONARY and str(ability.get("family", "")) == "pilfer":
+			pilfer_ability = ability
+	var pilfer_effects: Array = pilfer_ability.get("effects", [])
+	if not _assert(not pilfer_effects.is_empty(), "baandari_copy: pilfer should have effects."):
+		return false
+	var second_template: Dictionary = pilfer_effects[0].get("card_template", {})
+	var second_copy := MatchMutations.build_generated_card(match_state, active_player["player_id"], second_template)
+	var second_abilities: Array = second_copy.get("triggered_abilities", [])
+	var second_summon_count := 0
+	var second_has_pilfer := false
+	for ability in second_abilities:
+		if typeof(ability) == TYPE_DICTIONARY:
+			if str(ability.get("family", "")) == "summon":
+				second_summon_count += 1
+			elif str(ability.get("family", "")) == "pilfer":
+				second_has_pilfer = true
+	return (
+		_assert(second_summon_count == 1, "baandari_copy: second-gen copy should have exactly 1 summon ability, got %d." % second_summon_count) and
+		_assert(second_has_pilfer, "baandari_copy: second-gen copy should have pilfer ability.")
+	)
+
+
+func _test_draw_from_deck_filtered_then_modify_stats_last_drawn() -> bool:
+	# Wake the Dead: draw a Skeleton from deck (player choice) then give it +0/+1
+	var match_state := _build_started_match(10, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var player_id := str(active_player["player_id"])
+	# Seed a Skeleton creature into the deck
+	var skeleton := _add_deck_card(active_player, "skeleton", {"card_type": "creature", "power": 2, "health": 2})
+	skeleton["subtypes"] = ["Skeleton"]
+	# Create the action with draw_from_deck_filtered + modify_stats targeting last_drawn_card
+	var action := _add_hand_card(active_player, "wake_the_dead", {
+		"card_type": "action",
+		"cost": 2,
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"effects": [
+				{"op": "draw_from_deck_filtered", "target_player": "controller", "filter": {"subtype_in": ["Skeleton"]}, "player_choice": true},
+				{"op": "modify_stats", "target": "last_drawn_card", "power": 0, "health": 1},
+			],
+		}],
+	})
+	MatchTiming.play_action_from_hand(match_state, player_id, action["instance_id"], {})
+	# A pending deck selection should exist
+	var pending: Array = match_state.get("pending_deck_selections", [])
+	if not _assert(pending.size() > 0, "wake_the_dead: should have pending deck selection."):
+		return false
+	# Resolve the pending selection by picking the skeleton
+	var resolve_result := MatchTiming.resolve_pending_deck_selection(match_state, player_id, skeleton["instance_id"])
+	if not _assert(resolve_result["is_valid"], "wake_the_dead: deck selection should resolve."):
+		return false
+	# The skeleton should now be in hand with +0/+1
+	return (
+		_assert(str(skeleton.get("zone", "")) == "hand", "wake_the_dead: skeleton should be in hand.") and
+		_assert(int(skeleton.get("health_bonus", 0)) == 1, "wake_the_dead: skeleton should have +1 health bonus, got %d." % int(skeleton.get("health_bonus", 0))) and
+		_assert(int(skeleton.get("power_bonus", 0)) == 0, "wake_the_dead: skeleton should have +0 power bonus.")
 	)
 
 

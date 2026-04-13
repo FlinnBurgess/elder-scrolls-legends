@@ -2194,6 +2194,10 @@ static func resolve_pending_deck_selection(match_state: Dictionary, player_id: S
 			chosen_card["zone"] = ZONE_HAND
 			var dch_hand: Array = player.get(ZONE_HAND, [])
 			dch_hand.append(chosen_card)
+			var dch_mod_power := int(then_context.get("modify_power", 0))
+			var dch_mod_health := int(then_context.get("modify_health", 0))
+			if dch_mod_power != 0 or dch_mod_health != 0:
+				EvergreenRules.apply_stat_bonus(chosen_card, dch_mod_power, dch_mod_health, str(then_context.get("reason", "deck_selection")))
 			generated_events.append({"event_type": "card_drawn", "player_id": player_id, "drawn_instance_id": str(chosen_card.get("instance_id", "")), "source": "draw_from_deck_filtered", "reason": str(then_context.get("reason", "deck_selection"))})
 		"summon_creature_from_deck":
 			deck.remove_at(chosen_idx)
@@ -2442,7 +2446,7 @@ static func destroy_front_rune(match_state: Dictionary, player_id: String, conte
 		"source_controller_player_id": str(context.get("source_controller_player_id", "")),
 		"causing_player_id": str(context.get("causing_player_id", context.get("source_controller_player_id", ""))),
 		"reason": str(context.get("reason", "forced_rune_break")),
-		"draw_card": false,
+		"draw_card": bool(context.get("draw_card", false)),
 		"timing_window": str(context.get("timing_window", WINDOW_IMMEDIATE)),
 	})
 	return result

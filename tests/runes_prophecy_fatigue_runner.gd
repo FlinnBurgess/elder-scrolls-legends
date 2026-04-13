@@ -29,7 +29,9 @@ func _run_all_tests() -> bool:
 		_test_prophecy_item_can_be_thrown_at_enemy() and
 		_test_prevent_rune_draw_heals_instead_of_drawing() and
 		_test_prevent_rune_draw_silenced_does_not_block() and
-		_test_draw_cards_per_runes_threshold_logic()
+		_test_draw_cards_per_runes_threshold_logic() and
+		_test_destroy_front_rune_draws_card_for_opponent() and
+		_test_destroy_front_rune_does_nothing_when_no_runes()
 	)
 
 
@@ -457,6 +459,57 @@ func _target_ready_for_attack(card: Dictionary, match_state: Dictionary) -> void
 
 func _lane_slot(match_state: Dictionary, lane_id: String, player_id: String, slot_index: int):
 	return ScenarioFixtures.lane_slot(match_state, lane_id, player_id, slot_index)
+
+
+func _test_destroy_front_rune_draws_card_for_opponent() -> bool:
+	# Lyris Titanborn style: start_of_turn destroy_front_rune should draw a card for the opponent
+	var match_state := _build_started_match(20, 0)
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Summon a creature with Lyris's start_of_turn destroy_front_rune effect
+	_summon_creature(player, match_state, "lyris", "field", 5, 5, [], -1, {
+		"triggered_abilities": [{"family": "start_of_turn", "required_zone": "lane", "effects": [{"op": "damage", "target_player": "opponent", "amount": "destroy_front_rune"}]}]
+	})
+	var hp_before: int = int(opponent.get("health", 30))
+	# End player's turn — opponent's turn starts (normal turn draw happens)
+	MatchTurnLoop.end_turn(match_state, pid)
+	# Measure hand AFTER opponent's normal turn draw, before Lyris triggers
+	var hand_before: int = opponent["hand"].size()
+	# End opponent's turn — player's turn starts, Lyris fires
+	MatchTurnLoop.end_turn(match_state, oid)
+	var hp_after: int = int(opponent.get("health", 30))
+	return (
+		_assert(hp_after < hp_before, "destroy_front_rune should reduce opponent HP.") and
+		_assert(opponent["hand"].size() == hand_before + 1, "destroy_front_rune should draw a card for the opponent.")
+	)
+
+
+func _test_destroy_front_rune_does_nothing_when_no_runes() -> bool:
+	# When opponent has no runes remaining, destroy_front_rune should not deal damage
+	var match_state := _build_started_match(20, 0)
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Clear all runes and set HP low
+	opponent["rune_thresholds"] = []
+	opponent["health"] = 3
+	# Summon a creature with the destroy_front_rune effect
+	_summon_creature(player, match_state, "lyris", "field", 5, 5, [], -1, {
+		"triggered_abilities": [{"family": "start_of_turn", "required_zone": "lane", "effects": [{"op": "damage", "target_player": "opponent", "amount": "destroy_front_rune"}]}]
+	})
+	# End player's turn — opponent's turn starts (normal turn draw happens)
+	MatchTurnLoop.end_turn(match_state, pid)
+	# Measure hand AFTER opponent's normal turn draw
+	var hand_before: int = opponent["hand"].size()
+	# End opponent's turn — player's turn starts, Lyris fires (should do nothing)
+	MatchTurnLoop.end_turn(match_state, oid)
+	return (
+		_assert(int(opponent.get("health", 0)) == 3, "destroy_front_rune with no runes should not deal damage, got %d HP." % int(opponent.get("health", 0))) and
+		_assert(opponent["hand"].size() == hand_before, "destroy_front_rune with no runes should not draw a card.")
+	)
 
 
 func _count_out_of_cards(player: Dictionary) -> int:

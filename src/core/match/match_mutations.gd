@@ -503,6 +503,9 @@ static func build_generated_card(match_state: Dictionary, controller_player_id: 
 				var seed_abilities: Array = seed.get("triggered_abilities", [])
 				if not seed_abilities.is_empty():
 					card["triggered_abilities"] = seed_abilities.duplicate(true)
+				var seed_effect_ids: Array = seed.get("effect_ids", [])
+				if not seed_effect_ids.is_empty() and not card.has("effect_ids"):
+					card["effect_ids"] = seed_effect_ids.duplicate(true)
 				var seed_aura = seed.get("aura", null)
 				if seed_aura != null and not card.has("aura"):
 					card["aura"] = seed_aura.duplicate(true)
