@@ -260,6 +260,9 @@ func _record_feedback_from_events(events: Array) -> void:
 			"attached_item_detached":
 				_screen._queue_creature_toast(str(event.get("host_instance_id", "")), "ITEM DESTROYED", Color(0.9, 0.4, 0.2))
 			"card_discarded":
+				var cd_revealed: Dictionary = event.get("revealed_card", {})
+				if not cd_revealed.is_empty() and str(event.get("player_id", "")) == _screen._local_player_id():
+					_screen._animate_deck_card_reveal(cd_revealed)
 				_screen._queue_status_toast("Card discarded", Color(0.6, 0.4, 0.4))
 			"card_stolen":
 				_screen._queue_status_toast("Card stolen!", Color(0.9, 0.6, 0.2))

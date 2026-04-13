@@ -36,6 +36,7 @@ func _run_all_tests() -> bool:
 		_test_beast_form_pack() and
 		_test_beast_form_change_fires_summon_and_preserves_buffs() and
 		_test_beast_form_targeted_summon_fires_immediately() and
+		_test_beast_form_targeted_summon_defers_on_controller_turn() and
 		_test_set_power_with_duration_expires() and
 		_test_set_power_duration_cleared_on_change() and
 		_test_veteran_hook() and
@@ -569,11 +570,14 @@ func _test_beast_form_change_fires_summon_and_preserves_buffs() -> bool:
 
 
 func _test_beast_form_targeted_summon_fires_immediately() -> bool:
-	# When a beast form creature transforms (via rune break), its targeted summon
-	# ability should fire immediately — not be deferred to the controller's next turn.
+	# When a beast form creature transforms on the OPPONENT's turn (rune break
+	# while the opponent attacks), the targeted summon should auto-resolve
+	# immediately since the controller can't interact.
 	var match_state := _build_started_match()
 	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
 	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	# Make it the OPPONENT's turn so auto-pick kicks in
+	match_state["active_player_id"] = str(opponent.get("player_id", ""))
 	# Summon an enemy creature that the werewolf's summon will target
 	var enemy := ScenarioFixtures.summon_creature(opponent, match_state, "enemy_target", "field", 2, 3)
 	# Wound the enemy so it qualifies for "destroy a wounded enemy creature"
@@ -597,19 +601,63 @@ func _test_beast_form_targeted_summon_fires_immediately() -> bool:
 			}],
 		}],
 	})
-	# Break opponent rune to trigger beast form
+	# Break opponent rune to trigger beast form (on opponent's turn)
 	var damage_result := MatchTiming.apply_player_damage(match_state, str(opponent.get("player_id", "")), 6, {
 		"source_instance_id": str(beast.get("instance_id", "")),
 		"source_controller_player_id": str(player.get("player_id", "")),
 	})
 	MatchTiming.publish_events(match_state, damage_result.get("events", []))
-	# The enemy creature should be destroyed immediately — not deferred
+	# The enemy creature should be destroyed immediately — no pending target
 	var enemy_zone := str(enemy.get("zone", ""))
 	var has_pending := MatchTiming.has_pending_summon_effect_target(match_state, str(player.get("player_id", "")))
 	return (
 		_assert(str(beast.get("definition_id", "")) == "aela_werewolf", "Beast should transform into werewolf form.") and
 		_assert(enemy_zone == "discard", "Wounded enemy should be destroyed immediately by beast form summon, got zone: %s." % enemy_zone) and
 		_assert(not has_pending, "There should be no pending summon effect targets — the targeted summon should have resolved immediately.")
+	)
+
+
+func _test_beast_form_targeted_summon_defers_on_controller_turn() -> bool:
+	# When a beast form creature transforms on its CONTROLLER's turn (e.g. player
+	# attacks, breaks a rune, triggers beast form), the targeted summon should
+	# defer to let the player choose a target via the UI.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	# active_player_id is already player (first_player_index: 0)
+	var enemy := ScenarioFixtures.summon_creature(opponent, match_state, "enemy_target", "field", 2, 3)
+	EvergreenRules.apply_damage_to_creature(enemy, 1)
+	var beast := ScenarioFixtures.summon_creature(player, match_state, "aela_test", "field", 3, 3, [], -1, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_RUNE_BREAK,
+			"match_role": "opponent_player",
+			"required_zone": "lane",
+			"effects": [{
+				"op": "change",
+				"target": "self",
+				"card_template": {
+					"definition_id": "aela_werewolf",
+					"name": "Aela Werewolf",
+					"card_type": "creature",
+					"power": 5, "health": 5,
+					"triggered_abilities": [{"family": "summon", "target_mode": "wounded_enemy_creature", "effects": [{"op": "destroy_creature", "target": "chosen_target"}]}],
+				},
+			}],
+		}],
+	})
+	var damage_result := MatchTiming.apply_player_damage(match_state, str(opponent.get("player_id", "")), 6, {
+		"source_instance_id": str(beast.get("instance_id", "")),
+		"source_controller_player_id": pid,
+	})
+	MatchTiming.publish_events(match_state, damage_result.get("events", []))
+	# Enemy should still be alive — destruction deferred pending player choice
+	var enemy_zone := str(enemy.get("zone", ""))
+	var has_pending := MatchTiming.has_pending_summon_effect_target(match_state, pid)
+	return (
+		_assert(str(beast.get("definition_id", "")) == "aela_werewolf", "Beast should transform into werewolf form.") and
+		_assert(enemy_zone == "lane", "Wounded enemy should NOT be destroyed yet — waiting for player targeting, got zone: %s." % enemy_zone) and
+		_assert(has_pending, "There should be a pending summon effect target for the player to choose.")
 	)
 
 

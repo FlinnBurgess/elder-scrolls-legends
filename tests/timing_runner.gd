@@ -6,6 +6,7 @@ const LaneRules = preload("res://src/core/match/lane_rules.gd")
 const MatchCombat = preload("res://src/core/match/match_combat.gd")
 const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
+const ExtendedMechanicPacks = preload("res://src/core/match/extended_mechanic_packs.gd")
 
 
 func _initialize() -> void:
@@ -43,7 +44,8 @@ func _run_all_tests() -> bool:
 		_test_skar_drillmaster_copies_rallied_creature_to_hand() and
 		_test_plot_effects_append_when_plot_active() and
 		_test_baandari_opportunist_copy_has_pilfer() and
-		_test_draw_from_deck_filtered_then_modify_stats_last_drawn()
+		_test_draw_from_deck_filtered_then_modify_stats_last_drawn() and
+		_test_end_of_turn_invaded_condition_resets_across_opponent_turn()
 	)
 
 
@@ -1122,6 +1124,51 @@ func _test_draw_from_deck_filtered_then_modify_stats_last_drawn() -> bool:
 		_assert(str(skeleton.get("zone", "")) == "hand", "wake_the_dead: skeleton should be in hand.") and
 		_assert(int(skeleton.get("health_bonus", 0)) == 1, "wake_the_dead: skeleton should have +1 health bonus, got %d." % int(skeleton.get("health_bonus", 0))) and
 		_assert(int(skeleton.get("power_bonus", 0)) == 0, "wake_the_dead: skeleton should have +0 power bonus.")
+	)
+
+
+func _test_end_of_turn_invaded_condition_resets_across_opponent_turn() -> bool:
+	# Agent of Mehrunes Dagon-style: end_of_turn with invaded_this_turn condition
+	# should NOT fire on the opponent's turn even though it fired on the controller's turn.
+	var match_state := _build_started_match(20, 0)
+	var p1: Dictionary = match_state["players"][0]
+	var p2: Dictionary = match_state["players"][1]
+	var agent := _summon_creature(p1, match_state, "agent", "field", 3, 2, [], 0, {
+		"triggered_abilities": [
+			{
+				"family": MatchTiming.FAMILY_END_OF_TURN,
+				"required_zone": "lane",
+				"invaded_this_turn": true,
+				"effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 1}],
+			},
+			{
+				"family": MatchTiming.FAMILY_END_OF_TURN,
+				"match_role": "opponent_player",
+				"required_zone": "lane",
+				"invaded_this_turn": true,
+				"effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 1}],
+			},
+		]
+	})
+	# Simulate an invade on p1's turn
+	ExtendedMechanicPacks.ensure_player_state(p1)
+	p1["invades_this_turn"] = 1
+
+	# End p1's turn — the controller ability should fire (+1/+1)
+	MatchTurnLoop.end_turn(match_state, p1["player_id"])
+	var after_p1_turn_power := int(agent.get("power_bonus", 0))
+	var after_p1_turn_health := int(agent.get("health_bonus", 0))
+
+	# End p2's turn — the opponent_player ability should NOT fire (invade was last turn)
+	MatchTurnLoop.end_turn(match_state, p2["player_id"])
+	var after_p2_turn_power := int(agent.get("power_bonus", 0))
+	var after_p2_turn_health := int(agent.get("health_bonus", 0))
+
+	return (
+		_assert(after_p1_turn_power == 1 and after_p1_turn_health == 1,
+			"Agent should get +1/+1 at end of controller's turn when invaded. Got +%d/+%d." % [after_p1_turn_power, after_p1_turn_health]) and
+		_assert(after_p2_turn_power == 1 and after_p2_turn_health == 1,
+			"Agent should NOT get another +1/+1 at end of opponent's turn. Got +%d/+%d." % [after_p2_turn_power, after_p2_turn_health])
 	)
 
 

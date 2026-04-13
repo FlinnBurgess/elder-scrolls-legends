@@ -276,8 +276,19 @@ static func _queue_targeted_summon_abilities(match_state: Dictionary, card: Dict
 		var valid := MatchTargeting.get_valid_targets_for_mode(match_state, source_id, tm, ability)
 		if valid.is_empty():
 			continue
-		# Auto-pick target for targeted summon abilities from change/transform
-		# (they fire during rune breaks on the opponent's turn, so can't wait for controller input).
+		# If it's the controller's turn, defer to the UI targeting phase so the
+		# player can choose; only auto-pick when the transform fires on the
+		# opponent's turn (e.g. rune break during the enemy's attack).
+		var active_pid := str(match_state.get("active_player_id", ""))
+		if controller_id == active_pid:
+			var pending_arr: Array = match_state.get("pending_summon_effect_targets", [])
+			pending_arr.append({
+				"player_id": controller_id,
+				"source_instance_id": source_id,
+				"mandatory": bool(ability.get("mandatory", false)),
+				"allowed_families": ["summon"],
+			})
+			continue
 		var ctx_id := source_id + "_change_summon_target"
 		var chosen: Dictionary = valid[MatchEffectParams._deterministic_index(match_state, ctx_id, valid.size())]
 		var chosen_id := str(chosen.get("instance_id", ""))

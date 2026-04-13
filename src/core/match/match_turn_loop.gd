@@ -169,6 +169,13 @@ static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionar
 	var player := _get_player_state(match_state, player_id)
 	ExtendedMechanicPacks.ensure_player_state(player)
 	ExtendedMechanicPacks.reset_turn_state(player)
+	# Reset non-active player's turn state too — counters like invades_this_turn
+	# must not persist across the opponent's turn for end_of_turn conditions.
+	var opponent_id := _get_next_player_id(match_state.get("players", []), player_id)
+	if not opponent_id.is_empty():
+		var opponent := _get_player_state(match_state, opponent_id)
+		ExtendedMechanicPacks.ensure_player_state(opponent)
+		ExtendedMechanicPacks.reset_turn_state(opponent)
 	_refresh_board_state_for_turn(match_state, player_id)
 	player["turns_started"] = int(player.get("turns_started", 0)) + 1
 	player["temporary_magicka"] = 0

@@ -597,6 +597,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					"instance_id": str(top_card.get("instance_id", "")),
 					"source": "discard_top_of_deck",
 					"reason": reason,
+					"revealed_card": top_card.duplicate(true),
 				})
 		"discard_from_hand":
 			var dfh_controller_id := str(trigger.get("controller_player_id", ""))

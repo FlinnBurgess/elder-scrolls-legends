@@ -2,6 +2,7 @@
 	"enemy": {
 		"current_magicka": 12.0,
 		"deck": [
+			"exc_neu_adoring_fan",
 			"hom_end_vvardvark",
 			"hom_end_vvardvark",
 			"hom_end_vvardvark",
@@ -33,8 +34,7 @@
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [
-			null,
-			"hom_str_aldruhn_arms_master"
+			null
 		],
 		"supports": []
 	},
@@ -55,7 +55,10 @@
 			"str_afflicted_alit",
 			"end_deathless_draugr",
 			"hom_end_skeleton_champion",
-			"end_haunting_spirit"
+			"end_haunting_spirit",
+			"hos_str_aelas_huntmate",
+			"exc_neu_adoring_fan",
+			"hos_str_aelas_huntmate"
 		],
 		"discard": [
 			"str_bangkorai_butcher",
@@ -65,24 +68,25 @@
 		],
 		"field_creatures": [
 			null,
-			null,
-			"joo_end_umaril_the_unfeathered",
-			"wil_haafingar_marauder"
+			"joo_str_agent_of_mehrunes_dagon",
+			{
+				"can_attack": true,
+				"damage_marked": 2.0,
+				"definition_id": "joo_end_umaril_the_unfeathered"
+			},
+			"hos_end_emperor_titus_mede_ii"
 		],
 		"hand": [
 			"wil_piercing_javelin",
-			"tc_tri_death_scythe",
-			"hos_end_corrupted_shade",
 			"int_firebolt",
-			"hos_neu_a_night_to_remember",
-			"mc_neu_steam_constructor"
+			"hos_wil_grisly_gourmet"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [],
 		"supports": [
-			"int_mages_guild_retreat"
+			"hom_neu_dwemer_puzzle_box"
 		]
 	},
 	"type": "kill"
