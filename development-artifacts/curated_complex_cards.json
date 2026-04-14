@@ -1,17 +1,5 @@
 [
 	{
-		"card_id": "aw_agi_unrelenting_siege",
-		"name": "Unrelenting Siege",
-		"card_type": "support",
-		"cost": 4,
-		"attributes": [
-			"agility"
-		],
-		"rules_text": "Ongoing\nFriendly creatures with 1 power may attack an extra time each turn.",
-		"stripped_text": "Friendly creatures with 1 power may attack an extra time each turn.",
-		"complexity": 67
-	},
-	{
 		"card_id": "int_fate_weaver",
 		"name": "Fate Weaver",
 		"card_type": "creature",

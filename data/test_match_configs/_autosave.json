@@ -56,13 +56,7 @@
 	"player": {
 		"current_magicka": 12.0,
 		"deck": [
-			"mc_dual_frostscale_dragon",
-			"hos_int_icewing_dragon",
-			"hos_neu_alduin",
-			"cwc_neu_abomination",
-			"wil_aldmeri_patriot",
-			"hos_neu_angry_villager",
-			"wil_imperial_grunt"
+			"exc_neu_adoring_fan"
 		],
 		"discard": [
 			"str_bangkorai_butcher",
@@ -74,19 +68,22 @@
 			"aw_wil_gray_viper_brigand"
 		],
 		"field_creatures": [
-			null
+			null,
+			null,
+			"cwc_neu_abomination",
+			"aw_int_abnur_tharn"
 		],
 		"hand": [
 			"wil_piercing_javelin",
 			"int_firebolt",
-			"hom_agi_nix_hound"
+			"wil_calm"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [],
 		"supports": [
-			"hom_neu_dwemer_puzzle_box"
+			"aw_agi_unrelenting_siege"
 		]
 	},
 	"type": "kill"

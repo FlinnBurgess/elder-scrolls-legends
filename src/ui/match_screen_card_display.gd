@@ -138,7 +138,7 @@ func _lane_readiness_badge_text(card: Dictionary) -> String:
 		return "WAITING"
 	if bool(card.get("has_attacked_this_turn", false)):
 		var extra := int(card.get("extra_attacks_remaining", 0))
-		if extra <= 0:
+		if extra <= 0 and not _screen.MatchCombat.has_extra_attack_passive(_screen._match_state, card):
 			return "WAITING"
 	if _lane_attack_limit_reached_for(card):
 		return "WAITING"

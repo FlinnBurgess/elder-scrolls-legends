@@ -189,6 +189,7 @@ static func is_cover_active(match_state: Dictionary, card: Dictionary) -> bool:
 static func refresh_for_controller_turn(card: Dictionary, current_turn_number: int) -> Dictionary:
 	ensure_card_state(card)
 	card["has_attacked_this_turn"] = false
+	card["_passive_extra_attack_used_this_turn"] = false
 	var result := {
 		"cover_expired": false,
 		"shackle_cleared": false,

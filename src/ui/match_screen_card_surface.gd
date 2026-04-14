@@ -467,7 +467,7 @@ func _creature_readiness_state(card: Dictionary) -> Dictionary:
 			"font": Color(0.98, 0.94, 1.0, 1.0),
 		}
 	if bool(card.get("has_attacked_this_turn", false)):
-		if int(card.get("extra_attacks_remaining", 0)) <= 0:
+		if int(card.get("extra_attacks_remaining", 0)) <= 0 and not _screen.MatchCombat.has_extra_attack_passive(_screen._match_state, card):
 			return {
 				"id": "spent",
 				"label": "SPENT",

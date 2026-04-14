@@ -64,7 +64,12 @@ func _run_all_tests() -> bool:
 		# Daggerfall Phantom last gasp
 		_test_last_gasp_returns_equipped_items_to_hand() and
 		# Conjurer's Spirit health-gained condition
-		_test_end_of_turn_support_fires_when_health_gained()
+		_test_end_of_turn_support_fires_when_health_gained() and
+		# Unrelenting Siege grant_extra_attack passive
+		_test_unrelenting_siege_allows_1_power_creature_to_attack_twice() and
+		_test_unrelenting_siege_blocks_2_power_creature_from_second_attack() and
+		_test_unrelenting_siege_allows_debuffed_creature_to_attack_twice() and
+		_test_unrelenting_siege_passive_refreshes_each_turn()
 	)
 
 
@@ -1545,6 +1550,107 @@ func _test_end_of_turn_support_fires_when_health_gained() -> bool:
 			if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == "familiar_token2":
 				familiar_found2 = true
 	return _assert(not familiar_found2, "Conjurer's Spirit: should NOT summon a Familiar when no health was gained.")
+
+
+func _unrelenting_siege_support(pid: String) -> Dictionary:
+	return ScenarioFixtures.make_card(pid, "aw_agi_unrelenting_siege", {
+		"card_type": "support",
+		"cost": 4,
+		"support_uses": 0,
+		"passive_abilities": [{"type": "grant_extra_attack", "condition": {"max_power": 1}}],
+	})
+
+
+func _test_unrelenting_siege_allows_1_power_creature_to_attack_twice() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player.get("player_id", ""))
+	var opp_id := str(opponent.get("player_id", ""))
+	var siege := _unrelenting_siege_support(pid)
+	siege["zone"] = "support"
+	player["support"].append(siege)
+	var attacker := ScenarioFixtures.summon_creature(player, match_state, "tiny_fighter", "field", 1, 2)
+	ScenarioFixtures.ready_for_attack(attacker, match_state)
+	var first := MatchCombat.resolve_attack(match_state, pid, str(attacker.get("instance_id", "")), {"type": "player", "player_id": opp_id})
+	if not _assert(bool(first.get("is_valid", false)), "Unrelenting Siege: first attack should succeed."):
+		return false
+	var second := MatchCombat.resolve_attack(match_state, pid, str(attacker.get("instance_id", "")), {"type": "player", "player_id": opp_id})
+	if not _assert(bool(second.get("is_valid", false)), "Unrelenting Siege: 1-power creature should be allowed a second attack."):
+		return false
+	var third := MatchCombat.resolve_attack(match_state, pid, str(attacker.get("instance_id", "")), {"type": "player", "player_id": opp_id})
+	return _assert(not bool(third.get("is_valid", false)), "Unrelenting Siege: 1-power creature should NOT be allowed a third attack (passive grants only one extra per turn).")
+
+
+func _test_unrelenting_siege_blocks_2_power_creature_from_second_attack() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player.get("player_id", ""))
+	var opp_id := str(opponent.get("player_id", ""))
+	var siege := _unrelenting_siege_support(pid)
+	siege["zone"] = "support"
+	player["support"].append(siege)
+	var attacker := ScenarioFixtures.summon_creature(player, match_state, "big_fighter", "field", 2, 4)
+	ScenarioFixtures.ready_for_attack(attacker, match_state)
+	var first := MatchCombat.resolve_attack(match_state, pid, str(attacker.get("instance_id", "")), {"type": "player", "player_id": opp_id})
+	if not _assert(bool(first.get("is_valid", false)), "Unrelenting Siege (2-power): first attack should succeed."):
+		return false
+	var second := MatchCombat.resolve_attack(match_state, pid, str(attacker.get("instance_id", "")), {"type": "player", "player_id": opp_id})
+	return _assert(not bool(second.get("is_valid", false)), "Unrelenting Siege: 2-power creature should NOT be allowed a second attack.")
+
+
+func _test_unrelenting_siege_allows_debuffed_creature_to_attack_twice() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player.get("player_id", ""))
+	var opp_id := str(opponent.get("player_id", ""))
+	var siege := _unrelenting_siege_support(pid)
+	siege["zone"] = "support"
+	player["support"].append(siege)
+	# 3-power creature debuffed down to 1 power
+	var attacker := ScenarioFixtures.summon_creature(player, match_state, "debuffed_fighter", "field", 3, 4)
+	EvergreenRules.apply_stat_bonus(attacker, -2, 0)
+	if not _assert(EvergreenRules.get_power(attacker) == 1, "Debuff should leave effective power at 1, got %d." % EvergreenRules.get_power(attacker)):
+		return false
+	ScenarioFixtures.ready_for_attack(attacker, match_state)
+	var first := MatchCombat.resolve_attack(match_state, pid, str(attacker.get("instance_id", "")), {"type": "player", "player_id": opp_id})
+	if not _assert(bool(first.get("is_valid", false)), "Unrelenting Siege (debuffed): first attack should succeed."):
+		return false
+	var second := MatchCombat.resolve_attack(match_state, pid, str(attacker.get("instance_id", "")), {"type": "player", "player_id": opp_id})
+	if not _assert(bool(second.get("is_valid", false)), "Unrelenting Siege: debuffed-to-1-power creature should be allowed a second attack."):
+		return false
+	var third := MatchCombat.resolve_attack(match_state, pid, str(attacker.get("instance_id", "")), {"type": "player", "player_id": opp_id})
+	return _assert(not bool(third.get("is_valid", false)), "Unrelenting Siege: debuffed-to-1-power creature should NOT be allowed a third attack.")
+
+
+func _test_unrelenting_siege_passive_refreshes_each_turn() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player.get("player_id", ""))
+	var opp_id := str(opponent.get("player_id", ""))
+	var siege := _unrelenting_siege_support(pid)
+	siege["zone"] = "support"
+	player["support"].append(siege)
+	var attacker := ScenarioFixtures.summon_creature(player, match_state, "tiny_fighter", "field", 1, 8)
+	ScenarioFixtures.ready_for_attack(attacker, match_state)
+	# Turn 1: attack twice, third should fail
+	MatchCombat.resolve_attack(match_state, pid, str(attacker.get("instance_id", "")), {"type": "player", "player_id": opp_id})
+	MatchCombat.resolve_attack(match_state, pid, str(attacker.get("instance_id", "")), {"type": "player", "player_id": opp_id})
+	# End player 0's turn, then end player 1's turn → back to player 0
+	_end_turn_and_start_next(match_state)
+	_end_turn_and_start_next(match_state)
+	# Turn 2: should be able to attack twice again
+	var first := MatchCombat.resolve_attack(match_state, pid, str(attacker.get("instance_id", "")), {"type": "player", "player_id": opp_id})
+	if not _assert(bool(first.get("is_valid", false)), "Unrelenting Siege: creature should be able to attack on next turn."):
+		return false
+	var second := MatchCombat.resolve_attack(match_state, pid, str(attacker.get("instance_id", "")), {"type": "player", "player_id": opp_id})
+	if not _assert(bool(second.get("is_valid", false)), "Unrelenting Siege: passive should refresh next turn and allow a second attack."):
+		return false
+	var third := MatchCombat.resolve_attack(match_state, pid, str(attacker.get("instance_id", "")), {"type": "player", "player_id": opp_id})
+	return _assert(not bool(third.get("is_valid", false)), "Unrelenting Siege: third attack on refreshed turn should still be blocked.")
 
 
 func _assert(condition: bool, message: String) -> bool:

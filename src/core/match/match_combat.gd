@@ -58,6 +58,9 @@ static func resolve_attack(match_state: Dictionary, player_id: String, attacker_
 		var extra := int(attacker.get("extra_attacks_remaining", 0))
 		if extra > 0:
 			attacker["extra_attacks_remaining"] = extra - 1
+		else:
+			# Reached here via grant_extra_attack passive — mark as consumed so it grants only once per turn
+			attacker["_passive_extra_attack_used_this_turn"] = true
 	attacker["has_attacked_this_turn"] = true
 	_increment_lane_attack_count(match_state, attacker)
 
@@ -488,7 +491,7 @@ static func _validate_attacker_readiness(match_state: Dictionary, attacker: Dict
 	if bool(attacker.get("has_attacked_this_turn", false)):
 		# Check for grant_extra_attack passives on supports/creatures
 		var extra_attacks := int(attacker.get("extra_attacks_remaining", 0))
-		if extra_attacks <= 0 and not _has_extra_attack_passive(match_state, attacker):
+		if extra_attacks <= 0 and not has_extra_attack_passive(match_state, attacker):
 			return _invalid_result("Creatures can only attack once per turn.")
 
 	# lane_attack_limit passive: only one creature in the lane can attack per turn
@@ -522,7 +525,10 @@ static func _check_attack_condition(match_state: Dictionary, attacker: Dictionar
 	return true
 
 
-static func _has_extra_attack_passive(match_state: Dictionary, attacker: Dictionary) -> bool:
+static func has_extra_attack_passive(match_state: Dictionary, attacker: Dictionary) -> bool:
+	# Passive grants at most one extra attack per turn per creature
+	if bool(attacker.get("_passive_extra_attack_used_this_turn", false)):
+		return false
 	var controller_id := str(attacker.get("controller_player_id", ""))
 	# Check supports and lane creatures for grant_extra_attack passive
 	for lane in match_state.get("lanes", []):
