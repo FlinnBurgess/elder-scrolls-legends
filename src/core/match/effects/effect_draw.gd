@@ -68,6 +68,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						"reason": reason,
 						"source_instance_id": str(trigger.get("source_instance_id", "")),
 						"source_controller_player_id": str(trigger.get("controller_player_id", "")),
+						"allow_prophecy_interrupt": bool(effect.get("allow_prophecy_interrupt", false)),
 					})
 					generated_events.append_array(draw_result.get("events", []))
 					var drawn_cards: Array = draw_result.get("cards", [])

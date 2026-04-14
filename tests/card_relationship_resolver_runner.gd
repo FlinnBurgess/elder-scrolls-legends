@@ -26,6 +26,7 @@ func _run() -> void:
 	_test_context_survives_deep_duplicate(card_by_id)
 	_test_match_context_with_hydrated_cards(card_by_id)
 	_test_callback_reflects_deck_changes(card_by_id)
+	_test_card_template_hydrated_from_catalog(card_by_id)
 
 	if _fail_count > 0:
 		print("CARD_RELATIONSHIP_RESOLVER_FAILED: %d passed, %d failed" % [_pass_count, _fail_count])
@@ -316,6 +317,29 @@ func _test_match_context_with_hydrated_cards(card_by_id: Dictionary) -> void:
 		if "Strength" in text and "card" in text:
 			_assert("have 0" in text.to_lower(), "match_ctx_unhydrated: Unhydrated cards should show 0 count, got '%s'" % text)
 			break
+
+
+func _test_card_template_hydrated_from_catalog(card_by_id: Dictionary) -> void:
+	# Dwarven Colossus summons Power Sphere via card_template with only a definition_id.
+	# The resolver must hydrate that template from the catalog so the alt-view shows
+	# the real name and rules text — not a title-cased definition_id.
+	var colossus: Dictionary = card_by_id.get("cwc_neu_dwarven_colossus", {}) as Dictionary
+	if colossus.is_empty():
+		_assert(false, "hydrate: Dwarven Colossus not found in catalog")
+		return
+	var relationships: Array = CardRelationshipResolver.resolve(colossus, {})
+	var found := false
+	for rel: Dictionary in relationships:
+		if str(rel.get("type", "")) != "card":
+			continue
+		var cd: Dictionary = rel.get("card_data", {}) as Dictionary
+		if str(cd.get("definition_id", "")) != "cwc_neu_power_sphere":
+			continue
+		found = true
+		_assert(str(cd.get("name", "")) == "Power Sphere", "hydrate: expected name 'Power Sphere', got '%s'" % str(cd.get("name", "")))
+		_assert(not str(cd.get("rules_text", "")).is_empty(), "hydrate: expected non-empty rules_text on hydrated Power Sphere")
+		break
+	_assert(found, "hydrate: expected Power Sphere alt-view relationship from Dwarven Colossus")
 
 
 func _assert(condition: bool, message: String) -> bool:

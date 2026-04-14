@@ -56,7 +56,7 @@
 	"player": {
 		"current_magicka": 12.0,
 		"deck": [
-			"exc_neu_adoring_fan"
+			"hos_wil_a_land_divided"
 		],
 		"discard": [
 			"str_bangkorai_butcher",
@@ -65,26 +65,37 @@
 			"hos_wil_a_land_divided",
 			"int_flame_atronach",
 			"aw_wil_gray_viper_brigand",
-			"aw_wil_gray_viper_brigand"
+			"aw_wil_gray_viper_brigand",
+			"moe_neu_ill_fated_scholar"
 		],
 		"field_creatures": [
 			null,
 			null,
-			"cwc_neu_abomination",
-			"aw_int_abnur_tharn"
+			null
 		],
 		"hand": [
 			"wil_piercing_javelin",
 			"int_firebolt",
-			"wil_calm"
+			"cwc_neu_dwarven_colossus",
+			"agi_thieves_guild_recruit"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [],
-		"supports": [
-			"aw_agi_unrelenting_siege"
-		]
+		"shadow_creatures": [
+			"end_blackrose_herbalist",
+			{
+				"can_attack": true,
+				"damage_marked": 4.0,
+				"definition_id": "db_end_ageless_vampire"
+			},
+			{
+				"can_attack": true,
+				"damage_marked": 4.0,
+				"definition_id": "aw_int_abnur_tharn"
+			}
+		],
+		"supports": []
 	},
 	"type": "kill"
 }

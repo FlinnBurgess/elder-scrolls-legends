@@ -7,7 +7,34 @@ extends RefCounted
 ##   {"type": "text", "text": String}            — replace rules text on the original card
 
 const CardSynergyExtractor = preload("res://src/deck/card_synergy_extractor.gd")
+const CardCatalogClass = preload("res://src/deck/card_catalog.gd")
 const RELATED_CARD_OPS := ["summon_from_effect", "generate_card_to_hand", "generate_card_to_deck", "fill_lane_with", "summon_copies_to_lane", "equip_generated_item", "transform", "change", "conditional_change"]
+
+static var _catalog_by_id_cache: Dictionary = {}
+
+
+static func _get_catalog_by_id() -> Dictionary:
+	if _catalog_by_id_cache.is_empty():
+		var catalog_result: Dictionary = CardCatalogClass.load_default()
+		var by_id = catalog_result.get("card_by_id", {})
+		if typeof(by_id) == TYPE_DICTIONARY:
+			_catalog_by_id_cache = by_id
+	return _catalog_by_id_cache
+
+
+static func _hydrate_template(template: Dictionary) -> Dictionary:
+	var def_id := str(template.get("definition_id", ""))
+	if def_id.is_empty():
+		return template.duplicate(true)
+	var catalog_card = _get_catalog_by_id().get(def_id, null)
+	if typeof(catalog_card) != TYPE_DICTIONARY or (catalog_card as Dictionary).is_empty():
+		return template.duplicate(true)
+	var hydrated: Dictionary = (catalog_card as Dictionary).duplicate(true)
+	hydrated["definition_id"] = def_id
+	# Overlay explicit template fields on top of catalog data.
+	for key in template:
+		hydrated[key] = template[key]
+	return hydrated
 
 
 static func resolve(card: Dictionary, context: Dictionary = {}) -> Array:
@@ -60,7 +87,7 @@ static func _scan_effects_for_card_templates(effects: Array, relationships: Arra
 				var def_id := str(template.get("definition_id", ""))
 				if not def_id.is_empty() and not seen_card_ids.has(def_id):
 					seen_card_ids[def_id] = true
-					var card_data: Dictionary = template.duplicate(true)
+					var card_data: Dictionary = _hydrate_template(template)
 					if not card_data.has("art_path") and not def_id.is_empty():
 						card_data["art_path"] = "res://assets/images/cards/" + def_id + ".png"
 					relationships.append({"type": "card", "card_data": card_data})

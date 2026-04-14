@@ -32,7 +32,9 @@ func _run_all_tests() -> bool:
 		_test_draw_cards_per_runes_threshold_logic() and
 		_test_destroy_front_rune_draws_card_for_opponent() and
 		_test_destroy_front_rune_does_nothing_when_no_runes() and
-		_test_any_rune_trigger_fires_once_per_break_for_both_players()
+		_test_any_rune_trigger_fires_once_per_break_for_both_players() and
+		_test_fate_weaver_drawing_prophecy_opens_window() and
+		_test_fate_weaver_drawing_non_prophecy_does_not_open_window()
 	)
 
 
@@ -618,6 +620,54 @@ func _test_draw_cards_per_runes_threshold_logic() -> bool:
 		_assert(drawn_5 == 2, "With 5 runes, draw_cards_per_runes should draw 2 cards (got %d)." % drawn_5) and
 		_assert(drawn_4 == 1, "With 4 runes, draw_cards_per_runes should draw 1 card (got %d)." % drawn_4) and
 		_assert(drawn_3 == 0, "With 3 runes, draw_cards_per_runes should draw 0 cards (got %d)." % drawn_3)
+	)
+
+
+func _test_fate_weaver_drawing_prophecy_opens_window() -> bool:
+	# Fate Weaver: Summon: Draw a card. If it's a Prophecy, you may play it for free.
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var pid := str(active_player.get("player_id", ""))
+	var prophecy_card := _make_card(pid, "fw_prophecy_target", {
+		"zone": "deck",
+		"card_type": "creature",
+		"cost": 3,
+		"power": 3,
+		"health": 3,
+		"rules_tags": ["prophecy"],
+	})
+	_set_deck_cards(active_player, [prophecy_card])
+	var fate_weaver := _summon_creature(active_player, match_state, "fate_weaver_analog", "field", 3, 3, [], -1, {
+		"rules_tags": ["prophecy"],
+		"triggered_abilities": [{"family": "summon", "effects": [{"op": "draw_cards", "target_player": "controller", "count": 1, "allow_prophecy_interrupt": true}]}],
+	})
+	return (
+		_assert(not fate_weaver.is_empty(), "Fate Weaver analog should summon successfully.") and
+		_assert(MatchTiming.has_pending_prophecy(match_state, pid), "Drawing a Prophecy via Fate Weaver should open a pending Prophecy window.") and
+		_assert(str(prophecy_card.get("zone", "")) == "hand", "Drawn Prophecy card should be in hand while the window is open.")
+	)
+
+
+func _test_fate_weaver_drawing_non_prophecy_does_not_open_window() -> bool:
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var pid := str(active_player.get("player_id", ""))
+	var regular_card := _make_card(pid, "fw_regular_target", {
+		"zone": "deck",
+		"card_type": "creature",
+		"cost": 3,
+		"power": 3,
+		"health": 3,
+	})
+	_set_deck_cards(active_player, [regular_card])
+	var fate_weaver := _summon_creature(active_player, match_state, "fate_weaver_analog2", "field", 3, 3, [], -1, {
+		"rules_tags": ["prophecy"],
+		"triggered_abilities": [{"family": "summon", "effects": [{"op": "draw_cards", "target_player": "controller", "count": 1, "allow_prophecy_interrupt": true}]}],
+	})
+	return (
+		_assert(not fate_weaver.is_empty(), "Fate Weaver analog should summon successfully.") and
+		_assert(not MatchTiming.has_pending_prophecy(match_state, pid), "Drawing a non-Prophecy card via Fate Weaver should NOT open a Prophecy window.") and
+		_assert(str(regular_card.get("zone", "")) == "hand", "Drawn non-Prophecy card should be in hand normally.")
 	)
 
 
