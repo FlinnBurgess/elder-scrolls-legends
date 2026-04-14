@@ -1,17 +1,5 @@
 [
 	{
-		"card_id": "moe_agi_mausoleum_delver",
-		"name": "Mausoleum Delver",
-		"card_type": "creature",
-		"cost": 4,
-		"attributes": [
-			"agility"
-		],
-		"rules_text": "Charge\nPilfer: Steal a card from your opponent's discard pile to yours.",
-		"stripped_text": "Pilfer: Steal a card from your opponent's discard pile to yours.",
-		"complexity": 64
-	},
-	{
 		"card_id": "db_int_daggers_in_the_dark",
 		"name": "Daggers in the Dark",
 		"card_type": "action",

@@ -1213,7 +1213,7 @@ func _test_pilfer_steal_from_discard_creates_choice_and_moves_to_discard() -> bo
 	_target_ready_for_attack(delver, match_state)
 	var result := MatchCombat.resolve_attack(match_state, active_pid, delver["instance_id"], {
 		"type": "player",
-		"instance_id": opponent_pid,
+		"player_id": opponent_pid,
 	})
 	# Pilfer should create a pending discard choice, NOT auto-steal
 	var pending: Array = match_state.get("pending_discard_choices", [])

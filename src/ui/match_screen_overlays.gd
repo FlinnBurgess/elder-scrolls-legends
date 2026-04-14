@@ -546,7 +546,7 @@ func _show_discard_choice_overlay() -> void:
 
 	var buff_power := int(choice.get("buff_power", 0))
 	var buff_health := int(choice.get("buff_health", 0))
-	var is_opponent_discard := source_player_id != local_id
+	var is_opponent_discard: bool = source_player_id != local_id
 	var title_text := "Choose a card from your opponent's discard pile" if is_opponent_discard else "Choose a creature from your discard pile"
 	if buff_power > 0 or buff_health > 0:
 		title_text += " (+%d/+%d)" % [buff_power, buff_health]
