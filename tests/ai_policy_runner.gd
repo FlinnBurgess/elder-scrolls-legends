@@ -25,6 +25,8 @@ func _initialize() -> void:
 	_test_grants_lethal_to_low_power_attacker(failures)
 	_test_plays_lethal_granter_before_trading_expensive_creature(failures)
 	_test_attacks_face_with_risk_free_low_power_creatures(failures)
+	_test_saves_expensive_removal_against_weak_threat_at_full_hp(failures)
+	_test_uses_expensive_removal_when_near_lethal(failures)
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)
@@ -289,6 +291,66 @@ func _test_attacks_face_with_risk_free_low_power_creatures(failures: Array) -> v
 	ScenarioFixtures.ready_for_attack(attacker_a, match_state)
 	ScenarioFixtures.ready_for_attack(attacker_b, match_state)
 	_assert_policy_pick(match_state, "attack:", failures, "AI should attack face with risk-free 1-power creatures, not end turn.")
+
+
+# Regression: AI used a 5-cost Piercing Javelin to destroy a 1/1 Abomination
+# while at full (30) HP. Burning expensive removal on a near-worthless threat
+# when safe is a classic beginner misplay — the efficiency adjustment in
+# _tactical_bonus should overwhelm the flat kill/threat-reduction bonuses.
+func _test_saves_expensive_removal_against_weak_threat_at_full_hp(failures: Array) -> void:
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 5, "first_player_index": 0})
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	player["hand"] = []
+	opponent["hand"] = []
+	player["health"] = 30
+	ScenarioFixtures.add_hand_card(player, "piercing_javelin", {
+		"card_type": "action",
+		"cost": 5,
+		"action_target_mode": "any_creature",
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"effects": [{"op": "destroy_creature", "target": "event_target"}],
+		}],
+	})
+	# Give the AI an on-curve creature to play instead.
+	ScenarioFixtures.add_hand_card(player, "curve_body", {"card_type": "creature", "cost": 5, "power": 5, "health": 5})
+	# Opponent: one feeble 1/1 — destroying it with a 5-cost spell is terrible value.
+	ScenarioFixtures.summon_creature(opponent, match_state, "weakling", "field", 1, 1, [], 0, {"cost": 0})
+	var choice := HeuristicMatchPolicy.choose_action(match_state)
+	var action: Dictionary = choice.get("chosen_action", {})
+	var action_id := str(action.get("id", ""))
+	var probe := HeuristicMatchPolicy.describe_choice(choice)
+	VerificationAssertions.assert_true(
+		not action_id.begins_with("play_action:player_1:player_1_piercing_javelin"),
+		"AI at full HP should not spend a 5-cost Piercing Javelin on a 1/1.\nAction: %s\n%s" % [action_id, probe],
+		failures
+	)
+
+
+# Counterpart: at very low HP, a 1/1 still represents lethal threat, so the
+# efficiency penalty should collapse to ~0 and the AI should still be willing
+# to remove it when it has no better defensive play.
+func _test_uses_expensive_removal_when_near_lethal(failures: Array) -> void:
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 5, "first_player_index": 0})
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	player["hand"] = []
+	opponent["hand"] = []
+	player["health"] = 1
+	ScenarioFixtures.add_hand_card(player, "piercing_javelin", {
+		"card_type": "action",
+		"cost": 5,
+		"action_target_mode": "any_creature",
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"effects": [{"op": "destroy_creature", "target": "event_target"}],
+		}],
+	})
+	# Opponent has a ready attacker that will kill us next turn.
+	var attacker := ScenarioFixtures.summon_creature(opponent, match_state, "lethal_threat", "field", 1, 1, [], 0, {"cost": 0})
+	ScenarioFixtures.ready_for_attack(attacker, match_state)
+	_assert_policy_pick(match_state, "play_action:player_1:player_1_piercing_javelin", failures, "AI at 1 HP should remove the 1/1 lethal threat even with overkill removal.")
 
 
 func _assert_policy_pick(match_state: Dictionary, expected_prefix: String, failures: Array, message: String) -> void:

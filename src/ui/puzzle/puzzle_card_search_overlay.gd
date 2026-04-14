@@ -2,17 +2,24 @@ class_name PuzzleCardSearchOverlay
 extends PanelContainer
 
 ## Full-screen overlay for searching and selecting a card from the catalog.
-## Emits card_selected with the card_id when a card is chosen.
+## Emits card_selected (left-click) with the card_id when a card is chosen.
+## When multi_add_mode is enabled, right-click emits card_add_requested
+## without closing the overlay and displays a short "Added" toast.
 
 signal card_selected(card_id: String)
+signal card_add_requested(card_id: String)
 signal cancelled
 
 const CardCatalog = preload("res://src/deck/card_catalog.gd")
 const CardDisplayComponentScript = preload("res://src/ui/components/CardDisplayComponent.gd")
+const UITheme = preload("res://src/ui/ui_theme.gd")
 
 const GRID_COLUMNS := 7
 const GRID_ROWS := 2
 const CARDS_PER_PAGE := GRID_COLUMNS * GRID_ROWS
+const TOAST_DURATION := 1.1
+
+var multi_add_mode := false
 
 var _all_cards: Array = []
 var _filtered: Array = []
@@ -22,6 +29,9 @@ var _type_filter: OptionButton
 var _grid: VBoxContainer
 var _page_label: Label
 var _card_type_filter := ""
+var _toast_panel: PanelContainer
+var _toast_label: Label
+var _toast_tween: Tween
 
 
 func _ready() -> void:
@@ -148,6 +158,65 @@ func _build_ui() -> void:
 	)
 	page_row.add_child(next_btn)
 
+	_build_toast()
+
+
+func _build_toast() -> void:
+	# The overlay itself is a PanelContainer which auto-sizes its children to
+	# fill. Wrap the toast in a plain Control layer so anchors aren't overridden.
+	var layer := Control.new()
+	layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.z_index = 10
+	add_child(layer)
+
+	_toast_panel = PanelContainer.new()
+	_toast_panel.mouse_filter = MOUSE_FILTER_IGNORE
+	_toast_panel.visible = false
+	_toast_panel.modulate.a = 0.0
+	_toast_panel.size_flags_horizontal = 0
+	_toast_panel.size_flags_vertical = 0
+
+	var toast_style := StyleBoxFlat.new()
+	toast_style.bg_color = Color(0.08, 0.09, 0.12, 0.95)
+	toast_style.border_color = UITheme.GOLD
+	toast_style.set_border_width_all(2)
+	toast_style.set_corner_radius_all(8)
+	toast_style.set_content_margin_all(16)
+	_toast_panel.add_theme_stylebox_override("panel", toast_style)
+
+	_toast_label = Label.new()
+	_toast_label.add_theme_font_size_override("font_size", 22)
+	_toast_label.add_theme_color_override("font_color", UITheme.GOLD_BRIGHT)
+	_toast_panel.add_child(_toast_label)
+
+	# Anchor toast to bottom-center of the layer; size from content minimum.
+	_toast_panel.anchor_left = 0.5
+	_toast_panel.anchor_right = 0.5
+	_toast_panel.anchor_top = 1.0
+	_toast_panel.anchor_bottom = 1.0
+	_toast_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_toast_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_toast_panel.offset_left = 0
+	_toast_panel.offset_right = 0
+	_toast_panel.offset_top = 0
+	_toast_panel.offset_bottom = -60
+	layer.add_child(_toast_panel)
+
+
+func _show_toast(message: String) -> void:
+	if _toast_panel == null:
+		return
+	_toast_label.text = message
+	_toast_panel.visible = true
+	if _toast_tween != null and _toast_tween.is_running():
+		_toast_tween.kill()
+	_toast_panel.modulate.a = 1.0
+	_toast_tween = create_tween()
+	_toast_tween.tween_interval(TOAST_DURATION)
+	_toast_tween.tween_property(_toast_panel, "modulate:a", 0.0, 0.35)
+	_toast_tween.tween_callback(func(): _toast_panel.visible = false)
+
 
 func _apply_filter() -> void:
 	var search := _search_input.text.strip_edges().to_lower()
@@ -214,9 +283,14 @@ func _render_page() -> void:
 		display.custom_minimum_size = Vector2(1, 1)
 
 		var cid := card_id
+		var card_name := str(card.get("name", cid))
 		card_container.gui_input.connect(func(event: InputEvent) -> void:
-			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-				card_selected.emit(cid)
+			if event is InputEventMouseButton and event.pressed:
+				if event.button_index == MOUSE_BUTTON_LEFT:
+					card_selected.emit(cid)
+				elif event.button_index == MOUSE_BUTTON_RIGHT and multi_add_mode:
+					card_add_requested.emit(cid)
+					_show_toast("Added: %s" % card_name)
 		)
 
 	# Pad the last row with empty spacers to keep cards same width

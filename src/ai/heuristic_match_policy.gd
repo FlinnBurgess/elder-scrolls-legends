@@ -315,9 +315,63 @@ static func _tactical_bonus(before_state: Dictionary, after_state: Dictionary, a
 			bonus += 0.65
 		MatchActionEnumerator.KIND_PLAY_ACTION:
 			bonus += 0.55
+			bonus += _removal_efficiency_adjustment(before_state, after_state, player_id, opponent_id, spent_magicka)
+		MatchActionEnumerator.KIND_PLAY_ITEM:
+			# _PLAY_ITEM already added +0.75 above; apply efficiency check for damage items.
+			bonus += _removal_efficiency_adjustment(before_state, after_state, player_id, opponent_id, spent_magicka)
 		MatchActionEnumerator.KIND_DECLINE_PROPHECY:
 			bonus += 0.15
 	return bonus
+
+
+## Penalize high-cost removal spent on low-value targets when the AI is safe.
+##
+## Without this, the flat creature_killed_bonus + threat_reduction rewards + the
+## spent_magicka reward cause the AI to happily burn a 5-cost removal on a 1/1
+## even at full HP. We compare the value of creatures actually destroyed against
+## the mana spent, and scale any "wasteful overkill" penalty by how safe the AI
+## is — when at 1 HP, keeping the 1/1 alive one more turn may itself be lethal,
+## so the penalty collapses to zero.
+static func _removal_efficiency_adjustment(before_state: Dictionary, after_state: Dictionary, player_id: String, opponent_id: String, spent_magicka: float) -> float:
+	# Free plays and near-free removal don't need efficiency policing.
+	if spent_magicka <= 1.0:
+		return 0.0
+	# Collect opponent creatures before and after so we can identify which ones died.
+	var before_cards := {}
+	for lane in before_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(opponent_id, []):
+			if typeof(card) == TYPE_DICTIONARY:
+				before_cards[str(card.get("instance_id", ""))] = card
+	var after_ids := {}
+	for lane in after_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(opponent_id, []):
+			if typeof(card) == TYPE_DICTIONARY:
+				after_ids[str(card.get("instance_id", ""))] = true
+	var removed_value := 0.0
+	var removed_count := 0
+	for instance_id in before_cards.keys():
+		if not after_ids.has(instance_id):
+			removed_value += MatchStateEvaluator._creature_value(before_state, before_cards[instance_id])
+			removed_count += 1
+	# No creatures removed — action may have other valuable effects (draw, damage
+	# face, etc.) that state_score already captures. Don't penalize.
+	if removed_count == 0:
+		return 0.0
+	# Waste = mana cost minus total value of the creatures we actually destroyed.
+	# A 5-cost removal killing a value-2 creature wastes ~3 units.
+	var waste := spent_magicka - removed_value
+	if waste <= 0.0:
+		return 0.0  # Cost-effective removal.
+	# Scale by how safe the AI is. At full HP we should save removal for real
+	# threats; near lethal, any creature is worth removing even inefficiently.
+	var player := _find_player(before_state, player_id)
+	var player_hp := maxf(0.0, float(int(player.get("health", 30))))
+	const REFERENCE_MAX_HP := 30.0
+	var safety_factor := clampf(player_hp / REFERENCE_MAX_HP, 0.0, 1.0)
+	# Weight 1.0 per wasted mana roughly cancels the spent_magicka + creature-kill
+	# bonuses when the removal is purely over-cost (e.g. 5-mana on a 1/1).
+	const WASTE_PENALTY_WEIGHT := 1.0
+	return -waste * WASTE_PENALTY_WEIGHT * safety_factor
 
 
 static func _attack_trade_bonus(before_state: Dictionary, after_state: Dictionary, action: Dictionary) -> float:

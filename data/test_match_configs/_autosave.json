@@ -4,17 +4,14 @@
 		"deck": [
 			"exc_neu_adoring_fan",
 			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
 			"hos_str_aelas_huntmate",
+			"hos_neu_a_night_to_remember",
+			"hos_neu_a_night_to_remember",
+			"int_abecean_navigator",
+			"neu_ageless_automaton",
 			"hos_str_aelas_huntmate",
-			"hos_str_aelas_huntmate",
-			"hos_str_aelas_huntmate",
-			"hos_str_aelas_huntmate"
+			"str_afflicted_alit",
+			"neu_ageless_automaton"
 		],
 		"discard": [],
 		"field_creatures": [
@@ -25,6 +22,7 @@
 			},
 			{
 				"can_attack": true,
+				"damage_marked": 1.0,
 				"definition_id": "aw_int_abnur_tharn",
 				"power_bonus": -5.0
 			},
@@ -68,32 +66,21 @@
 		],
 		"field_creatures": [
 			null,
-			"iom_end_tavyar_the_knight",
-			"cwc_neu_dwarven_colossus",
-			"joo_end_determined_supplier"
+			null,
+			null,
+			"cwc_neu_abomination"
 		],
 		"hand": [
 			"wil_piercing_javelin",
 			"int_firebolt",
-			"iom_str_dagger",
-			"cwc_wil_clockwork_apostle",
-			"iom_neu_ghost_fanatic"
+			"agi_green_pact_stalker"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [
-			{
-				"can_attack": true,
-				"damage_marked": 4.0,
-				"definition_id": "db_end_ageless_vampire"
-			},
-			{
-				"can_attack": true,
-				"damage_marked": 4.0,
-				"definition_id": "aw_int_abnur_tharn"
-			},
-			"end_siege_catapult"
+			"cwc_neu_abomination",
+			"wil_artaeum_savant"
 		],
 		"supports": []
 	},

@@ -9,6 +9,15 @@ signal confirmed(overrides: Dictionary)
 signal cancelled
 
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
+const UITheme = preload("res://src/ui/ui_theme.gd")
+
+const LABEL_WIDTH := 260
+const LABEL_FONT_SIZE := 24
+const SPIN_MIN_SIZE := Vector2(180, 56)
+const SPIN_FONT_SIZE := 26
+const CHECKBOX_FONT_SIZE := 24
+const BUTTON_MIN_SIZE := Vector2(180, 64)
+const BUTTON_FONT_SIZE := 26
 
 var _power_bonus_spin: SpinBox
 var _health_bonus_spin: SpinBox
@@ -40,7 +49,7 @@ func _build_ui() -> void:
 	mouse_filter = MOUSE_FILTER_STOP
 
 	var bg_style := StyleBoxFlat.new()
-	bg_style.bg_color = Color(0.04, 0.05, 0.07, 0.90)
+	bg_style.bg_color = Color(0.04, 0.05, 0.07, 0.92)
 	add_theme_stylebox_override("panel", bg_style)
 
 	var center := CenterContainer.new()
@@ -48,121 +57,135 @@ func _build_ui() -> void:
 	add_child(center)
 
 	var card := PanelContainer.new()
-	card.custom_minimum_size = Vector2(400, 0)
+	card.custom_minimum_size = Vector2(760, 0)
 	var card_style := StyleBoxFlat.new()
-	card_style.bg_color = Color(0.1, 0.11, 0.16, 0.98)
-	card_style.border_color = Color(0.5, 0.5, 0.55, 0.96)
+	card_style.bg_color = UITheme.PANEL_BG
+	card_style.border_color = UITheme.GOLD_DIM
 	card_style.set_border_width_all(2)
 	card_style.set_corner_radius_all(12)
 	card.add_theme_stylebox_override("panel", card_style)
 	center.add_child(card)
 
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 16)
-	margin.add_theme_constant_override("margin_right", 16)
-	margin.add_theme_constant_override("margin_top", 16)
-	margin.add_theme_constant_override("margin_bottom", 16)
+	margin.add_theme_constant_override("margin_left", 40)
+	margin.add_theme_constant_override("margin_right", 40)
+	margin.add_theme_constant_override("margin_top", 32)
+	margin.add_theme_constant_override("margin_bottom", 32)
 	card.add_child(margin)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 10)
+	vbox.add_theme_constant_override("separation", 20)
 	margin.add_child(vbox)
 
 	var title := Label.new()
 	title.text = "Modify Creature"
-	title.add_theme_font_size_override("font_size", 20)
+	UITheme.style_title(title, 36)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	vbox.add_child(title)
 
-	# Power bonus
-	var power_row := HBoxContainer.new()
-	power_row.add_theme_constant_override("separation", 8)
-	vbox.add_child(power_row)
-	var power_label := Label.new()
-	power_label.text = "Power Bonus:"
-	power_label.custom_minimum_size = Vector2(140, 0)
-	power_row.add_child(power_label)
-	_power_bonus_spin = SpinBox.new()
-	_power_bonus_spin.min_value = -99
-	_power_bonus_spin.max_value = 99
-	_power_bonus_spin.value = 0
-	power_row.add_child(_power_bonus_spin)
+	vbox.add_child(UITheme.make_separator(680.0))
 
-	# Health bonus
-	var health_row := HBoxContainer.new()
-	health_row.add_theme_constant_override("separation", 8)
-	vbox.add_child(health_row)
-	var health_label := Label.new()
-	health_label.text = "Health Bonus:"
-	health_label.custom_minimum_size = Vector2(140, 0)
-	health_row.add_child(health_label)
-	_health_bonus_spin = SpinBox.new()
-	_health_bonus_spin.min_value = -99
-	_health_bonus_spin.max_value = 99
-	_health_bonus_spin.value = 0
-	health_row.add_child(_health_bonus_spin)
+	# Stats section
+	var stats_label := Label.new()
+	stats_label.text = "Stats"
+	UITheme.style_section_label(stats_label, 22)
+	vbox.add_child(stats_label)
 
-	# Damage marked
-	var damage_row := HBoxContainer.new()
-	damage_row.add_theme_constant_override("separation", 8)
-	vbox.add_child(damage_row)
-	var damage_label := Label.new()
-	damage_label.text = "Damage Marked:"
-	damage_label.custom_minimum_size = Vector2(140, 0)
-	damage_row.add_child(damage_label)
-	_damage_spin = SpinBox.new()
-	_damage_spin.min_value = 0
-	_damage_spin.max_value = 99
-	_damage_spin.value = 0
-	damage_row.add_child(_damage_spin)
+	_power_bonus_spin = _add_spin_row(vbox, "Power Bonus", -99, 99)
+	_health_bonus_spin = _add_spin_row(vbox, "Health Bonus", -99, 99)
+	_damage_spin = _add_spin_row(vbox, "Damage Marked", 0, 99)
 
-	# Can attack
+	# Status section
+	vbox.add_child(UITheme.make_separator(680.0))
+
+	var status_label := Label.new()
+	status_label.text = "Status"
+	UITheme.style_section_label(status_label, 22)
+	vbox.add_child(status_label)
+
+	var status_row := HBoxContainer.new()
+	status_row.add_theme_constant_override("separation", 32)
+	vbox.add_child(status_row)
+
 	_can_attack_check = CheckBox.new()
 	_can_attack_check.text = "Can Attack"
 	_can_attack_check.button_pressed = true
-	vbox.add_child(_can_attack_check)
+	UITheme.style_checkbox(_can_attack_check, CHECKBOX_FONT_SIZE)
+	status_row.add_child(_can_attack_check)
 
-	# Shackled
 	_shackled_check = CheckBox.new()
 	_shackled_check.text = "Shackled"
 	_shackled_check.button_pressed = false
-	vbox.add_child(_shackled_check)
+	UITheme.style_checkbox(_shackled_check, CHECKBOX_FONT_SIZE)
+	status_row.add_child(_shackled_check)
 
 	# Keywords section
+	vbox.add_child(UITheme.make_separator(680.0))
+
 	var kw_title := Label.new()
-	kw_title.text = "Keywords:"
-	kw_title.add_theme_font_size_override("font_size", 16)
+	kw_title.text = "Keywords"
+	UITheme.style_section_label(kw_title, 22)
 	vbox.add_child(kw_title)
 
 	var kw_grid := GridContainer.new()
 	kw_grid.columns = 3
-	kw_grid.add_theme_constant_override("h_separation", 8)
-	kw_grid.add_theme_constant_override("v_separation", 4)
+	kw_grid.add_theme_constant_override("h_separation", 32)
+	kw_grid.add_theme_constant_override("v_separation", 14)
 	vbox.add_child(kw_grid)
 
 	var keywords := EvergreenRules.get_supported_keywords()
 	for kw in keywords:
 		var check := CheckBox.new()
 		check.text = str(kw)
+		UITheme.style_checkbox(check, CHECKBOX_FONT_SIZE)
 		_keyword_checks[str(kw)] = check
 		kw_grid.add_child(check)
 
 	# Buttons
+	vbox.add_child(UITheme.make_separator(680.0))
+
 	var btn_row := HBoxContainer.new()
-	btn_row.add_theme_constant_override("separation", 12)
+	btn_row.add_theme_constant_override("separation", 16)
 	btn_row.alignment = BoxContainer.ALIGNMENT_END
 	vbox.add_child(btn_row)
 
 	var cancel_btn := Button.new()
 	cancel_btn.text = "Cancel"
-	cancel_btn.custom_minimum_size = Vector2(100, 36)
+	cancel_btn.custom_minimum_size = BUTTON_MIN_SIZE
+	UITheme.style_button(cancel_btn, BUTTON_FONT_SIZE, true)
 	cancel_btn.pressed.connect(func(): cancelled.emit())
 	btn_row.add_child(cancel_btn)
 
 	var confirm_btn := Button.new()
 	confirm_btn.text = "Apply"
-	confirm_btn.custom_minimum_size = Vector2(100, 36)
+	confirm_btn.custom_minimum_size = BUTTON_MIN_SIZE
+	UITheme.style_button(confirm_btn, BUTTON_FONT_SIZE)
 	confirm_btn.pressed.connect(_on_confirm)
 	btn_row.add_child(confirm_btn)
+
+
+func _add_spin_row(parent: VBoxContainer, label_text: String, min_value: int, max_value: int) -> SpinBox:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 16)
+	parent.add_child(row)
+
+	var label := Label.new()
+	label.text = label_text
+	label.custom_minimum_size = Vector2(LABEL_WIDTH, 0)
+	label.add_theme_font_size_override("font_size", LABEL_FONT_SIZE)
+	label.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(label)
+
+	var spin := SpinBox.new()
+	spin.min_value = min_value
+	spin.max_value = max_value
+	spin.value = 0
+	spin.custom_minimum_size = SPIN_MIN_SIZE
+	UITheme.style_spin_box(spin, SPIN_FONT_SIZE)
+	row.add_child(spin)
+
+	return spin
 
 
 func _on_confirm() -> void:

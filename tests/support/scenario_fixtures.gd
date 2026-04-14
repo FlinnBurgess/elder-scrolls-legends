@@ -114,6 +114,7 @@ static func make_card(player_id: String, label: String, extra: Dictionary = {}) 
 	}
 	for key in extra.keys():
 		card[key] = _clone_variant(extra[key])
+	EvergreenRules.sync_derived_state(card)
 	return card
 
 

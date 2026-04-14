@@ -144,7 +144,8 @@ func _run_all_tests() -> bool:
 		_test_multi_battle_summon_skips_second_if_source_dies() and
 		_test_discard_from_hand_filter_picks_highest_cost_action() and
 		_test_consume_card_single_consume_no_infinite_loop() and
-		_test_draw_copy_of_consumed_last_gasp_draws_copy_to_hand()
+		_test_draw_copy_of_consumed_last_gasp_draws_copy_to_hand() and
+		_test_green_pact_stalker_buffs_with_wounded_enemy_in_lane()
 	)
 
 
@@ -5527,3 +5528,28 @@ func _test_draw_copy_of_consumed_last_gasp_draws_copy_to_hand() -> bool:
 		draw_event_found = true
 		break
 	return _assert(draw_event_found, "Should find a card_drawn event for the drawn copy so UI draw animation fires.")
+
+
+func _test_green_pact_stalker_buffs_with_wounded_enemy_in_lane() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	# Place a wounded enemy creature in the field lane
+	var enemy := ScenarioFixtures.summon_creature(opponent, match_state, "enemy", "field", 2, 4, [], -1, {
+		"damage_marked": 1,
+	})
+	if not _assert(not enemy.is_empty(), "Enemy creature should be summoned."):
+		return false
+	if not _assert(EvergreenRules.has_status(enemy, EvergreenRules.STATUS_WOUNDED), "Enemy creature should be wounded."):
+		return false
+	# Summon Green Pact Stalker to the same lane
+	var stalker := ScenarioFixtures.summon_creature(player, match_state, "stalker", "field", 3, 4, ["guard"], -1, {
+		"triggered_abilities": [{"family": "summon", "required_wounded_enemy_in_lane": true, "effects": [{"op": "modify_stats", "target": "self", "power": 2, "health": 2}]}],
+	})
+	if not _assert(not stalker.is_empty(), "Green Pact Stalker should be summoned."):
+		return false
+	return (
+		_assert(EvergreenRules.get_power(stalker) == 5, "Stalker power should be 3+2=5 (got %d)." % [EvergreenRules.get_power(stalker)]) and
+		_assert(EvergreenRules.get_health(stalker) == 6, "Stalker health should be 4+2=6 (got %d)." % [EvergreenRules.get_health(stalker)])
+	)

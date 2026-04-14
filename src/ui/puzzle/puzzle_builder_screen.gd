@@ -729,6 +729,8 @@ func _open_card_search(type_hint: String = "") -> void:
 	var overlay := PuzzleCardSearchOverlayScript.new()
 	add_child(overlay)
 	_active_overlay = overlay
+	# Multi-add (right-click) is only meaningful when building a pile-style list.
+	overlay.multi_add_mode = _pending_card_target in ["hand", "deck", "discard", "supports"]
 	if not type_hint.is_empty():
 		overlay.set_type_filter(type_hint)
 	overlay.card_selected.connect(func(card_id: String):
@@ -737,7 +739,27 @@ func _open_card_search(type_hint: String = "") -> void:
 		_dismiss_overlay()
 		_on_card_selected(card_id)
 	)
-	overlay.cancelled.connect(func(): _dismiss_overlay())
+	overlay.card_add_requested.connect(_on_card_add_requested)
+	overlay.cancelled.connect(func():
+		var returning_to_list := overlay.multi_add_mode
+		var list_side := _pending_list_side
+		var list_key := _pending_card_target
+		_dismiss_overlay()
+		if returning_to_list and list_key in ["hand", "deck", "discard", "supports"]:
+			_refresh_board()
+			_open_list_editor(list_side, list_key)
+	)
+
+
+func _on_card_add_requested(card_id: String) -> void:
+	# Append the card to the pending list without closing the search overlay.
+	var key := _pending_card_target
+	if not (key in ["hand", "deck", "discard", "supports"]):
+		return
+	var list: Array = _get_side_cfg(_pending_list_side).get(key, [])
+	list.append(card_id)
+	_get_side_cfg(_pending_list_side)[key] = list
+	_autosave()
 
 
 func _on_card_selected(card_id: String) -> void:
@@ -790,18 +812,18 @@ func _open_list_editor(side: String, list_key: String) -> void:
 	overlay.add_child(center)
 
 	var card := PanelContainer.new()
-	card.custom_minimum_size = Vector2(600, 400)
+	card.custom_minimum_size = Vector2(920, 620)
 	UITheme.style_panel(card)
 	center.add_child(card)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 8)
+	vbox.add_theme_constant_override("separation", 20)
 	card.add_child(vbox)
 
 	var display_key := list_key.capitalize()
 	var title := Label.new()
 	title.text = "%s — %s" % [side.capitalize(), display_key]
-	UITheme.style_title(title, 24)
+	UITheme.style_title(title, 36)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	vbox.add_child(title)
 
@@ -811,25 +833,26 @@ func _open_list_editor(side: String, list_key: String) -> void:
 	# Card list with reorder + remove
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = SIZE_EXPAND_FILL
-	scroll.custom_minimum_size = Vector2(0, 200)
+	scroll.custom_minimum_size = Vector2(0, 460)
 	vbox.add_child(scroll)
 
 	var list_vbox := VBoxContainer.new()
 	list_vbox.size_flags_horizontal = SIZE_EXPAND_FILL
-	list_vbox.add_theme_constant_override("separation", 4)
+	list_vbox.add_theme_constant_override("separation", 10)
 	scroll.add_child(list_vbox)
 
 	for i in range(list_data.size()):
 		var entry_row := HBoxContainer.new()
-		entry_row.add_theme_constant_override("separation", 8)
+		entry_row.add_theme_constant_override("separation", 16)
 		entry_row.mouse_filter = MOUSE_FILTER_STOP
 		list_vbox.add_child(entry_row)
 
 		var idx_label := Label.new()
 		idx_label.text = str(i + 1) + "."
-		idx_label.custom_minimum_size = Vector2(30, 0)
-		idx_label.add_theme_font_size_override("font_size", 18)
+		idx_label.custom_minimum_size = Vector2(48, 0)
+		idx_label.add_theme_font_size_override("font_size", 24)
 		idx_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+		idx_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		entry_row.add_child(idx_label)
 
 		var card_id := str(list_data[i])
@@ -837,8 +860,9 @@ func _open_list_editor(side: String, list_key: String) -> void:
 		var name_label := Label.new()
 		name_label.text = str(card_data.get("name", card_id))
 		name_label.size_flags_horizontal = SIZE_EXPAND_FILL
-		name_label.add_theme_font_size_override("font_size", 18)
+		name_label.add_theme_font_size_override("font_size", 26)
 		name_label.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
+		name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		entry_row.add_child(name_label)
 
 		# Hover preview
@@ -853,11 +877,25 @@ func _open_list_editor(side: String, list_key: String) -> void:
 		)
 
 		if list_key == "deck" or list_key == "discard":
-			# Reorder buttons
+			# Move to top
+			var top_btn := Button.new()
+			top_btn.text = "^^"
+			top_btn.custom_minimum_size = Vector2(56, 56)
+			UITheme.style_button(top_btn, 22)
+			var idx_top := i
+			top_btn.pressed.connect(func():
+				_move_list_item(side, actual_key, idx_top, 0)
+				_dismiss_overlay()
+				_open_list_editor(side, list_key)
+			)
+			top_btn.disabled = i == 0
+			entry_row.add_child(top_btn)
+
+			# Move up one
 			var up_btn := Button.new()
 			up_btn.text = "^"
-			up_btn.custom_minimum_size = Vector2(36, 32)
-			UITheme.style_button(up_btn, 14)
+			up_btn.custom_minimum_size = Vector2(56, 56)
+			UITheme.style_button(up_btn, 22)
 			var idx_up := i
 			up_btn.pressed.connect(func():
 				_swap_list_items(side, actual_key, idx_up, idx_up - 1)
@@ -867,10 +905,11 @@ func _open_list_editor(side: String, list_key: String) -> void:
 			up_btn.disabled = i == 0
 			entry_row.add_child(up_btn)
 
+			# Move down one
 			var down_btn := Button.new()
 			down_btn.text = "v"
-			down_btn.custom_minimum_size = Vector2(36, 32)
-			UITheme.style_button(down_btn, 14)
+			down_btn.custom_minimum_size = Vector2(56, 56)
+			UITheme.style_button(down_btn, 22)
 			var idx_down := i
 			down_btn.pressed.connect(func():
 				_swap_list_items(side, actual_key, idx_down, idx_down + 1)
@@ -880,10 +919,25 @@ func _open_list_editor(side: String, list_key: String) -> void:
 			down_btn.disabled = i == list_data.size() - 1
 			entry_row.add_child(down_btn)
 
+			# Move to bottom
+			var bot_btn := Button.new()
+			bot_btn.text = "vv"
+			bot_btn.custom_minimum_size = Vector2(56, 56)
+			UITheme.style_button(bot_btn, 22)
+			var idx_bot := i
+			var last_idx := list_data.size() - 1
+			bot_btn.pressed.connect(func():
+				_move_list_item(side, actual_key, idx_bot, last_idx)
+				_dismiss_overlay()
+				_open_list_editor(side, list_key)
+			)
+			bot_btn.disabled = i == last_idx
+			entry_row.add_child(bot_btn)
+
 		var remove_btn := Button.new()
 		remove_btn.text = "X"
-		remove_btn.custom_minimum_size = Vector2(36, 32)
-		UITheme.style_button_accent(remove_btn, Color(0.8, 0.3, 0.3), 14)
+		remove_btn.custom_minimum_size = Vector2(56, 56)
+		UITheme.style_button_accent(remove_btn, Color(0.8, 0.3, 0.3), 22)
 		var remove_idx := i
 		remove_btn.pressed.connect(func():
 			_remove_list_item(side, actual_key, remove_idx)
@@ -895,19 +949,19 @@ func _open_list_editor(side: String, list_key: String) -> void:
 	if list_data.is_empty():
 		var empty_label := Label.new()
 		empty_label.text = "(empty)"
-		empty_label.add_theme_font_size_override("font_size", 18)
+		empty_label.add_theme_font_size_override("font_size", 24)
 		empty_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
 		list_vbox.add_child(empty_label)
 
 	# Button row
 	var btn_row := HBoxContainer.new()
-	btn_row.add_theme_constant_override("separation", 12)
+	btn_row.add_theme_constant_override("separation", 16)
 	vbox.add_child(btn_row)
 
 	var add_btn := Button.new()
 	add_btn.text = "Add Card"
-	add_btn.custom_minimum_size = Vector2(120, 48)
-	UITheme.style_button(add_btn, 20)
+	add_btn.custom_minimum_size = Vector2(200, 64)
+	UITheme.style_button(add_btn, 26)
 	var filter_hint := "support" if list_key == "supports" else ""
 	add_btn.pressed.connect(func():
 		_dismiss_overlay()
@@ -923,8 +977,8 @@ func _open_list_editor(side: String, list_key: String) -> void:
 
 	var done_btn := Button.new()
 	done_btn.text = "Done"
-	done_btn.custom_minimum_size = Vector2(120, 48)
-	UITheme.style_button(done_btn, 20)
+	done_btn.custom_minimum_size = Vector2(200, 64)
+	UITheme.style_button(done_btn, 26)
 	done_btn.pressed.connect(func():
 		_dismiss_overlay()
 		_refresh_board()
@@ -939,6 +993,15 @@ func _swap_list_items(side: String, key: String, from: int, to: int) -> void:
 	var tmp = list[from]
 	list[from] = list[to]
 	list[to] = tmp
+
+
+func _move_list_item(side: String, key: String, from: int, to: int) -> void:
+	var list: Array = _get_side_cfg(side).get(key, [])
+	if from < 0 or from >= list.size() or to < 0 or to >= list.size():
+		return
+	var item = list[from]
+	list.remove_at(from)
+	list.insert(to, item)
 
 
 func _remove_list_item(side: String, key: String, idx: int) -> void:

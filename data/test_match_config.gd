@@ -351,6 +351,7 @@ static func _make_lane_creature(player_id: String, definition_id: String,
 		card["keywords"] = overrides["keywords"].duplicate()
 	if overrides.has("status_markers"):
 		card["status_markers"] = overrides["status_markers"].duplicate()
+	EvergreenRules.sync_derived_state(card)
 	return card
 
 
