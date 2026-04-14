@@ -30,11 +30,7 @@
 			},
 			"cwc_neu_abomination"
 		],
-		"hand": [
-			"hos_neu_a_night_to_remember",
-			"aw_int_abnur_tharn",
-			"hos_wil_a_land_divided"
-		],
+		"hand": [],
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [],

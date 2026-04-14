@@ -1,17 +1,5 @@
 [
 	{
-		"card_id": "end_blackrose_herbalist",
-		"name": "Blackrose Herbalist",
-		"card_type": "creature",
-		"cost": 3,
-		"attributes": [
-			"endurance"
-		],
-		"rules_text": "At the start of your turn, heal another random friendly creature.",
-		"stripped_text": "At the start of your turn, heal another random friendly creature.",
-		"complexity": 65
-	},
-	{
 		"card_id": "end_siege_catapult",
 		"name": "Siege Catapult",
 		"card_type": "creature",

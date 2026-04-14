@@ -81,14 +81,13 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			var restore_amount := int(effect.get("amount", -1))
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				var healed := EvergreenRules.restore_health(card, restore_amount)
-				if healed > 0:
-					generated_events.append({
-						"event_type": "creature_healed",
-						"source_instance_id": str(trigger.get("source_instance_id", "")),
-						"target_instance_id": str(card.get("instance_id", "")),
-						"amount": healed,
-						"reason": reason,
-					})
+				generated_events.append({
+					"event_type": "creature_healed",
+					"source_instance_id": str(trigger.get("source_instance_id", "")),
+					"target_instance_id": str(card.get("instance_id", "")),
+					"amount": healed,
+					"reason": reason,
+				})
 		"gain_max_magicka":
 			for player_id in MatchTargeting._resolve_player_targets(match_state, trigger, event, effect):
 				var magicka_player := MatchTimingHelpers._get_player_state(match_state, player_id)

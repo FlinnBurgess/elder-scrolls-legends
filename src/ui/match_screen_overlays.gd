@@ -368,7 +368,10 @@ func _finalize_mulligan(discard_instance_ids: Array) -> void:
 	if not _screen._is_local_player_turn():
 		_screen._schedule_local_match_ai_step(2000)
 	_mulligan_card_by_id = {}
-	var scenario_events = _screen._history._recent_presentation_events_from_history()
+	var timing_result: Dictionary = _screen._match_state.get("last_timing_result", {})
+	var scenario_events: Array = _screen._copy_array(timing_result.get("processed_events", []))
+	if scenario_events.is_empty():
+		scenario_events = _screen._history._recent_presentation_events_from_history()
 	_screen._record_feedback_from_events(scenario_events)
 	_screen._status_message = "Match started."
 	_screen._refresh_ui()

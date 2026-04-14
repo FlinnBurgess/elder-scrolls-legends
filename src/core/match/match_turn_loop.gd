@@ -221,6 +221,9 @@ static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionar
 		match_state["phase"] = "complete"
 	if not turn_events.is_empty():
 		MatchTiming.publish_events(match_state, turn_events)
+	# Preserve start-of-turn events (e.g. creature_healed from Blackrose Herbalist)
+	# before the draw's publish_events overwrites last_timing_result.
+	var start_of_turn_events: Array = match_state.get("last_timing_result", {}).get("processed_events", []).duplicate(true)
 	# Draw AFTER start-of-turn triggers so effects like look_at_top_deck_may_discard
 	# can inspect/discard the top card before the draw happens.
 	var suppress_draw := bool(match_state.get("puzzle_suppress_draw", false))
@@ -235,6 +238,13 @@ static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionar
 			var draw_events: Array = draw_result.get("events", [])
 			if not draw_events.is_empty():
 				MatchTiming.publish_events(match_state, draw_events)
+	# Merge start-of-turn events into the final timing result so the UI
+	# can animate triggers that fired during the turn_started phase.
+	if not start_of_turn_events.is_empty():
+		var final_result: Dictionary = match_state.get("last_timing_result", {})
+		var combined: Array = start_of_turn_events + final_result.get("processed_events", [])
+		final_result["processed_events"] = combined
+		match_state["last_timing_result"] = final_result
 	_resolve_forced_attacks(match_state, player_id)
 	_process_discard_return_timers(match_state, player_id)
 	return match_state

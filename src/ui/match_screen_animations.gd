@@ -235,6 +235,12 @@ func _record_feedback_from_events(events: Array) -> void:
 				_screen._queue_status_toast("Opponent's next rune draw prevented!", Color(0.8, 0.4, 0.4))
 			"creature_marked":
 				_screen._queue_creature_toast(str(event.get("target_instance_id", "")), "MARKED", Color(0.9, 0.5, 0.2))
+			"creature_healed":
+				var ch_source_id := str(event.get("source_instance_id", ""))
+				var ch_target_id := str(event.get("target_instance_id", ""))
+				var ch_amount := int(event.get("amount", 0))
+				if not ch_source_id.is_empty() and not ch_target_id.is_empty():
+					_animate_heal_stream(ch_source_id, ch_target_id, ch_amount)
 			"creature_aimed_at":
 				_screen._queue_creature_toast(str(event.get("target_instance_id", "")), "AIMED", Color(0.9, 0.3, 0.2))
 			"marked_for_resummon":
@@ -1407,3 +1413,150 @@ void fragment() {
 	COLOR = vec4(col * flicker * emission, alpha * 0.9);
 }
 """
+
+
+func _animate_heal_stream(source_instance_id: String, target_instance_id: String, amount: int) -> void:
+	var source_button: Button = _screen._card_buttons.get(source_instance_id)
+	var target_button: Button = _screen._card_buttons.get(target_instance_id)
+	if source_button == null or not is_instance_valid(source_button):
+		return
+	if target_button == null or not is_instance_valid(target_button):
+		return
+
+	var source_size: Vector2 = source_button.get_meta("card_size", source_button.size)
+	var target_size: Vector2 = target_button.get_meta("card_size", target_button.size)
+
+	# Account for float offset on cards in ready-to-attack state.
+	# Check readiness from card data directly since _floating_card_ids may not
+	# be populated yet (animation triggers before _refresh_ui).
+	var source_card: Dictionary = _screen._card_from_instance_id(source_instance_id)
+	var target_card: Dictionary = _screen._card_from_instance_id(target_instance_id)
+	var source_ready: bool = str(_screen._creature_readiness_state(source_card).get("id", "")) == "ready"
+	var target_ready: bool = str(_screen._creature_readiness_state(target_card).get("id", "")) == "ready"
+	var source_float: Vector2 = _screen.LANE_CARD_FLOAT_OFFSET if source_ready else Vector2.ZERO
+	var target_float: Vector2 = _screen.LANE_CARD_FLOAT_OFFSET if target_ready else Vector2.ZERO
+
+	var source_center: Vector2 = source_button.global_position + source_size * 0.5 + source_float
+	var target_center: Vector2 = target_button.global_position + target_size * 0.5 + target_float
+
+	# Container for the entire animation
+	var container := Control.new()
+	container.name = "heal_stream_%s_%s" % [source_instance_id, target_instance_id]
+	container.z_index = 495
+	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	container.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	_screen.add_child(container)
+
+	# --- Phase 1: Potion smoke/fumes billow above the source card ---
+	var smoke_origin := source_center
+	var particle_count := 22
+	var smoke_nodes: Array = []
+	for i in range(particle_count):
+		var smoke := ColorRect.new()
+		smoke.size = Vector2(10, 10)
+		smoke.color = Color(0.18, 0.78, 0.3, 0.0)
+		smoke.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		smoke.position = smoke_origin - Vector2(5, 5)
+		smoke.pivot_offset = Vector2(5, 5)
+		container.add_child(smoke)
+		smoke_nodes.append(smoke)
+
+	# Grow smoke upward in a wide billowing cloud with stagger
+	var grow_tween: Tween = _screen.create_tween()
+	grow_tween.set_parallel(true)
+	for i in range(particle_count):
+		# Wider spread, biased upward for a potion-fume feel
+		var angle := randf_range(-PI * 0.85, -PI * 0.15)
+		var radius := randf_range(14.0, 48.0)
+		var target_offset := Vector2(cos(angle), sin(angle)) * radius
+		var particle_size := randf_range(10.0, 22.0)
+		var delay := float(i) * 0.02
+		var node: ColorRect = smoke_nodes[i]
+		# Vary green hue — mix darker/lighter wisps
+		var hue_shift := randf_range(-0.06, 0.06)
+		var base_color := Color(0.18 + hue_shift, 0.78 + hue_shift * 0.5, 0.3 - hue_shift, 0.0)
+		node.color = base_color
+		grow_tween.tween_property(node, "color:a", randf_range(0.3, 0.6), 0.35).set_delay(delay)
+		grow_tween.tween_property(node, "position", smoke_origin + target_offset - Vector2(particle_size * 0.5, particle_size * 0.5), 0.45).set_delay(delay).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+		grow_tween.tween_property(node, "size", Vector2(particle_size, particle_size), 0.45).set_delay(delay)
+		grow_tween.tween_property(node, "pivot_offset", Vector2(particle_size * 0.5, particle_size * 0.5), 0.45).set_delay(delay)
+		# Slow secondary drift for lingering fume effect
+		grow_tween.tween_property(node, "position:y", smoke_origin.y + target_offset.y - particle_size * 0.5 - randf_range(6.0, 14.0), 0.3).set_delay(delay + 0.4).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
+
+	# --- Phase 2: Stream flows from source to target along a bezier curve ---
+	var stream_delay := 0.5
+	var stream_duration := 0.4
+
+	# Compute bezier control point (arc perpendicular to the source→target line)
+	var mid := (smoke_origin + target_center) * 0.5
+	var diff := target_center - smoke_origin
+	var perp := Vector2(-diff.y, diff.x).normalized()
+	var control := mid + perp * diff.length() * 0.2
+
+	# Create stream particles that will travel along the curve
+	var stream_count := 12
+	for s in range(stream_count):
+		var stream_dot := ColorRect.new()
+		var dot_size := randf_range(6.0, 14.0)
+		stream_dot.size = Vector2(dot_size, dot_size)
+		stream_dot.pivot_offset = Vector2(dot_size * 0.5, dot_size * 0.5)
+		stream_dot.color = Color(0.22, 0.85, 0.38, 0.0)
+		stream_dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stream_dot.position = smoke_origin - Vector2(dot_size * 0.5, dot_size * 0.5)
+		container.add_child(stream_dot)
+
+		var particle_delay := stream_delay + float(s) * 0.035
+		var particle_duration := stream_duration + randf_range(-0.05, 0.05)
+
+		var st: Tween = _screen.create_tween()
+		st.tween_interval(particle_delay)
+		st.tween_property(stream_dot, "color:a", randf_range(0.5, 0.8), 0.08)
+		st.tween_method(func(t: float, dot: ColorRect = stream_dot, ds: float = dot_size):
+			if dot == null or not is_instance_valid(dot):
+				return
+			var p := (1.0 - t) * (1.0 - t) * smoke_origin + 2.0 * (1.0 - t) * t * control + t * t * target_center
+			var wobble := Vector2(sin(t * 12.0 + float(s) * 2.0) * 4.0, cos(t * 10.0 + float(s) * 1.5) * 4.0)
+			dot.position = p + wobble - Vector2(ds * 0.5, ds * 0.5)
+		, 0.0, 1.0, particle_duration)
+		st.tween_property(stream_dot, "color:a", 0.0, 0.15)
+
+	# Fade out the source smoke as stream departs
+	var fade_smoke_tween: Tween = _screen.create_tween()
+	fade_smoke_tween.tween_interval(stream_delay + 0.15)
+	fade_smoke_tween.set_parallel(true)
+	for i in range(particle_count):
+		var node: ColorRect = smoke_nodes[i]
+		fade_smoke_tween.tween_property(node, "color:a", 0.0, 0.3)
+
+	# --- Phase 3: Brief green glow on the healed target + heal popup ---
+	var glow_delay := stream_delay + stream_duration - 0.05
+	var target_glow_pos: Vector2 = target_button.global_position + target_float
+	var glow_rect := ColorRect.new()
+	glow_rect.size = target_size
+	glow_rect.position = target_glow_pos
+	glow_rect.color = Color(0.2, 0.9, 0.35, 0.0)
+	glow_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	container.add_child(glow_rect)
+
+	var glow_tween = _screen.create_tween()
+	glow_tween.tween_interval(glow_delay)
+	glow_tween.tween_property(glow_rect, "color:a", 0.25, 0.1)
+	glow_tween.tween_property(glow_rect, "color:a", 0.0, 0.35)
+
+	# Heal popup on target (only when health was actually restored)
+	if amount > 0:
+		var popup_tween = _screen.create_tween()
+		popup_tween.tween_interval(glow_delay)
+		popup_tween.tween_callback(func():
+			var btn: Button = _screen._card_buttons.get(target_instance_id)
+			if btn != null and is_instance_valid(btn):
+				_add_feedback_popup(btn, "feedback_heal_%s" % target_instance_id, "+%d" % amount, Color(0.3, 0.9, 0.4, 1.0), 10.0)
+		)
+
+	# Cleanup container after everything finishes
+	var cleanup_tween = _screen.create_tween()
+	cleanup_tween.tween_interval(glow_delay + 0.5)
+	cleanup_tween.tween_callback(func():
+		if container != null and is_instance_valid(container):
+			container.queue_free()
+	)
