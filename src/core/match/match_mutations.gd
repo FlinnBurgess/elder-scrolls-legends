@@ -292,6 +292,11 @@ static func move_card_to_zone(match_state: Dictionary, instance_id: String, zone
 			card["_had_drain_at_death"] = true
 		var detach_result := _move_attached_items_to_owner_discard(match_state, card, {"reason": str(options.get("reason", "host_left_play"))})
 		item_detach_events = detach_result.get("events", [])
+		var _detached_ids: Array = []
+		for _di in detach_result.get("items", []):
+			_detached_ids.append(str(_di.get("instance_id", "")))
+		if not _detached_ids.is_empty():
+			card["_detached_item_ids"] = _detached_ids
 	_detach_card(match_state, location)
 	var target_cards: Array = player_lookup["player"][zone_name]
 	var insert_index := int(options.get("insert_index", -1))

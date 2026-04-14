@@ -186,8 +186,13 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				var reith_items: Array = card.get("attached_items", [])
 				var reith_ids: Array = []
-				for reith_item in reith_items:
-					reith_ids.append(str(reith_item.get("instance_id", "")))
+				if not reith_items.is_empty():
+					for reith_item in reith_items:
+						reith_ids.append(str(reith_item.get("instance_id", "")))
+				else:
+					# Items already detached during death — use stashed IDs
+					reith_ids = card.get("_detached_item_ids", [])
+				GameLogger.trc("Movement", "return_items", "attached:%d,stashed:%d,ids:%s" % [reith_items.size(), reith_ids.size(), str(reith_ids)])
 				for reith_id in reith_ids:
 					var reith_move := MatchMutations.move_card_to_zone(match_state, reith_id, ZONE_HAND, {"reason": reason})
 					generated_events.append({"event_type": "attached_item_detached", "source_instance_id": str(trigger.get("source_instance_id", "")), "host_instance_id": str(card.get("instance_id", "")), "item_instance_id": reith_id})

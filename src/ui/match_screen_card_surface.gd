@@ -490,6 +490,16 @@ func _creature_readiness_state(card: Dictionary) -> Dictionary:
 			"font": Color(1.0, 0.95, 0.88, 1.0),
 		}
 	if str(card.get("controller_player_id", "")) == _screen._active_player_id():
+		var atk_cond = card.get("attack_condition", {})
+		if typeof(atk_cond) == TYPE_DICTIONARY and not atk_cond.is_empty():
+			if not _check_attack_condition_for_readiness(card, atk_cond):
+				return {
+					"id": "disabled",
+					"label": "DISABLED",
+					"fill": Color(0.25, 0.14, 0.28, 0.99),
+					"border": Color(0.8, 0.57, 0.93, 0.98),
+					"font": Color(0.98, 0.94, 1.0, 1.0),
+				}
 		return {
 			"id": "ready",
 			"label": "READY",
@@ -504,6 +514,27 @@ func _creature_readiness_state(card: Dictionary) -> Dictionary:
 		"border": Color(0.55, 0.67, 0.84, 0.94),
 		"font": Color(0.9, 0.94, 0.99, 1.0),
 	}
+
+
+func _check_attack_condition_for_readiness(card: Dictionary, condition: Dictionary) -> bool:
+	var type := str(condition.get("type", ""))
+	var match_state: Dictionary = _screen._match_state
+	match type:
+		"lane_full":
+			var controller_id := str(card.get("controller_player_id", ""))
+			var lane_id := str(card.get("lane_id", ""))
+			for lane in match_state.get("lanes", []):
+				if str(lane.get("lane_id", "")) == lane_id:
+					var slots = lane.get("player_slots", {}).get(controller_id, [])
+					var capacity := int(lane.get("slot_capacity", 4))
+					return slots.size() >= capacity
+		"action_played_this_turn":
+			var controller_id := str(card.get("controller_player_id", ""))
+			for player in match_state.get("players", []):
+				if typeof(player) == TYPE_DICTIONARY and str(player.get("player_id", "")) == controller_id:
+					return int(player.get("noncreature_plays_this_turn", 0)) > 0
+			return false
+	return true
 
 
 func _get_wax_wane_phases_for_card(card: Dictionary) -> Array:

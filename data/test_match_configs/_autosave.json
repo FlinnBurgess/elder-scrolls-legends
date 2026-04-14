@@ -30,7 +30,9 @@
 			},
 			"cwc_neu_abomination"
 		],
-		"hand": [],
+		"hand": [
+			"wil_piercing_javelin"
+		],
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [
@@ -74,24 +76,20 @@
 		"field_creatures": [
 			null,
 			null,
-			null,
-			"iom_wil_heretic_conjurer"
+			"aw_tri_daggerfall_phantom"
 		],
 		"hand": [
 			"wil_piercing_javelin",
 			"int_firebolt",
-			"moe_wil_alfiq_illusionist",
-			"cwc_neu_abomination",
-			"moe_int_skeletal_mage"
+			"str_silvenar_tracker",
+			"hom_end_indomitable_ordinator"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [
-			"joo_agi_unicorn"
-		],
+		"shadow_creatures": [],
 		"supports": [
-			"neu_orb_of_vaermina"
+			"fhc_neu_namiras_shrine"
 		]
 	},
 	"type": "kill"

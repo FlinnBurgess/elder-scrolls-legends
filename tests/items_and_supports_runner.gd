@@ -8,6 +8,7 @@ const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const LaneRules = preload("res://src/core/match/lane_rules.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
 const MatchActionEnumerator = preload("res://src/ai/match_action_enumerator.gd")
+const MatchCombat = preload("res://src/core/match/match_combat.gd")
 const MatchTargeting = preload("res://src/core/match/match_targeting.gd")
 const ScenarioFixtures = preload("res://tests/support/scenario_fixtures.gd")
 
@@ -59,7 +60,9 @@ func _run_all_tests() -> bool:
 		_test_sehts_masterwork_reduces_cost_for_singleton_deck() and
 		_test_sehts_masterwork_no_discount_for_duplicate_deck() and
 		# Transitus Shrine type filter
-		_test_transitus_shrine_only_discounts_creatures_and_actions()
+		_test_transitus_shrine_only_discounts_creatures_and_actions() and
+		# Daggerfall Phantom last gasp
+		_test_last_gasp_returns_equipped_items_to_hand()
 	)
 
 
@@ -1453,6 +1456,47 @@ func _test_transitus_shrine_only_discounts_creatures_and_actions() -> bool:
 		_assert(action_cost == 3, "Transitus Shrine should discount action from 4 to 3, got %d." % action_cost) and
 		_assert(support_cost == 5, "Transitus Shrine should NOT discount support, expected 5 got %d." % support_cost) and
 		_assert(item_cost == 3, "Transitus Shrine should NOT discount item, expected 3 got %d." % item_cost)
+	)
+
+
+func _test_last_gasp_returns_equipped_items_to_hand() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player.get("player_id", ""))
+	var opid := str(opponent.get("player_id", ""))
+	# Summon creature with last_gasp: return_equipped_items_to_hand
+	var phantom := _summon_creature(player, match_state, "daggerfall_phantom", "field", 2, 2, 0, {
+		"effect_ids": ["last_gasp"],
+		"triggered_abilities": [{"family": "last_gasp", "effects": [{"op": "return_equipped_items_to_hand", "target": "self"}]}],
+	})
+	# Equip two items
+	var dagger := _add_hand_card(player, "dagger_a", {
+		"card_type": "item", "cost": 1, "equip_power_bonus": 1,
+	})
+	var sword := _add_hand_card(player, "sword_a", {
+		"card_type": "item", "cost": 2, "equip_power_bonus": 2,
+	})
+	PersistentCardRules.play_item_from_hand(match_state, pid, dagger["instance_id"], {"target_instance_id": phantom["instance_id"]})
+	PersistentCardRules.play_item_from_hand(match_state, pid, sword["instance_id"], {"target_instance_id": phantom["instance_id"]})
+	if not _assert(phantom.get("attached_items", []).size() == 2, "Phantom should have 2 items equipped."):
+		return false
+	# Summon a big enemy to kill phantom via combat
+	_end_turn_and_start_next(match_state)  # end player_1 turn, start player_2 turn
+	var killer := _summon_creature(opponent, match_state, "killer", "field", 20, 20, 0)
+	ScenarioFixtures.ready_for_attack(killer, match_state)
+	MatchCombat.resolve_attack(match_state, opid, str(killer.get("instance_id", "")), {
+		"type": "creature", "instance_id": str(phantom.get("instance_id", "")),
+	})
+	var dagger_in_hand := _contains_instance(player["hand"], dagger["instance_id"])
+	var sword_in_hand := _contains_instance(player["hand"], sword["instance_id"])
+	var dagger_in_discard := _contains_instance(player["discard"], dagger["instance_id"])
+	var sword_in_discard := _contains_instance(player["discard"], sword["instance_id"])
+	return (
+		_assert(dagger_in_hand, "Dagger should be returned to hand by last gasp, not discard.") and
+		_assert(sword_in_hand, "Sword should be returned to hand by last gasp, not discard.") and
+		_assert(not dagger_in_discard, "Dagger should not remain in discard after last gasp.") and
+		_assert(not sword_in_discard, "Sword should not remain in discard after last gasp.")
 	)
 
 

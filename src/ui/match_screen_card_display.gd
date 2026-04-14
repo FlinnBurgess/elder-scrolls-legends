@@ -141,6 +141,10 @@ func _lane_readiness_badge_text(card: Dictionary) -> String:
 		return "WAITING"
 	if _screen._entered_lane_this_turn(card) and not _screen.EvergreenRules.has_keyword(card, _screen.EvergreenRules.KEYWORD_CHARGE):
 		return "WAITING"
+	var atk_cond = card.get("attack_condition", {})
+	if typeof(atk_cond) == TYPE_DICTIONARY and not atk_cond.is_empty():
+		if not _screen._card_surface._check_attack_condition_for_readiness(card, atk_cond):
+			return "WAITING"
 	return "READY"
 
 

@@ -29,7 +29,8 @@ func _run_all_tests() -> bool:
 		_test_grants_immunity_lethal_survives_combat() and
 		_test_amulet_of_mara_blocks_attack_between_wielders() and
 		_test_escalating_damage_sets_counter_on_card() and
-		_test_wounded_enemy_damage_immunity()
+		_test_wounded_enemy_damage_immunity() and
+		_test_attack_condition_blocks_attack_without_action_played()
 	)
 
 
@@ -498,6 +499,32 @@ func _test_wounded_enemy_damage_immunity() -> bool:
 		_assert(result2["is_valid"], "Sai attack vs healthy should resolve.") and
 		_assert(int(sai2.get("damage_marked", 0)) == 3, "Sai should take 3 damage from non-wounded enemy. Got %d." % int(sai2.get("damage_marked", 0)))
 	)
+
+
+func _test_attack_condition_blocks_attack_without_action_played() -> bool:
+	var match_state := _build_started_match(18, 0)
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	# Dormant Centurion analog: can only attack if an action was played this turn
+	var centurion := _summon_creature(player, match_state, "centurion", "field", 3, 5)
+	centurion["attack_condition"] = {"type": "action_played_this_turn"}
+	_target_ready_for_attack(centurion, match_state)
+	var target := _summon_creature(opponent, match_state, "target", "field", 2, 2)
+	_target_ready_for_attack(target, match_state)
+	# No action played yet — centurion should not be able to attack
+	var blocked := MatchCombat.validate_attack(match_state, player["player_id"], centurion["instance_id"], {
+		"type": "creature",
+		"instance_id": target["instance_id"],
+	})
+	if not _assert(not blocked["is_valid"], "Centurion should not attack when no action was played this turn."):
+		return false
+	# Simulate an action being played
+	player["noncreature_plays_this_turn"] = 1
+	var allowed := MatchCombat.validate_attack(match_state, player["player_id"], centurion["instance_id"], {
+		"type": "creature",
+		"instance_id": target["instance_id"],
+	})
+	return _assert(allowed["is_valid"], "Centurion should be able to attack after an action was played this turn.")
 
 
 func _assert(condition: bool, message: String) -> bool:
