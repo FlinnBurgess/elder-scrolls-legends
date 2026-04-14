@@ -233,7 +233,7 @@ const RECOGNIZED_OPS := [
 	"reveal_and_copy_from_opponent_deck", "opponent_gives_card_from_hand",
 	"trade_hand_card_for_opponent_hand", "waves_of_the_fallen_choice",
 	"merchant_offer", "transform_deck_to_dragons",
-	"apply_cost_reduction_aura", "look_at_top_deck_may_discard_then_draw",
+	"apply_cost_reduction_aura",
 	"steal_top_deck_card", "generate_random_shouts_to_hand",
 	"win_game_if_all_attributes", "check_win_condition",
 	"summon_conditional_atronach", "summon_imposter", "lockpick_gamble",
@@ -261,7 +261,7 @@ const CHOICE_PROVIDING_OPS := [
 	"reveal_and_copy_from_opponent_deck", "waves_of_the_fallen_choice",
 	"merchant_offer", "trade_hand_card_for_opponent_hand",
 	"vision_and_transform", "discover_from_catalog",
-	"look_at_top_deck_may_discard", "look_at_top_deck_may_discard_then_draw",
+	"look_at_top_deck_may_discard",
 	"sacrifice_and_equip_from_deck",
 ]
 

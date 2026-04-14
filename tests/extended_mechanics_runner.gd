@@ -142,7 +142,9 @@ func _run_all_tests() -> bool:
 		_test_shackle_immune_blocks_new_shackle() and
 		_test_multi_battle_summon_fires_two_sequential_battles() and
 		_test_multi_battle_summon_skips_second_if_source_dies() and
-		_test_discard_from_hand_filter_picks_highest_cost_action()
+		_test_discard_from_hand_filter_picks_highest_cost_action() and
+		_test_consume_card_single_consume_no_infinite_loop() and
+		_test_draw_copy_of_consumed_last_gasp_draws_copy_to_hand()
 	)
 
 
@@ -5406,3 +5408,122 @@ func _test_discard_from_hand_filter_picks_highest_cost_action() -> bool:
 			found_reveal = true
 			break
 	return _assert(found_reveal, "Discard filter: should find card_discarded event with reveal data.")
+
+
+func _test_consume_card_single_consume_no_infinite_loop() -> bool:
+	# Regression: consume_card effect op re-entered infinite loop after resolve_consume_selection
+	# re-applied effects, causing the consume UI to stay open and consume all cards in discard.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Put multiple creatures in discard — bug would consume ALL of them
+	var meal_a := ScenarioFixtures.make_card(pid, "meal_a", {"card_type": "creature", "cost": 1, "power": 1, "health": 1})
+	var meal_b := ScenarioFixtures.make_card(pid, "meal_b", {"card_type": "creature", "cost": 1, "power": 1, "health": 1})
+	var meal_c := ScenarioFixtures.make_card(pid, "meal_c", {"card_type": "creature", "cost": 1, "power": 1, "health": 1})
+	meal_a["zone"] = "discard"
+	meal_b["zone"] = "discard"
+	meal_c["zone"] = "discard"
+	player["discard"] = [meal_a, meal_b, meal_c]
+	# Headless Zombie analog: summon -> consume_card
+	var zombie := ScenarioFixtures.add_hand_card(player, "headless_zombie", {
+		"card_type": "creature", "cost": 4, "power": 3, "health": 4,
+		"triggered_abilities": [{"family": "summon", "effects": [{"op": "consume_card"}]}],
+	})
+	var zombie_id := str(zombie.get("instance_id", ""))
+	var summon_result := LaneRules.summon_from_hand(match_state, pid, zombie_id, "field")
+	if not _assert(bool(summon_result.get("is_valid", false)), "Headless Zombie: summon should be valid."):
+		return false
+	if not _assert(MatchTiming.has_pending_consume_selection(match_state, pid), "Headless Zombie: should have pending consume after summon."):
+		return false
+	# Resolve consume — pick meal_a
+	var meal_a_id := str(meal_a.get("instance_id", ""))
+	var consume_result := MatchTiming.resolve_consume_selection(match_state, pid, meal_a_id)
+	if not _assert(bool(consume_result.get("is_valid", false)), "Headless Zombie: consume selection should be valid."):
+		return false
+	# Should NOT have another pending consume (infinite loop bug)
+	if not _assert(not MatchTiming.has_pending_consume_selection(match_state, pid), "Headless Zombie: should NOT have another pending consume after resolving."):
+		return false
+	# Only meal_a should have been banished; meal_b and meal_c should still be in discard
+	var discard_ids: Array = []
+	for c in player.get("discard", []):
+		discard_ids.append(str(c.get("instance_id", "")))
+	return (
+		_assert(not discard_ids.has(meal_a_id), "meal_a should have been banished out of discard.") and
+		_assert(discard_ids.has(str(meal_b.get("instance_id", ""))), "meal_b should remain in discard (no infinite consume).") and
+		_assert(discard_ids.has(str(meal_c.get("instance_id", ""))), "meal_c should remain in discard (no infinite consume).")
+	)
+
+
+func _test_draw_copy_of_consumed_last_gasp_draws_copy_to_hand() -> bool:
+	# Regression: Headless Zombie's Last Gasp "Draw a copy of the consumed card" wasn't implemented.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Put a distinctive creature in discard to be consumed
+	var meal := ScenarioFixtures.make_card(pid, "tasty_meal", {
+		"card_type": "creature", "cost": 2, "power": 2, "health": 3,
+		"definition_id": "test_tasty_meal",
+		"name": "Tasty Meal",
+	})
+	meal["zone"] = "discard"
+	player["discard"] = [meal]
+	# Headless Zombie analog with both summon and last_gasp triggers
+	var zombie := ScenarioFixtures.add_hand_card(player, "headless_zombie", {
+		"card_type": "creature", "cost": 4, "power": 3, "health": 4,
+		"triggered_abilities": [
+			{"family": "summon", "effects": [{"op": "consume_card"}]},
+			{"family": "last_gasp", "effects": [{"op": "draw_copy_of_consumed"}]},
+		],
+	})
+	var zombie_id := str(zombie.get("instance_id", ""))
+	var summon_result := LaneRules.summon_from_hand(match_state, pid, zombie_id, "field")
+	if not _assert(bool(summon_result.get("is_valid", false)), "Zombie: summon should be valid."):
+		return false
+	# Resolve consume
+	var consume_result := MatchTiming.resolve_consume_selection(match_state, pid, str(meal.get("instance_id", "")))
+	if not _assert(bool(consume_result.get("is_valid", false)), "Zombie: consume should resolve."):
+		return false
+	# Verify zombie has _last_consumed_card_info
+	var zombie_after := MatchTimingHelpers._find_card_anywhere(match_state, zombie_id)
+	var stored_info: Dictionary = zombie_after.get("_last_consumed_card_info", {})
+	if not _assert(not stored_info.is_empty(), "Zombie: should have _last_consumed_card_info after consume."):
+		return false
+	if not _assert(str(stored_info.get("definition_id", "")) == "test_tasty_meal", "Zombie: _last_consumed_card_info should reference Tasty Meal."):
+		return false
+	# Record hand size before death
+	var hand_before: int = player.get("hand", []).size()
+	# Kill the zombie — it attacks a much bigger enemy and dies in combat (mutual damage)
+	var killer := ScenarioFixtures.summon_creature(opponent, match_state, "killer", "field", 10, 10)
+	ScenarioFixtures.ready_for_attack(zombie_after, match_state)
+	var attack := MatchCombat.resolve_attack(match_state, pid, zombie_id, {"type": "creature", "instance_id": str(killer.get("instance_id", ""))})
+	if not _assert(bool(attack.get("is_valid", false)), "Zombie attack on killer should resolve."):
+		return false
+	# After last gasp, hand should have one more card — the copy of Tasty Meal
+	var hand_after: Array = player.get("hand", [])
+	if not _assert(hand_after.size() == hand_before + 1, "Hand should grow by 1 after last gasp draw, before=%d after=%d." % [hand_before, hand_after.size()]):
+		return false
+	var drawn_copy: Dictionary = {}
+	for c in hand_after:
+		if str(c.get("definition_id", "")) == "test_tasty_meal" and str(c.get("instance_id", "")) != str(meal.get("instance_id", "")):
+			drawn_copy = c
+			break
+	if not _assert(not drawn_copy.is_empty(), "Should have a newly-generated copy of Tasty Meal in hand after Zombie's last gasp."):
+		return false
+	# Verify a proper card_drawn event was emitted so UI/triggers treat this as a real draw
+	var draw_event_found := false
+	for evt in match_state.get("event_log", []):
+		if str(evt.get("event_type", "")) != "card_drawn":
+			continue
+		if str(evt.get("drawn_instance_id", "")) != str(drawn_copy.get("instance_id", "")):
+			continue
+		if not _assert(str(evt.get("player_id", "")) == pid, "card_drawn event should have player_id = drawer."):
+			return false
+		if not _assert(str(evt.get("source_instance_id", "")) == zombie_id, "card_drawn event source_instance_id should be the Zombie."):
+			return false
+		if not _assert(str(evt.get("target_zone", "")) == "hand", "card_drawn event target_zone should be 'hand'."):
+			return false
+		draw_event_found = true
+		break
+	return _assert(draw_event_found, "Should find a card_drawn event for the drawn copy so UI draw animation fires.")

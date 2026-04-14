@@ -65,6 +65,9 @@ func _run_all_tests() -> bool:
 		# Studious Greybeard — deferred draw
 		_test_studious_greybeard_defers_draw_until_choice_resolved() and
 		_test_studious_greybeard_discard_draws_next_card() and
+		# Scout's Report — on_play choice + follow-up draw
+		_test_scouts_report_creates_choice_and_draws_on_keep() and
+		_test_scouts_report_discard_then_draws_next_card() and
 		true
 	)
 
@@ -789,3 +792,76 @@ func _test_studious_greybeard_discard_draws_next_card() -> bool:
 			found_in_hand = true
 			break
 	return _assert(found_in_hand, "After discarding top card, the next card should be drawn into hand")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Scout's Report — on_play presents top deck choice, then draws after resolution
+# ──────────────────────────────────────────────────────────────────────────────
+
+func _test_scouts_report_creates_choice_and_draws_on_keep() -> bool:
+	var match_state := _build_started_match()
+	var player := ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var scout: Dictionary = _catalog_helper.add_to_hand(player, "hos_dual_scouts_report")
+	if scout.is_empty():
+		return _assert(false, "Failed to add Scout's Report to hand")
+	var hand_size_before_play: int = player.get("hand", []).size()
+	var deck: Array = player.get("deck", [])
+	if deck.size() < 1:
+		return _assert(false, "Need at least 1 card in deck for this test")
+	var top_card_id := str(deck.back().get("instance_id", ""))
+	var play_result := MatchTiming.play_action_from_hand(match_state, pid, str(scout.get("instance_id", "")))
+	if not _assert(bool(play_result.get("is_valid", false)), "Scout's Report should play successfully"):
+		return false
+	# Scout's Report should have created a pending top deck choice (hand went down by 1 from play)
+	if not _assert(MatchTiming.has_pending_top_deck_choice(match_state, pid),
+			"Scout's Report should create pending top deck choice on play"):
+		return false
+	# Hand size dropped by 1 (scout moved out), no draw yet
+	if not _assert(player.get("hand", []).size() == hand_size_before_play - 1,
+			"Before resolving choice, hand size should be -1 (got %d, expected %d)" % [player.get("hand", []).size(), hand_size_before_play - 1]):
+		return false
+	# Resolve the choice (keep) — the follow-up draw should fire
+	MatchTiming.resolve_pending_top_deck_choice(match_state, pid, false)
+	if not _assert(player.get("hand", []).size() == hand_size_before_play,
+			"After resolving keep, hand size should be back to original (got %d, expected %d)" % [player.get("hand", []).size(), hand_size_before_play]):
+		return false
+	# The drawn card should be the original top of deck (keep path: not discarded)
+	var found_in_hand := false
+	for card in player.get("hand", []):
+		if str(card.get("instance_id", "")) == top_card_id:
+			found_in_hand = true
+			break
+	return _assert(found_in_hand, "After resolving keep, the original top deck card should be in hand")
+
+
+func _test_scouts_report_discard_then_draws_next_card() -> bool:
+	var match_state := _build_started_match()
+	var player := ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var scout: Dictionary = _catalog_helper.add_to_hand(player, "hos_dual_scouts_report")
+	if scout.is_empty():
+		return _assert(false, "Failed to add Scout's Report to hand")
+	var deck: Array = player.get("deck", [])
+	if deck.size() < 2:
+		return _assert(false, "Need at least 2 cards in deck for this test")
+	var top_card_id := str(deck.back().get("instance_id", ""))
+	var second_card_id := str(deck[deck.size() - 2].get("instance_id", ""))
+	var play_result := MatchTiming.play_action_from_hand(match_state, pid, str(scout.get("instance_id", "")))
+	if not _assert(bool(play_result.get("is_valid", false)), "Scout's Report should play successfully"):
+		return false
+	# Resolve with discard — top card goes to discard, then the next card is drawn
+	MatchTiming.resolve_pending_top_deck_choice(match_state, pid, true)
+	var found_in_discard := false
+	for card in player.get("discard", []):
+		if str(card.get("instance_id", "")) == top_card_id:
+			found_in_discard = true
+			break
+	if not _assert(found_in_discard, "Discarded top card should be in discard pile"):
+		return false
+	var found_in_hand := false
+	for card in player.get("hand", []):
+		if str(card.get("instance_id", "")) == second_card_id:
+			found_in_hand = true
+			break
+	return _assert(found_in_hand, "After discard, the next deck card should be drawn into hand")

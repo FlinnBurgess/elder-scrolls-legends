@@ -858,6 +858,15 @@ static func resolve_pending_top_deck_choice(match_state: Dictionary, player_id: 
 				})
 	var timing_result := publish_events(match_state, events)
 	var all_events: Array = timing_result.get("processed_events", []).duplicate(true)
+	# Execute follow-up draw attached to the choice (e.g. Scout's Report draws after reveal/discard)
+	var follow_up_draw := int(choice.get("follow_up_draw", 0))
+	if follow_up_draw > 0:
+		var follow_draw_result := draw_cards(match_state, player_id, follow_up_draw, {
+			"reason": "top_deck_choice_follow_up",
+			"source_controller_player_id": player_id,
+			"source_instance_id": str(choice.get("source_instance_id", "")),
+		})
+		all_events.append_array(follow_draw_result.get("events", []))
 	# Execute deferred turn draw if this was the blocking choice
 	if str(match_state.get("deferred_turn_draw_player_id", "")) == player_id:
 		if not has_pending_top_deck_choice(match_state, player_id):
@@ -2018,8 +2027,11 @@ static func resolve_consume_selection(match_state: Dictionary, player_id: String
 		"instance_id": chosen_instance_id,
 		"definition_id": str(consumed_card.get("definition_id", "")),
 		"name": str(consumed_card.get("name", "")),
+		"card_type": str(consumed_card.get("card_type", "creature")),
+		"cost": int(consumed_card.get("cost", 0)),
 		"power": EvergreenRules.get_power(consumed_card),
 		"health": EvergreenRules.get_health(consumed_card),
+		"attributes": consumed_card.get("attributes", []).duplicate() if typeof(consumed_card.get("attributes", [])) == TYPE_ARRAY else [],
 		"subtypes": consumed_card.get("subtypes", []),
 		"keywords": consumed_card.get("keywords", []).duplicate(),
 		"triggered_abilities": consumed_card.get("triggered_abilities", []).duplicate(true),
@@ -2123,6 +2135,9 @@ static func resolve_consume_selection(match_state: Dictionary, player_id: String
 						all_resolutions.append_array(_cacv_pub.get("trigger_resolutions", []))
 					break
 			break
+	# Persist a copy for later effects (e.g. last_gasp draw_copy_of_consumed) before clearing the transient marker
+	if not source_card.is_empty():
+		source_card["_last_consumed_card_info"] = consumed_info
 	# Clear stale consumed info so future triggers (e.g. veteran) don't see it as post-consume
 	if not source_card.is_empty() and source_card.has("_consumed_card_info"):
 		source_card.erase("_consumed_card_info")

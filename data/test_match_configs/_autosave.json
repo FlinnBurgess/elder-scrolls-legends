@@ -73,18 +73,20 @@
 			"aw_wil_gray_viper_brigand",
 			"aw_wil_gray_viper_brigand"
 		],
-		"field_creatures": [],
+		"field_creatures": [
+			null
+		],
 		"hand": [
 			"wil_piercing_javelin",
 			"int_firebolt",
-			"wil_healing_potion"
+			"hom_agi_nix_hound"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [],
 		"supports": [
-			"mc_wil_conjurers_spirit"
+			"hom_neu_dwemer_puzzle_box"
 		]
 	},
 	"type": "kill"

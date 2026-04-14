@@ -236,6 +236,9 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				})
 				generated_events.append_array(consume_result.get("events", []))
 		"consume_card":
+			# Skip if already resolved via consume selection (resolve_consume_selection re-applies effects)
+			if not trigger.get("_consumed_card_info", {}).is_empty():
+				return
 			var cc_controller_id := str(trigger.get("controller_player_id", ""))
 			var cc_source_id := str(trigger.get("source_instance_id", ""))
 			var cc_candidates = _MT().get_consume_candidates(match_state, cc_controller_id)

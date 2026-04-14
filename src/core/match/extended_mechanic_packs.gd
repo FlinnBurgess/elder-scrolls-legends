@@ -1079,11 +1079,15 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			if typeof(ltdmd_top_card) != TYPE_DICTIONARY:
 				return {"handled": true, "events": []}
 			var ltdmd_choices: Array = match_state.get("pending_top_deck_choices", [])
-			ltdmd_choices.append({
+			var ltdmd_entry: Dictionary = {
 				"player_id": ltdmd_controller_id,
 				"source_instance_id": str(trigger.get("source_instance_id", "")),
 				"revealed_card": ltdmd_top_card.duplicate(true),
-			})
+			}
+			var ltdmd_follow_draw := int(effect.get("follow_up_draw", 0))
+			if ltdmd_follow_draw > 0:
+				ltdmd_entry["follow_up_draw"] = ltdmd_follow_draw
+			ltdmd_choices.append(ltdmd_entry)
 			match_state["pending_top_deck_choices"] = ltdmd_choices
 			return {"handled": true, "events": [{"event_type": "top_deck_revealed_for_choice", "player_id": ltdmd_controller_id, "source_instance_id": str(trigger.get("source_instance_id", "")), "revealed_card": ltdmd_top_card.duplicate(true)}]}
 		"transform_random_by_cost":
@@ -1485,28 +1489,6 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			acra_auras.append({"controller_player_id": acra_controller, "filter_subtype": acra_filter_subtype, "amount": acra_amount, "source_instance_id": str(trigger.get("source_instance_id", ""))})
 			match_state["card_cost_reduction_auras"] = acra_auras
 			return {"handled": true, "events": [{"event_type": "cost_reduction_aura_applied", "player_id": acra_controller, "filter_subtype": acra_filter_subtype, "amount": acra_amount}]}
-		"look_at_top_deck_may_discard_then_draw":
-			var ltdmd_td_controller := str(trigger.get("controller_player_id", ""))
-			var ltdmd_td_player := _get_player_state(match_state, ltdmd_td_controller)
-			if ltdmd_td_player.is_empty():
-				return {"handled": true, "events": []}
-			var ltdmd_td_deck: Array = ltdmd_td_player.get("deck", [])
-			# Look at top, may discard (AI always discards non-creatures for simplicity)
-			if not ltdmd_td_deck.is_empty():
-				var ltdmd_td_top: Dictionary = ltdmd_td_deck.back()
-				if typeof(ltdmd_td_top) == TYPE_DICTIONARY and str(ltdmd_td_top.get("card_type", "")) != "creature":
-					ltdmd_td_deck.pop_back()
-					ltdmd_td_top["zone"] = "discard"
-					var ltdmd_td_discard: Array = ltdmd_td_player.get("discard", [])
-					ltdmd_td_discard.append(ltdmd_td_top)
-			# Then draw
-			if not ltdmd_td_deck.is_empty():
-				var ltdmd_td_drawn: Dictionary = ltdmd_td_deck.pop_back()
-				ltdmd_td_drawn["zone"] = "hand"
-				var ltdmd_td_hand: Array = ltdmd_td_player.get("hand", [])
-				ltdmd_td_hand.append(ltdmd_td_drawn)
-				return {"handled": true, "events": [{"event_type": "card_drawn", "player_id": ltdmd_td_controller, "instance_id": str(ltdmd_td_drawn.get("instance_id", "")), "source": "look_then_draw"}]}
-			return {"handled": true, "events": []}
 		"steal_top_deck_card":
 			var stdc_controller := str(trigger.get("controller_player_id", ""))
 			var stdc_opponent := ""

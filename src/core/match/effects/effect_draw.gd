@@ -383,18 +383,31 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					var dcpr_draw_result = _MT().draw_cards(match_state, dcpr_controller_id, dcpr_total_draw, {"reason": reason, "source_instance_id": str(trigger.get("source_instance_id", ""))})
 					generated_events.append_array(dcpr_draw_result.get("events", []))
 		"draw_copy_of_consumed":
-			# Draw a copy of the last consumed card — check event for consumed card info
+			# Draw a copy of the card this creature consumed — stored as _last_consumed_card_info on the source card
 			var dcoc_controller_id := str(trigger.get("controller_player_id", ""))
-			var dcoc_target_id := str(event.get("target_instance_id", ""))
-			var dcoc_target := MatchTimingHelpers._find_card_anywhere(match_state, dcoc_target_id)
-			if not dcoc_target.is_empty():
-				var dcoc_copy := MatchMutations.build_generated_card(match_state, dcoc_controller_id, dcoc_target)
+			var dcoc_source_id := str(trigger.get("source_instance_id", ""))
+			var dcoc_source := MatchTimingHelpers._find_card_anywhere(match_state, dcoc_source_id)
+			var dcoc_consumed_info: Dictionary = dcoc_source.get("_last_consumed_card_info", {}) if not dcoc_source.is_empty() else {}
+			if not dcoc_consumed_info.is_empty():
+				var dcoc_copy := MatchMutations.build_generated_card(match_state, dcoc_controller_id, dcoc_consumed_info)
 				var dcoc_player := MatchTimingHelpers._get_player_state(match_state, dcoc_controller_id)
 				if not dcoc_player.is_empty():
+					if _MT()._overflow_card_to_discard(dcoc_player, dcoc_copy, dcoc_controller_id, ZONE_GENERATED, generated_events):
+						return
 					dcoc_copy["zone"] = ZONE_HAND
 					var dcoc_hand: Array = dcoc_player.get(ZONE_HAND, [])
 					dcoc_hand.append(dcoc_copy)
-					generated_events.append({"event_type": EVENT_CARD_DRAWN, "player_id": dcoc_controller_id, "source_instance_id": str(dcoc_copy.get("instance_id", ""))})
+					MatchMutations.apply_first_turn_hand_cost(match_state, dcoc_copy, dcoc_controller_id)
+					generated_events.append({
+						"event_type": EVENT_CARD_DRAWN,
+						"player_id": dcoc_controller_id,
+						"source_instance_id": dcoc_source_id,
+						"source_controller_player_id": dcoc_controller_id,
+						"drawn_instance_id": str(dcoc_copy.get("instance_id", "")),
+						"source_zone": ZONE_GENERATED,
+						"target_zone": ZONE_HAND,
+						"reason": reason,
+					})
 		"draw_or_treasure_hunt":
 			# Treasure Map: draw a card matching the wielder's unfound treasure hunt types,
 			# or draw from the top if no active hunts or no matching card in deck.

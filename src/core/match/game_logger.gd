@@ -397,6 +397,20 @@ static func _check_missing_effects(card: Dictionary) -> void:
 		# "draw" maps to "draw_cards", "draw_cards_per_runes", or "draw_from_deck_filtered" op
 		if id == "draw" and ("draw_cards" in configured_ops or "draw_cards_per_runes" in configured_ops or "draw_from_deck_filtered" in configured_ops):
 			continue
+		# "draw" also covered by any effect carrying a follow_up_draw parameter
+		if id == "draw":
+			var has_follow_up_draw := false
+			for ability in card.get("triggered_abilities", []):
+				if typeof(ability) != TYPE_DICTIONARY:
+					continue
+				for effect in ability.get("effects", []):
+					if typeof(effect) == TYPE_DICTIONARY and int(effect.get("follow_up_draw", 0)) > 0:
+						has_follow_up_draw = true
+						break
+				if has_follow_up_draw:
+					break
+			if has_follow_up_draw:
+				continue
 		# "damage" also maps to "deal_damage" op
 		if id == "damage" and "deal_damage" in configured_ops:
 			continue
