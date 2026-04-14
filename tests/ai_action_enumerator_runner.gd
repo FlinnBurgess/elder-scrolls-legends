@@ -17,6 +17,7 @@ func _initialize() -> void:
 	_test_action_variants_include_double_card_and_exalt(failures)
 	_test_action_immune_conditional_excludes_target(failures)
 	_test_action_immune_status_excludes_target(failures)
+	_test_protect_friendly_from_actions_excludes_targets(failures)
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)
@@ -310,3 +311,50 @@ func _test_action_immune_status_excludes_target(failures: Array) -> void:
 			"Action should not target creature with action_immune status (e.g. Ebonthread Cloak).",
 			failures
 		)
+
+
+func _test_protect_friendly_from_actions_excludes_targets(failures: Array) -> void:
+	# Tavyar the Knight: "Your opponent can't target other friendly creatures with actions."
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 10, "first_player_index": 1})
+	var player := ScenarioFixtures.player(match_state, 0)
+	var opponent := ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Player has Tavyar (protector) and another creature in the same lane
+	ScenarioFixtures.summon_creature(player, match_state, "tavyar", "field", 3, 5, [], -1, {
+		"passive_abilities": [{"type": "protect_friendly_from_actions"}],
+	})
+	ScenarioFixtures.summon_creature(player, match_state, "ally", "field", 5, 5)
+	ScenarioFixtures.summon_creature(player, match_state, "shadow_ally", "shadow", 3, 3)
+	# Opponent has a targeted action in hand
+	ScenarioFixtures.add_hand_card(opponent, "javelin", {
+		"card_type": "action",
+		"cost": 5,
+		"action_target_mode": "any_creature",
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"required_zone": "discard",
+			"effects": [{"op": "destroy_creature", "target": "event_target"}],
+		}],
+	})
+	var surface := MatchActionEnumerator.enumerate_legal_actions(match_state, oid)
+	var action_plays := _actions_for_kind(surface, "play_action")
+	var tavyar_targetable := false
+	var non_tavyar_targeted := false
+	for action in action_plays:
+		var params: Dictionary = action.get("parameters", {})
+		var target_id := str(params.get("target_instance_id", ""))
+		if target_id == pid + "_tavyar":
+			tavyar_targetable = true
+		elif target_id == pid + "_ally" or target_id == pid + "_shadow_ally":
+			non_tavyar_targeted = true
+	VerificationAssertions.assert_true(
+		tavyar_targetable,
+		"Action should still be able to target Tavyar (the protector) itself.",
+		failures
+	)
+	VerificationAssertions.assert_true(
+		not non_tavyar_targeted,
+		"Action should not target other friendly creatures while Tavyar is on board.",
+		failures
+	)

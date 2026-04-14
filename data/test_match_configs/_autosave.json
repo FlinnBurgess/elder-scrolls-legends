@@ -28,9 +28,11 @@
 				"definition_id": "aw_int_abnur_tharn",
 				"power_bonus": -5.0
 			},
-			"cwc_neu_abomination"
+			"hom_end_ald_velothi_assassin"
 		],
-		"hand": [],
+		"hand": [
+			"wil_piercing_javelin"
+		],
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [],
@@ -66,20 +68,21 @@
 		],
 		"field_creatures": [
 			null,
-			null,
-			null
+			"iom_end_tavyar_the_knight",
+			"cwc_neu_dwarven_colossus",
+			"joo_end_determined_supplier"
 		],
 		"hand": [
 			"wil_piercing_javelin",
 			"int_firebolt",
-			"cwc_neu_dwarven_colossus",
-			"agi_thieves_guild_recruit"
+			"iom_str_dagger",
+			"cwc_wil_clockwork_apostle",
+			"iom_neu_ghost_fanatic"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [
-			"end_blackrose_herbalist",
 			{
 				"can_attack": true,
 				"damage_marked": 4.0,
@@ -89,7 +92,8 @@
 				"can_attack": true,
 				"damage_marked": 4.0,
 				"definition_id": "aw_int_abnur_tharn"
-			}
+			},
+			"end_siege_catapult"
 		],
 		"supports": []
 	},

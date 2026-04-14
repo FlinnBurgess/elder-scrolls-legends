@@ -55,14 +55,23 @@ static func _resolve_amount(trigger: Dictionary, effect: Dictionary, match_state
 	if amount_source == "self_power":
 		var source_card := Helpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 		if not source_card.is_empty():
+			# If the creature died (last gasp context), read its snapshotted
+			# buffed power from the moment of death — items have detached so
+			# get_power would otherwise return base power only.
+			if source_card.has("_power_at_death"):
+				return int(source_card.get("_power_at_death", 0))
 			return EvergreenRules.get_power(source_card)
 	if amount_source == "self_health":
 		var source_card := Helpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 		if not source_card.is_empty():
+			if source_card.has("_health_at_death"):
+				return int(source_card.get("_health_at_death", 0))
 			return EvergreenRules.get_remaining_health(source_card)
 	if amount_source == "self_power_plus_health":
 		var source_card := Helpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 		if not source_card.is_empty():
+			if source_card.has("_power_at_death") or source_card.has("_health_at_death"):
+				return int(source_card.get("_power_at_death", EvergreenRules.get_power(source_card))) + int(source_card.get("_health_at_death", EvergreenRules.get_remaining_health(source_card)))
 			return EvergreenRules.get_power(source_card) + EvergreenRules.get_remaining_health(source_card)
 	if amount_source == "damage_taken":
 		return int(event.get("damage_amount", event.get("amount", 0)))

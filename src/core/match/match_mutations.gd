@@ -290,6 +290,12 @@ static func move_card_to_zone(match_state: Dictionary, instance_id: String, zone
 		# so last gasp / death triggers can still check for drain.
 		if zone_name == ZONE_DISCARD and EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_DRAIN):
 			card["_had_drain_at_death"] = true
+		# Snapshot buffed power/health (including attached item bonuses) before
+		# items detach, so self_power / self_health in last gasp effects reads
+		# the creature's final stats at the moment of death.
+		if zone_name == ZONE_DISCARD:
+			card["_power_at_death"] = EvergreenRules.get_power(card)
+			card["_health_at_death"] = EvergreenRules.get_remaining_health(card)
 		var detach_result := _move_attached_items_to_owner_discard(match_state, card, {"reason": str(options.get("reason", "host_left_play"))})
 		item_detach_events = detach_result.get("events", [])
 		var _detached_ids: Array = []
@@ -749,6 +755,9 @@ static func _apply_lane_entry(match_state: Dictionary, controller_player_id: Str
 	card["zone"] = ZONE_LANE
 	card["lane_id"] = validation["lane_id"]
 	card["slot_index"] = validation["slot_index"]
+	# Clear death snapshots — the creature is entering play fresh.
+	card.erase("_power_at_death")
+	card.erase("_health_at_death")
 	if not bool(options.get("preserve_entered_lane_on_turn", false)) or not card.has("entered_lane_on_turn"):
 		card["entered_lane_on_turn"] = int(match_state.get("turn_number", 0))
 		card["has_attacked_this_turn"] = false

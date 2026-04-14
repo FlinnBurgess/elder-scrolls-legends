@@ -32,6 +32,7 @@ func _run_all_tests() -> bool:
 		_test_on_support_count_reached_waits_for_threshold() and
 		_test_item_on_play_target_no_valid_targets_allows_decline() and
 		_test_horse_armor_sets_premium_on_wielder() and
+		_test_last_gasp_self_power_reads_buffed_power_including_items() and
 		_test_fifth_support_rejected_when_zone_full() and
 		_test_play_support_with_sacrifice() and
 		_test_play_support_sacrifice_rejects_when_not_full() and
@@ -371,6 +372,44 @@ func _test_horse_armor_sets_premium_on_wielder() -> bool:
 		_assert(bool(host.get("_premium", false)), "Host creature should be premium after Horse Armor equip.") and
 		_assert(EvergreenRules.get_health(host) == 4, "Host health should include +1 from Horse Armor equip bonus.")
 	)
+
+
+func _test_last_gasp_self_power_reads_buffed_power_including_items() -> bool:
+	# Regression: Determined Supplier's last_gasp gain_max_magicka should count
+	# attached item power bonuses even though items detach before the trigger
+	# resolves. Snapshot captured in move_card_to_zone covers this.
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid: String = player["player_id"]
+	player["max_magicka"] = 5
+	player["current_magicka"] = 5
+	# Determined Supplier analog: 1 power, last_gasp self_power gain_max_magicka.
+	var supplier := _summon_creature(player, match_state, "determined_supplier_analog", "field", 1, 4, 0, {
+		"triggered_abilities": [{"family": "last_gasp", "effects": [{"op": "gain_max_magicka", "amount_source": "self_power"}]}],
+	})
+	# Dagger analog: +1 power on equip.
+	var dagger := _add_hand_card(player, "dagger_analog", {
+		"card_type": "item",
+		"cost": 0,
+		"equip_power_bonus": 1,
+	})
+	var equip_result := PersistentCardRules.play_item_from_hand(match_state, pid, dagger["instance_id"], {"target_instance_id": supplier["instance_id"]})
+	if not _assert(equip_result["is_valid"], "Dagger analog should equip successfully."):
+		return false
+	if not _assert(EvergreenRules.get_power(supplier) == 2, "Supplier should be 2 power after Dagger (1 base + 1 equip)."):
+		return false
+	# Destroy via action so the full trigger pipeline resolves the last_gasp.
+	var destroy_action := _add_hand_card(player, "destroy_action", {
+		"card_type": "action",
+		"cost": 0,
+		"action_target_mode": "any_creature",
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "effects": [{"op": "destroy_creature", "target": "event_target"}]}],
+	})
+	var play_result := MatchTiming.play_action_from_hand(match_state, pid, str(destroy_action.get("instance_id", "")), {"target_instance_id": str(supplier.get("instance_id", ""))})
+	if not _assert(bool(play_result.get("is_valid", false)), "Destroy action should play successfully."):
+		return false
+	# Base power 1 + item bonus 1 = 2 magicka gained; without fix this would be 1.
+	return _assert(int(player.get("max_magicka", 0)) == 7, "Max magicka should be 5 + buffed_power 2 = 7, got %d." % int(player.get("max_magicka", 0)))
 
 
 func _test_fifth_support_rejected_when_zone_full() -> bool:

@@ -949,6 +949,16 @@ static func _expand_target_parameter_sets(match_state: Dictionary, requirements:
 	if bool(requirements.get("needs_card_target", false)):
 		var atm := str(requirements.get("action_target_mode", ""))
 		var atm_controller := str(requirements.get("controller_player_id", ""))
+		# protect_friendly_from_actions: build map of {player_id: protector_instance_id}
+		var pffa_protectors: Dictionary = {}
+		if not atm_controller.is_empty():
+			for pffa_lane in match_state.get("lanes", []):
+				for pffa_pid in pffa_lane.get("player_slots", {}).keys():
+					if pffa_pid == atm_controller:
+						continue
+					for pffa_card in pffa_lane.get("player_slots", {}).get(pffa_pid, []):
+						if typeof(pffa_card) == TYPE_DICTIONARY and EvergreenRules._has_passive(pffa_card, "protect_friendly_from_actions"):
+							pffa_protectors[pffa_pid] = str(pffa_card.get("instance_id", ""))
 		var expanded_card_sets: Array = []
 		for parameters in parameter_sets:
 			for card in _all_lane_cards(match_state):
@@ -1036,6 +1046,11 @@ static func _expand_target_parameter_sets(match_state: Dictionary, requirements:
 									continue
 					# Skip creatures with action_immune status (e.g. Ebonthread Cloak)
 					if EvergreenRules.has_raw_status(card, "action_immune"):
+						continue
+				# Skip creatures protected by protect_friendly_from_actions (e.g. Tavyar the Knight)
+				if not pffa_protectors.is_empty():
+					var pffa_ctrl := str(card.get("controller_player_id", ""))
+					if pffa_protectors.has(pffa_ctrl) and str(card.get("instance_id", "")) != pffa_protectors[pffa_ctrl]:
 						continue
 				var next_parameters: Dictionary = parameters.duplicate(true)
 				next_parameters["target_instance_id"] = str(card.get("instance_id", ""))

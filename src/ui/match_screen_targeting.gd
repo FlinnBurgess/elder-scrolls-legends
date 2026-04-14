@@ -125,7 +125,14 @@ func _action_target_mode_allows(action_card: Dictionary, target_instance_id: Str
 					return false
 			else:
 				return false
+	# protect_friendly_from_actions: opponent's other creatures can't be targeted (e.g. Tavyar the Knight)
 	var target_controller := str(target_card.get("controller_player_id", ""))
+	if target_controller != controller_id:
+		for pffa_lane in _screen._match_state.get("lanes", []):
+			for pffa_card in pffa_lane.get("player_slots", {}).get(target_controller, []):
+				if typeof(pffa_card) == TYPE_DICTIONARY and _screen.EvergreenRules._has_passive(pffa_card, "protect_friendly_from_actions"):
+					if str(pffa_card.get("instance_id", "")) != target_instance_id:
+						return false
 	var mode_allowed := true
 	match atm:
 		"friendly_creature", "another_friendly_creature":
