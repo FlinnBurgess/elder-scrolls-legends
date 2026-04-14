@@ -456,7 +456,9 @@ func _creature_readiness_state(card: Dictionary) -> Dictionary:
 			"border": Color(0.58, 0.9, 0.62, 0.96),
 			"font": Color(0.95, 0.99, 0.96, 1.0),
 		}
-	if _screen.EvergreenRules.get_power(card) <= 0 or bool(card.get("cannot_attack", false)) or _screen.EvergreenRules.has_status(card, _screen.EvergreenRules.STATUS_SHACKLED):
+	var innate_s: Array = card.get("innate_statuses", []) if typeof(card.get("innate_statuses")) == TYPE_ARRAY else []
+	var shackle_perm: bool = innate_s.has("shackle_permanent_unless_equipped") and _screen.EvergreenRules.get_attached_items(card).is_empty()
+	if _screen.EvergreenRules.get_power(card) <= 0 or bool(card.get("cannot_attack", false)) or _screen.EvergreenRules.has_status(card, _screen.EvergreenRules.STATUS_SHACKLED) or shackle_perm:
 		return {
 			"id": "disabled",
 			"label": "DISABLED",

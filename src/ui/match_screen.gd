@@ -2959,27 +2959,27 @@ func _debug_dump_hovered() -> void:
 	if not _hovered_pile_zone.is_empty():
 		_debug_dump_pile(_hovered_pile_player_id, _hovered_pile_zone)
 		return
-	print("[DEBUG DUMP] No card or pile currently hovered.")
+	GameLogger.write_debug("[DEBUG DUMP] No card or pile currently hovered.")
 
 
 func _debug_dump_card(instance_id: String) -> void:
 	var match_card := _card_from_instance_id(instance_id)
 	var definition_id := str(match_card.get("definition_id", ""))
 	var card_name := str(match_card.get("name", definition_id))
-	print("=== DEBUG DUMP: %s (instance: %s) ===" % [card_name, instance_id])
+	GameLogger.write_debug("=== DEBUG DUMP: %s (instance: %s) ===" % [card_name, instance_id])
 	var catalog_result := CardCatalog.load_default()
 	var card_by_id: Dictionary = catalog_result.get("card_by_id", {})
 	var catalog_entry: Dictionary = card_by_id.get(definition_id, {})
 	if catalog_entry.is_empty():
-		print("  [Catalog] No catalog entry found for definition_id: %s" % definition_id)
+		GameLogger.write_debug("  [Catalog] No catalog entry found for definition_id: %s" % definition_id)
 	else:
-		print("  [Catalog Definition]")
+		GameLogger.write_debug("  [Catalog Definition]")
 		for key in catalog_entry.keys():
-			print("    %s: %s" % [key, str(catalog_entry[key])])
-	print("  [Match State]")
+			GameLogger.write_debug("    %s: %s" % [key, str(catalog_entry[key])])
+	GameLogger.write_debug("  [Match State]")
 	for key in match_card.keys():
-		print("    %s: %s" % [key, str(match_card[key])])
-	print("=== END DEBUG DUMP ===")
+		GameLogger.write_debug("    %s: %s" % [key, str(match_card[key])])
+	GameLogger.write_debug("=== END DEBUG DUMP ===")
 
 
 func _debug_dump_pile(player_id: String, zone: String) -> void:
@@ -2987,15 +2987,15 @@ func _debug_dump_pile(player_id: String, zone: String) -> void:
 	var pile: Array = player.get(zone, [])
 	var zone_label := "Deck" if zone == MatchMutations.ZONE_DECK else "Discard"
 	var owner_label := _player_name(player_id)
-	print("=== DEBUG DUMP: %s's %s (%d cards) ===" % [owner_label, zone_label, pile.size()])
+	GameLogger.write_debug("=== DEBUG DUMP: %s's %s (%d cards) ===" % [owner_label, zone_label, pile.size()])
 	for i in pile.size():
 		var card: Dictionary = pile[i] if typeof(pile[i]) == TYPE_DICTIONARY else {}
 		var card_name := str(card.get("name", "???"))
 		var card_id := str(card.get("card_id", ""))
 		var iid := str(card.get("instance_id", ""))
 		var cost := str(card.get("cost", "?"))
-		print("  [%d] %s (id: %s, instance: %s, cost: %s)" % [i, card_name, card_id, iid, cost])
-	print("=== END DEBUG DUMP ===")
+		GameLogger.write_debug("  [%d] %s (id: %s, instance: %s, cost: %s)" % [i, card_name, card_id, iid, cost])
+	GameLogger.write_debug("=== END DEBUG DUMP ===")
 
 
 func _refresh_top_deck_choice_state() -> void:

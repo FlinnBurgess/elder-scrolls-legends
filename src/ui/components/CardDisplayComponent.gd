@@ -719,7 +719,9 @@ func _refresh_visibility() -> void:
 	_health_badge.visible = is_creature and (full or creature_minimal)
 	_ward_overlay.visible = _interactive and is_creature and (EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_WARD) or EvergreenRules.has_status(_card_data, EvergreenRules.STATUS_DAMAGE_IMMUNE) or bool(_card_data.get("aura_damage_immune", false)))
 	_premium_overlay.visible = bool(_card_data.get("_premium", false))
-	_shackle_overlay.visible = _interactive and is_creature and (creature_minimal) and (EvergreenRules.has_raw_status(_card_data, EvergreenRules.STATUS_SHACKLED) or bool(_card_data.get("cannot_attack", false)))
+	var _innate_s: Array = _card_data.get("innate_statuses", []) if typeof(_card_data.get("innate_statuses")) == TYPE_ARRAY else []
+	var _shackle_perm_unless_equipped := _innate_s.has("shackle_permanent_unless_equipped") and EvergreenRules.get_attached_items(_card_data).is_empty()
+	_shackle_overlay.visible = _interactive and is_creature and (creature_minimal) and (EvergreenRules.has_raw_status(_card_data, EvergreenRules.STATUS_SHACKLED) or bool(_card_data.get("cannot_attack", false)) or _shackle_perm_unless_equipped)
 	_prophecy_glow_overlay.visible = _interactive and is_creature and (full or creature_minimal) and bool(_card_data.get("_blind_moth_active", false))
 	var show_lethal := _interactive and is_creature and (full or creature_minimal) and EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_LETHAL)
 	_lethal_particles.emitting = show_lethal

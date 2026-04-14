@@ -477,6 +477,8 @@ static func _validate_attacker_readiness(match_state: Dictionary, attacker: Dict
 		return _invalid_result("This creature cannot attack.")
 	if EvergreenRules.has_status(attacker, EvergreenRules.STATUS_SHACKLED):
 		return _invalid_result("Shackled creatures cannot attack.")
+	if _ensure_array(attacker.get("innate_statuses", [])).has("shackle_permanent_unless_equipped") and EvergreenRules.get_attached_items(attacker).is_empty():
+		return _invalid_result("Shackled creatures cannot attack.")
 
 	var attack_condition = attacker.get("attack_condition", {})
 	if typeof(attack_condition) == TYPE_DICTIONARY and not attack_condition.is_empty():

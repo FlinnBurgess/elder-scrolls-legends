@@ -145,6 +145,13 @@ static func log_trigger_resolution(match_state: Dictionary, resolution: Dictiona
 	_write("  [TRIGGER] \"%s\" (%s) -> %s" % [card_name, family, effects_str])
 
 
+static func write_debug(line: String) -> void:
+	print(line)
+	if _trace_file != null:
+		_flush_trace_buffer()
+		_write_trace(line)
+
+
 static func close() -> void:
 	_active_match_state = {}
 	if _file != null:

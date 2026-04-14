@@ -288,13 +288,36 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 							"prompt": "Choose a card to draw.",
 						})
 					else:
-						var pick_idx: int = dfdf_candidates[MatchEffectParams._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_dfdf", dfdf_candidates.size())]
-						var drawn: Dictionary = dfdf_deck[pick_idx]
-						dfdf_deck.remove_at(pick_idx)
-						drawn["zone"] = ZONE_HAND
+						var dfdf_count := int(effect.get("count", 1))
+						var dfdf_unique := bool(effect.get("unique", false))
 						var dfdf_hand: Array = dfdf_player.get(ZONE_HAND, [])
-						dfdf_hand.append(drawn)
-						generated_events.append({"event_type": "card_drawn", "player_id": player_id, "drawn_instance_id": str(drawn.get("instance_id", "")), "source": "draw_from_deck_filtered", "reason": reason})
+						var dfdf_drawn_def_ids: Array = []
+						for _draw_i in range(dfdf_count):
+							if dfdf_candidates.is_empty():
+								break
+							if dfdf_unique and not dfdf_drawn_def_ids.is_empty():
+								var dfdf_filtered: Array = []
+								for ci in dfdf_candidates:
+									if not dfdf_drawn_def_ids.has(str(dfdf_deck[ci].get("definition_id", ""))):
+										dfdf_filtered.append(ci)
+								dfdf_candidates = dfdf_filtered
+								if dfdf_candidates.is_empty():
+									break
+							var pick_idx: int = dfdf_candidates[MatchEffectParams._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_dfdf_" + str(_draw_i), dfdf_candidates.size())]
+							var drawn: Dictionary = dfdf_deck[pick_idx]
+							if dfdf_unique:
+								dfdf_drawn_def_ids.append(str(drawn.get("definition_id", "")))
+							dfdf_deck.remove_at(pick_idx)
+							drawn["zone"] = ZONE_HAND
+							dfdf_hand.append(drawn)
+							generated_events.append({"event_type": "card_drawn", "player_id": player_id, "drawn_instance_id": str(drawn.get("instance_id", "")), "source": "draw_from_deck_filtered", "reason": reason})
+							var dfdf_adjusted: Array = []
+							for ci in dfdf_candidates:
+								if ci < pick_idx:
+									dfdf_adjusted.append(ci)
+								elif ci > pick_idx:
+									dfdf_adjusted.append(ci - 1)
+							dfdf_candidates = dfdf_adjusted
 		"draw_specific_from_deck":
 			var dsfd_source_id := str(trigger.get("source_instance_id", ""))
 			var dsfd_controller := str(trigger.get("controller_player_id", ""))

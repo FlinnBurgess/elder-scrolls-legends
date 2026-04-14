@@ -45,7 +45,8 @@ func _run_all_tests() -> bool:
 		_test_plot_effects_append_when_plot_active() and
 		_test_baandari_opportunist_copy_has_pilfer() and
 		_test_draw_from_deck_filtered_then_modify_stats_last_drawn() and
-		_test_end_of_turn_invaded_condition_resets_across_opponent_turn()
+		_test_end_of_turn_invaded_condition_resets_across_opponent_turn() and
+		_test_draw_from_deck_filtered_count_and_unique()
 	)
 
 
@@ -1169,6 +1170,48 @@ func _test_end_of_turn_invaded_condition_resets_across_opponent_turn() -> bool:
 			"Agent should get +1/+1 at end of controller's turn when invaded. Got +%d/+%d." % [after_p1_turn_power, after_p1_turn_health]) and
 		_assert(after_p2_turn_power == 1 and after_p2_turn_health == 1,
 			"Agent should NOT get another +1/+1 at end of opponent's turn. Got +%d/+%d." % [after_p2_turn_power, after_p2_turn_health])
+	)
+
+
+func _test_draw_from_deck_filtered_count_and_unique() -> bool:
+	var match_state := _build_started_match(10, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	# Seed 4 distinct 1-cost creatures into opponent's deck (arquebus owner)
+	_add_deck_card(opponent, "critter_a", {"card_type": "creature", "cost": 1, "power": 1, "health": 1})
+	_add_deck_card(opponent, "critter_b", {"card_type": "creature", "cost": 1, "power": 1, "health": 1})
+	_add_deck_card(opponent, "critter_c", {"card_type": "creature", "cost": 1, "power": 1, "health": 1})
+	_add_deck_card(opponent, "critter_d", {"card_type": "creature", "cost": 1, "power": 1, "health": 1})
+	# A 2-cost creature and an action that should NOT pass the filter
+	_add_deck_card(opponent, "expensive", {"card_type": "creature", "cost": 2, "power": 2, "health": 2})
+	_add_deck_card(opponent, "spell", {"card_type": "action", "cost": 1})
+	# Opponent's creature with last_gasp: draw 3 unique 1-cost creatures
+	var arquebus := _summon_creature(opponent, match_state, "arquebus", "field", 3, 3, [], 0, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_LAST_GASP,
+			"required_zone": "discard",
+			"effects": [{"op": "draw_from_deck_filtered", "target_player": "controller", "filter": {"card_type": "creature", "max_cost": 1}, "count": 3, "unique": true}],
+		}]
+	})
+	# Active player's creature kills it
+	var attacker := _summon_creature(active_player, match_state, "attacker", "field", 5, 5, [], 0)
+	_target_ready_for_attack(attacker, match_state)
+	_target_ready_for_attack(arquebus, match_state)
+	var hand_before: int = opponent.get("hand", []).size()
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], attacker["instance_id"], {
+		"type": "creature",
+		"instance_id": arquebus["instance_id"],
+	})
+	var hand_after: int = opponent.get("hand", []).size()
+	var drawn_count: int = hand_after - hand_before
+	var hand: Array = opponent.get("hand", [])
+	var unique_def_ids := {}
+	for i in range(hand_before, hand_after):
+		unique_def_ids[str(hand[i].get("definition_id", ""))] = true
+	return (
+		_assert(result["is_valid"], "Combat should resolve.") and
+		_assert(drawn_count == 3, "Should draw 3 creatures from last_gasp. Got %d." % drawn_count) and
+		_assert(unique_def_ids.size() == 3, "All 3 drawn cards should have different definition_ids. Got %d unique." % unique_def_ids.size())
 	)
 
 

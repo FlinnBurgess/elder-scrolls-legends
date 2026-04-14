@@ -30,7 +30,8 @@ func _run_all_tests() -> bool:
 		_test_amulet_of_mara_blocks_attack_between_wielders() and
 		_test_escalating_damage_sets_counter_on_card() and
 		_test_wounded_enemy_damage_immunity() and
-		_test_attack_condition_blocks_attack_without_action_played()
+		_test_attack_condition_blocks_attack_without_action_played() and
+		_test_shackle_permanent_unless_equipped()
 	)
 
 
@@ -525,6 +526,43 @@ func _test_attack_condition_blocks_attack_without_action_played() -> bool:
 		"instance_id": target["instance_id"],
 	})
 	return _assert(allowed["is_valid"], "Centurion should be able to attack after an action was played this turn.")
+
+
+func _test_shackle_permanent_unless_equipped() -> bool:
+	var match_state := _build_started_match(18, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var conscript := _summon_creature(active_player, match_state, "conscript", "field", 5, 4)
+	conscript["innate_statuses"] = ["shackle_permanent_unless_equipped"]
+	_target_ready_for_attack(conscript, match_state)
+	var target := _summon_creature(opponent, match_state, "target", "field", 2, 2)
+	_target_ready_for_attack(target, match_state)
+
+	# Without items: should be blocked
+	var blocked := MatchCombat.validate_attack(match_state, active_player["player_id"], conscript["instance_id"], {
+		"type": "creature",
+		"instance_id": target["instance_id"],
+	})
+
+	# Equip an item: should be allowed
+	conscript["attached_items"] = [{"instance_id": "test_sword", "definition_id": "test_sword", "card_type": "item", "power": 1, "health": 1}]
+	var allowed := MatchCombat.validate_attack(match_state, active_player["player_id"], conscript["instance_id"], {
+		"type": "creature",
+		"instance_id": target["instance_id"],
+	})
+
+	# Remove item: should be blocked again
+	conscript["attached_items"] = []
+	var blocked_again := MatchCombat.validate_attack(match_state, active_player["player_id"], conscript["instance_id"], {
+		"type": "creature",
+		"instance_id": target["instance_id"],
+	})
+
+	return (
+		_assert(not blocked["is_valid"], "Craven Conscript without items should be shackled and unable to attack.") and
+		_assert(allowed["is_valid"], "Craven Conscript with an equipped item should be able to attack.") and
+		_assert(not blocked_again["is_valid"], "Craven Conscript should be shackled again after item is removed.")
+	)
 
 
 func _assert(condition: bool, message: String) -> bool:

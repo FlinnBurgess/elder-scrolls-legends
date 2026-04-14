@@ -35,10 +35,10 @@
 		],
 		"health": 30.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [
-			null
-		],
-		"supports": []
+		"shadow_creatures": [],
+		"supports": [
+			"cwc_neu_abandoned_imperfect"
+		]
 	},
 	"lanes": [
 		{
@@ -54,17 +54,13 @@
 	"player": {
 		"current_magicka": 12.0,
 		"deck": [
-			"str_afflicted_alit",
-			"end_deathless_draugr",
-			"hom_end_skeleton_champion",
-			"end_haunting_spirit",
-			"hos_str_aelas_huntmate",
-			"exc_neu_adoring_fan",
-			"hos_str_aelas_huntmate",
-			"cwc_neu_clockwork_dragon",
 			"mc_dual_frostscale_dragon",
 			"hos_int_icewing_dragon",
-			"hos_neu_alduin"
+			"hos_neu_alduin",
+			"cwc_neu_abomination",
+			"wil_aldmeri_patriot",
+			"hos_neu_angry_villager",
+			"wil_imperial_grunt"
 		],
 		"discard": [
 			"str_bangkorai_butcher",
@@ -76,13 +72,14 @@
 		"field_creatures": [
 			null,
 			null,
-			"aw_tri_daggerfall_phantom"
+			null,
+			"aw_wil_guildsworn_honeytongue"
 		],
 		"hand": [
 			"wil_piercing_javelin",
 			"int_firebolt",
-			"str_silvenar_tracker",
-			"hom_end_indomitable_ordinator"
+			"str_belligerent_giant",
+			"end_daedric_dagger"
 		],
 		"has_ring": false,
 		"health": 30.0,
