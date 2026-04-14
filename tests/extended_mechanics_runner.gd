@@ -141,7 +141,8 @@ func _run_all_tests() -> bool:
 		_test_shackle_immune_clears_existing_shackle() and
 		_test_shackle_immune_blocks_new_shackle() and
 		_test_multi_battle_summon_fires_two_sequential_battles() and
-		_test_multi_battle_summon_skips_second_if_source_dies()
+		_test_multi_battle_summon_skips_second_if_source_dies() and
+		_test_discard_from_hand_filter_picks_highest_cost_action()
 	)
 
 
@@ -5363,3 +5364,45 @@ func _test_multi_battle_summon_skips_second_if_source_dies() -> bool:
 	if MatchTiming.has_pending_summon_effect_target(match_state, pid):
 		MatchTiming.decline_pending_summon_effect_target(match_state, pid)
 	return _assert(not MatchTiming.has_pending_summon_effect_target(match_state, pid), "Multi-battle death: no pending targets after source creature dies.")
+
+
+func _test_discard_from_hand_filter_picks_highest_cost_action() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var opp_id := str(opponent.get("player_id", ""))
+	# Give opponent a mix of cards: creature, cheap action, expensive action
+	var opp_creature := ScenarioFixtures.add_hand_card(opponent, "opp_creature", {"card_type": "creature", "cost": 10})
+	var opp_cheap_action := ScenarioFixtures.add_hand_card(opponent, "opp_cheap_action", {"card_type": "action", "cost": 2})
+	var opp_expensive_action := ScenarioFixtures.add_hand_card(opponent, "opp_expensive_action", {"card_type": "action", "cost": 7, "name": "Javelin of Destruction"})
+	var expensive_id := str(opp_expensive_action.get("instance_id", ""))
+	# Player summons creature with discard_from_hand filter: highest cost action
+	var magus := ScenarioFixtures.add_hand_card(player, "test_magus", {
+		"card_type": "creature", "cost": 0, "power": 5, "health": 5,
+		"triggered_abilities": [{"family": "summon", "effects": [{"op": "discard_from_hand", "target_player": "opponent", "filter": {"card_type": "action", "highest_cost": true}}]}],
+	})
+	LaneRules.summon_from_hand(match_state, pid, str(magus.get("instance_id", "")), "field", {})
+	# Verify: expensive action was discarded, cheap action and creature remain
+	var opp_hand_ids: Array = []
+	for c in opponent.get("hand", []):
+		opp_hand_ids.append(str(c.get("instance_id", "")))
+	if not _assert(not opp_hand_ids.has(expensive_id), "Discard filter: highest cost action should be removed from hand."):
+		return false
+	if not _assert(opp_hand_ids.has(str(opp_creature.get("instance_id", ""))), "Discard filter: creature should remain in hand."):
+		return false
+	if not _assert(opp_hand_ids.has(str(opp_cheap_action.get("instance_id", ""))), "Discard filter: cheap action should remain in hand."):
+		return false
+	# Verify: card_discarded event has revealed_card and controller_player_id
+	var found_reveal := false
+	for evt in match_state.get("event_log", []):
+		if str(evt.get("event_type", "")) == "card_discarded" and str(evt.get("instance_id", "")) == expensive_id:
+			if not _assert(not evt.get("revealed_card", {}).is_empty(), "Discard filter: card_discarded event should have revealed_card."):
+				return false
+			if not _assert(str(evt.get("controller_player_id", "")) == pid, "Discard filter: controller_player_id should be the summoning player."):
+				return false
+			if not _assert(str(evt.get("player_id", "")) == opp_id, "Discard filter: player_id should be the opponent."):
+				return false
+			found_reveal = true
+			break
+	return _assert(found_reveal, "Discard filter: should find card_discarded event with reveal data.")

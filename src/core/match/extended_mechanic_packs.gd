@@ -63,6 +63,8 @@ static func ensure_player_state(player: Dictionary) -> void:
 		player["creatures_died_this_turn"] = 0
 	if not player.has("invades_this_turn"):
 		player["invades_this_turn"] = 0
+	if not player.has("health_gained_this_turn"):
+		player["health_gained_this_turn"] = 0
 	if not player.has("card_types_played_this_turn"):
 		player["card_types_played_this_turn"] = []
 	if not player.has("wax_wane_state"):
@@ -84,6 +86,7 @@ static func reset_turn_state(player: Dictionary) -> void:
 	player["creature_summons_this_turn"] = 0
 	player["creatures_died_this_turn"] = 0
 	player["invades_this_turn"] = 0
+	player["health_gained_this_turn"] = 0
 	player["card_types_played_this_turn"] = []
 	player["pilfer_or_drain_count_this_turn"] = 0
 	player["lanes_creature_damaged_opponent_this_turn"] = []
@@ -137,6 +140,12 @@ static func observe_event(match_state: Dictionary, event: Dictionary) -> void:
 		if not invade_player.is_empty():
 			ensure_player_state(invade_player)
 			invade_player["invades_this_turn"] = int(invade_player.get("invades_this_turn", 0)) + 1
+		return
+	if event_type == "player_healed":
+		var heal_player := _get_player_state(match_state, str(event.get("target_player_id", "")))
+		if not heal_player.is_empty():
+			ensure_player_state(heal_player)
+			heal_player["health_gained_this_turn"] = int(heal_player.get("health_gained_this_turn", 0)) + int(event.get("amount", 0))
 		return
 	if event_type == EVENT_DAMAGE_RESOLVED and str(event.get("target_type", "")) == "player":
 		var target_player_id := str(event.get("target_player_id", ""))

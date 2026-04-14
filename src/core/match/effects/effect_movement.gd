@@ -608,9 +608,33 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			var dfh_controller_id := str(trigger.get("controller_player_id", ""))
 			var dfh_target_player := str(effect.get("target_player", "controller"))
 			var dfh_player_id := dfh_controller_id if dfh_target_player == "controller" else MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), dfh_controller_id)
-			var dfh_count := int(effect.get("count", 1))
-			var dfh_result := MatchMutations.discard_from_hand(match_state, dfh_player_id, dfh_count, {"reason": reason})
-			generated_events.append_array(dfh_result.get("events", []))
+			var dfh_filter: Dictionary = effect.get("filter", {})
+			if not dfh_filter.is_empty():
+				var dfh_player := MatchTimingHelpers._get_player_state(match_state, dfh_player_id)
+				if not dfh_player.is_empty():
+					var dfh_hand: Array = dfh_player.get(ZONE_HAND, [])
+					var dfh_candidates: Array = []
+					var dfh_type_filter := str(dfh_filter.get("card_type", ""))
+					for dfh_card in dfh_hand:
+						if typeof(dfh_card) != TYPE_DICTIONARY:
+							continue
+						if not dfh_type_filter.is_empty() and str(dfh_card.get("card_type", "")) != dfh_type_filter:
+							continue
+						dfh_candidates.append(dfh_card)
+					if not dfh_candidates.is_empty():
+						var dfh_picked: Dictionary = dfh_candidates[0]
+						if bool(dfh_filter.get("highest_cost", false)):
+							for dfh_c in dfh_candidates:
+								if int(dfh_c.get("cost", 0)) > int(dfh_picked.get("cost", 0)):
+									dfh_picked = dfh_c
+						var dfh_revealed := dfh_picked.duplicate(true)
+						var dfh_discard_result := MatchMutations.discard_card(match_state, str(dfh_picked.get("instance_id", "")), {"reason": reason})
+						generated_events.append_array(dfh_discard_result.get("events", []))
+						generated_events.append({"event_type": "card_discarded", "player_id": dfh_player_id, "controller_player_id": dfh_controller_id, "instance_id": str(dfh_picked.get("instance_id", "")), "source": "discard_from_hand", "reason": reason, "revealed_card": dfh_revealed})
+			else:
+				var dfh_count := int(effect.get("count", 1))
+				var dfh_result := MatchMutations.discard_from_hand(match_state, dfh_player_id, dfh_count, {"reason": reason})
+				generated_events.append_array(dfh_result.get("events", []))
 		"discard_random":
 			var dr_controller_id := str(trigger.get("controller_player_id", ""))
 			var dr_target_player := str(effect.get("target_player", "opponent"))

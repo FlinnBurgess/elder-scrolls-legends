@@ -1,29 +1,5 @@
 [
 	{
-		"card_id": "iom_str_grummite_magus",
-		"name": "Grummite Magus",
-		"card_type": "creature",
-		"cost": 7,
-		"attributes": [
-			"strength"
-		],
-		"rules_text": "Guard\nSummon: Your opponent discards the highest cost action in their hand.",
-		"stripped_text": "Summon: Your opponent discards the highest cost action in their hand.",
-		"complexity": 69
-	},
-	{
-		"card_id": "mc_wil_conjurers_spirit",
-		"name": "Conjurer's Spirit",
-		"card_type": "support",
-		"cost": 3,
-		"attributes": [
-			"willpower"
-		],
-		"rules_text": "Ongoing\nAt the end of your turn, if you gained health, summon a 2/2 Familiar.",
-		"stripped_text": "At the end of your turn, if you gained health, summon a 2/2 Familiar.",
-		"complexity": 69
-	},
-	{
 		"card_id": "int_craglorn_scavenger",
 		"name": "Craglorn Scavenger",
 		"card_type": "creature",

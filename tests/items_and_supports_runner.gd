@@ -62,7 +62,9 @@ func _run_all_tests() -> bool:
 		# Transitus Shrine type filter
 		_test_transitus_shrine_only_discounts_creatures_and_actions() and
 		# Daggerfall Phantom last gasp
-		_test_last_gasp_returns_equipped_items_to_hand()
+		_test_last_gasp_returns_equipped_items_to_hand() and
+		# Conjurer's Spirit health-gained condition
+		_test_end_of_turn_support_fires_when_health_gained()
 	)
 
 
@@ -1498,6 +1500,51 @@ func _test_last_gasp_returns_equipped_items_to_hand() -> bool:
 		_assert(not dagger_in_discard, "Dagger should not remain in discard after last gasp.") and
 		_assert(not sword_in_discard, "Sword should not remain in discard after last gasp.")
 	)
+
+
+func _test_end_of_turn_support_fires_when_health_gained() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player["player_id"])
+	# Add a support with end_of_turn trigger conditioned on health gained
+	var support := _add_hand_card(player, "conjurers_spirit", {
+		"card_type": "support",
+		"cost": 0,
+		"support_uses": 0,
+		"triggered_abilities": [{"family": "end_of_turn", "required_zone": "support", "required_gained_health_this_turn": true, "effects": [{"op": "summon_from_effect", "lane": "random", "card_template": {"definition_id": "familiar_token", "name": "Familiar", "card_type": "creature", "attributes": ["willpower"], "cost": 2, "power": 2, "health": 2, "base_power": 2, "base_health": 2, "subtypes": [], "rules_text": ""}}]}],
+	})
+	PersistentCardRules.play_support_from_hand(match_state, pid, str(support["instance_id"]))
+	# Simulate player gaining health via a player_healed event
+	MatchTiming.publish_events(match_state, [{"event_type": "player_healed", "target_player_id": pid, "source_instance_id": "heal_source", "amount": 5}])
+	# End turn — should trigger the support's end_of_turn ability
+	MatchTurnLoop.end_turn(match_state, pid)
+	# Check that a Familiar was summoned in some lane
+	var familiar_found := false
+	for lane in match_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(pid, []):
+			if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == "familiar_token":
+				familiar_found = true
+	if not _assert(familiar_found, "Conjurer's Spirit: should summon a Familiar when health was gained this turn."):
+		return false
+	# Verify it does NOT fire when no health was gained
+	var match_state2 := _build_started_match()
+	var player2: Dictionary = match_state2["players"][0]
+	var pid2 := str(player2["player_id"])
+	var support2 := _add_hand_card(player2, "conjurers_spirit2", {
+		"card_type": "support",
+		"cost": 0,
+		"support_uses": 0,
+		"triggered_abilities": [{"family": "end_of_turn", "required_zone": "support", "required_gained_health_this_turn": true, "effects": [{"op": "summon_from_effect", "lane": "random", "card_template": {"definition_id": "familiar_token2", "name": "Familiar", "card_type": "creature", "attributes": ["willpower"], "cost": 2, "power": 2, "health": 2, "base_power": 2, "base_health": 2, "subtypes": [], "rules_text": ""}}]}],
+	})
+	PersistentCardRules.play_support_from_hand(match_state2, pid2, str(support2["instance_id"]))
+	# End turn WITHOUT healing — should not summon
+	MatchTurnLoop.end_turn(match_state2, pid2)
+	var familiar_found2 := false
+	for lane in match_state2.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(pid2, []):
+			if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == "familiar_token2":
+				familiar_found2 = true
+	return _assert(not familiar_found2, "Conjurer's Spirit: should NOT summon a Familiar when no health was gained.")
 
 
 func _assert(condition: bool, message: String) -> bool:

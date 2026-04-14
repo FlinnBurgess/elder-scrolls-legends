@@ -30,7 +30,11 @@
 			},
 			"cwc_neu_abomination"
 		],
-		"hand": [],
+		"hand": [
+			"hos_neu_a_night_to_remember",
+			"aw_int_abnur_tharn",
+			"hos_wil_a_land_divided"
+		],
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [],
@@ -69,22 +73,18 @@
 			"aw_wil_gray_viper_brigand",
 			"aw_wil_gray_viper_brigand"
 		],
-		"field_creatures": [
-			null,
-			null,
-			null
-		],
+		"field_creatures": [],
 		"hand": [
 			"wil_piercing_javelin",
 			"int_firebolt",
-			"cwc_str_hunter_killers"
+			"wil_healing_potion"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [],
 		"supports": [
-			"db_agi_brotherhood_sanctuary"
+			"mc_wil_conjurers_spirit"
 		]
 	},
 	"type": "kill"
