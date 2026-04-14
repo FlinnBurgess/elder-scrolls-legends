@@ -110,7 +110,7 @@ static func observe_event(match_state: Dictionary, event: Dictionary) -> void:
 		if _ct != "" and not _ctptt.has(_ct):
 			_ctptt.append(_ct)
 			player["card_types_played_this_turn"] = _ctptt
-		if _ct != "creature":
+		if _ct != "creature" and str(event.get("source_zone", "")) == ZONE_HAND:
 			player["noncreature_plays_this_turn"] = int(player.get("noncreature_plays_this_turn", 0)) + 1
 		return
 	if event_type == "creature_destroyed":
@@ -1975,6 +1975,7 @@ static func _resolve_invade(match_state: Dictionary, trigger: Dictionary) -> Arr
 		"event_type": "invade_triggered",
 		"player_id": controller_player_id,
 		"controller_player_id": controller_player_id,
+		"source_instance_id": str(trigger.get("source_instance_id", "")),
 	}
 	if from_on_invade:
 		invade_event["from_on_invade"] = true

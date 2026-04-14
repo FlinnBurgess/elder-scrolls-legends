@@ -41,6 +41,8 @@ func _record_feedback_from_events(events: Array) -> void:
 	var soulburst_target_id := ""
 	var stitch_instance_id := ""
 	var stitch_source_creatures: Array = []
+	var mankar_camoran_id := ""
+	var gate_upgrade_id := ""
 	var now = _screen._feedback_now_ms()
 	for event in events:
 		if typeof(event) != TYPE_DICTIONARY:
@@ -299,6 +301,17 @@ func _record_feedback_from_events(events: Array) -> void:
 				var cu_value := int(event.get("value", 0))
 				var cu_threshold := int(event.get("threshold", 0))
 				_screen._queue_creature_toast(str(event.get("source_instance_id", "")), "%d/%d" % [cu_value, cu_threshold], Color.WHITE)
+			"invade_triggered":
+				var it_source_id := str(event.get("source_instance_id", ""))
+				if mankar_camoran_id.is_empty() and not it_source_id.is_empty():
+					var it_source_card: Dictionary = _screen._card_from_instance_id(it_source_id)
+					if str(it_source_card.get("definition_id", "")) == "joo_dual_mankar_camoran":
+						mankar_camoran_id = it_source_id
+			"oblivion_gate_upgraded":
+				var ogu_id := str(event.get("source_instance_id", ""))
+				if not ogu_id.is_empty():
+					gate_upgrade_id = ogu_id
+				_screen._queue_creature_toast(ogu_id, "GATE LEVEL UP!", Color(0.9, 0.3, 0.1))
 	if not milled_instance_ids.is_empty():
 		var milled_cards: Array = []
 		for mid in milled_instance_ids:
@@ -321,6 +334,10 @@ func _record_feedback_from_events(events: Array) -> void:
 				"target_position": sb_pos,
 				"target_size": sb_size,
 			}
+	if not mankar_camoran_id.is_empty():
+		_animate_mankar_camoran_glow(mankar_camoran_id)
+	if not gate_upgrade_id.is_empty():
+		_animate_gate_upgrade_glow(gate_upgrade_id)
 
 
 func _animate_card_draw(player_id: String, instance_id: String, stack_index: int) -> void:
@@ -1143,5 +1160,233 @@ void fragment() {
 	float emission = 1.0 + intensity * intensity * 2.0;
 
 	COLOR = vec4(col * flicker * emission, alpha);
+}
+"""
+
+
+func _animate_mankar_camoran_glow(instance_id: String) -> void:
+	var btn: Button = _screen._card_buttons.get(instance_id) as Button
+	if btn == null or not is_instance_valid(btn):
+		return
+	var card_size: Vector2 = btn.get_meta("card_size", btn.size)
+	var card_pos: Vector2 = btn.global_position
+	# Account for the float offset when the card is in ready-to-attack state
+	if _floating_card_ids.has(instance_id):
+		card_pos += _screen.LANE_CARD_FLOAT_OFFSET
+
+	var padding := 14.0
+	var overlay := ColorRect.new()
+	overlay.name = "mankar_magic_glow"
+	overlay.position = card_pos - Vector2(padding, padding)
+	overlay.size = card_size + Vector2(padding * 2, padding * 2)
+	overlay.custom_minimum_size = overlay.size
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.z_index = 480
+	overlay.color = Color.WHITE
+
+	var shader := Shader.new()
+	shader.code = _mankar_magic_shader_code()
+	var mat := ShaderMaterial.new()
+	mat.shader = shader
+	mat.set_shader_parameter("intensity", 0.0)
+	overlay.material = mat
+	_screen.add_child(overlay)
+
+	overlay.modulate = Color(1, 1, 1, 0)
+	var tween: Tween = _screen.create_tween()
+	tween.tween_property(overlay, "modulate:a", 1.0, 0.25).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_method(func(v: float): mat.set_shader_parameter("intensity", v), 0.0, 1.0, 0.3)
+	tween.tween_interval(0.7)
+	tween.tween_property(overlay, "modulate:a", 0.0, 0.35).set_ease(Tween.EASE_IN)
+	tween.tween_callback(func():
+		if is_instance_valid(overlay):
+			overlay.queue_free()
+	)
+
+
+func _animate_gate_upgrade_glow(instance_id: String) -> void:
+	var btn: Button = _screen._card_buttons.get(instance_id) as Button
+	if btn == null or not is_instance_valid(btn):
+		return
+	var card_size: Vector2 = btn.get_meta("card_size", btn.size)
+	var card_pos: Vector2 = btn.global_position
+
+	var padding := 10.0
+	var overlay := ColorRect.new()
+	overlay.name = "gate_fire_glow"
+	overlay.position = card_pos - Vector2(padding, padding)
+	overlay.size = card_size + Vector2(padding * 2, padding * 2)
+	overlay.custom_minimum_size = overlay.size
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.z_index = 480
+	overlay.color = Color.WHITE
+
+	var shader := Shader.new()
+	shader.code = _gate_fire_shader_code()
+	var mat := ShaderMaterial.new()
+	mat.shader = shader
+	mat.set_shader_parameter("intensity", 0.0)
+	overlay.material = mat
+	_screen.add_child(overlay)
+
+	overlay.modulate = Color(1, 1, 1, 0)
+	var tween: Tween = _screen.create_tween()
+	tween.tween_property(overlay, "modulate:a", 1.0, 0.35).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_method(func(v: float): mat.set_shader_parameter("intensity", v), 0.0, 1.0, 0.4)
+	tween.tween_interval(0.8)
+	tween.tween_method(func(v: float): mat.set_shader_parameter("intensity", v), 1.0, 0.0, 0.5).set_ease(Tween.EASE_IN)
+	tween.parallel().tween_property(overlay, "modulate:a", 0.0, 0.5).set_ease(Tween.EASE_IN)
+	tween.tween_callback(func():
+		if is_instance_valid(overlay):
+			overlay.queue_free()
+	)
+
+
+func _mankar_magic_shader_code() -> String:
+	return """
+shader_type canvas_item;
+
+uniform float intensity : hint_range(0.0, 1.0) = 0.0;
+
+float hash(vec2 p) {
+	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+float noise(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	float a = hash(i);
+	float b = hash(i + vec2(1.0, 0.0));
+	float c = hash(i + vec2(0.0, 1.0));
+	float d = hash(i + vec2(1.0, 1.0));
+	return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+float fbm(vec2 p) {
+	float val = 0.0;
+	float amp = 0.5;
+	for (int i = 0; i < 4; i++) {
+		val += amp * noise(p);
+		p *= 2.1;
+		amp *= 0.5;
+	}
+	return val;
+}
+
+void fragment() {
+	vec2 uv = UV;
+
+	// Edge mask — glow concentrated at card boundaries
+	float edge_x = min(uv.x, 1.0 - uv.x);
+	float edge_y = min(uv.y, 1.0 - uv.y);
+	float edge = min(edge_x, edge_y);
+	float edge_mask = 1.0 - smoothstep(0.0, 0.15, edge);
+
+	// Swirling arcane noise
+	float dist = distance(uv, vec2(0.5, 0.5));
+	float angle = atan(uv.y - 0.5, uv.x - 0.5);
+	vec2 swirl_uv = vec2(angle * 2.0 + TIME * 1.5, dist * 6.0 - TIME * 2.0);
+	float n = fbm(swirl_uv);
+	float n2 = fbm(swirl_uv * 1.3 + vec2(3.7, TIME * 0.8));
+
+	// Arcane particle sparkles
+	float particles = pow(noise(uv * 20.0 + vec2(TIME * 1.2, -TIME * 0.8)), 8.0);
+
+	// Color: deep purple -> cyan -> white at peak
+	vec3 col_deep = vec3(0.25, 0.05, 0.45);
+	vec3 col_mid = vec3(0.3, 0.4, 0.9);
+	vec3 col_bright = vec3(0.5, 0.85, 1.0);
+	vec3 col_hot = vec3(0.9, 0.95, 1.0);
+
+	float color_t = n * 0.6 + n2 * 0.4;
+	vec3 col = mix(col_deep, col_mid, smoothstep(0.2, 0.5, color_t));
+	col = mix(col, col_bright, smoothstep(0.45, 0.7, color_t));
+	col = mix(col, col_hot, smoothstep(0.7, 0.95, color_t));
+
+	// Add particle sparkle at edges
+	col += vec3(0.8, 0.9, 1.0) * particles * 3.0 * edge_mask;
+
+	// Pulsing emission
+	float pulse = 0.8 + 0.2 * sin(TIME * 4.0);
+	float emission = 1.0 + intensity * 1.5;
+
+	float alpha = edge_mask * (0.5 + n * 0.5) * intensity * pulse;
+
+	COLOR = vec4(col * emission * pulse, alpha * 0.85);
+}
+"""
+
+
+func _gate_fire_shader_code() -> String:
+	return """
+shader_type canvas_item;
+
+uniform float intensity : hint_range(0.0, 1.0) = 0.0;
+
+float hash(vec2 p) {
+	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+float noise(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	float a = hash(i);
+	float b = hash(i + vec2(1.0, 0.0));
+	float c = hash(i + vec2(0.0, 1.0));
+	float d = hash(i + vec2(1.0, 1.0));
+	return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+float fbm(vec2 p) {
+	float val = 0.0;
+	float amp = 0.5;
+	for (int i = 0; i < 5; i++) {
+		val += amp * noise(p);
+		p *= 2.2;
+		amp *= 0.5;
+	}
+	return val;
+}
+
+void fragment() {
+	vec2 uv = UV;
+
+	// Edge distance — fire at borders
+	float edge_x = min(uv.x, 1.0 - uv.x);
+	float edge_y = min(uv.y, 1.0 - uv.y);
+	float edge = min(edge_x, edge_y);
+	float edge_mask = 1.0 - smoothstep(0.0, 0.2 + (1.0 - intensity) * 0.15, edge);
+
+	// Fire noise — scrolls upward
+	vec2 noise_uv = vec2(uv.x * 5.0, uv.y * 4.0 - TIME * 4.5);
+	float n = fbm(noise_uv);
+	float n2 = fbm(noise_uv * 1.6 + vec2(4.2, -TIME * 2.5));
+
+	// Bottom-heavy flame bias
+	float bottom_bias = smoothstep(0.3, 1.0, uv.y);
+	float flame_shape = edge_mask + bottom_bias * 0.3 * n;
+
+	// Color: deep crimson -> blood red -> bright red-orange
+	vec3 col_dark = vec3(0.3, 0.0, 0.0);
+	vec3 col_red = vec3(0.75, 0.05, 0.0);
+	vec3 col_bright = vec3(0.95, 0.2, 0.02);
+	vec3 col_hot = vec3(1.0, 0.45, 0.1);
+
+	float color_t = flame_shape * (0.6 + n2 * 0.4);
+	vec3 col = mix(col_dark, col_red, smoothstep(0.0, 0.25, color_t));
+	col = mix(col, col_bright, smoothstep(0.2, 0.5, color_t));
+	col = mix(col, col_hot, smoothstep(0.5, 0.85, color_t));
+
+	// Flickering
+	float flicker = 0.85 + 0.15 * noise(vec2(uv.x * 4.0, TIME * 9.0));
+
+	// Emission boost with intensity
+	float emission = 1.0 + intensity * intensity * 2.5;
+
+	float alpha = flame_shape * intensity;
+
+	COLOR = vec4(col * flicker * emission, alpha * 0.9);
 }
 """
