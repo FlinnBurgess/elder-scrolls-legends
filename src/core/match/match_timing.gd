@@ -188,7 +188,7 @@ const FAMILY_SPECS := {
 	FAMILY_ON_SUPPORT_COUNT_REACHED: {"event_type": EVENT_CARD_PLAYED, "window": WINDOW_AFTER, "match_role": "controller", "required_played_card_type": "support"},
 	FAMILY_ON_OPPONENT_CARD_DRAWN: {"event_type": EVENT_CARD_DRAWN, "window": WINDOW_AFTER, "match_role": "opponent_player"},
 	FAMILY_AFTER_FRIENDLY_ACTION_DAMAGES_ENEMY: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "controller", "damage_kind": "ability", "target_type": "creature", "required_source_card_type": "action", "required_target_is_enemy": true, "deferred_visual": true},
-	FAMILY_ON_FRIENDLY_PILFER_OR_DRAIN: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "controller", "target_type": "player", "min_amount": 1},
+	FAMILY_ON_FRIENDLY_PILFER_OR_DRAIN: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "controller", "target_type": "player", "min_amount": 1, "required_source_has_pilfer_or_drain": true},
 	FAMILY_ON_FRIENDLY_CREATURE_DEATH_COUNT: {"event_type": EVENT_CREATURE_DESTROYED, "window": WINDOW_AFTER, "match_role": "opponent_player"},
 	FAMILY_ON_ENEMY_STAT_REDUCTION: {"event_type": "stats_modified", "window": WINDOW_AFTER, "match_role": "opponent_player", "require_negative_stat_bonus": true},
 	FAMILY_ON_FRIENDLY_DRAGON_DAMAGE: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "controller", "required_source_subtype": "Dragon", "target_type": "creature"},
@@ -385,6 +385,12 @@ static func resolve_targeted_effect(match_state: Dictionary, source_instance_id:
 			if int(ab.get("exalt_cost", 0)) <= 0:
 				non_exalt_abilities.append(ab)
 		abilities = non_exalt_abilities
+	# If a specific ability index was requested (multi-summon like Hunter-Killers),
+	# select that ability directly before family/exalt filtering. The index refers
+	# to the position in the full get_target_mode_abilities() list.
+	var forced_ability_index: int = int(options.get("_ability_index", -1))
+	if forced_ability_index >= 0 and forced_ability_index < abilities.size():
+		abilities = [abilities[forced_ability_index]]
 	if abilities.is_empty():
 		return {"is_valid": false, "errors": ["No target_mode abilities on card."], "events": [], "trigger_resolutions": []}
 	# Determine which ability matches the chosen target
@@ -1274,6 +1280,11 @@ static func resolve_pending_summon_effect_target(match_state: Dictionary, player
 		return {"is_valid": false, "errors": ["No pending summon effect target for %s." % player_id]}
 	pending.remove_at(idx)
 	var source_id := str(entry.get("source_instance_id", ""))
+	# If the source creature died (e.g. during a prior battle), skip this entry.
+	var source_loc := MatchMutations.find_card_location(match_state, source_id)
+	var source_card_type := str(source_loc.get("card", {}).get("card_type", ""))
+	if source_card_type == "creature" and str(source_loc.get("zone", "")) != ZONE_LANE:
+		return {"is_valid": true, "events": [], "trigger_resolutions": []}
 	# Deferred choice path: effects from a choose_one that needed a target selection
 	var deferred_effects: Array = entry.get("_choice_deferred_effects", [])
 	if typeof(deferred_effects) == TYPE_ARRAY and not deferred_effects.is_empty():
@@ -1301,6 +1312,9 @@ static func resolve_pending_summon_effect_target(match_state: Dictionary, player
 	var entry_families: Array = entry.get("allowed_families", [])
 	if typeof(entry_families) == TYPE_ARRAY and not entry_families.is_empty():
 		resolve_options["allowed_families"] = entry_families
+	var entry_ability_index = entry.get("_ability_index", -1)
+	if typeof(entry_ability_index) == TYPE_INT and entry_ability_index >= 0:
+		resolve_options["_ability_index"] = entry_ability_index
 	var resolve_result := resolve_targeted_effect(match_state, source_id, target_info, resolve_options)
 	# Yagrum's Workshop: double targeted summon for neutral cards
 	if resolve_result.get("is_valid", false):
@@ -1689,23 +1703,30 @@ static func _check_summon_effect_target_mode(match_state: Dictionary, summoned_c
 	var valid := MatchTargeting.get_all_valid_targets(match_state, instance_id)
 	if valid.is_empty():
 		return
-	var is_mandatory := false
-	for ab in summon_abilities:
-		if bool(ab.get("mandatory", false)):
-			is_mandatory = true
-			break
 	var allowed_families: Array = []
 	for ab in summon_abilities:
 		var fam := str(ab.get("family", ""))
 		if not fam.is_empty() and not allowed_families.has(fam):
 			allowed_families.append(fam)
+	# Build the full filtered ability list (same filtering resolve_targeted_effect uses)
+	# so _ability_index values are stable.
+	var all_target_abilities := MatchTargeting.get_target_mode_abilities(summoned_card)
+	var filtered_indices: Array = []
+	for i in range(all_target_abilities.size()):
+		var ab: Dictionary = all_target_abilities[i]
+		if not summon_abilities.has(ab):
+			continue
+		filtered_indices.append(i)
 	var pending_arr: Array = match_state.get("pending_summon_effect_targets", [])
-	pending_arr.append({
-		"player_id": controller_id,
-		"source_instance_id": instance_id,
-		"mandatory": is_mandatory,
-		"allowed_families": allowed_families,
-	})
+	for fi in range(filtered_indices.size()):
+		var ab: Dictionary = all_target_abilities[filtered_indices[fi]]
+		pending_arr.append({
+			"player_id": controller_id,
+			"source_instance_id": instance_id,
+			"mandatory": bool(ab.get("mandatory", false)),
+			"allowed_families": allowed_families,
+			"_ability_index": filtered_indices[fi],
+		})
 
 
 static func _summon_ability_conditions_met(match_state: Dictionary, card: Dictionary, descriptor: Dictionary) -> bool:

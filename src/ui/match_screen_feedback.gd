@@ -909,6 +909,40 @@ func _animate_enemy_support_activation_arrow(action: Dictionary, _result: Dictio
 	)
 
 
+func _animate_enemy_turn_trigger_arrow(action: Dictionary, _result: Dictionary) -> void:
+	var params: Dictionary = action.get("parameters", {})
+	var source_id := str(params.get("source_instance_id", ""))
+	var target_id := str(params.get("target_instance_id", ""))
+	if source_id.is_empty() or target_id.is_empty():
+		_screen._refresh_ui()
+		return
+	var source_button: Button = _screen._card_buttons.get(source_id)
+	var target_button: Button = _screen._card_buttons.get(target_id)
+	if source_button == null or not is_instance_valid(source_button) or target_button == null or not is_instance_valid(target_button):
+		_screen._refresh_ui()
+		return
+	var src_size: Vector2 = source_button.get_meta("card_size", source_button.size)
+	var tgt_size: Vector2 = target_button.get_meta("card_size", target_button.size)
+	var arrow_start := source_button.global_position + Vector2(src_size.x * 0.5, 0.0)
+	var arrow_end := target_button.global_position + Vector2(tgt_size.x * 0.5, tgt_size.y)
+	var arrow := Line2D.new()
+	arrow.width = 4.0
+	arrow.default_color = Color(0.8, 0.6, 0.3, 0.95)
+	arrow.z_index = 500
+	arrow.antialiased = true
+	_screen._prophecy_card_overlay.add_child(arrow)
+	var tween = _screen.create_tween()
+	tween.tween_method(func(progress: float):
+		_draw_spell_reveal_arrow_partial(progress, arrow, arrow_start, arrow_end)
+	, 0.0, 1.0, 0.3)
+	tween.tween_interval(0.35)
+	tween.tween_callback(func():
+		if arrow != null and is_instance_valid(arrow):
+			arrow.queue_free()
+		_screen._refresh_ui()
+	)
+
+
 func _dismiss_deck_reveal() -> void:
 	var panel: Control = _screen._overlays._deck_reveal_state.get("panel")
 	if panel != null and is_instance_valid(panel):

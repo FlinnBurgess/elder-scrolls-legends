@@ -205,16 +205,36 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var sc_source := MatchTimingHelpers._find_card_anywhere(match_state, sc_source_id)
 				var sc_source_loc := MatchMutations.find_card_location(match_state, sc_source_id)
 				var sc_target_loc := MatchMutations.find_card_location(match_state, sc_target_id)
+				if not bool(sc_source_loc.get("is_valid", false)) or not bool(sc_target_loc.get("is_valid", false)):
+					return
+				if str(sc_source_loc.get("zone", "")) != "lane" or str(sc_target_loc.get("zone", "")) != "lane":
+					return
 				var sc_source_lane := str(sc_source_loc.get("lane_id", ""))
 				var sc_target_lane := str(sc_target_loc.get("lane_id", ""))
+				var sc_source_lane_idx := int(sc_source_loc.get("lane_index", -1))
+				var sc_target_lane_idx := int(sc_target_loc.get("lane_index", -1))
+				var sc_source_slot := int(sc_source_loc.get("slot_index", -1))
+				var sc_target_slot := int(sc_target_loc.get("slot_index", -1))
 				var sc_source_controller := str(sc_source.get("controller_player_id", ""))
 				var sc_target_controller := str(card.get("controller_player_id", ""))
-				# Steal the target to source's controller
-				var sc_steal := MatchMutations.steal_card(match_state, sc_source_controller, sc_target_id, {})
-				generated_events.append_array(sc_steal.get("events", []))
-				# Give source to target's controller
-				var sc_give := MatchMutations.steal_card(match_state, sc_target_controller, sc_source_id, {})
-				generated_events.append_array(sc_give.get("events", []))
+				GameLogger.trc("EffectMisc", "swap_creatures", "src:%s(lane:%s,slot:%d,ctrl:%s) tgt:%s(lane:%s,slot:%d,ctrl:%s)" % [sc_source_id, sc_source_lane, sc_source_slot, sc_source_controller, sc_target_id, sc_target_lane, sc_target_slot, sc_target_controller])
+				# Detach both creatures from their current slots before placing,
+				# so neither lane appears full during reinsertion.
+				MatchMutations._detach_card(match_state, sc_source_loc)
+				MatchMutations._detach_card(match_state, sc_target_loc)
+				# Place target into source's old lane/slot under source's old controller
+				var sc_target_val := {"lane_id": sc_source_lane, "lane_index": sc_source_lane_idx, "slot_index": sc_source_slot}
+				MatchMutations._apply_lane_entry(match_state, sc_source_controller, card, sc_target_val, {"preserve_entered_lane_on_turn": true})
+				MatchMutations._sync_attached_item_controllers(card)
+				# Place source into target's old lane/slot under target's old controller
+				var sc_source_val := {"lane_id": sc_target_lane, "lane_index": sc_target_lane_idx, "slot_index": sc_target_slot}
+				MatchMutations._apply_lane_entry(match_state, sc_target_controller, sc_source, sc_source_val, {"preserve_entered_lane_on_turn": true})
+				MatchMutations._sync_attached_item_controllers(sc_source)
+				# Emit movement and stolen events
+				generated_events.append(MatchMutations._build_move_event(card, "lane", "lane", sc_source_controller))
+				generated_events.append({"event_type": "card_stolen", "source_instance_id": sc_target_id, "controller_player_id": sc_source_controller})
+				generated_events.append(MatchMutations._build_move_event(sc_source, "lane", "lane", sc_target_controller))
+				generated_events.append({"event_type": "card_stolen", "source_instance_id": sc_source_id, "controller_player_id": sc_target_controller})
 				generated_events.append({"event_type": "creatures_swapped", "source_instance_id": sc_source_id, "target_instance_id": sc_target_id})
 		"set_premium":
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):

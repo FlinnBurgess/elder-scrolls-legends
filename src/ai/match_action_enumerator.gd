@@ -194,7 +194,7 @@ static func enumerate_legal_actions(match_state: Dictionary, player_id: String =
 		for target_info in MatchTiming.get_valid_targets_for_mode(match_state, source_id, target_mode, {}):
 			var tid := str(target_info.get("instance_id", ""))
 			var tpid := str(target_info.get("player_id", ""))
-			var params := {}
+			var params := {"source_instance_id": source_id}
 			if not tid.is_empty():
 				params["target_instance_id"] = tid
 			if not tpid.is_empty():

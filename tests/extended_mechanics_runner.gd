@@ -136,7 +136,12 @@ func _run_all_tests() -> bool:
 		_test_equip_random_item_fires_on_play_effects() and
 		_test_unicorn_aura_only_grants_charge_to_lower_power() and
 		_test_heretic_conjurer_pilfer_transforms_summoned_to_daedra() and
-		_test_heretic_conjurer_transform_clears_gate_restrictions()
+		_test_heretic_conjurer_transform_clears_gate_restrictions() and
+		_test_equip_from_effect_does_not_trigger_expertise() and
+		_test_shackle_immune_clears_existing_shackle() and
+		_test_shackle_immune_blocks_new_shackle() and
+		_test_multi_battle_summon_fires_two_sequential_battles() and
+		_test_multi_battle_summon_skips_second_if_source_dies()
 	)
 
 
@@ -5196,3 +5201,165 @@ func _test_heretic_conjurer_transform_clears_gate_restrictions() -> bool:
 		_assert(not t_statuses.has("permanent_shackle"), "permanent_shackle status should be cleared after transform.") and
 		_assert(transformed.get("grants_immunity", []).is_empty() or not transformed.get("grants_immunity", []).has("silence"), "Silence immunity from gate should be cleared after transform.")
 	)
+
+
+func _test_equip_from_effect_does_not_trigger_expertise() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Creature with expertise: +1/+1 at end of turn if a non-creature was played
+	var expert := ScenarioFixtures.summon_creature(player, match_state, "expert", "field", 2, 2, [], -1, {
+		"triggered_abilities": [{
+			"event_type": MatchTiming.EVENT_TURN_ENDING,
+			"match_role": "controller",
+			"required_zone": "lane",
+			"family": "expertise",
+			"min_noncreature_plays_this_turn": 1,
+			"effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 1}],
+		}],
+	})
+	# Simulate an item equipped via effect (source_zone = "generated", not "hand")
+	ExtendedMechanicPacks.ensure_player_state(player)
+	ExtendedMechanicPacks.observe_event(match_state, {
+		"event_type": "card_played",
+		"playing_player_id": pid,
+		"player_id": pid,
+		"source_instance_id": "fake_item_001",
+		"source_controller_player_id": pid,
+		"source_zone": MatchMutations.ZONE_GENERATED,
+		"target_zone": "attached_item",
+		"card_type": "item",
+		"played_cost": 0,
+		"played_for_free": true,
+		"reason": "equip_random_item",
+	})
+	var noncreature_count := int(player.get("noncreature_plays_this_turn", 0))
+	# End turn and check expertise didn't trigger
+	MatchTurnLoop.end_turn(match_state, pid)
+	return (
+		_assert(noncreature_count == 0, "noncreature_plays_this_turn should be 0 after effect-equipped items (got %d)." % noncreature_count) and
+		_assert(EvergreenRules.get_power(expert) == 2 and EvergreenRules.get_health(expert) == 2, "Expertise should NOT trigger from items equipped via effects (expert stats should remain 2/2, got %d/%d)." % [EvergreenRules.get_power(expert), EvergreenRules.get_health(expert)])
+	)
+
+func _test_shackle_immune_clears_existing_shackle() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Summon a creature and shackle it
+	var creature := ScenarioFixtures.summon_creature(player, match_state, "shackle_target", "field", 3, 3)
+	EvergreenRules.add_status(creature, EvergreenRules.STATUS_SHACKLED)
+	creature["shackle_expires_on_turn"] = int(match_state.get("turn_number", 0)) + 1
+	# Grant shackle_immune via effect resolution (simulating Expunge)
+	var trigger := {"source_instance_id": pid + "_expunge"}
+	var event := {"source_instance_id": pid + "_expunge", "target_instance_id": pid + "_shackle_target"}
+	var effect := {"op": "grant_status", "target": "event_target", "status_id": "shackle_immune", "expires_end_of_turn": true}
+	EffectKeywords.apply("grant_status", match_state, trigger, event, effect, [], {})
+	return (
+		_assert(EvergreenRules.has_raw_status(creature, "shackle_immune"), "shackle_immune status should be granted.") and
+		_assert(not EvergreenRules.has_status(creature, EvergreenRules.STATUS_SHACKLED), "Existing shackle should be removed when shackle_immune is granted.") and
+		_assert(not creature.has("shackle_expires_on_turn"), "shackle_expires_on_turn should be erased when shackle is cleared by immunity.")
+	)
+
+func _test_shackle_immune_blocks_new_shackle() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Summon a creature and grant shackle_immune
+	var creature := ScenarioFixtures.summon_creature(player, match_state, "immune_target", "field", 3, 3)
+	EvergreenRules.add_status(creature, "shackle_immune")
+	# Try to shackle via the "shackle" op
+	var trigger := {"source_instance_id": pid + "_shackler"}
+	var event := {"source_instance_id": pid + "_shackler", "target_instance_id": pid + "_immune_target"}
+	var effect_shackle := {"op": "shackle", "target": "event_target"}
+	EffectKeywords.apply("shackle", match_state, trigger, event, effect_shackle, [], {})
+	if not _assert(not EvergreenRules.has_status(creature, EvergreenRules.STATUS_SHACKLED), "Shackle op should be blocked by shackle_immune status."):
+		return false
+	# Try to shackle via the "grant_status" op with status_id=shackled
+	var effect_grant := {"op": "grant_status", "target": "event_target", "status_id": "shackled"}
+	EffectKeywords.apply("grant_status", match_state, trigger, event, effect_grant, [], {})
+	return _assert(not EvergreenRules.has_status(creature, EvergreenRules.STATUS_SHACKLED), "grant_status with shackled should be blocked by shackle_immune status.")
+
+
+func _test_multi_battle_summon_fires_two_sequential_battles() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var enemy: Dictionary = ScenarioFixtures.player(match_state, 1)
+	# Summon two enemy creatures as battle targets
+	var enemy_a := ScenarioFixtures.summon_creature(enemy, match_state, "enemy_a", "field", 1, 5)
+	var enemy_b := ScenarioFixtures.summon_creature(enemy, match_state, "enemy_b", "field", 1, 5)
+	var enemy_a_id := str(enemy_a.get("instance_id", ""))
+	var enemy_b_id := str(enemy_b.get("instance_id", ""))
+	# Add Hunter-Killers to hand: two summon battle_creature abilities
+	var hunter := ScenarioFixtures.add_hand_card(player, "hunter_killers", {
+		"card_type": "creature", "cost": 0, "power": 3, "health": 4,
+		"triggered_abilities": [
+			{"family": "summon", "target_mode": "enemy_creature", "effects": [{"op": "battle_creature", "target": "chosen_target"}]},
+			{"family": "summon", "target_mode": "enemy_creature", "effects": [{"op": "battle_creature", "target": "chosen_target"}]},
+		],
+	})
+	var hunter_id := str(hunter.get("instance_id", ""))
+	LaneRules.summon_from_hand(match_state, pid, hunter_id, "field")
+	# Engine doesn't auto-queue pending entries for hand-played creatures — simulate
+	# what the UI does for multi-ability summon cards.
+	var lane_hunter := _find_lane_card(match_state, "field", pid, "test_hunter_killers")
+	MatchTiming._check_summon_effect_target_mode(match_state, lane_hunter)
+	# Should have TWO pending summon effect target entries
+	if not _assert(MatchTiming.has_pending_summon_effect_target(match_state, pid), "Multi-battle: should have pending summon effect target after summon."):
+		return false
+	# Resolve first battle target -> enemy_a
+	var result1 := MatchTiming.resolve_pending_summon_effect_target(match_state, pid, {"target_instance_id": enemy_a_id})
+	if not _assert(bool(result1.get("is_valid", false)), "Multi-battle: first battle resolution should be valid."):
+		return false
+	# enemy_a should have taken 3 damage
+	if not _assert(EvergreenRules.get_remaining_health(enemy_a) == 2, "Multi-battle: enemy_a should have 2 HP remaining after first battle (got %d)." % EvergreenRules.get_remaining_health(enemy_a)):
+		return false
+	# Should still have a second pending target
+	if not _assert(MatchTiming.has_pending_summon_effect_target(match_state, pid), "Multi-battle: should have second pending target after first battle resolves."):
+		return false
+	# Resolve second battle target -> enemy_b
+	var result2 := MatchTiming.resolve_pending_summon_effect_target(match_state, pid, {"target_instance_id": enemy_b_id})
+	if not _assert(bool(result2.get("is_valid", false)), "Multi-battle: second battle resolution should be valid."):
+		return false
+	# enemy_b should have taken 3 damage
+	if not _assert(EvergreenRules.get_remaining_health(enemy_b) == 2, "Multi-battle: enemy_b should have 2 HP remaining after second battle (got %d)." % EvergreenRules.get_remaining_health(enemy_b)):
+		return false
+	# No more pending targets
+	return _assert(not MatchTiming.has_pending_summon_effect_target(match_state, pid), "Multi-battle: no pending targets after both battles resolve.")
+
+
+func _test_multi_battle_summon_skips_second_if_source_dies() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var enemy: Dictionary = ScenarioFixtures.player(match_state, 1)
+	# Enemy creature strong enough to kill Hunter-Killers in the first battle
+	var enemy_a := ScenarioFixtures.summon_creature(enemy, match_state, "big_enemy", "field", 10, 10)
+	var enemy_b := ScenarioFixtures.summon_creature(enemy, match_state, "small_enemy", "field", 1, 1)
+	var enemy_a_id := str(enemy_a.get("instance_id", ""))
+	# Hunter-Killers with low health so it dies in the first battle
+	var hunter := ScenarioFixtures.add_hand_card(player, "hunter_killers_dies", {
+		"card_type": "creature", "cost": 0, "power": 3, "health": 4,
+		"triggered_abilities": [
+			{"family": "summon", "target_mode": "enemy_creature", "effects": [{"op": "battle_creature", "target": "chosen_target"}]},
+			{"family": "summon", "target_mode": "enemy_creature", "effects": [{"op": "battle_creature", "target": "chosen_target"}]},
+		],
+	})
+	var hunter_id := str(hunter.get("instance_id", ""))
+	LaneRules.summon_from_hand(match_state, pid, hunter_id, "field")
+	var lane_hunter := _find_lane_card(match_state, "field", pid, "test_hunter_killers_dies")
+	MatchTiming._check_summon_effect_target_mode(match_state, lane_hunter)
+	if not _assert(MatchTiming.has_pending_summon_effect_target(match_state, pid), "Multi-battle death: should have pending target after summon."):
+		return false
+	# Resolve first battle — Hunter-Killers fights 10/10, should die
+	var result1 := MatchTiming.resolve_pending_summon_effect_target(match_state, pid, {"target_instance_id": enemy_a_id})
+	if not _assert(bool(result1.get("is_valid", false)), "Multi-battle death: first battle resolution should be valid."):
+		return false
+	# Hunter-Killers should be dead
+	var loc := MatchMutations.find_card_location(match_state, hunter_id)
+	if not _assert(str(loc.get("zone", "")) == "discard", "Multi-battle death: Hunter-Killers should be in discard after fighting 10/10."):
+		return false
+	# Second pending entry exists but source is dead, so decline should clear it
+	if MatchTiming.has_pending_summon_effect_target(match_state, pid):
+		MatchTiming.decline_pending_summon_effect_target(match_state, pid)
+	return _assert(not MatchTiming.has_pending_summon_effect_target(match_state, pid), "Multi-battle death: no pending targets after source creature dies.")

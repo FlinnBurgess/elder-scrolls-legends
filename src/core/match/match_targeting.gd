@@ -429,7 +429,7 @@ static func _resolve_card_targets(match_state: Dictionary, trigger: Dictionary, 
 	if not filter_keyword.is_empty():
 		var filtered: Array = []
 		for card in targets:
-			if EvergreenRules.has_keyword(card, filter_keyword):
+			if EvergreenRules.has_keyword(card, filter_keyword) or _has_ability_family(card, filter_keyword):
 				filtered.append(card)
 		targets = filtered
 	var filter_attribute := str(effect.get("target_filter_attribute", ""))
@@ -955,4 +955,11 @@ static func _deterministic_random_index(match_state: Dictionary, context_id: Str
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
 	return rng.randi_range(0, pool_size - 1)
+
+
+static func _has_ability_family(card: Dictionary, family: String) -> bool:
+	for ability in card.get("triggered_abilities", []):
+		if typeof(ability) == TYPE_DICTIONARY and str(ability.get("family", "")) == family:
+			return true
+	return false
 

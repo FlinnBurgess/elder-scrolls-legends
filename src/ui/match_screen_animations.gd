@@ -1170,16 +1170,16 @@ func _animate_mankar_camoran_glow(instance_id: String) -> void:
 		return
 	var card_size: Vector2 = btn.get_meta("card_size", btn.size)
 	var card_pos: Vector2 = btn.global_position
-	# Account for the float offset when the card is in ready-to-attack state
 	if _floating_card_ids.has(instance_id):
 		card_pos += _screen.LANE_CARD_FLOAT_OFFSET
 
 	var padding := 14.0
+	var overlay_size := card_size + Vector2(padding * 2, padding * 2)
 	var overlay := ColorRect.new()
 	overlay.name = "mankar_magic_glow"
 	overlay.position = card_pos - Vector2(padding, padding)
-	overlay.size = card_size + Vector2(padding * 2, padding * 2)
-	overlay.custom_minimum_size = overlay.size
+	overlay.size = overlay_size
+	overlay.custom_minimum_size = overlay_size
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.z_index = 480
 	overlay.color = Color.WHITE
@@ -1189,6 +1189,8 @@ func _animate_mankar_camoran_glow(instance_id: String) -> void:
 	var mat := ShaderMaterial.new()
 	mat.shader = shader
 	mat.set_shader_parameter("intensity", 0.0)
+	# Tell the shader where the card face is so it stays transparent there
+	mat.set_shader_parameter("padding_uv", Vector2(padding / overlay_size.x, padding / overlay_size.y))
 	overlay.material = mat
 	_screen.add_child(overlay)
 
@@ -1247,6 +1249,7 @@ func _mankar_magic_shader_code() -> String:
 shader_type canvas_item;
 
 uniform float intensity : hint_range(0.0, 1.0) = 0.0;
+uniform vec2 padding_uv = vec2(0.1, 0.08);
 
 float hash(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
@@ -1307,11 +1310,22 @@ void fragment() {
 	// Add particle sparkle at edges
 	col += vec3(0.8, 0.9, 1.0) * particles * 3.0 * edge_mask;
 
+	// Rounded rectangle outer mask
+	float cr = 0.07;
+	vec2 q = abs(uv - 0.5) - (0.5 - cr);
+	float rect_dist = length(max(q, 0.0)) - cr;
+	float rect_mask = 1.0 - smoothstep(0.0, 0.01, rect_dist);
+
+	// Inner card cutout — keep the card face area transparent
+	float inner_x = smoothstep(padding_uv.x - 0.01, padding_uv.x, uv.x) * (1.0 - smoothstep(1.0 - padding_uv.x, 1.0 - padding_uv.x + 0.01, uv.x));
+	float inner_y = smoothstep(padding_uv.y - 0.01, padding_uv.y, uv.y) * (1.0 - smoothstep(1.0 - padding_uv.y, 1.0 - padding_uv.y + 0.01, uv.y));
+	float inner_mask = 1.0 - inner_x * inner_y;
+
 	// Pulsing emission
 	float pulse = 0.8 + 0.2 * sin(TIME * 4.0);
 	float emission = 1.0 + intensity * 1.5;
 
-	float alpha = edge_mask * (0.5 + n * 0.5) * intensity * pulse;
+	float alpha = edge_mask * (0.5 + n * 0.5) * intensity * pulse * rect_mask * inner_mask;
 
 	COLOR = vec4(col * emission * pulse, alpha * 0.85);
 }

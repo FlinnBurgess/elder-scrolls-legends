@@ -30,9 +30,7 @@
 			},
 			"cwc_neu_abomination"
 		],
-		"hand": [
-			"wil_piercing_javelin"
-		],
+		"hand": [],
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [],
@@ -67,26 +65,26 @@
 			"str_battlerage_orc",
 			"hos_neu_a_night_to_remember",
 			"hos_wil_a_land_divided",
-			"int_flame_atronach"
+			"int_flame_atronach",
+			"aw_wil_gray_viper_brigand",
+			"aw_wil_gray_viper_brigand"
 		],
 		"field_creatures": [
 			null,
 			null,
-			null,
-			"aw_wil_guildsworn_honeytongue"
+			null
 		],
 		"hand": [
 			"wil_piercing_javelin",
 			"int_firebolt",
-			"str_belligerent_giant",
-			"end_daedric_dagger"
+			"cwc_str_hunter_killers"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [],
 		"supports": [
-			"fhc_neu_namiras_shrine"
+			"db_agi_brotherhood_sanctuary"
 		]
 	},
 	"type": "kill"

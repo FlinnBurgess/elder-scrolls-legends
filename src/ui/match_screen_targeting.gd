@@ -331,6 +331,12 @@ func _check_summon_target_mode(source_instance_id: String) -> void:
 	)
 	if abilities.is_empty():
 		return
+	# Multi-ability summon (e.g. Hunter-Killers with two battle effects):
+	# route through the engine pending system so each ability gets its own targeting phase.
+	if abilities.size() > 1:
+		_screen.MatchTiming._check_summon_effect_target_mode(_screen._match_state, card)
+		_check_pending_summon_effect_target()
+		return
 	var valid_targets = _screen.MatchTiming.get_all_valid_targets(_screen._match_state, source_instance_id)
 	if valid_targets.is_empty():
 		return  # Fizzle silently — no valid targets
@@ -383,6 +389,7 @@ func _resolve_summon_target_card(target_instance_id: String) -> void:
 	elif is_effect_summon:
 		var result = _screen.MatchTiming.resolve_pending_summon_effect_target(_screen._match_state, _screen._local_player_id(), {"target_instance_id": target_instance_id})
 		_screen._finalize_engine_result(result, "Targeted %s." % _screen._card_name(_screen._card_from_instance_id(target_instance_id)))
+		_check_pending_summon_effect_target()
 		_screen._check_deferred_betray()
 		_screen._check_pending_turn_trigger_target()
 	else:
@@ -422,6 +429,7 @@ func _resolve_summon_target_player(player_id: String) -> void:
 	elif is_effect_summon:
 		var result = _screen.MatchTiming.resolve_pending_summon_effect_target(_screen._match_state, _screen._local_player_id(), {"target_player_id": player_id})
 		_screen._finalize_engine_result(result, "Targeted %s." % _screen._player_name(player_id))
+		_check_pending_summon_effect_target()
 		_screen._check_deferred_betray()
 		_screen._check_pending_turn_trigger_target()
 	else:
@@ -505,7 +513,7 @@ func _refresh_pending_summon_effect_target() -> void:
 	var pending = _screen.MatchTiming.get_pending_summon_effect_target(_screen._match_state, local_id)
 	var source_id := str(pending.get("source_instance_id", ""))
 	var card = _screen._card_from_instance_id(source_id)
-	if card.is_empty():
+	if card.is_empty() or (str(card.get("card_type", "")) == "creature" and str(card.get("zone", "")) != "lane"):
 		_screen.MatchTiming.decline_pending_summon_effect_target(_screen._match_state, local_id)
 		return
 	var choice_tm := str(pending.get("_choice_target_mode", ""))
@@ -565,7 +573,8 @@ func _check_pending_summon_effect_target() -> void:
 	var pending = _screen.MatchTiming.get_pending_summon_effect_target(_screen._match_state, local_id)
 	var source_id := str(pending.get("source_instance_id", ""))
 	var card = _screen._card_from_instance_id(source_id)
-	if card.is_empty():
+	# Decline if the source creature no longer exists or died (e.g. during a prior battle)
+	if card.is_empty() or (str(card.get("card_type", "")) == "creature" and str(card.get("zone", "")) != "lane"):
 		_screen.MatchTiming.decline_pending_summon_effect_target(_screen._match_state, local_id)
 		return
 	var choice_tm := str(pending.get("_choice_target_mode", ""))

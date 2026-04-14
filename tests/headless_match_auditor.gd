@@ -115,11 +115,27 @@ func _run_single_match(match_index: int) -> void:
 		if active_id.is_empty():
 			break
 
-		var choice := HeuristicMatchPolicy.choose_action(match_state, active_id, {
-			"quality": 0.5,
-			"lookahead": 0,
-		})
-		var action: Dictionary = choice.get("chosen_action", {})
+		# If the AI already committed to ending its turn, skip normal action selection
+		# and go straight to resolving remaining targets or completing the end turn.
+		var action: Dictionary = {}
+		if bool(match_state.get("_end_of_turn_targets_queued", false)):
+			if MatchTiming.has_pending_turn_trigger_target(match_state, active_id):
+				action = HeuristicMatchPolicy.choose_action(match_state, active_id, {"quality": 0.5, "lookahead": 0}).get("chosen_action", {})
+				if action.is_empty():
+					MatchTiming.decline_pending_turn_trigger_target(match_state, active_id)
+					continue
+			else:
+				match_state.erase("_end_of_turn_targets_queued")
+				MatchTurnLoop.end_turn(match_state, active_id)
+				MatchScreen._hydrate_all_zones(match_state, _card_by_id)
+				consecutive_invalid = 0
+				continue
+		else:
+			var choice := HeuristicMatchPolicy.choose_action(match_state, active_id, {
+				"quality": 0.5,
+				"lookahead": 0,
+			})
+			action = choice.get("chosen_action", {})
 		if action.is_empty():
 			# No legal actions — try end turn
 			if not bool(match_state.get("_end_of_turn_targets_queued", false)):

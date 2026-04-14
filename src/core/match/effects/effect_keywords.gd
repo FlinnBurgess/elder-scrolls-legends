@@ -265,11 +265,30 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					var offset := int(effect.get("expires_on_turn_offset", 1))
 					EvergreenRules.grant_cover(card, int(match_state.get("turn_number", 0)) + offset, reason)
 				elif status_id == "shackle" or status_id == EvergreenRules.STATUS_SHACKLED:
+					if MatchTimingHelpers._is_immune_to_effect(match_state, card, "shackle") or EvergreenRules.has_raw_status(card, "shackle_immune"):
+						continue
 					EvergreenRules.add_status(card, EvergreenRules.STATUS_SHACKLED)
 					if bool(effect.get("permanent", false)):
 						card["shackle_expires_on_turn"] = 999999
 					else:
 						card["shackle_expires_on_turn"] = int(match_state.get("turn_number", 0)) + 1
+				elif status_id == "shackle_immune":
+					EvergreenRules.add_status(card, status_id)
+					if EvergreenRules.has_status(card, EvergreenRules.STATUS_SHACKLED):
+						EvergreenRules.remove_status(card, EvergreenRules.STATUS_SHACKLED)
+						card.erase("shackle_expires_on_turn")
+						card.erase("_shackle_persistent_source_id")
+					var gs_duration := str(effect.get("duration", ""))
+					if bool(effect.get("expires_end_of_turn", false)) or gs_duration == "end_of_turn":
+						var temp_statuses: Array = card.get("_temp_statuses", [])
+						if not temp_statuses.has(status_id):
+							temp_statuses.append(status_id)
+						card["_temp_statuses"] = temp_statuses
+					elif gs_duration == "until_start_of_next_turn":
+						var next_turn_temps: Array = card.get("_next_turn_temp_statuses", [])
+						if not next_turn_temps.has(status_id):
+							next_turn_temps.append(status_id)
+						card["_next_turn_temp_statuses"] = next_turn_temps
 				else:
 					EvergreenRules.add_status(card, status_id)
 					var gs_duration := str(effect.get("duration", ""))

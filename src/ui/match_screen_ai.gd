@@ -95,6 +95,15 @@ func _execute_local_match_ai_step() -> Dictionary:
 		_screen._refresh_ui()
 		return {"did_execute": true, "yield_reason": "match_complete"}
 	var ai_player_id := _ai_player_id()
+	# If the AI already committed to ending its turn (expertise/end_of_turn targets were queued)
+	# and all targets are now resolved, force-complete the end turn immediately.
+	# Without this, the AI returns to choose_action and can sneak in extra actions.
+	if bool(_screen._match_state.get("_end_of_turn_targets_queued", false)):
+		if not _screen.MatchTiming.has_pending_turn_trigger_target(_screen._match_state, ai_player_id):
+			var end_action := {"kind": _screen.MatchActionEnumerator.KIND_END_TURN, "player_id": ai_player_id}
+			_screen.MatchActionExecutor.execute_action(_screen._match_state, end_action)
+			_screen._refresh_ui()
+			return {"did_execute": true, "yield_reason": _ai_post_action_state()}
 	var _choose_start := Time.get_ticks_msec()
 	var choice = _screen.HeuristicMatchPolicy.choose_action(_screen._match_state, ai_player_id, _ai_options)
 	var _choose_elapsed := Time.get_ticks_msec() - _choose_start
@@ -152,6 +161,8 @@ func _execute_local_match_ai_step() -> Dictionary:
 			_screen._animate_enemy_attack_arrow(action, result)
 		elif is_enemy and str(action.get("kind", "")) == _screen.MatchActionEnumerator.KIND_ACTIVATE_SUPPORT and _screen._feedback._has_support_activation_target(action):
 			_screen._animate_enemy_support_activation_arrow(action, result)
+		elif is_enemy and str(action.get("kind", "")) == _screen.MatchActionEnumerator.KIND_CHOOSE_TURN_TRIGGER_TARGET:
+			_screen._animate_enemy_turn_trigger_arrow(action, result)
 		else:
 			# Forced attack arrow (e.g. Umbra at start of turn): skip refresh
 			# so the arrow animates on the pre-damage board, then refresh after

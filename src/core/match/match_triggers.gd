@@ -919,6 +919,19 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 		var rtie_target := MatchTimingHelpers._find_card_anywhere(match_state, rtie_target_id)
 		if rtie_target.is_empty() or str(rtie_target.get("controller_player_id", "")) == str(trigger.get("controller_player_id", "")):
 			return false
+	if bool(family_spec.get("required_source_has_pilfer_or_drain", false)):
+		var rspd_source := MatchTimingHelpers._find_card_anywhere(match_state, str(event.get("source_instance_id", "")))
+		if rspd_source.is_empty():
+			return false
+		var has_drain := EvergreenRules.has_keyword(rspd_source, EvergreenRules.KEYWORD_DRAIN)
+		var has_pilfer := false
+		if not has_drain:
+			for ability in rspd_source.get("triggered_abilities", []):
+				if typeof(ability) == TYPE_DICTIONARY and str(ability.get("family", "")) == "pilfer":
+					has_pilfer = true
+					break
+		if not has_drain and not has_pilfer:
+			return false
 	return ExtendedMechanicPacks.matches_additional_conditions(match_state, trigger, descriptor, event)
 
 

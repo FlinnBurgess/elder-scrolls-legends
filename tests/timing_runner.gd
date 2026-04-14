@@ -46,7 +46,11 @@ func _run_all_tests() -> bool:
 		_test_baandari_opportunist_copy_has_pilfer() and
 		_test_draw_from_deck_filtered_then_modify_stats_last_drawn() and
 		_test_end_of_turn_invaded_condition_resets_across_opponent_turn() and
-		_test_draw_from_deck_filtered_count_and_unique()
+		_test_draw_from_deck_filtered_count_and_unique() and
+		_test_expertise_target_mode_swap_completes_at_turn_end() and
+		_test_swap_creatures_preserves_lane_when_full() and
+		_test_on_friendly_pilfer_or_drain_requires_pilfer_or_drain() and
+		_test_filter_keyword_matches_triggered_ability_families()
 	)
 
 
@@ -1212,6 +1216,205 @@ func _test_draw_from_deck_filtered_count_and_unique() -> bool:
 		_assert(result["is_valid"], "Combat should resolve.") and
 		_assert(drawn_count == 3, "Should draw 3 creatures from last_gasp. Got %d." % drawn_count) and
 		_assert(unique_def_ids.size() == 3, "All 3 drawn cards should have different definition_ids. Got %d unique." % unique_def_ids.size())
+	)
+
+
+func _test_expertise_target_mode_swap_completes_at_turn_end() -> bool:
+	# Regression: Guildsworn Honeytongue's expertise swap (target_mode: enemy_creature)
+	# should queue as a pending turn trigger target, resolve the swap, then allow the
+	# turn to complete. Previously the AI could sneak in extra actions after resolving
+	# the swap because nothing forced the turn to end.
+	var match_state := _build_started_match(20, 0)
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player["player_id"])
+	var oid := str(opponent["player_id"])
+	# Expertise creature with swap target_mode
+	var honeytongue := _summon_creature(player, match_state, "honeytongue", "field", 0, 5, [], -1, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_EXPERTISE,
+			"required_zone": "lane",
+			"target_mode": "enemy_creature",
+			"effects": [{"op": "swap_creatures", "target": "chosen_target", "source": "self"}],
+		}],
+	})
+	var enemy := _summon_creature(opponent, match_state, "enemy_target", "field", 3, 3)
+	# Play a non-creature card to satisfy expertise condition
+	var action_card := _add_hand_card(player, "expertise_ping", {
+		"card_type": "action", "cost": 0,
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "damage", "target_player": "target_player", "amount": 0}]}],
+	})
+	MatchTiming.play_action_from_hand(match_state, pid, str(action_card["instance_id"]), {"target_player_id": pid})
+	# Queue expertise targets (simulates pressing End Turn)
+	MatchTiming.queue_turn_trigger_targets(match_state, pid)
+	if not _assert(MatchTiming.has_pending_turn_trigger_target(match_state, pid),
+		"Expertise with target_mode should create a pending turn trigger target."):
+		return false
+	# Resolve the pending target — choose the enemy creature
+	var resolve_result := MatchTiming.resolve_pending_turn_trigger_target(match_state, pid, {"instance_id": str(enemy["instance_id"])})
+	if not _assert(bool(resolve_result.get("is_valid", false)), "Resolving expertise swap target should succeed."):
+		return false
+	# Verify swap: honeytongue now controlled by opponent, enemy by player
+	if not _assert(str(honeytongue.get("controller_player_id", "")) == oid and str(enemy.get("controller_player_id", "")) == pid,
+		"Swap should transfer control: honeytongue→opponent, enemy→player."):
+		return false
+	# No more pending targets
+	if not _assert(not MatchTiming.has_pending_turn_trigger_target(match_state, pid),
+		"No pending targets should remain after resolving the expertise swap."):
+		return false
+	# Complete the turn — must succeed
+	var active_before := str(match_state.get("active_player_id", ""))
+	MatchTurnLoop.end_turn(match_state, pid)
+	return _assert(str(match_state.get("active_player_id", "")) != active_before,
+		"Turn should advance after expertise swap resolves and end_turn is called.")
+
+
+func _test_swap_creatures_preserves_lane_when_full() -> bool:
+	# Regression: when swap_creatures fires and the target's controller already
+	# has a full lane (4/4 slots), the swapped creature should still go into that
+	# lane (taking the source's vacated slot), not overflow to another lane.
+	var match_state := _build_started_match(20, 1)
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player["player_id"])
+	var oid := str(opponent["player_id"])
+	# Fill opponent's field lane to capacity (4 creatures)
+	var opp_filler_1 := _summon_creature(opponent, match_state, "opp_filler_1", "field", 1, 1)
+	var opp_filler_2 := _summon_creature(opponent, match_state, "opp_filler_2", "field", 1, 1)
+	var opp_filler_3 := _summon_creature(opponent, match_state, "opp_filler_3", "field", 1, 1)
+	# Honeytongue-like creature for opponent in field (4th slot)
+	var honeytongue := _summon_creature(opponent, match_state, "honeytongue", "field", 0, 5, [], -1, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_EXPERTISE,
+			"required_zone": "lane",
+			"target_mode": "enemy_creature",
+			"effects": [{"op": "swap_creatures", "target": "chosen_target", "source": "self"}],
+		}],
+	})
+	# Player has 1 creature in field lane
+	var player_target := _summon_creature(player, match_state, "player_target", "field", 3, 3)
+	# Play an action to satisfy expertise (opponent is active player)
+	var action_card := _add_hand_card(opponent, "expertise_ping", {
+		"card_type": "action", "cost": 0,
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "damage", "target_player": "target_player", "amount": 0}]}],
+	})
+	MatchTiming.play_action_from_hand(match_state, oid, str(action_card["instance_id"]), {"target_player_id": oid})
+	MatchTiming.queue_turn_trigger_targets(match_state, oid)
+	if not _assert(MatchTiming.has_pending_turn_trigger_target(match_state, oid),
+		"[swap_full] Expertise should queue a pending turn trigger target."):
+		return false
+	# Resolve the swap targeting player's creature
+	var resolve_result := MatchTiming.resolve_pending_turn_trigger_target(match_state, oid, {"instance_id": str(player_target["instance_id"])})
+	if not _assert(bool(resolve_result.get("is_valid", false)), "[swap_full] Resolving swap should succeed."):
+		return false
+	# Verify control swapped
+	if not _assert(str(honeytongue.get("controller_player_id", "")) == pid,
+		"[swap_full] Honeytongue should now be controlled by player."):
+		return false
+	if not _assert(str(player_target.get("controller_player_id", "")) == oid,
+		"[swap_full] Player target should now be controlled by opponent."):
+		return false
+	# Critical: both creatures should still be in the field lane
+	if not _assert(str(honeytongue.get("lane_id", "")) == "field",
+		"[swap_full] Honeytongue should remain in field lane, got: %s" % str(honeytongue.get("lane_id", ""))):
+		return false
+	return _assert(str(player_target.get("lane_id", "")) == "field",
+		"[swap_full] Player target should remain in field lane (not overflow), got: %s" % str(player_target.get("lane_id", "")))
+
+
+func _test_on_friendly_pilfer_or_drain_requires_pilfer_or_drain() -> bool:
+	# Regression: Brynjolf's on_friendly_pilfer_or_drain fired for any friendly
+	# creature dealing damage to the enemy player, even without pilfer or drain.
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(active_player["player_id"])
+	# Observer with on_friendly_pilfer_or_drain — gains +0/+1 when triggered
+	var observer := _summon_creature(active_player, match_state, "observer", "field", 4, 5, [], 0, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_FRIENDLY_PILFER_OR_DRAIN,
+			"required_zone": "lane",
+			"effects": [{"op": "modify_stats", "target": "self", "power": 0, "health": 1}],
+		}]
+	})
+	# Creature with NO pilfer or drain — should NOT trigger observer
+	var plain := _summon_creature(active_player, match_state, "plain", "field", 2, 2, [], 0)
+	_target_ready_for_attack(plain, match_state)
+	var plain_result := MatchCombat.resolve_attack(match_state, pid, plain["instance_id"], {
+		"type": "player", "player_id": opponent["player_id"],
+	})
+	if not (
+		_assert(plain_result["is_valid"], "Plain attack should resolve.") and
+		_assert(int(observer.get("health_bonus", 0)) == 0,
+			"Observer should NOT fire for creature without pilfer/drain. health_bonus: %d." % int(observer.get("health_bonus", 0)))
+	):
+		return false
+	# Creature with pilfer — SHOULD trigger observer
+	var pilferer := _summon_creature(active_player, match_state, "pilferer", "field", 1, 1, [], 0, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_PILFER,
+			"required_zone": "lane",
+			"effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 0}],
+		}]
+	})
+	_target_ready_for_attack(pilferer, match_state)
+	var pilfer_result := MatchCombat.resolve_attack(match_state, pid, pilferer["instance_id"], {
+		"type": "player", "player_id": opponent["player_id"],
+	})
+	if not (
+		_assert(pilfer_result["is_valid"], "Pilfer attack should resolve.") and
+		_assert(int(observer.get("health_bonus", 0)) == 1,
+			"Observer SHOULD fire for creature with pilfer. health_bonus: %d." % int(observer.get("health_bonus", 0)))
+	):
+		return false
+	# Creature with drain — SHOULD trigger observer
+	var drainer := _summon_creature(active_player, match_state, "drainer", "field", 1, 1, ["drain"], 0)
+	_target_ready_for_attack(drainer, match_state)
+	var drain_result := MatchCombat.resolve_attack(match_state, pid, drainer["instance_id"], {
+		"type": "player", "player_id": opponent["player_id"],
+	})
+	return (
+		_assert(drain_result["is_valid"], "Drain attack should resolve.") and
+		_assert(int(observer.get("health_bonus", 0)) == 2,
+			"Observer SHOULD fire for creature with drain. health_bonus: %d." % int(observer.get("health_bonus", 0)))
+	)
+
+
+func _test_filter_keyword_matches_triggered_ability_families() -> bool:
+	# Regression: Smash and Grab (target: all_friendly_with_keyword, filter_keyword: pilfer)
+	# failed to buff pilfer creatures because filter_keyword used has_keyword() which only
+	# checks the keywords array, not triggered_abilities families.
+	var match_state := _build_started_match(20, 0)
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player["player_id"])
+	# Creature with pilfer as a triggered ability family (not a keyword)
+	var pilferer := _summon_creature(player, match_state, "pilferer", "field", 1, 1, [], 0, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_PILFER,
+			"required_zone": "lane",
+			"effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 0}],
+		}]
+	})
+	# Creature without pilfer — should NOT be buffed
+	var plain := _summon_creature(player, match_state, "plain", "field", 2, 2)
+	# Smash and Grab: on_play, modify_stats targeting all_friendly_with_keyword filtered by pilfer
+	var smash := _add_hand_card(player, "smash_and_grab", {
+		"card_type": "action",
+		"cost": 0,
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"effects": [
+				{"op": "modify_stats", "target": "all_friendly_with_keyword", "filter_keyword": "pilfer", "power": 2, "health": 0, "expires_end_of_turn": true},
+				{"op": "grant_keyword", "target": "all_friendly_with_keyword", "filter_keyword": "pilfer", "keyword_id": "breakthrough", "expires_end_of_turn": true},
+			],
+		}],
+	})
+	MatchTiming.play_action_from_hand(match_state, pid, str(smash["instance_id"]), {})
+	return (
+		_assert(int(pilferer.get("power_bonus", 0)) == 2,
+			"Pilferer should get +2 power from Smash and Grab. Got: +%d." % int(pilferer.get("power_bonus", 0))) and
+		_assert(int(plain.get("power_bonus", 0)) == 0,
+			"Plain creature should NOT be buffed. Got: +%d." % int(plain.get("power_bonus", 0)))
 	)
 
 
