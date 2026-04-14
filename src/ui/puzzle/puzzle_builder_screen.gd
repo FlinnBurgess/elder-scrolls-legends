@@ -15,6 +15,27 @@ const PuzzlePersistenceScript = preload("res://src/puzzle/puzzle_persistence.gd"
 const TestMatchConfigScript = preload("res://data/test_match_config.gd")
 const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
 
+# Quick-add cards shown in the test match creator's list editor (hand/deck/discard only).
+const QUICK_ADD_CARD_IDS := {
+	"Vvardvark": "hom_end_vvardvark",
+	"Piercing Javelin": "wil_piercing_javelin",
+	"Firebolt": "int_firebolt",
+	"Dagger": "iom_str_dagger",
+}
+
+# Subtypes surfaced in the "Add Random by Subtype" dropdown.
+const QUICK_ADD_SUBTYPES := [
+	"Abomination", "Argonian", "Ash Creature", "Atronach", "Automaton", "Ayleid",
+	"Beast", "Breton", "Centaur", "Chaurus", "Daedra", "Dark Elf", "Defense",
+	"Dragon", "Dreugh", "Dwemer", "Elytra", "Fabricant", "Factotum", "Falmer",
+	"Fish", "Gargoyle", "Giant", "Goblin", "God", "Grummite", "Harpy", "High Elf",
+	"Imp", "Imperial", "Insect", "Khajiit", "Kwama", "Lurcher", "Mammoth",
+	"Mantikora", "Minotaur", "Mudcrab", "Mummy", "Nereid", "Netch", "Nord", "Ogre",
+	"Orc", "Pastry", "Portal", "Reachman", "Redguard", "Reptile", "Skeever",
+	"Skeleton", "Spider", "Spirit", "Spriggan", "Troll", "Vampire", "Wamasu",
+	"Werewolf", "Wolf", "Wood Elf", "Wraith",
+]
+
 var builder_mode := "puzzle"  # "puzzle" or "test_match"
 var _config: Dictionary = {}
 var _card_by_id: Dictionary = {}
@@ -43,6 +64,10 @@ var _slot_buttons: Array = []  # [side][lane_idx][slot_idx] -> Button
 var _import_dialog: PanelContainer
 var _import_input: TextEdit
 var _import_error_label: Label
+
+# Last-selected subtype in the test-match quick-add dropdown; preserved across
+# list-editor rebuilds so that Add Random doesn't reset to Abomination.
+var _quick_add_subtype_idx := 0
 
 # Hover preview
 var _hover_preview: Control
@@ -827,6 +852,9 @@ func _open_list_editor(side: String, list_key: String) -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	vbox.add_child(title)
 
+	if builder_mode == "test_match" and list_key in ["hand", "deck", "discard"]:
+		_build_quick_add_section(vbox, side, list_key)
+
 	var actual_key := list_key
 	var list_data: Array = _get_side_cfg(side).get(actual_key, [])
 
@@ -1008,6 +1036,75 @@ func _remove_list_item(side: String, key: String, idx: int) -> void:
 	var list: Array = _get_side_cfg(side).get(key, [])
 	if idx >= 0 and idx < list.size():
 		list.remove_at(idx)
+
+
+func _build_quick_add_section(parent: VBoxContainer, side: String, list_key: String) -> void:
+	var section_label := Label.new()
+	section_label.text = "Quick Add"
+	UITheme.style_section_label(section_label, 22)
+	parent.add_child(section_label)
+
+	var card_row := HBoxContainer.new()
+	card_row.add_theme_constant_override("separation", 12)
+	parent.add_child(card_row)
+
+	for card_label in QUICK_ADD_CARD_IDS:
+		var card_id: String = QUICK_ADD_CARD_IDS[card_label]
+		var btn := Button.new()
+		btn.text = card_label
+		btn.custom_minimum_size = Vector2(180, 56)
+		UITheme.style_button(btn, 20)
+		btn.pressed.connect(func(): _quick_add_card(side, list_key, card_id))
+		card_row.add_child(btn)
+
+	var subtype_row := HBoxContainer.new()
+	subtype_row.add_theme_constant_override("separation", 12)
+	parent.add_child(subtype_row)
+
+	var subtype_picker := OptionButton.new()
+	subtype_picker.custom_minimum_size = Vector2(280, 56)
+	UITheme.style_option_button(subtype_picker, 20)
+	for subtype in QUICK_ADD_SUBTYPES:
+		subtype_picker.add_item(str(subtype))
+	if _quick_add_subtype_idx >= 0 and _quick_add_subtype_idx < QUICK_ADD_SUBTYPES.size():
+		subtype_picker.select(_quick_add_subtype_idx)
+	subtype_picker.item_selected.connect(func(idx: int): _quick_add_subtype_idx = idx)
+	subtype_row.add_child(subtype_picker)
+
+	var random_btn := Button.new()
+	random_btn.text = "Add Random"
+	random_btn.custom_minimum_size = Vector2(180, 56)
+	UITheme.style_button(random_btn, 20)
+	random_btn.pressed.connect(func():
+		var idx := subtype_picker.get_selected()
+		if idx < 0 or idx >= QUICK_ADD_SUBTYPES.size():
+			return
+		_quick_add_subtype_idx = idx
+		_add_random_card_by_subtype(side, list_key, str(QUICK_ADD_SUBTYPES[idx]))
+	)
+	subtype_row.add_child(random_btn)
+
+	parent.add_child(UITheme.make_separator(880.0))
+
+
+func _quick_add_card(side: String, list_key: String, card_id: String) -> void:
+	var list: Array = _get_side_cfg(side).get(list_key, [])
+	list.append(card_id)
+	_get_side_cfg(side)[list_key] = list
+	_autosave()
+	_dismiss_overlay()
+	_open_list_editor(side, list_key)
+
+
+func _add_random_card_by_subtype(side: String, list_key: String, subtype: String) -> void:
+	var candidates: Array = []
+	for card_id in _card_by_id:
+		var subtypes: Array = _card_by_id[card_id].get("subtypes", [])
+		if subtypes.has(subtype):
+			candidates.append(card_id)
+	if candidates.is_empty():
+		return
+	_quick_add_card(side, list_key, str(candidates.pick_random()))
 
 
 func _dismiss_overlay() -> void:

@@ -1,17 +1,5 @@
 [
 	{
-		"card_id": "end_plea_to_kynareth",
-		"name": "Plea to Kynareth",
-		"card_type": "action",
-		"cost": 3,
-		"attributes": [
-			"endurance"
-		],
-		"rules_text": "Heal all friendly creatures in a lane, then give them all +1/+1.",
-		"stripped_text": "Heal all friendly creatures in a lane, then give them all +1/+1.",
-		"complexity": 64
-	},
-	{
 		"card_id": "moe_agi_mausoleum_delver",
 		"name": "Mausoleum Delver",
 		"card_type": "creature",

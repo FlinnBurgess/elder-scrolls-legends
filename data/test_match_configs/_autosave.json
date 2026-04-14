@@ -2,16 +2,11 @@
 	"enemy": {
 		"current_magicka": 12.0,
 		"deck": [
-			"exc_neu_adoring_fan",
 			"hom_end_vvardvark",
-			"hos_str_aelas_huntmate",
-			"hos_neu_a_night_to_remember",
-			"hos_neu_a_night_to_remember",
-			"int_abecean_navigator",
-			"neu_ageless_automaton",
-			"hos_str_aelas_huntmate",
-			"str_afflicted_alit",
-			"neu_ageless_automaton"
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark"
 		],
 		"discard": [],
 		"field_creatures": [
@@ -28,9 +23,7 @@
 			},
 			"hom_end_ald_velothi_assassin"
 		],
-		"hand": [
-			"wil_piercing_javelin"
-		],
+		"hand": [],
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [],
@@ -62,26 +55,24 @@
 			"int_flame_atronach",
 			"aw_wil_gray_viper_brigand",
 			"aw_wil_gray_viper_brigand",
-			"moe_neu_ill_fated_scholar"
+			"moe_neu_ill_fated_scholar",
+			"end_gargoyle",
+			"str_orc_clan_shaman",
+			"hos_str_stronghold_patrol",
+			"mc_dual_champion_of_the_arena"
 		],
 		"field_creatures": [
 			null,
-			null,
-			null,
-			"cwc_neu_abomination"
+			null
 		],
 		"hand": [
 			"wil_piercing_javelin",
-			"int_firebolt",
-			"agi_green_pact_stalker"
+			"int_firebolt"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [
-			"cwc_neu_abomination",
-			"wil_artaeum_savant"
-		],
+		"shadow_creatures": [],
 		"supports": []
 	},
 	"type": "kill"

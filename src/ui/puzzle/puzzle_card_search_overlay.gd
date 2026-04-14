@@ -38,6 +38,7 @@ func _ready() -> void:
 	_load_catalog()
 	_build_ui()
 	_apply_filter()
+	_search_input.grab_focus.call_deferred()
 
 
 func set_type_filter(card_type: String) -> void:
@@ -110,17 +111,36 @@ func _build_ui() -> void:
 	_search_input = LineEdit.new()
 	_search_input.placeholder_text = "Search by name..."
 	_search_input.size_flags_horizontal = SIZE_EXPAND_FILL
-	_search_input.custom_minimum_size = Vector2(200, 36)
+	_search_input.custom_minimum_size = Vector2(400, 80)
+	_search_input.add_theme_font_size_override("font_size", 32)
+	_search_input.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
+	_search_input.add_theme_color_override("font_placeholder_color", UITheme.TEXT_MUTED)
+	_search_input.add_theme_color_override("caret_color", UITheme.GOLD)
+	var search_normal := StyleBoxFlat.new()
+	search_normal.bg_color = UITheme.BTN_BG
+	search_normal.border_color = UITheme.GOLD_DIM
+	search_normal.set_border_width_all(1)
+	search_normal.set_corner_radius_all(6)
+	search_normal.set_content_margin_all(16)
+	_search_input.add_theme_stylebox_override("normal", search_normal)
+	var search_focus := StyleBoxFlat.new()
+	search_focus.bg_color = UITheme.BTN_BG_HOVER
+	search_focus.border_color = UITheme.GOLD
+	search_focus.set_border_width_all(2)
+	search_focus.set_corner_radius_all(6)
+	search_focus.set_content_margin_all(16)
+	_search_input.add_theme_stylebox_override("focus", search_focus)
 	_search_input.text_changed.connect(func(_t): _page = 0; _apply_filter())
 	filter_row.add_child(_search_input)
 
 	_type_filter = OptionButton.new()
-	_type_filter.custom_minimum_size = Vector2(120, 36)
+	_type_filter.custom_minimum_size = Vector2(200, 80)
 	_type_filter.add_item("All Types", 0)
 	_type_filter.add_item("Creature", 1)
 	_type_filter.add_item("Action", 2)
 	_type_filter.add_item("Item", 3)
 	_type_filter.add_item("Support", 4)
+	UITheme.style_option_button(_type_filter, 24)
 	_type_filter.item_selected.connect(func(_idx): _page = 0; _apply_filter())
 	filter_row.add_child(_type_filter)
 
