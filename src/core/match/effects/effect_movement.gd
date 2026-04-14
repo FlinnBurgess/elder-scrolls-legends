@@ -260,32 +260,24 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			var sfd_controller_id := str(trigger.get("controller_player_id", ""))
 			var sfd_opponent_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), sfd_controller_id)
 			var sfd_opponent := MatchTimingHelpers._get_player_state(match_state, sfd_opponent_id)
-			var sfd_controller := MatchTimingHelpers._get_player_state(match_state, sfd_controller_id)
-			if not sfd_opponent.is_empty() and not sfd_controller.is_empty():
+			if not sfd_opponent.is_empty():
 				var sfd_discard: Array = sfd_opponent.get(ZONE_DISCARD, [])
 				if not sfd_discard.is_empty():
 					var sfd_filter := str(effect.get("filter_card_type", ""))
-					var sfd_candidates: Array = []
+					var sfd_candidate_ids: Array = []
 					for sfd_card in sfd_discard:
 						if sfd_filter.is_empty() or str(sfd_card.get("card_type", "")) == sfd_filter:
-							sfd_candidates.append(sfd_card)
-					if not sfd_candidates.is_empty():
-						var sfd_idx := MatchEffectParams._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_steal_discard", sfd_candidates.size())
-						var sfd_stolen: Dictionary = sfd_candidates[sfd_idx]
-						sfd_discard.erase(sfd_stolen)
-						MatchMutations.restore_definition_state(sfd_stolen)
-						sfd_stolen["zone"] = ZONE_HAND
-						sfd_stolen["controller_player_id"] = sfd_controller_id
-						sfd_stolen["owner_player_id"] = sfd_controller_id
-						var sfd_hand: Array = sfd_controller.get(ZONE_HAND, [])
-						sfd_hand.append(sfd_stolen)
-						generated_events.append({
-							"event_type": "card_stolen_from_discard",
+							sfd_candidate_ids.append(str(sfd_card.get("instance_id", "")))
+					if not sfd_candidate_ids.is_empty():
+						match_state["pending_discard_choices"].append({
+							"player_id": sfd_controller_id,
+							"source_player_id": sfd_opponent_id,
 							"source_instance_id": str(trigger.get("source_instance_id", "")),
-							"stolen_instance_id": str(sfd_stolen.get("instance_id", "")),
-							"from_player_id": sfd_opponent_id,
-							"to_player_id": sfd_controller_id,
+							"candidate_instance_ids": sfd_candidate_ids,
+							"then_op": "steal_to_discard",
+							"reason": reason,
 						})
+						generated_events.append({"event_type": "discard_choice_pending", "player_id": sfd_controller_id})
 		"_steal_specific_from_opponent_discard":
 			var ssod_controller_id := str(trigger.get("controller_player_id", ""))
 			var ssod_opponent_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), ssod_controller_id)

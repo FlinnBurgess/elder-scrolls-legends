@@ -590,10 +590,11 @@ static func resolve_pending_discard_choice(match_state: Dictionary, player_id: S
 	var candidate_ids: Array = choice.get("candidate_instance_ids", [])
 	if not candidate_ids.has(chosen_instance_id):
 		return {"is_valid": false, "errors": ["Card %s is not a valid candidate." % chosen_instance_id]}
-	var discard_player := MatchTimingHelpers._get_player_state(match_state, player_id)
+	var source_player_id := str(choice.get("source_player_id", player_id))
+	var discard_player := MatchTimingHelpers._get_player_state(match_state, source_player_id)
 	if discard_player.is_empty():
 		choices.remove_at(choice_index)
-		return {"is_valid": false, "errors": ["Unknown player_id: %s" % player_id]}
+		return {"is_valid": false, "errors": ["Unknown player_id: %s" % source_player_id]}
 	var discard_pile: Array = discard_player.get(ZONE_DISCARD, [])
 	var pick_index := -1
 	for d_index in range(discard_pile.size()):
@@ -607,11 +608,35 @@ static func resolve_pending_discard_choice(match_state: Dictionary, player_id: S
 	var picked_card: Dictionary = discard_pile[pick_index]
 	discard_pile.remove_at(pick_index)
 	var generated_events: Array = []
+	MatchMutations.restore_definition_state(picked_card)
+	var then_op := str(choice.get("then_op", ""))
+	if then_op == "steal_to_discard":
+		# Move card from opponent's discard to controller's discard
+		var std_controller := MatchTimingHelpers._get_player_state(match_state, player_id)
+		if not std_controller.is_empty():
+			picked_card["zone"] = ZONE_DISCARD
+			picked_card["controller_player_id"] = player_id
+			picked_card["owner_player_id"] = player_id
+			std_controller.get(ZONE_DISCARD, []).append(picked_card)
+			generated_events.append({
+				"event_type": "card_stolen_from_discard",
+				"source_instance_id": str(choice.get("source_instance_id", "")),
+				"stolen_instance_id": chosen_instance_id,
+				"from_player_id": source_player_id,
+				"to_player_id": player_id,
+			})
+		choices.remove_at(choice_index)
+		var timing_result := publish_events(match_state, generated_events)
+		return {
+			"is_valid": true,
+			"errors": [],
+			"card": picked_card,
+			"events": timing_result.get("processed_events", []),
+			"trigger_resolutions": timing_result.get("trigger_resolutions", []),
+		}
 	if _overflow_card_to_discard(discard_player, picked_card, player_id, ZONE_DISCARD, generated_events):
 		choices.remove_at(choice_index)
 		return {"is_valid": true, "errors": [], "events": generated_events}
-	MatchMutations.restore_definition_state(picked_card)
-	var then_op := str(choice.get("then_op", ""))
 	if then_op == "summon_from_discard" or then_op == "discard_and_summon_from_discard":
 		# Summon to source's lane, falling back to other lanes if full
 		var sfd_source_id := str(choice.get("source_instance_id", ""))

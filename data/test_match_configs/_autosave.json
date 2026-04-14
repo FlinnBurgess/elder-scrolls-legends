@@ -8,20 +8,21 @@
 			"hom_end_vvardvark",
 			"hom_end_vvardvark"
 		],
-		"discard": [],
+		"discard": [
+			"hom_end_vvardvark",
+			"joo_agi_blades_stalwart",
+			"cwc_int_scroll_seeker",
+			"end_oldgate_warden"
+		],
 		"field_creatures": [
+			null,
+			null,
+			null,
 			{
 				"can_attack": true,
 				"definition_id": "hos_str_aelas_huntmate",
 				"power_bonus": -5.0
-			},
-			{
-				"can_attack": true,
-				"damage_marked": 1.0,
-				"definition_id": "aw_int_abnur_tharn",
-				"power_bonus": -5.0
-			},
-			"hom_end_ald_velothi_assassin"
+			}
 		],
 		"hand": [],
 		"health": 30.0,
@@ -63,11 +64,14 @@
 		],
 		"field_creatures": [
 			null,
-			null
+			null,
+			null,
+			"moe_agi_mausoleum_delver"
 		],
 		"hand": [
 			"wil_piercing_javelin",
-			"int_firebolt"
+			"int_firebolt",
+			"aw_int_abnur_tharn"
 		],
 		"has_ring": false,
 		"health": 30.0,

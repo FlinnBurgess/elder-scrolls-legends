@@ -10,6 +10,7 @@ const PuzzleCodecScript = preload("res://src/puzzle/puzzle_codec.gd")
 const PuzzleConfigScript = preload("res://src/puzzle/puzzle_config.gd")
 const PuzzleCardSearchOverlayScript = preload("res://src/ui/puzzle/puzzle_card_search_overlay.gd")
 const PuzzleCreatureModifyOverlayScript = preload("res://src/ui/puzzle/puzzle_creature_modify_overlay.gd")
+const PuzzleMoveArrowScript = preload("res://src/ui/puzzle/puzzle_move_arrow.gd")
 const CardDisplayComponentScript = preload("res://src/ui/components/CardDisplayComponent.gd")
 const PuzzlePersistenceScript = preload("res://src/puzzle/puzzle_persistence.gd")
 const TestMatchConfigScript = preload("res://data/test_match_config.gd")
@@ -69,6 +70,15 @@ var _import_error_label: Label
 # list-editor rebuilds so that Add Random doesn't reset to Abomination.
 var _quick_add_subtype_idx := 0
 
+# Creature move state: set when user clicks an on-board creature; cleared when
+# the move completes (drop on slot / pile) or is cancelled (Esc / right-click /
+# click the same source slot / click a non-droppable target).
+var _move_source_side := ""   # "player" or "enemy"; empty => no move active
+var _move_source_lane := 0
+var _move_source_slot := 0
+var _move_arrow: PuzzleMoveArrow = null
+var _move_source_card_container: Control = null
+
 # Hover preview
 var _hover_preview: Control
 var _hover_timer: Timer
@@ -83,6 +93,17 @@ var _pending_slot_lane := 0
 var _pending_slot_index := 0
 var _pending_card_target := "" # "slot", "hand", "deck", "discard", "support"
 var _pending_list_side := ""
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not _is_move_active():
+		return
+	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		_cancel_move()
+		get_viewport().set_input_as_handled()
+	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+		_cancel_move()
+		get_viewport().set_input_as_handled()
 
 
 func _ready() -> void:
@@ -546,7 +567,7 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 	hand_btn.text = "Hand (%d)" % hand_count
 	hand_btn.custom_minimum_size = Vector2(140, 52)
 	UITheme.style_button(hand_btn, 20)
-	hand_btn.pressed.connect(func(): _open_list_editor(side, "hand"))
+	hand_btn.pressed.connect(func(): _on_pile_button_pressed(side, "hand"))
 	header.add_child(hand_btn)
 
 	var deck_btn := Button.new()
@@ -554,7 +575,7 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 	deck_btn.text = "Deck (%d)" % deck_count
 	deck_btn.custom_minimum_size = Vector2(140, 52)
 	UITheme.style_button(deck_btn, 20)
-	deck_btn.pressed.connect(func(): _open_list_editor(side, "deck"))
+	deck_btn.pressed.connect(func(): _on_pile_button_pressed(side, "deck"))
 	header.add_child(deck_btn)
 
 	var discard_btn := Button.new()
@@ -562,7 +583,7 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 	discard_btn.text = "Discard (%d)" % discard_count
 	discard_btn.custom_minimum_size = Vector2(160, 52)
 	UITheme.style_button(discard_btn, 20)
-	discard_btn.pressed.connect(func(): _open_list_editor(side, "discard"))
+	discard_btn.pressed.connect(func(): _on_pile_button_pressed(side, "discard"))
 	header.add_child(discard_btn)
 
 	var support_btn := Button.new()
@@ -570,7 +591,7 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 	support_btn.text = "Supports (%d)" % support_count
 	support_btn.custom_minimum_size = Vector2(170, 52)
 	UITheme.style_button(support_btn, 20)
-	support_btn.pressed.connect(func(): _open_list_editor(side, "supports"))
+	support_btn.pressed.connect(func(): _on_pile_button_pressed(side, "supports"))
 	header.add_child(support_btn)
 
 	# Board slots — 2 lane groups
@@ -640,6 +661,15 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 				card_container.mouse_filter = MOUSE_FILTER_STOP
 				slot_frame.add_child(card_container)
 
+				var s_click := side
+				var li_click := lane_idx
+				var si_click := slot_idx
+				var cc := card_container
+				card_container.gui_input.connect(func(event: InputEvent) -> void:
+					if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+						_on_populated_slot_clicked(s_click, li_click, si_click, cc)
+				)
+
 				var display := CardDisplayComponentScript.new()
 				display.custom_minimum_size = Vector2(1, 1)
 				display.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
@@ -700,6 +730,9 @@ func _build_side_section(side: String, label_text: String, lane_widths: Array) -
 
 
 func _on_empty_slot_clicked(side: String, lane_idx: int, slot_idx: int) -> void:
+	if _is_move_active():
+		_complete_move_to_slot(side, lane_idx, slot_idx)
+		return
 	_pending_slot_side = side
 	_pending_slot_lane = lane_idx
 	_pending_slot_index = slot_idx
@@ -707,8 +740,18 @@ func _on_empty_slot_clicked(side: String, lane_idx: int, slot_idx: int) -> void:
 	_open_card_search("creature")
 
 
-func _on_populated_slot_clicked(_side: String, _lane_idx: int, _slot_idx: int) -> void:
-	pass  # Click on populated slot does nothing — use Remove/Modify buttons
+func _on_populated_slot_clicked(side: String, lane_idx: int, slot_idx: int, card_container: Control = null) -> void:
+	if _is_move_active():
+		# Same source clicked → cancel. Any other populated slot → swap / restart
+		# (for now: treat as a "drop" onto the target slot, which ends up swapping
+		# two creatures by going through the same pad-and-trim path as empty-slot
+		# drops — the existing entry gets overwritten, then we skip the source).
+		if side == _move_source_side and lane_idx == _move_source_lane and slot_idx == _move_source_slot:
+			_cancel_move()
+			return
+		_complete_move_to_slot(side, lane_idx, slot_idx)
+		return
+	_start_move(side, lane_idx, slot_idx, card_container)
 
 
 func _remove_creature(side: String, lane_idx: int, slot_idx: int) -> void:
@@ -717,6 +760,133 @@ func _remove_creature(side: String, lane_idx: int, slot_idx: int) -> void:
 	if slot_idx < creatures.size():
 		creatures.remove_at(slot_idx)
 	_refresh_board()
+
+
+# ---- Creature move (pick up + drop) ----
+
+func _is_move_active() -> bool:
+	return not _move_source_side.is_empty()
+
+
+func _lane_key(lane_idx: int) -> String:
+	return "field_creatures" if lane_idx == 0 else "shadow_creatures"
+
+
+func _start_move(side: String, lane_idx: int, slot_idx: int, card_container: Control) -> void:
+	var creatures: Array = _get_side_cfg(side).get(_lane_key(lane_idx), [])
+	if slot_idx < 0 or slot_idx >= creatures.size() or creatures[slot_idx] == null:
+		return
+	_move_source_side = side
+	_move_source_lane = lane_idx
+	_move_source_slot = slot_idx
+	_move_source_card_container = card_container
+	if card_container != null:
+		card_container.modulate.a = 0.45
+
+	_move_arrow = PuzzleMoveArrowScript.new()
+	var src_pos := Vector2.ZERO
+	if card_container != null:
+		src_pos = card_container.global_position + card_container.size * 0.5
+	_move_arrow.source_global_pos = src_pos
+	add_child(_move_arrow)
+
+
+func _cancel_move() -> void:
+	if _move_source_card_container != null and is_instance_valid(_move_source_card_container):
+		_move_source_card_container.modulate.a = 1.0
+	_move_source_card_container = null
+	if _move_arrow != null and is_instance_valid(_move_arrow):
+		_move_arrow.queue_free()
+	_move_arrow = null
+	_move_source_side = ""
+	_move_source_lane = 0
+	_move_source_slot = 0
+
+
+func _complete_move_to_slot(dst_side: String, dst_lane: int, dst_slot: int) -> void:
+	var src_side := _move_source_side
+	var src_lane := _move_source_lane
+	var src_slot := _move_source_slot
+	# Extract state before tearing down, then reset move state before the refresh
+	# (so the board redraws without any lingering "source dim" effect).
+	_cancel_move()
+
+	var src_key := _lane_key(src_lane)
+	var src_list: Array = _get_side_cfg(src_side).get(src_key, [])
+	if src_slot >= src_list.size():
+		_refresh_board()
+		return
+	var entry = src_list[src_slot]
+
+	# Null out source.
+	src_list[src_slot] = null
+
+	var dst_key := _lane_key(dst_lane)
+	var dst_list: Array
+	if src_side == dst_side and src_lane == dst_lane:
+		dst_list = src_list  # same array reference
+	else:
+		dst_list = _get_side_cfg(dst_side).get(dst_key, [])
+
+	while dst_list.size() <= dst_slot:
+		dst_list.append(null)
+	dst_list[dst_slot] = entry
+
+	while not src_list.is_empty() and src_list.back() == null:
+		src_list.pop_back()
+	if dst_list != src_list:
+		while not dst_list.is_empty() and dst_list.back() == null:
+			dst_list.pop_back()
+		_get_side_cfg(dst_side)[dst_key] = dst_list
+	_get_side_cfg(src_side)[src_key] = src_list
+
+	_refresh_board()
+
+
+func _complete_move_to_pile(dst_side: String, list_key: String) -> void:
+	var src_side := _move_source_side
+	var src_lane := _move_source_lane
+	var src_slot := _move_source_slot
+	_cancel_move()
+
+	var src_key := _lane_key(src_lane)
+	var src_list: Array = _get_side_cfg(src_side).get(src_key, [])
+	if src_slot >= src_list.size():
+		_refresh_board()
+		return
+	var entry = src_list[src_slot]
+
+	var def_id := ""
+	if typeof(entry) == TYPE_STRING:
+		def_id = entry
+	elif typeof(entry) == TYPE_DICTIONARY:
+		def_id = str(entry.get("definition_id", ""))
+	if def_id.is_empty():
+		_refresh_board()
+		return
+
+	# Remove from source slot (null + trim)
+	src_list[src_slot] = null
+	while not src_list.is_empty() and src_list.back() == null:
+		src_list.pop_back()
+	_get_side_cfg(src_side)[src_key] = src_list
+
+	var pile: Array = _get_side_cfg(dst_side).get(list_key, [])
+	pile.append(def_id)
+	_get_side_cfg(dst_side)[list_key] = pile
+
+	_refresh_board()
+
+
+func _on_pile_button_pressed(side: String, list_key: String) -> void:
+	if _is_move_active():
+		if list_key == "supports":
+			# Creatures shouldn't go into the supports pile; cancel instead.
+			_cancel_move()
+			return
+		_complete_move_to_pile(side, list_key)
+		return
+	_open_list_editor(side, list_key)
 
 
 func _modify_creature(side: String, lane_idx: int, slot_idx: int) -> void:

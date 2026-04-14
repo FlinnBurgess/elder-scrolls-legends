@@ -507,10 +507,11 @@ func _show_discard_choice_overlay() -> void:
 		_screen._refresh_ui()
 		return
 
-	var player = _screen._player_state(local_id)
-	if player.is_empty():
+	var source_player_id: String = str(choice.get("source_player_id", local_id))
+	var source_player = _screen._player_state(source_player_id)
+	if source_player.is_empty():
 		return
-	var discard_pile: Array = player.get("discard", [])
+	var discard_pile: Array = source_player.get("discard", [])
 	var candidate_cards: Array = []
 	for card in discard_pile:
 		if typeof(card) == TYPE_DICTIONARY and candidate_ids.has(str(card.get("instance_id", ""))):
@@ -545,7 +546,8 @@ func _show_discard_choice_overlay() -> void:
 
 	var buff_power := int(choice.get("buff_power", 0))
 	var buff_health := int(choice.get("buff_health", 0))
-	var title_text := "Choose a creature from your discard pile"
+	var is_opponent_discard := source_player_id != local_id
+	var title_text := "Choose a card from your opponent's discard pile" if is_opponent_discard else "Choose a creature from your discard pile"
 	if buff_power > 0 or buff_health > 0:
 		title_text += " (+%d/+%d)" % [buff_power, buff_health]
 	var title_label := Label.new()
@@ -609,7 +611,12 @@ func _on_discard_choice_selected(instance_id: String) -> void:
 	if bool(result.get("is_valid", false)):
 		var card_name := str(result.get("card", {}).get("name", instance_id))
 		_screen._record_feedback_from_events(_screen._copy_array(result.get("events", [])))
-		_screen._status_message = "Drew %s from discard pile." % card_name
+		var has_steal_event := false
+		for evt in result.get("events", []):
+			if typeof(evt) == TYPE_DICTIONARY and str(evt.get("event_type", "")) == "card_stolen_from_discard":
+				has_steal_event = true
+				break
+		_screen._status_message = ("Stole %s from opponent's discard pile." if has_steal_event else "Drew %s from discard pile.") % card_name
 		_screen._targeting._check_pending_summon_effect_target()
 	else:
 		_screen._status_message = str(result.get("errors", ["Failed to resolve discard choice."])[0])

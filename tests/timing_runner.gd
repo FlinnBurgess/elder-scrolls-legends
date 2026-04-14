@@ -50,7 +50,8 @@ func _run_all_tests() -> bool:
 		_test_expertise_target_mode_swap_completes_at_turn_end() and
 		_test_swap_creatures_preserves_lane_when_full() and
 		_test_on_friendly_pilfer_or_drain_requires_pilfer_or_drain() and
-		_test_filter_keyword_matches_triggered_ability_families()
+		_test_filter_keyword_matches_triggered_ability_families() and
+		_test_pilfer_steal_from_discard_creates_choice_and_moves_to_discard()
 	)
 
 
@@ -1174,6 +1175,67 @@ func _test_end_of_turn_invaded_condition_resets_across_opponent_turn() -> bool:
 			"Agent should get +1/+1 at end of controller's turn when invaded. Got +%d/+%d." % [after_p1_turn_power, after_p1_turn_health]) and
 		_assert(after_p2_turn_power == 1 and after_p2_turn_health == 1,
 			"Agent should NOT get another +1/+1 at end of opponent's turn. Got +%d/+%d." % [after_p2_turn_power, after_p2_turn_health])
+	)
+
+
+func _test_pilfer_steal_from_discard_creates_choice_and_moves_to_discard() -> bool:
+	# Mausoleum Delver: Pilfer should let player choose from opponent's discard,
+	# then move the chosen card to the controller's discard (not hand).
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var active_pid := str(active_player["player_id"])
+	var opponent_pid := str(opponent["player_id"])
+	# Put a creature in the opponent's discard pile
+	var opp_discarded := {
+		"instance_id": "%s_discarded_creature" % opponent_pid,
+		"definition_id": "test_opp_discarded",
+		"owner_player_id": opponent_pid,
+		"controller_player_id": opponent_pid,
+		"zone": "discard",
+		"card_type": "creature",
+		"cost": 3, "power": 3, "health": 3, "base_power": 3, "base_health": 3,
+		"damage_marked": 0, "keywords": [], "granted_keywords": [], "status_markers": [],
+		"triggered_abilities": [], "power_bonus": 0, "health_bonus": 0,
+	}
+	opponent["discard"].append(opp_discarded)
+	var opp_discarded_id := str(opp_discarded["instance_id"])
+	var hand_before: int = active_player["hand"].size()
+	var discard_before: int = active_player["discard"].size()
+	# Summon a creature with pilfer: steal_from_discard
+	var delver := _summon_creature(active_player, match_state, "delver", "field", 2, 5, [], 0, {
+		"triggered_abilities": [{
+			"family": "pilfer",
+			"required_zone": "lane",
+			"effects": [{"op": "steal_from_discard", "target_player": "opponent"}],
+		}]
+	})
+	_target_ready_for_attack(delver, match_state)
+	var result := MatchCombat.resolve_attack(match_state, active_pid, delver["instance_id"], {
+		"type": "player",
+		"instance_id": opponent_pid,
+	})
+	# Pilfer should create a pending discard choice, NOT auto-steal
+	var pending: Array = match_state.get("pending_discard_choices", [])
+	if not (
+		_assert(result["is_valid"], "Attack should resolve.") and
+		_assert(active_player["hand"].size() == hand_before, "Hand should NOT grow — card should not go to hand. Was %d, now %d." % [hand_before, active_player["hand"].size()]) and
+		_assert(not pending.is_empty(), "Should create a pending_discard_choices entry.") and
+		_assert(pending[0].get("candidate_instance_ids", []).has(opp_discarded_id), "Opponent's discarded creature should be in candidates.") and
+		_assert(str(pending[0].get("source_player_id", "")) == opponent_pid, "source_player_id should be the opponent.") and
+		_assert(str(pending[0].get("then_op", "")) == "steal_to_discard", "then_op should be steal_to_discard.")
+	):
+		return false
+	# Resolve the choice — card should move to controller's discard
+	var resolve_result := MatchTiming.resolve_pending_discard_choice(match_state, active_pid, opp_discarded_id)
+	var hand_after: int = active_player["hand"].size()
+	var discard_after: int = active_player["discard"].size()
+	var opp_discard_after: int = opponent["discard"].size()
+	return (
+		_assert(bool(resolve_result.get("is_valid", false)), "Resolve should succeed.") and
+		_assert(hand_after == hand_before, "Hand should still be unchanged — card goes to discard, not hand. Was %d, now %d." % [hand_before, hand_after]) and
+		_assert(discard_after == discard_before + 1, "Controller's discard should grow by 1. Was %d, now %d." % [discard_before, discard_after]) and
+		_assert(opp_discard_after == 0, "Opponent's discard should be empty after steal. Got %d." % opp_discard_after)
 	)
 
 
