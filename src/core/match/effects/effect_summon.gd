@@ -597,27 +597,50 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			var sfod_controller_id := str(trigger.get("controller_player_id", ""))
 			var sfod_opponent_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), sfod_controller_id)
 			var sfod_opponent := MatchTimingHelpers._get_player_state(match_state, sfod_opponent_id)
-			if not sfod_opponent.is_empty():
-				var sfod_discard: Array = sfod_opponent.get(ZONE_DISCARD, [])
-				var sfod_candidates: Array = []
-				for sfod_card in sfod_discard:
-					if typeof(sfod_card) == TYPE_DICTIONARY and str(sfod_card.get("card_type", "")) == CARD_TYPE_CREATURE:
-						sfod_candidates.append(sfod_card)
-				if not sfod_candidates.is_empty():
-					var sfod_idx := MatchEffectParams._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_summon_opp_discard", sfod_candidates.size())
-					var sfod_target: Dictionary = sfod_candidates[sfod_idx]
-					sfod_discard.erase(sfod_target)
-					MatchMutations.restore_definition_state(sfod_target)
-					sfod_target.erase("zone")
-					sfod_target["controller_player_id"] = sfod_controller_id
-					sfod_target["owner_player_id"] = sfod_controller_id
-					var sfod_lane_id := MatchSummonTiming._resolve_summon_lane_id(match_state, trigger, event, effect, sfod_controller_id)
-					if not sfod_lane_id.is_empty():
-						var sfod_result := MatchMutations.summon_card_to_lane(match_state, sfod_controller_id, sfod_target, sfod_lane_id, {"source_zone": ZONE_DISCARD})
-						if bool(sfod_result.get("is_valid", false)):
-							generated_events.append_array(sfod_result.get("events", []))
-							generated_events.append(MatchSummonTiming._build_summon_event(sfod_result["card"], sfod_controller_id, sfod_lane_id, int(sfod_result.get("slot_index", -1)), reason))
-							_MT()._check_summon_abilities(match_state, sfod_result["card"])
+			if sfod_opponent.is_empty():
+				return
+			var sfod_discard: Array = sfod_opponent.get(ZONE_DISCARD, [])
+			var sfod_candidate_ids: Array = []
+			for sfod_card in sfod_discard:
+				if typeof(sfod_card) == TYPE_DICTIONARY and str(sfod_card.get("card_type", "")) == CARD_TYPE_CREATURE:
+					sfod_candidate_ids.append(str(sfod_card.get("instance_id", "")))
+			if sfod_candidate_ids.is_empty():
+				return
+			var sfod_chosen_id := str(trigger.get("_chosen_target_id", ""))
+			if sfod_chosen_id.is_empty():
+				# Push pending discard choice for UI — candidates live in opponent's discard
+				match_state["pending_discard_choices"].append({
+					"player_id": sfod_controller_id,
+					"source_player_id": sfod_opponent_id,
+					"source_instance_id": str(trigger.get("source_instance_id", "")),
+					"candidate_instance_ids": sfod_candidate_ids,
+					"then_op": "summon_from_opponent_discard",
+					"reason": "summon_from_opponent_discard",
+				})
+				generated_events.append({"event_type": "discard_choice_pending", "player_id": sfod_controller_id})
+				return
+			# Resolve with chosen target (AI or scripted path)
+			var sfod_target: Dictionary = {}
+			var sfod_target_idx := -1
+			for di in range(sfod_discard.size()):
+				if typeof(sfod_discard[di]) == TYPE_DICTIONARY and str(sfod_discard[di].get("instance_id", "")) == sfod_chosen_id:
+					sfod_target = sfod_discard[di]
+					sfod_target_idx = di
+					break
+			if sfod_target.is_empty() or sfod_target_idx < 0:
+				return
+			sfod_discard.remove_at(sfod_target_idx)
+			MatchMutations.restore_definition_state(sfod_target)
+			sfod_target.erase("zone")
+			sfod_target["controller_player_id"] = sfod_controller_id
+			sfod_target["owner_player_id"] = sfod_controller_id
+			var sfod_lane_id := MatchSummonTiming._resolve_summon_lane_id(match_state, trigger, event, effect, sfod_controller_id)
+			if not sfod_lane_id.is_empty():
+				var sfod_result := MatchMutations.summon_card_to_lane(match_state, sfod_controller_id, sfod_target, sfod_lane_id, {"source_zone": ZONE_DISCARD})
+				if bool(sfod_result.get("is_valid", false)):
+					generated_events.append_array(sfod_result.get("events", []))
+					generated_events.append(MatchSummonTiming._build_summon_event(sfod_result["card"], sfod_controller_id, sfod_lane_id, int(sfod_result.get("slot_index", -1)), reason))
+					_MT()._check_summon_abilities(match_state, sfod_result["card"])
 		"summon_top_creature_from_deck":
 			var stcfd_controller_id := str(trigger.get("controller_player_id", ""))
 			var stcfd_player := MatchTimingHelpers._get_player_state(match_state, stcfd_controller_id)

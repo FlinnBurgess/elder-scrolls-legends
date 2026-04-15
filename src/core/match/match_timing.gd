@@ -634,6 +634,37 @@ static func resolve_pending_discard_choice(match_state: Dictionary, player_id: S
 			"events": timing_result.get("processed_events", []),
 			"trigger_resolutions": timing_result.get("trigger_resolutions", []),
 		}
+	if then_op == "summon_from_opponent_discard":
+		# Summon opponent's discarded creature under controller, in Mannimarco's lane (falling back if full)
+		picked_card["controller_player_id"] = player_id
+		picked_card["owner_player_id"] = player_id
+		var sfod_source_id := str(choice.get("source_instance_id", ""))
+		var sfod_source_loc := MatchMutations.find_card_location(match_state, sfod_source_id)
+		var sfod_lane_id := str(sfod_source_loc.get("lane_id", ""))
+		if sfod_lane_id.is_empty():
+			sfod_lane_id = "field"
+		var sfod_summon := MatchMutations.summon_card_to_lane(match_state, player_id, picked_card, sfod_lane_id, {"source_zone": ZONE_DISCARD})
+		if not bool(sfod_summon.get("is_valid", false)):
+			for sfod_lane in match_state.get("lanes", []):
+				var sfod_alt := str(sfod_lane.get("lane_id", ""))
+				if sfod_alt != sfod_lane_id and not sfod_alt.is_empty():
+					sfod_summon = MatchMutations.summon_card_to_lane(match_state, player_id, picked_card, sfod_alt, {"source_zone": ZONE_DISCARD})
+					if bool(sfod_summon.get("is_valid", false)):
+						sfod_lane_id = sfod_alt
+						break
+		if bool(sfod_summon.get("is_valid", false)):
+			generated_events.append_array(sfod_summon.get("events", []))
+			generated_events.append(MatchSummonTiming._build_summon_event(sfod_summon["card"], player_id, sfod_lane_id, int(sfod_summon.get("slot_index", -1)), "summon_from_opponent_discard"))
+			_check_summon_abilities(match_state, sfod_summon["card"])
+		choices.remove_at(choice_index)
+		var sfod_timing := publish_events(match_state, generated_events)
+		return {
+			"is_valid": true,
+			"errors": [],
+			"card": picked_card,
+			"events": sfod_timing.get("processed_events", []),
+			"trigger_resolutions": sfod_timing.get("trigger_resolutions", []),
+		}
 	if _overflow_card_to_discard(discard_player, picked_card, player_id, ZONE_DISCARD, generated_events):
 		choices.remove_at(choice_index)
 		return {"is_valid": true, "errors": [], "events": generated_events}

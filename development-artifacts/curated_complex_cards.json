@@ -1,41 +1,5 @@
 [
 	{
-		"card_id": "aw_str_jorunns_vanguard",
-		"name": "Jorunn's Vanguard",
-		"card_type": "creature",
-		"cost": 5,
-		"attributes": [
-			"strength"
-		],
-		"rules_text": "Veteran: +2/+2 and give the top creature of your deck +2/+2.",
-		"stripped_text": "Veteran: +2/+2 and give the top creature of your deck +2/+2.",
-		"complexity": 60
-	},
-	{
-		"card_id": "aw_end_mannimarco",
-		"name": "Mannimarco",
-		"card_type": "creature",
-		"cost": 10,
-		"attributes": [
-			"endurance"
-		],
-		"rules_text": "Summon: Summon a creature from your opponent's discard pile.",
-		"stripped_text": "Summon: Summon a creature from your opponent's discard pile.",
-		"complexity": 60
-	},
-	{
-		"card_id": "moe_agi_razum_dar",
-		"name": "Razum-Dar",
-		"card_type": "creature",
-		"cost": 7,
-		"attributes": [
-			"agility"
-		],
-		"rules_text": "Charge\nDraw a copy of the first card your opponent draws each turn.",
-		"stripped_text": "Draw a copy of the first card your opponent draws each turn.",
-		"complexity": 60
-	},
-	{
 		"card_id": "fsc_wil_harmony",
 		"name": "Harmony",
 		"card_type": "action",

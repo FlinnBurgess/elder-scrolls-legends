@@ -2,11 +2,10 @@
 	"enemy": {
 		"current_magicka": 12.0,
 		"deck": [
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark"
+			"agi_murkwater_savage",
+			"agi_murkwater_skirmisher",
+			"joo_agi_bloody_hand_chef",
+			"agi_murkwater_goblin"
 		],
 		"discard": [
 			"hom_end_vvardvark",
@@ -16,13 +15,9 @@
 		],
 		"field_creatures": [
 			null,
-			"hom_end_ald_velothi_assassin",
-			{
-				"can_attack": true,
-				"definition_id": "hos_str_aelas_huntmate",
-				"power_bonus": -5.0
-			},
-			"exc_neu_adoring_fan"
+			null,
+			null,
+			"cwc_neu_abomination"
 		],
 		"hand": [],
 		"health": 30.0,
@@ -46,11 +41,9 @@
 	"player": {
 		"current_magicka": 12.0,
 		"deck": [
-			"iom_str_dagger",
-			"iom_str_dagger",
-			"iom_str_dagger",
-			"iom_str_dagger",
-			"iom_str_dagger"
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark"
 		],
 		"discard": [
 			"str_bangkorai_butcher",
@@ -71,17 +64,12 @@
 		],
 		"field_creatures": [
 			null,
-			null,
-			null
+			"aw_int_abnur_tharn",
+			"cwc_neu_abomination",
+			"moe_agi_razum_dar"
 		],
 		"hand": [
-			"dual_gortwog_gronagorm",
-			"str_orc_clan_captain",
-			"joo_int_occult_ritemaster",
-			"hom_str_camonna_tong_heavy",
-			"iom_neu_ring_of_lordship",
-			"hom_int_sixth_house_amulet",
-			"cwc_neu_abomination"
+			"aw_end_mannimarco"
 		],
 		"has_ring": false,
 		"health": 30.0,

@@ -512,7 +512,11 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						generated_events.append_array(diwhi_draw.get("events", []))
 		"copy_drawn_card_to_hand":
 			var cdcth_controller_id := str(trigger.get("controller_player_id", ""))
-			var cdcth_drawn_id := str(event.get("source_instance_id", event.get("drawn_instance_id", "")))
+			# card_drawn events from the core draw_cards helper put the drawn card in
+			# drawn_instance_id; source_instance_id there is the cause of the draw
+			# (e.g. the damaging card that broke the rune), not the drawn card itself.
+			var cdcth_drawn_id := str(event.get("drawn_instance_id", event.get("instance_id", event.get("source_instance_id", ""))))
+			GameLogger.trc("EffDraw", "cdcth_resolve", "drawn_id:%s,event_keys:%s" % [cdcth_drawn_id, str(event.keys())])
 			var cdcth_drawn := MatchTimingHelpers._find_card_anywhere(match_state, cdcth_drawn_id)
 			if not cdcth_drawn.is_empty():
 				var cdcth_copy := MatchMutations.build_generated_card(match_state, cdcth_controller_id, cdcth_drawn)

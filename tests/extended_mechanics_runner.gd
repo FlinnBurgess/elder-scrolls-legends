@@ -99,6 +99,7 @@ func _run_all_tests() -> bool:
 		_test_summon_from_effect_overflows_to_other_lane() and
 		_test_reanimate_action_summons_from_discard() and
 		_test_summon_from_discard_exact_cost_filter() and
+		_test_mannimarco_summon_from_opponent_discard_prompts_choice() and
 		_test_monster_perfection_lab_equips_item_from_deck() and
 		_test_monster_perfection_lab_no_trigger_without_3_items() and
 		_test_monster_perfection_lab_decline_keeps_lab() and
@@ -148,7 +149,8 @@ func _run_all_tests() -> bool:
 		_test_draw_copy_of_consumed_last_gasp_draws_copy_to_hand() and
 		_test_green_pact_stalker_buffs_with_wounded_enemy_in_lane() and
 		_test_summon_each_unique_from_deck_dedupes_by_definition_not_cost() and
-		_test_feed_queues_pending_choice_for_keyword_recipient()
+		_test_feed_queues_pending_choice_for_keyword_recipient() and
+		_test_razum_dar_copies_opponent_drawn_card_not_self()
 	)
 
 
@@ -3878,6 +3880,61 @@ func _test_summon_from_discard_exact_cost_filter() -> bool:
 	return _assert(not candidates.has(zero_cost_id), "0-cost creature should NOT be in candidates with exact_cost: 1 filter. Got: %s" % str(candidates))
 
 
+func _test_mannimarco_summon_from_opponent_discard_prompts_choice() -> bool:
+	# Mannimarco: Summon a creature from your opponent's discard pile.
+	# Regression: the effect used to pick a random creature; the player should choose.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Put two creatures in the opponent's discard — the player should be allowed to pick either.
+	var weak := ScenarioFixtures.make_card(oid, "opp_weakling", {
+		"card_type": "creature", "power": 1, "health": 1, "base_power": 1, "base_health": 1, "cost": 1,
+	})
+	weak["zone"] = "discard"
+	opponent["discard"].append(weak)
+	var strong := ScenarioFixtures.make_card(oid, "opp_powerhouse", {
+		"card_type": "creature", "power": 7, "health": 7, "base_power": 7, "base_health": 7, "cost": 7,
+	})
+	strong["zone"] = "discard"
+	opponent["discard"].append(strong)
+	var weak_id := str(weak.get("instance_id", ""))
+	var strong_id := str(strong.get("instance_id", ""))
+	# Summon a Mannimarco-like creature under the player.
+	var mannimarco := ScenarioFixtures.summon_creature(player, match_state, "mannimarco_like", "field", 6, 6, [], -1, {
+		"triggered_abilities": [{"family": "summon", "effects": [{"op": "summon_from_opponent_discard", "filter": {"card_type": "creature"}}]}],
+	})
+	if mannimarco.is_empty():
+		return _assert(false, "Mannimarco-like creature should summon successfully.")
+	# Should have pushed a pending discard choice for the player with both candidates available.
+	var pending: Array = match_state.get("pending_discard_choices", [])
+	if not _assert(not pending.is_empty(), "Mannimarco should create a pending discard choice for the player."):
+		return false
+	var choice: Dictionary = pending[0]
+	if not _assert(str(choice.get("player_id", "")) == pid, "Choice should belong to the Mannimarco controller."):
+		return false
+	if not _assert(str(choice.get("source_player_id", "")) == oid, "Choice should source candidates from opponent's discard."):
+		return false
+	var candidates: Array = choice.get("candidate_instance_ids", [])
+	if not _assert(candidates.has(weak_id) and candidates.has(strong_id), "Both opponent creatures should be candidates. Got: %s" % str(candidates)):
+		return false
+	# Resolve the choice by picking the strong creature.
+	var result := MatchTiming.resolve_pending_discard_choice(match_state, pid, strong_id)
+	if not _assert(bool(result.get("is_valid", false)), "Resolving the choice should succeed: %s" % str(result.get("errors", []))):
+		return false
+	# The chosen creature should now be in a lane under the player, no longer in opponent's discard.
+	if not _assert(not _contains_instance(opponent.get("discard", []), strong_id), "Chosen creature should be removed from opponent's discard."):
+		return false
+	var summoned := _find_lane_card(match_state, "field", pid, "test_opp_powerhouse")
+	if not _assert(not summoned.is_empty(), "Chosen creature should be summoned under the player in Mannimarco's lane."):
+		return false
+	if not _assert(str(summoned.get("controller_player_id", "")) == pid, "Summoned creature should be controlled by the player."):
+		return false
+	# The un-picked weak creature should stay in the opponent's discard.
+	return _assert(_contains_instance(opponent.get("discard", []), weak_id), "Un-picked creature should remain in opponent's discard.")
+
+
 func _test_monster_perfection_lab_equips_item_from_deck() -> bool:
 	var match_state := _build_started_match()
 	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
@@ -5691,4 +5748,57 @@ func _test_feed_queues_pending_choice_for_keyword_recipient() -> bool:
 	return (
 		_assert(b_has_guard, "Chosen friendly creature (friendly_b) should receive Guard keyword from destroyed enemy.") and
 		_assert(not a_has_guard, "Non-chosen friendly creature (friendly_a) should NOT receive Guard keyword.")
+	)
+
+
+func _test_razum_dar_copies_opponent_drawn_card_not_self() -> bool:
+	# Regression: when Razum-Dar's damage broke an opponent rune, the rune-draw's
+	# card_drawn event carried source_instance_id = Razum-Dar (the damage source),
+	# so copy_drawn_card_to_hand resolved the "drawn card" back to Razum-Dar and
+	# generated a copy of himself instead of the card the opponent actually drew.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	var razum := ScenarioFixtures.summon_creature(player, match_state, "razum_dar", "field", 4, 3, ["charge"], -1, {
+		"definition_id": "moe_agi_razum_dar",
+		"name": "Razum-Dar",
+		"triggered_abilities": [{
+			"family": "on_opponent_card_drawn",
+			"required_zone": "lane",
+			"once_per_turn": true,
+			"effects": [{"op": "copy_drawn_card_to_hand", "target_player": "controller"}],
+		}],
+	})
+	if razum.is_empty():
+		return _assert(false, "Setup failed: could not summon Razum-Dar to player 0's field.")
+	var vvard := ScenarioFixtures.make_card(oid, "vvardvark", {
+		"definition_id": "test_vvardvark",
+		"name": "Vvardvark",
+		"zone": "deck",
+		"card_type": "creature",
+		"cost": 2,
+		"power": 1,
+		"health": 2,
+	})
+	ScenarioFixtures.set_deck_cards(opponent, [vvard])
+	var hand_before: int = player.get("hand", []).size()
+	# Simulate a rune-break-style draw: source_instance_id is the damage source (Razum-Dar),
+	# NOT the drawn card. The core draw_cards helper puts the drawn card in drawn_instance_id.
+	var draw_result := MatchTiming.draw_cards(match_state, oid, 1, {
+		"reason": "rune_broken",
+		"source_instance_id": str(razum.get("instance_id", "")),
+		"source_controller_player_id": pid,
+	})
+	MatchTiming.publish_events(match_state, draw_result.get("events", []))
+	var hand_after: Array = player.get("hand", [])
+	var copied_defs := []
+	for card in hand_after:
+		if typeof(card) == TYPE_DICTIONARY:
+			copied_defs.append(str(card.get("definition_id", "")))
+	return (
+		_assert(hand_after.size() == hand_before + 1, "Controller should receive exactly one copied card; hand went from %d to %d." % [hand_before, hand_after.size()]) and
+		_assert(copied_defs.has("test_vvardvark"), "Copied card should share the drawn card's definition_id; hand defs: %s." % str(copied_defs)) and
+		_assert(not copied_defs.has("moe_agi_razum_dar"), "Copied card must NOT be Razum-Dar (the trigger source); hand defs: %s." % str(copied_defs))
 	)
