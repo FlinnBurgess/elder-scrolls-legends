@@ -50,6 +50,7 @@ func _run_all_tests() -> bool:
 		_test_draw_from_deck_filtered_count_and_unique() and
 		_test_expertise_target_mode_swap_completes_at_turn_end() and
 		_test_swap_creatures_preserves_lane_when_full() and
+		_test_expertise_deal_damage_chosen_target_heals_and_draws() and
 		_test_on_friendly_pilfer_or_drain_requires_pilfer_or_drain() and
 		_test_filter_keyword_matches_triggered_ability_families() and
 		_test_pilfer_steal_from_discard_creates_choice_and_moves_to_discard()
@@ -1372,6 +1373,60 @@ func _test_expertise_target_mode_swap_completes_at_turn_end() -> bool:
 	MatchTurnLoop.end_turn(match_state, pid)
 	return _assert(str(match_state.get("active_player_id", "")) != active_before,
 		"Turn should advance after expertise swap resolves and end_turn is called.")
+
+
+func _test_expertise_deal_damage_chosen_target_heals_and_draws() -> bool:
+	# Regression: Vanus Galerion's expertise ("Deal 3 damage, you gain 3 health, draw 3 cards")
+	# must prompt for a target for the damage op — hitting only the chosen creature (or player),
+	# not auto-dealing to the opponent face. Heal and draw_cards should still fire on resolve.
+	var match_state := _build_started_match(20, 0)
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player["player_id"])
+	var oid := str(opponent["player_id"])
+	# Leave headroom for heal to be observable
+	player["health"] = 20
+	opponent["health"] = 20
+	# Vanus-style expertise: deal_damage to chosen_target + heal controller + draw 3
+	_summon_creature(player, match_state, "vanus", "field", 3, 3, [], 0, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_EXPERTISE,
+			"required_zone": "lane",
+			"target_mode": "creature_or_player",
+			"effects": [
+				{"op": "deal_damage", "target": "chosen_target", "amount": 3},
+				{"op": "heal", "target_player": "controller", "amount": 3},
+				{"op": "draw_cards", "target_player": "controller", "count": 3},
+			],
+		}],
+	})
+	var enemy := _summon_creature(opponent, match_state, "enemy_target", "field", 3, 5)
+	var hand_size_before := int(player["hand"].size())
+	# Play a non-creature card to satisfy expertise condition
+	var action_card := _add_hand_card(player, "expertise_ping", {
+		"card_type": "action", "cost": 0,
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "damage", "target_player": "target_player", "amount": 0}]}],
+	})
+	MatchTiming.play_action_from_hand(match_state, pid, str(action_card["instance_id"]), {"target_player_id": pid})
+	# hand_size_before was measured before adding/playing the ping; playing it removed 1 card, so
+	# expected post-resolve hand size is hand_size_before + 3 (drew 3 from expertise)
+	MatchTiming.queue_turn_trigger_targets(match_state, pid)
+	if not _assert(MatchTiming.has_pending_turn_trigger_target(match_state, pid),
+		"Expertise with target_mode should create a pending turn trigger target (did not fire auto-targeted)."):
+		return false
+	var resolve_result := MatchTiming.resolve_pending_turn_trigger_target(match_state, pid, {"instance_id": str(enemy["instance_id"])})
+	if not _assert(bool(resolve_result.get("is_valid", false)), "Resolving expertise damage target should succeed."):
+		return false
+	var enemy_damage := int(enemy.get("damage_marked", 0))
+	var player_hp := int(player.get("health", 0))
+	var opponent_hp := int(opponent.get("health", 0))
+	var hand_size_after := int(player["hand"].size())
+	return (
+		_assert(enemy_damage == 3, "Chosen creature should take 3 damage. Got damage_marked=%d." % enemy_damage) and
+		_assert(opponent_hp == 20, "Opponent face should NOT be damaged when a creature was chosen. Got hp=%d." % opponent_hp) and
+		_assert(player_hp == 23, "Controller should gain 3 health (20→23). Got hp=%d." % player_hp) and
+		_assert(hand_size_after == hand_size_before + 3, "Controller should draw 3 cards. Hand before=%d after=%d." % [hand_size_before, hand_size_after])
+	)
 
 
 func _test_swap_creatures_preserves_lane_when_full() -> bool:

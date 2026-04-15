@@ -70,7 +70,9 @@ func _run_all_tests() -> bool:
 		_test_unrelenting_siege_allows_1_power_creature_to_attack_twice() and
 		_test_unrelenting_siege_blocks_2_power_creature_from_second_attack() and
 		_test_unrelenting_siege_allows_debuffed_creature_to_attack_twice() and
-		_test_unrelenting_siege_passive_refreshes_each_turn()
+		_test_unrelenting_siege_passive_refreshes_each_turn() and
+		# Zephyr item grant_extra_attack passive
+		_test_zephyr_grants_wielder_extra_attack_each_turn()
 	)
 
 
@@ -1662,6 +1664,48 @@ func _test_unrelenting_siege_allows_debuffed_creature_to_attack_twice() -> bool:
 		return false
 	var third := MatchCombat.resolve_attack(match_state, pid, str(attacker.get("instance_id", "")), {"type": "player", "player_id": opp_id})
 	return _assert(not bool(third.get("is_valid", false)), "Unrelenting Siege: debuffed-to-1-power creature should NOT be allowed a third attack.")
+
+
+func _test_zephyr_grants_wielder_extra_attack_each_turn() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player.get("player_id", ""))
+	var opp_id := str(opponent.get("player_id", ""))
+	var wielder := ScenarioFixtures.summon_creature(player, match_state, "zephyr_wielder", "field", 3, 8)
+	EvergreenRules.ensure_card_state(wielder)
+	var zephyr := {
+		"instance_id": "%s_zephyr" % pid,
+		"definition_id": "dg_agi_zephyr",
+		"name": "Zephyr",
+		"card_type": "item",
+		"owner_player_id": pid,
+		"controller_player_id": pid,
+		"zone": MatchMutations.ZONE_ATTACHED_ITEM,
+		"attached_to_instance_id": str(wielder["instance_id"]),
+		"equip_power_bonus": -1,
+		"passive_abilities": [{"type": "grant_extra_attack", "target": "host"}],
+	}
+	wielder["attached_items"].append(zephyr)
+	ScenarioFixtures.ready_for_attack(wielder, match_state)
+	# Turn 1: wielder should be able to attack twice (base + Zephyr passive) but not three times
+	var first := MatchCombat.resolve_attack(match_state, pid, str(wielder.get("instance_id", "")), {"type": "player", "player_id": opp_id})
+	if not _assert(bool(first.get("is_valid", false)), "Zephyr: first attack should succeed."):
+		return false
+	var second := MatchCombat.resolve_attack(match_state, pid, str(wielder.get("instance_id", "")), {"type": "player", "player_id": opp_id})
+	if not _assert(bool(second.get("is_valid", false)), "Zephyr: wielder should be allowed a second attack via item passive."):
+		return false
+	var third := MatchCombat.resolve_attack(match_state, pid, str(wielder.get("instance_id", "")), {"type": "player", "player_id": opp_id})
+	if not _assert(not bool(third.get("is_valid", false)), "Zephyr: wielder should NOT be allowed a third attack (passive grants only one extra per turn)."):
+		return false
+	# Advance two turns back to player 0; Zephyr's passive should refresh
+	_end_turn_and_start_next(match_state)
+	_end_turn_and_start_next(match_state)
+	var next_first := MatchCombat.resolve_attack(match_state, pid, str(wielder.get("instance_id", "")), {"type": "player", "player_id": opp_id})
+	if not _assert(bool(next_first.get("is_valid", false)), "Zephyr: wielder should be able to attack on the next turn."):
+		return false
+	var next_second := MatchCombat.resolve_attack(match_state, pid, str(wielder.get("instance_id", "")), {"type": "player", "player_id": opp_id})
+	return _assert(bool(next_second.get("is_valid", false)), "Zephyr: passive should refresh each turn, allowing a second attack next turn.")
 
 
 func _test_unrelenting_siege_passive_refreshes_each_turn() -> bool:

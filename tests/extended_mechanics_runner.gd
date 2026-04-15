@@ -63,6 +63,7 @@ func _run_all_tests() -> bool:
 		_test_dual_wax_wane() and
 		_test_wax_creature_turn_trigger() and
 		_test_on_friendly_wax_target_mode() and
+		_test_wax_creature_in_hand_target_mode() and
 		_test_aldora_the_daring_pack() and
 		_test_mistveil_warden_pack() and
 		_test_murkwater_guide_pack() and
@@ -1758,6 +1759,50 @@ func _test_on_friendly_wax_target_mode() -> bool:
 	return (
 		_assert(bool(resolve.get("is_valid", false)), "Resolving on_friendly_wax target should succeed.") and
 		_assert(enemy_health_after == 2, "Enemy creature should take 1 damage from on_friendly_wax, health: 3 -> 2, got %d." % enemy_health_after)
+	)
+
+
+func _test_wax_creature_in_hand_target_mode() -> bool:
+	# Moontouched Guardian's wax effect should let the player choose a creature in hand,
+	# NOT randomly pick one. The target_mode: "creature_in_hand" should queue pending selection.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Add two creatures to hand so there's a meaningful choice
+	var hand_creature_a := ScenarioFixtures.add_hand_card(player, "hand_wolf", {"card_type": "creature", "power": 2, "health": 2})
+	var hand_creature_b := ScenarioFixtures.add_hand_card(player, "hand_spider", {"card_type": "creature", "power": 1, "health": 3})
+	var wolf_id := str(hand_creature_a.get("instance_id", ""))
+	var spider_id := str(hand_creature_b.get("instance_id", ""))
+	# Add Moontouched Guardian to hand with wax creature_in_hand target_mode
+	var guardian := ScenarioFixtures.add_hand_card(player, "moontouched_guardian", {
+		"card_type": "creature", "cost": 4, "power": 3, "health": 3,
+		"triggered_abilities": [
+			{"family": "wax", "required_zone": "lane", "target_mode": "creature_in_hand", "effects": [{"op": "modify_stats", "target": "chosen_target", "power": 2, "health": 2}]},
+			{"family": "wane", "required_zone": "lane", "effects": [{"op": "grant_keyword", "target": "self", "keyword_id": "guard"}, {"op": "grant_keyword", "target": "self", "keyword_id": "ward"}]},
+		],
+	})
+	# Summon guardian during wax phase (default)
+	LaneRules.summon_from_hand(match_state, pid, str(guardian.get("instance_id", "")), "field", {})
+	# Should queue a pending hand selection (card picker UI), not auto-buff
+	var wolf_power_before := EvergreenRules.get_power(hand_creature_a)
+	var spider_power_before := EvergreenRules.get_power(hand_creature_b)
+	var has_pending := MatchTiming.has_pending_hand_selection(match_state, pid)
+	if not _assert(has_pending, "Wax with creature_in_hand target_mode should queue pending_hand_selections."):
+		return false
+	if not _assert(wolf_power_before == 2, "Wolf should not be buffed yet before player selects. Power: %d" % wolf_power_before):
+		return false
+	if not _assert(spider_power_before == 1, "Spider should not be buffed yet before player selects. Power: %d" % spider_power_before):
+		return false
+	# Resolve hand selection — pick the wolf
+	var resolve := MatchTiming.resolve_pending_hand_selection(match_state, pid, wolf_id)
+	var wolf_power_after := EvergreenRules.get_power(hand_creature_a)
+	var wolf_health_after := EvergreenRules.get_health(hand_creature_a)
+	var spider_power_after := EvergreenRules.get_power(hand_creature_b)
+	return (
+		_assert(bool(resolve.get("is_valid", false)), "Resolving hand selection should succeed.") and
+		_assert(wolf_power_after == 4, "Chosen wolf should get +2 power: 2 -> 4, got %d." % wolf_power_after) and
+		_assert(wolf_health_after == 4, "Chosen wolf should get +2 health: 2 -> 4, got %d." % wolf_health_after) and
+		_assert(spider_power_after == 1, "Unchosen spider should be unchanged. Power: %d" % spider_power_after)
 	)
 
 

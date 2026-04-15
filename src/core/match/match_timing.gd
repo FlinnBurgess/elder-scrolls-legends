@@ -1779,6 +1779,71 @@ static func _check_summon_effect_target_mode(match_state: Dictionary, summoned_c
 		})
 
 
+## Queue pending selections for wax/wane abilities with target_mode on a just-summoned
+## creature played from hand. Summon-family target_mode abilities are handled by the UI
+## before summoning, so this only checks wax/wane. Uses pending_hand_selections for
+## creature_in_hand mode (hand card picker UI), pending_summon_effect_targets for others.
+static func _check_wax_wane_target_mode_abilities(match_state: Dictionary, summoned_card: Dictionary) -> void:
+	var controller_id := str(summoned_card.get("controller_player_id", ""))
+	var player := MatchTimingHelpers._get_player_state(match_state, controller_id)
+	if player.is_empty():
+		return
+	var wax_wane_state := str(player.get("wax_wane_state", "wax"))
+	var dual_wax_wane := bool(player.get("_dual_wax_wane", false))
+	var instance_id := str(summoned_card.get("instance_id", ""))
+	var all_target_abilities := MatchTargeting.get_target_mode_abilities(summoned_card)
+	for i in range(all_target_abilities.size()):
+		var ab: Dictionary = all_target_abilities[i]
+		var family := str(ab.get("family", ""))
+		if family == FAMILY_WAX:
+			if wax_wane_state != "wax" and not dual_wax_wane:
+				continue
+		elif family == FAMILY_WANE:
+			if wax_wane_state != "wane" and not dual_wax_wane:
+				continue
+		else:
+			continue
+		if not _summon_ability_conditions_met(match_state, summoned_card, ab):
+			continue
+		var tm := str(ab.get("target_mode", ""))
+		if tm == "creature_in_hand":
+			# Route through pending_hand_selections (hand card picker UI)
+			var candidates: Array = []
+			for hand_card in player.get(ZONE_HAND, []):
+				if typeof(hand_card) == TYPE_DICTIONARY and str(hand_card.get("card_type", "")) == CARD_TYPE_CREATURE:
+					candidates.append(str(hand_card.get("instance_id", "")))
+			if candidates.is_empty():
+				continue
+			var effects: Array = ab.get("effects", [])
+			var then_op := ""
+			var then_context := {}
+			if not effects.is_empty() and typeof(effects[0]) == TYPE_DICTIONARY:
+				then_op = str(effects[0].get("op", ""))
+				then_context = effects[0].duplicate(true)
+				then_context.erase("op")
+				then_context.erase("target")
+			match_state["pending_hand_selections"].append({
+				"player_id": controller_id,
+				"source_instance_id": instance_id,
+				"candidate_instance_ids": candidates,
+				"then_op": then_op,
+				"then_context": then_context,
+				"prompt": "Choose a creature in your hand.",
+			})
+		else:
+			var valid := MatchTargeting.get_valid_targets_for_mode(match_state, instance_id, tm, ab)
+			if valid.is_empty():
+				continue
+			var pending_arr: Array = match_state.get("pending_summon_effect_targets", [])
+			pending_arr.append({
+				"player_id": controller_id,
+				"source_instance_id": instance_id,
+				"mandatory": bool(ab.get("mandatory", false)),
+				"allowed_families": [family],
+				"_ability_index": i,
+			})
+
+
 static func _summon_ability_conditions_met(match_state: Dictionary, card: Dictionary, descriptor: Dictionary) -> bool:
 	# Build a synthetic trigger + event so we can delegate to the full condition
 	# checkers (_matches_conditions + matches_additional_conditions) rather than

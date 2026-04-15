@@ -327,6 +327,10 @@ func _check_summon_target_mode(source_instance_id: String) -> void:
 			return false
 		if not _screen.MatchTiming._summon_ability_conditions_met(_screen._match_state, card, ab):
 			return false
+		# creature_in_hand target_mode uses pending_hand_selections (hand picker UI),
+		# not the arrow targeting system — skip these here.
+		if str(ab.get("target_mode", "")) == "creature_in_hand":
+			return false
 		var family := str(ab.get("family", ""))
 		if family == _screen.MatchTiming.FAMILY_SUMMON or family == _screen.MatchTiming.FAMILY_ON_PLAY:
 			return true

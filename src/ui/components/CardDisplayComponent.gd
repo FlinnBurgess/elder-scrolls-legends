@@ -1023,7 +1023,11 @@ func _card_has_keyword_or_ability(kw: String) -> bool:
 	return false
 
 
-const _ONE_OFF_FAMILIES := ["summon", "on_play"]
+const _ONE_OFF_FAMILIES := ["summon", "on_play", "wax", "wane"]
+# Effect ops that replace the card's identity — if every effect in a trigger is
+# one of these, the trigger fires once and then the card becomes something else,
+# so it's effectively a one-off for aura-icon purposes (e.g. beast form).
+const _CARD_REPLACING_OPS := ["change", "transform"]
 
 func _has_ongoing_effect() -> bool:
 	if _card_data.get("aura") != null:
@@ -1036,8 +1040,24 @@ func _has_ongoing_effect() -> bool:
 			continue
 		if family in KEYWORD_ICON_PATHS:
 			continue
+		if _trigger_only_replaces_self(trigger):
+			continue
 		return true
 	return false
+
+
+func _trigger_only_replaces_self(trigger: Dictionary) -> bool:
+	var effects = trigger.get("effects", [])
+	if typeof(effects) != TYPE_ARRAY or effects.is_empty():
+		return false
+	for effect in effects:
+		if typeof(effect) != TYPE_DICTIONARY:
+			return false
+		if not (str(effect.get("op", "")) in _CARD_REPLACING_OPS):
+			return false
+		if str(effect.get("target", "")) != "self":
+			return false
+	return true
 
 
 func _layout_keyword_icons() -> void:

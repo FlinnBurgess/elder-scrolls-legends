@@ -530,6 +530,22 @@ static func has_extra_attack_passive(match_state: Dictionary, attacker: Dictiona
 	if bool(attacker.get("_passive_extra_attack_used_this_turn", false)):
 		return false
 	var controller_id := str(attacker.get("controller_player_id", ""))
+	# Check items attached to this attacker (e.g. Zephyr) for grant_extra_attack passive
+	for item in EvergreenRules.get_attached_items(attacker):
+		if typeof(item) != TYPE_DICTIONARY:
+			continue
+		var item_passives = item.get("passive_abilities", [])
+		if typeof(item_passives) != TYPE_ARRAY:
+			continue
+		for p in item_passives:
+			if typeof(p) != TYPE_DICTIONARY or str(p.get("type", "")) != "grant_extra_attack":
+				continue
+			var condition = p.get("condition", {})
+			if typeof(condition) == TYPE_DICTIONARY and not condition.is_empty():
+				var max_power := int(condition.get("max_power", -1))
+				if max_power >= 0 and EvergreenRules.get_power(attacker) > max_power:
+					continue
+			return true
 	# Check supports and lane creatures for grant_extra_attack passive
 	for lane in match_state.get("lanes", []):
 		for card in lane.get("player_slots", {}).get(controller_id, []):
