@@ -17,12 +17,12 @@
 		"field_creatures": [
 			null,
 			null,
-			null,
 			{
 				"can_attack": true,
 				"definition_id": "hos_str_aelas_huntmate",
 				"power_bonus": -5.0
-			}
+			},
+			"db_end_ageless_vampire"
 		],
 		"hand": [],
 		"health": 30.0,
@@ -46,7 +46,14 @@
 	"player": {
 		"current_magicka": 12.0,
 		"deck": [
-			"hos_wil_a_land_divided"
+			"hom_end_vvardvark",
+			"str_afflicted_alit",
+			"cwc_neu_abomination",
+			"hom_end_ald_velothi_assassin",
+			"wil_aldmeri_patriot",
+			"wil_aldmeri_patriot",
+			"hom_wil_ambitious_hireling",
+			"hom_wil_ambitious_hireling"
 		],
 		"discard": [
 			"str_bangkorai_butcher",
@@ -65,13 +72,13 @@
 		"field_creatures": [
 			null,
 			null,
-			null,
-			"moe_agi_mausoleum_delver"
+			"joo_str_agent_of_mehrunes_dagon",
+			"fsc_agi_torval_extortionist"
 		],
 		"hand": [
 			"wil_piercing_javelin",
 			"int_firebolt",
-			"aw_int_abnur_tharn"
+			"tc_wil_feed"
 		],
 		"has_ring": false,
 		"health": 30.0,

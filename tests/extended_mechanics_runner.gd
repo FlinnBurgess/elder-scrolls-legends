@@ -145,7 +145,9 @@ func _run_all_tests() -> bool:
 		_test_discard_from_hand_filter_picks_highest_cost_action() and
 		_test_consume_card_single_consume_no_infinite_loop() and
 		_test_draw_copy_of_consumed_last_gasp_draws_copy_to_hand() and
-		_test_green_pact_stalker_buffs_with_wounded_enemy_in_lane()
+		_test_green_pact_stalker_buffs_with_wounded_enemy_in_lane() and
+		_test_summon_each_unique_from_deck_dedupes_by_definition_not_cost() and
+		_test_feed_queues_pending_choice_for_keyword_recipient()
 	)
 
 
@@ -5552,4 +5554,96 @@ func _test_green_pact_stalker_buffs_with_wounded_enemy_in_lane() -> bool:
 	return (
 		_assert(EvergreenRules.get_power(stalker) == 5, "Stalker power should be 3+2=5 (got %d)." % [EvergreenRules.get_power(stalker)]) and
 		_assert(EvergreenRules.get_health(stalker) == 6, "Stalker health should be 4+2=6 (got %d)." % [EvergreenRules.get_health(stalker)])
+	)
+
+
+func _test_summon_each_unique_from_deck_dedupes_by_definition_not_cost() -> bool:
+	# Regression: Tullius' Conscription used to dedupe by cost, capping summons at
+	# one-per-cost-tier. It should summon one of each unique creature definition.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Build a deck with two unique 2-cost creatures (different definitions),
+	# a duplicate of a 0-cost creature, one at cost 1, and one over the cap.
+	var deck_cards: Array = [
+		ScenarioFixtures.make_card(pid, "alpha", {"card_type": "creature", "cost": 0, "power": 1, "health": 1}),
+		ScenarioFixtures.make_card(pid, "alpha_dup", {"card_type": "creature", "cost": 0, "power": 1, "health": 1, "definition_id": "test_alpha"}),
+		ScenarioFixtures.make_card(pid, "bravo", {"card_type": "creature", "cost": 1, "power": 2, "health": 1}),
+		ScenarioFixtures.make_card(pid, "charlie", {"card_type": "creature", "cost": 2, "power": 2, "health": 2}),
+		ScenarioFixtures.make_card(pid, "delta", {"card_type": "creature", "cost": 2, "power": 3, "health": 1}),
+		ScenarioFixtures.make_card(pid, "echo_over_cap", {"card_type": "creature", "cost": 3, "power": 3, "health": 3}),
+	]
+	ScenarioFixtures.set_deck_cards(player, deck_cards)
+	# Play a Tullius' Conscription-style action.
+	var conscription := ScenarioFixtures.add_hand_card(player, "conscription", {
+		"card_type": "action",
+		"cost": 0,
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "effects": [{"op": "summon_each_unique_from_deck", "filter": {"card_type": "creature", "max_cost": 2}}]}],
+	})
+	var play_result := MatchTiming.play_action_from_hand(match_state, pid, str(conscription.get("instance_id", "")))
+	if not _assert(bool(play_result.get("is_valid", false)), "Conscription action should play successfully."):
+		return false
+	# Count friendly creatures in lanes and record which definitions were summoned.
+	var summoned_defs: Array = []
+	for lane in match_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(pid, []):
+			if typeof(card) == TYPE_DICTIONARY and str(card.get("card_type", "")) == "creature":
+				summoned_defs.append(str(card.get("definition_id", "")))
+	# Expect 4 summons: alpha (once, despite 2 copies), bravo, charlie, delta. echo_over_cap excluded.
+	return (
+		_assert(summoned_defs.size() == 4, "Should summon 4 unique creatures (was %d): %s" % [summoned_defs.size(), str(summoned_defs)]) and
+		_assert(summoned_defs.has("test_alpha"), "alpha (cost 0) should be summoned.") and
+		_assert(summoned_defs.has("test_bravo"), "bravo (cost 1) should be summoned.") and
+		_assert(summoned_defs.has("test_charlie"), "charlie (cost 2) should be summoned.") and
+		_assert(summoned_defs.has("test_delta"), "delta (cost 2, distinct definition) should be summoned — regression: prior dedup-by-cost bug skipped it.") and
+		_assert(not summoned_defs.has("test_echo_over_cap"), "echo_over_cap (cost 3) should NOT be summoned (exceeds max_cost=2).")
+	)
+
+
+func _test_feed_queues_pending_choice_for_keyword_recipient() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Summon an enemy creature with Guard keyword
+	var enemy := ScenarioFixtures.summon_creature(opponent, match_state, "enemy_guard", "field", 0, 4, ["guard"])
+	var enemy_id := str(enemy.get("instance_id", ""))
+	# Summon two friendly creatures — the player should choose which gets keywords
+	var friendly_a := ScenarioFixtures.summon_creature(player, match_state, "friendly_a", "field", 2, 2)
+	var friendly_b := ScenarioFixtures.summon_creature(player, match_state, "friendly_b", "field", 3, 3)
+	var friendly_b_id := str(friendly_b.get("instance_id", ""))
+	# Add Feed to hand and play it targeting the enemy
+	var feed := ScenarioFixtures.add_hand_card(player, "feed_card", {
+		"card_type": "action",
+		"cost": 6,
+		"action_target_mode": "any_creature",
+		"triggered_abilities": [{
+			"family": "on_play",
+			"effects": [{"op": "destroy_and_transfer_keywords", "target": "event_target", "transfer_to_mode": "friendly_creature"}],
+		}],
+	})
+	player["magicka_current"] = 10
+	var play_result := MatchTiming.play_action_from_hand(match_state, pid, str(feed.get("instance_id", "")), {"target_instance_id": enemy_id})
+	if not _assert(bool(play_result.get("is_valid", false)), "play_action_from_hand should succeed. Errors: %s" % str(play_result.get("errors", []))):
+		return false
+	# The enemy should be destroyed
+	var enemy_after := MatchTimingHelpers._find_card_anywhere(match_state, enemy_id)
+	var enemy_zone := str(enemy_after.get("zone", ""))
+	if not _assert(enemy_zone == "discard" or enemy_after.is_empty(), "Enemy creature should be destroyed (in discard), got zone: %s" % enemy_zone):
+		return false
+	# A pending summon effect target should be queued for the keyword recipient
+	if not _assert(MatchTiming.has_pending_summon_effect_target(match_state, pid), "Feed should queue pending_summon_effect_targets for keyword recipient choice."):
+		return false
+	# Resolve by choosing friendly_b
+	var resolve := MatchTiming.resolve_pending_summon_effect_target(match_state, pid, {"target_instance_id": friendly_b_id})
+	if not _assert(bool(resolve.get("is_valid", false)), "Resolving keyword transfer target should succeed."):
+		return false
+	# friendly_b should now have the Guard keyword
+	var b_has_guard := EvergreenRules.has_keyword(friendly_b, "guard")
+	# friendly_a should NOT have Guard
+	var a_has_guard := EvergreenRules.has_keyword(friendly_a, "guard")
+	return (
+		_assert(b_has_guard, "Chosen friendly creature (friendly_b) should receive Guard keyword from destroyed enemy.") and
+		_assert(not a_has_guard, "Non-chosen friendly creature (friendly_a) should NOT receive Guard keyword.")
 	)

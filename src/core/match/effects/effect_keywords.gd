@@ -422,23 +422,30 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				generated_events.append_array(datk_destroy.get("events", []))
 				# Determine the keyword transfer target
 				var datk_transfer_mode := str(effect.get("transfer_to_mode", ""))
-				var datk_recipient: Dictionary = {}
-				if datk_transfer_mode == "friendly_creature":
+				if datk_transfer_mode == "friendly_creature" and not datk_keywords.is_empty():
 					var datk_controller_id := str(trigger.get("controller_player_id", ""))
 					var datk_friendlies := MatchTimingHelpers._player_lane_creatures(match_state, datk_controller_id)
 					if not datk_friendlies.is_empty():
-						# Auto-pick first friendly creature (targeting would require pending system)
-						datk_recipient = datk_friendlies[0]
-				if datk_recipient.is_empty():
-					datk_recipient = MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
-				if not datk_recipient.is_empty():
-					EvergreenRules.ensure_card_state(datk_recipient)
-					var datk_granted: Array = datk_recipient.get("granted_keywords", [])
-					for kw in datk_keywords:
-						if not datk_granted.has(kw):
-							datk_granted.append(kw)
-							generated_events.append({"event_type": "keyword_granted", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(datk_recipient.get("instance_id", "")), "keyword_id": kw})
-					datk_recipient["granted_keywords"] = datk_granted
+						# Queue pending choice so the player picks the recipient
+						var datk_pending: Array = match_state.get("pending_summon_effect_targets", [])
+						datk_pending.append({
+							"player_id": datk_controller_id,
+							"source_instance_id": str(trigger.get("source_instance_id", "")),
+							"mandatory": true,
+							"_choice_target_mode": "friendly_creature",
+							"_transfer_keywords": datk_keywords,
+						})
+				else:
+					# Fallback: grant keywords to the source card itself
+					var datk_recipient := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
+					if not datk_recipient.is_empty():
+						EvergreenRules.ensure_card_state(datk_recipient)
+						var datk_granted: Array = datk_recipient.get("granted_keywords", [])
+						for kw in datk_keywords:
+							if not datk_granted.has(kw):
+								datk_granted.append(kw)
+								generated_events.append({"event_type": "keyword_granted", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(datk_recipient.get("instance_id", "")), "keyword_id": kw})
+						datk_recipient["granted_keywords"] = datk_granted
 		"grant_extra_attack":
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				card["has_attacked_this_turn"] = false

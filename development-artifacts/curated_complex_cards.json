@@ -1,53 +1,5 @@
 [
 	{
-		"card_id": "db_int_daggers_in_the_dark",
-		"name": "Daggers in the Dark",
-		"card_type": "action",
-		"cost": 0,
-		"attributes": [
-			"intelligence"
-		],
-		"rules_text": "Equip a Steel Dagger to a random friendly creature in each lane.",
-		"stripped_text": "Equip a Steel Dagger to a random friendly creature in each lane.",
-		"complexity": 64
-	},
-	{
-		"card_id": "fhc_neu_tullius_conscription",
-		"name": "Tullius' Conscription",
-		"card_type": "action",
-		"cost": 12,
-		"attributes": [
-			"neutral"
-		],
-		"rules_text": "Summon one of each creature from your deck that costs 2 or less.",
-		"stripped_text": "Summon one of each creature from your deck that costs 2 or less.",
-		"complexity": 64
-	},
-	{
-		"card_id": "fsc_agi_torval_extortionist",
-		"name": "Torval Extortionist",
-		"card_type": "creature",
-		"cost": 5,
-		"attributes": [
-			"agility"
-		],
-		"rules_text": "Slay: Gain magicka this turn equal to the slain creature's cost.",
-		"stripped_text": "Slay: Gain magicka this turn equal to the slain creature's cost.",
-		"complexity": 64
-	},
-	{
-		"card_id": "tc_wil_feed",
-		"name": "Feed",
-		"card_type": "action",
-		"cost": 6,
-		"attributes": [
-			"willpower"
-		],
-		"rules_text": "Destroy a creature and give its Keywords to a friendly creature.",
-		"stripped_text": "Destroy a creature and give its Keywords to a friendly creature.",
-		"complexity": 64
-	},
-	{
 		"card_id": "hom_neu_yagrum_bagarn",
 		"name": "Yagrum Bagarn",
 		"card_type": "creature",

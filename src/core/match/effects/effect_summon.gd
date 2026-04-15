@@ -760,7 +760,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var seufd_filter_dict: Dictionary = effect.get("filter", {}) if typeof(effect.get("filter", null)) == TYPE_DICTIONARY else {}
 				var seufd_max_cost := int(seufd_filter_dict.get("max_cost", -1))
 				var seufd_filter_subtype := str(seufd_filter_dict.get("subtype", ""))
-				var seufd_costs_seen: Dictionary = {}
+				var seufd_defs_seen: Dictionary = {}
 				var seufd_to_summon: Array = []
 				# Scan from top of deck
 				for i in range(seufd_deck.size() - 1, -1, -1):
@@ -774,9 +774,10 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						var seufd_subtypes = seufd_card.get("subtypes", [])
 						if typeof(seufd_subtypes) != TYPE_ARRAY or not seufd_subtypes.has(seufd_filter_subtype):
 							continue
-					if seufd_costs_seen.has(seufd_cost):
+					var seufd_def_key := str(seufd_card.get("definition_id", seufd_card.get("name", "")))
+					if seufd_defs_seen.has(seufd_def_key):
 						continue
-					seufd_costs_seen[seufd_cost] = true
+					seufd_defs_seen[seufd_def_key] = true
 					seufd_to_summon.append(seufd_card)
 				for seufd_card in seufd_to_summon:
 					seufd_deck.erase(seufd_card)

@@ -1319,6 +1319,22 @@ static func resolve_pending_summon_effect_target(match_state: Dictionary, player
 	var source_card_type := str(source_loc.get("card", {}).get("card_type", ""))
 	if source_card_type == "creature" and str(source_loc.get("zone", "")) != ZONE_LANE:
 		return {"is_valid": true, "events": [], "trigger_resolutions": []}
+	# Keyword transfer path: Feed-style "destroy creature, give keywords to chosen friendly"
+	var transfer_kws: Array = entry.get("_transfer_keywords", [])
+	if typeof(transfer_kws) == TYPE_ARRAY and not transfer_kws.is_empty():
+		var tkw_chosen_id := str(target_info.get("target_instance_id", ""))
+		var tkw_recipient := MatchTimingHelpers._find_card_anywhere(match_state, tkw_chosen_id)
+		var tkw_events: Array = []
+		if not tkw_recipient.is_empty():
+			EvergreenRules.ensure_card_state(tkw_recipient)
+			var tkw_granted: Array = tkw_recipient.get("granted_keywords", [])
+			for kw in transfer_kws:
+				if not tkw_granted.has(str(kw)):
+					tkw_granted.append(str(kw))
+					tkw_events.append({"event_type": "keyword_granted", "source_instance_id": source_id, "target_instance_id": tkw_chosen_id, "keyword_id": str(kw)})
+			tkw_recipient["granted_keywords"] = tkw_granted
+		var tkw_timing := publish_events(match_state, tkw_events)
+		return {"is_valid": true, "events": tkw_timing.get("processed_events", []), "trigger_resolutions": tkw_timing.get("trigger_resolutions", [])}
 	# Deferred choice path: effects from a choose_one that needed a target selection
 	var deferred_effects: Array = entry.get("_choice_deferred_effects", [])
 	if typeof(deferred_effects) == TYPE_ARRAY and not deferred_effects.is_empty():
