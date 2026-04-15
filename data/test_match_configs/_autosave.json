@@ -46,15 +46,11 @@
 	"player": {
 		"current_magicka": 12.0,
 		"deck": [
-			"hos_neu_alduin",
-			"wil_aldmeri_patriot",
-			"hom_end_vvardvark",
-			"str_afflicted_alit",
-			"cwc_neu_abomination",
-			"hom_end_ald_velothi_assassin",
-			"wil_aldmeri_patriot",
-			"hom_wil_ambitious_hireling",
-			"hom_wil_ambitious_hireling"
+			"iom_str_dagger",
+			"iom_str_dagger",
+			"iom_str_dagger",
+			"iom_str_dagger",
+			"iom_str_dagger"
 		],
 		"discard": [
 			"str_bangkorai_butcher",
@@ -75,12 +71,17 @@
 		],
 		"field_creatures": [
 			null,
+			null,
 			null
 		],
 		"hand": [
-			"int_lightning_bolt",
-			"dg_agi_zephyr",
-			"dual_red_bramman"
+			"dual_gortwog_gronagorm",
+			"str_orc_clan_captain",
+			"joo_int_occult_ritemaster",
+			"hom_str_camonna_tong_heavy",
+			"iom_neu_ring_of_lordship",
+			"hom_int_sixth_house_amulet",
+			"cwc_neu_abomination"
 		],
 		"has_ring": false,
 		"health": 30.0,

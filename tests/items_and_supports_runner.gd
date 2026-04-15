@@ -62,6 +62,9 @@ func _run_all_tests() -> bool:
 		_test_sehts_masterwork_no_discount_for_duplicate_deck() and
 		# Transitus Shrine type filter
 		_test_transitus_shrine_only_discounts_creatures_and_actions() and
+		# Ring of Lordship wielder-subtype filter
+		_test_ring_of_lordship_discounts_creatures_matching_wielder_subtype() and
+		_test_ring_of_lordship_requires_wielder_in_lane() and
 		# Daggerfall Phantom last gasp
 		_test_last_gasp_returns_equipped_items_to_hand() and
 		# Conjurer's Spirit health-gained condition
@@ -1505,6 +1508,57 @@ func _test_transitus_shrine_only_discounts_creatures_and_actions() -> bool:
 		_assert(support_cost == 5, "Transitus Shrine should NOT discount support, expected 5 got %d." % support_cost) and
 		_assert(item_cost == 3, "Transitus Shrine should NOT discount item, expected 3 got %d." % item_cost)
 	)
+
+
+func _test_ring_of_lordship_discounts_creatures_matching_wielder_subtype() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player.get("player_id", ""))
+	# Summon an Orc wielder in the field lane
+	var wielder := ScenarioFixtures.summon_creature(player, match_state, "orc_wielder", "field", 2, 2, [], -1, {"subtypes": ["Orc"]})
+	# Attach Ring of Lordship to the wielder
+	var ring := {
+		"instance_id": pid + "_ring_of_lordship",
+		"definition_id": "iom_neu_ring_of_lordship",
+		"name": "Ring of Lordship",
+		"card_type": "item",
+		"cost": 1,
+		"equip_power_bonus": 0,
+		"equip_health_bonus": 2,
+		"cost_reduction_aura": {"scope": "hand", "target": "friendly", "amount": 1, "filter_subtype_matches_wielder": true},
+		"owner_player_id": pid,
+		"controller_player_id": pid,
+		"zone": "attached_item",
+	}
+	EvergreenRules.ensure_card_state(wielder)
+	wielder["attached_items"].append(ring)
+	# Orc creature in hand: should be discounted
+	var orc_hand := _add_hand_card(player, "orc_hand", {"card_type": "creature", "cost": 6, "power": 4, "health": 6, "subtypes": ["Orc"]})
+	var orc_cost := PersistentCardRules.get_effective_play_cost(match_state, pid, orc_hand)
+	# Non-Orc (Nord) creature in hand: should NOT be discounted
+	var nord_hand := _add_hand_card(player, "nord_hand", {"card_type": "creature", "cost": 5, "power": 3, "health": 3, "subtypes": ["Nord"]})
+	var nord_cost := PersistentCardRules.get_effective_play_cost(match_state, pid, nord_hand)
+	return (
+		_assert(orc_cost == 5, "Ring of Lordship should discount Orc from 6 to 5, got %d." % orc_cost) and
+		_assert(nord_cost == 5, "Ring of Lordship should NOT discount Nord (non-matching subtype), expected 5 got %d." % nord_cost)
+	)
+
+
+func _test_ring_of_lordship_requires_wielder_in_lane() -> bool:
+	# The ring's aura should only apply when equipped to a lane creature — unequipped item in hand grants no discount
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player.get("player_id", ""))
+	# Place the ring in hand (unequipped) with its full aura payload
+	_add_hand_card(player, "unequipped_ring", {
+		"card_type": "item",
+		"cost": 1,
+		"cost_reduction_aura": {"scope": "hand", "target": "friendly", "amount": 1, "filter_subtype_matches_wielder": true},
+	})
+	# Add an Orc creature in hand
+	var orc_hand := _add_hand_card(player, "orc_hand_unequipped", {"card_type": "creature", "cost": 6, "power": 4, "health": 6, "subtypes": ["Orc"]})
+	var orc_cost := PersistentCardRules.get_effective_play_cost(match_state, pid, orc_hand)
+	return _assert(orc_cost == 6, "Ring of Lordship in hand (unequipped) should NOT discount, expected 6 got %d." % orc_cost)
 
 
 func _test_last_gasp_returns_equipped_items_to_hand() -> bool:

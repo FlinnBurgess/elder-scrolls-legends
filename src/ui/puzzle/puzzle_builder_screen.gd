@@ -1277,6 +1277,16 @@ func _add_random_card_by_subtype(side: String, list_key: String, subtype: String
 	_quick_add_card(side, list_key, str(candidates.pick_random()))
 
 
+func _unhandled_key_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_P and _active_overlay == null:
+			var focus_owner := get_viewport().gui_get_focus_owner()
+			if focus_owner is LineEdit or focus_owner is TextEdit or focus_owner is SpinBox:
+				return
+			get_viewport().set_input_as_handled()
+			_on_play()
+
+
 func _dismiss_overlay() -> void:
 	if _active_overlay != null:
 		_active_overlay.queue_free()

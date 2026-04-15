@@ -669,6 +669,7 @@ static func _get_min_card_cost(match_state: Dictionary) -> int:
 static func _get_aura_cost_reduction(match_state: Dictionary, player_id: String, card: Dictionary) -> int:
 	var total := 0
 	var card_type := str(card.get("card_type", ""))
+	# Each entry: {"aura": Dictionary, "wielder": Dictionary or null}
 	var all_aura_sources: Array = []
 	for lane in match_state.get("lanes", []):
 		for lane_card in lane.get("player_slots", {}).get(player_id, []):
@@ -676,14 +677,22 @@ static func _get_aura_cost_reduction(match_state: Dictionary, player_id: String,
 				continue
 			var aura = lane_card.get("cost_reduction_aura", {})
 			if typeof(aura) == TYPE_DICTIONARY and not aura.is_empty():
-				all_aura_sources.append(aura)
+				all_aura_sources.append({"aura": aura, "wielder": lane_card})
+			for item in lane_card.get("attached_items", []):
+				if typeof(item) != TYPE_DICTIONARY:
+					continue
+				var item_aura = item.get("cost_reduction_aura", {})
+				if typeof(item_aura) == TYPE_DICTIONARY and not item_aura.is_empty():
+					all_aura_sources.append({"aura": item_aura, "wielder": lane_card})
 	for support_card in _get_player_state(match_state, player_id).get("support", []):
 		if typeof(support_card) != TYPE_DICTIONARY:
 			continue
 		var aura = support_card.get("cost_reduction_aura", {})
 		if typeof(aura) == TYPE_DICTIONARY and not aura.is_empty():
-			all_aura_sources.append(aura)
-	for aura in all_aura_sources:
+			all_aura_sources.append({"aura": aura, "wielder": null})
+	for entry in all_aura_sources:
+		var aura: Dictionary = entry["aura"]
+		var wielder = entry["wielder"]
 		var required_type := str(aura.get("card_type", ""))
 		if not required_type.is_empty() and card_type != required_type:
 			continue
@@ -695,6 +704,20 @@ static func _get_aura_cost_reduction(match_state: Dictionary, player_id: String,
 		if not aura_filter_subtype.is_empty():
 			var card_subtypes = card.get("subtypes", [])
 			if typeof(card_subtypes) != TYPE_ARRAY or not card_subtypes.has(aura_filter_subtype):
+				continue
+		if aura.get("filter_subtype_matches_wielder", false):
+			if typeof(wielder) != TYPE_DICTIONARY:
+				continue
+			var wielder_subtypes = wielder.get("subtypes", [])
+			var card_subtypes_w = card.get("subtypes", [])
+			if typeof(wielder_subtypes) != TYPE_ARRAY or typeof(card_subtypes_w) != TYPE_ARRAY:
+				continue
+			var matched := false
+			for ws in wielder_subtypes:
+				if card_subtypes_w.has(ws):
+					matched = true
+					break
+			if not matched:
 				continue
 		if aura.get("filter_unique", false) and not card.get("is_unique", false):
 			continue
