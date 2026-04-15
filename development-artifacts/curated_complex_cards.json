@@ -1,41 +1,5 @@
 [
 	{
-		"card_id": "hom_neu_yagrum_bagarn",
-		"name": "Yagrum Bagarn",
-		"card_type": "creature",
-		"cost": 3,
-		"attributes": [
-			"neutral"
-		],
-		"rules_text": "Summon: Draw a Dwemer from your discard pile and give it +2/+2.",
-		"stripped_text": "Summon: Draw a Dwemer from your discard pile and give it +2/+2.",
-		"complexity": 63
-	},
-	{
-		"card_id": "joo_str_modryn_oreyn",
-		"name": "Modryn Oreyn",
-		"card_type": "creature",
-		"cost": 4,
-		"attributes": [
-			"strength"
-		],
-		"rules_text": "Breakthrough\nSummon: Your opponent summons a Blackwood Hoodlum in each lane.",
-		"stripped_text": "Summon: Your opponent summons a Blackwood Hoodlum in each lane.",
-		"complexity": 63
-	},
-	{
-		"card_id": "iom_int_transmogrify",
-		"name": "Transmogrify",
-		"card_type": "action",
-		"cost": 7,
-		"attributes": [
-			"intelligence"
-		],
-		"rules_text": "Sacrifice a creature to summon the top creature from your deck.",
-		"stripped_text": "Sacrifice a creature to summon the top creature from your deck.",
-		"complexity": 63
-	},
-	{
 		"card_id": "hom_int_barilzars_tinkering",
 		"name": "Barilzar's Tinkering",
 		"card_type": "action",

@@ -25,6 +25,7 @@ func _run_all_tests() -> bool:
 		_test_on_play_summon_and_expertise_share_deterministic_order() and
 		_test_pilfer_and_veteran_trigger_from_damage_windows() and
 		_test_slay_on_death_and_last_gasp_follow_death_window_order() and
+		_test_last_gasp_modify_stats_targets_all_instances_by_definition_id() and
 		_test_slay_fires_when_both_creatures_die() and
 		_test_pilfer_does_not_fire_on_summon() and
 		_test_end_of_turn_target_mode_does_not_fire_on_summon() and
@@ -221,6 +222,48 @@ func _test_slay_on_death_and_last_gasp_follow_death_window_order() -> bool:
 		_assert(_families_from_resolutions(result.get("trigger_resolutions", [])) == [MatchTiming.FAMILY_SLAY, MatchTiming.FAMILY_ON_DEATH, MatchTiming.FAMILY_LAST_GASP], "Slay should resolve before the defender's death triggers, which should keep trigger declaration order.") and
 		_assert(slayer["power_bonus"] == 1, "Slay effect should apply to the surviving attacker.") and
 		_assert(log_events.size() == 2, "Death-trigger log effects should emit replay-visible events.")
+	)
+
+
+func _test_last_gasp_modify_stats_targets_all_instances_by_definition_id() -> bool:
+	# Regression: Blackwood Hoodlum's last_gasp should buff every instance of Modryn Oreyn on the
+	# board (by definition_id), not just itself. The catalog originally used an unsupported
+	# "target_card_id" key which silently defaulted to target:"self".
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	# Two Modryn Oreyn instances — one on each side — share a definition_id.
+	var modryn_one := _summon_creature(active_player, match_state, "modryn_one", "field", 4, 4)
+	modryn_one["definition_id"] = "joo_str_modryn_oreyn"
+	var modryn_two := _summon_creature(opponent, match_state, "modryn_two", "shadow", 4, 4)
+	modryn_two["definition_id"] = "joo_str_modryn_oreyn"
+	# Attacker on active side will kill the Hoodlum next.
+	var attacker := _summon_creature(active_player, match_state, "attacker", "field", 5, 5)
+	# Hoodlum on opponent side with the real catalog trigger shape.
+	var hoodlum := _summon_creature(opponent, match_state, "hoodlum", "field", 1, 1, [], -1, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_LAST_GASP,
+			"effects": [{
+				"op": "modify_stats",
+				"target": "all_creatures",
+				"target_filter_definition_id": "joo_str_modryn_oreyn",
+				"power": 2,
+				"health": 2,
+			}],
+		}]
+	})
+	_target_ready_for_attack(attacker, match_state)
+	_target_ready_for_attack(hoodlum, match_state)
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], attacker["instance_id"], {
+		"type": "creature",
+		"instance_id": hoodlum["instance_id"],
+	})
+	return (
+		_assert(result["is_valid"], "Attack on Hoodlum should resolve.") and
+		_assert(int(modryn_one.get("power_bonus", 0)) == 2, "Friendly Modryn should gain +2 power (got %d)." % int(modryn_one.get("power_bonus", 0))) and
+		_assert(int(modryn_one.get("health_bonus", 0)) == 2, "Friendly Modryn should gain +2 health (got %d)." % int(modryn_one.get("health_bonus", 0))) and
+		_assert(int(modryn_two.get("power_bonus", 0)) == 2, "Enemy Modryn should also gain +2 power (got %d)." % int(modryn_two.get("power_bonus", 0))) and
+		_assert(int(modryn_two.get("health_bonus", 0)) == 2, "Enemy Modryn should also gain +2 health (got %d)." % int(modryn_two.get("health_bonus", 0)))
 	)
 
 

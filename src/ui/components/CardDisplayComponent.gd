@@ -32,7 +32,9 @@ const KEYWORD_ICON_PATHS := {
 	"regenerate": "res://assets/images/keywords/regenerate.png",
 	"slay": "res://assets/images/keywords/slay.png",
 	"rally": "res://assets/images/keywords/rally.png",
+	"veteran": "res://assets/images/keywords/veteran.png",
 }
+const AURA_ICON_PATH := "res://assets/images/keywords/aura.png"
 
 const KEYWORD_NAMES := [
 	"breakthrough", "charge", "drain", "guard",
@@ -1000,6 +1002,16 @@ func _refresh_keyword_icons() -> void:
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_keyword_icons_container.add_child(icon)
+	if _has_ongoing_effect():
+		var aura_texture := _load_texture_from_path(AURA_ICON_PATH)
+		if aura_texture != null:
+			var aura_icon := TextureRect.new()
+			aura_icon.texture = aura_texture
+			aura_icon.custom_minimum_size = Vector2(KEYWORD_ICON_SIZE, KEYWORD_ICON_SIZE)
+			aura_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			aura_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			aura_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			_keyword_icons_container.add_child(aura_icon)
 
 
 func _card_has_keyword_or_ability(kw: String) -> bool:
@@ -1008,6 +1020,23 @@ func _card_has_keyword_or_ability(kw: String) -> bool:
 	for trigger in _card_data.get("triggered_abilities", []):
 		if typeof(trigger) == TYPE_DICTIONARY and str(trigger.get("family", "")) == kw:
 			return true
+	return false
+
+
+const _ONE_OFF_FAMILIES := ["summon", "on_play"]
+
+func _has_ongoing_effect() -> bool:
+	if _card_data.get("aura") != null:
+		return true
+	for trigger in _card_data.get("triggered_abilities", []):
+		if typeof(trigger) != TYPE_DICTIONARY:
+			continue
+		var family: String = str(trigger.get("family", ""))
+		if family in _ONE_OFF_FAMILIES:
+			continue
+		if family in KEYWORD_ICON_PATHS:
+			continue
+		return true
 	return false
 
 

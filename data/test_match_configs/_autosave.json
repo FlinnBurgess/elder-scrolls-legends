@@ -21,8 +21,7 @@
 				"can_attack": true,
 				"definition_id": "hos_str_aelas_huntmate",
 				"power_bonus": -5.0
-			},
-			"db_end_ageless_vampire"
+			}
 		],
 		"hand": [],
 		"health": 30.0,
@@ -46,11 +45,12 @@
 	"player": {
 		"current_magicka": 12.0,
 		"deck": [
+			"hos_neu_alduin",
+			"wil_aldmeri_patriot",
 			"hom_end_vvardvark",
 			"str_afflicted_alit",
 			"cwc_neu_abomination",
 			"hom_end_ald_velothi_assassin",
-			"wil_aldmeri_patriot",
 			"wil_aldmeri_patriot",
 			"hom_wil_ambitious_hireling",
 			"hom_wil_ambitious_hireling"
@@ -67,23 +67,27 @@
 			"end_gargoyle",
 			"str_orc_clan_shaman",
 			"hos_str_stronghold_patrol",
-			"mc_dual_champion_of_the_arena"
+			"mc_dual_champion_of_the_arena",
+			"mc_neu_mechanical_ally",
+			"hom_neu_yagrum_bagarn",
+			"neu_sparking_spider"
 		],
 		"field_creatures": [
 			null,
-			null,
-			"joo_str_agent_of_mehrunes_dagon",
-			"fsc_agi_torval_extortionist"
+			"tc_tri_aldmeri_spellwright",
+			"neu_ageless_automaton",
+			"exc_neu_adoring_fan"
 		],
 		"hand": [
 			"wil_piercing_javelin",
-			"int_firebolt",
-			"tc_wil_feed"
+			"iom_int_transmogrify"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [],
+		"shadow_creatures": [
+			"aw_end_black_marsh_centurion"
+		],
 		"supports": []
 	},
 	"type": "kill"
