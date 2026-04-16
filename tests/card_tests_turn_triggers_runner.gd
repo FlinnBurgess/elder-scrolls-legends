@@ -70,6 +70,11 @@ func _run_all_tests() -> bool:
 		_test_scouts_report_discard_then_draws_next_card() and
 		# Giant Slaughterfish — all_friendly_animals includes Fish subtype
 		_test_giant_slaughterfish_buffs_itself() and
+		# Wrath of Sithis — cost_increase_next_turn aura
+		_test_wrath_of_sithis_increases_opponent_costs_next_turn() and
+		_test_wrath_of_sithis_cost_increase_active_during_opponent_turn() and
+		_test_wrath_of_sithis_cost_increase_expires_after_turn() and
+		_test_wrath_of_sithis_cost_increase_survives_source_death() and
 		true
 	)
 
@@ -887,3 +892,86 @@ func _test_giant_slaughterfish_buffs_itself() -> bool:
 	var new_power: int = EvergreenRules.get_power(fish)
 	return _assert(new_power == base_power + 2,
 		"Giant Slaughterfish should buff itself +2 power (expected %d, got %d)" % [base_power + 2, new_power])
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Wrath of Sithis — "Summon: Your opponent's cards cost 1 more next turn."
+# ──────────────────────────────────────────────────────────────────────────────
+
+func _test_wrath_of_sithis_increases_opponent_costs_next_turn() -> bool:
+	var match_state := _build_started_match()
+	var player := ScenarioFixtures.player(match_state, 0)
+	var opponent := ScenarioFixtures.player(match_state, 1)
+	var opid := str(opponent.get("player_id", ""))
+	# Summon Wrath of Sithis — its summon trigger sets _global_cost_increase on opponent
+	var wrath: Dictionary = _catalog_helper.summon(player, match_state, "db_end_wrath_of_sithis", "field")
+	if wrath.is_empty():
+		return _assert(false, "Failed to summon Wrath of Sithis")
+	# Add a 3-cost creature to opponent's hand
+	var opp_card: Dictionary = ScenarioFixtures.add_hand_card(opponent, "test_creature", {
+		"card_type": "creature", "cost": 3, "power": 2, "health": 2,
+	})
+	# Opponent's effective play cost should be 4 (3 base + 1 from Wrath aura)
+	var effective: int = PersistentCardRules.get_effective_play_cost(match_state, opid, opp_card)
+	return _assert(effective == 4,
+		"Opponent card should cost 4 (3+1 from Wrath of Sithis), got %d" % effective)
+
+
+func _test_wrath_of_sithis_cost_increase_active_during_opponent_turn() -> bool:
+	# Regression: the aura was being erased at the START of the opponent's turn,
+	# before they could use it. It must survive through their whole turn.
+	var match_state := _build_started_match()
+	var player := ScenarioFixtures.player(match_state, 0)
+	var opponent := ScenarioFixtures.player(match_state, 1)
+	var opid := str(opponent.get("player_id", ""))
+	var wrath: Dictionary = _catalog_helper.summon(player, match_state, "db_end_wrath_of_sithis", "field")
+	if wrath.is_empty():
+		return _assert(false, "Failed to summon Wrath of Sithis")
+	var opp_card: Dictionary = ScenarioFixtures.add_hand_card(opponent, "test_creature", {
+		"card_type": "creature", "cost": 3, "power": 2, "health": 2,
+	})
+	# Cross the turn boundary — opponent's turn is now active
+	_end_turn_and_start_next(match_state)
+	var effective: int = PersistentCardRules.get_effective_play_cost(match_state, opid, opp_card)
+	return _assert(effective == 4,
+		"Opponent card should still cost 4 during their turn (aura must not expire on turn start), got %d" % effective)
+
+
+func _test_wrath_of_sithis_cost_increase_expires_after_turn() -> bool:
+	var match_state := _build_started_match()
+	var player := ScenarioFixtures.player(match_state, 0)
+	var opponent := ScenarioFixtures.player(match_state, 1)
+	var opid := str(opponent.get("player_id", ""))
+	var wrath: Dictionary = _catalog_helper.summon(player, match_state, "db_end_wrath_of_sithis", "field")
+	if wrath.is_empty():
+		return _assert(false, "Failed to summon Wrath of Sithis")
+	var opp_card: Dictionary = ScenarioFixtures.add_hand_card(opponent, "test_creature", {
+		"card_type": "creature", "cost": 3, "power": 2, "health": 2,
+	})
+	# End player's turn, opponent's turn starts and ends (aura expires)
+	_end_turn_and_start_next(match_state)  # end player turn -> opponent turn starts
+	_end_turn_and_start_next(match_state)  # end opponent turn -> player turn starts
+	# Aura should have expired — cost should be back to 3
+	var effective: int = PersistentCardRules.get_effective_play_cost(match_state, opid, opp_card)
+	return _assert(effective == 3,
+		"Opponent card should cost 3 after aura expires, got %d" % effective)
+
+
+func _test_wrath_of_sithis_cost_increase_survives_source_death() -> bool:
+	var match_state := _build_started_match()
+	var player := ScenarioFixtures.player(match_state, 0)
+	var opponent := ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var opid := str(opponent.get("player_id", ""))
+	var wrath: Dictionary = _catalog_helper.summon(player, match_state, "db_end_wrath_of_sithis", "field")
+	if wrath.is_empty():
+		return _assert(false, "Failed to summon Wrath of Sithis")
+	# Destroy Wrath of Sithis
+	MatchMutations.discard_card(match_state, str(wrath.get("instance_id", "")))
+	# Cost increase should still apply even though source is dead
+	var opp_card: Dictionary = ScenarioFixtures.add_hand_card(opponent, "test_creature", {
+		"card_type": "creature", "cost": 3, "power": 2, "health": 2,
+	})
+	var effective: int = PersistentCardRules.get_effective_play_cost(match_state, opid, opp_card)
+	return _assert(effective == 4,
+		"Opponent card should still cost 4 after Wrath destroyed, got %d" % effective)

@@ -186,13 +186,13 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			var cint_opponent_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), cint_controller_id)
 			var cint_opponent := MatchTimingHelpers._get_player_state(match_state, cint_opponent_id)
 			if not cint_opponent.is_empty():
-				var cint_hand: Array = cint_opponent.get(ZONE_HAND, [])
-				if not cint_hand.is_empty():
-					var cint_idx := MatchEffectParams._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_cost_increase", cint_hand.size())
-					var cint_card: Dictionary = cint_hand[cint_idx]
-					var cint_amount := int(effect.get("amount", 3))
-					cint_card["cost"] = int(cint_card.get("cost", 0)) + cint_amount
-					generated_events.append({"event_type": "cost_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(cint_card.get("instance_id", "")), "amount": cint_amount})
+				var cint_amount := int(effect.get("amount", 1))
+				var cint_current := int(cint_opponent.get("_global_cost_increase", 0))
+				cint_opponent["_global_cost_increase"] = cint_current + cint_amount
+				# Expire when the summoner's next turn starts — turn_number increments once per player turn,
+				# so +2 means the aura survives the opponent's upcoming turn and clears when control returns.
+				cint_opponent["_global_cost_increase_expires_on_turn"] = int(match_state.get("turn_number", 0)) + 2
+				generated_events.append({"event_type": "cost_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "amount": cint_amount})
 		"increase_opponent_action_cost":
 			var ioac_source := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 			if not ioac_source.is_empty():

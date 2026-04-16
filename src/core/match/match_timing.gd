@@ -1961,6 +1961,52 @@ static func _check_slay_target_mode(match_state: Dictionary, event: Dictionary) 
 		break  # Only queue once per slay event
 
 
+## Check if a creature that just pilfered has pilfer triggers with target_mode.
+## If so, queue a pending_summon_effect_targets entry so the player can pick the target.
+static func _check_pilfer_target_mode(match_state: Dictionary, event: Dictionary) -> void:
+	if str(event.get("event_type", "")) != EVENT_DAMAGE_RESOLVED:
+		return
+	# Pilfer only fires on damage to a player, not a creature
+	if str(event.get("target_type", "")) != "player":
+		return
+	if int(event.get("amount", 0)) < 1:
+		return
+	var source_id := str(event.get("source_instance_id", ""))
+	if source_id.is_empty():
+		return
+	var source := MatchTimingHelpers._find_card_anywhere(match_state, source_id)
+	if source.is_empty():
+		return
+	if str(source.get("zone", "")) != ZONE_LANE:
+		return
+	if EvergreenRules.has_raw_status(source, EvergreenRules.STATUS_SILENCED):
+		return
+	var abilities = source.get("triggered_abilities", [])
+	if typeof(abilities) != TYPE_ARRAY:
+		return
+	var controller_id := str(source.get("controller_player_id", ""))
+	for descriptor in abilities:
+		if typeof(descriptor) != TYPE_DICTIONARY:
+			continue
+		if str(descriptor.get("family", "")) != FAMILY_PILFER:
+			continue
+		if str(descriptor.get("target_mode", "")).is_empty():
+			continue
+		if not bool(descriptor.get("enabled", true)):
+			continue
+		var tm := str(descriptor.get("target_mode", ""))
+		var valid_targets := MatchTargeting.get_valid_targets_for_mode(match_state, source_id, tm)
+		if valid_targets.is_empty():
+			continue
+		var pending_arr: Array = match_state.get("pending_summon_effect_targets", [])
+		pending_arr.append({
+			"player_id": controller_id,
+			"source_instance_id": source_id,
+			"mandatory": false,
+		})
+		break  # Only queue once per pilfer event
+
+
 ## Check if a card_played event should trigger on_friendly_wax/on_friendly_wane abilities
 ## with target_mode on other friendly creatures. If so, queue pending_summon_effect_targets
 ## so the player can pick the target (these are excluded from auto-pick in _trigger_matches_event).
@@ -3079,7 +3125,7 @@ static func play_action_from_hand(match_state: Dictionary, player_id: String, in
 	if first_lesson_discount > 0:
 		action_cost_reduction += first_lesson_discount
 		player["_first_lesson_discount"] = 0
-	var play_cost := 0 if played_for_free else maxi(0, base_action_cost - action_cost_reduction)
+	var play_cost := 0 if played_for_free else maxi(0, base_action_cost - action_cost_reduction) + int(player.get("_global_cost_increase", 0))
 	if play_cost > MatchTimingHelpers._get_available_magicka(player):
 		return MatchTimingHelpers._invalid_result("Player does not have enough magicka to play %s." % instance_id)
 	if not played_for_free:
@@ -3456,6 +3502,8 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 		# Queue player-targeted slay triggers (e.g. Mulaamnir) after the event's
 		# non-targeted slay triggers have already resolved.
 		_check_slay_target_mode(match_state, event)
+		# Queue player-targeted pilfer triggers (e.g. Prowl Smuggler equip target)
+		_check_pilfer_target_mode(match_state, event)
 		# Queue player-targeted on_friendly_wax/wane triggers (e.g. Frazzled Alfiq deal 1 damage)
 		_check_on_friendly_wax_wane_target_mode(match_state, event)
 	var aura_kw_events := MatchAuras.recalculate_auras(match_state)
@@ -3490,6 +3538,7 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 					"produced_by_resolution_id": str(resolution.get("resolution_id", "")),
 				}))
 		_check_slay_target_mode(match_state, aura_kw_event)
+		_check_pilfer_target_mode(match_state, aura_kw_event)
 	if not aura_kw_events.is_empty():
 		MatchAuras.recalculate_auras(match_state)
 	# After auras recalculate, check for creatures that should die due to lost aura health
@@ -3547,6 +3596,7 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 						"produced_by_resolution_id": str(resolution.get("resolution_id", "")),
 					}))
 			_check_slay_target_mode(match_state, event)
+			_check_pilfer_target_mode(match_state, event)
 		MatchAuras.recalculate_auras(match_state)
 	var result := {
 		"processed_events": processed_events,

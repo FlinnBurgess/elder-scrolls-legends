@@ -158,7 +158,8 @@ func _run_all_tests() -> bool:
 		_test_summon_all_from_discard_by_name_respects_board_capacity() and
 		_test_blood_magic_lord_summon_generates_random_blood_magic_spell() and
 		_test_increase_opponent_action_cost_veteran() and
-		_test_outflank_per_lane_targeting_grants_stats_and_guard()
+		_test_outflank_per_lane_targeting_grants_stats_and_guard() and
+		_test_buff_random_hand_card_filters_correctly()
 	)
 
 
@@ -6095,3 +6096,43 @@ func _test_outflank_per_lane_targeting_grants_stats_and_guard() -> bool:
 		return false
 	# No more pending selections
 	return _assert(not MatchTiming.has_pending_summon_effect_target(match_state, pid), "No more pending targets after both lanes resolved.")
+
+
+func _test_buff_random_hand_card_filters_correctly() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Put a creature, an item, and an action in hand
+	var hand_creature := ScenarioFixtures.add_hand_card(player, "hand_creature", {
+		"card_type": "creature", "cost": 3, "power": 2, "health": 3,
+	})
+	var hand_item := ScenarioFixtures.add_hand_card(player, "hand_item", {
+		"card_type": "item", "cost": 2, "power": 1, "health": 1,
+	})
+	var hand_action := ScenarioFixtures.add_hand_card(player, "hand_action", {
+		"card_type": "action", "cost": 1,
+	})
+	# Play Warrior's Fury analog — buff random creature +2/+2 and random item +2/+2
+	var fury := ScenarioFixtures.add_hand_card(player, "warriors_fury_test", {
+		"card_type": "action",
+		"cost": 0,
+		"triggered_abilities": [{"family": "on_play", "effects": [
+			{"op": "buff_random_hand_card", "filter": {"card_type": "creature"}, "power": 2, "health": 2},
+			{"op": "buff_random_hand_card", "filter": {"card_type": "item"}, "power": 2, "health": 2},
+		]}],
+	})
+	MatchTiming.play_action_from_hand(match_state, pid, str(fury.get("instance_id", "")))
+	var creature_power := EvergreenRules.get_power(hand_creature)
+	var creature_health := EvergreenRules.get_health(hand_creature)
+	var item_power := EvergreenRules.get_power(hand_item)
+	var item_health := EvergreenRules.get_health(hand_item)
+	if not _assert(creature_power == 4, "buff_random_hand_card: creature should be 4 power (2+2), got %d." % creature_power):
+		return false
+	if not _assert(creature_health == 5, "buff_random_hand_card: creature should be 5 health (3+2), got %d." % creature_health):
+		return false
+	if not _assert(item_power == 3, "buff_random_hand_card: item should be 3 power (1+2), got %d." % item_power):
+		return false
+	if not _assert(item_health == 3, "buff_random_hand_card: item should be 3 health (1+2), got %d." % item_health):
+		return false
+	# Action should be untouched (no power/health on actions, but verify no crash)
+	return true

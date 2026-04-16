@@ -28,6 +28,7 @@ func _run_all_tests() -> bool:
 		_test_last_gasp_modify_stats_targets_all_instances_by_definition_id() and
 		_test_slay_fires_when_both_creatures_die() and
 		_test_pilfer_does_not_fire_on_summon() and
+		_test_pilfer_target_mode_queues_pending_target() and
 		_test_end_of_turn_target_mode_does_not_fire_on_summon() and
 		_test_on_keyword_gained_fires_from_hand() and
 		_test_summon_deal_damage_chosen_target_player() and
@@ -324,6 +325,48 @@ func _test_pilfer_does_not_fire_on_summon() -> bool:
 	return (
 		_assert(pending.is_empty(), "Pilfer with target_mode should NOT create pending summon targets on summon.") and
 		_assert(target["power_bonus"] == 0, "No pilfer buff should be applied on summon.")
+	)
+
+
+func _test_pilfer_target_mode_queues_pending_target() -> bool:
+	# Pilfer with target_mode (like Prowl Smuggler) should queue pending_summon_effect_targets
+	# so the player picks the target, NOT auto-pick a random creature.
+	var match_state := _build_started_match(20, 0)
+	var pid := "player_1"
+	var oid := "player_2"
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	opponent["rune_thresholds"] = [25, 20, 15, 10, 5]
+	# Summon a target creature so equip has valid targets
+	var target := _summon_creature(active_player, match_state, "equip_target", "field", 2, 2, [], 0)
+	# Summon pilferer with target_mode
+	var pilferer := _summon_creature(active_player, match_state, "prowl", "field", 3, 2, [], 1, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_PILFER,
+			"required_zone": "lane",
+			"target_mode": "friendly_creature",
+			"effects": [{"op": "modify_stats", "target": "chosen_target", "power": 5, "health": 0}],
+		}]
+	})
+	_target_ready_for_attack(pilferer, match_state)
+	# Attack opponent face — pilfer fires
+	var result := MatchCombat.resolve_attack(match_state, pid, str(pilferer.get("instance_id", "")), {
+		"type": "player",
+		"player_id": oid,
+	})
+	if not _assert(result["is_valid"], "pilfer target_mode: combat should resolve."):
+		return false
+	# The pilfer effect should NOT have auto-resolved — target should still be unbuffed
+	if not _assert(target["power_bonus"] == 0, "pilfer target_mode: target should NOT be auto-buffed. Got power_bonus %d." % target["power_bonus"]):
+		return false
+	# A pending_summon_effect_targets entry should be queued for the player to choose
+	if not _assert(MatchTiming.has_pending_summon_effect_target(match_state, pid), "pilfer target_mode: should queue pending_summon_effect_targets for player choice."):
+		return false
+	# Resolve by choosing the target creature
+	var resolve := MatchTiming.resolve_pending_summon_effect_target(match_state, pid, {"target_instance_id": str(target.get("instance_id", ""))})
+	return (
+		_assert(bool(resolve.get("is_valid", false)), "pilfer target_mode: resolving pending target should succeed.") and
+		_assert(target["power_bonus"] == 5, "pilfer target_mode: chosen target should receive +5 power. Got %d." % target["power_bonus"])
 	)
 
 

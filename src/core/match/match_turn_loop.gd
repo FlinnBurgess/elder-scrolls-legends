@@ -190,6 +190,15 @@ static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionar
 	player["ring_of_magicka_used_this_turn"] = false
 
 	match_state["turn_number"] = int(match_state.get("turn_number", 0)) + 1
+	# Expire player-level global cost increases (e.g. Wrath of Sithis) on ALL players — the
+	# flag lives on the player affected by the aura, who may not be the one starting this turn.
+	var global_cost_current_turn := int(match_state.get("turn_number", 0))
+	for global_cost_player in match_state.get("players", []):
+		if typeof(global_cost_player) != TYPE_DICTIONARY:
+			continue
+		if global_cost_player.has("_global_cost_increase_expires_on_turn") and int(global_cost_player.get("_global_cost_increase_expires_on_turn", -1)) <= global_cost_current_turn:
+			global_cost_player.erase("_global_cost_increase")
+			global_cost_player.erase("_global_cost_increase_expires_on_turn")
 	match_state["priority_player_id"] = player_id
 	match_state["resolved_turn_triggers"] = {}
 	if magicka_gained > 0:

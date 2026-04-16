@@ -111,7 +111,7 @@ static func summon_from_hand(match_state: Dictionary, player_id: String, instanc
 		"source_zone": ZONE_HAND,
 		"target_zone": ZONE_LANE,
 		"card_type": str(card.get("card_type", "")),
-		"played_cost": int(card.get("cost", 0)),
+		"played_cost": play_cost,
 	}
 	var summon_event := {
 		"event_type": MatchTiming.EVENT_CREATURE_SUMMONED,
@@ -250,7 +250,7 @@ static func summon_with_sacrifice(match_state: Dictionary, player_id: String, in
 		"source_zone": ZONE_HAND,
 		"target_zone": ZONE_LANE,
 		"card_type": str(card.get("card_type", "")),
-		"played_cost": int(card.get("cost", 0)),
+		"played_cost": play_cost,
 	}
 	var summon_event := {
 		"event_type": MatchTiming.EVENT_CREATURE_SUMMONED,

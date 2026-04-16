@@ -187,13 +187,15 @@ static func _log_card_played(match_state: Dictionary, event: Dictionary) -> void
 	var card := _find_card(match_state, source_id)
 	var card_name := str(card.get("name", source_id))
 	var card_type := str(card.get("card_type", ""))
-	var cost := int(card.get("cost", 0))
+	var base_cost := int(card.get("cost", 0))
+	var played_cost := int(event.get("played_cost", base_cost))
 	var player_id := str(event.get("player_id", ""))
 	var lane_index: int = int(event.get("lane_index", -1))
 	var lane_str := ""
 	if lane_index >= 0:
 		lane_str = " to %s" % _lane_name(match_state, lane_index)
-	_write("[PLAY] %s played \"%s\" (%s, cost %d)%s" % [player_id, card_name, card_type, cost, lane_str])
+	var cost_str := str(played_cost) if played_cost == base_cost else "%d (base %d)" % [played_cost, base_cost]
+	_write("[PLAY] %s played \"%s\" (%s, cost %s)%s" % [player_id, card_name, card_type, cost_str, lane_str])
 	_check_missing_effects(card)
 
 

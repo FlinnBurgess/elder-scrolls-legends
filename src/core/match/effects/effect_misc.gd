@@ -160,9 +160,9 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var brhc_candidates: Array = []
 				for card in brhc_hand:
 					if typeof(card) != TYPE_DICTIONARY:
-						return
+						continue
 					if not brhc_filter_type.is_empty() and str(card.get("card_type", "")) != brhc_filter_type:
-						return
+						continue
 					brhc_candidates.append(card)
 				if not brhc_candidates.is_empty():
 					var pick: Dictionary = brhc_candidates[MatchEffectParams._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_brhc", brhc_candidates.size())]

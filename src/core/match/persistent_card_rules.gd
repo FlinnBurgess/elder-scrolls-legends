@@ -647,6 +647,8 @@ static func get_effective_play_cost(match_state: Dictionary, player_id: String, 
 							reduction += int(le_eff.get("amount", 1))
 						break
 	var effective := maxi(0, base_cost - reduction)
+	# Player-level global cost increase (e.g. Wrath of Sithis)
+	effective += int(player.get("_global_cost_increase", 0))
 	# min_card_cost passive: all cards cost at least N
 	var min_cost := _get_min_card_cost(match_state)
 	if min_cost > 0 and effective < min_cost:

@@ -30,6 +30,7 @@ const FAMILY_SUMMON := "summon"
 const FAMILY_END_OF_TURN := "end_of_turn"
 const FAMILY_EXPERTISE := "expertise"
 const FAMILY_SLAY := "slay"
+const FAMILY_PILFER := "pilfer"
 const FAMILY_VETERAN := "veteran"
 const FAMILY_ITEM_DETACHED := "item_detached"
 const FAMILY_WAX := "wax"
@@ -287,7 +288,7 @@ static func _append_card_triggers(registry: Array, card, zone_name: String, cont
 			# on_play with multi-target modes (two_creatures, three_creatures) also use pending;
 			# activate/on_play inject targets from the event; all other families auto-resolve
 			# a random valid target in _trigger_matches_event().
-			if tm_family == FAMILY_SUMMON or tm_family == FAMILY_WAX or tm_family == FAMILY_WANE or tm_family == FAMILY_END_OF_TURN or tm_family == FAMILY_EXPERTISE or tm_family == FAMILY_SLAY:
+			if tm_family == FAMILY_SUMMON or tm_family == FAMILY_WAX or tm_family == FAMILY_WANE or tm_family == FAMILY_END_OF_TURN or tm_family == FAMILY_EXPERTISE or tm_family == FAMILY_SLAY or tm_family == FAMILY_PILFER:
 				continue
 			if tm_family == FAMILY_ON_PLAY and (tm_mode == "two_creatures" or tm_mode == "three_creatures"):
 				continue
