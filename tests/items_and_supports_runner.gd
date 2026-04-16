@@ -79,7 +79,11 @@ func _run_all_tests() -> bool:
 		# Play limit per turn (Lich's Ascension)
 		_test_support_play_limit_blocks_second_card() and
 		_test_support_play_limit_from_hand_without_hydration() and
-		_test_support_play_limit_resets_on_placement()
+		_test_support_play_limit_resets_on_placement() and
+		# Skooma Cat's Whimsy not-in-starting-deck discount
+		_test_skooma_cats_whimsy_discounts_generated_cards() and
+		# Imperial Might end-of-turn summon
+		_test_imperial_might_summons_grunt_at_end_of_turn()
 	)
 
 
@@ -1903,6 +1907,57 @@ func _test_support_play_limit_resets_on_placement() -> bool:
 	# Second action should be blocked
 	var r2 := MatchTiming.play_action_from_hand(match_state, pid, str(action2["instance_id"]))
 	return _assert(not bool(r2.get("is_valid", false)), "Lich placement: second action should be blocked.")
+
+
+func _test_skooma_cats_whimsy_discounts_generated_cards() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player.get("player_id", ""))
+	# Place Skooma Cat's Whimsy as a support
+	var whimsy := ScenarioFixtures.make_card(pid, "skooma_cats_whimsy", {
+		"card_type": "support",
+		"cost": 1,
+		"support_uses": 0,
+		"cost_reduction_aura": {"scope": "hand", "target": "all_friendly", "amount": 1, "filter_not_in_starting_deck": true},
+	})
+	whimsy["zone"] = "support"
+	player["support"].append(whimsy)
+	# Generate a card to hand via build_generated_card (simulates generate_random_to_hand)
+	var template := {"definition_id": "gen_action", "name": "Generated Action", "card_type": "action", "cost": 5}
+	var generated := MatchMutations.build_generated_card(match_state, pid, template)
+	generated["zone"] = MatchMutations.ZONE_HAND
+	player["hand"].append(generated)
+	var gen_cost := PersistentCardRules.get_effective_play_cost(match_state, pid, generated)
+	# A normal hand card that was in the starting deck should NOT be discounted
+	var normal := _add_hand_card(player, "normal_card", {"card_type": "action", "cost": 5})
+	var normal_cost := PersistentCardRules.get_effective_play_cost(match_state, pid, normal)
+	return (
+		_assert(gen_cost == 4, "Skooma Cat's Whimsy should discount generated card from 5 to 4, got %d." % gen_cost) and
+		_assert(normal_cost == 5, "Skooma Cat's Whimsy should NOT discount starting-deck card, expected 5 got %d." % normal_cost)
+	)
+
+
+func _test_imperial_might_summons_grunt_at_end_of_turn() -> bool:
+	var match_state := _build_started_match()
+	ScenarioFixtures.set_rng_seed(match_state, 99)
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player["player_id"])
+	# Place Imperial Might in the support zone using its real catalog definition
+	var support := _add_hand_card(player, "wil_imperial_might", {
+		"card_type": "support",
+		"cost": 0,
+		"support_uses": 0,
+		"triggered_abilities": [{"family": "end_of_turn", "required_zone": "support", "effects": [{"op": "summon_from_effect", "lane_id": "random", "card_template": {"definition_id": "wil_imperial_grunt", "name": "Imperial Grunt", "card_type": "creature", "attributes": ["willpower"], "cost": 0, "power": 1, "health": 1, "base_power": 1, "base_health": 1, "subtypes": ["Imperial"], "rules_text": ""}}]}],
+	})
+	PersistentCardRules.play_support_from_hand(match_state, pid, str(support["instance_id"]))
+	# End the turn — should trigger end_of_turn and summon a grunt
+	_end_turn_and_start_next(match_state)
+	var grunt_found := false
+	for lane in match_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(pid, []):
+			if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == "wil_imperial_grunt":
+				grunt_found = true
+	return _assert(grunt_found, "Imperial Might should summon an Imperial Grunt at the end of the controller's turn.")
 
 
 func _assert(condition: bool, message: String) -> bool:

@@ -11,7 +11,6 @@
 		"discard": [],
 		"field_creatures": [
 			null,
-			null,
 			null
 		],
 		"hand": [
@@ -43,18 +42,29 @@
 			"hom_end_vvardvark",
 			"aw_tri_forerunner_of_the_pact"
 		],
-		"discard": [],
+		"discard": [
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark"
+		],
 		"field_creatures": [
 			null,
 			null,
-			null
+			null,
+			"iom_int_gnarl_rootbender"
 		],
-		"hand": [],
+		"hand": [
+			"end_healing_hands"
+		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [],
-		"supports": []
+		"supports": [
+			"mc_neu_skooma_cats_whimsy"
+		]
 	},
 	"type": "kill"
 }

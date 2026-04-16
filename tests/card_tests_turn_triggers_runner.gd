@@ -68,6 +68,8 @@ func _run_all_tests() -> bool:
 		# Scout's Report — on_play choice + follow-up draw
 		_test_scouts_report_creates_choice_and_draws_on_keep() and
 		_test_scouts_report_discard_then_draws_next_card() and
+		# Giant Slaughterfish — all_friendly_animals includes Fish subtype
+		_test_giant_slaughterfish_buffs_itself() and
 		true
 	)
 
@@ -865,3 +867,23 @@ func _test_scouts_report_discard_then_draws_next_card() -> bool:
 			found_in_hand = true
 			break
 	return _assert(found_in_hand, "After discard, the next deck card should be drawn into hand")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Giant Slaughterfish — "Give friendly Animals +2/+0 at the start of your turn."
+# Fish is an animal subtype, so Slaughterfish should buff itself too.
+# ──────────────────────────────────────────────────────────────────────────────
+
+func _test_giant_slaughterfish_buffs_itself() -> bool:
+	var match_state := _build_started_match()
+	var player := ScenarioFixtures.player(match_state, 0)
+	var fish: Dictionary = _catalog_helper.summon(player, match_state, "joo_neu_giant_slaughterfish", "field")
+	if fish.is_empty():
+		return _assert(false, "Failed to summon Giant Slaughterfish")
+	var base_power: int = EvergreenRules.get_power(fish)
+	# End our turn, opponent turn passes, our next turn starts — trigger fires
+	_end_turn_and_start_next(match_state)  # end our turn
+	_end_turn_and_start_next(match_state)  # end opponent turn -> our turn starts
+	var new_power: int = EvergreenRules.get_power(fish)
+	return _assert(new_power == base_power + 2,
+		"Giant Slaughterfish should buff itself +2 power (expected %d, got %d)" % [base_power + 2, new_power])

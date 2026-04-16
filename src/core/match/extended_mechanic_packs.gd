@@ -1506,6 +1506,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			var stdc_stolen: Dictionary = stdc_opp_deck.pop_back()
 			stdc_stolen["zone"] = "hand"
 			stdc_stolen["controller_player_id"] = stdc_controller
+			stdc_stolen["_not_in_starting_deck"] = true
 			var stdc_hand: Array = stdc_my_player.get("hand", [])
 			stdc_hand.append(stdc_stolen)
 			var stdc_events: Array = [{"event_type": "card_stolen_from_deck", "player_id": stdc_controller, "from_player_id": stdc_opponent, "instance_id": str(stdc_stolen.get("instance_id", ""))}]

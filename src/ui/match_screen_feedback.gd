@@ -1155,6 +1155,28 @@ func _animate_enemy_spell_reveal(action: Dictionary, _result: Dictionary) -> voi
 		"phase": "animating",
 	}
 
+	# Snapshot target position NOW before the tween starts — an intermediate
+	# _refresh_ui() (e.g. from the card-draw animation completing) can remove
+	# the target button before the arrow callback fires.
+	var _sr_target: Dictionary = action.get("target", {})
+	var _sr_target_kind := str(_sr_target.get("kind", ""))
+	var _sr_arrow_end := Vector2.ZERO
+	var _sr_has_target := false
+	if _sr_target_kind == "card":
+		var _sr_target_id := str(_sr_target.get("instance_id", ""))
+		var _sr_button: Button = _screen._card_buttons.get(_sr_target_id)
+		if _sr_button != null and is_instance_valid(_sr_button):
+			var _sr_card_size: Vector2 = _sr_button.get_meta("card_size", _sr_button.size)
+			_sr_arrow_end = _sr_button.global_position + Vector2(_sr_card_size.x * 0.5, 0.0)
+			_sr_has_target = true
+	elif _sr_target_kind == "player":
+		var _sr_target_player_id := str(_sr_target.get("player_id", ""))
+		var _sr_section: Dictionary = _screen._player_sections.get(_sr_target_player_id, {})
+		var _sr_avatar: Control = _sr_section.get("avatar_component")
+		if _sr_avatar != null and is_instance_valid(_sr_avatar):
+			_sr_arrow_end = _sr_avatar.global_position + Vector2(_sr_avatar.size.x * 0.5, _sr_avatar.size.y * 0.5)
+			_sr_has_target = true
+
 	card_back.pivot_offset = Vector2(card_back.size.x * 0.5, card_back.size.y * 0.5)
 	var tween = _screen.create_tween()
 	tween.tween_property(card_back, "scale:x", 0.0, 0.2)
@@ -1171,25 +1193,7 @@ func _animate_enemy_spell_reveal(action: Dictionary, _result: Dictionary) -> voi
 	tween.tween_property(card_back, "scale:x", 1.0, 0.2)
 	tween.tween_interval(1.0)
 	tween.tween_callback(func():
-		var target: Dictionary = action.get("target", {})
-		var target_kind := str(target.get("kind", ""))
-		var arrow_end := Vector2.ZERO
-		var has_target := false
-		if target_kind == "card":
-			var target_id := str(target.get("instance_id", ""))
-			var button: Button = _screen._card_buttons.get(target_id)
-			if button != null and is_instance_valid(button):
-				var target_card_size: Vector2 = button.get_meta("card_size", button.size)
-				arrow_end = button.global_position + Vector2(target_card_size.x * 0.5, 0.0)
-				has_target = true
-		elif target_kind == "player":
-			var target_player_id := str(target.get("player_id", ""))
-			var section: Dictionary = _screen._player_sections.get(target_player_id, {})
-			var avatar: Control = section.get("avatar_component")
-			if avatar != null and is_instance_valid(avatar):
-				arrow_end = avatar.global_position + Vector2(avatar.size.x * 0.5, avatar.size.y * 0.5)
-				has_target = true
-		if has_target:
+		if _sr_has_target:
 			var arrow := Line2D.new()
 			arrow.width = 3.0
 			arrow.default_color = Color(1.0, 0.85, 0.3, 0.95)
@@ -1199,7 +1203,7 @@ func _animate_enemy_spell_reveal(action: Dictionary, _result: Dictionary) -> voi
 			var arrow_start := card_back.global_position + Vector2(card_size.x * 0.5, card_size.y)
 			var arrow_tween = _screen.create_tween()
 			arrow_tween.tween_method(func(progress: float):
-				_draw_spell_reveal_arrow_partial(progress, arrow, arrow_start, arrow_end)
+				_draw_spell_reveal_arrow_partial(progress, arrow, arrow_start, _sr_arrow_end)
 			, 0.0, 1.0, 0.3)
 			arrow_tween.tween_interval(0.3)
 			arrow_tween.tween_callback(func():

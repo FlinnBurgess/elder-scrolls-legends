@@ -534,6 +534,7 @@ static func build_generated_card(match_state: Dictionary, controller_player_id: 
 	if not card.has("owner_player_id"):
 		card["owner_player_id"] = controller_player_id
 	card["controller_player_id"] = controller_player_id
+	card["_not_in_starting_deck"] = true
 	card["zone"] = str(card.get("zone", ZONE_GENERATED))
 	if bool(card.get("stats_from_max_magicka", false)):
 		var max_magicka := 0

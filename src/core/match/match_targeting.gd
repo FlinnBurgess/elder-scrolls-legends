@@ -878,12 +878,16 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 						targets.append(card)
 		"all_friendly_animals":
 			var afa_controller_id := str(trigger.get("controller_player_id", ""))
+			var afa_animal_subtypes: Array = ["Beast", "Fish", "Mammoth", "Mudcrab", "Netch", "Reptile", "Skeever", "Spider", "Wolf"]
 			for lane in match_state.get("lanes", []):
 				for card in lane.get("player_slots", {}).get(afa_controller_id, []):
 					if typeof(card) == TYPE_DICTIONARY:
 						var afa_subtypes = card.get("subtypes", [])
-						if typeof(afa_subtypes) == TYPE_ARRAY and (afa_subtypes.has("Beast") or afa_subtypes.has("Animal")):
-							targets.append(card)
+						if typeof(afa_subtypes) == TYPE_ARRAY:
+							for afa_st in afa_subtypes:
+								if afa_animal_subtypes.has(str(afa_st)):
+									targets.append(card)
+									break
 		"all_friendly_oblivion_gates":
 			var afog_controller_id := str(trigger.get("controller_player_id", ""))
 			for lane in match_state.get("lanes", []):
