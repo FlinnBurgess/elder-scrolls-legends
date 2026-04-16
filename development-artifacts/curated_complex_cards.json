@@ -1,29 +1,5 @@
 [
 	{
-		"card_id": "fsc_wil_harmony",
-		"name": "Harmony",
-		"card_type": "action",
-		"cost": 2,
-		"attributes": [
-			"willpower"
-		],
-		"rules_text": "Prophecy\nGive all enemy creatures -2/-0 until the start of your turn.",
-		"stripped_text": "Give all enemy creatures -2/-0 until the start of your turn.",
-		"complexity": 60
-	},
-	{
-		"card_id": "wil_blackmail",
-		"name": "Blackmail",
-		"card_type": "action",
-		"cost": 1,
-		"attributes": [
-			"willpower"
-		],
-		"rules_text": "Draw a copy of a random creature from your opponent's deck.",
-		"stripped_text": "Draw a copy of a random creature from your opponent's deck.",
-		"complexity": 59
-	},
-	{
 		"card_id": "aw_wil_luminous_shards",
 		"name": "Luminous Shards",
 		"card_type": "action",

@@ -15,8 +15,8 @@
 		],
 		"field_creatures": [
 			null,
-			null,
-			null,
+			"int_abecean_navigator",
+			"aw_int_abnur_tharn",
 			"cwc_neu_abomination"
 		],
 		"hand": [],
@@ -63,13 +63,11 @@
 			"neu_sparking_spider"
 		],
 		"field_creatures": [
-			null,
-			"aw_int_abnur_tharn",
-			"cwc_neu_abomination",
-			"moe_agi_razum_dar"
+			null
 		],
 		"hand": [
-			"aw_end_mannimarco"
+			"fsc_wil_harmony",
+			"wil_blackmail"
 		],
 		"has_ring": false,
 		"health": 30.0,

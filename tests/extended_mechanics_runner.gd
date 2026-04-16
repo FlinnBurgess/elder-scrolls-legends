@@ -39,6 +39,7 @@ func _run_all_tests() -> bool:
 		_test_beast_form_targeted_summon_defers_on_controller_turn() and
 		_test_set_power_with_duration_expires() and
 		_test_set_power_duration_cleared_on_change() and
+		_test_modify_stats_until_start_of_next_turn_expires() and
 		_test_veteran_hook() and
 		_test_action_pack_matrix() and
 		_test_empower_and_expertise_hooks() and
@@ -754,6 +755,38 @@ func _test_set_power_duration_cleared_on_change() -> bool:
 		_assert(str(aela.get("definition_id", "")) == "aela_werewolf", "Aela should have changed to werewolf form.") and
 		_assert(power_after_change == 5, "Aela werewolf should have 5 power — temp debuff cleared by change (got %d)." % power_after_change)
 	)
+
+
+func _test_modify_stats_until_start_of_next_turn_expires() -> bool:
+	# Harmony-style: modify_stats with duration "until_start_of_next_turn" should
+	# persist through the opponent's turn and clear at the start of the caster's
+	# next turn (i.e., after two turn-end cycles: caster's own end + opponent's end).
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Summon an enemy creature to debuff
+	var enemy := ScenarioFixtures.summon_creature(opponent, match_state, "enemy_creature", "field", 5, 5)
+	# Give player a Harmony-style action that debuffs all enemies -2/-0 until their next turn
+	var harmony := ScenarioFixtures.add_hand_card(player, "harmony_test", {
+		"card_type": "action",
+		"cost": 0,
+		"triggered_abilities": [{
+			"family": "on_play",
+			"effects": [{"op": "modify_stats", "target": "all_enemies", "power": -2, "health": 0, "duration": "until_start_of_next_turn"}],
+		}],
+	})
+	MatchTiming.play_action_from_hand(match_state, pid, str(harmony.get("instance_id", "")))
+	if not _assert(EvergreenRules.get_power(enemy) == 3, "Enemy should be debuffed to 3 power after Harmony (got %d)." % EvergreenRules.get_power(enemy)):
+		return false
+	# End player's turn — debuff must persist through opponent's turn
+	MatchTurnLoop.end_turn(match_state, pid)
+	if not _assert(EvergreenRules.get_power(enemy) == 3, "Enemy should still be debuffed during opponent's turn (got %d)." % EvergreenRules.get_power(enemy)):
+		return false
+	# End opponent's turn — debuff must clear before player's next turn starts
+	MatchTurnLoop.end_turn(match_state, oid)
+	return _assert(EvergreenRules.get_power(enemy) == 5, "Enemy power should revert to 5 at start of caster's next turn (got %d)." % EvergreenRules.get_power(enemy))
 
 
 func _test_veteran_hook() -> bool:

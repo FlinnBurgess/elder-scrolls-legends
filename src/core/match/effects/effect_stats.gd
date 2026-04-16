@@ -100,11 +100,14 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				base_health = -1 if int(event.get("health_bonus", 0)) < 0 else 0
 			var total_power := base_power * stat_multiplier
 			var total_health := base_health * stat_multiplier
-			var is_temp := str(effect.get("duration", "")) == "end_of_turn" or bool(effect.get("temporary", false)) or bool(effect.get("expires_end_of_turn", false))
+			var ms_duration := str(effect.get("duration", ""))
+			var is_temp := ms_duration == "end_of_turn" or ms_duration == "until_start_of_next_turn" or bool(effect.get("temporary", false)) or bool(effect.get("expires_end_of_turn", false))
+			# "until_start_of_next_turn" survives one extra turn-end cycle (through the opponent's turn)
+			var expires_turn_offset := 1 if ms_duration == "until_start_of_next_turn" else 0
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				EvergreenRules.apply_stat_bonus(card, total_power, total_health, reason)
 				if is_temp:
-					EvergreenRules.add_temporary_stat_bonus(card, total_power, total_health, int(match_state.get("turn_number", 0)))
+					EvergreenRules.add_temporary_stat_bonus(card, total_power, total_health, int(match_state.get("turn_number", 0)) + expires_turn_offset)
 				generated_events.append({
 					"event_type": "stats_modified",
 					"source_instance_id": str(trigger.get("source_instance_id", "")),

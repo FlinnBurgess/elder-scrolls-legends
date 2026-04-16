@@ -287,6 +287,7 @@ static func add_temporary_stat_bonus(card: Dictionary, power: int, health: int, 
 	var temp_bonuses: Array = card.get("temporary_stat_bonuses", [])
 	temp_bonuses.append({"power": power, "health": health, "turn": turn_number})
 	card["temporary_stat_bonuses"] = temp_bonuses
+	GameLogger.trc("Evergreen", "temp_stat_bonus", "card:%s,p:%s,h:%s,expires_end_turn:%s" % [str(card.get("name", "?")), str(power), str(health), str(turn_number)])
 
 
 static func clear_temporary_stat_bonuses(card: Dictionary, turn_number: int) -> Dictionary:
