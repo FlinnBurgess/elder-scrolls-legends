@@ -24,6 +24,7 @@ func _run_all_tests() -> bool:
 		_test_silenced_suppresses_guard_and_cover_behavior() and
 		_test_rally_buffs_a_deterministic_hand_creature() and
 		_test_rally_stacks_multiple_triggers() and
+		_test_rally_on_rally_trigger_buffs_item_in_hand() and
 		_test_mobilize_exposes_empty_lane_options_and_recruit_template()
 	)
 
@@ -239,6 +240,61 @@ func _append_hand_creature(player: Dictionary, label: String, power: int, health
 	}
 	player["hand"].append(card)
 	return card
+
+
+func _test_rally_on_rally_trigger_buffs_item_in_hand() -> bool:
+	var match_state := _build_started_match(18, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	# Seasoned Captain: rally + on_rally trigger that buffs a random item in hand
+	var attacker := _summon_creature(active_player, match_state, "seasoned_captain", "field", 4, 4, ["rally"])
+	attacker["triggered_abilities"] = [{"family": "on_rally", "required_zone": "lane", "effects": [{"op": "modify_random_item_in_hand", "power": 1, "health": 1}]}]
+	_target_ready_for_attack(attacker, match_state)
+	# Also put a creature in hand (rally should buff it)
+	var hand_creature := _append_hand_creature(active_player, "hand_creature", 2, 2)
+	# Put an item in hand
+	var hand_item := {
+		"instance_id": "%s_hand_item" % active_player["player_id"],
+		"definition_id": "test_dagger",
+		"owner_player_id": active_player["player_id"],
+		"controller_player_id": active_player["player_id"],
+		"zone": "hand",
+		"card_type": "item",
+		"name": "Test Dagger",
+		"cost": 1,
+		"power": 0,
+		"health": 0,
+		"keywords": [],
+		"granted_keywords": [],
+		"status_markers": [],
+		"damage_marked": 0,
+		"power_bonus": 0,
+		"health_bonus": 0,
+		"equip_power_bonus": 2,
+		"equip_health_bonus": 0,
+	}
+	active_player["hand"].append(hand_item)
+
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], attacker["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	if not _assert(result["is_valid"], "On_rally attack should resolve successfully."):
+		return false
+	# Rally should buff the creature in hand
+	if not _assert(int(hand_creature.get("power_bonus", 0)) == 1, "Rally should buff hand creature power."):
+		return false
+	# On_rally trigger should buff the item's equip bonuses
+	if not _assert(int(hand_item.get("equip_power_bonus", 0)) == 3, "On_rally should buff item equip_power_bonus from 2 to 3. Got: %d" % int(hand_item.get("equip_power_bonus", 0))):
+		return false
+	if not _assert(int(hand_item.get("equip_health_bonus", 0)) == 1, "On_rally should buff item equip_health_bonus from 0 to 1. Got: %d" % int(hand_item.get("equip_health_bonus", 0))):
+		return false
+	# apply_stat_bonus must also set power_bonus/health_bonus so the UI shows the buff
+	if not _assert(int(hand_item.get("power_bonus", 0)) == 1, "On_rally should set item power_bonus for UI display. Got: %d" % int(hand_item.get("power_bonus", 0))):
+		return false
+	if not _assert(int(hand_item.get("health_bonus", 0)) == 1, "On_rally should set item health_bonus for UI display. Got: %d" % int(hand_item.get("health_bonus", 0))):
+		return false
+	return _has_event(result["events"], "item_in_hand_modified")
 
 
 func _target_ready_for_attack(card: Dictionary, match_state: Dictionary) -> void:

@@ -766,15 +766,36 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					if str(safdbn_card.get("name", "")) == safdbn_name:
 						safdbn_matches.append(safdbn_card)
 				for safdbn_card in safdbn_matches:
+					# Check total board space before each summon
+					var safdbn_total_open := 0
+					for safdbn_lane in match_state.get("lanes", []):
+						var safdbn_slots: Array = safdbn_lane.get("player_slots", {}).get(safdbn_controller_id, [])
+						safdbn_total_open += maxi(0, int(safdbn_lane.get("slot_capacity", 0)) - safdbn_slots.size())
+					if safdbn_total_open <= 0:
+						break
 					safdbn_discard.erase(safdbn_card)
 					MatchMutations.restore_definition_state(safdbn_card)
 					safdbn_card.erase("zone")
 					var safdbn_lane_id := MatchSummonTiming._resolve_summon_lane_id(match_state, trigger, event, effect, safdbn_controller_id)
 					if not safdbn_lane_id.is_empty():
 						var safdbn_result := MatchMutations.summon_card_to_lane(match_state, safdbn_controller_id, safdbn_card, safdbn_lane_id, {"source_zone": ZONE_DISCARD})
+						if not bool(safdbn_result.get("is_valid", false)):
+							# Primary lane full — try other lanes
+							for safdbn_fallback_lane in match_state.get("lanes", []):
+								var safdbn_fl_id := str(safdbn_fallback_lane.get("lane_id", ""))
+								if safdbn_fl_id == safdbn_lane_id or safdbn_fl_id.is_empty():
+									continue
+								safdbn_result = MatchMutations.summon_card_to_lane(match_state, safdbn_controller_id, safdbn_card, safdbn_fl_id, {"source_zone": ZONE_DISCARD})
+								if bool(safdbn_result.get("is_valid", false)):
+									safdbn_lane_id = safdbn_fl_id
+									break
 						if bool(safdbn_result.get("is_valid", false)):
 							generated_events.append_array(safdbn_result.get("events", []))
 							generated_events.append(MatchSummonTiming._build_summon_event(safdbn_result["card"], safdbn_controller_id, safdbn_lane_id, int(safdbn_result.get("slot_index", -1)), reason))
+						else:
+							# No lane had space — put card back in discard
+							safdbn_card["zone"] = ZONE_DISCARD
+							safdbn_discard.append(safdbn_card)
 		"summon_each_unique_from_deck":
 			var seufd_controller_id := str(trigger.get("controller_player_id", ""))
 			var seufd_player := MatchTimingHelpers._get_player_state(match_state, seufd_controller_id)

@@ -22,7 +22,9 @@
 		"hand": [],
 		"health": 30.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [],
+		"shadow_creatures": [
+			null
+		],
 		"supports": [
 			"cwc_neu_abandoned_imperfect"
 		]
@@ -43,7 +45,15 @@
 		"deck": [
 			"hom_end_vvardvark",
 			"hom_end_vvardvark",
-			"hom_end_vvardvark"
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"tc_tri_a_new_era",
+			"tc_tri_aldmeri_spellwright",
+			"hos_wil_sovngarde_hero",
+			"hos_str_candlehearth_brawler",
+			"cwc_end_thornwell_terror"
 		],
 		"discard": [
 			"str_bangkorai_butcher",
@@ -61,18 +71,25 @@
 			"mc_neu_mechanical_ally",
 			"hom_neu_yagrum_bagarn",
 			"neu_sparking_spider",
-			"aw_end_spiny_haj_mota"
+			"aw_end_spiny_haj_mota",
+			"cwc_neu_gearwork_spider",
+			"cwc_neu_gearwork_spider",
+			"cwc_neu_gearwork_spider",
+			"cwc_neu_gearwork_spider",
+			"cwc_neu_gearwork_spider",
+			"cwc_neu_gearwork_spider",
+			"cwc_neu_gearwork_spider",
+			"cwc_neu_gearwork_spider"
 		],
 		"field_creatures": [
 			null,
 			null,
-			null,
-			"aw_end_spiny_haj_mota"
+			"mc_str_seasoned_captain"
 		],
 		"hand": [
-			"aw_wil_luminous_shards",
-			"int_ice_spike",
-			"int_ice_spike"
+			"moe_agi_suthay_bootlegger",
+			"iom_str_dagger",
+			"end_daedric_dagger"
 		],
 		"has_ring": false,
 		"health": 30.0,

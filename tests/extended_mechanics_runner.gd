@@ -153,7 +153,9 @@ func _run_all_tests() -> bool:
 		_test_green_pact_stalker_buffs_with_wounded_enemy_in_lane() and
 		_test_summon_each_unique_from_deck_dedupes_by_definition_not_cost() and
 		_test_feed_queues_pending_choice_for_keyword_recipient() and
-		_test_razum_dar_copies_opponent_drawn_card_not_self()
+		_test_razum_dar_copies_opponent_drawn_card_not_self() and
+		_test_nether_lich_excludes_self_from_undead_count() and
+		_test_summon_all_from_discard_by_name_respects_board_capacity()
 	)
 
 
@@ -5888,4 +5890,76 @@ func _test_razum_dar_copies_opponent_drawn_card_not_self() -> bool:
 		_assert(hand_after.size() == hand_before + 1, "Controller should receive exactly one copied card; hand went from %d to %d." % [hand_before, hand_after.size()]) and
 		_assert(copied_defs.has("test_vvardvark"), "Copied card should share the drawn card's definition_id; hand defs: %s." % str(copied_defs)) and
 		_assert(not copied_defs.has("moe_agi_razum_dar"), "Copied card must NOT be Razum-Dar (the trigger source); hand defs: %s." % str(copied_defs))
+	)
+
+
+func _test_nether_lich_excludes_self_from_undead_count() -> bool:
+	# Regression: Nether Lich's summon buff counted itself in "undead_creatures_in_play",
+	# but rules text says "each *other* undead creature in play".
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Place 2 undead creatures on board (Skeleton subtypes)
+	ScenarioFixtures.summon_creature(player, match_state, "skeleton_a", "field", 1, 1, [], -1, {"subtypes": ["Skeleton"]})
+	ScenarioFixtures.summon_creature(player, match_state, "skeleton_b", "field", 1, 1, [], -1, {"subtypes": ["Skeleton"]})
+	# Place 1 non-undead creature
+	ScenarioFixtures.summon_creature(player, match_state, "imperial", "field", 2, 2, [], -1, {"subtypes": ["Imperial"]})
+	# Summon Nether Lich (base 2/2, should get +2/+2 for 2 other undead, NOT +3/+3)
+	var lich := ScenarioFixtures.summon_creature(player, match_state, "nether_lich", "shadow", 2, 2, [], -1, {
+		"definition_id": "dg_end_nether_lich",
+		"name": "Nether Lich",
+		"subtypes": ["Skeleton"],
+		"triggered_abilities": [{"family": "summon", "effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 1, "count_source": "undead_creatures_in_play", "count_exclude_self": true}]}],
+	})
+	if lich.is_empty():
+		return _assert(false, "Setup failed: could not summon Nether Lich.")
+	return (
+		_assert(EvergreenRules.get_power(lich) == 4, "Nether Lich should be 2 base + 2 other undead = 4 power, got %d." % EvergreenRules.get_power(lich)) and
+		_assert(EvergreenRules.get_remaining_health(lich) == 4, "Nether Lich should be 2 base + 2 other undead = 4 health, got %d." % EvergreenRules.get_remaining_health(lich))
+	)
+
+
+func _test_summon_all_from_discard_by_name_respects_board_capacity() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Fill field lane to 3/4 slots
+	for i in range(3):
+		ScenarioFixtures.summon_creature(player, match_state, "filler_f_%d" % i, "field", 1, 1)
+	# Fill shadow lane to 3/4 slots
+	for i in range(3):
+		ScenarioFixtures.summon_creature(player, match_state, "filler_s_%d" % i, "shadow", 1, 1)
+	# Put 5 Gearwork Spiders in discard
+	for i in range(5):
+		var spider := ScenarioFixtures.make_card(pid, "discard_spider_%d" % i, {
+			"definition_id": "cwc_neu_gearwork_spider", "card_type": "creature",
+			"name": "Gearwork Spider", "power": 1, "health": 1, "base_power": 1, "base_health": 1, "cost": 1,
+		})
+		spider["zone"] = "discard"
+		player["discard"].append(spider)
+	# Summon a Gearwork Spider from hand to field (takes 1 slot, leaving 0 in field, 1 in shadow)
+	var hand_spider := ScenarioFixtures.add_hand_card(player, "hand_spider", {
+		"definition_id": "cwc_neu_gearwork_spider", "card_type": "creature",
+		"name": "Gearwork Spider", "cost": 0, "power": 1, "health": 1,
+		"triggered_abilities": [{"family": "summon", "effects": [{"op": "summon_all_from_discard_by_name", "name": "Gearwork Spider"}]}],
+	})
+	var result := LaneRules.summon_from_hand(match_state, pid, str(hand_spider.get("instance_id", "")), "field")
+	if not _assert(bool(result.get("is_valid", false)), "Spider should summon from hand."):
+		return false
+	# Count spiders on board across both lanes
+	var board_spiders := 0
+	for lane in match_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(pid, []):
+			if typeof(card) == TYPE_DICTIONARY and str(card.get("name", "")) == "Gearwork Spider":
+				board_spiders += 1
+	# Count spiders remaining in discard
+	var discard_spiders := 0
+	for card in player.get("discard", []):
+		if typeof(card) == TYPE_DICTIONARY and str(card.get("name", "")) == "Gearwork Spider":
+			discard_spiders += 1
+	# 1 slot in shadow was open, so 1 spider from discard should be summoned (+ the hand spider).
+	# Total on board: hand spider + 1 from discard = 2 spiders. Remaining in discard: 4.
+	return (
+		_assert(board_spiders == 2, "Should have 2 spiders on board (hand + 1 from discard), got %d." % board_spiders) and
+		_assert(discard_spiders == 4, "Should have 4 spiders remaining in discard, got %d." % discard_spiders)
 	)

@@ -234,8 +234,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						mih_target = mih_items[0]
 					var mih_power := int(effect.get("power", 0))
 					var mih_health := int(effect.get("health", 0))
-					mih_target["equip_power_bonus"] = int(mih_target.get("equip_power_bonus", 0)) + mih_power
-					mih_target["equip_health_bonus"] = int(mih_target.get("equip_health_bonus", 0)) + mih_health
+					EvergreenRules.apply_stat_bonus(mih_target, mih_power, mih_health, reason)
 					generated_events.append({
 						"event_type": "item_in_hand_modified",
 						"source_instance_id": str(trigger.get("source_instance_id", "")),
