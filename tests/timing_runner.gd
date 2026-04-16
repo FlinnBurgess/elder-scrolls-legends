@@ -53,7 +53,8 @@ func _run_all_tests() -> bool:
 		_test_expertise_deal_damage_chosen_target_heals_and_draws() and
 		_test_on_friendly_pilfer_or_drain_requires_pilfer_or_drain() and
 		_test_filter_keyword_matches_triggered_ability_families() and
-		_test_pilfer_steal_from_discard_creates_choice_and_moves_to_discard()
+		_test_pilfer_steal_from_discard_creates_choice_and_moves_to_discard() and
+		_test_on_targeted_by_action_fires_before_destroy_effect()
 	)
 
 
@@ -1575,6 +1576,47 @@ func _test_filter_keyword_matches_triggered_ability_families() -> bool:
 			"Pilferer should get +2 power from Smash and Grab. Got: +%d." % int(pilferer.get("power_bonus", 0))) and
 		_assert(int(plain.get("power_bonus", 0)) == 0,
 			"Plain creature should NOT be buffed. Got: +%d." % int(plain.get("power_bonus", 0)))
+	)
+
+
+func _test_on_targeted_by_action_fires_before_destroy_effect() -> bool:
+	# Regression: Gnarl Rootbender ("when an action targets this, draw a card")
+	# should draw even when the action destroys it (e.g. Piercing Javelin).
+	# The action_targeted event must fire before card_played so the creature
+	# is still alive to respond.
+	var match_state := _build_started_match(20, 0)
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player["player_id"])
+	var oid := str(opponent["player_id"])
+	# Summon a creature with on_targeted_by_action -> draw
+	var rootbender := _summon_creature(player, match_state, "rootbender", "field", 5, 4, [], -1, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_TARGETED_BY_ACTION,
+			"required_zone": "lane",
+			"effects": [{"op": "draw_cards", "target_player": "controller", "count": 1}],
+		}],
+	})
+	var hand_before := int(player["hand"].size())
+	# Opponent plays an action that destroys the creature
+	MatchTurnLoop.end_turn(match_state, pid)
+	var javelin := _add_hand_card(opponent, "javelin", {
+		"card_type": "action",
+		"cost": 0,
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "effects": [
+			{"op": "destroy_creature", "target": "event_target"},
+		]}],
+	})
+	MatchTiming.play_action_from_hand(match_state, oid, javelin["instance_id"], {
+		"target_instance_id": rootbender["instance_id"],
+	})
+	var hand_after := int(player["hand"].size())
+	# Rootbender should have drawn a card despite being destroyed
+	return (
+		_assert(hand_after == hand_before + 1,
+			"on_targeted_by_action should fire before destroy resolves — expected draw. Hand: %d -> %d" % [hand_before, hand_after]) and
+		_assert(str(rootbender.get("zone", "")) == "discard",
+			"Rootbender should still end up destroyed in discard.")
 	)
 
 

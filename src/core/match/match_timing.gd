@@ -3123,12 +3123,14 @@ static func play_action_from_hand(match_state: Dictionary, player_id: String, in
 		"source_name": str(played_card.get("name", "")),
 		"rules_tags": played_card.get("rules_tags", []).duplicate() if typeof(played_card.get("rules_tags", [])) == TYPE_ARRAY else [],
 	}]
-	# Publish action_targeted event when an action targets a specific creature
+	# Publish action_targeted event BEFORE card_played so the targeted creature
+	# can respond (e.g. draw a card) before the action's effect resolves and
+	# potentially destroys it.
 	var action_target_id := str(options.get("target_instance_id", ""))
 	if not action_target_id.is_empty():
 		var action_target_card := MatchTimingHelpers._find_card_anywhere(match_state, action_target_id)
 		if not action_target_card.is_empty() and str(action_target_card.get("card_type", "")) == CARD_TYPE_CREATURE:
-			action_events.append({
+			action_events.insert(0, {
 				"event_type": "action_targeted",
 				"source_instance_id": instance_id,
 				"source_controller_player_id": player_id,
