@@ -41,7 +41,7 @@
 	],
 	"name": "",
 	"player": {
-		"current_magicka": 12.0,
+		"current_magicka": 50.0,
 		"deck": [
 			"hom_end_vvardvark",
 			"hom_end_vvardvark",
@@ -84,16 +84,18 @@
 		"field_creatures": [
 			null,
 			null,
-			"mc_str_seasoned_captain"
+			null
 		],
 		"hand": [
-			"moe_agi_suthay_bootlegger",
-			"iom_str_dagger",
-			"end_daedric_dagger"
+			"wil_piercing_javelin",
+			"wil_piercing_javelin",
+			"int_firebolt",
+			"hom_int_mages_guild_recruit",
+			"hom_end_lichs_ascension"
 		],
 		"has_ring": false,
 		"health": 30.0,
-		"max_magicka": 12.0,
+		"max_magicka": 50.0,
 		"shadow_creatures": [],
 		"supports": []
 	},

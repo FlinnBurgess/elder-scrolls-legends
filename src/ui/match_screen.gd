@@ -511,6 +511,8 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 		card["grants_immunity"] = definition["grants_immunity"].duplicate(true)
 	if definition.has("grants_trigger"):
 		card["grants_trigger"] = definition["grants_trigger"].duplicate(true)
+	if definition.has("play_limit_per_turn"):
+		card["play_limit_per_turn"] = int(definition["play_limit_per_turn"])
 	if definition.has("magicka_aura"):
 		card["magicka_aura"] = int(definition["magicka_aura"])
 	if definition.has("self_immunity"):

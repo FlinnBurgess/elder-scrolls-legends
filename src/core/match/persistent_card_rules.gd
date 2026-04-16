@@ -61,6 +61,10 @@ static func play_support_from_hand(match_state: Dictionary, player_id: String, i
 		"reason": str(options.get("reason", "play_support")),
 		"lane_id": str(options.get("lane_id", "")),
 	}])
+	# If this support imposes a play limit, reset the counter so the limit
+	# only applies to cards played AFTER the support enters the board.
+	if int(card.get("play_limit_per_turn", -1)) >= 0:
+		player_state["cards_played_this_turn"] = 0
 	_check_support_on_play_target_mode(match_state, card)
 	return {"is_valid": true, "errors": [], "card": card, "events": timing_result.get("processed_events", []), "trigger_resolutions": timing_result.get("trigger_resolutions", [])}
 
@@ -802,6 +806,16 @@ static func get_play_limit_per_turn(match_state: Dictionary, player_id: String) 
 		if typeof(support_card) != TYPE_DICTIONARY:
 			continue
 		var pl := int(support_card.get("play_limit_per_turn", -1))
+		if pl < 0:
+			# Fallback: check the catalog seed if the instance wasn't hydrated
+			var def_id := str(support_card.get("definition_id", ""))
+			if not def_id.is_empty():
+				for seed in MatchMutations.CardCatalog._card_seeds():
+					if typeof(seed) == TYPE_DICTIONARY and str(seed.get("card_id", "")) == def_id:
+						pl = int(seed.get("play_limit_per_turn", -1))
+						if pl >= 0:
+							support_card["play_limit_per_turn"] = pl
+						break
 		if pl >= 0 and (limit < 0 or pl < limit):
 			limit = pl
 	return limit

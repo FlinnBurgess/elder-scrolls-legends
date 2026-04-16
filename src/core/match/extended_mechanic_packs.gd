@@ -2382,10 +2382,11 @@ static func _filter_catalog_seeds(filter: Dictionary) -> Array:
 	var req_rules_tag := str(filter.get("rules_tag", filter.get("tag", "")))
 	var req_keyword := str(filter.get("keyword", ""))
 	var name_contains := str(filter.get("name_contains", ""))
+	var include_uncollectible := bool(filter.get("include_uncollectible", false))
 	for seed in seeds:
 		if typeof(seed) != TYPE_DICTIONARY:
 			continue
-		if not bool(seed.get("collectible", true)):
+		if not include_uncollectible and not bool(seed.get("collectible", true)):
 			continue
 		if not req_card_type.is_empty() and str(seed.get("card_type", "")) != req_card_type:
 			continue

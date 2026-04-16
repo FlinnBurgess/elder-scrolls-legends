@@ -75,7 +75,11 @@ func _run_all_tests() -> bool:
 		_test_unrelenting_siege_allows_debuffed_creature_to_attack_twice() and
 		_test_unrelenting_siege_passive_refreshes_each_turn() and
 		# Zephyr item grant_extra_attack passive
-		_test_zephyr_grants_wielder_extra_attack_each_turn()
+		_test_zephyr_grants_wielder_extra_attack_each_turn() and
+		# Play limit per turn (Lich's Ascension)
+		_test_support_play_limit_blocks_second_card() and
+		_test_support_play_limit_from_hand_without_hydration() and
+		_test_support_play_limit_resets_on_placement()
 	)
 
 
@@ -1788,6 +1792,117 @@ func _test_unrelenting_siege_passive_refreshes_each_turn() -> bool:
 		return false
 	var third := MatchCombat.resolve_attack(match_state, pid, str(attacker.get("instance_id", "")), {"type": "player", "player_id": opp_id})
 	return _assert(not bool(third.get("is_valid", false)), "Unrelenting Siege: third attack on refreshed turn should still be blocked.")
+
+
+func _test_support_play_limit_blocks_second_card() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player["player_id"])
+	# Place a support with play_limit_per_turn in the support zone
+	player["support"].append({
+		"instance_id": "p1_lichs_ascension",
+		"definition_id": "hom_end_lichs_ascension",
+		"name": "Lich's Ascension",
+		"card_type": "support",
+		"support_uses": 0,
+		"play_limit_per_turn": 1,
+		"owner_player_id": pid,
+		"controller_player_id": pid,
+		"zone": "support",
+	})
+	# Add two action cards to hand
+	var action1 := _add_hand_card(player, "play_limit_action_1", {
+		"card_type": "action",
+		"cost": 0,
+		"triggered_abilities": [{"family": "on_play", "effects": [{"op": "draw_cards", "target_player": "controller", "count": 0}]}],
+	})
+	var action2 := _add_hand_card(player, "play_limit_action_2", {
+		"card_type": "action",
+		"cost": 0,
+		"triggered_abilities": [{"family": "on_play", "effects": [{"op": "draw_cards", "target_player": "controller", "count": 0}]}],
+	})
+	# First play should succeed
+	var result1 := MatchTiming.play_action_from_hand(match_state, pid, str(action1["instance_id"]))
+	if not _assert(bool(result1.get("is_valid", false)), "Play limit: first card should be playable."):
+		return false
+	# Second play should be blocked
+	var result2 := MatchTiming.play_action_from_hand(match_state, pid, str(action2["instance_id"]))
+	return _assert(not bool(result2.get("is_valid", false)), "Play limit: second card should be blocked by play_limit_per_turn=1.")
+
+
+func _test_support_play_limit_from_hand_without_hydration() -> bool:
+	# Regression: Lich's Ascension in support zone may lack play_limit_per_turn
+	# if the card instance wasn't hydrated. The catalog fallback should still enforce it.
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player["player_id"])
+	# Place Lich's Ascension directly in support WITHOUT play_limit_per_turn
+	# (simulates missing hydration — only definition_id is set)
+	player["support"].append({
+		"instance_id": "p1_lichs_no_hydrate",
+		"definition_id": "hom_end_lichs_ascension",
+		"name": "Lich's Ascension",
+		"card_type": "support",
+		"support_uses": 0,
+		"owner_player_id": pid,
+		"controller_player_id": pid,
+		"zone": "support",
+	})
+	var action1 := _add_hand_card(player, "play_limit_action_a", {
+		"card_type": "action",
+		"cost": 0,
+		"triggered_abilities": [{"family": "on_play", "effects": [{"op": "draw_cards", "target_player": "controller", "count": 0}]}],
+	})
+	var action2 := _add_hand_card(player, "play_limit_action_b", {
+		"card_type": "action",
+		"cost": 0,
+		"triggered_abilities": [{"family": "on_play", "effects": [{"op": "draw_cards", "target_player": "controller", "count": 0}]}],
+	})
+	# First action should succeed (catalog fallback finds play_limit_per_turn=1)
+	var result1 := MatchTiming.play_action_from_hand(match_state, pid, str(action1["instance_id"]))
+	if not _assert(bool(result1.get("is_valid", false)), "Catalog fallback: first card should be playable."):
+		return false
+	# Second action should be blocked by catalog fallback
+	var result2 := MatchTiming.play_action_from_hand(match_state, pid, str(action2["instance_id"]))
+	return _assert(not bool(result2.get("is_valid", false)), "Catalog fallback: second card should be blocked by play_limit_per_turn=1.")
+
+
+func _test_support_play_limit_resets_on_placement() -> bool:
+	# Playing a support with play_limit_per_turn resets the counter so the
+	# limit only applies to cards played AFTER the support enters the board.
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player["player_id"])
+	player["max_magicka"] = 50
+	player["current_magicka"] = 50
+	# Add Lich's Ascension + two actions to hand
+	var support := _add_hand_card(player, "hom_end_lichs_ascension", {
+		"card_type": "support",
+		"cost": 7,
+		"support_uses": 0,
+		"play_limit_per_turn": 1,
+	})
+	var action1 := _add_hand_card(player, "post_lich_action_1", {
+		"card_type": "action",
+		"cost": 0,
+		"triggered_abilities": [{"family": "on_play", "effects": [{"op": "draw_cards", "target_player": "controller", "count": 0}]}],
+	})
+	var action2 := _add_hand_card(player, "post_lich_action_2", {
+		"card_type": "action",
+		"cost": 0,
+		"triggered_abilities": [{"family": "on_play", "effects": [{"op": "draw_cards", "target_player": "controller", "count": 0}]}],
+	})
+	# Play Lich's Ascension from hand
+	var sr := PersistentCardRules.play_support_from_hand(match_state, pid, str(support["instance_id"]))
+	if not _assert(bool(sr.get("is_valid", false)), "Lich placement: support should be playable."):
+		return false
+	# Counter should be reset — one more card is allowed this turn
+	var r1 := MatchTiming.play_action_from_hand(match_state, pid, str(action1["instance_id"]))
+	if not _assert(bool(r1.get("is_valid", false)), "Lich placement: first action AFTER support should succeed."):
+		return false
+	# Second action should be blocked
+	var r2 := MatchTiming.play_action_from_hand(match_state, pid, str(action2["instance_id"]))
+	return _assert(not bool(r2.get("is_valid", false)), "Lich placement: second action should be blocked.")
 
 
 func _assert(condition: bool, message: String) -> bool:

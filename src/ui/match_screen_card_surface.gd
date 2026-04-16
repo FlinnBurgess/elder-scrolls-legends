@@ -149,6 +149,8 @@ func _layout_local_hand_cards(hand_surface: Control, cards: Array[Button], card_
 	var affordable_rise := card_size.y * 0.06
 	var local_player = _screen._player_state(_screen.PLAYER_ORDER[1])
 	var available_magicka := int(local_player.get("current_magicka", 0)) + int(local_player.get("temporary_magicka", 0))
+	var play_limit: int = _screen.PersistentCardRules.get_play_limit_per_turn(_screen._match_state, str(local_player.get("player_id", "")))
+	var play_limited: bool = play_limit >= 0 and int(local_player.get("cards_played_this_turn", 0)) >= play_limit
 	for index in range(count):
 		var button := cards[index]
 		var instance_id := str(button.get_meta("instance_id", ""))
@@ -157,7 +159,8 @@ func _layout_local_hand_cards(hand_surface: Control, cards: Array[Button], card_
 		if not card.is_empty():
 			var hand_controller := str(card.get("controller_player_id", ""))
 			effective_cost = _screen.PersistentCardRules.get_effective_play_cost(_screen._match_state, hand_controller, card)
-		var affordable: bool = not card.is_empty() and effective_cost <= available_magicka
+		var is_free_play := bool(card.get("_play_for_free", false))
+		var affordable: bool = not card.is_empty() and effective_cost <= available_magicka and (not play_limited or is_free_play)
 		var position := Vector2(start_x + overlap_step * index, base_y - (affordable_rise if affordable else 0.0))
 		button.size = card_size
 		button.position = position

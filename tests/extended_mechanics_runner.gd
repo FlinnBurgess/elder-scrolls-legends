@@ -155,7 +155,8 @@ func _run_all_tests() -> bool:
 		_test_feed_queues_pending_choice_for_keyword_recipient() and
 		_test_razum_dar_copies_opponent_drawn_card_not_self() and
 		_test_nether_lich_excludes_self_from_undead_count() and
-		_test_summon_all_from_discard_by_name_respects_board_capacity()
+		_test_summon_all_from_discard_by_name_respects_board_capacity() and
+		_test_blood_magic_lord_summon_generates_random_blood_magic_spell()
 	)
 
 
@@ -5963,3 +5964,30 @@ func _test_summon_all_from_discard_by_name_respects_board_capacity() -> bool:
 		_assert(board_spiders == 2, "Should have 2 spiders on board (hand + 1 from discard), got %d." % board_spiders) and
 		_assert(discard_spiders == 4, "Should have 4 spiders remaining in discard, got %d." % discard_spiders)
 	)
+
+
+func _test_blood_magic_lord_summon_generates_random_blood_magic_spell() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var bml := ScenarioFixtures.add_hand_card(player, "blood_magic_lord", {
+		"card_type": "creature", "cost": 0, "power": 6, "health": 6,
+		"triggered_abilities": [{"family": "summon", "effects": [{"op": "generate_random_to_hand", "filter": {"tag": "blood_magic_spell", "include_uncollectible": true}}]}],
+	})
+	var hand_ids_before: Array = []
+	for c in player.get("hand", []):
+		if typeof(c) == TYPE_DICTIONARY:
+			hand_ids_before.append(str(c.get("instance_id", "")))
+	var result := LaneRules.summon_from_hand(match_state, pid, str(bml.get("instance_id", "")), "field")
+	if not _assert(bool(result.get("is_valid", false)), "Blood Magic Lord: should be playable."):
+		return false
+	var new_card: Dictionary = {}
+	for c in player.get("hand", []):
+		if typeof(c) == TYPE_DICTIONARY and not hand_ids_before.has(str(c.get("instance_id", ""))):
+			new_card = c
+			break
+	if not _assert(not new_card.is_empty(), "Blood Magic Lord: should add a blood magic spell to hand."):
+		return false
+	var valid_ids: Array = ["end_corpse_curse", "end_drain_life", "end_gargoyle", "end_raise_dead"]
+	var new_def_id := str(new_card.get("definition_id", ""))
+	return _assert(valid_ids.has(new_def_id), "Blood Magic Lord: generated card '%s' should be one of the four blood magic spells." % new_def_id)
