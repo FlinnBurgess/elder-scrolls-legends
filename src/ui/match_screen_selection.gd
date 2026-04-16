@@ -603,7 +603,12 @@ func _create_targeting_action_preview(instance_id: String, card: Dictionary) -> 
 	var component = _screen.CARD_DISPLAY_COMPONENT_SCENE.instantiate()
 	component.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	component.apply_card(card, _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
+	var display_card := card.duplicate(true)
+	var card_controller := str(card.get("controller_player_id", ""))
+	if not card_controller.is_empty():
+		_screen._card_surface._apply_empower_text_updates(display_card, card_controller)
+	_screen._card_surface._apply_escalating_damage_text_updates(display_card)
+	component.apply_card(display_card, _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
 	wrapper.add_child(component)
 	_screen.add_child(wrapper)
 	wrapper.custom_minimum_size = preview_size

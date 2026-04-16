@@ -156,7 +156,14 @@ func _action_target_mode_allows(action_card: Dictionary, target_instance_id: Str
 		"choose_lane":
 			mode_allowed = true  # Creature clicks redirect to lane play in target_selected_card
 		"creature_1_power_or_less":
-			mode_allowed = _screen.EvergreenRules.get_power(target_card) <= 1
+			var c1pol_max := 1
+			var c1pol_empower := int(action_card.get("_empower_target_bonus", 0))
+			if c1pol_empower > 0:
+				for p in _screen._match_state.get("players", []):
+					if str(p.get("player_id", "")) == controller_id:
+						c1pol_max += c1pol_empower * (int(p.get("empower_count_this_turn", 0)) + int(action_card.get("_permanent_empower_bonus", 0)))
+						break
+			mode_allowed = _screen.EvergreenRules.get_power(target_card) <= c1pol_max
 		"creature_4_power_or_less":
 			mode_allowed = _screen.EvergreenRules.get_power(target_card) <= 4
 		"creature_4_power_or_more":

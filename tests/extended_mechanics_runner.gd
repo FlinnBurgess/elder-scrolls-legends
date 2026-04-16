@@ -46,10 +46,12 @@ func _run_all_tests() -> bool:
 		_test_empower_deal_damage() and
 		_test_empower_cost_reduction() and
 		_test_empower_destroy_creature() and
+		_test_empower_destroy_creature_targeting() and
 		_test_empower_add_support_uses() and
 		_test_empower_summon_stat_bonus() and
 		_test_empower_resets_at_end_of_turn() and
 		_test_empower_summon_random_cost_scaling() and
+		_test_wish_summons_exact_cost_creature() and
 		_test_empower_banish_per_attribute() and
 		_test_empower_permanent_across_turns() and
 		_test_invade_and_shout_pack() and
@@ -1087,6 +1089,42 @@ func _test_empower_destroy_creature() -> bool:
 	)
 
 
+func _test_empower_destroy_creature_targeting() -> bool:
+	# Regression: MatchTargeting must include higher-power creatures after empower
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Summon a 3-power creature before empower
+	var target := ScenarioFixtures.summon_creature(opponent, match_state, "power3_tgt", "field", 3, 5)
+	var shards := ScenarioFixtures.add_hand_card(player, "shards_tgt", {"card_type": "action", "cost": 0, "action_target_mode": "creature_1_power_or_less", "_empower_target_bonus": 1, "triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "destroy_creature", "target": "event_target", "max_power": 1, "empower_bonus": 1}]}]})
+	var shards_id := str(shards.get("instance_id", ""))
+	# Before empower: 3-power creature should NOT be a valid target
+	var targets_before := MatchTargeting.get_valid_targets_for_mode(match_state, shards_id, "creature_1_power_or_less")
+	var target_id := str(target.get("instance_id", ""))
+	var before_has_target := false
+	for t in targets_before:
+		if str(t.get("instance_id", "")) == target_id:
+			before_has_target = true
+			break
+	# Deal damage to opponent 2 times = empower count 2
+	for i in range(2):
+		var ping := ScenarioFixtures.add_hand_card(player, "ping_tgt_%d" % i, {"card_type": "action", "cost": 0, "triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "damage", "target_player": "target_player", "amount": 1}]}]})
+		MatchTiming.play_action_from_hand(match_state, pid, str(ping.get("instance_id", "")), {"target_player_id": oid})
+	# After empower: 3-power creature SHOULD be a valid target (max 1 + 2 empower = 3)
+	var targets_after := MatchTargeting.get_valid_targets_for_mode(match_state, shards_id, "creature_1_power_or_less")
+	var after_has_target := false
+	for t in targets_after:
+		if str(t.get("instance_id", "")) == target_id:
+			after_has_target = true
+			break
+	return (
+		_assert(not before_has_target, "Empower targeting: 3-power creature should NOT be valid before empower.") and
+		_assert(after_has_target, "Empower targeting: 3-power creature SHOULD be valid after 2 empower (max 1+2=3).")
+	)
+
+
 func _test_empower_add_support_uses() -> bool:
 	# Alchemy style: add support uses, empower adds more
 	var match_state := _build_started_match()
@@ -1191,8 +1229,24 @@ func _test_empower_summon_random_cost_scaling() -> bool:
 				summoned_cost = int(card.get("cost", 0))
 	return (
 		_assert(creatures_after == creatures_before + 1, "Empower summon_random_creature should summon exactly 1 creature.") and
-		_assert(summoned_cost >= 0 and summoned_cost <= 5, "Empower summon: max_cost 2 + 3 empower = 5, summoned cost %d should be <= 5." % summoned_cost)
+		_assert(summoned_cost == 5, "Empower summon: max_cost 2 + 3 empower = exactly 5, summoned cost was %d." % summoned_cost)
 	)
+
+
+func _test_wish_summons_exact_cost_creature() -> bool:
+	# Wish with no empower should summon exactly a 2-cost creature, not "up to" 2
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# No face damage = empower count 0
+	var wish := ScenarioFixtures.add_hand_card(player, "wish_exact", {"card_type": "action", "cost": 4, "triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "summon_random_creature", "max_cost": 2, "empower_bonus_cost": 1}]}]})
+	MatchTiming.play_action_from_hand(match_state, pid, str(wish.get("instance_id", "")))
+	var summoned_cost := -1
+	for lane in match_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(pid, []):
+			if str(card.get("instance_id", "")).contains("generated"):
+				summoned_cost = int(card.get("cost", 0))
+	return _assert(summoned_cost == 2, "Wish with no empower should summon exactly a 2-cost creature, got cost %d." % summoned_cost)
 
 
 func _test_empower_banish_per_attribute() -> bool:

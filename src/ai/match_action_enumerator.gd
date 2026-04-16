@@ -750,6 +750,8 @@ static func _enumerate_action_plays(match_state: Dictionary, player_id: String, 
 			var requirements := _collect_target_requirements(_play_triggers(variant_card))
 			requirements["action_target_mode"] = str(variant_card.get("action_target_mode", ""))
 			requirements["controller_player_id"] = player_id
+			requirements["_empower_target_bonus"] = int(variant_card.get("_empower_target_bonus", 0))
+			requirements["_permanent_empower_bonus"] = int(variant_card.get("_permanent_empower_bonus", 0))
 			for target_parameters in _expand_target_parameter_sets(match_state, requirements):
 				var parameters := base_parameters.duplicate(true)
 				for key in target_parameters.keys():
@@ -991,7 +993,14 @@ static func _expand_target_parameter_sets(match_state: Dictionary, requirements:
 						if EvergreenRules.get_power(card) < 4:
 							continue
 					elif atm == "creature_1_power_or_less":
-						if EvergreenRules.get_power(card) > 1:
+						var c1pol_max := 1
+						var c1pol_empower := int(requirements.get("_empower_target_bonus", 0))
+						if c1pol_empower > 0:
+							for p in match_state.get("players", []):
+								if str(p.get("player_id", "")) == atm_controller:
+									c1pol_max += c1pol_empower * (int(p.get("empower_count_this_turn", 0)) + int(requirements.get("_permanent_empower_bonus", 0)))
+									break
+						if EvergreenRules.get_power(card) > c1pol_max:
 							continue
 					elif atm == "creature_with_0_power":
 						if EvergreenRules.get_power(card) != 0:

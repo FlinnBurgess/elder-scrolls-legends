@@ -60,14 +60,19 @@
 			"mc_dual_champion_of_the_arena",
 			"mc_neu_mechanical_ally",
 			"hom_neu_yagrum_bagarn",
-			"neu_sparking_spider"
+			"neu_sparking_spider",
+			"aw_end_spiny_haj_mota"
 		],
 		"field_creatures": [
-			null
+			null,
+			null,
+			null,
+			"aw_end_spiny_haj_mota"
 		],
 		"hand": [
-			"fsc_wil_harmony",
-			"wil_blackmail"
+			"aw_wil_luminous_shards",
+			"int_ice_spike",
+			"int_ice_spike"
 		],
 		"has_ring": false,
 		"health": 30.0,

@@ -935,6 +935,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					var src_source := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 					src_max_cost += src_empower_cost * MatchTimingHelpers._get_empower_amount(match_state, str(trigger.get("controller_player_id", "")), src_source)
 				src_filter["max_cost"] = src_max_cost
+				src_filter["min_cost"] = src_max_cost
 			var src_delegated := {"op": "summon_random_from_catalog", "filter": src_filter}
 			for src_key in ["lane_id", "target_lane_id"]:
 				if effect.has(src_key):

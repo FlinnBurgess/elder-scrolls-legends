@@ -1,41 +1,5 @@
 [
 	{
-		"card_id": "aw_wil_luminous_shards",
-		"name": "Luminous Shards",
-		"card_type": "action",
-		"cost": 3,
-		"attributes": [
-			"willpower"
-		],
-		"rules_text": "Destroy a creature with 1 power or less.\nEmpower: +1 power.",
-		"stripped_text": "Destroy a creature with 1 power or less.\nEmpower: +1 power.",
-		"complexity": 59
-	},
-	{
-		"card_id": "aw_wil_wish",
-		"name": "Wish",
-		"card_type": "action",
-		"cost": 4,
-		"attributes": [
-			"willpower"
-		],
-		"rules_text": "Summon a random 2-cost creature.\nEmpower: +1 cost creature.",
-		"stripped_text": "Summon a random 2-cost creature.\nEmpower: +1 cost creature.",
-		"complexity": 59
-	},
-	{
-		"card_id": "aw_end_spiny_haj_mota",
-		"name": "Spiny Haj Mota",
-		"card_type": "creature",
-		"cost": 4,
-		"attributes": [
-			"endurance"
-		],
-		"rules_text": "Summon: +4/+4 for each Spiny Haj Mota in your discard pile.",
-		"stripped_text": "Summon: +4/+4 for each Spiny Haj Mota in your discard pile.",
-		"complexity": 59
-	},
-	{
 		"card_id": "moe_str_enraged_dragonknight",
 		"name": "Enraged Dragonknight",
 		"card_type": "creature",
