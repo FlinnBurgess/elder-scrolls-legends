@@ -755,7 +755,7 @@ static func _get_aura_cost_reduction(match_state: Dictionary, player_id: String,
 			if typeof(card_subtypes) != TYPE_ARRAY or not card_subtypes.has(ms_filter_subtype):
 				continue
 		total += int(ms_aura.get("amount", 0))
-	total -= _get_global_cost_increase(match_state, card_type)
+	total -= _get_global_cost_increase(match_state, player_id, card_type)
 	return total
 
 
@@ -782,7 +782,7 @@ static func _cost_reduction_condition_met(match_state: Dictionary, player_id: St
 	return true
 
 
-static func _get_global_cost_increase(match_state: Dictionary, card_type: String) -> int:
+static func _get_global_cost_increase(match_state: Dictionary, player_id: String, card_type: String) -> int:
 	var total := 0
 	for lane in match_state.get("lanes", []):
 		for pid in lane.get("player_slots", {}).keys():
@@ -791,6 +791,9 @@ static func _get_global_cost_increase(match_state: Dictionary, card_type: String
 					continue
 				var aura = lane_card.get("cost_increase_aura", {})
 				if typeof(aura) != TYPE_DICTIONARY or aura.is_empty():
+					continue
+				var affects := str(aura.get("affects", ""))
+				if affects == "opponent" and pid == player_id:
 					continue
 				var required_type := str(aura.get("card_type", ""))
 				if not required_type.is_empty() and card_type != required_type:

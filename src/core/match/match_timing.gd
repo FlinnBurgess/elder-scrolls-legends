@@ -1477,8 +1477,17 @@ static func _resolve_multi_target_selection(match_state: Dictionary, source_card
 	var effects: Array = descriptor.get("effects", [])
 	var events: Array = []
 	var resolutions: Array = []
-	if current_index < effects.size():
-		var single_effect: Dictionary = effects[current_index].duplicate(true) if typeof(effects[current_index]) == TYPE_DICTIONARY else {}
+	# Per-lane targeting applies ALL effects to each chosen target;
+	# standard multi-target applies one effect per target index.
+	var is_per_lane := source_card.has("_per_lane_target_lane_ids")
+	var trigger_effects: Array = []
+	if is_per_lane:
+		for _plte in effects:
+			if typeof(_plte) == TYPE_DICTIONARY:
+				trigger_effects.append(_plte.duplicate(true))
+	elif current_index < effects.size():
+		trigger_effects.append(effects[current_index].duplicate(true) if typeof(effects[current_index]) == TYPE_DICTIONARY else {})
+	if not trigger_effects.is_empty():
 		var trigger := {
 			"trigger_id": "%s_multi_target_%d" % [instance_id, current_index],
 			"trigger_index": 0,
@@ -1486,7 +1495,7 @@ static func _resolve_multi_target_selection(match_state: Dictionary, source_card
 			"owner_player_id": str(source_card.get("owner_player_id", controller_id)),
 			"controller_player_id": controller_id,
 			"source_zone": ZONE_DISCARD,
-			"descriptor": {"family": str(descriptor.get("family", "on_play")), "effects": [single_effect]},
+			"descriptor": {"family": str(descriptor.get("family", "on_play")), "effects": trigger_effects},
 			"_chosen_target_id": chosen_id,
 		}
 		var event := {
@@ -1520,6 +1529,7 @@ static func _resolve_multi_target_selection(match_state: Dictionary, source_card
 		source_card.erase("_multi_target_count")
 		source_card.erase("_multi_target_index")
 		source_card.erase("_multi_target_descriptor")
+		source_card.erase("_per_lane_target_lane_ids")
 	return {"is_valid": true, "events": events, "trigger_resolutions": resolutions}
 
 
@@ -2058,6 +2068,31 @@ static func _check_action_multi_target_abilities(match_state: Dictionary, card: 
 						"then_context": cih_context,
 						"prompt": "Choose a creature in your hand.",
 					})
+			break
+		elif tm == "friendly_in_each_lane":
+			# Per-lane targeting: find lanes with friendly creatures, queue multi-target
+			var fiel_lane_ids: Array = []
+			for fiel_lane in match_state.get("lanes", []):
+				var fiel_slots = fiel_lane.get("player_slots", {}).get(controller_id, [])
+				var fiel_has_friendly := false
+				for fiel_entry in fiel_slots:
+					if typeof(fiel_entry) == TYPE_DICTIONARY:
+						fiel_has_friendly = true
+						break
+				if fiel_has_friendly:
+					fiel_lane_ids.append(str(fiel_lane.get("lane_id", "")))
+			if not fiel_lane_ids.is_empty():
+				card["_multi_target_ids"] = []
+				card["_multi_target_count"] = fiel_lane_ids.size()
+				card["_multi_target_descriptor"] = ab.duplicate(true)
+				card["_per_lane_target_lane_ids"] = fiel_lane_ids
+				var pending_arr: Array = match_state.get("pending_summon_effect_targets", [])
+				pending_arr.append({
+					"player_id": controller_id,
+					"source_instance_id": instance_id,
+					"mandatory": true,
+					"multi_target": true,
+				})
 			break
 		elif target_count > 0:
 			# Multi-target: collect N targets sequentially

@@ -207,6 +207,9 @@ static func refresh_for_controller_turn(card: Dictionary, current_turn_number: i
 	if card.has("_immune_until_turn") and int(card.get("_immune_until_turn", -1)) <= current_turn_number:
 		card.erase("_immune_until_turn")
 		card.erase("_immunity_type")
+	if card.has("cost_increase_aura_expires_on_turn") and int(card.get("cost_increase_aura_expires_on_turn", -1)) <= current_turn_number:
+		card.erase("cost_increase_aura")
+		card.erase("cost_increase_aura_expires_on_turn")
 	if has_keyword(card, KEYWORD_REGENERATE):
 		result["regenerate_healed"] = restore_health(card)
 	_sync_wounded_status(card)

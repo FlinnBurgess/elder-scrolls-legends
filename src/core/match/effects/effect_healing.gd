@@ -194,10 +194,15 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					cint_card["cost"] = int(cint_card.get("cost", 0)) + cint_amount
 					generated_events.append({"event_type": "cost_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(cint_card.get("instance_id", "")), "amount": cint_amount})
 		"increase_opponent_action_cost":
-			var ioac_controller_id := str(trigger.get("controller_player_id", ""))
 			var ioac_source := MatchTimingHelpers._find_card_anywhere(match_state, str(trigger.get("source_instance_id", "")))
 			if not ioac_source.is_empty():
-				ioac_source["_increase_opponent_action_cost"] = int(effect.get("amount", 1))
+				ioac_source["cost_increase_aura"] = {
+					"card_type": "action",
+					"amount": int(effect.get("amount", 1)),
+					"affects": "opponent",
+				}
+				if str(effect.get("duration", "")) == "next_turn":
+					ioac_source["cost_increase_aura_expires_on_turn"] = int(match_state.get("turn_number", 0)) + 1
 		"set_power_cap_in_lane":
 			var spcil_controller_id := str(trigger.get("controller_player_id", ""))
 			var spcil_opponent_id := MatchTimingHelpers._get_opposing_player_id(match_state.get("players", []), spcil_controller_id)

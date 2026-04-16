@@ -219,7 +219,7 @@ static func _get_aura_cost_reduction(match_state: Dictionary, player_id: String,
 			if typeof(card_subtypes) != TYPE_ARRAY or not card_subtypes.has(ms_filter_subtype):
 				continue
 		total += int(ms_aura.get("amount", 0))
-	total -= load("res://src/core/match/persistent_card_rules.gd")._get_global_cost_increase(match_state, card_type)
+	total -= load("res://src/core/match/persistent_card_rules.gd")._get_global_cost_increase(match_state, player_id, card_type)
 	return total
 
 

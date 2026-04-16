@@ -907,7 +907,7 @@ static func _collect_target_requirements(triggers: Array) -> Dictionary:
 	for trigger in triggers:
 		# Activate triggers with target_mode need card targets passed via the event
 		var tm := str(trigger.get("target_mode", ""))
-		if not tm.is_empty() and tm != "creature_in_hand":
+		if not tm.is_empty() and tm != "creature_in_hand" and tm != "friendly_in_each_lane":
 			if tm == "choose_lane_and_owner":
 				requirements["needs_lane_id"] = true
 			else:

@@ -1342,10 +1342,60 @@ func _autosave() -> void:
 
 
 func _on_reset_test_match() -> void:
-	TestMatchConfigScript.reset_autosave()
-	_init_default_config()
-	_sync_ui_from_config()
-	_refresh_board()
+	var overlay := PanelContainer.new()
+	overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	overlay.z_index = 75
+	overlay.mouse_filter = MOUSE_FILTER_STOP
+	add_child(overlay)
+
+	var bg_style := StyleBoxFlat.new()
+	bg_style.bg_color = Color(0, 0, 0, 0.6)
+	overlay.add_theme_stylebox_override("panel", bg_style)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	overlay.add_child(center)
+
+	var card := PanelContainer.new()
+	card.custom_minimum_size = Vector2(450, 0)
+	UITheme.style_panel(card)
+	center.add_child(card)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 14)
+	card.add_child(vbox)
+
+	var msg := Label.new()
+	msg.text = "Reset all slots, hands, and settings\nto their defaults?"
+	msg.add_theme_font_size_override("font_size", 20)
+	msg.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
+	msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(msg)
+
+	var btn_row := HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row.add_theme_constant_override("separation", 16)
+	vbox.add_child(btn_row)
+
+	var cancel_btn := Button.new()
+	cancel_btn.text = "Cancel"
+	cancel_btn.custom_minimum_size = Vector2(120, 48)
+	UITheme.style_button(cancel_btn, 20, true)
+	cancel_btn.pressed.connect(func(): overlay.queue_free())
+	btn_row.add_child(cancel_btn)
+
+	var confirm_btn := Button.new()
+	confirm_btn.text = "Reset"
+	confirm_btn.custom_minimum_size = Vector2(120, 48)
+	UITheme.style_button_accent(confirm_btn, Color(0.8, 0.3, 0.3), 20)
+	confirm_btn.pressed.connect(func():
+		overlay.queue_free()
+		TestMatchConfigScript.reset_autosave()
+		_init_default_config()
+		_sync_ui_from_config()
+		_refresh_board()
+	)
+	btn_row.add_child(confirm_btn)
 
 
 func _on_save() -> void:

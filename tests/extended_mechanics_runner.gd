@@ -156,7 +156,9 @@ func _run_all_tests() -> bool:
 		_test_razum_dar_copies_opponent_drawn_card_not_self() and
 		_test_nether_lich_excludes_self_from_undead_count() and
 		_test_summon_all_from_discard_by_name_respects_board_capacity() and
-		_test_blood_magic_lord_summon_generates_random_blood_magic_spell()
+		_test_blood_magic_lord_summon_generates_random_blood_magic_spell() and
+		_test_increase_opponent_action_cost_veteran() and
+		_test_outflank_per_lane_targeting_grants_stats_and_guard()
 	)
 
 
@@ -5991,3 +5993,105 @@ func _test_blood_magic_lord_summon_generates_random_blood_magic_spell() -> bool:
 	var valid_ids: Array = ["end_corpse_curse", "end_drain_life", "end_gargoyle", "end_raise_dead"]
 	var new_def_id := str(new_card.get("definition_id", ""))
 	return _assert(valid_ids.has(new_def_id), "Blood Magic Lord: generated card '%s' should be one of the four blood magic spells." % new_def_id)
+
+
+func _test_increase_opponent_action_cost_veteran() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Summon Pact Shieldbearer with veteran: increase_opponent_action_cost
+	var shieldbearer := ScenarioFixtures.summon_creature(player, match_state, "pact_shieldbearer", "field", 3, 6, [EvergreenRules.KEYWORD_CHARGE], -1, {
+		"triggered_abilities": [{
+			"family": "veteran",
+			"required_zone": "lane",
+			"effects": [{"op": "increase_opponent_action_cost", "amount": 4, "duration": "next_turn"}],
+		}],
+	})
+	# Give opponent an action card in hand
+	var javelin := ScenarioFixtures.add_hand_card(opponent, "javelin", {
+		"card_type": "action", "cost": 5,
+	})
+	# Verify base cost before veteran triggers
+	var cost_before: int = PersistentCardRules.get_effective_play_cost(match_state, oid, javelin)
+	if not _assert(cost_before == 5, "Javelin should cost 5 before veteran, got %d." % cost_before):
+		return false
+	# Attack a dummy to trigger veteran
+	var dummy := _summon_generated_creature(match_state, oid, "dummy", "field", 1, 1)
+	var attack := MatchCombat.resolve_attack(match_state, pid, str(shieldbearer.get("instance_id", "")), {"type": "creature", "instance_id": str(dummy.get("instance_id", ""))})
+	if not _assert(bool(attack.get("is_valid", false)), "Veteran attack should resolve."):
+		return false
+	# Verify opponent's action now costs 4 more
+	var cost_after: int = PersistentCardRules.get_effective_play_cost(match_state, oid, javelin)
+	if not _assert(cost_after == 9, "Javelin should cost 9 after veteran (+4), got %d." % cost_after):
+		return false
+	# Verify controller's own actions are NOT affected
+	var own_action := ScenarioFixtures.add_hand_card(player, "own_spell", {
+		"card_type": "action", "cost": 3,
+	})
+	var own_cost: int = PersistentCardRules.get_effective_play_cost(match_state, pid, own_action)
+	if not _assert(own_cost == 3, "Controller's own action should still cost 3, got %d." % own_cost):
+		return false
+	# Advance to opponent's turn then back to controller's turn — aura should expire
+	MatchTurnLoop.end_turn(match_state, pid)
+	MatchTurnLoop.end_turn(match_state, oid)
+	var cost_expired: int = PersistentCardRules.get_effective_play_cost(match_state, oid, javelin)
+	return _assert(cost_expired == 5, "Javelin should cost 5 again after aura expires, got %d." % cost_expired)
+
+
+func _test_outflank_per_lane_targeting_grants_stats_and_guard() -> bool:
+	# Outflank should let the player choose a friendly creature in each lane,
+	# granting +0/+2 and Guard to each chosen target (not random).
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Put two creatures in field lane
+	var field_a := ScenarioFixtures.summon_creature(player, match_state, "field_a", "field", 2, 2)
+	var field_b := ScenarioFixtures.summon_creature(player, match_state, "field_b", "field", 3, 3)
+	# Put one creature in shadow lane
+	var shadow_c := ScenarioFixtures.summon_creature(player, match_state, "shadow_c", "shadow", 1, 1)
+	# Add Outflank to hand
+	var outflank := ScenarioFixtures.add_hand_card(player, "test_outflank", {
+		"card_type": "action", "cost": 0,
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"target_mode": "friendly_in_each_lane",
+			"effects": [
+				{"op": "modify_stats", "target": "chosen_target", "power": 0, "health": 2},
+				{"op": "grant_keyword", "target": "chosen_target", "keyword_id": "guard"},
+			],
+		}],
+	})
+	# Play the action — should queue per-lane targeting
+	MatchTiming.play_action_from_hand(match_state, pid, str(outflank.get("instance_id", "")))
+	if not _assert(MatchTiming.has_pending_summon_effect_target(match_state, pid), "Outflank should queue a pending target selection for lane 1."):
+		return false
+	# Resolve first selection — choose field_a in the field lane
+	var field_a_id := str(field_a.get("instance_id", ""))
+	var resolve_1 := MatchTiming.resolve_pending_summon_effect_target(match_state, pid, {"target_instance_id": field_a_id})
+	if not _assert(bool(resolve_1.get("is_valid", false)), "First per-lane target selection should succeed."):
+		return false
+	# field_a should now have +0/+2 and Guard
+	if not _assert(EvergreenRules.get_remaining_health(field_a) == 4, "field_a health should be 2+2=4, got %d." % EvergreenRules.get_remaining_health(field_a)):
+		return false
+	if not _assert(EvergreenRules.has_keyword(field_a, "guard"), "field_a should have Guard after Outflank."):
+		return false
+	# field_b should be unaffected
+	if not _assert(EvergreenRules.get_remaining_health(field_b) == 3, "field_b should still have 3 health, got %d." % EvergreenRules.get_remaining_health(field_b)):
+		return false
+	# Should have a second pending selection for the shadow lane
+	if not _assert(MatchTiming.has_pending_summon_effect_target(match_state, pid), "Outflank should queue a second pending target for lane 2."):
+		return false
+	# Resolve second selection — choose shadow_c
+	var shadow_c_id := str(shadow_c.get("instance_id", ""))
+	var resolve_2 := MatchTiming.resolve_pending_summon_effect_target(match_state, pid, {"target_instance_id": shadow_c_id})
+	if not _assert(bool(resolve_2.get("is_valid", false)), "Second per-lane target selection should succeed."):
+		return false
+	# shadow_c should now have +0/+2 and Guard
+	if not _assert(EvergreenRules.get_remaining_health(shadow_c) == 3, "shadow_c health should be 1+2=3, got %d." % EvergreenRules.get_remaining_health(shadow_c)):
+		return false
+	if not _assert(EvergreenRules.has_keyword(shadow_c, "guard"), "shadow_c should have Guard after Outflank."):
+		return false
+	# No more pending selections
+	return _assert(not MatchTiming.has_pending_summon_effect_target(match_state, pid), "No more pending targets after both lanes resolved.")

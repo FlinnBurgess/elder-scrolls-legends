@@ -158,6 +158,18 @@ static func get_valid_targets_for_mode(match_state: Dictionary, source_instance_
 			var self_health_eclptsh := EvergreenRules.get_remaining_health(source_card)
 			targets = MatchTimingHelpers._player_lane_creatures(match_state, opponent_id)
 			targets = targets.filter(func(c): return EvergreenRules.get_power(c) < self_health_eclptsh)
+		"friendly_in_each_lane":
+			var fiel_lane_ids: Array = source_card.get("_per_lane_target_lane_ids", [])
+			var fiel_index: int = int(source_card.get("_multi_target_index", 0))
+			if fiel_index < fiel_lane_ids.size():
+				var fiel_target_lane_id: String = str(fiel_lane_ids[fiel_index])
+				for fiel_lane in match_state.get("lanes", []):
+					if str(fiel_lane.get("lane_id", "")) == fiel_target_lane_id:
+						var fiel_slots = fiel_lane.get("player_slots", {}).get(controller_id, [])
+						for fiel_card in fiel_slots:
+							if typeof(fiel_card) == TYPE_DICTIONARY:
+								targets.append(fiel_card)
+						break
 		"two_creatures", "three_creatures":
 			targets = MatchTimingHelpers._all_lane_creatures(match_state)
 		"creature_in_hand":

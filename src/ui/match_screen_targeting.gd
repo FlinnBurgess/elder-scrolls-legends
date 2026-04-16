@@ -86,7 +86,7 @@ func _action_needs_explicit_target(card: Dictionary) -> bool:
 		if typeof(trigger) != TYPE_DICTIONARY:
 			continue
 		var tm := str(trigger.get("target_mode", ""))
-		if not tm.is_empty() and tm != "creature_in_hand" and tm != "two_creatures" and tm != "three_creatures":
+		if not tm.is_empty() and tm != "creature_in_hand" and tm != "two_creatures" and tm != "three_creatures" and tm != "friendly_in_each_lane":
 			if not str(trigger.get("secondary_target_mode", "")).is_empty():
 				continue  # Dual-target actions go through pending system
 			return true
