@@ -187,6 +187,7 @@ static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionar
 		magicka_gained = new_max - current_max
 		player["max_magicka"] = new_max
 	player["current_magicka"] = int(player["max_magicka"])
+	MatchTimingHelpers._enforce_magicka_cap_if_active(match_state)
 	player["ring_of_magicka_used_this_turn"] = false
 
 	match_state["turn_number"] = int(match_state.get("turn_number", 0)) + 1

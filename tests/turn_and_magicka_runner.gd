@@ -3,6 +3,8 @@ extends SceneTree
 const MatchBootstrap = preload("res://src/core/match/match_bootstrap.gd")
 const LaneRules = preload("res://src/core/match/lane_rules.gd")
 const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
+const MatchMutations = preload("res://src/core/match/match_mutations.gd")
+const ScenarioFixtures = preload("res://tests/support/scenario_fixtures.gd")
 
 
 func _initialize() -> void:
@@ -24,8 +26,60 @@ func _run_all_tests() -> bool:
 		_test_ring_of_magicka_uses_one_charge_per_turn_and_is_destroyed() and
 		_test_first_turn_hand_magicka_grants_temporary_magicka() and
 		_test_first_turn_hand_magicka_does_not_apply_on_later_turns() and
-		_test_first_turn_hand_cost_reduces_card_cost()
+		_test_first_turn_hand_cost_reduces_card_cost() and
+		_test_garnag_caps_current_magicka_on_summon() and
+		_test_garnag_leaves_play_refunds_suppressed_magicka() and
+		_test_stacked_garnags_do_not_double_refund()
 	)
+
+
+func _test_garnag_caps_current_magicka_on_summon() -> bool:
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 12, "first_player_index": 0})
+	if not _assert(not match_state.is_empty(), "Expected Garnag summon fixture to initialize."):
+		return false
+	var first_player: Dictionary = match_state["players"][0]
+	var second_player: Dictionary = match_state["players"][1]
+	_summon_garnag(first_player, match_state, "garnag_a")
+	return (
+		_assert(int(first_player.get("current_magicka", 0)) == 7, "Garnag should cap controller's current_magicka to 7.") and
+		_assert(int(second_player.get("current_magicka", 0)) == 7, "Garnag should cap opponent's current_magicka to 7.") and
+		_assert(int(first_player.get("max_magicka", 0)) == 12, "Garnag must not reduce max_magicka.") and
+		_assert(int(second_player.get("max_magicka", 0)) == 12, "Garnag must not reduce opponent's max_magicka.")
+	)
+
+
+func _test_garnag_leaves_play_refunds_suppressed_magicka() -> bool:
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 12, "first_player_index": 0})
+	if not _assert(not match_state.is_empty(), "Expected Garnag refund fixture to initialize."):
+		return false
+	var first_player: Dictionary = match_state["players"][0]
+	var garnag := _summon_garnag(first_player, match_state, "garnag_refund")
+	first_player["current_magicka"] = 2
+	var destroy := MatchMutations.discard_card(match_state, str(garnag.get("instance_id", "")))
+	return (
+		_assert(bool(destroy.get("is_valid", false)), "Discarding Garnag should succeed.") and
+		_assert(int(first_player.get("current_magicka", 0)) == 7, "Controller should regain (max-7) when Garnag leaves play: 2 + 5 = 7.") and
+		_assert(int(first_player.get("max_magicka", 0)) == 12, "max_magicka must be preserved at 12 across Garnag's lifecycle.")
+	)
+
+
+func _test_stacked_garnags_do_not_double_refund() -> bool:
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 12, "first_player_index": 0})
+	if not _assert(not match_state.is_empty(), "Expected stacked Garnag fixture to initialize."):
+		return false
+	var first_player: Dictionary = match_state["players"][0]
+	var garnag_one := _summon_garnag(first_player, match_state, "garnag_one")
+	_summon_garnag(first_player, match_state, "garnag_two")
+	first_player["current_magicka"] = 3
+	MatchMutations.discard_card(match_state, str(garnag_one.get("instance_id", "")))
+	return _assert(int(first_player.get("current_magicka", 0)) == 3, "Removing one of two Garnags must not refund while a capper remains.")
+
+
+func _summon_garnag(player: Dictionary, match_state: Dictionary, label: String) -> Dictionary:
+	return ScenarioFixtures.summon_creature(player, match_state, label, "field", 4, 5, ["breakthrough"], -1, {
+		"cost": 0,
+		"passive_abilities": [{"type": "max_magicka_cap", "cap": 7, "target": "both_players"}],
+	})
 
 
 func _test_first_turn_start_draws_and_refreshes_resources() -> bool:

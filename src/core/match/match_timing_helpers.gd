@@ -301,44 +301,65 @@ static func _player_has_grants_immunity(match_state: Dictionary, player_id: Stri
 static func _get_max_magicka_cap(match_state: Dictionary) -> int:
 	var cap := 0
 	for lane in match_state.get("lanes", []):
-		for player_slots in lane.get("player_slots", []):
-			if typeof(player_slots) == TYPE_ARRAY:
-				for card in player_slots:
-					if typeof(card) == TYPE_DICTIONARY and EvergreenRules._has_passive(card, "max_magicka_cap"):
-						for p in card.get("passive_abilities", []):
-							if typeof(p) == TYPE_DICTIONARY and str(p.get("type", "")) == "max_magicka_cap":
-								var p_cap := int(p.get("cap", 7))
-								if cap == 0 or p_cap < cap:
-									cap = p_cap
-			elif typeof(player_slots) == TYPE_DICTIONARY:
-				for pid in player_slots.keys():
-					for card in player_slots.get(pid, []):
-						if typeof(card) == TYPE_DICTIONARY and EvergreenRules._has_passive(card, "max_magicka_cap"):
-							for p in card.get("passive_abilities", []):
-								if typeof(p) == TYPE_DICTIONARY and str(p.get("type", "")) == "max_magicka_cap":
-									var p_cap := int(p.get("cap", 7))
-									if cap == 0 or p_cap < cap:
-										cap = p_cap
+		var player_slots: Dictionary = lane.get("player_slots", {})
+		for pid in player_slots.keys():
+			for card in player_slots.get(pid, []):
+				if typeof(card) != TYPE_DICTIONARY or not EvergreenRules._has_passive(card, "max_magicka_cap"):
+					continue
+				for p in card.get("passive_abilities", []):
+					if typeof(p) == TYPE_DICTIONARY and str(p.get("type", "")) == "max_magicka_cap":
+						var p_cap := int(p.get("cap", 7))
+						if cap == 0 or p_cap < cap:
+							cap = p_cap
 	return cap
+
+
+static func _enforce_magicka_cap_if_active(match_state: Dictionary) -> void:
+	var cap := _get_max_magicka_cap(match_state)
+	if cap <= 0:
+		return
+	for p in match_state.get("players", []):
+		if typeof(p) != TYPE_DICTIONARY:
+			continue
+		var available := int(p.get("current_magicka", 0)) + int(p.get("temporary_magicka", 0))
+		if available <= cap:
+			continue
+		var overflow := available - cap
+		var temp := int(p.get("temporary_magicka", 0))
+		var temp_cut := mini(temp, overflow)
+		p["temporary_magicka"] = temp - temp_cut
+		overflow -= temp_cut
+		if overflow > 0:
+			p["current_magicka"] = maxi(0, int(p.get("current_magicka", 0)) - overflow)
+
+
+static func _refund_magicka_on_cap_lifted(match_state: Dictionary, cap_before_lift: int) -> void:
+	if cap_before_lift <= 0:
+		return
+	if _get_max_magicka_cap(match_state) > 0:
+		return
+	for p in match_state.get("players", []):
+		if typeof(p) != TYPE_DICTIONARY:
+			continue
+		var max_mag := int(p.get("max_magicka", 0))
+		if max_mag <= cap_before_lift:
+			continue
+		var refund := max_mag - cap_before_lift
+		var new_current := mini(max_mag, int(p.get("current_magicka", 0)) + refund)
+		p["current_magicka"] = new_current
 
 
 static func _get_min_card_cost(match_state: Dictionary) -> int:
 	var min_cost := 0
 	for lane in match_state.get("lanes", []):
-		for player_slots in lane.get("player_slots", []):
-			if typeof(player_slots) == TYPE_ARRAY:
-				for card in player_slots:
-					if typeof(card) == TYPE_DICTIONARY and EvergreenRules._has_passive(card, "min_card_cost"):
-						for p in card.get("passive_abilities", []):
-							if typeof(p) == TYPE_DICTIONARY and str(p.get("type", "")) == "min_card_cost":
-								min_cost = maxi(min_cost, int(p.get("min_cost", 3)))
-			elif typeof(player_slots) == TYPE_DICTIONARY:
-				for pid in player_slots.keys():
-					for card in player_slots.get(pid, []):
-						if typeof(card) == TYPE_DICTIONARY and EvergreenRules._has_passive(card, "min_card_cost"):
-							for p in card.get("passive_abilities", []):
-								if typeof(p) == TYPE_DICTIONARY and str(p.get("type", "")) == "min_card_cost":
-									min_cost = maxi(min_cost, int(p.get("min_cost", 3)))
+		var player_slots: Dictionary = lane.get("player_slots", {})
+		for pid in player_slots.keys():
+			for card in player_slots.get(pid, []):
+				if typeof(card) != TYPE_DICTIONARY or not EvergreenRules._has_passive(card, "min_card_cost"):
+					continue
+				for p in card.get("passive_abilities", []):
+					if typeof(p) == TYPE_DICTIONARY and str(p.get("type", "")) == "min_card_cost":
+						min_cost = maxi(min_cost, int(p.get("min_cost", 3)))
 	return min_cost
 
 

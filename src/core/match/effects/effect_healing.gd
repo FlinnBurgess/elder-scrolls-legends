@@ -101,14 +101,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					gain *= 2
 				magicka_player["max_magicka"] = int(magicka_player.get("max_magicka", 0)) + gain
 				magicka_player["current_magicka"] = int(magicka_player.get("current_magicka", 0)) + gain
-				# Apply max_magicka_cap passive from any creature in play
-				var gmm_cap := MatchTimingHelpers._get_max_magicka_cap(match_state)
-				if gmm_cap > 0:
-					for gmm_p in match_state.get("players", []):
-						if typeof(gmm_p) == TYPE_DICTIONARY and int(gmm_p.get("max_magicka", 0)) > gmm_cap:
-							gmm_p["max_magicka"] = gmm_cap
-							if int(gmm_p.get("current_magicka", 0)) > gmm_cap:
-								gmm_p["current_magicka"] = gmm_cap
+				MatchTimingHelpers._enforce_magicka_cap_if_active(match_state)
 				generated_events.append({
 					"event_type": "max_magicka_gained",
 					"source_instance_id": str(trigger.get("source_instance_id", "")),
@@ -122,6 +115,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					return
 				var restored := int(rm_player.get("max_magicka", 0)) - int(rm_player.get("current_magicka", 0))
 				rm_player["current_magicka"] = int(rm_player.get("max_magicka", 0))
+				MatchTimingHelpers._enforce_magicka_cap_if_active(match_state)
 				generated_events.append({
 					"event_type": "magicka_restored",
 					"source_instance_id": str(trigger.get("source_instance_id", "")),
@@ -140,6 +134,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var gumflt_unspent := int(gumflt_player.get("_unspent_magicka_last_turn", 0))
 				if gumflt_unspent > 0:
 					gumflt_player["current_magicka"] = int(gumflt_player.get("current_magicka", 0)) + gumflt_unspent
+					MatchTimingHelpers._enforce_magicka_cap_if_active(match_state)
 					generated_events.append({"event_type": "magicka_restored", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_player_id": gumflt_controller_id, "amount": gumflt_unspent})
 		"restore_rune":
 			for player_id in MatchTargeting._resolve_player_targets(match_state, trigger, event, effect):

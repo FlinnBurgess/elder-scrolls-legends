@@ -272,6 +272,18 @@ static func summon_card_to_lane(match_state: Dictionary, controller_player_id: S
 	}
 
 
+static func _card_has_max_magicka_cap(card: Dictionary) -> int:
+	if typeof(card) != TYPE_DICTIONARY:
+		return 0
+	var passives = card.get("passive_abilities", [])
+	if typeof(passives) != TYPE_ARRAY:
+		return 0
+	for p in passives:
+		if typeof(p) == TYPE_DICTIONARY and str(p.get("type", "")) == "max_magicka_cap":
+			return int(p.get("cap", 7))
+	return 0
+
+
 static func move_card_to_zone(match_state: Dictionary, instance_id: String, zone_name: String, options: Dictionary = {}) -> Dictionary:
 	GameLogger.trc("Mut", "move_to_zone", "id:%s,zone:%s" % [instance_id, zone_name])
 	if not PLAYER_ZONE_ORDER.has(zone_name):
@@ -280,6 +292,9 @@ static func move_card_to_zone(match_state: Dictionary, instance_id: String, zone
 	if not bool(location.get("is_valid", false)):
 		return location
 	var card: Dictionary = location["card"]
+	var cap_before_lift := 0
+	if str(location.get("zone", "")) == ZONE_LANE and _card_has_max_magicka_cap(card) > 0:
+		cap_before_lift = load("res://src/core/match/match_timing_helpers.gd")._get_max_magicka_cap(match_state)
 	var target_player_id := str(options.get("target_player_id", card.get("owner_player_id", location.get("player_id", ""))))
 	var player_lookup := _find_player(match_state.get("players", []), target_player_id)
 	if not bool(player_lookup.get("is_valid", false)):
@@ -324,6 +339,8 @@ static func move_card_to_zone(match_state: Dictionary, instance_id: String, zone
 		apply_first_turn_hand_cost(match_state, card, target_player_id)
 	if zone_name == ZONE_DISCARD:
 		card["entered_discard_on_turn"] = int(match_state.get("turn_number", 0))
+	if cap_before_lift > 0:
+		load("res://src/core/match/match_timing_helpers.gd")._refund_magicka_on_cap_lifted(match_state, cap_before_lift)
 	return {
 		"is_valid": true,
 		"errors": [],
@@ -765,6 +782,8 @@ static func _apply_lane_entry(match_state: Dictionary, controller_player_id: Str
 	_sync_attached_item_controllers(card)
 	player_slots.insert(validation["slot_index"], card)
 	_reindex_player_slots(player_slots)
+	if _card_has_max_magicka_cap(card) > 0:
+		load("res://src/core/match/match_timing_helpers.gd")._enforce_magicka_cap_if_active(match_state)
 
 
 static func _detach_card(match_state: Dictionary, location: Dictionary) -> void:

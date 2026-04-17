@@ -19,9 +19,7 @@
 			null
 		],
 		"hand": [
-			"int_ice_spike",
-			"int_ice_spike",
-			"int_ice_spike"
+			"int_alfe_fyr"
 		],
 		"health": 30.0,
 		"max_magicka": 12.0,
@@ -42,14 +40,10 @@
 	"player": {
 		"current_magicka": 12.0,
 		"deck": [
-			"wil_piercing_javelin",
-			"aw_tri_forerunner_of_the_pact",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"int_firebolt"
+			"agi_arenthia_swindler",
+			"wil_riverhold_escort",
+			"moe_end_servant_of_ja_khajay",
+			"moe_agi_rebellion_general"
 		],
 		"discard": [
 			"hom_end_vvardvark",
@@ -61,20 +55,17 @@
 			null,
 			null,
 			null,
-			"mc_str_stampede_sentinel"
+			"dg_end_lord_harkon"
 		],
 		"hand": [
-			"agi_swift_strike",
-			"agi_swift_strike"
+			"wil_piercing_javelin"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [
-			"fsc_end_death_hound"
-		],
+		"shadow_creatures": [],
 		"supports": [
-			"neu_elixir_of_conflict"
+			"hos_wil_wolf_cage"
 		]
 	},
 	"type": "kill"
