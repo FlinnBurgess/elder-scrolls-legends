@@ -1,17 +1,5 @@
 [
 	{
-		"card_id": "dg_end_lord_harkon",
-		"name": "Lord Harkon",
-		"card_type": "creature",
-		"cost": 4,
-		"attributes": [
-			"endurance"
-		],
-		"rules_text": "Slay: Change into Harkon, Vampire Lord.",
-		"stripped_text": "Slay: Change into Harkon, Vampire Lord.",
-		"complexity": 39
-	},
-	{
 		"card_id": "str_covenant_marauder",
 		"name": "Covenant Marauder",
 		"card_type": "creature",
