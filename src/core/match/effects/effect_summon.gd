@@ -305,6 +305,16 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				sc_template.erase("entered_lane_on_turn")
 				var sc_copy := MatchMutations.build_generated_card(match_state, sc_controller, sc_template)
 				var sc_summon := MatchMutations.summon_card_to_lane(match_state, sc_controller, sc_copy, sc_lane_id, {"source_zone": MatchMutations.ZONE_GENERATED})
+				if not bool(sc_summon.get("is_valid", false)):
+					for sc_of_lane in match_state.get("lanes", []):
+						var sc_of_lid := str(sc_of_lane.get("lane_id", ""))
+						if sc_of_lid == sc_lane_id or sc_of_lid.is_empty():
+							continue
+						var sc_of_open := MatchTimingHelpers._get_lane_open_slots(match_state, sc_of_lid, sc_controller)
+						if int(sc_of_open.get("open_slots", 0)) > 0:
+							sc_lane_id = sc_of_lid
+							sc_summon = MatchMutations.summon_card_to_lane(match_state, sc_controller, sc_copy, sc_lane_id, {"source_zone": MatchMutations.ZONE_GENERATED})
+							break
 				if bool(sc_summon.get("is_valid", false)):
 					generated_events.append_array(sc_summon.get("events", []))
 					generated_events.append(MatchSummonTiming._build_summon_event(sc_summon["card"], sc_controller, sc_lane_id, int(sc_summon.get("slot_index", -1)), "summon_copy"))
