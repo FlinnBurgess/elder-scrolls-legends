@@ -23,6 +23,7 @@ const WINDOW_IMMEDIATE := "immediate"
 const WINDOW_AFTER := "after"
 
 const EVENT_DAMAGE_RESOLVED := "damage_resolved"
+const EVENT_CREATURE_DESTROYED := "creature_destroyed"
 
 const FAMILY_ON_PLAY := "on_play"
 const FAMILY_ACTIVATE := "activate"
@@ -384,13 +385,14 @@ static func _trigger_matches_event(match_state: Dictionary, trigger: Dictionary,
 	if family == FAMILY_ITEM_DETACHED and event_type == "attached_item_detached":
 		GameLogger.trc("Timing", "item_detach_match", "src:%s,evt_src:%s,zone:%s,expected_evt:%s" % [str(trigger.get("source_instance_id", "")), str(event.get("source_instance_id", "")), str(trigger.get("source_zone", "")), expected_event_type])
 	if event_type != expected_event_type:
-		# pilfer_is_slay: slay triggers also fire on pilfer events
-		if family == FAMILY_SLAY and event_type == EVENT_DAMAGE_RESOLVED and str(event.get("target_type", "")) == "player" and int(event.get("amount", 0)) > 0:
+		# pilfer_is_slay: pilfer triggers also fire on slay events (creature killed by the pilfer source)
+		if family == FAMILY_PILFER and event_type == EVENT_CREATURE_DESTROYED and not bool(event.get("is_retaliation_kill", false)):
 			var pis_source_id := str(trigger.get("source_instance_id", ""))
-			if str(event.get("source_instance_id", "")) == pis_source_id:
+			var pis_killer_id := str(event.get("destroyed_by_instance_id", ""))
+			if not pis_killer_id.is_empty() and pis_killer_id == pis_source_id:
 				var pis_controller := str(trigger.get("controller_player_id", ""))
 				if _has_pilfer_is_slay_active(match_state, pis_controller):
-					return _matches_conditions(match_state, trigger, descriptor, family_spec, event)
+					return true
 		return false
 	# Beast form "change" generates a creature_summoned event so the new form's
 	# own summon abilities fire. But other cards (like Shrine Guardian's

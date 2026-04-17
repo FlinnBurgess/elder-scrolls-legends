@@ -9,11 +9,14 @@
 			"hom_end_vvardvark"
 		],
 		"discard": [],
-		"field_creatures": [],
+		"field_creatures": [
+			null,
+			null,
+			null,
+			"cwc_neu_abomination"
+		],
 		"hand": [
-			"hos_str_aelas_huntmate",
-			"wil_piercing_javelin",
-			"exc_neu_adoring_fan"
+			"wil_piercing_javelin"
 		],
 		"health": 30.0,
 		"max_magicka": 12.0,
@@ -39,34 +42,35 @@
 			"hom_end_vvardvark",
 			"hom_end_vvardvark",
 			"hom_end_vvardvark",
-			"aw_tri_forerunner_of_the_pact"
+			"aw_tri_forerunner_of_the_pact",
+			"wil_piercing_javelin",
+			"int_firebolt"
 		],
 		"discard": [
 			"hom_end_vvardvark",
 			"hom_end_vvardvark",
 			"hom_end_vvardvark",
 			"hom_end_vvardvark",
-			"hom_end_vvardvark"
+			"hom_end_vvardvark",
+			"int_firebolt",
+			"int_firebolt",
+			"int_firebolt"
 		],
 		"field_creatures": [
 			null,
 			null,
-			null
+			"db_agi_skooma_underboss",
+			"agi_baandari_bruiser"
 		],
 		"hand": [
-			"int_farsight_nereid",
-			"db_str_underworld_vigilante",
-			"iom_str_dagger",
-			"iom_str_dagger",
-			"hos_dual_warriors_fury",
-			"db_end_wrath_of_sithis"
+			"cwc_int_laaneth"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [],
 		"supports": [
-			"mc_neu_skooma_cats_whimsy"
+			"agi_spider_lair"
 		]
 	},
 	"type": "kill"

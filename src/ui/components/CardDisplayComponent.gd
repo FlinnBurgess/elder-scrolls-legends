@@ -1032,6 +1032,9 @@ const _CARD_REPLACING_OPS := ["change", "transform"]
 func _has_ongoing_effect() -> bool:
 	if _card_data.get("aura") != null:
 		return true
+	var passives = _card_data.get("passive_abilities", [])
+	if typeof(passives) == TYPE_ARRAY and not passives.is_empty():
+		return true
 	for trigger in _card_data.get("triggered_abilities", []):
 		if typeof(trigger) != TYPE_DICTIONARY:
 			continue

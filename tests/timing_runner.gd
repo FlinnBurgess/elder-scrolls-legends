@@ -27,6 +27,8 @@ func _run_all_tests() -> bool:
 		_test_slay_on_death_and_last_gasp_follow_death_window_order() and
 		_test_last_gasp_modify_stats_targets_all_instances_by_definition_id() and
 		_test_slay_fires_when_both_creatures_die() and
+		_test_pilfer_is_slay_fires_pilfer_on_slay_event() and
+		_test_pilfer_is_slay_inactive_without_aura() and
 		_test_pilfer_does_not_fire_on_summon() and
 		_test_pilfer_target_mode_queues_pending_target() and
 		_test_end_of_turn_target_mode_does_not_fire_on_summon() and
@@ -302,6 +304,67 @@ func _test_slay_fires_when_both_creatures_die() -> bool:
 		_assert(families.has(MatchTiming.FAMILY_SLAY), "Slay should trigger even when the attacker also dies.") and
 		_assert(families.has(MatchTiming.FAMILY_LAST_GASP), "Last gasp should trigger when the attacker dies.") and
 		_assert(hp_before - hp_after == 2, "Opponent should take 2 damage: 1 from slay + 1 from last gasp (got %d)." % [hp_before - hp_after])
+	)
+
+
+func _test_pilfer_is_slay_fires_pilfer_on_slay_event() -> bool:
+	# Skooma Underboss passive: "Friendly Pilfer abilities are also Slay abilities."
+	# When a friendly creature with a Pilfer ability kills an enemy creature,
+	# the Pilfer trigger should fire via the pilfer_is_slay passive.
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	# Friendly aura: pilfer_is_slay passive
+	_summon_creature(active_player, match_state, "underboss", "field", 2, 3, [], 0, {
+		"passive_abilities": [{"type": "pilfer_is_slay"}],
+	})
+	# Friendly pilfer creature that will kill an enemy creature (no damage to player).
+	var pilferer := _summon_creature(active_player, match_state, "bruiser", "field", 3, 3, [], 1, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_PILFER,
+			"required_zone": "lane",
+			"effects": [{"op": "modify_stats", "target": "self", "power": 3, "health": 0}],
+		}]
+	})
+	var victim := _summon_creature(opponent, match_state, "victim", "field", 1, 1, [], 0)
+	_target_ready_for_attack(pilferer, match_state)
+	_target_ready_for_attack(victim, match_state)
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], pilferer["instance_id"], {
+		"type": "creature",
+		"instance_id": victim["instance_id"],
+	})
+	var families := _families_from_resolutions(result.get("trigger_resolutions", []))
+	return (
+		_assert(result["is_valid"], "Slay-with-pilfer-is-slay combat should resolve.") and
+		_assert(families.has(MatchTiming.FAMILY_PILFER), "Pilfer should fire on slay event when pilfer_is_slay is active (got %s)." % [str(families)]) and
+		_assert(pilferer["power_bonus"] == 3, "Pilfer effect should apply on the slay event (power_bonus=%d)." % [int(pilferer["power_bonus"])])
+	)
+
+
+func _test_pilfer_is_slay_inactive_without_aura() -> bool:
+	# Without pilfer_is_slay aura, a pilfer trigger should NOT fire on slay (creature kill).
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pilferer := _summon_creature(active_player, match_state, "bruiser_alone", "field", 3, 3, [], 0, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_PILFER,
+			"required_zone": "lane",
+			"effects": [{"op": "modify_stats", "target": "self", "power": 3, "health": 0}],
+		}]
+	})
+	var victim := _summon_creature(opponent, match_state, "victim_alone", "field", 1, 1, [], 0)
+	_target_ready_for_attack(pilferer, match_state)
+	_target_ready_for_attack(victim, match_state)
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], pilferer["instance_id"], {
+		"type": "creature",
+		"instance_id": victim["instance_id"],
+	})
+	var families := _families_from_resolutions(result.get("trigger_resolutions", []))
+	return (
+		_assert(result["is_valid"], "Plain slay combat should resolve.") and
+		_assert(not families.has(MatchTiming.FAMILY_PILFER), "Pilfer should NOT fire on slay without pilfer_is_slay (got %s)." % [str(families)]) and
+		_assert(pilferer["power_bonus"] == 0, "Pilfer effect should NOT apply without the aura.")
 	)
 
 

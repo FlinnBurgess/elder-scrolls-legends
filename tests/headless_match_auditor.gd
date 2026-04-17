@@ -279,8 +279,8 @@ func _audit_trigger_family_event_match(ctx: Dictionary, resolutions: Array) -> v
 		var expected_event := str(family_spec.get("event_type", ""))
 		if expected_event.is_empty():
 			continue
-		# Slay can fire on pilfer events via pilfer_is_slay — skip that case
-		if family == MatchTiming.FAMILY_SLAY and event_type == MatchTiming.EVENT_DAMAGE_RESOLVED:
+		# Pilfer can fire on slay events via pilfer_is_slay — skip that case
+		if family == MatchTiming.FAMILY_PILFER and event_type == MatchTiming.EVENT_CREATURE_DESTROYED:
 			continue
 		if event_type != expected_event:
 			var source_id := str(resolution.get("source_instance_id", ""))

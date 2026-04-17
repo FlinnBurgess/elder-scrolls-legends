@@ -682,11 +682,17 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			var srfc_exact_cost := int(srfc_filter.get("exact_cost", -1))
 			var srfc_req_card_type := str(srfc_filter.get("card_type", ""))
 			var srfc_req_subtype := str(srfc_filter.get("required_subtype", ""))
+			var srfc_card_ids_raw = srfc_filter.get("card_ids", [])
+			var srfc_card_ids: Array = srfc_card_ids_raw if typeof(srfc_card_ids_raw) == TYPE_ARRAY else []
 			for seed in srfc_seeds:
 				if typeof(seed) != TYPE_DICTIONARY:
 					continue
-				if not bool(seed.get("collectible", true)):
-					continue
+				if not srfc_card_ids.is_empty():
+					if not srfc_card_ids.has(str(seed.get("card_id", ""))):
+						continue
+				else:
+					if not bool(seed.get("collectible", true)):
+						continue
 				if not srfc_req_card_type.is_empty() and str(seed.get("card_type", "")) != srfc_req_card_type:
 					continue
 				if srfc_max_cost >= 0 and int(seed.get("cost", 0)) > srfc_max_cost:
@@ -717,10 +723,14 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			var srfc_template: Dictionary = srfc_pick.duplicate(true)
 			srfc_template["definition_id"] = str(srfc_template.get("card_id", ""))
 			var srfc_lane_id := ""
-			var srfc_lane_index := int(trigger.get("lane_index", -1))
 			var srfc_lanes: Array = match_state.get("lanes", [])
-			if srfc_lane_index >= 0 and srfc_lane_index < srfc_lanes.size():
-				srfc_lane_id = str(srfc_lanes[srfc_lane_index].get("lane_id", ""))
+			if str(effect.get("target_lane", "")) == "random" and not srfc_lanes.is_empty():
+				var srfc_lane_idx: int = _timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_srfc_lane", srfc_lanes.size())
+				srfc_lane_id = str(srfc_lanes[srfc_lane_idx].get("lane_id", ""))
+			if srfc_lane_id.is_empty():
+				var srfc_lane_index := int(trigger.get("lane_index", -1))
+				if srfc_lane_index >= 0 and srfc_lane_index < srfc_lanes.size():
+					srfc_lane_id = str(srfc_lanes[srfc_lane_index].get("lane_id", ""))
 			# Fall back to event lane_id (e.g. action played to a specific lane)
 			if srfc_lane_id.is_empty():
 				srfc_lane_id = str(event.get("lane_id", ""))

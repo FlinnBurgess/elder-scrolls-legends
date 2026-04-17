@@ -83,7 +83,9 @@ func _run_all_tests() -> bool:
 		# Skooma Cat's Whimsy not-in-starting-deck discount
 		_test_skooma_cats_whimsy_discounts_generated_cards() and
 		# Imperial Might end-of-turn summon
-		_test_imperial_might_summons_grunt_at_end_of_turn()
+		_test_imperial_might_summons_grunt_at_end_of_turn() and
+		# Spider Lair restricted card_ids pool
+		_test_spider_lair_only_summons_configured_spider_ids()
 	)
 
 
@@ -1958,6 +1960,40 @@ func _test_imperial_might_summons_grunt_at_end_of_turn() -> bool:
 			if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == "wil_imperial_grunt":
 				grunt_found = true
 	return _assert(grunt_found, "Imperial Might should summon an Imperial Grunt at the end of the controller's turn.")
+
+
+func _test_spider_lair_only_summons_configured_spider_ids() -> bool:
+	var allowed_ids := ["agi_poisonous_spider", "agi_protective_spider", "agi_cavern_spinner"]
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var support := _add_hand_card(player, "agi_spider_lair", {
+		"card_type": "support",
+		"cost": 7,
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_START_OF_TURN,
+			"required_zone": "support",
+			"effects": [{"op": "summon_random_from_catalog", "target_lane": "random", "filter": {"card_ids": allowed_ids}}],
+		}],
+	})
+	var play_result := PersistentCardRules.play_support_from_hand(match_state, player["player_id"], support["instance_id"])
+	if not _assert(play_result["is_valid"], "Spider Lair should enter support zone."):
+		return false
+	MatchTurnLoop.end_turn(match_state, player["player_id"])
+	MatchTurnLoop.end_turn(match_state, match_state["active_player_id"])
+	var found_ids: Array = []
+	for lane in match_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(player["player_id"], []):
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			var def_id := str(card.get("definition_id", ""))
+			if allowed_ids.has(def_id) or def_id.ends_with("_spider") or str(card.get("name", "")).find("Spider") != -1 or str(card.get("name", "")).find("Spinner") != -1:
+				found_ids.append(def_id)
+	if not _assert(found_ids.size() >= 1, "Spider Lair should summon at least one spider after a full round. Found none."):
+		return false
+	for def_id in found_ids:
+		if not _assert(allowed_ids.has(def_id), "Spider Lair summoned '%s' — only %s allowed." % [def_id, str(allowed_ids)]):
+			return false
+	return true
 
 
 func _assert(condition: bool, message: String) -> bool:
