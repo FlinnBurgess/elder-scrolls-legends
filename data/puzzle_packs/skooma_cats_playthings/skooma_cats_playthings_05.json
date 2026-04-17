@@ -36,7 +36,7 @@
 	"shadow_creatures": []
   },
   "enemy": {
-	"health": 25,
+	"health": 24,
 	"max_magicka": 3,
 	"current_magicka": 3,
 	"hand": [],

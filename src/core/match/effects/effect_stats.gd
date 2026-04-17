@@ -214,10 +214,8 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				})
 		"set_power_to_health":
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
-				var sph_health := EvergreenRules.get_health(card)
-				card["power"] = sph_health
-				card["base_power"] = sph_health
-				EvergreenRules.ensure_card_state(card)
+				var sph_power_diff := EvergreenRules.get_health(card) - EvergreenRules.get_power(card)
+				EvergreenRules.apply_stat_bonus(card, sph_power_diff, 0, reason)
 				generated_events.append({
 					"event_type": "stats_modified",
 					"source_instance_id": str(trigger.get("source_instance_id", "")),

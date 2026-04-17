@@ -54,6 +54,7 @@ func _run_all_tests() -> bool:
 		_test_wish_summons_exact_cost_creature() and
 		_test_empower_banish_per_attribute() and
 		_test_empower_permanent_across_turns() and
+		_test_empower_increments_on_combat_face_damage() and
 		_test_invade_and_shout_pack() and
 		_test_invade_gate_level_capped_at_five() and
 		_test_choose_one_repeat() and
@@ -166,6 +167,7 @@ func _run_all_tests() -> bool:
 		_test_buff_random_hand_card_filters_correctly() and
 		_test_all_subtypes_passive_matches_any_subtype() and
 		_test_power_equals_health_tracks_damage_and_buffs() and
+		_test_set_power_to_health_preserves_existing_buffs() and
 		_test_shivering_apothecary_summons_random_elixir_to_support_zone() and
 		_test_shivering_apothecary_skips_when_support_zone_full()
 	)
@@ -1328,6 +1330,33 @@ func _test_empower_permanent_across_turns() -> bool:
 		_assert(card_bonus == 2, "Hand card should have _permanent_empower_bonus=2 from previous turn, got %d." % card_bonus) and
 		_assert(target_health == 4, "Hand card: base 3 + (1+2) empower = 6 damage, 10hp should have 4hp, got %d." % target_health) and
 		_assert(target2_health == 6, "Deck card: base 3 + 1 empower (no permanent) = 4 damage, 10hp should have 6hp, got %d." % target2_health)
+	)
+
+
+func _test_empower_increments_on_combat_face_damage() -> bool:
+	# Regression: Ancano attacking face must grant +1 empower so Channeled Storm deals +1 damage.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	var attacker := ScenarioFixtures.summon_creature(player, match_state, "face_attacker", "field", 5, 5)
+	ScenarioFixtures.ready_for_attack(attacker, match_state)
+	var attack_result := MatchCombat.resolve_attack(match_state, pid, str(attacker.get("instance_id", "")), {
+		"type": "player",
+		"player_id": oid,
+	})
+	ExtendedMechanicPacks.ensure_player_state(player)
+	var empower_after_attack := int(player.get("empower_count_this_turn", 0))
+	# Now play Channeled Storm analogue and verify the bonus landed.
+	var target := _summon_generated_creature(match_state, oid, "storm_target", "field", 1, 10)
+	var storm := ScenarioFixtures.add_hand_card(player, "combat_empower_storm", {"card_type": "action", "cost": 0, "triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "deal_damage", "target": "event_target", "amount": 3, "empower_bonus": 1}]}]})
+	MatchTiming.play_action_from_hand(match_state, pid, str(storm.get("instance_id", "")), {"target_instance_id": str(target.get("instance_id", ""))})
+	var target_health := EvergreenRules.get_remaining_health(target)
+	return (
+		_assert(bool(attack_result.get("is_valid", false)), "Combat face attack should resolve.") and
+		_assert(empower_after_attack == 1, "Combat face damage should increment empower_count_this_turn to 1, got %d." % empower_after_attack) and
+		_assert(target_health == 6, "Channeled Storm after 1 empower: 3 base + 1 = 4 damage, 10hp->6hp, got %d." % target_health)
 	)
 
 
@@ -6373,6 +6402,31 @@ func _test_power_equals_health_tracks_damage_and_buffs() -> bool:
 	if not _assert(EvergreenRules.get_power(hound) == 0, "power_equals_health: power should floor at 0 when damage exceeds health."):
 		return false
 	return true
+
+
+func _test_set_power_to_health_preserves_existing_buffs() -> bool:
+	# Regression: Steel-Eyed Visionary's set_power_to_health must make get_power()
+	# equal get_health(), not stack on top of existing power_bonus values.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var buffed := ScenarioFixtures.summon_creature(player, match_state, "buffed_ally", "field", 3, 5)
+	EvergreenRules.apply_stat_bonus(buffed, 2, 2, "pre_existing_buff")
+	if not _assert(EvergreenRules.get_power(buffed) == 5 and EvergreenRules.get_health(buffed) == 7, "Setup: buffed ally should start at 5/7 (got %d/%d)." % [EvergreenRules.get_power(buffed), EvergreenRules.get_health(buffed)]):
+		return false
+	var visionary := ScenarioFixtures.add_hand_card(player, "visionary_test", {
+		"card_type": "action",
+		"cost": 0,
+		"triggered_abilities": [{
+			"family": "on_play",
+			"effects": [{"op": "set_power_to_health", "target": "all_friendly_creatures"}],
+		}],
+	})
+	MatchTiming.play_action_from_hand(match_state, pid, str(visionary.get("instance_id", "")))
+	return (
+		_assert(EvergreenRules.get_power(buffed) == 7, "set_power_to_health should set power equal to health, not stack on power_bonus (expected 7, got %d)." % EvergreenRules.get_power(buffed)) and
+		_assert(EvergreenRules.get_health(buffed) == 7, "set_power_to_health must not alter health (expected 7, got %d)." % EvergreenRules.get_health(buffed))
+	)
 
 
 func _test_shivering_apothecary_summons_random_elixir_to_support_zone() -> bool:

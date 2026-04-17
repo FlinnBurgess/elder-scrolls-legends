@@ -41,8 +41,9 @@
 	"field_creatures": [
 	  "cwc_neu_awakened_imperfect",
 	  "agi_blacksap_protector",
-      "agi_blacksap_protector"
+	  "agi_blacksap_protector",
+	  "hom_neu_target"
 	],
-	"shadow_creatures": []
+	"shadow_creatures": ["hom_neu_target"]
   }
 }

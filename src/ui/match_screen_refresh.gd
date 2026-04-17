@@ -150,16 +150,18 @@ func _compute_hand_section_hash(player_id: String, player: Dictionary, hand_publ
 			continue
 		if iid in _screen._draw_animating_ids:
 			continue
-		hand_iids.append("%s:%d" % [iid, int(card.get("cost", 0))])
+		hand_iids.append("%s:%d:%d" % [iid, int(card.get("cost", 0)), int(card.get("_permanent_empower_bonus", 0))])
 	return {
 		"iids": hand_iids,
 		"selected": _screen._selected_instance_id,
 		"magicka_avail": int(player.get("current_magicka", 0)) + int(player.get("temporary_magicka", 0)),
+		"empower_count": int(player.get("empower_count_this_turn", 0)),
 		"invalid_ids": _screen._invalid_feedback.get("instance_ids", []),
 		"detached_id": str(_screen._hand._detached_card_state.get("instance_id", "")),
 		"active_player": _screen._active_player_id(),
 		"hand_public": hand_public,
 		"player_id": player_id,
+		"hand_sel_candidates": _screen._overlays._hand_selection_state.get("candidate_ids", []),
 	}
 
 

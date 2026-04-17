@@ -33,6 +33,8 @@ func _run_all_tests(screen: MatchScreen) -> bool:
 		return false
 	if not _test_board_presentation_regressions(screen):
 		return false
+	if not _test_hand_hash_includes_selection_state(screen):
+		return false
 	if not _test_player_surface_presentation(screen):
 		return false
 	if not _test_card_frame_presentation(screen):
@@ -64,6 +66,25 @@ func _run_all_tests(screen: MatchScreen) -> bool:
 	if not _test_prophecy_prompt_flow(screen):
 		return false
 	return await _test_spell_reveal_arrow_targets_player(screen)
+
+
+func _test_hand_hash_includes_selection_state(screen: MatchScreen) -> bool:
+	if not _assert(screen.load_scenario("local_match"), "Local match scenario should load for hand-hash verification."):
+		return false
+	var player_id := "player_1"
+	var player = _player_state(screen.get_match_state(), player_id)
+	var hand_public := screen._is_hand_public(player_id)
+	screen._overlays._hand_selection_state = {}
+	var hash_empty = screen._refresh._compute_hand_section_hash(player_id, player, hand_public)
+	screen._overlays._hand_selection_state = {
+		"candidate_ids": [str(player.get("hand", [])[0].get("instance_id", ""))],
+		"source_instance_id": "src",
+		"prompt": "",
+		"mandatory": false,
+	}
+	var hash_active = screen._refresh._compute_hand_section_hash(player_id, player, hand_public)
+	screen._overlays._hand_selection_state = {}
+	return _assert(hash_empty != hash_active, "Hand section hash must differ when entering hand-selection mode so the hand row rebuilds.")
 
 
 func _test_layout_hierarchy(screen: MatchScreen) -> bool:
