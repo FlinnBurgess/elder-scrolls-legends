@@ -72,12 +72,28 @@ static func evaluate_state(match_state: Dictionary, perspective_player_id: Strin
 static func _board_value(match_state: Dictionary, perspective_player_id: String) -> float:
 	var total := 0.0
 	var opponent_id := _opposing_player_id(match_state, perspective_player_id)
+	var player_ids := _player_ids(match_state)
 	for lane in match_state.get("lanes", []):
-		for raw_player_id in _player_ids(match_state):
-			for card in lane.get("player_slots", {}).get(raw_player_id, []):
+		var slots: Dictionary = lane.get("player_slots", {})
+		var power_per_player := {}
+		var count_per_player := {}
+		for pid in player_ids:
+			var p := 0
+			var n := 0
+			for c in slots.get(pid, []):
+				if typeof(c) == TYPE_DICTIONARY:
+					p += maxi(0, EvergreenRules.get_power(c))
+					n += 1
+			power_per_player[pid] = p
+			count_per_player[pid] = n
+		for raw_player_id in player_ids:
+			var enemy_pid := _opposing_player_id(match_state, str(raw_player_id))
+			var incoming_power := int(power_per_player.get(enemy_pid, 0))
+			var friendly_count := int(count_per_player.get(raw_player_id, 0))
+			for card in slots.get(raw_player_id, []):
 				if typeof(card) != TYPE_DICTIONARY:
 					continue
-				var value := _creature_value(match_state, card)
+				var value := _creature_value(match_state, card, incoming_power, friendly_count)
 				if raw_player_id == perspective_player_id:
 					total += value
 				else:
@@ -124,7 +140,7 @@ static func _lethal_trade_up_bonus(match_state: Dictionary, lane: Dictionary, pl
 	return bonus
 
 
-static func _creature_value(match_state: Dictionary, card: Dictionary) -> float:
+static func _creature_value(match_state: Dictionary, card: Dictionary, incoming_lane_power: int = 0, friendly_lane_population: int = 1) -> float:
 	var value := float(EvergreenRules.get_power(card)) * 2.2
 	value += float(EvergreenRules.get_remaining_health(card)) * 1.7
 	if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_GUARD):
@@ -147,18 +163,39 @@ static func _creature_value(match_state: Dictionary, card: Dictionary) -> float:
 	if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_BREAKTHROUGH):
 		value += 0.4
 	if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_REGENERATE):
-		value += 0.6
+		value += 1.5
 	if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_RALLY):
-		value += 0.4
+		value += 2.5
 	if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_CHARGE):
 		value += 0.3
 	if EvergreenRules.is_cover_active(match_state, card):
 		value += 0.9
 	if _can_attack_now(match_state, card):
 		value += 1.2 + float(EvergreenRules.get_power(card)) * 0.35
-	value += _ongoing_effect_value(card)
-	value += _aura_source_value(card)
+	# Ongoing and aura effects compound over turns — scale by a lane-aware
+	# survival estimate so that silencing a durable threat looks as valuable
+	# as the lifetime value it would have provided.
+	var expected_turns := _estimate_remaining_turns(card, incoming_lane_power, friendly_lane_population)
+	value += _ongoing_effect_value(card) * expected_turns
+	value += _aura_source_value(card) * expected_turns
 	return value
+
+
+## Rough estimate of how many turns a creature will remain in lane, used to
+## scale compounding effects (ongoing triggers, aura bonuses, rally buffs).
+## Returns a clamped value between 1.0 and 4.0.
+static func _estimate_remaining_turns(card: Dictionary, incoming_lane_power: int, friendly_lane_population: int) -> float:
+	var hp := float(EvergreenRules.get_remaining_health(card))
+	if hp <= 0.0:
+		return 0.0
+	var share := maxi(1, friendly_lane_population)
+	var effective_threat := maxf(1.0, float(incoming_lane_power) / float(share))
+	var turns := hp / effective_threat
+	if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_REGENERATE):
+		turns *= 1.5
+	if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_WARD):
+		turns += 0.5
+	return clampf(turns, 1.0, 4.0)
 
 
 static func _support_zone_value(player_state: Dictionary, support_base: float = SUPPORT_BASE_VALUE) -> float:
@@ -310,7 +347,7 @@ static func _trigger_effect_value(trigger: Dictionary) -> float:
 			"grant_keyword":
 				total += 1.0
 			"heal":
-				total += float(int(effect.get("amount", 0))) * 0.5
+				total += float(int(effect.get("amount", 0))) * 1.0
 			"shackle":
 				total += 1.5
 			"silence":

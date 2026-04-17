@@ -1,29 +1,5 @@
 [
 	{
-		"card_id": "mc_int_yokudan_nightblade",
-		"name": "Yokudan Nightblade",
-		"card_type": "creature",
-		"cost": 1,
-		"attributes": [
-			"intelligence"
-		],
-		"rules_text": "Friendly equipped creatures are Immune to Silence.",
-		"stripped_text": "Friendly equipped creatures are Immune to Silence.",
-		"complexity": 50
-	},
-	{
-		"card_id": "agi_tenmar_swiftclaw",
-		"name": "Tenmar Swiftclaw",
-		"card_type": "creature",
-		"cost": 4,
-		"attributes": [
-			"agility"
-		],
-		"rules_text": "Pilfer: +1/+1\nMay attack an extra time each turn.",
-		"stripped_text": "Pilfer: +1/+1\nMay attack an extra time each turn.",
-		"complexity": 49
-	},
-	{
 		"card_id": "hos_end_encumbered_explorer",
 		"name": "Encumbered Explorer",
 		"card_type": "creature",

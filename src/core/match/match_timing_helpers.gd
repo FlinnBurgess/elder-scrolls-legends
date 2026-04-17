@@ -344,6 +344,11 @@ static func _is_immune_to_effect(match_state: Dictionary, target_card: Dictionar
 	var self_immunities = target_card.get("self_immunity", [])
 	if typeof(self_immunities) == TYPE_ARRAY and self_immunities.has(effect_type):
 		return true
+	var target_has_attached_items := not EvergreenRules.get_attached_items(target_card).is_empty()
+	if effect_type == "silence" and target_has_attached_items:
+		var own_grants = target_card.get("grants_immunity", [])
+		if typeof(own_grants) == TYPE_ARRAY and own_grants.has("silence_on_equipped"):
+			return true
 	var controller_id := str(target_card.get("controller_player_id", ""))
 	var target_id := str(target_card.get("instance_id", ""))
 	for lane in match_state.get("lanes", []):
@@ -353,7 +358,11 @@ static func _is_immune_to_effect(match_state: Dictionary, target_card: Dictionar
 			if str(card.get("instance_id", "")) == target_id:
 				continue
 			var immunities = card.get("grants_immunity", [])
-			if typeof(immunities) == TYPE_ARRAY and immunities.has(effect_type):
+			if typeof(immunities) != TYPE_ARRAY:
+				continue
+			if immunities.has(effect_type):
+				return true
+			if effect_type == "silence" and target_has_attached_items and immunities.has("silence_on_equipped"):
 				return true
 	return false
 

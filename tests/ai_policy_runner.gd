@@ -27,6 +27,9 @@ func _initialize() -> void:
 	_test_attacks_face_with_risk_free_low_power_creatures(failures)
 	_test_saves_expensive_removal_against_weak_threat_at_full_hp(failures)
 	_test_uses_expensive_removal_when_near_lethal(failures)
+	_test_ai_silences_rally_threat_when_no_removal(failures)
+	_test_ai_silences_ongoing_heal_over_passing(failures)
+	_test_ai_prefers_clean_attack_over_silence(failures)
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)
@@ -351,6 +354,94 @@ func _test_uses_expensive_removal_when_near_lethal(failures: Array) -> void:
 	var attacker := ScenarioFixtures.summon_creature(opponent, match_state, "lethal_threat", "field", 1, 1, [], 0, {"cost": 0})
 	ScenarioFixtures.ready_for_attack(attacker, match_state)
 	_assert_policy_pick(match_state, "play_action:player_1:player_1_piercing_javelin", failures, "AI at 1 HP should remove the 1/1 lethal threat even with overkill removal.")
+
+
+# Regression: AI held silences but no other playable cards, and declined to silence
+# any of three Rally creatures that were continuously buffing the enemy board.
+# The compounding value of a Rally threat should make silence beat passing.
+func _test_ai_silences_rally_threat_when_no_removal(failures: Array) -> void:
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 3, "first_player_index": 0})
+	var first_player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	MatchTurnLoop.end_turn(match_state, str(first_player.get("player_id", "")))
+	var player: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 0)
+	player["hand"] = []
+	opponent["hand"] = []
+	# Three enemy Rally creatures — their compounding buffs are the main threat.
+	ScenarioFixtures.summon_creature(opponent, match_state, "rally_a", "field", 2, 2, ["rally"], 0, {"cost": 0})
+	ScenarioFixtures.summon_creature(opponent, match_state, "rally_b", "field", 2, 2, ["rally"], 1, {"cost": 0})
+	ScenarioFixtures.summon_creature(opponent, match_state, "rally_c", "shadow", 2, 2, ["rally"], 0, {"cost": 0})
+	# AI has only a cheap silence — nothing else to do with its turn.
+	ScenarioFixtures.add_hand_card(player, "suppress", {
+		"card_type": "action",
+		"cost": 0,
+		"action_target_mode": "any_creature",
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"effects": [{"op": "silence", "target": "event_target"}],
+		}],
+	})
+	_assert_policy_pick(match_state, "play_action:player_2:player_2_suppress", failures, "AI should silence a Rally threat rather than pass when it has no other playable actions.")
+
+
+# Regression: 10/10 with a start_of_turn heal ongoing effect was ignored by the
+# AI despite having silence available. The per-turn heal value, multiplied by
+# the creature's durability, should tip silence above passing.
+func _test_ai_silences_ongoing_heal_over_passing(failures: Array) -> void:
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 12, "first_player_index": 0})
+	var first_player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	MatchTurnLoop.end_turn(match_state, str(first_player.get("player_id", "")))
+	var player: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 0)
+	player["hand"] = []
+	opponent["hand"] = []
+	opponent["health"] = 15
+	# 10/10 Regenerate with a powerful start-of-turn heal — silencing it removes
+	# both the ongoing and the Regenerate shield.
+	ScenarioFixtures.summon_creature(opponent, match_state, "healing_titan", "field", 10, 10, ["regenerate"], 0, {
+		"cost": 8,
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_START_OF_TURN,
+			"required_zone": "lane",
+			"effects": [{"op": "heal", "target_player": "controller", "amount": 4}],
+		}],
+	})
+	ScenarioFixtures.add_hand_card(player, "suppress", {
+		"card_type": "action",
+		"cost": 0,
+		"action_target_mode": "any_creature",
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"effects": [{"op": "silence", "target": "event_target"}],
+		}],
+	})
+	_assert_policy_pick(match_state, "play_action:player_2:player_2_suppress", failures, "AI should silence a durable ongoing-heal threat rather than pass when it has no better option.")
+
+
+# Regression: a silence in hand should not preempt a clean kill. If the AI can
+# attack the threat and destroy it cleanly, removal outscores silence because
+# attack strips full creature value (stats + keywords + ongoing).
+func _test_ai_prefers_clean_attack_over_silence(failures: Array) -> void:
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 3, "first_player_index": 0})
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	player["hand"] = []
+	opponent["hand"] = []
+	# Friendly 5/5 ready to attack — can cleanly kill a 2/2 rally threat without dying.
+	var attacker := ScenarioFixtures.summon_creature(player, match_state, "clean_killer", "field", 5, 5, [], 0, {"cost": 0})
+	ScenarioFixtures.ready_for_attack(attacker, match_state)
+	ScenarioFixtures.summon_creature(opponent, match_state, "rally_threat", "field", 2, 2, ["rally"], 0, {"cost": 0})
+	# Silence also available — should be passed over in favour of the clean kill.
+	ScenarioFixtures.add_hand_card(player, "suppress", {
+		"card_type": "action",
+		"cost": 0,
+		"action_target_mode": "any_creature",
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"effects": [{"op": "silence", "target": "event_target"}],
+		}],
+	})
+	_assert_policy_pick(match_state, "attack:player_1:player_1_clean_killer:target_type=creature:target=player_2_rally_threat", failures, "AI should attack for a clean kill instead of silencing when both options exist.")
 
 
 func _assert_policy_pick(match_state: Dictionary, expected_prefix: String, failures: Array, message: String) -> void:

@@ -219,6 +219,45 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# Creature with only grants_immunity aura (e.g. Yokudan Nightblade, Keeper of Whispers) should show the aura icon
+	component.size = CREATURE_BOARD_MINIMUM_SIZE
+	var aura_creature := {
+		"instance_id": "yokudan_nightblade_test",
+		"name": "Yokudan Nightblade",
+		"card_type": "creature",
+		"cost": 1,
+		"power": 1,
+		"health": 4,
+		"rarity": "epic",
+		"attributes": ["intelligence"],
+		"subtypes": ["Redguard"],
+		"rules_text": "Friendly equipped creatures are Immune to Silence.",
+		"grants_immunity": ["silence_on_equipped"],
+	}
+	component.apply_card(aura_creature, PRESENTATION_CREATURE_BOARD_MINIMAL)
+	await process_frame
+	var keyword_icons := component.find_child("KeywordIcons", true, false) as Container
+	if not _assert(keyword_icons != null and keyword_icons.visible and keyword_icons.get_child_count() >= 1, "Creature with grants_immunity aura should show the aura icon in KeywordIcons container."):
+		quit(1)
+		return
+
+	# Plain vanilla creature with no abilities should NOT show the aura icon
+	var vanilla_creature := {
+		"instance_id": "vanilla_test",
+		"name": "Vanilla",
+		"card_type": "creature",
+		"cost": 1,
+		"power": 1,
+		"health": 1,
+		"rarity": "common",
+		"attributes": ["neutral"],
+	}
+	component.apply_card(vanilla_creature, PRESENTATION_CREATURE_BOARD_MINIMAL)
+	await process_frame
+	if not _assert(keyword_icons != null and (not keyword_icons.visible or keyword_icons.get_child_count() == 0), "Vanilla creature with no abilities should not show the aura icon."):
+		quit(1)
+		return
+
 	print("CARD_DISPLAY_COMPONENT_OK")
 	quit(0)
 

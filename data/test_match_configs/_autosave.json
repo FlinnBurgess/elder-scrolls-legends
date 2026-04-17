@@ -12,11 +12,13 @@
 		"field_creatures": [
 			null,
 			null,
-			null,
-			"cwc_neu_abomination"
+			null
 		],
 		"hand": [
-			"wil_piercing_javelin"
+			"aw_end_hush",
+			"aw_end_hush",
+			"aw_end_hush",
+			"aw_end_hush"
 		],
 		"health": 30.0,
 		"max_magicka": 12.0,
@@ -59,19 +61,21 @@
 		"field_creatures": [
 			null,
 			null,
-			"db_agi_skooma_underboss",
-			"agi_baandari_bruiser"
+			null
 		],
 		"hand": [
-			"cwc_int_laaneth"
+			"iom_str_dagger",
+			"iom_str_dagger",
+			"iom_str_dagger",
+			"iom_str_dagger"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [],
-		"supports": [
-			"agi_spider_lair"
-		]
+		"shadow_creatures": [
+			"agi_tenmar_swiftclaw"
+		],
+		"supports": []
 	},
 	"type": "kill"
 }

@@ -4,6 +4,7 @@ const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const MatchBootstrap = preload("res://src/core/match/match_bootstrap.gd")
 const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
+const MatchTimingHelpers = preload("res://src/core/match/match_timing_helpers.gd")
 const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const LaneRules = preload("res://src/core/match/lane_rules.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
@@ -85,7 +86,9 @@ func _run_all_tests() -> bool:
 		# Imperial Might end-of-turn summon
 		_test_imperial_might_summons_grunt_at_end_of_turn() and
 		# Spider Lair restricted card_ids pool
-		_test_spider_lair_only_summons_configured_spider_ids()
+		_test_spider_lair_only_summons_configured_spider_ids() and
+		# Yokudan Nightblade silence_on_equipped aura
+		_test_yokudan_nightblade_grants_silence_immunity_to_equipped_friendlies()
 	)
 
 
@@ -482,6 +485,37 @@ func _test_play_support_sacrifice_rejects_when_not_full() -> bool:
 	var new_support := _add_hand_card(player, "extra_support", {"card_type": "support", "cost": 0, "support_uses": 3})
 	var result := PersistentCardRules.play_support_with_sacrifice(match_state, pid, new_support["instance_id"], sacrifice_id)
 	return _assert(not result["is_valid"], "Sacrifice play should fail when support zone is not full.")
+
+
+func _test_yokudan_nightblade_grants_silence_immunity_to_equipped_friendlies() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid: String = player["player_id"]
+	var yokudan := _summon_creature(player, match_state, "yokudan_analog", "shadow", 1, 4, 0, {
+		"grants_immunity": ["silence_on_equipped"],
+	})
+	var bare := _summon_creature(player, match_state, "bare_friendly", "field", 2, 3, 0)
+	var host := _summon_creature(player, match_state, "equipped_friendly", "field", 2, 3, 1)
+	var item := _add_hand_card(player, "test_dagger", {
+		"card_type": "item",
+		"cost": 1,
+		"equip_power_bonus": 1,
+	})
+	var play_result := PersistentCardRules.play_item_from_hand(match_state, pid, item["instance_id"], {"target_instance_id": host["instance_id"]})
+	if not _assert(play_result["is_valid"], "Fixture: item should attach to host."):
+		return false
+	var yokudan_item := _add_hand_card(player, "yokudan_dagger", {"card_type": "item", "cost": 1, "equip_power_bonus": 1})
+	PersistentCardRules.play_item_from_hand(match_state, pid, yokudan_item["instance_id"], {"target_instance_id": yokudan["instance_id"]})
+	var enemy: Dictionary = match_state["players"][1]
+	var enemy_equipped := _summon_creature(enemy, match_state, "enemy_equipped", "field", 2, 3, 0)
+	var enemy_item := _add_hand_card(enemy, "enemy_dagger", {"card_type": "item", "cost": 1, "equip_power_bonus": 1})
+	PersistentCardRules.play_item_from_hand(match_state, str(enemy["player_id"]), enemy_item["instance_id"], {"target_instance_id": enemy_equipped["instance_id"]})
+	return (
+		_assert(MatchTimingHelpers._is_immune_to_effect(match_state, host, "silence"), "Yokudan: equipped friendly creature should be immune to silence.") and
+		_assert(not MatchTimingHelpers._is_immune_to_effect(match_state, bare, "silence"), "Yokudan: unequipped friendly creature should NOT be immune to silence.") and
+		_assert(MatchTimingHelpers._is_immune_to_effect(match_state, yokudan, "silence"), "Yokudan: Yokudan itself should be immune when equipped (rules text includes self).") and
+		_assert(not MatchTimingHelpers._is_immune_to_effect(match_state, enemy_equipped, "silence"), "Yokudan: enemy equipped creature should NOT be immune (aura is friendly-only).")
+	)
 
 
 func _build_started_match() -> Dictionary:
