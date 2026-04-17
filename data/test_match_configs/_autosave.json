@@ -53,7 +53,10 @@
 			"moe_neu_crocodile_brute"
 		],
 		"field_creatures": [
-			null
+			null,
+			null,
+			null,
+			"hos_neu_alduin"
 		],
 		"hand": [
 			"mhc_wil_shivering_apothecary"

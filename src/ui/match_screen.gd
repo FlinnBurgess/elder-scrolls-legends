@@ -701,7 +701,9 @@ func start_puzzle_match(puzzle_state: Dictionary, puzzle_config: Dictionary = {}
 				"timing_window": "after",
 			}])
 	# Emit creature_summoned events for all pre-placed lane creatures so that
-	# summon effects fire and lane effects (e.g. shadow lane cover) are applied.
+	# lane effects (e.g. shadow lane cover) are applied. Card-owned summon
+	# triggers are suppressed via skip_card_triggers so pre-placed creatures
+	# don't fire their summon abilities at puzzle start.
 	for lane in puzzle_state.get("lanes", []):
 		var lane_id := str(lane.get("lane_id", ""))
 		var player_slots: Dictionary = lane.get("player_slots", {})
@@ -720,6 +722,7 @@ func start_puzzle_match(puzzle_state: Dictionary, puzzle_config: Dictionary = {}
 					"lane_id": lane_id,
 					"slot_index": slot_idx,
 					"reason": "puzzle_starting_board",
+					"skip_card_triggers": true,
 				}])
 	MatchTiming.publish_events(puzzle_state, [{
 		"event_type": MatchTiming.EVENT_TURN_STARTED,

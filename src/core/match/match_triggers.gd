@@ -334,6 +334,12 @@ static func _trigger_matches_event(match_state: Dictionary, trigger: Dictionary,
 	var descriptor: Dictionary = trigger.get("descriptor", {})
 	if descriptor.is_empty():
 		return false
+	# Puzzle start emits creature_summoned events to bootstrap lane effects
+	# (e.g. shadow lane cover) without firing pre-placed creatures' own summon
+	# abilities. skip_card_triggers gates card-owned triggers while still
+	# letting lane-effect triggers resolve.
+	if bool(event.get("skip_card_triggers", false)) and not bool(descriptor.get("_lane_trigger", false)):
+		return false
 	if _is_once_trigger_consumed(match_state, trigger):
 		return false
 	if not _matches_required_zone(trigger, descriptor):
