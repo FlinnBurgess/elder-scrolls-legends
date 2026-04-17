@@ -647,21 +647,21 @@ func _build_lanes_panel() -> Control:
 	_screen._turn_banner_panel.name = "TurnBannerPanel"
 	_screen._turn_banner_panel.visible = false
 	_screen._turn_banner_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_screen._turn_banner_panel.custom_minimum_size = Vector2(336, 72)
+	_screen._turn_banner_panel.custom_minimum_size = Vector2(560, 132)
 	banner_center.add_child(_screen._turn_banner_panel)
-	var banner_box := _build_panel_box(_screen._turn_banner_panel, 10, 16)
+	var banner_box := _build_panel_box(_screen._turn_banner_panel, 16, 32)
 	var banner_column := VBoxContainer.new()
-	banner_column.add_theme_constant_override("separation", 3)
+	banner_column.add_theme_constant_override("separation", 8)
 	banner_box.add_child(banner_column)
 	_screen._turn_banner_label = Label.new()
 	_screen._turn_banner_label.name = "TurnBannerLabel"
 	_screen._turn_banner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_screen._turn_banner_label.add_theme_font_size_override("font_size", 28)
+	_screen._turn_banner_label.add_theme_font_size_override("font_size", 52)
 	banner_column.add_child(_screen._turn_banner_label)
 	_screen._turn_banner_detail_label = Label.new()
 	_screen._turn_banner_detail_label.name = "TurnBannerDetailLabel"
 	_screen._turn_banner_detail_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_screen._turn_banner_detail_label.add_theme_font_size_override("font_size", 13)
+	_screen._turn_banner_detail_label.add_theme_font_size_override("font_size", 22)
 	banner_column.add_child(_screen._turn_banner_detail_label)
 	return lanes_row
 
