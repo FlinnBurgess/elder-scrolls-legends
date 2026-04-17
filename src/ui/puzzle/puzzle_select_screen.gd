@@ -161,7 +161,8 @@ func _build_pack_section_from_data(pack_path: String, parsed: Dictionary) -> voi
 
 	header_btn.pressed.connect(func(): grid.visible = not grid.visible)
 
-	for entry in puzzles:
+	for i in range(puzzles.size()):
+		var entry = puzzles[i]
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
 		var puzzle_id := str(entry.get("id", ""))
@@ -190,7 +191,15 @@ func _build_pack_section_from_data(pack_path: String, parsed: Dictionary) -> voi
 			UITheme.style_button_accent(btn, Color(0.4, 0.75, 0.4), 20)
 		else:
 			UITheme.style_button(btn, 20)
-		var puzzle_entry := {"id": puzzle_id, "name": puzzle_name, "code": code, "solved": solved}
+		var puzzle_entry := {
+			"id": puzzle_id,
+			"name": puzzle_name,
+			"code": code,
+			"solved": solved,
+			"pack_path": pack_path,
+			"pack_puzzles": puzzles,
+			"pack_index": i,
+		}
 		btn.pressed.connect(func(): _on_puzzle_clicked(puzzle_entry))
 
 		grid.add_child(btn)

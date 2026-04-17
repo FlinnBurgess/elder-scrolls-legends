@@ -20,6 +20,7 @@ func _acting_player_id(card: Dictionary) -> String:
 
 
 func target_selected_card(target_instance_id: String) -> Dictionary:
+	_screen.GameLogger.trc("UI", "target_selected_card", "target:%s,sel:%s" % [target_instance_id, _screen._selected_instance_id])
 	var selected_card = _screen._selected_card()
 	if selected_card.is_empty():
 		return _screen._invalid_ui_result("Select a card first.")

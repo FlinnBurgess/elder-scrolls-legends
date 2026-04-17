@@ -188,15 +188,55 @@ func _start_puzzle_match() -> void:
 	match_screen.name = "PuzzleMatch"
 	match_screen.puzzle_retry_requested.connect(_on_puzzle_retry.bind(match_screen))
 	match_screen.puzzle_return_to_select_requested.connect(_on_puzzle_return_to_select.bind(match_screen))
+	match_screen.puzzle_next_requested.connect(_on_puzzle_next.bind(match_screen))
 	match_screen.return_to_main_menu_requested.connect(_on_puzzle_return_to_select.bind(match_screen))
 	add_child(match_screen)
 	_active_screen = match_screen
 	match_screen.start_puzzle_match(puzzle_state, _current_puzzle_config,
-		str(_current_puzzle_entry.get("id", "")), ai_options)
+		str(_current_puzzle_entry.get("id", "")), ai_options, _current_puzzle_has_next())
+
+
+func _current_puzzle_has_next() -> bool:
+	var pack_puzzles: Array = _current_puzzle_entry.get("pack_puzzles", [])
+	var pack_index := int(_current_puzzle_entry.get("pack_index", -1))
+	return pack_index >= 0 and pack_index + 1 < pack_puzzles.size()
 
 
 func _on_puzzle_retry(match_screen: Control) -> void:
 	match_screen.queue_free()
+	_start_puzzle_match()
+
+
+func _on_puzzle_next(match_screen: Control) -> void:
+	if not _current_puzzle_has_next():
+		_on_puzzle_return_to_select(match_screen)
+		return
+	var pack_path := str(_current_puzzle_entry.get("pack_path", ""))
+	var pack_puzzles: Array = _current_puzzle_entry.get("pack_puzzles", [])
+	var pack_index := int(_current_puzzle_entry.get("pack_index", -1))
+	var next_index := pack_index + 1
+	var next_meta: Dictionary = pack_puzzles[next_index]
+	var puzzle_file := str(next_meta.get("file", ""))
+	if pack_path.is_empty() or puzzle_file.is_empty():
+		_on_puzzle_return_to_select(match_screen)
+		return
+	var file_handle := FileAccess.open(pack_path.path_join(puzzle_file), FileAccess.READ)
+	if file_handle == null:
+		_on_puzzle_return_to_select(match_screen)
+		return
+	var config = JSON.parse_string(file_handle.get_as_text())
+	if typeof(config) != TYPE_DICTIONARY:
+		_on_puzzle_return_to_select(match_screen)
+		return
+	match_screen.queue_free()
+	_current_puzzle_entry = {
+		"id": str(next_meta.get("id", "")),
+		"name": str(next_meta.get("name", "Untitled")),
+		"pack_path": pack_path,
+		"pack_puzzles": pack_puzzles,
+		"pack_index": next_index,
+	}
+	_current_puzzle_config = config
 	_start_puzzle_match()
 
 

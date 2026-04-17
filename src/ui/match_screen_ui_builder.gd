@@ -450,31 +450,31 @@ func _build_match_end_overlay() -> PanelContainer:
 	overlay.add_child(center)
 	var card := PanelContainer.new()
 	card.name = "MatchEndCard"
-	card.custom_minimum_size = Vector2(360, 220)
-	_apply_panel_style(card, Color(0.1, 0.11, 0.16, 0.98), Color(0.88, 0.74, 0.44, 0.98), 2, 16)
+	card.custom_minimum_size = Vector2(900, 520)
+	_apply_panel_style(card, Color(0.1, 0.11, 0.16, 0.98), Color(0.88, 0.74, 0.44, 0.98), 3, 24)
 	center.add_child(card)
-	var box := _build_panel_box(card, 18, 18)
+	var box := _build_panel_box(card, 44, 48)
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	_screen._match_end_title_label = Label.new()
 	_screen._match_end_title_label.name = "MatchEndTitle"
 	_screen._match_end_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_screen._match_end_title_label.add_theme_font_size_override("font_size", 34)
+	_screen._match_end_title_label.add_theme_font_size_override("font_size", 96)
 	box.add_child(_screen._match_end_title_label)
 	_screen._match_end_detail_label = Label.new()
 	_screen._match_end_detail_label.name = "MatchEndDetailLabel"
 	_screen._match_end_detail_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_screen._match_end_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_screen._match_end_detail_label.add_theme_font_size_override("font_size", 17)
-	_screen._match_end_detail_label.custom_minimum_size = Vector2(320, 0)
+	_screen._match_end_detail_label.add_theme_font_size_override("font_size", 38)
+	_screen._match_end_detail_label.custom_minimum_size = Vector2(780, 0)
 	box.add_child(_screen._match_end_detail_label)
 	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 8)
+	spacer.custom_minimum_size = Vector2(0, 24)
 	box.add_child(spacer)
 	_screen._match_end_button = Button.new()
 	_screen._match_end_button.name = "MatchEndMainMenuButton"
 	_screen._match_end_button.text = "Return to Main Menu"
-	_screen._match_end_button.custom_minimum_size = Vector2(280, 48)
-	_screen._match_end_button.add_theme_font_size_override("font_size", 17)
+	_screen._match_end_button.custom_minimum_size = Vector2(560, 92)
+	_screen._match_end_button.add_theme_font_size_override("font_size", 34)
 	_screen._match_end_button.pressed.connect(func(): _screen.return_to_main_menu_requested.emit())
 	box.add_child(_screen._match_end_button)
 	_screen._match_end_box = box

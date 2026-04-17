@@ -69,13 +69,17 @@ func _try_resolve_selected_card_target(target_instance_id: String) -> bool:
 	var selected_card := _selected_card()
 	var target_card = _screen._card_from_instance_id(target_instance_id)
 	if selected_card.is_empty() or target_card.is_empty():
+		_screen.GameLogger.trc("UI", "try_resolve_noop", "target:%s,sel_empty:%s,target_empty:%s" % [target_instance_id, "1" if selected_card.is_empty() else "0", "1" if target_card.is_empty() else "0"])
 		return false
 	if not _selected_action_consumes_card_click(target_card):
+		_screen.GameLogger.trc("UI", "try_resolve_no_consume", "target:%s,sel:%s" % [target_instance_id, str(selected_card.get("name", ""))])
 		return false
 	if _is_card_target_valid_for_selected(target_instance_id):
+		_screen.GameLogger.trc("UI", "try_resolve_valid", "target:%s,sel:%s" % [target_instance_id, str(selected_card.get("name", ""))])
 		_screen._reset_invalid_feedback()
 		_screen._targeting.target_selected_card(target_instance_id)
 	else:
+		_screen.GameLogger.trc("UI", "try_resolve_invalid", "target:%s,sel:%s" % [target_instance_id, str(selected_card.get("name", ""))])
 		_screen._report_invalid_interaction("%s can't target %s right now." % [_screen._card_display._card_name(selected_card), _screen._card_display._card_name(target_card)], {"instance_ids": [target_instance_id]})
 	return true
 
@@ -545,6 +549,7 @@ func _create_targeting_arrow() -> Line2D:
 
 
 func _enter_targeting_mode(instance_id: String) -> void:
+	_screen.GameLogger.trc("UI", "enter_targeting", "inst:%s" % instance_id)
 	_screen._targeting._cancel_targeting_mode_silent()
 	_screen.select_card(instance_id)
 	var button: Button = _screen._card_buttons.get(instance_id)
@@ -589,6 +594,11 @@ func _enter_targeting_mode(instance_id: String) -> void:
 		"button": button,
 		"action_preview": action_preview,
 	}
+	# Refresh once more now that _targeting_arrow_state is populated so that
+	# valid-target highlights appear on lane creatures immediately. The earlier
+	# refresh (via select_card) ran before the state was set, so the interaction
+	# state check for ACTION-mode targeting hadn't yet activated.
+	_screen._refresh._refresh_ui()
 
 
 func _create_targeting_action_preview(instance_id: String, card: Dictionary) -> Control:

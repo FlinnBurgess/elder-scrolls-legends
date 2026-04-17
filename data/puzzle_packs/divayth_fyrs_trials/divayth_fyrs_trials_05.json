@@ -34,7 +34,7 @@
 	"max_magicka": 3,
 	"current_magicka": 3,
 	"hand": [],
-	"deck": ["db_neu_shadowmere"],
+	"deck": [],
 	"discard": [],
 	"supports": [],
 	"field_creatures": [
@@ -46,7 +46,11 @@
 	"shadow_creatures": [
 	  "wil_summerset_shieldmage",
 	  "wil_summerset_shieldmage",
-	  "agi_varanis_courier",
+	  {
+		"definition_id": "agi_varanis_courier",
+		"power_bonus": 3,
+		"health_bonus": 6
+	  },
       "db_neu_gristlehide_dreugh"
 	]
   }

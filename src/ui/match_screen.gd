@@ -6,6 +6,7 @@ signal forfeit_requested
 signal match_state_changed(match_state: Dictionary)
 signal puzzle_retry_requested
 signal puzzle_return_to_select_requested
+signal puzzle_next_requested
 signal test_match_restart_requested
 
 const HeuristicMatchPolicy = preload("res://src/ai/heuristic_match_policy.gd")
@@ -176,6 +177,8 @@ var _match_end_button: Button
 var _match_end_box: VBoxContainer
 var _puzzle_end_retry_btn: Button
 var _puzzle_end_return_btn: Button
+var _puzzle_end_next_btn: Button
+var _puzzle_has_next := false
 var _arena_mode := false
 var _test_match_mode := false
 var _puzzle_mode := false
@@ -639,7 +642,7 @@ func start_test_match(test_state: Dictionary) -> void:
 
 
 func start_puzzle_match(puzzle_state: Dictionary, puzzle_config: Dictionary = {},
-		puzzle_id: String = "", ai_options: Dictionary = {}) -> void:
+		puzzle_id: String = "", ai_options: Dictionary = {}, has_next: bool = false) -> void:
 	_hand._cancel_detached_card_silent()
 	_overlays._dismiss_mulligan_overlay()
 	_overlays._dismiss_prophecy_overlay()
@@ -666,7 +669,7 @@ func start_puzzle_match(puzzle_state: Dictionary, puzzle_config: Dictionary = {}
 	_ai_system._ai_options = ai_options
 	_scenario_id = LOCAL_MATCH_AI_SCENARIO_ID
 	_selected_instance_id = ""
-	_last_turn_owner_id = ""
+	_last_turn_owner_id = str(puzzle_state.get("active_player_id", ""))
 	_animations._floating_card_ids.clear()
 	_draw_animating_ids.clear()
 	_turn_banner_until_ms = 0
@@ -677,6 +680,7 @@ func start_puzzle_match(puzzle_state: Dictionary, puzzle_config: Dictionary = {}
 	_puzzle_type = str(puzzle_state.get("puzzle_type", "kill"))
 	_puzzle_config = puzzle_config
 	_puzzle_id = puzzle_id
+	_puzzle_has_next = has_next
 	for p in puzzle_state.get("players", []):
 		if typeof(p) == TYPE_DICTIONARY:
 			ExtendedMechanicPacks.ensure_player_state(p)
@@ -763,6 +767,7 @@ func _show_puzzle_objective_popup() -> void:
 
 	var card := PanelContainer.new()
 	card.custom_minimum_size = Vector2(400, 0)
+	card.mouse_filter = MOUSE_FILTER_STOP
 	var card_style := StyleBoxFlat.new()
 	card_style.bg_color = Color(0.1, 0.11, 0.16, 0.98)
 	card_style.border_color = Color(0.5, 0.5, 0.55, 0.96)
@@ -770,6 +775,10 @@ func _show_puzzle_objective_popup() -> void:
 	card_style.set_corner_radius_all(12)
 	card.add_theme_stylebox_override("panel", card_style)
 	center.add_child(card)
+
+	overlay.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.pressed:
+			overlay.queue_free())
 
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 24)
@@ -799,6 +808,7 @@ func _show_puzzle_objective_popup() -> void:
 	ok_btn.add_theme_font_size_override("font_size", 20)
 	ok_btn.pressed.connect(func(): overlay.queue_free())
 	btn_row.add_child(ok_btn)
+	ok_btn.call_deferred("grab_focus")
 
 
 func resume_from_state(saved_state: Dictionary) -> void:
@@ -1985,7 +1995,19 @@ func _on_lane_card_gui_input(event: InputEvent, instance_id: String) -> void:
 func _on_card_pressed(instance_id: String) -> void:
 	# If a drag-and-drop just resolved, suppress the click that the Button fires on release
 	if _hand._drag_active:
+		GameLogger.trc("UI", "card_pressed_drag_suppressed", "inst:%s" % instance_id)
 		return
+	GameLogger.trc("UI", "card_pressed", "inst:%s,sel:%s,arrow:%s,pend_sec:%s,pend_sum:%s,detached:%s,betray:%s,exalt:%s,hand_sel:%s" % [
+		instance_id,
+		_selected_instance_id,
+		"1" if not _targeting._targeting_arrow_state.is_empty() else "0",
+		"1" if not _targeting._pending_secondary_target_state.is_empty() else "0",
+		"1" if not _targeting._pending_summon_target.is_empty() else "0",
+		"1" if not _hand._detached_card_state.is_empty() else "0",
+		"1" if not _betray._pending_betray.is_empty() else "0",
+		"1" if not _overlays._pending_exalt.is_empty() else "0",
+		"1" if not _overlays._hand_selection_state.is_empty() else "0",
+	])
 	# Normal click — clear any pending drag candidate
 	_hand._drag_state = {}
 	_hand._drag_active = false
