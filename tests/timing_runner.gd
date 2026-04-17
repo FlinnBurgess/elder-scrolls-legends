@@ -57,7 +57,9 @@ func _run_all_tests() -> bool:
 		_test_on_friendly_pilfer_or_drain_requires_pilfer_or_drain() and
 		_test_filter_keyword_matches_triggered_ability_families() and
 		_test_pilfer_steal_from_discard_creates_choice_and_moves_to_discard() and
-		_test_on_targeted_by_action_fires_before_destroy_effect()
+		_test_on_targeted_by_action_fires_before_destroy_effect() and
+		_test_grant_extra_attack_before_attack_allows_two_attacks() and
+		_test_grant_extra_attack_stacks_from_multiple_sources()
 	)
 
 
@@ -1724,6 +1726,64 @@ func _test_on_targeted_by_action_fires_before_destroy_effect() -> bool:
 		_assert(str(rootbender.get("zone", "")) == "discard",
 			"Rootbender should still end up destroyed in discard.")
 	)
+
+
+func _test_grant_extra_attack_before_attack_allows_two_attacks() -> bool:
+	# Regression: Swift Strike played BEFORE a creature attacks should still grant an extra attack.
+	var match_state := _build_started_match(20, 0)
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player["player_id"])
+	var oid := str(opponent["player_id"])
+	var attacker := _summon_creature(player, match_state, "attacker", "field", 3, 3)
+	_target_ready_for_attack(attacker, match_state)
+	# Swift Strike analog — targets the attacker before it has attacked
+	var swift := _add_hand_card(player, "swift_strike", {
+		"card_type": "action",
+		"cost": 0,
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "effects": [
+			{"op": "grant_extra_attack", "target": "event_target"},
+		]}],
+	})
+	MatchTiming.play_action_from_hand(match_state, pid, str(swift["instance_id"]), {
+		"target_instance_id": str(attacker["instance_id"]),
+	})
+	var first := MatchCombat.resolve_attack(match_state, pid, str(attacker["instance_id"]), {"type": "player", "player_id": oid})
+	if not _assert(bool(first.get("is_valid", false)), "Swift-before-attack: first attack should succeed."):
+		return false
+	var second := MatchCombat.resolve_attack(match_state, pid, str(attacker["instance_id"]), {"type": "player", "player_id": oid})
+	if not _assert(bool(second.get("is_valid", false)), "Swift-before-attack: extra attack granted before combat should allow a second attack."):
+		return false
+	var third := MatchCombat.resolve_attack(match_state, pid, str(attacker["instance_id"]), {"type": "player", "player_id": oid})
+	return _assert(not bool(third.get("is_valid", false)), "Swift-before-attack: a third attack should not be allowed with only one extra attack granted.")
+
+
+func _test_grant_extra_attack_stacks_from_multiple_sources() -> bool:
+	# Regression: Two Swift Strikes on the same creature should grant two extra attacks (three total).
+	var match_state := _build_started_match(20, 0)
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player["player_id"])
+	var oid := str(opponent["player_id"])
+	var attacker := _summon_creature(player, match_state, "attacker", "field", 3, 3)
+	_target_ready_for_attack(attacker, match_state)
+	for i in range(2):
+		var swift := _add_hand_card(player, "swift_strike_%d" % i, {
+			"card_type": "action",
+			"cost": 0,
+			"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "effects": [
+				{"op": "grant_extra_attack", "target": "event_target"},
+			]}],
+		})
+		MatchTiming.play_action_from_hand(match_state, pid, str(swift["instance_id"]), {
+			"target_instance_id": str(attacker["instance_id"]),
+		})
+	for i in range(3):
+		var result := MatchCombat.resolve_attack(match_state, pid, str(attacker["instance_id"]), {"type": "player", "player_id": oid})
+		if not _assert(bool(result.get("is_valid", false)), "Stacked Swift Strike: attack #%d should succeed." % (i + 1)):
+			return false
+	var fourth := MatchCombat.resolve_attack(match_state, pid, str(attacker["instance_id"]), {"type": "player", "player_id": oid})
+	return _assert(not bool(fourth.get("is_valid", false)), "Stacked Swift Strike: a fourth attack should not be allowed.")
 
 
 func _assert(condition: bool, message: String) -> bool:

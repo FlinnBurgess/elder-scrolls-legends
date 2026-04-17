@@ -1,17 +1,5 @@
 [
 	{
-		"card_id": "agi_swift_strike",
-		"name": "Swift Strike",
-		"card_type": "action",
-		"cost": 3,
-		"attributes": [
-			"agility"
-		],
-		"rules_text": "Give a creature an extra attack this turn.",
-		"stripped_text": "Give a creature an extra attack this turn.",
-		"complexity": 42
-	},
-	{
 		"card_id": "aw_str_high_rock_stalwart",
 		"name": "High Rock Stalwart",
 		"card_type": "creature",

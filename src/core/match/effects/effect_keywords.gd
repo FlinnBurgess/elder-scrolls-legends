@@ -448,12 +448,14 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 								generated_events.append({"event_type": "keyword_granted", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(datk_recipient.get("instance_id", "")), "keyword_id": kw})
 						datk_recipient["granted_keywords"] = datk_granted
 		"grant_extra_attack":
+			var gea_amount := int(effect.get("amount", 1))
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
-				card["has_attacked_this_turn"] = false
+				card["extra_attacks_remaining"] = int(card.get("extra_attacks_remaining", 0)) + gea_amount
 				generated_events.append({
 					"event_type": "extra_attack_granted",
 					"source_instance_id": str(trigger.get("source_instance_id", "")),
 					"target_instance_id": str(card.get("instance_id", "")),
+					"amount": gea_amount,
 				})
 		"modify_stats_if_shares_subtype_with_top_deck":
 			var msisswtd_controller_id := str(trigger.get("controller_player_id", ""))
