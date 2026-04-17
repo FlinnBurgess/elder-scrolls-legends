@@ -316,6 +316,7 @@ static func _tactical_bonus(before_state: Dictionary, after_state: Dictionary, a
 		MatchActionEnumerator.KIND_PLAY_ACTION:
 			bonus += 0.55
 			bonus += _removal_efficiency_adjustment(before_state, after_state, player_id, opponent_id, spent_magicka)
+			bonus += _control_action_efficiency_adjustment(before_state, after_state, action, player_id, opponent_id, spent_magicka)
 		MatchActionEnumerator.KIND_PLAY_ITEM:
 			# _PLAY_ITEM already added +0.75 above; apply efficiency check for damage items.
 			bonus += _removal_efficiency_adjustment(before_state, after_state, player_id, opponent_id, spent_magicka)
@@ -372,6 +373,40 @@ static func _removal_efficiency_adjustment(before_state: Dictionary, after_state
 	# bonuses when the removal is purely over-cost (e.g. 5-mana on a 1/1).
 	const WASTE_PENALTY_WEIGHT := 1.0
 	return -waste * WASTE_PENALTY_WEIGHT * safety_factor
+
+
+## Penalize single-target PLAY_ACTION cards (silence, shackle, small damage)
+## when the target barely loses any value. Without this, the +0.55 play_action
+## and +0.45 * spent_magicka tactical bonuses make the AI eagerly silence vanilla
+## creatures or creatures whose only ability was a summon trigger that already
+## fired — a wasted card with nothing to strip.
+static func _control_action_efficiency_adjustment(before_state: Dictionary, after_state: Dictionary, action: Dictionary, player_id: String, opponent_id: String, spent_magicka: float) -> float:
+	var parameters: Dictionary = action.get("parameters", {})
+	var target_id := str(parameters.get("target_instance_id", ""))
+	if target_id.is_empty():
+		return 0.0
+	var before_target := _find_card(before_state, target_id)
+	if before_target.is_empty():
+		return 0.0
+	if str(before_target.get("controller_player_id", "")) != opponent_id:
+		return 0.0
+	var after_target := _find_card(after_state, target_id)
+	# Removal is handled separately.
+	if after_target.is_empty():
+		return 0.0
+	var before_value := MatchStateEvaluator._creature_value(before_state, before_target)
+	var after_value := MatchStateEvaluator._creature_value(after_state, after_target)
+	var value_stripped := before_value - after_value
+	var threat_reduction := float(_incoming_face_threat(before_state, player_id) - _incoming_face_threat(after_state, player_id))
+	var total_benefit := value_stripped + maxf(0.0, threat_reduction) * 2.2
+	const MIN_USEFUL_BENEFIT := 2.5
+	if total_benefit >= MIN_USEFUL_BENEFIT:
+		return 0.0
+	# Proportional shortfall — when the target barely loses value, cancel most
+	# of the generic +0.55 play_action bonus and +0.45*spent_magicka bonus so
+	# the state_score delta alone decides if the action is worthwhile.
+	var shortfall := clampf((MIN_USEFUL_BENEFIT - total_benefit) / MIN_USEFUL_BENEFIT, 0.0, 1.0)
+	return -(0.55 + 0.45 * spent_magicka) * shortfall
 
 
 static func _attack_trade_bonus(before_state: Dictionary, after_state: Dictionary, action: Dictionary) -> float:

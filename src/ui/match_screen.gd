@@ -1364,6 +1364,31 @@ func _selected_card_has_free_play() -> bool:
 	return bool(card.get("_play_for_free", false))
 
 
+func _point_over_local_hand(global_pos: Vector2) -> bool:
+	var section: Dictionary = _player_sections.get(PLAYER_ORDER[1], {})
+	var hand_row: Control = section.get("hand_row")
+	if hand_row == null or not is_instance_valid(hand_row):
+		return false
+	var bounds := Rect2()
+	var has_card := false
+	for child in hand_row.get_children():
+		if not (child is Control):
+			continue
+		var ctrl := child as Control
+		if not ctrl.visible:
+			continue
+		var rect := Rect2(ctrl.global_position, ctrl.size)
+		if not has_card:
+			bounds = rect
+			has_card = true
+		else:
+			bounds = bounds.merge(rect)
+	if not has_card:
+		return false
+	bounds = bounds.grow(24.0)
+	return bounds.has_point(global_pos)
+
+
 func _decline_current_free_play() -> void:
 	var result := MatchTiming.decline_pending_free_play(_match_state, _local_player_id())
 	if not _targeting._targeting_arrow_state.is_empty():
@@ -1941,6 +1966,27 @@ func _input(event: InputEvent) -> void:
 			if _hand._handle_drag_release(button_event.global_position):
 				get_viewport().set_input_as_handled()
 				return
+		# Click on own hand while a hand card is selected -> return it to hand
+		if button_event.button_index == MOUSE_BUTTON_LEFT and button_event.pressed:
+			if _overlays._pending_exalt.is_empty() and _overlays._hand_selection_state.is_empty() and _betray._pending_betray.is_empty() and _targeting._pending_secondary_target_state.is_empty() and _targeting._pending_summon_target.is_empty() and _betray._sacrifice_hover_target_id == "" and _betray._support_sacrifice_hover_target_id == "":
+				var has_detached: bool = not _hand._detached_card_state.is_empty()
+				var has_arrow: bool = not _targeting._targeting_arrow_state.is_empty()
+				var selection_is_from_hand: bool = not _selected_instance_id.is_empty() and _hand._is_local_hand_card(_selected_instance_id)
+				if (has_detached or has_arrow) and selection_is_from_hand and _point_over_local_hand(button_event.global_position):
+					if has_arrow:
+						if _selected_card_has_free_play():
+							_decline_current_free_play()
+						else:
+							_selection._cancel_targeting_mode()
+					else:
+						if _selected_card_has_free_play():
+							_decline_current_free_play()
+						else:
+							_hand._cancel_detached_card()
+						_hand._drag_state = {}
+						_hand._drag_active = false
+					get_viewport().set_input_as_handled()
+					return
 		if button_event.button_index == MOUSE_BUTTON_RIGHT and button_event.pressed:
 			if not _overlays._pending_exalt.is_empty():
 				_overlays._resolve_exalt(false)
@@ -2058,6 +2104,12 @@ func _on_card_pressed(instance_id: String) -> void:
 		if switch_wants_targeting:
 			_selection._enter_targeting_mode(instance_id)
 			return
+		if _hand._is_local_hand_card(instance_id):
+			if _selected_card_has_free_play():
+				_decline_current_free_play()
+			else:
+				_selection._cancel_targeting_mode()
+			return
 		_report_invalid_interaction("Not a valid target.", {"instance_ids": [instance_id]})
 		return
 	if not _hand._detached_card_state.is_empty():
@@ -2071,6 +2123,14 @@ func _on_card_pressed(instance_id: String) -> void:
 		if _hand._try_resolve_selected_support_row_card(target_card):
 			return
 		if _selection._try_resolve_selected_card_target(instance_id):
+			return
+		if _hand._is_local_hand_card(instance_id):
+			if _selected_card_has_free_play():
+				_decline_current_free_play()
+			else:
+				_hand._cancel_detached_card()
+			_hand._drag_state = {}
+			_hand._drag_active = false
 			return
 		_hand._try_resolve_detached_card_via_lane(instance_id)
 		return

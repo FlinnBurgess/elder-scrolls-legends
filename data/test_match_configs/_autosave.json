@@ -58,8 +58,9 @@
 			null
 		],
 		"hand": [
-			"agi_soulrest_marshal",
-			"aw_int_abnur_tharn"
+			"joo_str_invasion_scout",
+			"joo_str_invasion_scout",
+			"joo_str_invasion_scout"
 		],
 		"has_ring": false,
 		"health": 30.0,

@@ -1274,6 +1274,43 @@ func _animate_gate_upgrade_glow(instance_id: String) -> void:
 	embers.emitting = true
 	overlay.add_child(embers)
 
+	# A handful of brighter, faster, wigglier embers on top
+	var hot_embers := GPUParticles2D.new()
+	hot_embers.name = "gate_embers_hot"
+	hot_embers.amount = 12
+	hot_embers.lifetime = 1.6
+	hot_embers.preprocess = 0.15
+	hot_embers.randomness = 0.8
+	hot_embers.position = embers.position
+	hot_embers.visibility_rect = embers.visibility_rect
+	var hot_mat := ParticleProcessMaterial.new()
+	hot_mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	hot_mat.emission_box_extents = Vector3(overlay.size.x * 0.42, overlay.size.y * 0.3, 0.0)
+	hot_mat.direction = Vector3(0, -1, 0)
+	hot_mat.spread = 45.0
+	hot_mat.initial_velocity_min = 110.0
+	hot_mat.initial_velocity_max = 190.0
+	hot_mat.gravity = Vector3(0, -90.0, 0)
+	hot_mat.scale_min = 2.0
+	hot_mat.scale_max = 4.0
+	hot_mat.angular_velocity_min = -360.0
+	hot_mat.angular_velocity_max = 360.0
+	hot_mat.turbulence_enabled = true
+	hot_mat.turbulence_noise_strength = 95.0
+	hot_mat.turbulence_noise_scale = 4.5
+	hot_mat.turbulence_noise_speed = Vector3(0.0, -4.0, 0.0)
+	var hot_ramp := GradientTexture1D.new()
+	var hot_gradient := Gradient.new()
+	hot_gradient.set_color(0, Color(1.0, 1.0, 0.85, 1.0))
+	hot_gradient.add_point(0.25, Color(1.0, 0.8, 0.3, 1.0))
+	hot_gradient.add_point(0.6, Color(1.0, 0.45, 0.1, 0.9))
+	hot_gradient.set_color(3, Color(0.5, 0.08, 0.0, 0.0))
+	hot_ramp.gradient = hot_gradient
+	hot_mat.color_ramp = hot_ramp
+	hot_embers.process_material = hot_mat
+	hot_embers.emitting = true
+	overlay.add_child(hot_embers)
+
 	overlay.modulate = Color(1, 1, 1, 0)
 	var tween: Tween = _screen.create_tween()
 	tween.tween_property(overlay, "modulate:a", 1.0, 0.35).set_ease(Tween.EASE_OUT)
@@ -1281,6 +1318,8 @@ func _animate_gate_upgrade_glow(instance_id: String) -> void:
 	tween.parallel().tween_callback(func():
 		if is_instance_valid(embers):
 			embers.emitting = false
+		if is_instance_valid(hot_embers):
+			hot_embers.emitting = false
 	).set_delay(1.3)
 	tween.tween_interval(0.8)
 	tween.tween_method(func(v: float): mat.set_shader_parameter("intensity", v), 1.0, 0.0, 0.5).set_ease(Tween.EASE_IN)

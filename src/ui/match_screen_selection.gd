@@ -731,6 +731,7 @@ func _create_targeting_action_preview(instance_id: String, card: Dictionary) -> 
 	_screen._card_surface._apply_escalating_damage_text_updates(display_card)
 	component.apply_card(display_card, _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
 	wrapper.add_child(component)
+	_screen._hand._set_mouse_filter_ignore_recursive(wrapper)
 	_screen.add_child(wrapper)
 	wrapper.custom_minimum_size = preview_size
 	wrapper.size = preview_size

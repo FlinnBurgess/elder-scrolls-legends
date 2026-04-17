@@ -50,6 +50,7 @@ func _detach_hand_card(instance_id: String, skip_select := false) -> void:
 	component.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	component.apply_card(card, _screen.CARD_DISPLAY_COMPONENT_SCRIPT.PRESENTATION_FULL)
 	wrapper.add_child(component)
+	_set_mouse_filter_ignore_recursive(wrapper)
 	_screen.add_child(wrapper)
 	wrapper.custom_minimum_size = preview_size
 	wrapper.size = preview_size
@@ -60,6 +61,13 @@ func _detach_hand_card(instance_id: String, skip_select := false) -> void:
 		"preview": wrapper,
 		"card_data": card.duplicate(true),
 	}
+
+
+func _set_mouse_filter_ignore_recursive(node: Node) -> void:
+	if node is Control:
+		(node as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in node.get_children():
+		_set_mouse_filter_ignore_recursive(child)
 
 
 func _is_local_hand_card(instance_id: String) -> bool:

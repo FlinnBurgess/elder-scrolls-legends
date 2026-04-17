@@ -31,6 +31,7 @@ func _initialize() -> void:
 	_test_ai_silences_ongoing_heal_over_passing(failures)
 	_test_ai_prefers_clean_attack_over_silence(failures)
 	_test_ai_skips_silence_on_self_harming_creature(failures)
+	_test_ai_skips_silence_on_vanilla_creature_with_spent_summon_trigger(failures)
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)
@@ -481,6 +482,41 @@ func _test_ai_skips_silence_on_self_harming_creature(failures: Array) -> void:
 	VerificationAssertions.assert_true(
 		not action_id.begins_with("play_action:player_1:player_1_suppress"),
 		"AI should not silence a creature whose only trigger harms its own controller.\nAction: %s\n%s" % [action_id, probe],
+		failures
+	)
+
+
+# Regression: the AI silenced Soulrest Marshal on the following turn even
+# though its only effect was a summon-only cost reduction that had already
+# fired and been cleared at end of turn. Silencing a vanilla 4/4 whose sole
+# triggered ability has already resolved wastes a card for near-zero benefit.
+func _test_ai_skips_silence_on_vanilla_creature_with_spent_summon_trigger(failures: Array) -> void:
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 3, "first_player_index": 0})
+	var first_player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	MatchTurnLoop.end_turn(match_state, str(first_player.get("player_id", "")))
+	var player: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 0)
+	player["hand"] = []
+	opponent["hand"] = []
+	# Vanilla 4/4 — summon trigger already resolved on a prior turn, so only
+	# its base stats remain. Nothing meaningful for silence to strip.
+	ScenarioFixtures.summon_creature(opponent, match_state, "marshal", "field", 4, 4, [], 0, {"cost": 0})
+	ScenarioFixtures.add_hand_card(player, "suppress", {
+		"card_type": "action",
+		"cost": 1,
+		"action_target_mode": "any_creature",
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"effects": [{"op": "silence", "target": "event_target"}],
+		}],
+	})
+	var choice := HeuristicMatchPolicy.choose_action(match_state)
+	var action: Dictionary = choice.get("chosen_action", {})
+	var action_id := str(action.get("id", ""))
+	var probe := HeuristicMatchPolicy.describe_choice(choice)
+	VerificationAssertions.assert_true(
+		not action_id.begins_with("play_action:player_2:player_2_suppress"),
+		"AI should not waste a silence on a vanilla creature with no ongoing value.\nAction: %s\n%s" % [action_id, probe],
 		failures
 	)
 
