@@ -3,6 +3,9 @@ extends RefCounted
 
 var _screen  # MatchScreen reference
 
+# Per-row hash cache for skipping unchanged lane rebuilds. Keyed by lane_row_key.
+var _lane_row_hashes: Dictionary = {}
+
 func _init(screen) -> void:
 	_screen = screen
 
@@ -82,6 +85,46 @@ func _refresh_ui() -> void:
 	print("[REFRESH] _refresh_ui END took %dms (overlays=%dus sections=%dus lanes=%dus)" % [_refresh_elapsed, _overlays_us, _sections_us, _lanes_us])
 	print(_screen._selection._format_perf_summary())
 
+
+
+func _compute_lane_row_hash(lane_id: String, player_id: String, slots: Array) -> Dictionary:
+	var card_digests: Array = []
+	for card in slots:
+		if typeof(card) != TYPE_DICTIONARY:
+			continue
+		var statuses = card.get("statuses", [])
+		var statuses_str := ""
+		if typeof(statuses) == TYPE_ARRAY:
+			var sorted_statuses: Array = statuses.duplicate()
+			sorted_statuses.sort()
+			var status_parts: Array = []
+			for s in sorted_statuses:
+				status_parts.append(str(s))
+			statuses_str = ",".join(status_parts)
+		var attached = card.get("attached_items", [])
+		card_digests.append({
+			"iid": str(card.get("instance_id", "")),
+			"power": int(card.get("power", 0)),
+			"health": int(card.get("health", 0)),
+			"damage": int(card.get("damage_marked", 0)),
+			"statuses": statuses_str,
+			"attacked": bool(card.get("has_attacked_this_turn", false)),
+			"items": (attached.size() if typeof(attached) == TYPE_ARRAY else 0),
+		})
+	return {
+		"lane": lane_id,
+		"player": player_id,
+		"cards": card_digests,
+		"selected": _screen._selected_instance_id,
+		"invalid_ids": _screen._invalid_feedback.get("instance_ids", []),
+		"betray_active": not _screen._betray._pending_betray.is_empty(),
+		"betray_phase": str(_screen._betray._pending_betray.get("sacrifice_instance_id", "")),
+		"summon_target_active": not _screen._targeting._pending_summon_target.is_empty(),
+		"summon_source": str(_screen._targeting._pending_summon_target.get("source_instance_id", "")),
+		"targeting_arrow_iid": str(_screen._targeting._targeting_arrow_state.get("instance_id", "")),
+		"selected_action_mode": _screen._selection._selected_action_mode(_screen._selection._selected_card()),
+		"active_player": _screen._active_player_id(),
+	}
 
 
 func _compute_hand_section_hash(player_id: String, player: Dictionary, hand_public: bool) -> Dictionary:
@@ -200,6 +243,12 @@ func _refresh_player_sections() -> void:
 
 
 func _refresh_lanes() -> void:
+	var _us_panel := 0
+	var _us_header := 0
+	var _us_icon := 0
+	var _us_row_style := 0
+	var _us_row_clear := 0
+	var _us_row_build := 0
 	_screen._feedback._kill_active_float_tweens()
 	_screen._selection._clear_hand_insertion_preview(false)
 	# Reset sacrifice hover since lane buttons are being rebuilt
@@ -209,16 +258,21 @@ func _refresh_lanes() -> void:
 	_screen._betray._sacrifice_hover_label = null
 	for lane in _screen._lane_entries():
 		var lane_id := str(lane.get("id", ""))
+		var _t := Time.get_ticks_usec()
 		var lane_panel: PanelContainer = _screen._lane_panels.get(lane_id)
 		_screen._ui_builder._apply_lane_panel_style(lane_panel, lane_id)
 		var capacity = _screen._lane_slot_capacity(lane_id)
 		if capacity > 0 and lane_panel != null:
 			lane_panel.size_flags_stretch_ratio = float(capacity)
+		_us_panel += Time.get_ticks_usec() - _t
+		_t = Time.get_ticks_usec()
 		var header: Button = _screen._lane_header_buttons.get(lane_id)
 		if header != null:
 			header.text = _screen._lane_header_text(lane_id)
 			header.tooltip_text = _screen._lane_description(lane_id)
 			_screen._ui_builder._apply_lane_header_style(header, lane_id)
+		_us_header += Time.get_ticks_usec() - _t
+		_t = Time.get_ticks_usec()
 		var icon_tex: TextureRect = _screen._lane_icon_textures.get(lane_id)
 		if icon_tex != null:
 			var icon_path := str(lane.get("icon", ""))
@@ -226,17 +280,36 @@ func _refresh_lanes() -> void:
 				icon_tex.texture = load(icon_path)
 			else:
 				icon_tex.texture = null
+		_us_icon += Time.get_ticks_usec() - _t
 		for player_id in _screen.PLAYER_ORDER:
+			_t = Time.get_ticks_usec()
 			var row_panel: PanelContainer = _screen._lane_row_panels.get(_screen._lane_row_key(lane_id, player_id))
 			_screen._ui_builder._apply_lane_row_panel_style(row_panel, lane_id, player_id)
+			_us_row_style += Time.get_ticks_usec() - _t
 			var row: HBoxContainer = _screen._lane_row_containers.get(_screen._lane_row_key(lane_id, player_id))
 			if row == null:
 				continue
-			_screen._clear_children(row)
 			var slots = _screen._lane_slots(lane_id, player_id)
-			for card in slots:
-				if typeof(card) == TYPE_DICTIONARY:
-					row.add_child(_screen._card_surface._build_card_button(card, true, "lane"))
+			var row_hash := _compute_lane_row_hash(lane_id, player_id, slots)
+			var prior_hash = _lane_row_hashes.get(_screen._lane_row_key(lane_id, player_id), null)
+			if prior_hash != null and prior_hash == row_hash and row.get_child_count() > 0:
+				# Inputs unchanged — keep buttons but re-register them.
+				for child in row.get_children():
+					if child is Button:
+						var iid := str(child.get_meta("instance_id", ""))
+						if not iid.is_empty():
+							_screen._card_buttons[iid] = child
+			else:
+				_lane_row_hashes[_screen._lane_row_key(lane_id, player_id)] = row_hash
+				_t = Time.get_ticks_usec()
+				_screen._clear_children(row)
+				_us_row_clear += Time.get_ticks_usec() - _t
+				_t = Time.get_ticks_usec()
+				for card in slots:
+					if typeof(card) == TYPE_DICTIONARY:
+						row.add_child(_screen._card_surface._build_card_button(card, true, "lane"))
+				_us_row_build += Time.get_ticks_usec() - _t
+	print("[REFRESH] lanes breakdown: panel=%dus header=%dus icon=%dus row_style=%dus row_clear=%dus row_build=%dus" % [_us_panel, _us_header, _us_icon, _us_row_style, _us_row_clear, _us_row_build])
 
 
 func _refresh_end_turn_button() -> void:
