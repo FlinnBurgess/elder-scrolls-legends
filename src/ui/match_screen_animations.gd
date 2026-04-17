@@ -1240,10 +1240,48 @@ func _animate_gate_upgrade_glow(instance_id: String) -> void:
 	overlay.material = mat
 	_screen.add_child(overlay)
 
+	var embers := GPUParticles2D.new()
+	embers.name = "gate_embers"
+	embers.amount = 40
+	embers.lifetime = 1.3
+	embers.preprocess = 0.25
+	embers.randomness = 0.55
+	embers.position = Vector2(overlay.size.x * 0.5, overlay.size.y * 0.55)
+	embers.visibility_rect = Rect2(-overlay.size.x, -overlay.size.y * 1.2, overlay.size.x * 2, overlay.size.y * 2)
+	var ember_mat := ParticleProcessMaterial.new()
+	ember_mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	ember_mat.emission_box_extents = Vector3(overlay.size.x * 0.42, overlay.size.y * 0.3, 0.0)
+	ember_mat.direction = Vector3(0, -1, 0)
+	ember_mat.spread = 32.0
+	ember_mat.initial_velocity_min = 35.0
+	ember_mat.initial_velocity_max = 90.0
+	ember_mat.gravity = Vector3(0, -45.0, 0)
+	ember_mat.scale_min = 1.4
+	ember_mat.scale_max = 3.2
+	ember_mat.angular_velocity_min = -120.0
+	ember_mat.angular_velocity_max = 120.0
+	ember_mat.turbulence_enabled = true
+	ember_mat.turbulence_noise_strength = 30.0
+	ember_mat.turbulence_noise_scale = 2.0
+	var ember_ramp := GradientTexture1D.new()
+	var ember_gradient := Gradient.new()
+	ember_gradient.set_color(0, Color(1.0, 0.75, 0.25, 1.0))
+	ember_gradient.add_point(0.35, Color(1.0, 0.35, 0.08, 0.95))
+	ember_gradient.set_color(2, Color(0.25, 0.02, 0.0, 0.0))
+	ember_ramp.gradient = ember_gradient
+	ember_mat.color_ramp = ember_ramp
+	embers.process_material = ember_mat
+	embers.emitting = true
+	overlay.add_child(embers)
+
 	overlay.modulate = Color(1, 1, 1, 0)
 	var tween: Tween = _screen.create_tween()
 	tween.tween_property(overlay, "modulate:a", 1.0, 0.35).set_ease(Tween.EASE_OUT)
 	tween.parallel().tween_method(func(v: float): mat.set_shader_parameter("intensity", v), 0.0, 1.0, 0.4)
+	tween.parallel().tween_callback(func():
+		if is_instance_valid(embers):
+			embers.emitting = false
+	).set_delay(1.3)
 	tween.tween_interval(0.8)
 	tween.tween_method(func(v: float): mat.set_shader_parameter("intensity", v), 1.0, 0.0, 0.5).set_ease(Tween.EASE_IN)
 	tween.parallel().tween_property(overlay, "modulate:a", 0.0, 0.5).set_ease(Tween.EASE_IN)
