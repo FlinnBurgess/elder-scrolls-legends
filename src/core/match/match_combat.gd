@@ -3,6 +3,7 @@ extends RefCounted
 
 const GameLogger = preload("res://src/core/match/game_logger.gd")
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
+const ExtendedMechanicPacks = preload("res://src/core/match/extended_mechanic_packs.gd")
 const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const PHASE_ACTION := "action"
@@ -196,8 +197,7 @@ static func _validate_creature_attack_target(match_state: Dictionary, attacker_l
 	# enemy_dragon immunity: can't be targeted by enemy Dragons
 	var defender_immunities = defender_lookup["card"].get("self_immunity", [])
 	if typeof(defender_immunities) == TYPE_ARRAY and defender_immunities.has("enemy_dragon"):
-		var attacker_subtypes = attacker_lookup["card"].get("subtypes", [])
-		if typeof(attacker_subtypes) == TYPE_ARRAY and attacker_subtypes.has("Dragon"):
+		if ExtendedMechanicPacks.card_matches_subtype(attacker_lookup["card"], "Dragon"):
 			if str(attacker_lookup["player_id"]) != str(defender_lookup["player_id"]):
 				return _invalid_result("This creature can't be targeted by enemy Dragons.")
 	# enemy_cliff immunity: can't be targeted by Cliff Racers, Cliff Hunters, and Cliff Striders
@@ -308,8 +308,7 @@ static func _resolve_creature_attack(match_state: Dictionary, validation: Dictio
 	# enemy_dragon immunity: can't be damaged by enemy Dragons (blocks retaliation damage)
 	var _atk_immunities = attacker_damage_target.get("self_immunity", [])
 	if typeof(_atk_immunities) == TYPE_ARRAY and _atk_immunities.has("enemy_dragon"):
-		var _def_subtypes = defender.get("subtypes", [])
-		if typeof(_def_subtypes) == TYPE_ARRAY and _def_subtypes.has("Dragon"):
+		if ExtendedMechanicPacks.card_matches_subtype(defender, "Dragon"):
 			if str(attacker_damage_target.get("controller_player_id", "")) != str(defender.get("controller_player_id", "")):
 				damage_to_attacker = 0
 	# enemy_cliff immunity: can't be damaged by cliff creatures (blocks retaliation damage)
@@ -320,8 +319,7 @@ static func _resolve_creature_attack(match_state: Dictionary, validation: Dictio
 				damage_to_attacker = 0
 	var _def_immunities = defender_damage_target.get("self_immunity", [])
 	if typeof(_def_immunities) == TYPE_ARRAY and _def_immunities.has("enemy_dragon"):
-		var _atk_subtypes = attacker.get("subtypes", [])
-		if typeof(_atk_subtypes) == TYPE_ARRAY and _atk_subtypes.has("Dragon"):
+		if ExtendedMechanicPacks.card_matches_subtype(attacker, "Dragon"):
 			if str(defender_damage_target.get("controller_player_id", "")) != str(attacker.get("controller_player_id", "")):
 				damage_to_defender = 0
 	# enemy_cliff immunity: can't be damaged by cliff creatures

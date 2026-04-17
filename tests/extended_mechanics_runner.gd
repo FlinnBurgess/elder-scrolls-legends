@@ -85,6 +85,7 @@ func _run_all_tests() -> bool:
 		_test_vivec_cannot_lose_expires_on_silence() and
 		_test_stampede_sentinel_blocks_action_damage_to_player() and
 		_test_stampede_sentinel_does_not_block_combat_damage_to_player() and
+		_test_stampede_sentinel_does_not_block_action_damage_to_friendly_creatures() and
 		_test_battle_self_single_destruction() and
 		_test_playing_card_mutation_and_summon() and
 		_test_madness_beckons_generates_iom_card() and
@@ -162,7 +163,9 @@ func _run_all_tests() -> bool:
 		_test_mages_guild_retreat_only_summons_token_atronachs() and
 		_test_increase_opponent_action_cost_veteran() and
 		_test_outflank_per_lane_targeting_grants_stats_and_guard() and
-		_test_buff_random_hand_card_filters_correctly()
+		_test_buff_random_hand_card_filters_correctly() and
+		_test_all_subtypes_passive_matches_any_subtype() and
+		_test_power_equals_health_tracks_damage_and_buffs()
 	)
 
 
@@ -3253,6 +3256,30 @@ func _test_stampede_sentinel_blocks_action_damage_to_player() -> bool:
 	return _assert(health_after == health_before, "Stampede Sentinel: action damage to player should be blocked (health: %d -> %d)." % [health_before, health_after])
 
 
+func _test_stampede_sentinel_does_not_block_action_damage_to_friendly_creatures() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Player has Stampede Sentinel + Death Hound, both in field so cover doesn't interfere
+	ScenarioFixtures.summon_creature(player, match_state, "stampede_sentinel", "field", 7, 7, [], -1, {
+		"grants_immunity": ["action_damage", "support_damage"],
+	})
+	var hound := ScenarioFixtures.summon_creature(player, match_state, "death_hound", "field", 6, 6)
+	var hound_id := str(hound.get("instance_id", ""))
+	var hp_before := EvergreenRules.get_remaining_health(hound)
+	# Player casts a Firebolt-style action on their own Death Hound (as in the trace)
+	var bolt := ScenarioFixtures.add_hand_card(player, "firebolt", {
+		"card_type": "action", "cost": 0,
+		"action_target_mode": "any_creature",
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "effects": [{"op": "deal_damage", "target": "event_target", "amount": 2}]}],
+	})
+	var result := MatchTiming.play_action_from_hand(match_state, pid, str(bolt.get("instance_id", "")), {"target_instance_id": hound_id})
+	if not _assert(bool(result.get("is_valid", false)), "Friendly-creature action damage: action should be playable."):
+		return false
+	var hp_after := EvergreenRules.get_remaining_health(hound)
+	return _assert(hp_after == hp_before - 2, "Stampede Sentinel must NOT grant action_damage immunity to other friendly creatures (hp: %d -> %d, expected %d)." % [hp_before, hp_after, hp_before - 2])
+
+
 func _test_stampede_sentinel_does_not_block_combat_damage_to_player() -> bool:
 	var match_state := _build_started_match()
 	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
@@ -6256,4 +6283,91 @@ func _test_buff_random_hand_card_filters_correctly() -> bool:
 	if not _assert(item_health == 3, "buff_random_hand_card: item should be 3 health (1+2), got %d." % item_health):
 		return false
 	# Action should be untouched (no power/health on actions, but verify no crash)
+	return true
+
+
+func _test_all_subtypes_passive_matches_any_subtype() -> bool:
+	# Regression: Reflective Automaton declares passive_abilities: [{"type": "all_subtypes"}]
+	# and should satisfy subtype checks for any subtype (Dragon, Undead, Beast, etc.)
+	# regardless of what its literal `subtypes` array contains.
+	var automaton := {
+		"instance_id": "automaton_1",
+		"definition_id": "cwc_neu_reflective_automaton",
+		"name": "Reflective Automaton",
+		"card_type": "creature",
+		"cost": 2,
+		"power": 2,
+		"health": 3,
+		"subtypes": ["Factotum"],
+		"passive_abilities": [{"type": "all_subtypes"}],
+	}
+	var plain_factotum := {
+		"instance_id": "plain_1",
+		"name": "Plain Factotum",
+		"card_type": "creature",
+		"subtypes": ["Factotum"],
+	}
+	if not _assert(EvergreenRules.has_subtype(automaton, "Dragon"), "has_subtype should return true for Dragon on card with all_subtypes passive."):
+		return false
+	if not _assert(EvergreenRules.has_subtype(automaton, "Spirit"), "has_subtype should return true for Spirit on card with all_subtypes passive."):
+		return false
+	if not _assert(ExtendedMechanicPacks.card_matches_subtype(automaton, "Dragon"), "card_matches_subtype should return true for Dragon on card with all_subtypes passive."):
+		return false
+	if not _assert(ExtendedMechanicPacks.card_matches_subtype(automaton, "Undead"), "card_matches_subtype should return true for Undead group on card with all_subtypes passive."):
+		return false
+	if not _assert(ExtendedMechanicPacks.card_matches_subtype(automaton, "Animal"), "card_matches_subtype should return true for Animal group on card with all_subtypes passive."):
+		return false
+	if not _assert(ExtendedMechanicPacks.card_matches_any_subtype(automaton, ["Dragon", "Imperial"]), "card_matches_any_subtype should return true for any list on card with all_subtypes passive."):
+		return false
+	if not _assert(not ExtendedMechanicPacks.card_matches_subtype(plain_factotum, "Dragon"), "card_matches_subtype should still return false for Dragon on plain Factotum."):
+		return false
+
+	# End-to-end: target filtering via match_targeting should include a lane creature
+	# with the all_subtypes passive when a Dragon-only filter is applied.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var lane_auto := ScenarioFixtures.summon_creature(player, match_state, "lane_automaton", "field", 2, 3, [], -1, {
+		"definition_id": "cwc_neu_reflective_automaton",
+		"subtypes": ["Factotum"],
+		"passive_abilities": [{"type": "all_subtypes"}],
+	})
+	var lane_other := ScenarioFixtures.summon_creature(player, match_state, "lane_plain", "field", 1, 1, [], -1, {
+		"subtypes": ["Factotum"],
+	})
+	var trigger := {"source_instance_id": "_dummy", "controller_player_id": str(player.get("player_id", ""))}
+	var effect := {"target": "all_friendly_creatures", "target_filter_subtype": "Dragon"}
+	var targets := MatchTargeting._resolve_card_targets(match_state, trigger, {}, effect)
+	var got_automaton := false
+	var got_plain := false
+	for t in targets:
+		if str(t.get("instance_id", "")) == str(lane_auto.get("instance_id", "")):
+			got_automaton = true
+		if str(t.get("instance_id", "")) == str(lane_other.get("instance_id", "")):
+			got_plain = true
+	if not _assert(got_automaton, "Dragon-filter targeting should include Reflective Automaton (all_subtypes passive)."):
+		return false
+	if not _assert(not got_plain, "Dragon-filter targeting should NOT include a plain Factotum."):
+		return false
+	return true
+
+
+func _test_power_equals_health_tracks_damage_and_buffs() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var hound := ScenarioFixtures.summon_creature(player, match_state, "death_hound_phtd", "field", 6, 6, [], -1, {
+		"passive_abilities": [{"type": "power_equals_health"}],
+	})
+	if not _assert(EvergreenRules.get_power(hound) == 6, "power_equals_health: power should start equal to max health."):
+		return false
+	hound["damage_marked"] = 2
+	if not _assert(EvergreenRules.get_remaining_health(hound) == 4, "power_equals_health: remaining health should drop to 4 after 2 damage."):
+		return false
+	if not _assert(EvergreenRules.get_power(hound) == 4, "power_equals_health: power should track remaining health (expected 4, got %d)." % EvergreenRules.get_power(hound)):
+		return false
+	hound["health_bonus"] = 3
+	if not _assert(EvergreenRules.get_power(hound) == 7, "power_equals_health: power should include health buffs (expected 7, got %d)." % EvergreenRules.get_power(hound)):
+		return false
+	hound["damage_marked"] = 9
+	if not _assert(EvergreenRules.get_power(hound) == 0, "power_equals_health: power should floor at 0 when damage exceeds health."):
+		return false
 	return true

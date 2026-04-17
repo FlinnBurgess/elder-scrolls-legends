@@ -381,15 +381,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					for carmsc_card in carmsc_deck:
 						if typeof(carmsc_card) != TYPE_DICTIONARY or str(carmsc_card.get("card_type", "")) != CARD_TYPE_CREATURE:
 							continue
-						var carmsc_card_subtypes: Array = carmsc_card.get("subtypes", [])
-						if typeof(carmsc_card_subtypes) != TYPE_ARRAY:
-							continue
-						var carmsc_match := false
-						for carmsc_st in carmsc_subtypes:
-							if carmsc_card_subtypes.has(carmsc_st):
-								carmsc_match = true
-								break
-						if carmsc_match:
+						if ExtendedMechanicPacks.card_matches_any_subtype(carmsc_card, carmsc_subtypes):
 							carmsc_card["cost"] = maxi(0, int(carmsc_card.get("cost", 0)) - carmsc_reduction)
 					generated_events.append({"event_type": "zone_cost_reduced", "player_id": carmsc_controller_id, "zone": ZONE_DECK, "amount": carmsc_reduction, "reason": reason})
 			else:

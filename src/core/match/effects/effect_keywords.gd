@@ -194,8 +194,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					if typeof(card) != TYPE_DICTIONARY:
 						continue
 					if not ckrhc_filter_subtype.is_empty():
-						var subtypes = card.get("subtypes", [])
-						if typeof(subtypes) != TYPE_ARRAY or not subtypes.has(ckrhc_filter_subtype):
+						if not ExtendedMechanicPacks.card_matches_subtype(card, ckrhc_filter_subtype):
 							continue
 					ckrhc_candidates.append(card)
 				if not ckrhc_candidates.is_empty():
@@ -468,20 +467,22 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						break
 				if not msisswtd_top.is_empty():
 					var msisswtd_top_subtypes = msisswtd_top.get("subtypes", [])
+					var msisswtd_top_is_wild := EvergreenRules._has_passive(msisswtd_top, "all_subtypes")
 					if typeof(msisswtd_top_subtypes) == TYPE_ARRAY:
 						for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
-							var msisswtd_card_subtypes = card.get("subtypes", [])
-							if typeof(msisswtd_card_subtypes) == TYPE_ARRAY:
-								var msisswtd_shares := false
-								for st in msisswtd_card_subtypes:
-									if msisswtd_top_subtypes.has(st):
+							var msisswtd_shares := false
+							if msisswtd_top_is_wild or EvergreenRules._has_passive(card, "all_subtypes"):
+								msisswtd_shares = true
+							else:
+								for st in msisswtd_top_subtypes:
+									if ExtendedMechanicPacks.card_matches_subtype(card, str(st)):
 										msisswtd_shares = true
 										break
-								if msisswtd_shares:
-									var msisswtd_power := int(effect.get("power", 0))
-									var msisswtd_health := int(effect.get("health", 0))
-									EvergreenRules.apply_stat_bonus(card, msisswtd_power, msisswtd_health, reason)
-									generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "power_bonus": msisswtd_power, "health_bonus": msisswtd_health, "reason": reason})
+							if msisswtd_shares:
+								var msisswtd_power := int(effect.get("power", 0))
+								var msisswtd_health := int(effect.get("health", 0))
+								EvergreenRules.apply_stat_bonus(card, msisswtd_power, msisswtd_health, reason)
+								generated_events.append({"event_type": "stats_modified", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "power_bonus": msisswtd_power, "health_bonus": msisswtd_health, "reason": reason})
 		"grant_pilfer_draw", "grant_slay_draw":
 			var gpd_family := "pilfer" if op == "grant_pilfer_draw" else "slay"
 			var gpd_is_temp := str(effect.get("duration", "")) == "end_of_turn"

@@ -2,6 +2,7 @@ class_name PersistentCardRules
 extends RefCounted
 
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
+const ExtendedMechanicPacks = preload("res://src/core/match/extended_mechanic_packs.gd")
 const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const GameLogger = preload("res://src/core/match/game_logger.gd")
@@ -708,21 +709,22 @@ static func _get_aura_cost_reduction(match_state: Dictionary, player_id: String,
 				continue
 		var aura_filter_subtype := str(aura.get("filter_subtype", ""))
 		if not aura_filter_subtype.is_empty():
-			var card_subtypes = card.get("subtypes", [])
-			if typeof(card_subtypes) != TYPE_ARRAY or not card_subtypes.has(aura_filter_subtype):
+			if not ExtendedMechanicPacks.card_matches_subtype(card, aura_filter_subtype):
 				continue
 		if aura.get("filter_subtype_matches_wielder", false):
 			if typeof(wielder) != TYPE_DICTIONARY:
 				continue
 			var wielder_subtypes = wielder.get("subtypes", [])
-			var card_subtypes_w = card.get("subtypes", [])
-			if typeof(wielder_subtypes) != TYPE_ARRAY or typeof(card_subtypes_w) != TYPE_ARRAY:
+			if typeof(wielder_subtypes) != TYPE_ARRAY:
 				continue
 			var matched := false
-			for ws in wielder_subtypes:
-				if card_subtypes_w.has(ws):
-					matched = true
-					break
+			if EvergreenRules._has_passive(card, "all_subtypes") or EvergreenRules._has_passive(wielder, "all_subtypes"):
+				matched = true
+			else:
+				for ws in wielder_subtypes:
+					if ExtendedMechanicPacks.card_matches_subtype(card, str(ws)):
+						matched = true
+						break
 			if not matched:
 				continue
 		if aura.get("filter_unique", false) and not card.get("is_unique", false):
@@ -753,8 +755,7 @@ static func _get_aura_cost_reduction(match_state: Dictionary, player_id: String,
 			continue
 		var ms_filter_subtype := str(ms_aura.get("filter_subtype", ""))
 		if not ms_filter_subtype.is_empty():
-			var card_subtypes = card.get("subtypes", [])
-			if typeof(card_subtypes) != TYPE_ARRAY or not card_subtypes.has(ms_filter_subtype):
+			if not ExtendedMechanicPacks.card_matches_subtype(card, ms_filter_subtype):
 				continue
 		total += int(ms_aura.get("amount", 0))
 	total -= _get_global_cost_increase(match_state, player_id, card_type)

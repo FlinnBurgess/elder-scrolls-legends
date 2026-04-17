@@ -116,9 +116,8 @@ static func recalculate_auras(match_state: Dictionary) -> Array:
 						continue
 					if str(ppfs_card.get("instance_id", "")) == ppfs_source_iid:
 						continue
-					var ppfs_subtypes: Array = ppfs_card.get("subtypes", [])
 					for st in ppfs:
-						if ppfs_subtypes.has(st):
+						if ExtendedMechanicPacks.card_matches_subtype(ppfs_card, str(st)):
 							ppfs_count += 1
 							break
 			power_bonus += ppfs_count
@@ -489,17 +488,10 @@ static func _get_aura_targets(match_state: Dictionary, source_card: Dictionary, 
 			if target_filter == "other_friendly" and str(card.get("instance_id", "")) == source_instance_id:
 				continue
 			if not filter_subtype.is_empty():
-				var subtypes: Array = card.get("subtypes", [])
-				if not subtypes.has(filter_subtype):
+				if not ExtendedMechanicPacks.card_matches_subtype(card, filter_subtype):
 					continue
 			if not filter_subtypes_any.is_empty():
-				var subtypes: Array = card.get("subtypes", [])
-				var has_match := false
-				for fsa_st in filter_subtypes_any:
-					if subtypes.has(fsa_st):
-						has_match = true
-						break
-				if not has_match:
+				if not ExtendedMechanicPacks.card_matches_any_subtype(card, filter_subtypes_any):
 					continue
 			if not filter_attribute.is_empty():
 				var attributes: Array = card.get("attributes", [])

@@ -243,8 +243,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var sfe_upgrade_subtype := str(effect.get("upgrade_if_consumed_subtype", ""))
 				if not sfe_upgrade_subtype.is_empty():
 					var sfe_consumed: Dictionary = trigger.get("_consumed_card_info", {})
-					var sfe_consumed_subtypes = sfe_consumed.get("subtypes", [])
-					if typeof(sfe_consumed_subtypes) == TYPE_ARRAY and sfe_consumed_subtypes.has(sfe_upgrade_subtype):
+					if ExtendedMechanicPacks.card_matches_subtype(sfe_consumed, sfe_upgrade_subtype):
 						var sfe_upgrade: Dictionary = effect.get("upgrade_template", {})
 						if not sfe_upgrade.is_empty():
 							sfe_template = sfe_upgrade
@@ -462,8 +461,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					if not srd_filter_card_type.is_empty() and str(srd_card.get("card_type", "")) != srd_filter_card_type:
 						continue
 					if not srd_filter_subtype.is_empty():
-						var srd_subtypes = srd_card.get("subtypes", [])
-						if typeof(srd_subtypes) != TYPE_ARRAY or not srd_subtypes.has(srd_filter_subtype):
+						if not ExtendedMechanicPacks.card_matches_subtype(srd_card, srd_filter_subtype):
 							continue
 					srd_candidates.append(srd_i)
 				if srd_candidates.is_empty():
@@ -734,8 +732,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					if sfdf_max_cost >= 0 and int(sfdf_card.get("cost", 0)) >= sfdf_max_cost:
 						continue
 					if not sfdf_filter_subtype.is_empty():
-						var sfdf_subtypes = sfdf_card.get("subtypes", [])
-						if typeof(sfdf_subtypes) != TYPE_ARRAY or not sfdf_subtypes.has(sfdf_filter_subtype):
+						if not ExtendedMechanicPacks.card_matches_subtype(sfdf_card, sfdf_filter_subtype):
 							continue
 					if not sfdf_filter_attribute.is_empty():
 						var sfdf_attrs = sfdf_card.get("attributes", [])
@@ -822,8 +819,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					if seufd_max_cost >= 0 and seufd_cost > seufd_max_cost:
 						continue
 					if not seufd_filter_subtype.is_empty():
-						var seufd_subtypes = seufd_card.get("subtypes", [])
-						if typeof(seufd_subtypes) != TYPE_ARRAY or not seufd_subtypes.has(seufd_filter_subtype):
+						if not ExtendedMechanicPacks.card_matches_subtype(seufd_card, seufd_filter_subtype):
 							continue
 					var seufd_def_key := str(seufd_card.get("definition_id", seufd_card.get("name", "")))
 					if seufd_defs_seen.has(seufd_def_key):

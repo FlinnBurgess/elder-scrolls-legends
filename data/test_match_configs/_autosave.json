@@ -16,21 +16,16 @@
 		"field_creatures": [
 			null,
 			null,
-			"cwc_neu_abomination",
-			"end_deathless_draugr"
+			null
 		],
 		"hand": [
-			"aw_end_hush",
-			"aw_end_hush",
-			"aw_end_hush",
-			"aw_end_hush"
+			"int_ice_spike",
+			"int_ice_spike",
+			"int_ice_spike"
 		],
 		"health": 30.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [
-			"hom_end_ald_velothi_assassin",
-			"hos_end_frost_giant"
-		],
+		"shadow_creatures": [],
 		"supports": []
 	},
 	"lanes": [
@@ -47,13 +42,13 @@
 	"player": {
 		"current_magicka": 12.0,
 		"deck": [
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"aw_tri_forerunner_of_the_pact",
 			"wil_piercing_javelin",
+			"aw_tri_forerunner_of_the_pact",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
 			"int_firebolt"
 		],
 		"discard": [
@@ -65,18 +60,21 @@
 		"field_creatures": [
 			null,
 			null,
-			"hom_wil_balmora_captain",
-			"hom_str_aldruhn_arms_master"
+			null,
+			"mc_str_stampede_sentinel"
 		],
 		"hand": [
-			"wil_piercing_javelin",
-			"hom_int_mighty_conjuring"
+			"agi_swift_strike"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [],
-		"supports": []
+		"shadow_creatures": [
+			"fsc_end_death_hound"
+		],
+		"supports": [
+			"neu_elixir_of_conflict"
+		]
 	},
 	"type": "kill"
 }

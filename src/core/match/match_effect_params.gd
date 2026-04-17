@@ -209,8 +209,7 @@ static func _resolve_count_multiplier(match_state: Dictionary, trigger: Dictiona
 							continue
 						if exclude_self and str(card.get("instance_id", "")) == self_instance_id:
 							continue
-						var subtypes = card.get("subtypes", [])
-						if typeof(subtypes) == TYPE_ARRAY and subtypes.has(fsc_subtype):
+						if ExtendedMechanicPacks.card_matches_subtype(card, fsc_subtype):
 							count += 1
 		"other_friendly_creatures":
 			for lane in match_state.get("lanes", []):
@@ -231,7 +230,6 @@ static func _resolve_count_multiplier(match_state: Dictionary, trigger: Dictiona
 					if typeof(card) == TYPE_DICTIONARY:
 						count += 1
 		"undead_creatures_in_play":
-			var undead_subtypes: Array = ExtendedMechanicPacks.SUBTYPE_GROUPS.get("Undead", [])
 			for lane in match_state.get("lanes", []):
 				for pid in lane.get("player_slots", {}).keys():
 					for card in lane.get("player_slots", {}).get(pid, []):
@@ -239,12 +237,8 @@ static func _resolve_count_multiplier(match_state: Dictionary, trigger: Dictiona
 							continue
 						if exclude_self and str(card.get("instance_id", "")) == self_instance_id:
 							continue
-						var subtypes = card.get("subtypes", [])
-						if typeof(subtypes) == TYPE_ARRAY:
-							for st in subtypes:
-								if undead_subtypes.has(st):
-									count += 1
-									break
+						if ExtendedMechanicPacks.card_matches_subtype(card, "Undead"):
+							count += 1
 		"actions_in_discard":
 			var aid_player := Helpers._get_player_state(match_state, controller_player_id)
 			if not aid_player.is_empty():

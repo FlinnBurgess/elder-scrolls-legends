@@ -23,6 +23,8 @@ const WINDOW_AFTER := "after"
 
 const STATUS_EXALTED := "exalted"
 
+const PLAYER_ONLY_GRANTS_IMMUNITY := ["action_damage", "support_damage"]
+
 
 static func _get_card_lane_index(match_state: Dictionary, instance_id: String) -> int:
 	var lanes: Array = match_state.get("lanes", [])
@@ -191,21 +193,22 @@ static func _get_aura_cost_reduction(match_state: Dictionary, player_id: String,
 			continue
 		var aura_filter_subtype := str(aura.get("filter_subtype", ""))
 		if not aura_filter_subtype.is_empty():
-			var card_subtypes = card.get("subtypes", [])
-			if typeof(card_subtypes) != TYPE_ARRAY or not card_subtypes.has(aura_filter_subtype):
+			if not ExtendedMechanicPacks.card_matches_subtype(card, aura_filter_subtype):
 				continue
 		if aura.get("filter_subtype_matches_wielder", false):
 			if typeof(wielder) != TYPE_DICTIONARY:
 				continue
 			var wielder_subtypes = wielder.get("subtypes", [])
-			var card_subtypes_w = card.get("subtypes", [])
-			if typeof(wielder_subtypes) != TYPE_ARRAY or typeof(card_subtypes_w) != TYPE_ARRAY:
+			if typeof(wielder_subtypes) != TYPE_ARRAY:
 				continue
 			var matched := false
-			for ws in wielder_subtypes:
-				if card_subtypes_w.has(ws):
-					matched = true
-					break
+			if EvergreenRules._has_passive(card, "all_subtypes") or EvergreenRules._has_passive(wielder, "all_subtypes"):
+				matched = true
+			else:
+				for ws in wielder_subtypes:
+					if ExtendedMechanicPacks.card_matches_subtype(card, str(ws)):
+						matched = true
+						break
 			if not matched:
 				continue
 		total += int(aura.get("amount", 0))
@@ -215,8 +218,7 @@ static func _get_aura_cost_reduction(match_state: Dictionary, player_id: String,
 			continue
 		var ms_filter_subtype := str(ms_aura.get("filter_subtype", ""))
 		if not ms_filter_subtype.is_empty():
-			var card_subtypes = card.get("subtypes", [])
-			if typeof(card_subtypes) != TYPE_ARRAY or not card_subtypes.has(ms_filter_subtype):
+			if not ExtendedMechanicPacks.card_matches_subtype(card, ms_filter_subtype):
 				continue
 		total += int(ms_aura.get("amount", 0))
 	total -= load("res://src/core/match/persistent_card_rules.gd")._get_global_cost_increase(match_state, player_id, card_type)
@@ -349,6 +351,9 @@ static func _is_immune_to_effect(match_state: Dictionary, target_card: Dictionar
 		var own_grants = target_card.get("grants_immunity", [])
 		if typeof(own_grants) == TYPE_ARRAY and own_grants.has("silence_on_equipped"):
 			return true
+	# Player-only grants (e.g. Stampede Sentinel's action/support damage shield) must not propagate to friendly creatures.
+	if effect_type in PLAYER_ONLY_GRANTS_IMMUNITY:
+		return false
 	var controller_id := str(target_card.get("controller_player_id", ""))
 	var target_id := str(target_card.get("instance_id", ""))
 	for lane in match_state.get("lanes", []):

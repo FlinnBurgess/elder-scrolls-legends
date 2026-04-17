@@ -301,8 +301,7 @@ static func get_valid_targets_for_mode(match_state: Dictionary, source_instance_
 			return not EvergreenRules.has_raw_status(c, "action_immune")
 		)
 	# enemy_dragon immunity: can't be targeted by enemy Dragons
-	var source_subtypes = source_card.get("subtypes", [])
-	if typeof(source_subtypes) == TYPE_ARRAY and source_subtypes.has("Dragon"):
+	if ExtendedMechanicPacks.card_matches_subtype(source_card, "Dragon"):
 		targets = targets.filter(func(c):
 			if not c.has("instance_id"):
 				return true
@@ -399,43 +398,16 @@ static func _resolve_card_targets(match_state: Dictionary, trigger: Dictionary, 
 	var filter_subtype := str(effect.get("target_filter_subtype", ""))
 	var filter_subtypes_arr = effect.get("target_filter_subtypes", [])
 	if not filter_subtype.is_empty():
-		var fs_group: Array = ExtendedMechanicPacks.SUBTYPE_GROUPS.get(filter_subtype, [])
 		var filtered: Array = []
 		for card in targets:
-			var subtypes: Array = card.get("subtypes", [])
-			if typeof(subtypes) != TYPE_ARRAY:
-				continue
-			if not fs_group.is_empty():
-				var fs_match := false
-				for st in subtypes:
-					if fs_group.has(st):
-						fs_match = true
-						break
-				if fs_match:
-					filtered.append(card)
-			elif subtypes.has(filter_subtype):
+			if ExtendedMechanicPacks.card_matches_subtype(card, filter_subtype):
 				filtered.append(card)
 		targets = filtered
 	elif typeof(filter_subtypes_arr) == TYPE_ARRAY and not filter_subtypes_arr.is_empty():
-		var expanded_subtypes: Array = []
-		for fs in filter_subtypes_arr:
-			var group: Array = ExtendedMechanicPacks.SUBTYPE_GROUPS.get(str(fs), [])
-			if not group.is_empty():
-				for g in group:
-					if not expanded_subtypes.has(g):
-						expanded_subtypes.append(g)
-			else:
-				if not expanded_subtypes.has(str(fs)):
-					expanded_subtypes.append(str(fs))
 		var filtered: Array = []
 		for card in targets:
-			var subtypes = card.get("subtypes", [])
-			if typeof(subtypes) != TYPE_ARRAY:
-				continue
-			for es in expanded_subtypes:
-				if subtypes.has(es):
-					filtered.append(card)
-					break
+			if ExtendedMechanicPacks.card_matches_any_subtype(card, filter_subtypes_arr):
+				filtered.append(card)
 		targets = filtered
 	var filter_keyword := str(effect.get("target_filter_keyword", effect.get("filter_keyword", "")))
 	if not filter_keyword.is_empty():
@@ -878,16 +850,10 @@ static func _resolve_card_targets_by_name(match_state: Dictionary, trigger: Dict
 						targets.append(card)
 		"all_friendly_animals":
 			var afa_controller_id := str(trigger.get("controller_player_id", ""))
-			var afa_animal_subtypes: Array = ["Beast", "Fish", "Mammoth", "Mudcrab", "Netch", "Reptile", "Skeever", "Spider", "Wolf"]
 			for lane in match_state.get("lanes", []):
 				for card in lane.get("player_slots", {}).get(afa_controller_id, []):
-					if typeof(card) == TYPE_DICTIONARY:
-						var afa_subtypes = card.get("subtypes", [])
-						if typeof(afa_subtypes) == TYPE_ARRAY:
-							for afa_st in afa_subtypes:
-								if afa_animal_subtypes.has(str(afa_st)):
-									targets.append(card)
-									break
+					if typeof(card) == TYPE_DICTIONARY and ExtendedMechanicPacks.card_matches_subtype(card, "Animal"):
+						targets.append(card)
 		"all_friendly_oblivion_gates":
 			var afog_controller_id := str(trigger.get("controller_player_id", ""))
 			for lane in match_state.get("lanes", []):

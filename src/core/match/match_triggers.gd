@@ -767,8 +767,7 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 		var res_host := MatchTimingHelpers._find_card_anywhere(match_state, str(event.get("target_instance_id", "")))
 		if res_host.is_empty():
 			return false
-		var res_subtypes = res_host.get("subtypes", [])
-		if typeof(res_subtypes) != TYPE_ARRAY or not res_subtypes.has(res_subtype):
+		if not ExtendedMechanicPacks.card_matches_subtype(res_host, res_subtype):
 			return false
 	# 22b. required_equipper_name — the equipping creature has the required name
 	var res_name := str(descriptor.get("required_equipper_name", ""))
@@ -853,8 +852,7 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 		if _summon_card.is_empty():
 			return false
 	if not required_summon_subtype.is_empty():
-		var summon_subtypes = _summon_card.get("subtypes", [])
-		if typeof(summon_subtypes) != TYPE_ARRAY or not summon_subtypes.has(required_summon_subtype):
+		if not ExtendedMechanicPacks.card_matches_subtype(_summon_card, required_summon_subtype):
 			return false
 	if not required_summon_keyword.is_empty():
 		if not EvergreenRules.has_keyword(_summon_card, required_summon_keyword):
@@ -874,8 +872,7 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 		var slay_victim := MatchTimingHelpers._find_card_anywhere(match_state, str(event.get("source_instance_id", "")))
 		if slay_victim.is_empty():
 			return false
-		var slay_subtypes = slay_victim.get("subtypes", [])
-		if typeof(slay_subtypes) != TYPE_ARRAY or not slay_subtypes.has(required_slay_subtype):
+		if not ExtendedMechanicPacks.card_matches_subtype(slay_victim, required_slay_subtype):
 			return false
 	if bool(descriptor.get("require_positive_power_bonus", family_spec.get("require_positive_power_bonus", false))):
 		if int(event.get("power_bonus", 0)) <= 0:
@@ -907,8 +904,7 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 		var rss_source := MatchTimingHelpers._find_card_anywhere(match_state, str(event.get("source_instance_id", "")))
 		if rss_source.is_empty():
 			return false
-		var rss_subtypes = rss_source.get("subtypes", [])
-		if typeof(rss_subtypes) != TYPE_ARRAY or not rss_subtypes.has(required_source_subtype):
+		if not ExtendedMechanicPacks.card_matches_subtype(rss_source, required_source_subtype):
 			return false
 	var required_source_card_type := str(descriptor.get("required_source_card_type", family_spec.get("required_source_card_type", "")))
 	if not required_source_card_type.is_empty():

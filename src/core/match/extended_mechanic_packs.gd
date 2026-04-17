@@ -702,19 +702,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				if srfc_exact_cost >= 0 and int(seed.get("cost", 0)) != srfc_exact_cost:
 					continue
 				if not srfc_req_subtype.is_empty():
-					var subtypes = seed.get("subtypes", [])
-					if typeof(subtypes) != TYPE_ARRAY:
-						continue
-					var srfc_group: Array = SUBTYPE_GROUPS.get(srfc_req_subtype, [])
-					if not srfc_group.is_empty():
-						var srfc_match := false
-						for st in subtypes:
-							if srfc_group.has(st):
-								srfc_match = true
-								break
-						if not srfc_match:
-							continue
-					elif not subtypes.has(srfc_req_subtype):
+					if not card_matches_subtype(seed, srfc_req_subtype):
 						continue
 				srfc_candidates.append(seed)
 			if srfc_candidates.is_empty():
@@ -897,8 +885,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				if int(rrhcc_card.get("cost", 0)) <= 0:
 					continue
 				if not rrhcc_subtype.is_empty():
-					var rrhcc_subtypes: Array = rrhcc_card.get("subtypes", [])
-					if typeof(rrhcc_subtypes) != TYPE_ARRAY or not rrhcc_subtypes.has(rrhcc_subtype):
+					if not card_matches_subtype(rrhcc_card, rrhcc_subtype):
 						continue
 				rrhcc_candidates.append(rrhcc_card)
 			if rrhcc_candidates.is_empty():
@@ -918,11 +905,9 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			var ceb_met := false
 			if ceb_condition == "dragon_in_discard":
 				for ceb_card in ceb_player.get(MatchMutations.ZONE_DISCARD, []):
-					if typeof(ceb_card) == TYPE_DICTIONARY:
-						var ceb_subtypes = ceb_card.get("subtypes", [])
-						if typeof(ceb_subtypes) == TYPE_ARRAY and ceb_subtypes.has("Dragon"):
-							ceb_met = true
-							break
+					if typeof(ceb_card) == TYPE_DICTIONARY and card_matches_subtype(ceb_card, "Dragon"):
+						ceb_met = true
+						break
 			if not ceb_met:
 				return {"handled": true, "events": []}
 			var ceb_host := _find_card_anywhere(match_state, str(event.get("target_instance_id", "")))
@@ -1009,8 +994,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				if srfd_exact_cost >= 0 and int(card.get("cost", 0)) != srfd_exact_cost:
 					continue
 				if not srfd_req_subtype.is_empty():
-					var srfd_subtypes = card.get("subtypes", [])
-					if typeof(srfd_subtypes) != TYPE_ARRAY or not srfd_subtypes.has(srfd_req_subtype):
+					if not card_matches_subtype(card, srfd_req_subtype):
 						continue
 				srfd_candidates.append({"index": i, "card": card})
 			if srfd_candidates.is_empty():
@@ -2415,19 +2399,7 @@ static func _filter_catalog_seeds(filter: Dictionary) -> Array:
 		if exact_cost >= 0 and int(seed.get("cost", 0)) != exact_cost:
 			continue
 		if not req_subtype.is_empty():
-			var subtypes = seed.get("subtypes", [])
-			if typeof(subtypes) != TYPE_ARRAY:
-				continue
-			var group: Array = SUBTYPE_GROUPS.get(req_subtype, [])
-			if not group.is_empty():
-				var match_found := false
-				for st in subtypes:
-					if group.has(st):
-						match_found = true
-						break
-				if not match_found:
-					continue
-			elif not subtypes.has(req_subtype):
+			if not card_matches_subtype(seed, req_subtype):
 				continue
 		if not req_rules_tag.is_empty():
 			var tags = seed.get("rules_tags", [])
@@ -2499,9 +2471,36 @@ static func _get_player_state(match_state: Dictionary, player_id: String) -> Dic
 	return {}
 
 
+static func card_matches_subtype(card: Dictionary, subtype: String) -> bool:
+	if typeof(card) != TYPE_DICTIONARY or card.is_empty():
+		return false
+	if EvergreenRules._has_passive(card, "all_subtypes"):
+		return true
+	var subtypes = card.get("subtypes", [])
+	if typeof(subtypes) != TYPE_ARRAY:
+		return false
+	if subtypes.has(subtype):
+		return true
+	var group: Array = SUBTYPE_GROUPS.get(subtype, [])
+	if not group.is_empty():
+		for st in subtypes:
+			if group.has(str(st)):
+				return true
+	return false
+
+
+static func card_matches_any_subtype(card: Dictionary, subtypes_list: Array) -> bool:
+	for st in subtypes_list:
+		if card_matches_subtype(card, str(st)):
+			return true
+	return false
+
+
 static func _card_has_string(card: Dictionary, field_name: String, expected: String) -> bool:
 	if card.is_empty():
 		return false
+	if field_name == "subtypes":
+		return card_matches_subtype(card, expected)
 	for value in _ensure_array(card.get(field_name, [])):
 		if str(value) == expected:
 			return true
@@ -2516,7 +2515,6 @@ static func _get_opponent(match_state: Dictionary, player_id: String) -> Diction
 
 
 static func _has_friendly_with_subtype(match_state: Dictionary, player_id: String, subtype: String, exclude_instance_id: String) -> bool:
-	var group: Array = SUBTYPE_GROUPS.get(subtype, [])
 	for lane in match_state.get("lanes", []):
 		var player_slots: Dictionary = lane.get("player_slots", {})
 		var slots: Array = player_slots.get(player_id, [])
@@ -2525,13 +2523,7 @@ static func _has_friendly_with_subtype(match_state: Dictionary, player_id: Strin
 				continue
 			if str(card.get("instance_id", "")) == exclude_instance_id:
 				continue
-			if not group.is_empty():
-				var card_subtypes = card.get("subtypes", [])
-				if typeof(card_subtypes) == TYPE_ARRAY:
-					for st in card_subtypes:
-						if group.has(st):
-							return true
-			elif _card_has_string(card, "subtypes", subtype):
+			if card_matches_subtype(card, subtype):
 				return true
 	return false
 

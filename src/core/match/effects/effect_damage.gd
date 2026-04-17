@@ -69,22 +69,11 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			if not dd_bonus_data.is_empty():
 				var dd_bonus_subtype := str(dd_bonus_data.get("subtype", ""))
 				var dd_bonus_amount := int(dd_bonus_data.get("amount", 0))
-				var dd_bonus_group: Array = ExtendedMechanicPacks.SUBTYPE_GROUPS.get(dd_bonus_subtype, [])
 				var dd_bonus_controller := str(trigger.get("controller_player_id", ""))
 				var dd_bonus_count := 0
 				for dd_lane in match_state.get("lanes", []):
 					for dd_card in dd_lane.get("player_slots", {}).get(dd_bonus_controller, []):
-						if typeof(dd_card) != TYPE_DICTIONARY:
-							continue
-						var dd_card_st = dd_card.get("subtypes", [])
-						if typeof(dd_card_st) != TYPE_ARRAY:
-							continue
-						if not dd_bonus_group.is_empty():
-							for dd_st in dd_card_st:
-								if dd_bonus_group.has(dd_st):
-									dd_bonus_count += 1
-									break
-						elif dd_card_st.has(dd_bonus_subtype):
+						if typeof(dd_card) == TYPE_DICTIONARY and ExtendedMechanicPacks.card_matches_subtype(dd_card, dd_bonus_subtype):
 							dd_bonus_count += 1
 				damage_amount += dd_bonus_count * dd_bonus_amount
 			var dd_source_key := str(effect.get("damage_source", effect.get("source", "")))
@@ -125,8 +114,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				if not dd_source_creature.is_empty():
 					var _ed_immunities = card.get("self_immunity", [])
 					if typeof(_ed_immunities) == TYPE_ARRAY and _ed_immunities.has("enemy_dragon"):
-						var _ed_subtypes = dd_source_creature.get("subtypes", [])
-						if typeof(_ed_subtypes) == TYPE_ARRAY and _ed_subtypes.has("Dragon"):
+						if ExtendedMechanicPacks.card_matches_subtype(dd_source_creature, "Dragon"):
 							if str(dd_source_creature.get("controller_player_id", "")) != str(card.get("controller_player_id", "")):
 								continue
 					# enemy_cliff immunity: can't be damaged by cliff creatures

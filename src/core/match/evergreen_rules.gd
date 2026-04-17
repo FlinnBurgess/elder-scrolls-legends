@@ -524,7 +524,7 @@ static func get_remaining_health(card: Dictionary) -> int:
 
 static func get_power(card: Dictionary) -> int:
 	if _has_passive(card, "power_equals_health"):
-		return max(0, get_health(card))
+		return max(0, get_remaining_health(card))
 	var base_value := 0
 	if card.has("power"):
 		base_value = int(card.get("power", 0))

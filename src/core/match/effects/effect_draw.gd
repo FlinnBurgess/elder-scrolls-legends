@@ -125,8 +125,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					if not filter_card_type.is_empty() and str(deck_card.get("card_type", "")) != filter_card_type:
 						continue
 					if not filter_subtype.is_empty():
-						var subtypes = deck_card.get("subtypes", [])
-						if typeof(subtypes) != TYPE_ARRAY or not subtypes.has(filter_subtype):
+						if not ExtendedMechanicPacks.card_matches_subtype(deck_card, filter_subtype):
 							continue
 					if not filter_rules_tag.is_empty():
 						var deck_card_tags = deck_card.get("rules_tags", [])
@@ -197,8 +196,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					if not discard_filter_card_type_in.is_empty() and not discard_filter_card_type_in.has(str(d_card.get("card_type", ""))):
 						continue
 					if not discard_filter_subtype.is_empty():
-						var d_subtypes = d_card.get("subtypes", [])
-						if typeof(d_subtypes) != TYPE_ARRAY or not d_subtypes.has(discard_filter_subtype):
+						if not ExtendedMechanicPacks.card_matches_subtype(d_card, discard_filter_subtype):
 							continue
 					if not discard_filter_name.is_empty() and str(d_card.get("definition_id", "")) != discard_filter_name:
 						continue
@@ -263,14 +261,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					if dfdf_filter.has("subtype_in"):
 						var dfdf_st_filter = dfdf_filter["subtype_in"]
 						if typeof(dfdf_st_filter) == TYPE_ARRAY:
-							var dfdf_card_subtypes = card.get("subtypes", [])
-							var dfdf_st_match := false
-							if typeof(dfdf_card_subtypes) == TYPE_ARRAY:
-								for dfdf_st in dfdf_card_subtypes:
-									if dfdf_st_filter.has(str(dfdf_st)):
-										dfdf_st_match = true
-										break
-							if not dfdf_st_match:
+							if not ExtendedMechanicPacks.card_matches_any_subtype(card, dfdf_st_filter):
 								dfdf_match = false
 					if dfdf_match:
 						dfdf_candidates.append(di)
@@ -488,7 +479,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					var ditds_filter_subtype := str(effect.get("subtype", effect.get("filter_subtype", "")))
 					var ditds_subtypes = ditds_top.get("subtypes", [])
 					GameLogger.trc("EffDraw", "ditds_check", "top:%s,filter:%s,subtypes:%s" % [str(ditds_top.get("name", ditds_top.get("definition_id", "?"))), ditds_filter_subtype, str(ditds_subtypes)])
-					if typeof(ditds_subtypes) == TYPE_ARRAY and ditds_subtypes.has(ditds_filter_subtype):
+					if ExtendedMechanicPacks.card_matches_subtype(ditds_top, ditds_filter_subtype):
 						GameLogger.trc("EffDraw", "ditds_draw", "matched:%s" % ditds_filter_subtype)
 						var ditds_draw = _MT().draw_cards(match_state, ditds_controller_id, 1, {"reason": reason, "source_instance_id": str(trigger.get("source_instance_id", ""))})
 						generated_events.append_array(ditds_draw.get("events", []))
