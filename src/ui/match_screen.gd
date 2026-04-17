@@ -515,6 +515,10 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 		card["play_limit_per_turn"] = int(definition["play_limit_per_turn"])
 	if definition.has("magicka_aura"):
 		card["magicka_aura"] = int(definition["magicka_aura"])
+	if definition.has("rally_amount"):
+		card["rally_amount"] = int(definition["rally_amount"])
+	if definition.has("rally_boost_aura"):
+		card["rally_boost_aura"] = bool(definition["rally_boost_aura"])
 	if definition.has("self_immunity"):
 		card["self_immunity"] = definition["self_immunity"].duplicate(true)
 	if definition.has("first_turn_hand_cost"):
@@ -891,6 +895,10 @@ func get_pending_prophecy_ids() -> Array:
 	for window in MatchTiming.get_pending_prophecies(_match_state):
 		ids.append(str(window.get("instance_id", "")))
 	return ids
+
+
+func get_local_match_ai_pacing_state() -> Dictionary:
+	return _ai_system.get_local_match_ai_pacing_state()
 
 
 func get_interaction_state() -> Dictionary:

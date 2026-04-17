@@ -254,6 +254,21 @@ static func recalculate_auras(match_state: Dictionary) -> Array:
 							continue
 						gi_target["aura_damage_immune"] = true
 
+	# Step 3g: damage_on_own_turn self_immunity — creature is damage-immune while its controller is the active player (e.g. Armored Troll)
+	var active_player_id := str(match_state.get("active_player_id", ""))
+	if not active_player_id.is_empty():
+		for lane in lanes:
+			var dot_player_slots: Dictionary = lane.get("player_slots", {})
+			for player_id in dot_player_slots.keys():
+				if str(player_id) != active_player_id:
+					continue
+				for card in dot_player_slots[player_id]:
+					if typeof(card) != TYPE_DICTIONARY:
+						continue
+					var dot_immunities = card.get("self_immunity", [])
+					if typeof(dot_immunities) == TYPE_ARRAY and dot_immunities.has("damage_on_own_turn"):
+						card["aura_damage_immune"] = true
+
 	# Step 4: Emit keyword_granted events for newly gained aura keywords
 	var aura_keyword_events: Array = []
 	for lane in lanes:

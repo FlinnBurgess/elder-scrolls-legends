@@ -200,7 +200,9 @@ static func refresh_for_controller_turn(card: Dictionary, current_turn_number: i
 		card.erase("cover_expires_on_turn")
 		card.erase("cover_granted_by")
 		result["cover_expired"] = true
-	if has_raw_status(card, STATUS_SHACKLED) and int(card.get("shackle_expires_on_turn", -1)) <= current_turn_number:
+	# Strict < (vs cover's <=) so shackle persists through the controller's next turn,
+	# causing them to skip that attack opportunity, then clears on the turn after.
+	if has_raw_status(card, STATUS_SHACKLED) and int(card.get("shackle_expires_on_turn", -1)) < current_turn_number:
 		remove_status(card, STATUS_SHACKLED)
 		card.erase("shackle_expires_on_turn")
 		result["shackle_cleared"] = true
@@ -350,7 +352,27 @@ static func resolve_rally(match_state: Dictionary, attacker: Dictionary) -> Arra
 	var rally_count := count_keyword(attacker, KEYWORD_RALLY)
 	if rally_count == 0:
 		return []
-	var controller_player := _get_player_state(match_state, str(attacker.get("controller_player_id", "")))
+	var intrinsic_amount := int(attacker.get("rally_amount", 0))
+	if intrinsic_amount > rally_count:
+		rally_count = intrinsic_amount
+	var controller_id := str(attacker.get("controller_player_id", ""))
+	var attacker_iid := str(attacker.get("instance_id", ""))
+	var aura_bonus := 0
+	for lane in match_state.get("lanes", []):
+		var slots: Array = lane.get("player_slots", {}).get(controller_id, [])
+		for ally in slots:
+			if typeof(ally) != TYPE_DICTIONARY:
+				continue
+			if str(ally.get("instance_id", "")) == attacker_iid:
+				continue
+			if not bool(ally.get("rally_boost_aura", false)):
+				continue
+			if has_raw_status(ally, STATUS_SILENCED):
+				continue
+			aura_bonus += 1
+	rally_count += aura_bonus
+	GameLogger.trc("Evergreen", "rally_count", "atk:%s,intrinsic:%d,aura_bonus:%d,total:%d" % [str(attacker.get("name", attacker_iid)), intrinsic_amount, aura_bonus, rally_count])
+	var controller_player := _get_player_state(match_state, controller_id)
 	if controller_player.is_empty():
 		return []
 	var candidates: Array = []

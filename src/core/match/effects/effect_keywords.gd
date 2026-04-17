@@ -271,7 +271,8 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					if bool(effect.get("permanent", false)):
 						card["shackle_expires_on_turn"] = 999999
 					else:
-						card["shackle_expires_on_turn"] = int(match_state.get("turn_number", 0)) + 1
+						# +2 = controller's next turn; refresh uses strict < so it persists through that turn
+						card["shackle_expires_on_turn"] = int(match_state.get("turn_number", 0)) + 2
 				elif status_id == "shackle_immune":
 					EvergreenRules.add_status(card, status_id)
 					if EvergreenRules.has_status(card, EvergreenRules.STATUS_SHACKLED):
@@ -381,7 +382,8 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					card["shackle_expires_on_turn"] = 999999
 					card["_shackle_persistent_source_id"] = str(trigger.get("source_instance_id", ""))
 				else:
-					card["shackle_expires_on_turn"] = int(match_state.get("turn_number", 0)) + 1
+					# +2 = controller's next turn; refresh uses strict < so it persists through that turn
+					card["shackle_expires_on_turn"] = int(match_state.get("turn_number", 0)) + 2
 				generated_events.append({"event_type": "status_granted", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "status_id": "shackled", "reason": reason})
 		"sacrifice_if_no_ward":
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):

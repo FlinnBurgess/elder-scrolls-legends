@@ -325,7 +325,10 @@ static func _ongoing_effect_value(card: Dictionary) -> float:
 
 
 ## Estimates the value of a single trigger's effects based on the operations it
-## performs (damage, draw, stat buffs, etc.).
+## performs (damage, draw, stat buffs, etc.). Effects that target the
+## controller or the creature itself (e.g. self-shackle, self-damage) are
+## scored negatively — silencing such a creature would benefit its controller,
+## so the AI should not treat stripping a self-harm ongoing as removal value.
 static func _trigger_effect_value(trigger: Dictionary) -> float:
 	var effects = trigger.get("effects", [])
 	if typeof(effects) != TYPE_ARRAY:
@@ -335,9 +338,11 @@ static func _trigger_effect_value(trigger: Dictionary) -> float:
 		if typeof(effect) != TYPE_DICTIONARY:
 			continue
 		var op := str(effect.get("op", ""))
+		var hits_self := _effect_targets_controller_side(effect)
 		match op:
 			"deal_damage", "damage":
-				total += float(int(effect.get("amount", 0))) * 1.0
+				var amt := float(int(effect.get("amount", 0)))
+				total += -amt if hits_self else amt
 			"draw_cards":
 				total += float(int(effect.get("count", 1))) * 2.0
 			"modify_stats":
@@ -347,18 +352,33 @@ static func _trigger_effect_value(trigger: Dictionary) -> float:
 			"grant_keyword":
 				total += 1.0
 			"heal":
-				total += float(int(effect.get("amount", 0))) * 1.0
+				var hamt := float(int(effect.get("amount", 0)))
+				total += hamt if _effect_targets_controller_side(effect) else -hamt
 			"shackle":
-				total += 1.5
+				total += -1.5 if hits_self else 1.5
 			"silence":
-				total += 1.5
+				total += -1.5 if hits_self else 1.5
 			"destroy_creature":
-				total += 4.0
+				total += -4.0 if hits_self else 4.0
 			"summon_random_from_catalog", "summon_creature":
 				total += 3.0
 			_:
 				total += 0.5  # unknown but present effect has some value
 	return total
+
+
+## Returns true when the effect's target resolves to the source card's own
+## controller (self, controller player, all friendlies, etc.). Used to invert
+## the sign of harmful effects so the AI doesn't count self-damage/self-shackle
+## as removal value when considering silence.
+static func _effect_targets_controller_side(effect: Dictionary) -> bool:
+	var t := str(effect.get("target", ""))
+	var tp := str(effect.get("target_player", ""))
+	if tp == "controller":
+		return true
+	if t in ["self", "controller", "all_friendly", "all_friendly_in_lane", "random_friendly", "friendly_in_lane"]:
+		return true
+	return false
 
 
 ## Scores the value this creature provides as an aura source, buffing other

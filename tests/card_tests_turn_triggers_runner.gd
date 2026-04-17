@@ -75,6 +75,8 @@ func _run_all_tests() -> bool:
 		_test_wrath_of_sithis_cost_increase_active_during_opponent_turn() and
 		_test_wrath_of_sithis_cost_increase_expires_after_turn() and
 		_test_wrath_of_sithis_cost_increase_survives_source_death() and
+		# Raise Dead — "Summon a random creature from each discard pile"
+		_test_raise_dead_summons_both_creatures_to_controller_side() and
 		true
 	)
 
@@ -975,3 +977,53 @@ func _test_wrath_of_sithis_cost_increase_survives_source_death() -> bool:
 	var effective: int = PersistentCardRules.get_effective_play_cost(match_state, opid, opp_card)
 	return _assert(effective == 4,
 		"Opponent card should still cost 4 after Wrath destroyed, got %d" % effective)
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Raise Dead — "Summon a random creature from each discard pile."
+# Both summoned creatures belong to the caster (friendly lanes).
+# ──────────────────────────────────────────────────────────────────────
+
+func _test_raise_dead_summons_both_creatures_to_controller_side() -> bool:
+	var match_state := _build_started_match()
+	var player := ScenarioFixtures.player(match_state, 0)
+	var opponent := ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Give each player exactly one creature in their discard.
+	var friendly_corpse := ScenarioFixtures.make_card(pid, "friendly_corpse", {
+		"definition_id": "test_friendly_corpse", "card_type": "creature",
+		"cost": 2, "power": 2, "health": 2, "name": "Friendly Corpse",
+	})
+	friendly_corpse["zone"] = "discard"
+	player["discard"].append(friendly_corpse)
+	var enemy_corpse := ScenarioFixtures.make_card(oid, "enemy_corpse", {
+		"definition_id": "test_enemy_corpse", "card_type": "creature",
+		"cost": 3, "power": 3, "health": 3, "name": "Enemy Corpse",
+	})
+	enemy_corpse["zone"] = "discard"
+	opponent["discard"].append(enemy_corpse)
+	# Player casts Raise Dead.
+	var raise_dead: Dictionary = _catalog_helper.add_to_hand(player, "end_raise_dead")
+	if raise_dead.is_empty():
+		return _assert(false, "Failed to add Raise Dead to hand")
+	MatchTiming.play_action_from_hand(match_state, pid, str(raise_dead.get("instance_id", "")))
+	# Both creatures must land on the controller's side, in friendly slots.
+	var friendly_lane_ids: Array = []
+	var opponent_lane_ids: Array = []
+	for lane in match_state.get("lanes", []):
+		var slots: Dictionary = lane.get("player_slots", {})
+		for card in slots.get(pid, []):
+			if typeof(card) == TYPE_DICTIONARY:
+				friendly_lane_ids.append(str(card.get("definition_id", "")))
+		for card in slots.get(oid, []):
+			if typeof(card) == TYPE_DICTIONARY:
+				opponent_lane_ids.append(str(card.get("definition_id", "")))
+	return (
+		_assert(friendly_lane_ids.has("test_friendly_corpse"),
+			"Raise Dead: friendly corpse should land on controller's side.") and
+		_assert(friendly_lane_ids.has("test_enemy_corpse"),
+			"Raise Dead: creature pulled from opponent discard should still summon on controller's side.") and
+		_assert(not opponent_lane_ids.has("test_enemy_corpse"),
+			"Raise Dead: opponent must NOT get the resurrected creature from their own discard.")
+	)

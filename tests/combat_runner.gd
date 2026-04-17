@@ -31,7 +31,8 @@ func _run_all_tests() -> bool:
 		_test_escalating_damage_sets_counter_on_card() and
 		_test_wounded_enemy_damage_immunity() and
 		_test_attack_condition_blocks_attack_without_action_played() and
-		_test_shackle_permanent_unless_equipped()
+		_test_shackle_permanent_unless_equipped() and
+		_test_damage_on_own_turn_immunity()
 	)
 
 
@@ -562,6 +563,51 @@ func _test_shackle_permanent_unless_equipped() -> bool:
 		_assert(not blocked["is_valid"], "Craven Conscript without items should be shackled and unable to attack.") and
 		_assert(allowed["is_valid"], "Craven Conscript with an equipped item should be able to attack.") and
 		_assert(not blocked_again["is_valid"], "Craven Conscript should be shackled again after item is removed.")
+	)
+
+
+func _test_damage_on_own_turn_immunity() -> bool:
+	# Armored Troll: "immune to damage on your turn"
+	var match_state := _build_started_match(18, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var troll := _summon_creature(active_player, match_state, "troll", "field", 3, 7)
+	troll["self_immunity"] = ["damage_on_own_turn"]
+	_target_ready_for_attack(troll, match_state)
+	var big_defender := _summon_creature(opponent, match_state, "big_def", "field", 10, 10)
+	_target_ready_for_attack(big_defender, match_state)
+	MatchAuras.recalculate_auras(match_state)
+
+	# Troll attacks on its own turn — should take 0 retaliation damage from defender
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], troll["instance_id"], {
+		"type": "creature",
+		"instance_id": big_defender["instance_id"],
+	})
+	if not (
+		_assert(result["is_valid"], "Attack should resolve.") and
+		_assert(int(troll.get("damage_marked", 0)) == 0, "Troll should take 0 retaliation damage on its controller's turn. Got %d." % int(troll.get("damage_marked", 0))) and
+		_assert(int(big_defender.get("damage_marked", 0)) == 3, "Defender should still take troll's damage. Got %d." % int(big_defender.get("damage_marked", 0)))
+	):
+		return false
+
+	# Now on opponent's turn, troll should be damageable (test via a fresh scenario since attack already happened)
+	var match_state2 := _build_started_match(18, 0)
+	var player2: Dictionary = match_state2["players"][0]
+	var opponent2: Dictionary = match_state2["players"][1]
+	var troll2 := _summon_creature(player2, match_state2, "troll2", "field", 3, 7)
+	troll2["self_immunity"] = ["damage_on_own_turn"]
+	var enemy_attacker := _summon_creature(opponent2, match_state2, "enemy_atk", "field", 4, 4)
+	_target_ready_for_attack(troll2, match_state2)
+	_target_ready_for_attack(enemy_attacker, match_state2)
+	MatchTurnLoop.end_turn(match_state2, player2["player_id"])
+	MatchAuras.recalculate_auras(match_state2)
+	var result2 := MatchCombat.resolve_attack(match_state2, opponent2["player_id"], enemy_attacker["instance_id"], {
+		"type": "creature",
+		"instance_id": troll2["instance_id"],
+	})
+	return (
+		_assert(result2["is_valid"], "Opponent attack should resolve.") and
+		_assert(int(troll2.get("damage_marked", 0)) == 4, "Troll should take damage on opponent's turn. Got %d." % int(troll2.get("damage_marked", 0)))
 	)
 
 

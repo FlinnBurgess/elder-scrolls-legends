@@ -1032,6 +1032,8 @@ const _CARD_REPLACING_OPS := ["change", "transform"]
 func _has_ongoing_effect() -> bool:
 	if _card_data.get("aura") != null:
 		return true
+	if bool(_card_data.get("rally_boost_aura", false)):
+		return true
 	var grants_immunity = _card_data.get("grants_immunity", [])
 	if typeof(grants_immunity) == TYPE_ARRAY and not grants_immunity.is_empty():
 		return true

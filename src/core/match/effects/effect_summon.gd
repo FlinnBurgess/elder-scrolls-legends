@@ -448,6 +448,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			var srd_filter: Dictionary = srd_filter_raw if typeof(srd_filter_raw) == TYPE_DICTIONARY else {}
 			var srd_filter_card_type := str(srd_filter.get("card_type", effect.get("required_card_type", "creature")))
 			var srd_filter_subtype := str(srd_filter.get("subtype", ""))
+			var srd_summon_to_spec: String = str(effect.get("summon_to_player", ""))
 			for player_id in MatchTargeting._resolve_player_targets(match_state, trigger, event, effect):
 				var srd_player := MatchTimingHelpers._get_player_state(match_state, player_id)
 				if srd_player.is_empty():
@@ -467,7 +468,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					srd_candidates.append(srd_i)
 				if srd_candidates.is_empty():
 					return
-				var srd_pick: int = srd_candidates[MatchEffectParams._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_srd", srd_candidates.size())]
+				var srd_pick: int = srd_candidates[MatchEffectParams._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_srd_" + player_id, srd_candidates.size())]
 				var srd_picked: Dictionary = srd_discard[srd_pick]
 				srd_discard.remove_at(srd_pick)
 				MatchMutations.reset_transient_state(srd_picked)
@@ -483,10 +484,16 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					srd_lane_id = str(srd_lanes[0].get("lane_id", ""))
 				if srd_lane_id.is_empty():
 					return
-				var srd_result := MatchMutations.summon_card_to_lane(match_state, player_id, srd_picked, srd_lane_id, {})
+				var srd_summon_pid: String = player_id
+				if not srd_summon_to_spec.is_empty():
+					var srd_override_effect := {"target_player": srd_summon_to_spec}
+					var srd_override_targets: Array = MatchTargeting._resolve_player_targets(match_state, trigger, event, srd_override_effect)
+					if not srd_override_targets.is_empty():
+						srd_summon_pid = str(srd_override_targets[0])
+				var srd_result := MatchMutations.summon_card_to_lane(match_state, srd_summon_pid, srd_picked, srd_lane_id, {})
 				if bool(srd_result.get("is_valid", false)):
 					generated_events.append_array(srd_result.get("events", []))
-					generated_events.append(MatchSummonTiming._build_summon_event(srd_result["card"], player_id, srd_lane_id, int(srd_result.get("slot_index", -1)), reason))
+					generated_events.append(MatchSummonTiming._build_summon_event(srd_result["card"], srd_summon_pid, srd_lane_id, int(srd_result.get("slot_index", -1)), reason))
 		"summon_from_discard":
 			var sfd_controller := str(trigger.get("controller_player_id", ""))
 			var sfd_player := MatchTimingHelpers._get_player_state(match_state, sfd_controller)

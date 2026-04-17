@@ -30,6 +30,7 @@ func _initialize() -> void:
 	_test_ai_silences_rally_threat_when_no_removal(failures)
 	_test_ai_silences_ongoing_heal_over_passing(failures)
 	_test_ai_prefers_clean_attack_over_silence(failures)
+	_test_ai_skips_silence_on_self_harming_creature(failures)
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)
@@ -388,7 +389,7 @@ func _test_ai_silences_rally_threat_when_no_removal(failures: Array) -> void:
 # AI despite having silence available. The per-turn heal value, multiplied by
 # the creature's durability, should tip silence above passing.
 func _test_ai_silences_ongoing_heal_over_passing(failures: Array) -> void:
-	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 12, "first_player_index": 0})
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 3, "first_player_index": 0})
 	var first_player: Dictionary = ScenarioFixtures.player(match_state, 0)
 	MatchTurnLoop.end_turn(match_state, str(first_player.get("player_id", "")))
 	var player: Dictionary = ScenarioFixtures.player(match_state, 1)
@@ -397,9 +398,10 @@ func _test_ai_silences_ongoing_heal_over_passing(failures: Array) -> void:
 	opponent["hand"] = []
 	opponent["health"] = 15
 	# 10/10 Regenerate with a powerful start-of-turn heal — silencing it removes
-	# both the ongoing and the Regenerate shield.
+	# both the ongoing and the Regenerate shield. Cost 0 so the test doesn't
+	# depend on opponent magicka state after a turn swap.
 	ScenarioFixtures.summon_creature(opponent, match_state, "healing_titan", "field", 10, 10, ["regenerate"], 0, {
-		"cost": 8,
+		"cost": 0,
 		"triggered_abilities": [{
 			"family": MatchTiming.FAMILY_START_OF_TURN,
 			"required_zone": "lane",
@@ -442,6 +444,45 @@ func _test_ai_prefers_clean_attack_over_silence(failures: Array) -> void:
 		}],
 	})
 	_assert_policy_pick(match_state, "attack:player_1:player_1_clean_killer:target_type=creature:target=player_2_rally_threat", failures, "AI should attack for a clean kill instead of silencing when both options exist.")
+
+
+# Regression: AI silenced Encumbered Explorer (Shackle self after attack) while
+# it was shackled, removing both the shackle status and the self-harm trigger.
+# Silence should not look like a gain when the only enemy trigger harms its own
+# controller — silencing the creature makes it strictly better for the enemy.
+func _test_ai_skips_silence_on_self_harming_creature(failures: Array) -> void:
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 3, "first_player_index": 0})
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	player["hand"] = []
+	opponent["hand"] = []
+	# Enemy 2/3 whose only triggered ability shackles itself after attacking —
+	# silencing would free it from that self-imposed downside.
+	ScenarioFixtures.summon_creature(opponent, match_state, "self_shackler", "field", 2, 3, [], 0, {
+		"cost": 0,
+		"triggered_abilities": [{
+			"family": "on_attack",
+			"effects": [{"op": "shackle", "target": "self"}],
+		}],
+	})
+	ScenarioFixtures.add_hand_card(player, "suppress", {
+		"card_type": "action",
+		"cost": 0,
+		"action_target_mode": "any_creature",
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"effects": [{"op": "silence", "target": "event_target"}],
+		}],
+	})
+	var choice := HeuristicMatchPolicy.choose_action(match_state)
+	var action: Dictionary = choice.get("chosen_action", {})
+	var action_id := str(action.get("id", ""))
+	var probe := HeuristicMatchPolicy.describe_choice(choice)
+	VerificationAssertions.assert_true(
+		not action_id.begins_with("play_action:player_1:player_1_suppress"),
+		"AI should not silence a creature whose only trigger harms its own controller.\nAction: %s\n%s" % [action_id, probe],
+		failures
+	)
 
 
 func _assert_policy_pick(match_state: Dictionary, expected_prefix: String, failures: Array, message: String) -> void:

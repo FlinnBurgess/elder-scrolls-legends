@@ -8,11 +8,16 @@
 			"hom_end_vvardvark",
 			"hom_end_vvardvark"
 		],
-		"discard": [],
+		"discard": [
+			"hos_str_aelas_huntmate",
+			"int_abecean_navigator",
+			"db_end_ageless_vampire"
+		],
 		"field_creatures": [
 			null,
 			null,
-			null
+			"cwc_neu_abomination",
+			"end_deathless_draugr"
 		],
 		"hand": [
 			"aw_end_hush",
@@ -22,7 +27,10 @@
 		],
 		"health": 30.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [],
+		"shadow_creatures": [
+			"hom_end_ald_velothi_assassin",
+			"hos_end_frost_giant"
+		],
 		"supports": []
 	},
 	"lanes": [
@@ -50,31 +58,24 @@
 		],
 		"discard": [
 			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"int_firebolt",
-			"int_firebolt",
-			"int_firebolt"
+			"str_afflicted_alit",
+			"joo_str_agent_of_mehrunes_dagon",
+			"moe_neu_crocodile_brute"
 		],
 		"field_creatures": [
 			null,
 			null,
-			null
+			"hom_wil_balmora_captain",
+			"hom_str_aldruhn_arms_master"
 		],
 		"hand": [
-			"iom_str_dagger",
-			"iom_str_dagger",
-			"iom_str_dagger",
-			"iom_str_dagger"
+			"wil_piercing_javelin",
+			"hom_int_mighty_conjuring"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [
-			"agi_tenmar_swiftclaw"
-		],
+		"shadow_creatures": [],
 		"supports": []
 	},
 	"type": "kill"

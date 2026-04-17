@@ -1638,7 +1638,11 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				var sca_unmet_raw = effect.get("on_unmet", {})
 				var sca_unmet: Dictionary = sca_unmet_raw if typeof(sca_unmet_raw) == TYPE_DICTIONARY else {}
 				var sca_filter: Dictionary = sca_unmet.get("filter", {}) if typeof(sca_unmet.get("filter", {})) == TYPE_DICTIONARY else {}
-				var sca_custom_result := apply_custom_effect(match_state, trigger, event, {"op": "summon_random_from_catalog", "filter": {"card_type": "creature", "required_subtype": str(sca_filter.get("subtype", "Atronach"))}})
+				var sca_forward_filter: Dictionary = {"card_type": "creature", "required_subtype": str(sca_filter.get("subtype", "Atronach"))}
+				var sca_card_ids_raw = sca_filter.get("card_ids", [])
+				if typeof(sca_card_ids_raw) == TYPE_ARRAY and not (sca_card_ids_raw as Array).is_empty():
+					sca_forward_filter["card_ids"] = sca_card_ids_raw
+				var sca_custom_result := apply_custom_effect(match_state, trigger, event, {"op": "summon_random_from_catalog", "filter": sca_forward_filter})
 				sca_events.append_array(sca_custom_result.get("events", []))
 			return {"handled": true, "events": sca_events}
 		"summon_imposter":
@@ -2394,10 +2398,15 @@ static func _filter_catalog_seeds(filter: Dictionary) -> Array:
 	var req_keyword := str(filter.get("keyword", ""))
 	var name_contains := str(filter.get("name_contains", ""))
 	var include_uncollectible := bool(filter.get("include_uncollectible", false))
+	var definition_ids_raw = filter.get("definition_ids", [])
+	var definition_ids: Array = definition_ids_raw if typeof(definition_ids_raw) == TYPE_ARRAY else []
 	for seed in seeds:
 		if typeof(seed) != TYPE_DICTIONARY:
 			continue
-		if not include_uncollectible and not bool(seed.get("collectible", true)):
+		if not definition_ids.is_empty():
+			if not definition_ids.has(str(seed.get("card_id", ""))):
+				continue
+		elif not include_uncollectible and not bool(seed.get("collectible", true)):
 			continue
 		if not req_card_type.is_empty() and str(seed.get("card_type", "")) != req_card_type:
 			continue

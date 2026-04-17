@@ -157,6 +157,9 @@ func _run_all_tests() -> bool:
 		_test_nether_lich_excludes_self_from_undead_count() and
 		_test_summon_all_from_discard_by_name_respects_board_capacity() and
 		_test_blood_magic_lord_summon_generates_random_blood_magic_spell() and
+		_test_high_rock_summoner_only_generates_token_atronachs() and
+		_test_mighty_conjuring_unmet_only_summons_token_atronachs() and
+		_test_mages_guild_retreat_only_summons_token_atronachs() and
 		_test_increase_opponent_action_cost_veteran() and
 		_test_outflank_per_lane_targeting_grants_stats_and_guard() and
 		_test_buff_random_hand_card_filters_correctly()
@@ -5994,6 +5997,124 @@ func _test_blood_magic_lord_summon_generates_random_blood_magic_spell() -> bool:
 	var valid_ids: Array = ["end_corpse_curse", "end_drain_life", "end_gargoyle", "end_raise_dead"]
 	var new_def_id := str(new_card.get("definition_id", ""))
 	return _assert(valid_ids.has(new_def_id), "Blood Magic Lord: generated card '%s' should be one of the four blood magic spells." % new_def_id)
+
+
+func _test_high_rock_summoner_only_generates_token_atronachs() -> bool:
+	# Regression: High Rock Summoner should only pull the 3 token atronachs
+	# (Flame / Frost / Storm), not other collectible Atronach-subtyped creatures
+	# like Flesh Atronach, Iron Atronach, Fetcherfly Golem, Seething Flesh Golem.
+	var allowed_ids: Array = ["int_flame_atronach", "int_frost_atronach", "int_storm_atronach"]
+	var seen_ids: Dictionary = {}
+	for trial in range(12):
+		var match_state := _build_started_match()
+		var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+		var pid := str(player.get("player_id", ""))
+		# Vary the match seed per trial so the deterministic RNG picks different entries.
+		match_state["rng_seed"] = 1000 + trial
+		match_state["generated_card_sequence"] = trial
+		var summoner := ScenarioFixtures.add_hand_card(player, "hrs_%d" % trial, {
+			"card_type": "creature", "cost": 2, "power": 1, "health": 1,
+			"subtypes": ["Breton"],
+			"triggered_abilities": [{"family": "summon", "effects": [{"op": "generate_random_to_hand", "filter": {"definition_ids": allowed_ids}}]}],
+		})
+		var hand_ids_before: Array = []
+		for c in player.get("hand", []):
+			if typeof(c) == TYPE_DICTIONARY:
+				hand_ids_before.append(str(c.get("instance_id", "")))
+		var result := LaneRules.summon_from_hand(match_state, pid, str(summoner.get("instance_id", "")), "field")
+		if not _assert(bool(result.get("is_valid", false)), "High Rock Summoner should be playable."):
+			return false
+		var new_card: Dictionary = {}
+		for c in player.get("hand", []):
+			if typeof(c) == TYPE_DICTIONARY and not hand_ids_before.has(str(c.get("instance_id", ""))):
+				new_card = c
+				break
+		if not _assert(not new_card.is_empty(), "High Rock Summoner should add a card to hand."):
+			return false
+		var new_def_id := str(new_card.get("definition_id", ""))
+		if not _assert(allowed_ids.has(new_def_id), "Generated card '%s' should be one of the 3 token atronachs." % new_def_id):
+			return false
+		seen_ids[new_def_id] = true
+	return _assert(seen_ids.size() >= 2, "Across trials should see variety of token atronachs, saw: %s" % str(seen_ids.keys()))
+
+
+func _test_mighty_conjuring_unmet_only_summons_token_atronachs() -> bool:
+	# Regression: Mighty Conjuring's unmet branch should only summon the 3 token
+	# atronachs (Flame/Frost/Storm), not collectible Atronach-subtyped creatures.
+	var allowed_ids: Array = ["int_flame_atronach", "int_frost_atronach", "int_storm_atronach"]
+	var seen_ids: Dictionary = {}
+	for trial in range(12):
+		var match_state := _build_started_match()
+		var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+		var pid := str(player.get("player_id", ""))
+		match_state["rng_seed"] = 2000 + trial
+		match_state["generated_card_sequence"] = trial
+		var mc := ScenarioFixtures.add_hand_card(player, "mc_%d" % trial, {
+			"card_type": "action", "cost": 0,
+			"triggered_abilities": [{"family": "on_play", "effects": [{
+				"op": "summon_conditional_atronach",
+				"condition": {"required_friendly_creature_min_power": 5},
+				"on_met": {"definition_id": "hom_int_lava_atronach", "card_type": "creature", "power": 8, "health": 8},
+				"on_unmet": {"filter": {"subtype": "Atronach", "card_ids": allowed_ids}},
+			}]}],
+		})
+		var result := MatchTiming.play_action_from_hand(match_state, pid, str(mc.get("instance_id", "")))
+		if not _assert(bool(result.get("is_valid", false)), "Mighty Conjuring should be playable."):
+			return false
+		var summoned: Dictionary = {}
+		for lane in match_state.get("lanes", []):
+			for card in lane.get("player_slots", {}).get(pid, []):
+				if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")).ends_with("_atronach"):
+					summoned = card
+					break
+			if not summoned.is_empty():
+				break
+		if not _assert(not summoned.is_empty(), "Mighty Conjuring should summon an atronach."):
+			return false
+		var def_id := str(summoned.get("definition_id", ""))
+		if not _assert(allowed_ids.has(def_id), "Summoned atronach '%s' should be one of the 3 token atronachs." % def_id):
+			return false
+		seen_ids[def_id] = true
+	return _assert(seen_ids.size() >= 2, "Across trials should see variety of token atronachs, saw: %s" % str(seen_ids.keys()))
+
+
+func _test_mages_guild_retreat_only_summons_token_atronachs() -> bool:
+	# Regression: Mages Guild Retreat should only summon the 3 token atronachs.
+	var allowed_ids: Array = ["int_flame_atronach", "int_frost_atronach", "int_storm_atronach"]
+	var seen_ids: Dictionary = {}
+	for trial in range(12):
+		var match_state := _build_started_match()
+		var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+		var pid := str(player.get("player_id", ""))
+		match_state["rng_seed"] = 3000 + trial
+		match_state["generated_card_sequence"] = trial
+		# Empty friendly field lane so we know where the summon lands.
+		var lane_id := "field"
+		for lane in match_state.get("lanes", []):
+			if str(lane.get("lane_id", "")) == lane_id:
+				lane["player_slots"][pid] = []
+				break
+		var trigger := {"controller_player_id": pid, "source_instance_id": "mgr_%d" % trial, "lane_index": 0}
+		var event := {"lane_id": lane_id}
+		var effect := {"op": "summon_random_from_catalog", "filter": {"card_type": "creature", "card_ids": allowed_ids}}
+		var result := ExtendedMechanicPacks.apply_custom_effect(match_state, trigger, event, effect)
+		if not _assert(bool(result.get("handled", false)), "Mages Guild Retreat effect should be handled."):
+			return false
+		var summoned: Dictionary = {}
+		for lane in match_state.get("lanes", []):
+			for card in lane.get("player_slots", {}).get(pid, []):
+				if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")).ends_with("_atronach"):
+					summoned = card
+					break
+			if not summoned.is_empty():
+				break
+		if not _assert(not summoned.is_empty(), "Mages Guild Retreat should summon an atronach."):
+			return false
+		var def_id := str(summoned.get("definition_id", ""))
+		if not _assert(allowed_ids.has(def_id), "Summoned atronach '%s' should be one of the 3 token atronachs." % def_id):
+			return false
+		seen_ids[def_id] = true
+	return _assert(seen_ids.size() >= 2, "Across trials should see variety of token atronachs, saw: %s" % str(seen_ids.keys()))
 
 
 func _test_increase_opponent_action_cost_veteran() -> bool:

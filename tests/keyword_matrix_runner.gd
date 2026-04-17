@@ -5,6 +5,8 @@ const LaneRules = preload("res://src/core/match/lane_rules.gd")
 const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const MatchCombat = preload("res://src/core/match/match_combat.gd")
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
+const CardCatalog = preload("res://src/deck/card_catalog.gd")
+const MatchScreen = preload("res://src/ui/match_screen.gd")
 
 
 func _initialize() -> void:
@@ -21,9 +23,15 @@ func _run_all_tests() -> bool:
 		_test_registry_exposes_expected_evergreen_ids() and
 		_test_ward_blocks_damage_once_and_prevents_lethal() and
 		_test_regenerate_and_shackle_refresh_on_controller_turn() and
+		_test_shackle_makes_creature_skip_next_attack_turn() and
 		_test_silenced_suppresses_guard_and_cover_behavior() and
 		_test_rally_buffs_a_deterministic_hand_creature() and
 		_test_rally_stacks_multiple_triggers() and
+		_test_rally_amount_field_grants_intrinsic_extra_stacks() and
+		_test_rally_boost_aura_grants_extra_stack_to_other_rallies() and
+		_test_rally_boost_aura_does_not_buff_self() and
+		_test_rally_boost_aura_silenced_source_does_not_grant() and
+		_test_balmora_captain_catalog_and_hydration_preserve_rally_fields() and
 		_test_rally_on_rally_trigger_buffs_item_in_hand() and
 		_test_mobilize_exposes_empty_lane_options_and_recruit_template()
 	)
@@ -82,6 +90,40 @@ func _test_regenerate_and_shackle_refresh_on_controller_turn() -> bool:
 		_assert(not EvergreenRules.has_status(creature, "wounded"), "Regenerate healing should clear the Wounded status.") and
 		_assert(not EvergreenRules.has_status(creature, "shackled"), "Shackled should clear on the controller's next turn refresh.") and
 		_assert(not EvergreenRules.has_status(creature, "cover"), "Temporary shadow-lane Cover should expire on the controller's next turn refresh.")
+	)
+
+
+func _test_shackle_makes_creature_skip_next_attack_turn() -> bool:
+	# Regression: previously shackle was cleared at the start of the controller's
+	# very next turn, so the shackled creature never actually skipped an attack
+	# (Encumbered Explorer attacked every turn).
+	var match_state := _build_started_match(18, 0)
+	var first_player: Dictionary = match_state["players"][0]
+	var second_player: Dictionary = match_state["players"][1]
+	var attacker := _summon_creature(first_player, match_state, "shackled_attacker", "field", 3, 3)
+	_target_ready_for_attack(attacker, match_state)
+	# Apply shackle the same way the engine does (matches effect_keywords.gd).
+	EvergreenRules.add_status(attacker, EvergreenRules.STATUS_SHACKLED)
+	attacker["shackle_expires_on_turn"] = int(match_state.get("turn_number", 0)) + 2
+
+	# Advance to the controller's next turn (their attack should be skipped).
+	MatchTurnLoop.end_turn(match_state, first_player["player_id"])
+	MatchTurnLoop.end_turn(match_state, second_player["player_id"])
+	if not _assert(EvergreenRules.has_status(attacker, EvergreenRules.STATUS_SHACKLED), "Shackle should still be active on the controller's next turn so the creature skips its attack."):
+		return false
+	var blocked := MatchCombat.validate_attack(match_state, first_player["player_id"], attacker["instance_id"], {
+		"type": "player",
+		"player_id": second_player["player_id"],
+	})
+	if not _assert(not bool(blocked.get("is_valid", false)), "Shackled creature must not be allowed to attack on its controller's next turn."):
+		return false
+
+	# Advance one more round; shackle should now clear and the creature can attack.
+	MatchTurnLoop.end_turn(match_state, first_player["player_id"])
+	MatchTurnLoop.end_turn(match_state, second_player["player_id"])
+	return (
+		_assert(not EvergreenRules.has_status(attacker, EvergreenRules.STATUS_SHACKLED), "Shackle should clear on the controller's turn after the skipped one.") and
+		_assert(not attacker.has("shackle_expires_on_turn"), "shackle_expires_on_turn should be erased once the shackle expires.")
 	)
 
 
@@ -158,6 +200,121 @@ func _test_rally_stacks_multiple_triggers() -> bool:
 		if str(event.get("event_type", "")) == "rally_resolved":
 			rally_event_count += 1
 	return _assert(rally_event_count == 2, "Double rally should emit two rally_resolved events.")
+
+
+func _test_rally_amount_field_grants_intrinsic_extra_stacks() -> bool:
+	var match_state := _build_started_match(18, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var attacker := _summon_creature(active_player, match_state, "rally_amount_2", "field", 4, 4, ["rally"])
+	attacker["rally_amount"] = 2
+	_target_ready_for_attack(attacker, match_state)
+	var hand_creature := _append_hand_creature(active_player, "ra_hand", 2, 2)
+
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], attacker["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	if not _assert(result["is_valid"], "rally_amount attack should resolve."):
+		return false
+	if not _assert(int(hand_creature.get("power_bonus", 0)) == 2, "rally_amount: 2 should grant +2 power total."):
+		return false
+	if not _assert(int(hand_creature.get("health_bonus", 0)) == 2, "rally_amount: 2 should grant +2 health total."):
+		return false
+	var rally_event_count := 0
+	for event in result.get("events", []):
+		if str(event.get("event_type", "")) == "rally_resolved":
+			rally_event_count += 1
+	return _assert(rally_event_count == 2, "rally_amount: 2 should emit two rally_resolved events.")
+
+
+func _test_rally_boost_aura_grants_extra_stack_to_other_rallies() -> bool:
+	var match_state := _build_started_match(18, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var attacker := _summon_creature(active_player, match_state, "rally_attacker", "field", 3, 3, ["rally"])
+	_target_ready_for_attack(attacker, match_state)
+	var aura_source := _summon_creature(active_player, match_state, "balmora_captain", "shadow", 4, 4)
+	aura_source["rally_boost_aura"] = true
+	var hand_creature := _append_hand_creature(active_player, "boosted_hand", 2, 2)
+
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], attacker["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	if not _assert(result["is_valid"], "Rally with aura source should resolve."):
+		return false
+	if not _assert(int(hand_creature.get("power_bonus", 0)) == 2, "rally_boost_aura should add +1 stack: total +2 power. Got: %d" % int(hand_creature.get("power_bonus", 0))):
+		return false
+	if not _assert(int(hand_creature.get("health_bonus", 0)) == 2, "rally_boost_aura should add +1 stack: total +2 health."):
+		return false
+	var rally_event_count := 0
+	for event in result.get("events", []):
+		if str(event.get("event_type", "")) == "rally_resolved":
+			rally_event_count += 1
+	return _assert(rally_event_count == 2, "rally_boost_aura should produce one extra rally_resolved event (total 2).")
+
+
+func _test_rally_boost_aura_does_not_buff_self() -> bool:
+	# Balmora Captain has both rally_amount: 2 and rally_boost_aura.
+	# His own attack should fire Rally 2 (intrinsic) — NOT Rally 3 ("your OTHER rallies").
+	var match_state := _build_started_match(18, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var attacker := _summon_creature(active_player, match_state, "balmora_solo", "field", 4, 4, ["rally"])
+	attacker["rally_amount"] = 2
+	attacker["rally_boost_aura"] = true
+	_target_ready_for_attack(attacker, match_state)
+	var hand_creature := _append_hand_creature(active_player, "self_aura_hand", 2, 2)
+
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], attacker["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	if not _assert(result["is_valid"], "Self-aura rally attack should resolve."):
+		return false
+	return _assert(int(hand_creature.get("power_bonus", 0)) == 2, "Aura source must not buff its own rally — expected +2, got: %d" % int(hand_creature.get("power_bonus", 0)))
+
+
+func _test_rally_boost_aura_silenced_source_does_not_grant() -> bool:
+	var match_state := _build_started_match(18, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var attacker := _summon_creature(active_player, match_state, "silenced_aura_atk", "field", 3, 3, ["rally"])
+	_target_ready_for_attack(attacker, match_state)
+	var aura_source := _summon_creature(active_player, match_state, "silenced_balmora", "shadow", 4, 4)
+	aura_source["rally_boost_aura"] = true
+	EvergreenRules.add_status(aura_source, EvergreenRules.STATUS_SILENCED)
+	var hand_creature := _append_hand_creature(active_player, "silenced_aura_hand", 2, 2)
+
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], attacker["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	if not _assert(result["is_valid"], "Rally with silenced aura source should resolve."):
+		return false
+	return _assert(int(hand_creature.get("power_bonus", 0)) == 1, "Silenced rally_boost_aura must not grant extra stack — expected +1, got: %d" % int(hand_creature.get("power_bonus", 0)))
+
+
+func _test_balmora_captain_catalog_and_hydration_preserve_rally_fields() -> bool:
+	# Regression: rally_amount and rally_boost_aura must survive both
+	# the catalog seed pipeline AND the match_screen hydration pipeline,
+	# since lane creatures in test/puzzle/saved matches are stub-built then hydrated.
+	var catalog := CardCatalog.load_default()
+	var card_by_id: Dictionary = catalog.get("card_by_id", {})
+	var balmora: Dictionary = card_by_id.get("hom_wil_balmora_captain", {})
+	if not (
+		_assert(not balmora.is_empty(), "Balmora Captain must exist in catalog.") and
+		_assert(int(balmora.get("rally_amount", 0)) == 2, "Catalog Balmora Captain must carry rally_amount: 2.") and
+		_assert(bool(balmora.get("rally_boost_aura", false)), "Catalog Balmora Captain must carry rally_boost_aura: true.")
+	):
+		return false
+	var stub_card := {"definition_id": "hom_wil_balmora_captain", "instance_id": "test_balmora", "keywords": []}
+	MatchScreen._hydrate_card(stub_card, card_by_id)
+	return (
+		_assert(int(stub_card.get("rally_amount", 0)) == 2, "Hydration must preserve rally_amount on lane stub cards.") and
+		_assert(bool(stub_card.get("rally_boost_aura", false)), "Hydration must preserve rally_boost_aura on lane stub cards.")
+	)
 
 
 func _test_mobilize_exposes_empty_lane_options_and_recruit_template() -> bool:
