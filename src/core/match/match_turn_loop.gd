@@ -54,6 +54,7 @@ static func end_turn(match_state: Dictionary, player_id: String) -> Dictionary:
 	player["current_magicka"] = 0
 	player["temporary_magicka"] = 0
 	player["ring_of_magicka_used_this_turn"] = false
+	player["next_card_cost_reduction"] = 0
 
 	var next_player_id := _get_next_player_id(match_state.get("players", []), player_id)
 	if next_player_id.is_empty():

@@ -169,7 +169,8 @@ func _run_all_tests() -> bool:
 		_test_power_equals_health_tracks_damage_and_buffs() and
 		_test_set_power_to_health_preserves_existing_buffs() and
 		_test_shivering_apothecary_summons_random_elixir_to_support_zone() and
-		_test_shivering_apothecary_skips_when_support_zone_full()
+		_test_shivering_apothecary_skips_when_support_zone_full() and
+		_test_next_card_cost_reduction_cleared_on_turn_end()
 	)
 
 
@@ -6501,3 +6502,15 @@ func _test_shivering_apothecary_skips_when_support_zone_full() -> bool:
 	if not _assert(player.get("hand", []).size() == hand_size_before, "No elixir should be drawn to hand when support zone is full."):
 		return false
 	return true
+
+
+func _test_next_card_cost_reduction_cleared_on_turn_end() -> bool:
+	# Regression: Soulrest Marshal grants "next card this turn costs X less"; if the
+	# player ends the turn without playing another card, the discount must not carry
+	# over to their next turn.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	player["next_card_cost_reduction"] = 6
+	MatchTurnLoop.end_turn(match_state, pid)
+	return _assert(int(player.get("next_card_cost_reduction", 0)) == 0, "next_card_cost_reduction should be cleared after the granting player's turn ends.")

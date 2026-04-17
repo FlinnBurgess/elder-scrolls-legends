@@ -22,7 +22,7 @@
 		"hand": [
 			"aw_end_hush"
 		],
-		"health": 30.0,
+		"health": 25.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [],
 		"supports": []
@@ -58,8 +58,8 @@
 			null
 		],
 		"hand": [
-			"mhc_wil_shivering_apothecary",
-			"hom_neu_unite_the_houses"
+			"agi_soulrest_marshal",
+			"aw_int_abnur_tharn"
 		],
 		"has_ring": false,
 		"health": 30.0,
