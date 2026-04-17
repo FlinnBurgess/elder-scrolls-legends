@@ -87,6 +87,21 @@ func _refresh_ui() -> void:
 
 
 
+func _compute_support_row_hash(player_id: String, supports: Array) -> Dictionary:
+	var iids: Array = []
+	for c in supports:
+		if typeof(c) == TYPE_DICTIONARY:
+			iids.append("%s:%d" % [str(c.get("instance_id", "")), int(c.get("damage_marked", 0))])
+	return {
+		"player": player_id,
+		"iids": iids,
+		"selected": _screen._selected_instance_id,
+		"invalid_ids": _screen._invalid_feedback.get("instance_ids", []),
+		"summon_target_active": not _screen._targeting._pending_summon_target.is_empty(),
+		"active_player": _screen._active_player_id(),
+	}
+
+
 func _compute_lane_row_hash(lane_id: String, player_id: String, slots: Array) -> Dictionary:
 	var card_digests: Array = []
 	for card in slots:
@@ -204,10 +219,19 @@ func _refresh_player_sections() -> void:
 
 		_t = Time.get_ticks_usec()
 		var support_row: HBoxContainer = section["support_row"]
-		_screen._clear_children(support_row)
 		var supports: Array = player.get("support", [])
-		for support_card in supports:
-			support_row.add_child(_screen._card_surface._build_card_button(support_card, true, "support"))
+		var support_hash := _compute_support_row_hash(player_id, supports)
+		if section.get("support_hash", null) == support_hash and (support_row.get_child_count() > 0 or supports.is_empty()):
+			for child in support_row.get_children():
+				if child is Button:
+					var iid := str(child.get_meta("instance_id", ""))
+					if not iid.is_empty():
+						_screen._card_buttons[iid] = child
+		else:
+			section["support_hash"] = support_hash
+			_screen._clear_children(support_row)
+			for support_card in supports:
+				support_row.add_child(_screen._card_surface._build_card_button(support_card, true, "support"))
 		_us_support += Time.get_ticks_usec() - _t
 
 		_t = Time.get_ticks_usec()
