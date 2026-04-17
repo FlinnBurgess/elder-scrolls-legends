@@ -55,18 +55,16 @@
 		"field_creatures": [
 			null,
 			null,
-			null,
-			"hos_neu_alduin"
+			null
 		],
 		"hand": [
-			"mhc_wil_shivering_apothecary"
+			"mhc_wil_shivering_apothecary",
+			"hom_neu_unite_the_houses"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [
-			"hom_str_aldruhn_arms_master"
-		],
+		"shadow_creatures": [],
 		"supports": [
 			"hos_wil_wolf_cage"
 		]

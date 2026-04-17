@@ -77,6 +77,8 @@ func _run_all_tests() -> bool:
 		_test_wrath_of_sithis_cost_increase_survives_source_death() and
 		# Raise Dead — "Summon a random creature from each discard pile"
 		_test_raise_dead_summons_both_creatures_to_controller_side() and
+		# Supreme Atromancer — on_friendly_summon fires for self-spawned creatures
+		_test_supreme_atromancer_damages_opponent_for_each_spawned_atronach() and
 		true
 	)
 
@@ -1026,4 +1028,34 @@ func _test_raise_dead_summons_both_creatures_to_controller_side() -> bool:
 			"Raise Dead: creature pulled from opponent discard should still summon on controller's side.") and
 		_assert(not opponent_lane_ids.has("test_enemy_corpse"),
 			"Raise Dead: opponent must NOT get the resurrected creature from their own discard.")
+	)
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Supreme Atromancer — "Summon: Summon a Flame Atronach in each lane.
+# When you summon another creature, deal 2 damage to your opponent."
+# Regression: the on_friendly_summon ability must fire for the two
+# Atronachs spawned by the summon ability itself (same-family loop
+# prevention was previously blocking it because both abilities used
+# family: summon).
+# ──────────────────────────────────────────────────────────────────────
+
+func _test_supreme_atromancer_damages_opponent_for_each_spawned_atronach() -> bool:
+	var match_state := _build_started_match()
+	var player := ScenarioFixtures.player(match_state, 0)
+	var opponent := ScenarioFixtures.player(match_state, 1)
+	opponent["health"] = 30
+	var atromancer: Dictionary = _catalog_helper.summon(player, match_state, "int_supreme_atromancer", "field")
+	if atromancer.is_empty():
+		return _assert(false, "Failed to summon Supreme Atromancer")
+	var pid := str(player.get("player_id", ""))
+	var atronach_count := 0
+	for lane in match_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(pid, []):
+			if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == "int_flame_atronach":
+				atronach_count += 1
+	return (
+		_assert(atronach_count == 2, "Should have summoned 2 Flame Atronachs (one per lane), got %d" % atronach_count) and
+		_assert(int(opponent.get("health", 0)) == 26,
+			"Opponent should take 2 damage per spawned Atronach (4 total), expected 26 HP, got %d" % int(opponent.get("health", 0)))
 	)

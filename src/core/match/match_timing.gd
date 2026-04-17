@@ -230,6 +230,30 @@ static func _check_play_condition(match_state: Dictionary, player_id: String, co
 				if not tracked.has(str(lane.get("lane_id", ""))):
 					return false
 			return true
+		"all_attributes_in_play":
+			var required := ["strength", "intelligence", "willpower", "agility", "endurance"]
+			var seed_lookup: Dictionary = {}
+			for seed in CardCatalog._card_seeds():
+				if typeof(seed) == TYPE_DICTIONARY:
+					seed_lookup[str(seed.get("card_id", ""))] = seed
+			var found: Dictionary = {}
+			for lane in match_state.get("lanes", []):
+				for card in lane.get("player_slots", {}).get(player_id, []):
+					if typeof(card) != TYPE_DICTIONARY:
+						continue
+					var card_seed: Dictionary = seed_lookup.get(str(card.get("definition_id", "")), {})
+					for attr in card_seed.get("attributes", []):
+						found[str(attr)] = true
+					for item in card.get("attached_items", []):
+						if typeof(item) != TYPE_DICTIONARY:
+							continue
+						var item_seed: Dictionary = seed_lookup.get(str(item.get("definition_id", "")), {})
+						for attr in item_seed.get("attributes", []):
+							found[str(attr)] = true
+			for attr in required:
+				if not found.has(attr):
+					return false
+			return true
 	return true
 
 

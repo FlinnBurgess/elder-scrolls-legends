@@ -750,6 +750,7 @@ func _rebuild_pause_overlay() -> void:
 
 func _show_puzzle_objective_popup() -> void:
 	var objective_text := "Survive for one turn to win." if _puzzle_type == "survive" else "Win this turn."
+	var title_text := str(_match_state.get("puzzle_name", "")).strip_edges()
 
 	var overlay := PanelContainer.new()
 	overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
@@ -791,6 +792,14 @@ func _show_puzzle_objective_popup() -> void:
 	vbox.add_theme_constant_override("separation", 16)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	margin.add_child(vbox)
+
+	if not title_text.is_empty():
+		var title := Label.new()
+		title.text = title_text
+		title.add_theme_font_size_override("font_size", 32)
+		title.add_theme_color_override("font_color", Color(0.92, 0.82, 0.48))
+		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vbox.add_child(title)
 
 	var msg := Label.new()
 	msg.text = objective_text
