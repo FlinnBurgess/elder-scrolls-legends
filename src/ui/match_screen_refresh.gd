@@ -15,6 +15,9 @@ func _refresh_ui() -> void:
 	_screen._clear_support_card_hover_preview()
 	_screen._card_buttons = {}
 	_screen._lane_slot_buttons = {}
+	_screen._selection._invalidate_target_validity_cache()
+	_screen._selection._reset_perf_counters()
+	var _t_overlays := Time.get_ticks_usec()
 	_refresh_turn_presentation()
 	_screen._overlays._refresh_prophecy_overlay()
 	_screen._overlays._refresh_discard_choice_overlay()
@@ -25,8 +28,13 @@ func _refresh_ui() -> void:
 	_screen._refresh_hand_selection_state()
 	_screen._refresh_free_play_state()
 	_screen._refresh_top_deck_choice_state()
+	var _overlays_us := Time.get_ticks_usec() - _t_overlays
+	var _t_sections := Time.get_ticks_usec()
 	_refresh_player_sections()
+	var _sections_us := Time.get_ticks_usec() - _t_sections
+	var _t_lanes := Time.get_ticks_usec()
 	_refresh_lanes()
+	var _lanes_us := Time.get_ticks_usec() - _t_lanes
 	_refresh_end_turn_button()
 	_refresh_match_end_overlay()
 	_screen._history._scan_and_refresh_match_history()
@@ -71,11 +79,18 @@ func _refresh_ui() -> void:
 			stitch_btn.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_screen._feedback._process_overdraw_queue()
 	var _refresh_elapsed := Time.get_ticks_msec() - _refresh_start
-	print("[REFRESH] _refresh_ui END took %dms" % _refresh_elapsed)
+	print("[REFRESH] _refresh_ui END took %dms (overlays=%dus sections=%dus lanes=%dus)" % [_refresh_elapsed, _overlays_us, _sections_us, _lanes_us])
+	print(_screen._selection._format_perf_summary())
 
 
 
 func _refresh_player_sections() -> void:
+	var _us_avatar := 0
+	var _us_magicka := 0
+	var _us_ring := 0
+	var _us_piles := 0
+	var _us_support := 0
+	var _us_hand := 0
 	for player_id in _screen.PLAYER_ORDER:
 		var section: Dictionary = _screen._player_sections.get(player_id, {})
 		var player = _screen._player_state(player_id)
@@ -84,15 +99,20 @@ func _refresh_player_sections() -> void:
 		var is_opponent: bool = player_id == _screen.PLAYER_ORDER[0]
 		var panel: PanelContainer = section["panel"]
 		panel.self_modulate = Color(0.82, 0.84, 0.9, 0.78) if _screen._should_dim_local_surface(player_id) else Color(1, 1, 1, 1)
+		var _t := Time.get_ticks_usec()
 		var avatar_component = section.get("avatar_component")
 		if avatar_component != null:
 			avatar_component.apply_player_state(player, is_opponent)
 			_screen._feedback._refresh_avatar_target_glow(avatar_component, player_id)
+		_us_avatar += Time.get_ticks_usec() - _t
 
+		_t = Time.get_ticks_usec()
 		var magicka_component = section.get("magicka_component")
 		if magicka_component != null:
 			magicka_component.apply_player_state(player)
+		_us_magicka += Time.get_ticks_usec() - _t
 
+		_t = Time.get_ticks_usec()
 		var ring_panel: PanelContainer = section["ring_panel"]
 		ring_panel.visible = bool(player.get("has_ring_of_magicka", false))
 		var ring_label: Label = section["ring_label"]
@@ -106,7 +126,9 @@ func _refresh_player_sections() -> void:
 			ring_label.add_theme_color_override("font_color", Color(0.98, 0.92, 0.78, 1.0))
 		var ring_row: HBoxContainer = section["ring_row"]
 		_refresh_ring_row(ring_row, player)
+		_us_ring += Time.get_ticks_usec() - _t
 
+		_t = Time.get_ticks_usec()
 		var deck_button: Button = section["deck_button"]
 		deck_button.text = _screen._pile_button_text("Deck", player.get("deck", []).size())
 		deck_button.tooltip_text = _screen._pile_button_tooltip(player, _screen.MatchMutations.ZONE_DECK)
@@ -114,13 +136,17 @@ func _refresh_player_sections() -> void:
 		var discard_button: Button = section["discard_button"]
 		discard_button.text = _screen._pile_button_text("Discard", player.get("discard", []).size())
 		discard_button.tooltip_text = _screen._pile_button_tooltip(player, _screen.MatchMutations.ZONE_DISCARD)
+		_us_piles += Time.get_ticks_usec() - _t
 
+		_t = Time.get_ticks_usec()
 		var support_row: HBoxContainer = section["support_row"]
 		_screen._clear_children(support_row)
 		var supports: Array = player.get("support", [])
 		for support_card in supports:
 			support_row.add_child(_screen._card_surface._build_card_button(support_card, true, "support"))
+		_us_support += Time.get_ticks_usec() - _t
 
+		_t = Time.get_ticks_usec()
 		var hand_row: Control = section["hand_row"]
 		_screen._clear_children(hand_row)
 		var hand_public = _screen._is_hand_public(player_id)
@@ -137,6 +163,8 @@ func _refresh_player_sections() -> void:
 			_screen._card_surface._layout_hand_placeholder(hand_row, placeholder)
 		else:
 			_screen._card_surface._layout_hand_cards(hand_row, player_id)
+		_us_hand += Time.get_ticks_usec() - _t
+	print("[REFRESH] sections breakdown: avatar=%dus magicka=%dus ring=%dus piles=%dus support=%dus hand=%dus" % [_us_avatar, _us_magicka, _us_ring, _us_piles, _us_support, _us_hand])
 
 
 func _refresh_lanes() -> void:

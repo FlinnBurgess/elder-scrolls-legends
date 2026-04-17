@@ -1011,17 +1011,19 @@ func load_scenario(scenario_id: String) -> bool:
 	return true
 
 
-func select_card(instance_id: String) -> bool:
+func select_card(instance_id: String, defer_refresh := false) -> bool:
 	var card := _card_from_instance_id(instance_id)
 	if card.is_empty():
 		_status_message = "Card %s is not available to inspect." % instance_id
-		_refresh._refresh_ui()
+		if not defer_refresh:
+			_refresh._refresh_ui()
 		return false
 	_reset_invalid_feedback()
 	_clear_pile_selection()
 	_selected_instance_id = instance_id
 	_status_message = _card_display._selection_prompt(card)
-	_refresh._refresh_ui()
+	if not defer_refresh:
+		_refresh._refresh_ui()
 	return true
 
 
@@ -3118,7 +3120,11 @@ func _cancel_targeting_mode_silent():
 	_targeting._cancel_targeting_mode_silent()
 
 func _card_interaction_state(card: Dictionary, surface: String):
-	return _selection._card_interaction_state(card, surface)
+	var _t0 := Time.get_ticks_usec()
+	var result = _selection._card_interaction_state(card, surface)
+	_selection._perf_card_interaction_count += 1
+	_selection._perf_card_interaction_us += Time.get_ticks_usec() - _t0
+	return result
 
 func _card_name(card: Dictionary):
 	return _card_display._card_name(card)

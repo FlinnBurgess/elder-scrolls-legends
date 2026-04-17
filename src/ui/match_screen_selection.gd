@@ -3,6 +3,26 @@ extends RefCounted
 
 var _screen  # MatchScreen reference
 
+# Per-refresh cache (instance_id -> bool). Validation deep-clones match_state and
+# simulates the play, so without caching it's O(N) full sims per refresh.
+var _target_validity_cache: Dictionary = {}
+
+# Per-refresh cache: "can the selected action/item be played at all" (target-independent).
+# Lets per-target validity collapse to a cheap mode check + one cached gate result.
+var _selected_play_gate_cache: Dictionary = {}
+
+# Perf counters (reset by _refresh_ui, printed at refresh end).
+var _perf_validation_count: int = 0
+var _perf_validation_us: int = 0
+var _perf_validation_inner_us: int = 0
+var _perf_cache_hits: int = 0
+var _perf_card_interaction_count: int = 0
+var _perf_card_interaction_us: int = 0
+var _perf_validation_mode_breakdown: Dictionary = {}
+var _perf_build_card_count: int = 0
+var _perf_build_card_us: int = 0
+var _perf_gate_sim_us: int = 0
+
 
 const PRESET_FULL_RECT = Control.PRESET_FULL_RECT
 const PRESET_TOP_LEFT = Control.PRESET_TOP_LEFT
@@ -192,14 +212,97 @@ func _validate_selected_lane_play(lane_id: String, player_id: String, slot_index
 
 
 func _is_card_target_valid_for_selected(target_instance_id: String) -> bool:
+	var _t0 := Time.get_ticks_usec()
+	if _target_validity_cache.has(target_instance_id):
+		_perf_cache_hits += 1
+		_perf_validation_us += Time.get_ticks_usec() - _t0
+		return _target_validity_cache[target_instance_id]
 	var selected_card := _selected_card()
 	var mode := _selected_action_mode(selected_card)
 	if mode == _screen.SELECTION_MODE_NONE:
+		_perf_validation_us += Time.get_ticks_usec() - _t0
 		return false
 	_screen.GameLogger.suppress()
+	var _t_inner := Time.get_ticks_usec()
 	var result := _is_card_target_valid_for_selected_inner(selected_card, mode, target_instance_id)
+	var _inner_us := Time.get_ticks_usec() - _t_inner
 	_screen.GameLogger.unsuppress()
+	_target_validity_cache[target_instance_id] = result
+	_perf_validation_count += 1
+	_perf_validation_inner_us += _inner_us
+	_perf_validation_mode_breakdown[mode] = int(_perf_validation_mode_breakdown.get(mode, 0)) + _inner_us
+	_perf_validation_us += Time.get_ticks_usec() - _t0
 	return result
+
+
+func _invalidate_target_validity_cache() -> void:
+	_target_validity_cache.clear()
+	_selected_play_gate_cache.clear()
+
+
+# Returns whether the currently-selected action card passes target-independent gates
+# (magicka, play_condition, play_limit, etc.). One full simulation per refresh, cached.
+# Probes against the first lane card whose target_mode allows it (or empty target).
+func _can_play_selected_action(selected_card: Dictionary) -> bool:
+	var key := str(selected_card.get("instance_id", ""))
+	if _selected_play_gate_cache.has(key):
+		return _selected_play_gate_cache[key]
+	var probe_target_id := ""
+	for lane_card in _lane_cards():
+		var tid := str(lane_card.get("instance_id", ""))
+		if _screen._targeting._action_target_mode_allows(selected_card, tid):
+			probe_target_id = tid
+			break
+	var _t_sim := Time.get_ticks_usec()
+	var sim_state: Dictionary = _screen._match_state.duplicate(true)
+	var _clone_us := Time.get_ticks_usec() - _t_sim
+	_screen.GameLogger.suppress()
+	var _t_play := Time.get_ticks_usec()
+	var result: Dictionary
+	var sim_options := {"target_instance_id": probe_target_id, "validate_only": true}
+	if _screen._overlays._is_pending_prophecy_card(selected_card):
+		result = _screen.MatchTiming.play_pending_prophecy(sim_state, str(selected_card.get("controller_player_id", "")), _screen._selected_instance_id, sim_options)
+	else:
+		result = _screen.MatchTiming.play_action_from_hand(sim_state, str(selected_card.get("controller_player_id", "")), _screen._selected_instance_id, sim_options)
+	var _play_us := Time.get_ticks_usec() - _t_play
+	_screen.GameLogger.unsuppress()
+	var _total_sim_us := Time.get_ticks_usec() - _t_sim
+	_perf_gate_sim_us += _total_sim_us
+	print("[PERF] gate_sim card=%s probe=%s clone_us=%d play_us=%d total_us=%d" % [key, probe_target_id, _clone_us, _play_us, _total_sim_us])
+	var can_play := bool(result.get("is_valid", false))
+	_selected_play_gate_cache[key] = can_play
+	return can_play
+
+
+func _reset_perf_counters() -> void:
+	_perf_validation_count = 0
+	_perf_validation_us = 0
+	_perf_validation_inner_us = 0
+	_perf_cache_hits = 0
+	_perf_card_interaction_count = 0
+	_perf_card_interaction_us = 0
+	_perf_validation_mode_breakdown = {}
+	_perf_build_card_count = 0
+	_perf_build_card_us = 0
+	_perf_gate_sim_us = 0
+
+
+func _format_perf_summary() -> String:
+	var breakdown := ""
+	for mode in _perf_validation_mode_breakdown:
+		breakdown += " %s=%dus" % [mode, int(_perf_validation_mode_breakdown[mode])]
+	return "[PERF] validations=%d (cache_hits=%d) total_us=%d inner_us=%d gate_sim_us=%d card_interaction calls=%d total_us=%d build_card calls=%d total_us=%d modes=[%s]" % [
+		_perf_validation_count,
+		_perf_cache_hits,
+		_perf_validation_us,
+		_perf_validation_inner_us,
+		_perf_gate_sim_us,
+		_perf_card_interaction_count,
+		_perf_card_interaction_us,
+		_perf_build_card_count,
+		_perf_build_card_us,
+		breakdown.strip_edges(),
+	]
 
 
 func _is_card_target_valid_for_selected_inner(selected_card: Dictionary, mode: String, target_instance_id: String) -> bool:
@@ -210,10 +313,7 @@ func _is_card_target_valid_for_selected_inner(selected_card: Dictionary, mode: S
 		_screen.SELECTION_MODE_ACTION:
 			if not _screen._targeting._action_target_mode_allows(selected_card, target_instance_id):
 				return false
-			var action_state: Dictionary = _screen._match_state.duplicate(true)
-			if _screen._overlays._is_pending_prophecy_card(selected_card):
-				return bool(_screen.MatchTiming.play_pending_prophecy(action_state, str(selected_card.get("controller_player_id", "")), _screen._selected_instance_id, {"target_instance_id": target_instance_id}).get("is_valid", false))
-			return bool(_screen.MatchTiming.play_action_from_hand(action_state, str(selected_card.get("controller_player_id", "")), _screen._selected_instance_id, {"target_instance_id": target_instance_id}).get("is_valid", false))
+			return _can_play_selected_action(selected_card)
 		_screen.SELECTION_MODE_SUPPORT:
 			if not _screen._targeting._selected_support_uses_card_targets(selected_card):
 				return false
@@ -549,9 +649,15 @@ func _create_targeting_arrow() -> Line2D:
 
 
 func _enter_targeting_mode(instance_id: String) -> void:
+	var _t_total := Time.get_ticks_msec()
+	print("[TARGETING] _enter_targeting_mode START inst=%s" % instance_id)
 	_screen.GameLogger.trc("UI", "enter_targeting", "inst:%s" % instance_id)
 	_screen._targeting._cancel_targeting_mode_silent()
-	_screen.select_card(instance_id)
+	var _t_select := Time.get_ticks_msec()
+	# Defer the refresh until after _targeting_arrow_state is set so we run a
+	# single combined refresh that produces highlights too — saves a full refresh.
+	_screen.select_card(instance_id, true)
+	print("[TARGETING] select_card (deferred) took %dms" % (Time.get_ticks_msec() - _t_select))
 	var button: Button = _screen._card_buttons.get(instance_id)
 	var arrow_origin := Vector2.ZERO
 	var action_preview: Control = null
@@ -563,7 +669,9 @@ func _enter_targeting_mode(instance_id: String) -> void:
 	if is_hand_card and (card_type == "action" or card_type == "item"):
 		if button != null:
 			button.visible = false
+		var _t_preview := Time.get_ticks_msec()
 		action_preview = _create_targeting_action_preview(instance_id, card_data)
+		print("[TARGETING] _create_targeting_action_preview took %dms" % (Time.get_ticks_msec() - _t_preview))
 		var preview_size: Vector2 = action_preview.size
 		arrow_origin = action_preview.position + Vector2(preview_size.x * 0.5, 0.0)
 	elif button != null:
@@ -598,7 +706,10 @@ func _enter_targeting_mode(instance_id: String) -> void:
 	# valid-target highlights appear on lane creatures immediately. The earlier
 	# refresh (via select_card) ran before the state was set, so the interaction
 	# state check for ACTION-mode targeting hadn't yet activated.
+	var _t_refresh := Time.get_ticks_msec()
 	_screen._refresh._refresh_ui()
+	print("[TARGETING] post-arrow refresh took %dms" % (Time.get_ticks_msec() - _t_refresh))
+	print("[TARGETING] _enter_targeting_mode END total=%dms" % (Time.get_ticks_msec() - _t_total))
 
 
 func _create_targeting_action_preview(instance_id: String, card: Dictionary) -> Control:

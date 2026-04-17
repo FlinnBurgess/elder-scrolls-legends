@@ -22,6 +22,7 @@ func _init(screen) -> void:
 
 
 func _build_card_button(card: Dictionary, public_view: bool, surface := "default") -> Button:
+	var _t_build := Time.get_ticks_usec()
 	var button := Button.new()
 	var instance_id := str(card.get("instance_id", ""))
 	var hidden = not public_view and not _screen._overlays._is_pending_prophecy_card(card)
@@ -66,6 +67,8 @@ func _build_card_button(card: Dictionary, public_view: bool, surface := "default
 	if surface == "support":
 		button.mouse_entered.connect(_screen._on_support_card_mouse_entered.bind(button, instance_id))
 		button.mouse_exited.connect(_screen._on_support_card_mouse_exited.bind(instance_id))
+	_screen._selection._perf_build_card_count += 1
+	_screen._selection._perf_build_card_us += Time.get_ticks_usec() - _t_build
 	return button
 
 

@@ -2856,6 +2856,8 @@ static func play_pending_prophecy(match_state: Dictionary, player_id: String, in
 		var hand_index := MatchTimingHelpers._find_card_index(player.get(ZONE_HAND, []), instance_id)
 		if hand_index == -1:
 			return MatchTimingHelpers._invalid_result("Pending Prophecy card %s is no longer in hand." % instance_id)
+		if bool(options.get("validate_only", false)):
+			return {"is_valid": true, "errors": []}
 		_consume_pending_prophecy_window(match_state, window_index)
 		var played_card: Dictionary = player[ZONE_HAND][hand_index]
 		player[ZONE_HAND].remove_at(hand_index)
@@ -3156,6 +3158,10 @@ static func play_action_from_hand(match_state: Dictionary, player_id: String, in
 		for cl in player.get("cost_locks", []):
 			if typeof(cl) == TYPE_DICTIONARY and int(cl.get("cost", -1)) == play_cost:
 				return MatchTimingHelpers._invalid_result("Cannot play cards with cost %d." % play_cost)
+	# Short-circuit for UI validation callers: skip mutation + publish_events
+	# (target-independent, ~100ms+ on complex boards).
+	if bool(options.get("validate_only", false)):
+		return {"is_valid": true, "errors": []}
 	if play_cost > 0:
 		MatchTimingHelpers._spend_magicka(match_state, player_id, play_cost)
 	if action_cost_reduction > 0:
