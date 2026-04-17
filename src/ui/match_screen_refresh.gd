@@ -84,6 +84,27 @@ func _refresh_ui() -> void:
 
 
 
+func _compute_hand_section_hash(player_id: String, player: Dictionary, hand_public: bool) -> Dictionary:
+	var hand_iids: Array = []
+	for card in player.get("hand", []):
+		var iid := str(card.get("instance_id", ""))
+		if _screen._overlays._has_active_prophecy_overlay(iid):
+			continue
+		if iid in _screen._draw_animating_ids:
+			continue
+		hand_iids.append("%s:%d" % [iid, int(card.get("cost", 0))])
+	return {
+		"iids": hand_iids,
+		"selected": _screen._selected_instance_id,
+		"magicka_avail": int(player.get("current_magicka", 0)) + int(player.get("temporary_magicka", 0)),
+		"invalid_ids": _screen._invalid_feedback.get("instance_ids", []),
+		"detached_id": str(_screen._hand._detached_card_state.get("instance_id", "")),
+		"active_player": _screen._active_player_id(),
+		"hand_public": hand_public,
+		"player_id": player_id,
+	}
+
+
 func _refresh_player_sections() -> void:
 	var _us_avatar := 0
 	var _us_magicka := 0
@@ -148,21 +169,32 @@ func _refresh_player_sections() -> void:
 
 		_t = Time.get_ticks_usec()
 		var hand_row: Control = section["hand_row"]
-		_screen._clear_children(hand_row)
 		var hand_public = _screen._is_hand_public(player_id)
-		for card in player.get("hand", []):
-			var card_iid := str(card.get("instance_id", ""))
-			if _screen._overlays._has_active_prophecy_overlay(card_iid):
-				continue
-			if card_iid in _screen._draw_animating_ids:
-				continue
-			hand_row.add_child(_screen._card_surface._build_card_button(card, hand_public, "hand"))
-		if hand_row.get_child_count() == 0:
-			var placeholder = _screen._card_surface._build_placeholder_label("Hand empty")
-			hand_row.add_child(placeholder)
-			_screen._card_surface._layout_hand_placeholder(hand_row, placeholder)
+		var hand_hash := _compute_hand_section_hash(player_id, player, hand_public)
+		if section.get("hand_hash", null) == hand_hash and hand_row.get_child_count() > 0:
+			# Inputs unchanged — keep the existing buttons but re-register them so
+			# downstream code (targeting, hover, animation) can find them.
+			for child in hand_row.get_children():
+				if child is Button:
+					var iid := str(child.get_meta("instance_id", ""))
+					if not iid.is_empty():
+						_screen._card_buttons[iid] = child
 		else:
-			_screen._card_surface._layout_hand_cards(hand_row, player_id)
+			section["hand_hash"] = hand_hash
+			_screen._clear_children(hand_row)
+			for card in player.get("hand", []):
+				var card_iid := str(card.get("instance_id", ""))
+				if _screen._overlays._has_active_prophecy_overlay(card_iid):
+					continue
+				if card_iid in _screen._draw_animating_ids:
+					continue
+				hand_row.add_child(_screen._card_surface._build_card_button(card, hand_public, "hand"))
+			if hand_row.get_child_count() == 0:
+				var placeholder = _screen._card_surface._build_placeholder_label("Hand empty")
+				hand_row.add_child(placeholder)
+				_screen._card_surface._layout_hand_placeholder(hand_row, placeholder)
+			else:
+				_screen._card_surface._layout_hand_cards(hand_row, player_id)
 		_us_hand += Time.get_ticks_usec() - _t
 	print("[REFRESH] sections breakdown: avatar=%dus magicka=%dus ring=%dus piles=%dus support=%dus hand=%dus" % [_us_avatar, _us_magicka, _us_ring, _us_piles, _us_support, _us_hand])
 
