@@ -270,20 +270,20 @@ static func _resolve_lane_mania_draw(match_state: Dictionary, trigger: Dictionar
 		elif health == best_health:
 			tied = true
 
-	if tied or best_owner != active_player_id:
+	if tied:
 		return {"handled": true, "events": []}
 
-	var draw_result: Dictionary = _timing_rules().draw_cards(match_state, active_player_id, 1, {
+	var draw_result: Dictionary = _timing_rules().draw_cards(match_state, best_owner, 1, {
 		"reason": "lane_effect_mania",
 		"source_instance_id": str(trigger.get("source_instance_id", "")),
-		"source_controller_player_id": active_player_id,
+		"source_controller_player_id": best_owner,
 	})
 
 	var events: Array = [{
 		"event_type": "card_drawn",
 		"draw_reason": "lane_effect_mania",
 		"source_instance_id": str(trigger.get("source_instance_id", "")),
-		"player_id": active_player_id,
+		"player_id": best_owner,
 		"lane_id": lane_id,
 	}]
 	events.append_array(draw_result.get("events", []))

@@ -367,10 +367,17 @@ static func _is_immune_to_effect(match_state: Dictionary, target_card: Dictionar
 	var self_immunities = target_card.get("self_immunity", [])
 	if typeof(self_immunities) == TYPE_ARRAY and self_immunities.has(effect_type):
 		return true
-	var target_has_attached_items := not EvergreenRules.get_attached_items(target_card).is_empty()
+	var attached_items := EvergreenRules.get_attached_items(target_card)
+	var target_has_attached_items := not attached_items.is_empty()
 	if effect_type == "silence" and target_has_attached_items:
 		var own_grants = target_card.get("grants_immunity", [])
 		if typeof(own_grants) == TYPE_ARRAY and own_grants.has("silence_on_equipped"):
+			return true
+	for item in attached_items:
+		if typeof(item) != TYPE_DICTIONARY:
+			continue
+		var item_grants = item.get("grants_immunity", [])
+		if typeof(item_grants) == TYPE_ARRAY and item_grants.has(effect_type):
 			return true
 	# Player-only grants (e.g. Stampede Sentinel's action/support damage shield) must not propagate to friendly creatures.
 	if effect_type in PLAYER_ONLY_GRANTS_IMMUNITY:

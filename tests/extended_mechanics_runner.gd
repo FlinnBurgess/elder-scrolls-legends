@@ -165,7 +165,9 @@ func _run_all_tests() -> bool:
 		_test_outflank_per_lane_targeting_grants_stats_and_guard() and
 		_test_buff_random_hand_card_filters_correctly() and
 		_test_all_subtypes_passive_matches_any_subtype() and
-		_test_power_equals_health_tracks_damage_and_buffs()
+		_test_power_equals_health_tracks_damage_and_buffs() and
+		_test_shivering_apothecary_summons_random_elixir_to_support_zone() and
+		_test_shivering_apothecary_skips_when_support_zone_full()
 	)
 
 
@@ -6369,5 +6371,79 @@ func _test_power_equals_health_tracks_damage_and_buffs() -> bool:
 		return false
 	hound["damage_marked"] = 9
 	if not _assert(EvergreenRules.get_power(hound) == 0, "power_equals_health: power should floor at 0 when damage exceeds health."):
+		return false
+	return true
+
+
+func _test_shivering_apothecary_summons_random_elixir_to_support_zone() -> bool:
+	# Regression: Shivering Apothecary should put a random elixir into play (support zone),
+	# not draw one to hand.
+	var elixir_ids: Array = [
+		"str_skirmishers_elixir",
+		"int_elixir_of_deflection",
+		"wil_elixir_of_the_defender",
+		"agi_elixir_of_light_feet",
+		"end_elixir_of_vigor",
+		"neu_elixir_of_conflict",
+		"hos_wil_elixir_of_vitality",
+		"aw_int_ravaging_elixir",
+		"joo_int_elixir_of_potency",
+	]
+	var seen_ids: Dictionary = {}
+	for trial in range(12):
+		var match_state := _build_started_match()
+		var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+		var pid := str(player.get("player_id", ""))
+		var hand_size_before: int = player.get("hand", []).size()
+		var support_size_before: int = player.get("support", []).size()
+		match_state["rng_seed"] = 4000 + trial
+		match_state["generated_card_sequence"] = trial
+		var trigger := {"controller_player_id": pid, "source_instance_id": "sa_%d" % trial, "lane_index": 0}
+		var event := {}
+		var effect := {"op": "summon_random_from_catalog", "filter": {"card_type": "support", "name_contains": "Elixir"}}
+		var result := ExtendedMechanicPacks.apply_custom_effect(match_state, trigger, event, effect)
+		if not _assert(bool(result.get("handled", false)), "Shivering Apothecary effect should be handled."):
+			return false
+		if not _assert(player.get("hand", []).size() == hand_size_before, "Elixir should be put into play, not drawn to hand."):
+			return false
+		if not _assert(player.get("support", []).size() == support_size_before + 1, "Support zone should gain exactly one elixir."):
+			return false
+		var summoned: Dictionary = player.get("support", [])[-1]
+		var def_id := str(summoned.get("definition_id", ""))
+		if not _assert(elixir_ids.has(def_id), "Summoned support '%s' should be one of the 8 elixirs." % def_id):
+			return false
+		if not _assert(str(summoned.get("card_type", "")) == "support", "Summoned card should be a support."):
+			return false
+		if not _assert(str(summoned.get("zone", "")) == "support", "Summoned card zone should be 'support'."):
+			return false
+		seen_ids[def_id] = true
+	return _assert(seen_ids.size() >= 2, "Across trials should see variety of elixirs, saw: %s" % str(seen_ids.keys()))
+
+
+func _test_shivering_apothecary_skips_when_support_zone_full() -> bool:
+	# When the support zone already holds 4 supports, Shivering Apothecary's effect
+	# should resolve as a no-op (no elixir generated, no hand draw).
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var supports: Array = player.get("support", [])
+	for i in range(4):
+		var filler := ScenarioFixtures.make_card(pid, "filler_support_%d" % i, {
+			"zone": "support",
+			"card_type": "support",
+			"cost": 0,
+			"support_uses": 1,
+			"remaining_support_uses": 1,
+		})
+		supports.append(filler)
+	var hand_size_before: int = player.get("hand", []).size()
+	var trigger := {"controller_player_id": pid, "source_instance_id": "sa_full", "lane_index": 0}
+	var effect := {"op": "summon_random_from_catalog", "filter": {"card_type": "support", "name_contains": "Elixir"}}
+	var result := ExtendedMechanicPacks.apply_custom_effect(match_state, trigger, {}, effect)
+	if not _assert(bool(result.get("handled", false)), "Effect should still be handled (no-op) when support zone is full."):
+		return false
+	if not _assert(player.get("support", []).size() == 4, "Support zone should remain at 4 when full."):
+		return false
+	if not _assert(player.get("hand", []).size() == hand_size_before, "No elixir should be drawn to hand when support zone is full."):
 		return false
 	return true

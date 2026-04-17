@@ -88,7 +88,9 @@ func _run_all_tests() -> bool:
 		# Spider Lair restricted card_ids pool
 		_test_spider_lair_only_summons_configured_spider_ids() and
 		# Yokudan Nightblade silence_on_equipped aura
-		_test_yokudan_nightblade_grants_silence_immunity_to_equipped_friendlies()
+		_test_yokudan_nightblade_grants_silence_immunity_to_equipped_friendlies() and
+		# Lute silence immunity via attached item grants_immunity
+		_test_lute_attached_item_grants_silence_immunity()
 	)
 
 
@@ -485,6 +487,28 @@ func _test_play_support_sacrifice_rejects_when_not_full() -> bool:
 	var new_support := _add_hand_card(player, "extra_support", {"card_type": "support", "cost": 0, "support_uses": 3})
 	var result := PersistentCardRules.play_support_with_sacrifice(match_state, pid, new_support["instance_id"], sacrifice_id)
 	return _assert(not result["is_valid"], "Sacrifice play should fail when support zone is not full.")
+
+
+func _test_lute_attached_item_grants_silence_immunity() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid: String = player["player_id"]
+	var host := _summon_creature(player, match_state, "lute_host", "field", 2, 3, 0)
+	var bare := _summon_creature(player, match_state, "bare_creature", "field", 2, 3, 1)
+	var lute := _add_hand_card(player, "lute", {
+		"card_type": "item",
+		"cost": 1,
+		"equip_power_bonus": 1,
+		"equip_health_bonus": 2,
+		"grants_immunity": ["silence"],
+	})
+	var play_result := PersistentCardRules.play_item_from_hand(match_state, pid, lute["instance_id"], {"target_instance_id": host["instance_id"]})
+	if not _assert(play_result["is_valid"], "Fixture: Lute should attach to host."):
+		return false
+	return (
+		_assert(MatchTimingHelpers._is_immune_to_effect(match_state, host, "silence"), "Lute: wielder should be immune to silence.") and
+		_assert(not MatchTimingHelpers._is_immune_to_effect(match_state, bare, "silence"), "Lute: unequipped friendly creature should NOT be immune.")
+	)
 
 
 func _test_yokudan_nightblade_grants_silence_immunity_to_equipped_friendlies() -> bool:

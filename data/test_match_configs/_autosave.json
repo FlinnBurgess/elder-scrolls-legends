@@ -16,10 +16,11 @@
 		"field_creatures": [
 			null,
 			null,
-			null
+			null,
+			"exc_neu_adoring_fan"
 		],
 		"hand": [
-			"int_alfe_fyr"
+			"aw_end_hush"
 		],
 		"health": 30.0,
 		"max_magicka": 12.0,
@@ -52,18 +53,17 @@
 			"moe_neu_crocodile_brute"
 		],
 		"field_creatures": [
-			null,
-			null,
-			null,
-			"dg_end_lord_harkon"
+			null
 		],
 		"hand": [
-			"wil_piercing_javelin"
+			"mhc_wil_shivering_apothecary"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [],
+		"shadow_creatures": [
+			"hom_str_aldruhn_arms_master"
+		],
 		"supports": [
 			"hos_wil_wolf_cage"
 		]

@@ -1,46 +1,9 @@
 {
-  "findings": [
-    {
-      "card_id": "hom_wil_chodalas_treachery",
-      "card_name": "Chodala's Treachery",
-      "check": "unknown_descriptor_key",
-      "context": {
-        "key": "plot_replaces",
-        "suggestion": "",
-        "trigger_index": 0
-      },
-      "detail": "Trigger #0 has unrecognized key 'plot_replaces'",
-      "severity": "warning"
-    },
-    {
-      "card_id": "joo_str_mehrunes_dagons_flayer",
-      "card_name": "Mehrunes Dagon's Flayer",
-      "check": "unknown_descriptor_key",
-      "context": {
-        "key": "deferred_visual",
-        "suggestion": "",
-        "trigger_index": 0
-      },
-      "detail": "Trigger #0 has unrecognized key 'deferred_visual'",
-      "severity": "warning"
-    },
-    {
-      "card_id": "exc_neu_horse_armor",
-      "card_name": "Horse Armor",
-      "check": "unknown_op",
-      "context": {
-        "effect_index": 0,
-        "op": "set_premium",
-        "trigger_index": 0
-      },
-      "detail": "Trigger #0 effect #0 has unrecognized op 'set_premium'",
-      "severity": "error"
-    }
-  ],
+  "findings": [],
   "summary": {
-    "cards_with_issues": 3,
-    "errors": 1,
+    "cards_with_issues": 0,
+    "errors": 0,
     "total_cards": 1324,
-    "warnings": 2
+    "warnings": 0
   }
 }

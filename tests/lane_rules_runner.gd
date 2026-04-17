@@ -36,7 +36,7 @@ func _run_all_tests() -> bool:
 		_test_dementia_lane_no_damage_when_empty() and
 		_test_mania_lane_draws_card_for_highest_health() and
 		_test_mania_lane_no_draw_on_tie() and
-		_test_mania_lane_no_draw_when_opponent_has_highest() and
+		_test_mania_lane_opponent_has_highest_still_draws() and
 		_test_mania_lane_no_draw_when_empty() and
 		_test_armor_lane_doubles_health_on_summon() and
 		_test_armor_lane_does_not_affect_other_lane() and
@@ -450,15 +450,19 @@ func _test_mania_lane_draws_card_for_highest_health() -> bool:
 	# Player 1 has a higher-health creature
 	_summon_creature(player_1, match_state, "p1_healthy", "mania", 2, 6)
 	_summon_creature(player_2, match_state, "p2_weak", "mania", 2, 3)
-	# End player 1's turn, start player 2's — player 2 does NOT have highest health
+	# End player 1's turn, start player 2's — player 1 still has highest health,
+	# so player 1 should draw the mania card while player 2 only gets the normal turn draw.
+	var p1_hand_before_p2_turn := int(player_1["hand"].size())
 	var p2_hand_before_p2_turn := int(player_2["hand"].size())
 	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
+	var p1_hand_after_p2_turn := int(player_1["hand"].size())
 	var p2_hand_after_p2_turn := int(player_2["hand"].size())
-	# End player 2's turn, start player 1's — player 1 HAS highest health
+	# End player 2's turn, start player 1's — player 1 HAS highest health, gets normal + mania
 	var p1_hand_before_p1_turn := int(player_1["hand"].size())
 	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
 	var p1_hand_after_p1_turn := int(player_1["hand"].size())
 	return (
+		_assert(p1_hand_after_p2_turn == p1_hand_before_p2_turn + 1, "Player 1 should draw a mania card at the start of player 2's turn because player 1 has the highest-health creature.") and
 		_assert(p2_hand_after_p2_turn == p2_hand_before_p2_turn + 1, "Player 2 should only get normal turn draw (no mania bonus) when player 1 has highest health.") and
 		_assert(p1_hand_after_p1_turn == p1_hand_before_p1_turn + 2, "Player 1 should draw normal + mania card when starting their turn with the highest-health creature.")
 	)
@@ -484,7 +488,7 @@ func _test_mania_lane_no_draw_on_tie() -> bool:
 	)
 
 
-func _test_mania_lane_no_draw_when_opponent_has_highest() -> bool:
+func _test_mania_lane_opponent_has_highest_still_draws() -> bool:
 	var match_state := _build_mania_match()
 	var player_1: Dictionary = match_state["players"][0]
 	var player_2: Dictionary = match_state["players"][1]
@@ -492,15 +496,21 @@ func _test_mania_lane_no_draw_when_opponent_has_highest() -> bool:
 	_summon_creature(player_2, match_state, "p2_only", "mania", 2, 6)
 	var p1_hand_before := int(player_1["hand"].size())
 	var p2_hand_before := int(player_2["hand"].size())
-	# End player 1's turn (no creature, no draw)
+	# End player 1's turn — player 2's turn starts; player 2 has highest health, gets normal + mania
 	MatchTurnLoop.end_turn(match_state, player_1["player_id"])
 	var p2_hand_after_p2_turn := int(player_2["hand"].size())
-	# Player 2's turn starts — player 2 has highest health, draws extra
+	var p1_hand_after_p2_turn := int(player_1["hand"].size())
+	# End player 2's turn — player 1's turn starts; player 2 still has highest health
+	# so player 2 draws a mania card while player 1 only gets the normal turn draw.
+	var p2_hand_before_p1_turn := int(player_2["hand"].size())
 	MatchTurnLoop.end_turn(match_state, player_2["player_id"])
 	var p1_hand_after := int(player_1["hand"].size())
+	var p2_hand_after_p1_turn := int(player_2["hand"].size())
 	return (
 		_assert(p2_hand_after_p2_turn == p2_hand_before + 2, "Player 2 should draw an extra card from mania when they have the highest-health creature on their turn.") and
-		_assert(p1_hand_after == p1_hand_before + 1, "Player 1 should only get the normal turn draw when they have no creatures in the mania lane.")
+		_assert(p1_hand_after_p2_turn == p1_hand_before, "Player 1 should not draw on player 2's turn when they have no creature in the mania lane.") and
+		_assert(p1_hand_after == p1_hand_before + 1, "Player 1 should only get the normal turn draw when they have no creatures in the mania lane.") and
+		_assert(p2_hand_after_p1_turn == p2_hand_before_p1_turn + 1, "Player 2 should draw a mania card at the start of player 1's turn because player 2 has the highest-health creature.")
 	)
 
 

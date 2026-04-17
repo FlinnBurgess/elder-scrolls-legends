@@ -66,9 +66,11 @@ const CONDITION_KEYS := [
 	# Treasure hunt system keys
 	"hunt_types", "hunt_count", "hunt_keyword",
 	# Other alternative-system keys
-	"mandatory", "plot_effects", "source_type",
+	"mandatory", "plot_effects", "plot_replaces", "source_type",
 	"required_singleton_deck", "target_filter_max_power",
 	"target_filter_wounded",
+	# Animation hints consumed by engine/UI layers
+	"deferred_visual",
 ]
 
 # Effect-level condition keys (used by effect_is_enabled gate)
@@ -218,7 +220,8 @@ const RECOGNIZED_OPS := [
 	"add_counter", "aim_at", "buff_random_hand_card",
 	"grant_aura_by_chosen_subtype", "log", "mark_for_resummon",
 	"mark_target", "redirect_damage_to_self", "reveal_opponent_hand_card",
-	"reveal_opponent_top_deck", "swap_creatures", "top_deck_attribute_bonus",
+	"reveal_opponent_top_deck", "set_premium", "swap_creatures",
+	"top_deck_attribute_bonus",
 	# Custom ops (extended_mechanic_packs)
 	"assemble", "upgrade_shout", "invade", "buff_oblivion_gate_summon",
 	"track_treasure_hunt", "damage", "empower_damage", "gain_magicka",

@@ -14,11 +14,14 @@ const EVENT_CREATURE_SUMMONED := "creature_summoned"
 const EVENT_TREASURE_HUNT_COMPLETED := "treasure_hunt_completed"
 
 const CARD_TYPE_ACTION := "action"
+const CARD_TYPE_SUPPORT := "support"
 const ZONE_HAND := "hand"
 const ZONE_DECK := "deck"
 const ZONE_DISCARD := "discard"
 const ZONE_LANE := "lane"
+const ZONE_SUPPORT := "support"
 const SHADOW_LANE_ID := "shadow"
+const MAX_SUPPORTS := 4
 
 const SUBTYPE_GROUPS := {
 	"Animal": ["Beast", "Fish", "Mammoth", "Mudcrab", "Netch", "Reptile", "Spider", "Skeever", "Wolf"],
@@ -682,6 +685,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			var srfc_exact_cost := int(srfc_filter.get("exact_cost", -1))
 			var srfc_req_card_type := str(srfc_filter.get("card_type", ""))
 			var srfc_req_subtype := str(srfc_filter.get("required_subtype", ""))
+			var srfc_name_contains := str(srfc_filter.get("name_contains", ""))
 			var srfc_card_ids_raw = srfc_filter.get("card_ids", [])
 			var srfc_card_ids: Array = srfc_card_ids_raw if typeof(srfc_card_ids_raw) == TYPE_ARRAY else []
 			for seed in srfc_seeds:
@@ -704,12 +708,44 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				if not srfc_req_subtype.is_empty():
 					if not card_matches_subtype(seed, srfc_req_subtype):
 						continue
+				if not srfc_name_contains.is_empty():
+					if str(seed.get("name", "")).findn(srfc_name_contains) < 0:
+						continue
 				srfc_candidates.append(seed)
 			if srfc_candidates.is_empty():
 				return {"handled": true, "events": []}
 			var srfc_pick: Dictionary = srfc_candidates[_timing_rules()._deterministic_index(match_state, str(trigger.get("source_instance_id", "")) + "_srfc", srfc_candidates.size())]
 			var srfc_template: Dictionary = srfc_pick.duplicate(true)
 			srfc_template["definition_id"] = str(srfc_template.get("card_id", ""))
+			# Support path: picked card is a support — place directly in the support zone.
+			if str(srfc_pick.get("card_type", "")) == CARD_TYPE_SUPPORT:
+				if srfc_player.is_empty():
+					return {"handled": true, "events": []}
+				var srfc_supports: Array = srfc_player.get(ZONE_SUPPORT, [])
+				if srfc_supports.size() >= MAX_SUPPORTS:
+					return {"handled": true, "events": []}
+				var srfc_support_gen := MatchMutations.build_generated_card(match_state, srfc_controller_id, srfc_template)
+				srfc_support_gen["zone"] = ZONE_SUPPORT
+				srfc_support_gen["controller_player_id"] = srfc_controller_id
+				if not srfc_support_gen.has("owner_player_id"):
+					srfc_support_gen["owner_player_id"] = srfc_controller_id
+				EvergreenRules.ensure_card_state(srfc_support_gen)
+				if not srfc_support_gen.has("activations_this_turn"):
+					srfc_support_gen["activations_this_turn"] = 0
+				if not srfc_support_gen.has("remaining_support_uses"):
+					var srfc_su = srfc_support_gen.get("support_uses", null)
+					srfc_support_gen["remaining_support_uses"] = null if (srfc_su == null or int(srfc_su) == 0) else int(srfc_su)
+				srfc_supports.append(srfc_support_gen)
+				return {"handled": true, "events": [{
+					"event_type": EVENT_CARD_PLAYED,
+					"playing_player_id": srfc_controller_id,
+					"player_id": srfc_controller_id,
+					"source_instance_id": str(srfc_support_gen.get("instance_id", "")),
+					"source_zone": MatchMutations.ZONE_GENERATED,
+					"target_zone": ZONE_SUPPORT,
+					"card_type": CARD_TYPE_SUPPORT,
+					"reason": "summon_from_catalog",
+				}]}
 			var srfc_lane_id := ""
 			var srfc_lanes: Array = match_state.get("lanes", [])
 			if str(effect.get("target_lane", "")) == "random" and not srfc_lanes.is_empty():
