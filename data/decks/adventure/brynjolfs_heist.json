@@ -1,0 +1,32 @@
+{
+	"name": "Brynjolf's Heist",
+	"deck_id": "brynjolfs_heist",
+	"attribute_ids": ["intelligence", "agility"],
+	"cards": [
+		{"card_id": "int_cruel_firebloom", "quantity": 1},
+		{"card_id": "int_shimmerene_peddler", "quantity": 1},
+		{"card_id": "hos_int_thief_of_dreams", "quantity": 1},
+		{"card_id": "hos_agi_move_in_shadows", "quantity": 1},
+		{"card_id": "hos_agi_paralyze", "quantity": 1},
+		{"card_id": "agi_moonlight_werebat", "quantity": 1},
+		{"card_id": "agi_torval_crook", "quantity": 1},
+		{"card_id": "hos_agi_brynjolf", "quantity": 1},
+		{"card_id": "agi_chaurus_reaper", "quantity": 1},
+		{"card_id": "int_elusive_schemer", "quantity": 2},
+		{"card_id": "hos_int_riften_pickpocket", "quantity": 2},
+		{"card_id": "hos_agi_lockpick", "quantity": 2},
+		{"card_id": "agi_dune_smuggler", "quantity": 2},
+		{"card_id": "agi_giant_bat", "quantity": 2},
+		{"card_id": "hos_agi_sightless_skulk", "quantity": 2},
+		{"card_id": "hos_dual_assassins_ritual", "quantity": 2},
+		{"card_id": "int_firebolt", "quantity": 3},
+		{"card_id": "int_lightning_bolt", "quantity": 3},
+		{"card_id": "int_lillandril_hexmage", "quantity": 3},
+		{"card_id": "hos_agi_palace_prowler", "quantity": 3},
+		{"card_id": "agi_shadow_shift", "quantity": 3},
+		{"card_id": "hos_agi_caravan_enforcer", "quantity": 3},
+		{"card_id": "hos_agi_gloomlurker", "quantity": 3},
+		{"card_id": "agi_goblin_skulk", "quantity": 3},
+		{"card_id": "agi_thieves_guild_recruit", "quantity": 3}
+	]
+}

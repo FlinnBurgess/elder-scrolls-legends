@@ -1,0 +1,30 @@
+{
+	"name": "Alduin's Apocalypse",
+	"deck_id": "alduins_apocalypse",
+	"attribute_ids": ["willpower", "endurance"],
+	"cards": [
+		{"card_id": "hos_end_dragon_cult_ghost", "quantity": 1},
+		{"card_id": "hos_end_encumbered_explorer", "quantity": 1},
+		{"card_id": "end_dragontail_savior", "quantity": 1},
+		{"card_id": "end_preserver_of_the_root", "quantity": 1},
+		{"card_id": "wil_mantikora", "quantity": 1},
+		{"card_id": "dual_edict_of_azura", "quantity": 1},
+		{"card_id": "hos_neu_alduin", "quantity": 1},
+		{"card_id": "hos_end_dragonplate_armor", "quantity": 2},
+		{"card_id": "end_midnight_sweep", "quantity": 2},
+		{"card_id": "hos_wil_devour", "quantity": 2},
+		{"card_id": "wil_hive_defender", "quantity": 2},
+		{"card_id": "hos_wil_imperial_camp", "quantity": 2},
+		{"card_id": "hos_end_ancient_lookout", "quantity": 3},
+		{"card_id": "hos_end_mentor_of_the_watch", "quantity": 3},
+		{"card_id": "end_tree_minder", "quantity": 3},
+		{"card_id": "hos_end_spine_of_eldersblood", "quantity": 3},
+		{"card_id": "hos_end_ironscale_dragon", "quantity": 3},
+		{"card_id": "hos_wil_cliffside_lookout", "quantity": 3},
+		{"card_id": "hos_wil_revered_guardian", "quantity": 3},
+		{"card_id": "hos_wil_karthspire_scourge", "quantity": 3},
+		{"card_id": "wil_piercing_javelin", "quantity": 3},
+		{"card_id": "hos_wil_snowhawk_detachment", "quantity": 3},
+		{"card_id": "hos_neu_midnight_snack", "quantity": 3}
+	]
+}

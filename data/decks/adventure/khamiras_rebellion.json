@@ -1,0 +1,30 @@
+{
+	"name": "Khamira's Rebellion",
+	"deck_id": "khamiras_rebellion",
+	"attribute_ids": ["willpower", "agility"],
+	"cards": [
+		{"card_id": "moe_dual_khamira", "quantity": 1},
+		{"card_id": "moe_neu_lunar_sway", "quantity": 1},
+		{"card_id": "agi_tenmar_swiftclaw", "quantity": 1},
+		{"card_id": "moe_wil_smash_and_grab", "quantity": 1},
+		{"card_id": "wil_divine_fervor", "quantity": 1},
+		{"card_id": "dual_master_of_thieves", "quantity": 1},
+		{"card_id": "moe_wil_wily_keeva", "quantity": 2},
+		{"card_id": "moe_agi_corinthe_brawler", "quantity": 2},
+		{"card_id": "agi_dune_stalker", "quantity": 2},
+		{"card_id": "moe_agi_slinking_jackal", "quantity": 2},
+		{"card_id": "agi_baandari_bruiser", "quantity": 2},
+		{"card_id": "moe_wil_alfiq_illusionist", "quantity": 2},
+		{"card_id": "agi_dune_smuggler", "quantity": 2},
+		{"card_id": "agi_shadow_shift", "quantity": 3},
+		{"card_id": "agi_daring_cutpurse", "quantity": 3},
+		{"card_id": "wil_rajhini_highwayman", "quantity": 3},
+		{"card_id": "wil_piercing_javelin", "quantity": 3},
+		{"card_id": "moe_agi_cartel_bruiser", "quantity": 3},
+		{"card_id": "moe_agi_suthay_bootlegger", "quantity": 3},
+		{"card_id": "moe_neu_moon_gate", "quantity": 3},
+		{"card_id": "moe_wil_rebel_warden", "quantity": 3},
+		{"card_id": "moe_wil_moon_bishop", "quantity": 3},
+		{"card_id": "moe_agi_moonphase_suthay", "quantity": 3}
+	]
+}

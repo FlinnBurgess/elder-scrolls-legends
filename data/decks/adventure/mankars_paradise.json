@@ -1,0 +1,29 @@
+{
+	"name": "Mankar's Paradise",
+	"deck_id": "mankars_paradise",
+	"attribute_ids": ["strength", "intelligence"],
+	"cards": [
+		{"card_id": "str_dread_clannfear", "quantity": 1},
+		{"card_id": "str_lumbering_ogrim", "quantity": 1},
+		{"card_id": "joo_str_keeper_of_the_gates", "quantity": 1},
+		{"card_id": "int_breton_conjurer", "quantity": 1},
+		{"card_id": "joo_dual_mankar_camoran", "quantity": 1},
+		{"card_id": "joo_str_widow_daedra", "quantity": 2},
+		{"card_id": "joo_int_sigil_keeper", "quantity": 2},
+		{"card_id": "joo_str_blood_crazed_daedroth", "quantity": 2},
+		{"card_id": "joo_str_mehrunes_dagons_flayer", "quantity": 2},
+		{"card_id": "joo_int_mythic_dawn_informer", "quantity": 2},
+		{"card_id": "joo_str_xivilai_warlord", "quantity": 2},
+		{"card_id": "int_firebolt", "quantity": 3},
+		{"card_id": "joo_str_daedric_incursion", "quantity": 3},
+		{"card_id": "int_high_rock_summoner", "quantity": 3},
+		{"card_id": "int_wardcrafter", "quantity": 3},
+		{"card_id": "str_rapid_shot", "quantity": 3},
+		{"card_id": "joo_str_agent_of_mehrunes_dagon", "quantity": 3},
+		{"card_id": "int_lesser_ward", "quantity": 3},
+		{"card_id": "joo_int_blast_from_oblivion", "quantity": 3},
+		{"card_id": "joo_str_invasion_scout", "quantity": 3},
+		{"card_id": "joo_int_invasion_vanguard", "quantity": 3},
+		{"card_id": "joo_neu_oblivion_invasion", "quantity": 3}
+	]
+}

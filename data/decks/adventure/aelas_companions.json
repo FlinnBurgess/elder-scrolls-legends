@@ -1,0 +1,30 @@
+{
+	"name": "Aela's Companions",
+	"deck_id": "aelas_companions",
+	"attribute_ids": ["strength", "endurance"],
+	"cards": [
+		{"card_id": "str_fiery_imp", "quantity": 1},
+		{"card_id": "str_orc_clan_captain", "quantity": 1},
+		{"card_id": "str_child_of_hircine", "quantity": 1},
+		{"card_id": "hos_str_aela_the_huntress", "quantity": 1},
+		{"card_id": "hos_str_ancestors_battleaxe", "quantity": 1},
+		{"card_id": "end_shadowfen_priest", "quantity": 1},
+		{"card_id": "end_night_predator", "quantity": 1},
+		{"card_id": "str_afflicted_alit", "quantity": 2},
+		{"card_id": "hos_str_stormcloak_vanguard", "quantity": 2},
+		{"card_id": "hos_str_ulfrics_zealot", "quantity": 2},
+		{"card_id": "str_triumphant_jarl", "quantity": 2},
+		{"card_id": "end_enchanted_plate", "quantity": 2},
+		{"card_id": "str_rapid_shot", "quantity": 3},
+		{"card_id": "hos_str_circle_initiate", "quantity": 3},
+		{"card_id": "str_morkul_gatekeeper", "quantity": 3},
+		{"card_id": "hos_str_aelas_huntmate", "quantity": 3},
+		{"card_id": "end_wind_keep_spellsword", "quantity": 3},
+		{"card_id": "hos_end_companion_harbinger", "quantity": 3},
+		{"card_id": "hos_end_grim_shield_brother", "quantity": 3},
+		{"card_id": "hos_end_whiterun_protector", "quantity": 3},
+		{"card_id": "neu_lurking_crocodile", "quantity": 3},
+		{"card_id": "hos_neu_mudcrab_anklesnapper", "quantity": 3},
+		{"card_id": "neu_crushing_blow", "quantity": 3}
+	]
+}

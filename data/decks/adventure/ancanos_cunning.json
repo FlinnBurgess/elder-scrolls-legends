@@ -1,0 +1,31 @@
+{
+	"name": "Ancano's Cunning",
+	"deck_id": "ancanos_cunning",
+	"attribute_ids": ["intelligence", "willpower"],
+	"cards": [
+		{"card_id": "int_ice_storm", "quantity": 1},
+		{"card_id": "hos_wil_praetorian_commander", "quantity": 1},
+		{"card_id": "int_high_rock_summoner", "quantity": 1},
+		{"card_id": "wil_cloudrest_illusionist", "quantity": 1},
+		{"card_id": "hos_int_ancano", "quantity": 1},
+		{"card_id": "int_mages_guild_retreat", "quantity": 1},
+		{"card_id": "wil_calm", "quantity": 2},
+		{"card_id": "int_wardcrafter", "quantity": 2},
+		{"card_id": "wil_bruma_profiteer", "quantity": 2},
+		{"card_id": "hos_neu_a_night_to_remember", "quantity": 2},
+		{"card_id": "int_shrieking_harpy", "quantity": 2},
+		{"card_id": "int_crystal_tower_crafter", "quantity": 2},
+		{"card_id": "wil_execute", "quantity": 2},
+		{"card_id": "hos_int_insightful_scholar", "quantity": 2},
+		{"card_id": "hos_wil_grisly_gourmet", "quantity": 2},
+		{"card_id": "hos_dual_mages_trick", "quantity": 2},
+		{"card_id": "int_firebolt", "quantity": 3},
+		{"card_id": "hos_wil_winterhold_illusionist", "quantity": 3},
+		{"card_id": "hos_int_conjuration_scholar", "quantity": 3},
+		{"card_id": "wil_piercing_javelin", "quantity": 3},
+		{"card_id": "int_lightning_bolt", "quantity": 3},
+		{"card_id": "int_cunning_ally", "quantity": 3},
+		{"card_id": "hos_int_mystic_dragon", "quantity": 3},
+		{"card_id": "hos_int_dark_rebirth", "quantity": 3}
+	]
+}

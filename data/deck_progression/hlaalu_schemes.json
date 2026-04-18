@@ -1,0 +1,55 @@
+{
+	"deck_id": "hlaalu_schemes",
+	"star_powers": [
+		{
+			"id": "sp_hlaalu_schemes_1",
+			"name": "Star Power 1",
+			"description": "Placeholder star power for Hlaalu Schemes. Tune me later.",
+			"stackable": false
+		},
+		{
+			"id": "sp_hlaalu_schemes_2",
+			"name": "Star Power 2",
+			"description": "Placeholder star power for Hlaalu Schemes. Tune me later.",
+			"stackable": false
+		},
+		{
+			"id": "sp_hlaalu_schemes_3",
+			"name": "Star Power 3",
+			"description": "Placeholder star power for Hlaalu Schemes. Tune me later.",
+			"stackable": false
+		}
+	],
+	"reward_track": [
+		{"level": 1, "type": "starting_gold", "value": 10},
+		{"level": 2, "type": "max_health", "value": 2},
+		{"level": 3, "type": "starting_gold", "value": 10},
+		{"level": 4, "type": "starting_gold", "value": 10},
+		{"level": 5, "type": "starting_gold", "value": 15},
+		{"level": 6, "type": "max_health", "value": 3},
+		{"level": 7, "type": "reroll_tokens", "value": 1},
+		{"level": 8, "type": "starting_gold", "value": 10},
+		{"level": 9, "type": "starting_gold", "value": 10},
+		{"level": 10, "type": "revives", "value": 1},
+		{"level": 11, "type": "starting_gold", "value": 15},
+		{"level": 12, "type": "max_health", "value": 3},
+		{"level": 13, "type": "starting_gold", "value": 15},
+		{"level": 14, "type": "starting_gold", "value": 15},
+		{"level": 15, "type": "starting_gold", "value": 20},
+		{"level": 16, "type": "max_health", "value": 3},
+		{"level": 17, "type": "reroll_tokens", "value": 1},
+		{"level": 18, "type": "starting_gold", "value": 15},
+		{"level": 19, "type": "starting_gold", "value": 15},
+		{"level": 20, "type": "revives", "value": 1},
+		{"level": 21, "type": "starting_gold", "value": 20},
+		{"level": 22, "type": "max_health", "value": 5},
+		{"level": 23, "type": "starting_gold", "value": 20},
+		{"level": 24, "type": "starting_gold", "value": 20},
+		{"level": 25, "type": "starting_gold", "value": 25},
+		{"level": 26, "type": "max_health", "value": 5},
+		{"level": 27, "type": "reroll_tokens", "value": 1},
+		{"level": 28, "type": "starting_gold", "value": 20},
+		{"level": 29, "type": "starting_gold", "value": 20},
+		{"level": 30, "type": "starting_gold", "value": 30}
+	]
+}
