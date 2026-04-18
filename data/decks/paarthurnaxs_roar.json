@@ -1,0 +1,97 @@
+{
+  "name": "Paarthurnax's Roar",
+  "attribute_ids": [
+    "strength",
+    "agility"
+  ],
+  "cards": [
+    {
+      "card_id": "str_earthbone_spinner",
+      "quantity": 1
+    },
+    {
+      "card_id": "hos_str_duel_atop_the_world",
+      "quantity": 1
+    },
+    {
+      "card_id": "agi_murkwater_shaman",
+      "quantity": 1
+    },
+    {
+      "card_id": "hos_agi_sightless_skulk",
+      "quantity": 1
+    },
+    {
+      "card_id": "agi_leaflurker",
+      "quantity": 1
+    },
+    {
+      "card_id": "hos_neu_paarthurnax",
+      "quantity": 1
+    },
+    {
+      "card_id": "agi_finish_off",
+      "quantity": 2
+    },
+    {
+      "card_id": "agi_murkwater_witch",
+      "quantity": 2
+    },
+    {
+      "card_id": "agi_skooma_racketeer",
+      "quantity": 2
+    },
+    {
+      "card_id": "hos_dual_archers_gambit",
+      "quantity": 2
+    },
+    {
+      "card_id": "str_rapid_shot",
+      "quantity": 3
+    },
+    {
+      "card_id": "hos_str_unrelenting_force",
+      "quantity": 3
+    },
+    {
+      "card_id": "hos_agi_drain_vitality",
+      "quantity": 3
+    },
+    {
+      "card_id": "agi_fighters_guild_recruit",
+      "quantity": 3
+    },
+    {
+      "card_id": "agi_thieves_guild_recruit",
+      "quantity": 3
+    },
+    {
+      "card_id": "agi_nimble_ally",
+      "quantity": 3
+    },
+    {
+      "card_id": "hos_agi_shadowscale_partisan",
+      "quantity": 3
+    },
+    {
+      "card_id": "hos_agi_shearpoint_dragon",
+      "quantity": 3
+    },
+    {
+      "card_id": "hos_agi_dovah_of_the_voice",
+      "quantity": 3
+    },
+    {
+      "card_id": "hos_neu_word_wall",
+      "quantity": 3
+    },
+    {
+      "card_id": "hos_neu_young_dragonborn",
+      "quantity": 3
+    },
+    {
+      "card_id": "hos_neu_greybeard_mentor",
+      "quantity": 3
+    }
+  ]
+}

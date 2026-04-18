@@ -346,14 +346,18 @@ func _show_hover_preview(row: Control, card_id: String) -> void:
 	wrapper.add_child(component)
 	_preview_layer.add_child(wrapper)
 	_hover_preview_node = wrapper
-	# Position to the left of the row
+	# Pin the preview to a fixed position: horizontally just left of the list,
+	# vertically centered within the list's visible scroll area. This keeps the
+	# card in a consistent, always-visible spot regardless of which row is hovered.
 	var row_rect := row.get_global_rect()
-	var layer_origin := _preview_layer.get_global_rect().position
-	var target_x := row_rect.position.x - preview_size.x - 12.0 - layer_origin.x
-	var target_y := row_rect.get_center().y - preview_size.y * 0.5 - layer_origin.y
-	target_y = clampf(target_y, 0.0, maxf(_preview_layer.size.y - preview_size.y, 0.0))
+	var target_x := row_rect.position.x - preview_size.x - 12.0
 	target_x = maxf(target_x, 0.0)
-	wrapper.position = Vector2(target_x, target_y)
+	var scroll_rect := row_rect
+	var scroll_parent := get_parent()
+	if scroll_parent is Control:
+		scroll_rect = (scroll_parent as Control).get_global_rect()
+	var target_y := scroll_rect.position.y + scroll_rect.size.y * 0.5 - preview_size.y * 0.5
+	wrapper.global_position = Vector2(target_x, target_y)
 
 
 func _clear_hover_preview() -> void:

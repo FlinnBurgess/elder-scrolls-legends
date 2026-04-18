@@ -16,6 +16,7 @@ const AIPlayProfile = preload("res://src/ai/ai_play_profile.gd")
 const PuzzleBuilderScreenScript = preload("res://src/ui/puzzle/puzzle_builder_screen.gd")
 const GameLogger = preload("res://src/core/match/game_logger.gd")
 const UITheme = preload("res://src/ui/ui_theme.gd")
+const DeckCardListClass = preload("res://src/ui/components/deck_card_list.gd")
 
 const DECKS_DIR := "res://data/decks/"
 
@@ -27,6 +28,9 @@ var _deck_select_buttons: Array = []
 var _deck_entries: Array = []
 var _selected_deck_index := -1
 var _start_match_button: Button
+var _deck_select_card_list: DeckCardList
+var _deck_select_card_lookup: Dictionary = {}
+var _deck_select_hover_layer: Control
 var _match_button: Button
 var _test_match_picker: Control
 var _current_test_match_filename := ""
@@ -51,6 +55,8 @@ func _show_main_menu() -> void:
 	if _deck_select_screen != null:
 		_deck_select_screen.queue_free()
 		_deck_select_screen = null
+	_deck_select_card_list = null
+	_deck_select_hover_layer = null
 
 	if _main_menu != null:
 		_main_menu.visible = true
@@ -419,16 +425,52 @@ func _show_deck_select_screen() -> void:
 
 	root.add_child(UITheme.make_separator(0.0))
 
-	# Scrollable deck list
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root.add_child(scroll)
+	_load_deck_select_card_lookup()
+
+	var content_row := HBoxContainer.new()
+	content_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content_row.add_theme_constant_override("separation", 24)
+	root.add_child(content_row)
+
+	var left_spacer := Control.new()
+	left_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content_row.add_child(left_spacer)
 
 	var list := VBoxContainer.new()
-	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.custom_minimum_size = Vector2(720, 0)
+	list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	list.add_theme_constant_override("separation", 10)
-	scroll.add_child(list)
+	content_row.add_child(list)
+
+	var right_margin := MarginContainer.new()
+	right_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right_margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	right_margin.add_theme_constant_override("margin_left", 192)
+	content_row.add_child(right_margin)
+
+	var right_col := VBoxContainer.new()
+	right_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right_col.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	right_col.add_theme_constant_override("separation", 8)
+	right_margin.add_child(right_col)
+
+	var cards_title := Label.new()
+	cards_title.text = "Deck Contents"
+	UITheme.style_section_label(cards_title, 20)
+	right_col.add_child(cards_title)
+
+	right_col.add_child(UITheme.make_separator(0.0))
+
+	_deck_select_card_list = DeckCardListClass.new()
+	var card_list_scroll := _deck_select_card_list.create_scroll_container()
+	right_col.add_child(card_list_scroll)
+
+	_deck_select_hover_layer = Control.new()
+	_deck_select_hover_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_deck_select_hover_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_deck_select_screen.add_child(_deck_select_hover_layer)
+	_deck_select_card_list.enable_hover_preview(_deck_select_hover_layer, _deck_select_card_lookup)
 
 	if not player_entries.is_empty():
 		var my_decks_label := Label.new()
@@ -437,21 +479,50 @@ func _show_deck_select_screen() -> void:
 		UITheme.style_section_label(my_decks_label, 24)
 		list.add_child(my_decks_label)
 
-	for i in range(_deck_entries.size()):
-		if i == player_entries.size() and not player_entries.is_empty():
-			var defaults_spacer := Control.new()
-			defaults_spacer.custom_minimum_size = Vector2(0, 12)
-			list.add_child(defaults_spacer)
-			var defaults_label := Label.new()
-			defaults_label.text = "Default Decks"
-			defaults_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			UITheme.style_section_label(defaults_label, 24)
-			list.add_child(defaults_label)
+	var defaults_container: VBoxContainer = null
+	var defaults_scroll: ScrollContainer = null
+	var defaults_toggle_button: Button = null
+	var defaults_start_index := player_entries.size()
+	var default_count := default_entries.size()
+	var start_collapsed := not player_entries.is_empty()
 
+	for i in range(_deck_entries.size()):
+		if i == defaults_start_index and not default_entries.is_empty():
+			if not player_entries.is_empty():
+				var defaults_spacer := Control.new()
+				defaults_spacer.custom_minimum_size = Vector2(0, 12)
+				list.add_child(defaults_spacer)
+			defaults_toggle_button = Button.new()
+			defaults_toggle_button.flat = true
+			defaults_toggle_button.focus_mode = Control.FOCUS_NONE
+			defaults_toggle_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			defaults_toggle_button.add_theme_font_size_override("font_size", 24)
+			defaults_toggle_button.add_theme_color_override("font_color", UITheme.TEXT_SECTION)
+			defaults_toggle_button.add_theme_color_override("font_hover_color", UITheme.GOLD)
+			defaults_toggle_button.add_theme_color_override("font_pressed_color", UITheme.GOLD_BRIGHT)
+			list.add_child(defaults_toggle_button)
+
+			defaults_scroll = ScrollContainer.new()
+			defaults_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			defaults_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+			defaults_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+			defaults_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+			defaults_scroll.visible = not start_collapsed
+			list.add_child(defaults_scroll)
+
+			defaults_container = VBoxContainer.new()
+			defaults_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			defaults_container.add_theme_constant_override("separation", 10)
+			defaults_scroll.add_child(defaults_container)
+
+			_update_defaults_toggle_label(defaults_toggle_button, defaults_scroll, default_count)
+			defaults_toggle_button.pressed.connect(_on_defaults_toggle_pressed.bind(defaults_toggle_button, defaults_scroll, default_count))
+
+		var parent_container: Container = defaults_container if i >= defaults_start_index else list
 		var entry: Dictionary = _deck_entries[i]
 		var deck_button := Button.new()
-		deck_button.custom_minimum_size = Vector2(680, 60)
-		deck_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		deck_button.custom_minimum_size = Vector2(0, 60)
+		deck_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		UITheme.style_button(deck_button, 24)
 		deck_button.pressed.connect(_on_deck_selected.bind(i))
 		# Build rich content: name | attribute icons | card count
@@ -492,7 +563,7 @@ func _show_deck_select_screen() -> void:
 		count_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		content.add_child(count_label)
-		list.add_child(deck_button)
+		parent_container.add_child(deck_button)
 		_deck_select_buttons.append(deck_button)
 
 	# Bottom action buttons
@@ -521,6 +592,16 @@ func _show_deck_select_screen() -> void:
 	action_row.add_child(random_decks_button)
 
 
+func _update_defaults_toggle_label(button: Button, container: Control, count: int) -> void:
+	var arrow := "\u25BC" if container.visible else "\u25B6"
+	button.text = "%s  Default Decks (%d)" % [arrow, count]
+
+
+func _on_defaults_toggle_pressed(button: Button, container: Control, count: int) -> void:
+	container.visible = not container.visible
+	_update_defaults_toggle_label(button, container, count)
+
+
 func _on_deck_selected(index: int) -> void:
 	_selected_deck_index = index
 	_start_match_button.disabled = false
@@ -530,6 +611,33 @@ func _on_deck_selected(index: int) -> void:
 			UITheme.style_button_selected(btn)
 		else:
 			UITheme.style_button(btn, 20)
+
+	if _deck_select_card_list != null:
+		var entry: Dictionary = _deck_entries[index]
+		var card_ids: Array
+		if entry.has("card_ids"):
+			card_ids = entry.get("card_ids", [])
+		else:
+			card_ids = _load_deck_card_ids(entry.get("path", ""))
+		_deck_select_card_list.set_deck(_card_ids_to_entries(card_ids), _deck_select_card_lookup)
+
+
+func _card_ids_to_entries(card_ids: Array) -> Array:
+	var counts: Dictionary = {}
+	for id in card_ids:
+		var key := str(id)
+		counts[key] = int(counts.get(key, 0)) + 1
+	var entries: Array = []
+	for id in counts.keys():
+		entries.append({"card_id": id, "quantity": counts[id]})
+	return entries
+
+
+func _load_deck_select_card_lookup() -> void:
+	_deck_select_card_lookup.clear()
+	var catalog := CardCatalog.load_default()
+	for card in catalog.get("cards", []):
+		_deck_select_card_lookup[str(card.get("card_id", ""))] = card
 
 
 func _on_start_match_pressed() -> void:
@@ -551,6 +659,8 @@ func _on_start_match_pressed() -> void:
 
 	_deck_select_screen.queue_free()
 	_deck_select_screen = null
+	_deck_select_card_list = null
+	_deck_select_hover_layer = null
 
 	var match_screen := MatchScreen.new()
 	match_screen.name = "Match"
@@ -583,6 +693,8 @@ func _on_random_decks_pressed() -> void:
 
 	_deck_select_screen.queue_free()
 	_deck_select_screen = null
+	_deck_select_card_list = null
+	_deck_select_hover_layer = null
 
 	var match_screen := MatchScreen.new()
 	match_screen.name = "Match"
@@ -596,6 +708,8 @@ func _on_deck_select_back_pressed() -> void:
 	if _deck_select_screen != null:
 		_deck_select_screen.queue_free()
 		_deck_select_screen = null
+	_deck_select_card_list = null
+	_deck_select_hover_layer = null
 	_main_menu.visible = true
 
 

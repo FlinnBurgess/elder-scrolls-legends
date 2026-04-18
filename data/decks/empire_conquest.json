@@ -1,0 +1,178 @@
+{
+  "name": "Empire Conquest",
+  "attribute_ids": [
+    "willpower",
+    "agility",
+    "endurance"
+  ],
+  "cards": [
+    {
+      "card_id": "wil_divine_fervor",
+      "quantity": 1
+    },
+    {
+      "card_id": "neu_slaughterfish_spawning",
+      "quantity": 1
+    },
+    {
+      "card_id": "wil_bruma_profiteer",
+      "quantity": 1
+    },
+    {
+      "card_id": "aw_wil_strategists_map",
+      "quantity": 1
+    },
+    {
+      "card_id": "wil_imperial_legionnaire",
+      "quantity": 1
+    },
+    {
+      "card_id": "wil_pit_lion",
+      "quantity": 1
+    },
+    {
+      "card_id": "aw_agi_daedric_titan",
+      "quantity": 1
+    },
+    {
+      "card_id": "agi_elixir_of_light_feet",
+      "quantity": 1
+    },
+    {
+      "card_id": "aw_agi_valenwood_sentry",
+      "quantity": 1
+    },
+    {
+      "card_id": "wil_imperial_might",
+      "quantity": 1
+    },
+    {
+      "card_id": "aw_tri_clivia_tharn",
+      "quantity": 1
+    },
+    {
+      "card_id": "wil_kvatch_soldier",
+      "quantity": 1
+    },
+    {
+      "card_id": "end_young_mammoth",
+      "quantity": 1
+    },
+    {
+      "card_id": "aw_neu_enlistment_officer",
+      "quantity": 1
+    },
+    {
+      "card_id": "end_bruma_armorer",
+      "quantity": 1
+    },
+    {
+      "card_id": "end_frostbite_spider",
+      "quantity": 1
+    },
+    {
+      "card_id": "end_lurking_mummy",
+      "quantity": 1
+    },
+    {
+      "card_id": "wil_golden_saint",
+      "quantity": 1
+    },
+    {
+      "card_id": "agi_dune_smuggler",
+      "quantity": 1
+    },
+    {
+      "card_id": "aw_end_bishop_of_the_hour",
+      "quantity": 1
+    },
+    {
+      "card_id": "aw_end_dark_anchor",
+      "quantity": 1
+    },
+    {
+      "card_id": "end_black_worm_necromancer",
+      "quantity": 2
+    },
+    {
+      "card_id": "wil_imperial_siege_engine",
+      "quantity": 2
+    },
+    {
+      "card_id": "wil_piercing_javelin",
+      "quantity": 2
+    },
+    {
+      "card_id": "aw_end_supply_runner",
+      "quantity": 2
+    },
+    {
+      "card_id": "wil_fifth_legion_trainer",
+      "quantity": 2
+    },
+    {
+      "card_id": "wil_imperial_reinforcements",
+      "quantity": 2
+    },
+    {
+      "card_id": "aw_end_hush",
+      "quantity": 2
+    },
+    {
+      "card_id": "wil_legion_praefect",
+      "quantity": 2
+    },
+    {
+      "card_id": "aw_wil_outflank",
+      "quantity": 2
+    },
+    {
+      "card_id": "agi_shadow_shift",
+      "quantity": 3
+    },
+    {
+      "card_id": "aw_agi_back_alley_footpad",
+      "quantity": 3
+    },
+    {
+      "card_id": "aw_end_empire_oathman",
+      "quantity": 3
+    },
+    {
+      "card_id": "wil_scouting_patrol",
+      "quantity": 3
+    },
+    {
+      "card_id": "aw_agi_bewildering_speed",
+      "quantity": 3
+    },
+    {
+      "card_id": "aw_end_strategic_deployment",
+      "quantity": 3
+    },
+    {
+      "card_id": "aw_agi_dragonguard_outcast",
+      "quantity": 3
+    },
+    {
+      "card_id": "end_midnight_sweep",
+      "quantity": 3
+    },
+    {
+      "card_id": "aw_wil_legion_zero_templar",
+      "quantity": 3
+    },
+    {
+      "card_id": "aw_tri_empire_recruiter",
+      "quantity": 3
+    },
+    {
+      "card_id": "aw_end_imperial_lackey",
+      "quantity": 3
+    },
+    {
+      "card_id": "aw_agi_empire_dreadmage",
+      "quantity": 3
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "name": "Zumog Phoom's Ambition",
+  "attribute_ids": [
+    "intelligence",
+    "endurance"
+  ],
+  "cards": [
+    {
+      "card_id": "int_high_rock_summoner",
+      "quantity": 1
+    },
+    {
+      "card_id": "moe_end_zumog_phoom",
+      "quantity": 1
+    },
+    {
+      "card_id": "int_cruel_firebloom",
+      "quantity": 1
+    },
+    {
+      "card_id": "end_night_shadow",
+      "quantity": 1
+    },
+    {
+      "card_id": "end_haunting_spirit",
+      "quantity": 1
+    },
+    {
+      "card_id": "moe_end_ruin_shambler",
+      "quantity": 1
+    },
+    {
+      "card_id": "end_mummify",
+      "quantity": 1
+    },
+    {
+      "card_id": "end_deathless_draugr",
+      "quantity": 1
+    },
+    {
+      "card_id": "int_desperate_conjuring",
+      "quantity": 1
+    },
+    {
+      "card_id": "end_shadowfen_priest",
+      "quantity": 1
+    },
+    {
+      "card_id": "moe_end_expunge",
+      "quantity": 2
+    },
+    {
+      "card_id": "moe_int_grave_grasp",
+      "quantity": 2
+    },
+    {
+      "card_id": "moe_int_skeletal_mage",
+      "quantity": 3
+    },
+    {
+      "card_id": "moe_int_discerning_thief",
+      "quantity": 3
+    },
+    {
+      "card_id": "moe_end_seeker_of_the_black_arts",
+      "quantity": 3
+    },
+    {
+      "card_id": "moe_end_imbued_argonian",
+      "quantity": 3
+    },
+    {
+      "card_id": "int_soul_split",
+      "quantity": 3
+    },
+    {
+      "card_id": "moe_end_nibenese_mercenary",
+      "quantity": 3
+    },
+    {
+      "card_id": "int_lightning_bolt",
+      "quantity": 3
+    },
+    {
+      "card_id": "moe_int_midnight_trespasser",
+      "quantity": 3
+    },
+    {
+      "card_id": "moe_neu_crocodile_brute",
+      "quantity": 3
+    },
+    {
+      "card_id": "moe_int_wandering_skeleton",
+      "quantity": 3
+    },
+    {
+      "card_id": "moe_int_imbued_breton",
+      "quantity": 3
+    },
+    {
+      "card_id": "moe_end_bone_armor",
+      "quantity": 3
+    }
+  ]
+}

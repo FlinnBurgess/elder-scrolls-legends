@@ -1,0 +1,138 @@
+{
+  "name": "Covenant Armaments",
+  "attribute_ids": [
+    "strength",
+    "intelligence",
+    "endurance"
+  ],
+  "cards": [
+    {
+      "card_id": "dual_sentinel_battlemace",
+      "quantity": 1
+    },
+    {
+      "card_id": "int_master_of_arms",
+      "quantity": 1
+    },
+    {
+      "card_id": "aw_tri_emeric_covenant_king",
+      "quantity": 1
+    },
+    {
+      "card_id": "aw_str_salvage",
+      "quantity": 1
+    },
+    {
+      "card_id": "hos_int_arcane_enchanter",
+      "quantity": 1
+    },
+    {
+      "card_id": "aw_int_telekinesis",
+      "quantity": 1
+    },
+    {
+      "card_id": "aw_tri_covenant_masterpiece",
+      "quantity": 1
+    },
+    {
+      "card_id": "int_firebolt",
+      "quantity": 2
+    },
+    {
+      "card_id": "int_wardcrafter",
+      "quantity": 2
+    },
+    {
+      "card_id": "int_skilled_blacksmith",
+      "quantity": 2
+    },
+    {
+      "card_id": "end_enchanted_plate",
+      "quantity": 2
+    },
+    {
+      "card_id": "aw_int_sparksmith",
+      "quantity": 2
+    },
+    {
+      "card_id": "aw_end_cruel_axe",
+      "quantity": 2
+    },
+    {
+      "card_id": "int_mace_of_encumbrance",
+      "quantity": 2
+    },
+    {
+      "card_id": "aw_end_poisoned_dagger",
+      "quantity": 3
+    },
+    {
+      "card_id": "int_tome_of_alteration",
+      "quantity": 3
+    },
+    {
+      "card_id": "aw_end_covenant_mail",
+      "quantity": 3
+    },
+    {
+      "card_id": "aw_int_soul_wraith",
+      "quantity": 3
+    },
+    {
+      "card_id": "aw_tri_daggerfall_phantom",
+      "quantity": 3
+    },
+    {
+      "card_id": "aw_int_staff_of_ice",
+      "quantity": 3
+    },
+    {
+      "card_id": "str_rihad_horseman",
+      "quantity": 3
+    },
+    {
+      "card_id": "int_crown_quartermaster",
+      "quantity": 3
+    },
+    {
+      "card_id": "str_steel_scimitar",
+      "quantity": 3
+    },
+    {
+      "card_id": "aw_str_high_rock_stalwart",
+      "quantity": 3
+    },
+    {
+      "card_id": "aw_int_lion_guard_armaments",
+      "quantity": 3
+    },
+    {
+      "card_id": "str_rihad_battlemage",
+      "quantity": 3
+    },
+    {
+      "card_id": "aw_neu_enlistment_officer",
+      "quantity": 3
+    },
+    {
+      "card_id": "aw_str_covenant_plate",
+      "quantity": 3
+    },
+    {
+      "card_id": "aw_str_craven_conscript",
+      "quantity": 3
+    },
+    {
+      "card_id": "end_wind_keep_spellsword",
+      "quantity": 3
+    },
+    {
+      "card_id": "aw_str_ornamented_sword",
+      "quantity": 3
+    },
+    {
+      "card_id": "aw_int_covenant_oathman",
+      "quantity": 3
+    }
+  ]
+}

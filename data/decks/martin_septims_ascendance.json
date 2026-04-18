@@ -1,0 +1,97 @@
+{
+  "name": "Martin Septim's Ascendance",
+  "attribute_ids": [
+    "agility",
+    "endurance"
+  ],
+  "cards": [
+    {
+      "card_id": "dual_thorn_histmage",
+      "quantity": 1
+    },
+    {
+      "card_id": "agi_leaflurker",
+      "quantity": 1
+    },
+    {
+      "card_id": "joo_end_mute",
+      "quantity": 1
+    },
+    {
+      "card_id": "end_preserver_of_the_root",
+      "quantity": 1
+    },
+    {
+      "card_id": "joo_end_whodunit",
+      "quantity": 1
+    },
+    {
+      "card_id": "joo_dual_martin_septim",
+      "quantity": 1
+    },
+    {
+      "card_id": "agi_shadow_shift",
+      "quantity": 2
+    },
+    {
+      "card_id": "agi_murkwater_witch",
+      "quantity": 2
+    },
+    {
+      "card_id": "joo_end_doomed_adventurer",
+      "quantity": 2
+    },
+    {
+      "card_id": "end_archein_venomtongue",
+      "quantity": 2
+    },
+    {
+      "card_id": "agi_finish_off",
+      "quantity": 3
+    },
+    {
+      "card_id": "joo_end_determined_supplier",
+      "quantity": 3
+    },
+    {
+      "card_id": "joo_agi_will_o_the_wisp",
+      "quantity": 3
+    },
+    {
+      "card_id": "end_stormhold_henchman",
+      "quantity": 3
+    },
+    {
+      "card_id": "agi_chaurus_reaper",
+      "quantity": 3
+    },
+    {
+      "card_id": "joo_agi_dust_eater_skirmisher",
+      "quantity": 3
+    },
+    {
+      "card_id": "joo_end_city_guard",
+      "quantity": 3
+    },
+    {
+      "card_id": "end_tree_minder",
+      "quantity": 3
+    },
+    {
+      "card_id": "joo_end_three_feather_warchief",
+      "quantity": 3
+    },
+    {
+      "card_id": "joo_agi_fresh_start",
+      "quantity": 3
+    },
+    {
+      "card_id": "joo_end_blackwood_alchemist",
+      "quantity": 3
+    },
+    {
+      "card_id": "joo_agi_bitterfish_witch",
+      "quantity": 3
+    }
+  ]
+}
