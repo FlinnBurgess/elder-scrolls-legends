@@ -268,7 +268,7 @@ func _show_abandon_confirm() -> void:
 	dialog_title.text = "Abandon Run?"
 	UITheme.style_title(dialog_title, 36)
 	dialog_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	dialog_title.size_flags_horizontal = SIZE_SHRINK_CENTER | SIZE_EXPAND
+	dialog_title.size_flags_horizontal = SIZE_EXPAND_FILL
 	vbox.add_child(dialog_title)
 
 	var dialog_msg := Label.new()
@@ -277,7 +277,7 @@ func _show_abandon_confirm() -> void:
 	dialog_msg.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
 	dialog_msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	dialog_msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	dialog_msg.size_flags_horizontal = SIZE_SHRINK_CENTER | SIZE_EXPAND
+	dialog_msg.size_flags_horizontal = SIZE_EXPAND_FILL
 	vbox.add_child(dialog_msg)
 
 	var spacer := Control.new()

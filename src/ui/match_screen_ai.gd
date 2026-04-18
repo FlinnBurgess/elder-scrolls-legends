@@ -122,6 +122,21 @@ func _execute_local_match_ai_step() -> Dictionary:
 			"yield_reason": "missing_action",
 			"choice": choice.duplicate(true),
 		}
+	# Capture source_instance_id from pending-target state before execution clears it,
+	# so the UI can animate a source→target arrow for consume/summon-effect/turn-trigger picks.
+	var _action_kind_for_source := str(action.get("kind", ""))
+	if _action_kind_for_source == _screen.MatchActionEnumerator.KIND_CHOOSE_SUMMON_EFFECT_TARGET:
+		var _pending_set: Dictionary = _screen.MatchTiming.get_pending_summon_effect_target(_screen._match_state, ai_player_id)
+		var _params: Dictionary = action.get("parameters", {})
+		if str(_params.get("source_instance_id", "")).is_empty():
+			_params["source_instance_id"] = str(_pending_set.get("source_instance_id", ""))
+			action["parameters"] = _params
+	elif _action_kind_for_source == _screen.MatchActionEnumerator.KIND_CHOOSE_TURN_TRIGGER_TARGET:
+		var _pending_tt: Dictionary = _screen.MatchTiming.get_pending_turn_trigger_target(_screen._match_state, ai_player_id)
+		var _tt_params: Dictionary = action.get("parameters", {})
+		if str(_tt_params.get("source_instance_id", "")).is_empty():
+			_tt_params["source_instance_id"] = str(_pending_tt.get("source_instance_id", ""))
+			action["parameters"] = _tt_params
 	var result = _screen.MatchActionExecutor.execute_action(_screen._match_state, action)
 	if not bool(result.get("is_valid", false)):
 		_screen._status_message = str(result.get("errors", ["AI action failed."])[0])
@@ -163,6 +178,8 @@ func _execute_local_match_ai_step() -> Dictionary:
 			_screen._animate_enemy_support_activation_arrow(action, result)
 		elif is_enemy and str(action.get("kind", "")) == _screen.MatchActionEnumerator.KIND_CHOOSE_TURN_TRIGGER_TARGET:
 			_screen._animate_enemy_turn_trigger_arrow(action, result)
+		elif is_enemy and str(action.get("kind", "")) == _screen.MatchActionEnumerator.KIND_CHOOSE_SUMMON_EFFECT_TARGET and _screen._feedback._has_summon_effect_target(action):
+			_screen._animate_enemy_summon_effect_target_arrow(action, result)
 		else:
 			# Forced attack arrow (e.g. Umbra at start of turn): skip refresh
 			# so the arrow animates on the pre-damage board, then refresh after

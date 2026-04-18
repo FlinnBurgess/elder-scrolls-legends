@@ -1,26 +1,17 @@
 {
 	"enemy": {
 		"current_magicka": 12.0,
-		"deck": [
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark"
-		],
+		"deck": [],
 		"discard": [
-			"hos_str_aelas_huntmate",
-			"int_abecean_navigator",
-			"db_end_ageless_vampire"
+			"hos_str_aelas_huntmate"
 		],
 		"field_creatures": [
 			null,
 			null,
-			null,
-			"aw_int_abnur_tharn"
+			null
 		],
 		"hand": [
-			"aw_end_hush"
+			"moe_agi_illicit_butcher"
 		],
 		"health": 25.0,
 		"max_magicka": 12.0,
@@ -59,7 +50,9 @@
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [],
+		"shadow_creatures": [
+			"db_end_ageless_vampire"
+		],
 		"supports": [
 			"hos_wil_wolf_cage"
 		]

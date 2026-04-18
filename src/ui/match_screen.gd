@@ -3140,6 +3140,9 @@ func _animate_enemy_support_activation_arrow(action: Dictionary, _result: Dictio
 func _animate_enemy_turn_trigger_arrow(action: Dictionary, _result: Dictionary):
 	_feedback._animate_enemy_turn_trigger_arrow(action, _result)
 
+func _animate_enemy_summon_effect_target_arrow(action: Dictionary, _result: Dictionary):
+	_feedback._animate_enemy_summon_effect_target_arrow(action, _result)
+
 func _animate_treasure_hunt_reveal(revealed_card: Dictionary, matches: bool):
 	_feedback._animate_treasure_hunt_reveal(revealed_card, matches)
 
