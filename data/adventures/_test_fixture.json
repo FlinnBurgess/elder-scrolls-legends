@@ -1,11 +1,11 @@
 {
-	"id": "the_dragon_crisis",
-	"name": "The Dragon Crisis",
+	"id": "_test_fixture",
+	"name": "Test Fixture Adventure",
 	"portrait_image": "res://assets/images/cards/hos_neu_alduin.png",
 	"difficulty": 3,
-	"description": "Alduin, the World-Eater, has returned to Skyrim. Ancient dragons stir from their burial mounds, and only the Dragonborn can stop the destruction. Fight your way through dragon lairs and Nordic ruins to confront the devourer of worlds at the Throat of the World.",
+	"description": "Internal fixture for test runners. Not referenced by any region, so it does not appear in the UI.",
 	"special_rules": [],
-	"allowed_deck_ids": ["dragons_of_skyrim"],
+	"allowed_deck_ids": ["_test_fixture"],
 	"combat_xp": 15,
 	"mini_boss_xp": 30,
 	"boss_xp": 50,
@@ -18,12 +18,12 @@
 	"nodes": {
 		"node_boon_start": {
 			"type": "boon",
-			"headline": "Blessing of Akatosh",
+			"headline": "Blessing",
 			"next": ["node_a"]
 		},
 		"node_a": {
 			"type": "combat",
-			"headline": "Frost Dragon",
+			"headline": "Combat A",
 			"enemy_deck": "enemy_frost_dragon",
 			"quality": 0.4,
 			"enemy_health": 30,
@@ -31,17 +31,17 @@
 		},
 		"node_b": {
 			"type": "reinforcement",
-			"headline": "Recruit Allies",
+			"headline": "Reinforcement",
 			"next": ["node_mini"]
 		},
 		"node_c": {
 			"type": "shop",
-			"headline": "Riverwood Trader",
+			"headline": "Shop",
 			"next": ["node_mini"]
 		},
 		"node_mini": {
 			"type": "mini_boss",
-			"headline": "Blood Dragon",
+			"headline": "Mini Boss",
 			"enemy_deck": "enemy_frost_dragon",
 			"quality": 0.65,
 			"enemy_health": 35,
@@ -49,17 +49,17 @@
 		},
 		"node_aug_creature": {
 			"type": "creature_augment",
-			"headline": "Dragon Forge",
+			"headline": "Creature Augment",
 			"next": ["node_boon"]
 		},
 		"node_boon": {
 			"type": "boon",
-			"headline": "Shrine of Akatosh",
+			"headline": "Shrine",
 			"next": ["node_d"]
 		},
 		"node_d": {
 			"type": "combat",
-			"headline": "Draugr Deathlord",
+			"headline": "Combat D",
 			"enemy_deck": "enemy_draugr_deathlord",
 			"quality": 0.6,
 			"enemy_health": 30,
@@ -67,33 +67,24 @@
 		},
 		"node_e": {
 			"type": "event",
-			"headline": "A Wounded Mercenary",
+			"headline": "Event",
 			"event": {
-				"description": "A wounded mercenary stumbles toward you on the road. He offers to fight alongside you if you can heal his injuries.",
+				"description": "Test event.",
 				"choices": [
-					{
-						"label": "Heal them (-5 Max HP, gain a recruit)",
-						"effects": [
-							{"type": "modify_health", "amount": -5},
-							{"type": "offer_card_choice"}
-						]
-					},
-					{
-						"label": "Leave them and press on",
-						"effects": []
-					}
+					{"label": "A", "effects": []},
+					{"label": "B", "effects": []}
 				]
 			},
 			"next": ["node_boss"]
 		},
 		"node_f": {
 			"type": "action_augment",
-			"headline": "Arcane Inscription",
+			"headline": "Action Augment",
 			"next": ["node_boss"]
 		},
 		"node_boss": {
 			"type": "final_boss",
-			"headline": "Alduin",
+			"headline": "Boss",
 			"enemy_deck": "enemy_alduin_boss",
 			"quality": 0.9,
 			"enemy_health": 40,

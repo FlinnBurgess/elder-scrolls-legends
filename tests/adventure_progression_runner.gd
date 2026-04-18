@@ -88,7 +88,7 @@ func _test_level_caps_at_30() -> void:
 func _test_award_xp_with_level_up() -> void:
 	var m := AdventureProgressionManagerScript.new()
 	# Use a real deck so reward track is available
-	var result := m.award_xp("dragons_of_skyrim", 50)  # Exactly level 1
+	var result := m.award_xp("_test_fixture", 50)  # Exactly level 1
 	_assert(result["old_level"] == 0, "award_xp: old_level should be 0")
 	_assert(result["new_level"] == 1, "award_xp: new_level should be 1")
 	_assert(result["rewards"].size() > 0, "award_xp: should have rewards for level 1")
@@ -96,19 +96,19 @@ func _test_award_xp_with_level_up() -> void:
 
 
 func _test_reward_track_starting_gold() -> void:
-	# Dragons level 1 reward is starting_gold +10
+	# Fixture level 1 reward is starting_gold +10
 	var m := AdventureProgressionManagerScript.new()
-	m.award_xp("dragons_of_skyrim", 50)
-	_assert(m.get_starting_gold("dragons_of_skyrim") == 10, "reward_gold: should have 10 starting gold, got %d" % m.get_starting_gold("dragons_of_skyrim"))
+	m.award_xp("_test_fixture", 50)
+	_assert(m.get_starting_gold("_test_fixture") == 10, "reward_gold: should have 10 starting gold, got %d" % m.get_starting_gold("_test_fixture"))
 	_cleanup()
 
 
 func _test_reward_track_card_swap() -> void:
-	# Dragons level 4 is a card_swap
+	# Fixture level 4 is a card_swap
 	var m := AdventureProgressionManagerScript.new()
 	# XP for levels 1-4: 50+75+100+125 = 350
-	m.award_xp("dragons_of_skyrim", 350)
-	var swaps := m.get_card_swaps("dragons_of_skyrim")
+	m.award_xp("_test_fixture", 350)
+	var swaps := m.get_card_swaps("_test_fixture")
 	_assert(swaps.size() == 1, "reward_swap: should have 1 swap, got %d" % swaps.size())
 	if swaps.size() > 0:
 		_assert(str(swaps[0].get("remove", "")) == "str_morkul_gatekeeper", "reward_swap: remove should be str_morkul_gatekeeper")
@@ -117,11 +117,11 @@ func _test_reward_track_card_swap() -> void:
 
 
 func _test_reward_track_permanent_augment() -> void:
-	# Dragons level 13 is a permanent_augment
+	# Fixture level 13 is a permanent_augment
 	var m := AdventureProgressionManagerScript.new()
 	# XP for levels 1-13: 50+75+100+125+150+200+250+300+350+400+475+550+625 = 3650
-	m.award_xp("dragons_of_skyrim", 3650)
-	var augments := m.get_permanent_augments("dragons_of_skyrim")
+	m.award_xp("_test_fixture", 3650)
+	var augments := m.get_permanent_augments("_test_fixture")
 	_assert(augments.size() == 1, "reward_augment: should have 1 augment, got %d" % augments.size())
 	if augments.size() > 0:
 		_assert(str(augments[0].get("card_id", "")) == "hos_neu_alduin", "reward_augment: card should be alduin")
@@ -130,42 +130,42 @@ func _test_reward_track_permanent_augment() -> void:
 
 
 func _test_reward_track_max_health() -> void:
-	# Dragons level 2 is max_health +2
+	# Fixture level 2 is max_health +2
 	var m := AdventureProgressionManagerScript.new()
-	m.award_xp("dragons_of_skyrim", 125)  # 50+75 = levels 1-2
-	_assert(m.get_max_health_bonus("dragons_of_skyrim") == 2, "reward_hp: should be 2, got %d" % m.get_max_health_bonus("dragons_of_skyrim"))
+	m.award_xp("_test_fixture", 125)  # 50+75 = levels 1-2
+	_assert(m.get_max_health_bonus("_test_fixture") == 2, "reward_hp: should be 2, got %d" % m.get_max_health_bonus("_test_fixture"))
 	_cleanup()
 
 
 func _test_reward_track_reroll_tokens() -> void:
-	# Dragons level 7 is reroll_tokens +1
+	# Fixture level 7 is reroll_tokens +1
 	var m := AdventureProgressionManagerScript.new()
 	# XP for levels 1-7: 50+75+100+125+150+200+250 = 950
-	m.award_xp("dragons_of_skyrim", 950)
-	_assert(m.get_bonus_reroll_tokens("dragons_of_skyrim") == 1, "reward_reroll: should be 1, got %d" % m.get_bonus_reroll_tokens("dragons_of_skyrim"))
+	m.award_xp("_test_fixture", 950)
+	_assert(m.get_bonus_reroll_tokens("_test_fixture") == 1, "reward_reroll: should be 1, got %d" % m.get_bonus_reroll_tokens("_test_fixture"))
 	_cleanup()
 
 
 func _test_reward_track_revives() -> void:
-	# Dragons level 10 is revives +1
+	# Fixture level 10 is revives +1
 	var m := AdventureProgressionManagerScript.new()
 	# XP for levels 1-10: 50+75+100+125+150+200+250+300+350+400 = 2000
-	m.award_xp("dragons_of_skyrim", 2000)
-	_assert(m.get_bonus_revives("dragons_of_skyrim") == 1, "reward_revive: should be 1, got %d" % m.get_bonus_revives("dragons_of_skyrim"))
+	m.award_xp("_test_fixture", 2000)
+	_assert(m.get_bonus_revives("_test_fixture") == 1, "reward_revive: should be 1, got %d" % m.get_bonus_revives("_test_fixture"))
 	_cleanup()
 
 
 func _test_star_powers_unlock() -> void:
 	var m := AdventureProgressionManagerScript.new()
 	# Level 0: no stars
-	_assert(m.get_unlocked_star_count("dragons_of_skyrim") == 0, "stars: level 0 should have 0 stars")
+	_assert(m.get_unlocked_star_count("_test_fixture") == 0, "stars: level 0 should have 0 stars")
 	# Level 5: 1 star (50+75+100+125+150 = 500)
-	m.award_xp("dragons_of_skyrim", 500)
-	_assert(m.get_unlocked_star_count("dragons_of_skyrim") == 1, "stars: level 5 should have 1 star, got %d" % m.get_unlocked_star_count("dragons_of_skyrim"))
-	var stars := m.get_active_star_powers("dragons_of_skyrim")
+	m.award_xp("_test_fixture", 500)
+	_assert(m.get_unlocked_star_count("_test_fixture") == 1, "stars: level 5 should have 1 star, got %d" % m.get_unlocked_star_count("_test_fixture"))
+	var stars := m.get_active_star_powers("_test_fixture")
 	_assert(stars.size() == 1, "stars: should have 1 active star power")
 	if stars.size() > 0:
-		_assert(str(stars[0].get("id", "")) == "sp_dragons_1", "stars: first star should be sp_dragons_1")
+		_assert(str(stars[0].get("id", "")) == "sp_test_fixture_1", "stars: first star should be sp_test_fixture_1")
 	_cleanup()
 
 
@@ -173,50 +173,50 @@ func _test_relic_slots_unlock() -> void:
 	var m := AdventureProgressionManagerScript.new()
 	_assert(m.get_unlocked_relic_slot_count("test") == 0, "relic_slots: level 0 should have 0 slots")
 	# Level 10 unlocks first slot (XP: 2000)
-	m.award_xp("dragons_of_skyrim", 2000)
-	_assert(m.get_unlocked_relic_slot_count("dragons_of_skyrim") == 1, "relic_slots: level 10 should have 1 slot, got %d" % m.get_unlocked_relic_slot_count("dragons_of_skyrim"))
+	m.award_xp("_test_fixture", 2000)
+	_assert(m.get_unlocked_relic_slot_count("_test_fixture") == 1, "relic_slots: level 10 should have 1 slot, got %d" % m.get_unlocked_relic_slot_count("_test_fixture"))
 	_cleanup()
 
 
 func _test_relic_equip_unequip() -> void:
 	var m := AdventureProgressionManagerScript.new()
-	m.award_xp("dragons_of_skyrim", 2000)  # Unlock slot 1
+	m.award_xp("_test_fixture", 2000)  # Unlock slot 1
 	m.unlocked_relics = ["skeleton_key"]
-	var ok := m.equip_relic("dragons_of_skyrim", "skeleton_key")
+	var ok := m.equip_relic("_test_fixture", "skeleton_key")
 	_assert(ok == true, "equip: should succeed")
-	var equipped := m.get_equipped_relics("dragons_of_skyrim")
+	var equipped := m.get_equipped_relics("_test_fixture")
 	_assert(equipped.size() == 1, "equip: should have 1 equipped, got %d" % equipped.size())
 	_assert(str(equipped[0]) == "skeleton_key", "equip: should be skeleton_key")
-	m.unequip_relic("dragons_of_skyrim", "skeleton_key")
-	_assert(m.get_equipped_relics("dragons_of_skyrim").is_empty(), "unequip: should have 0 equipped")
+	m.unequip_relic("_test_fixture", "skeleton_key")
+	_assert(m.get_equipped_relics("_test_fixture").is_empty(), "unequip: should have 0 equipped")
 	_cleanup()
 
 
 func _test_relic_equip_requires_unlock() -> void:
 	var m := AdventureProgressionManagerScript.new()
-	m.award_xp("dragons_of_skyrim", 2000)
+	m.award_xp("_test_fixture", 2000)
 	# Not in unlocked_relics
-	var ok := m.equip_relic("dragons_of_skyrim", "skeleton_key")
+	var ok := m.equip_relic("_test_fixture", "skeleton_key")
 	_assert(ok == false, "equip_unlock: should fail if relic not unlocked")
 	_cleanup()
 
 
 func _test_relic_equip_respects_slot_limit() -> void:
 	var m := AdventureProgressionManagerScript.new()
-	m.award_xp("dragons_of_skyrim", 2000)  # 1 slot
+	m.award_xp("_test_fixture", 2000)  # 1 slot
 	m.unlocked_relics = ["skeleton_key", "amulet_of_kings"]
-	m.equip_relic("dragons_of_skyrim", "skeleton_key")
-	var ok := m.equip_relic("dragons_of_skyrim", "amulet_of_kings")
+	m.equip_relic("_test_fixture", "skeleton_key")
+	var ok := m.equip_relic("_test_fixture", "amulet_of_kings")
 	_assert(ok == false, "equip_limit: should fail when slot full")
 	_cleanup()
 
 
 func _test_relic_no_duplicate_equip() -> void:
 	var m := AdventureProgressionManagerScript.new()
-	m.award_xp("dragons_of_skyrim", 2000)  # 1 slot
+	m.award_xp("_test_fixture", 2000)  # 1 slot
 	m.unlocked_relics = ["skeleton_key"]
-	m.equip_relic("dragons_of_skyrim", "skeleton_key")
-	var ok := m.equip_relic("dragons_of_skyrim", "skeleton_key")
+	m.equip_relic("_test_fixture", "skeleton_key")
+	var ok := m.equip_relic("_test_fixture", "skeleton_key")
 	_assert(ok == false, "equip_dup: should fail on duplicate")
 	_cleanup()
 
@@ -288,22 +288,22 @@ func _test_adventure_completion_repeat() -> void:
 func _test_save_load_round_trip() -> void:
 	_cleanup()
 	var m := AdventureProgressionManagerScript.new()
-	m.award_xp("dragons_of_skyrim", 200)
+	m.award_xp("_test_fixture", 200)
 	m.unlocked_relics = ["skeleton_key", "amulet_of_kings"]
-	m.last_selected_deck_id = "dragons_of_skyrim"
+	m.last_selected_deck_id = "_test_fixture"
 	m.adventure_completions["adv_1"] = {"completed": true, "completion_count": 3}
 
-	var entry := m._get_deck_entry("dragons_of_skyrim")
+	var entry := m._get_deck_entry("_test_fixture")
 	entry["equipped_relics"] = ["skeleton_key"]
-	m.deck_data["dragons_of_skyrim"] = entry
+	m.deck_data["_test_fixture"] = entry
 	m.save()
 
 	var loaded := AdventureProgressionManagerScript.load_progression()
-	_assert(loaded.get_deck_xp("dragons_of_skyrim") == 200, "save_load: xp should be 200, got %d" % loaded.get_deck_xp("dragons_of_skyrim"))
+	_assert(loaded.get_deck_xp("_test_fixture") == 200, "save_load: xp should be 200, got %d" % loaded.get_deck_xp("_test_fixture"))
 	_assert(loaded.unlocked_relics.size() == 2, "save_load: should have 2 unlocked relics")
-	_assert(loaded.last_selected_deck_id == "dragons_of_skyrim", "save_load: last deck should match")
+	_assert(loaded.last_selected_deck_id == "_test_fixture", "save_load: last deck should match")
 	_assert(loaded.is_adventure_completed("adv_1") == true, "save_load: adv_1 should be completed")
-	var equipped := loaded.get_equipped_relics("dragons_of_skyrim")
+	var equipped := loaded.get_equipped_relics("_test_fixture")
 	_assert(equipped.size() == 1, "save_load: should have 1 equipped relic")
 	_cleanup()
 
@@ -311,10 +311,10 @@ func _test_save_load_round_trip() -> void:
 func _test_last_selected_deck() -> void:
 	_cleanup()
 	var m := AdventureProgressionManagerScript.new()
-	m.last_selected_deck_id = "the_companions"
+	m.last_selected_deck_id = "_test_fixture_other"
 	m.save()
 	var loaded := AdventureProgressionManagerScript.load_progression()
-	_assert(loaded.last_selected_deck_id == "the_companions", "last_deck: should persist")
+	_assert(loaded.last_selected_deck_id == "_test_fixture_other", "last_deck: should persist")
 	_cleanup()
 
 
@@ -334,7 +334,7 @@ func _test_xp_for_next_level() -> void:
 func _test_multi_level_up() -> void:
 	var m := AdventureProgressionManagerScript.new()
 	# Award enough XP to go from 0 to level 3 in one shot (50+75+100 = 225)
-	var result := m.award_xp("dragons_of_skyrim", 225)
+	var result := m.award_xp("_test_fixture", 225)
 	_assert(result["old_level"] == 0, "multi_level: old_level should be 0")
 	_assert(result["new_level"] == 3, "multi_level: new_level should be 3, got %d" % int(result["new_level"]))
 	_assert(result["rewards"].size() == 3, "multi_level: should have 3 rewards (one per level), got %d" % result["rewards"].size())

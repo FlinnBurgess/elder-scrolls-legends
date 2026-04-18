@@ -1,22 +1,22 @@
 {
-	"deck_id": "dragons_of_skyrim",
+	"deck_id": "_test_fixture",
 	"star_powers": [
 		{
-			"id": "sp_dragons_1",
-			"name": "Dragon's Herald",
-			"description": "At the start of each match, add a random Dragon creature to your hand.",
+			"id": "sp_test_fixture_1",
+			"name": "Star Power 1",
+			"description": "Test fixture star power.",
 			"stackable": false
 		},
 		{
-			"id": "sp_dragons_2",
-			"name": "Ancient Scales",
-			"description": "Your highest-cost creature in your starting deck begins each run with +1/+1.",
+			"id": "sp_test_fixture_2",
+			"name": "Star Power 2",
+			"description": "Test fixture star power.",
 			"stackable": false
 		},
 		{
-			"id": "sp_dragons_3",
-			"name": "Dovahkiin's Might",
-			"description": "The first Boon you discover each run is always offered alongside two additional choices.",
+			"id": "sp_test_fixture_3",
+			"name": "Star Power 3",
+			"description": "Test fixture star power.",
 			"stackable": false
 		}
 	],

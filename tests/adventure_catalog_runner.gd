@@ -33,41 +33,38 @@ func _finish() -> void:
 
 
 func _test_load_adventure() -> void:
-	var adventure := AdventureCatalogScript.load_adventure("the_dragon_crisis")
-	_assert(not adventure.is_empty(), "load_adventure: should load the_dragon_crisis")
-	_assert(str(adventure.get("id", "")) == "the_dragon_crisis", "load_adventure: id should match")
-	_assert(str(adventure.get("name", "")) == "The Dragon Crisis", "load_adventure: name should match")
+	var adventure := AdventureCatalogScript.load_adventure("_test_fixture")
+	_assert(not adventure.is_empty(), "load_adventure: should load _test_fixture")
+	_assert(str(adventure.get("id", "")) == "_test_fixture", "load_adventure: id should match")
+	_assert(str(adventure.get("name", "")) == "Test Fixture Adventure", "load_adventure: name should match")
 	_assert(adventure.has("nodes"), "load_adventure: should have nodes")
 	_assert(adventure.has("start_node"), "load_adventure: should have start_node")
 
 
 func _test_load_all_adventures() -> void:
 	var adventures := AdventureCatalogScript.load_all_adventures()
-	_assert(adventures.size() >= 4, "load_all: should have at least 4 adventures, got %d" % adventures.size())
+	_assert(adventures.size() >= 1, "load_all: should have at least 1 adventure, got %d" % adventures.size())
 	var ids: Array = []
 	for a in adventures:
 		ids.append(str(a.get("id", "")))
-	_assert("the_dragon_crisis" in ids, "load_all: should contain the_dragon_crisis")
-	_assert("the_five_tenets" in ids, "load_all: should contain the_five_tenets")
-	_assert("eye_of_magnus" in ids, "load_all: should contain eye_of_magnus")
-	_assert("blood_of_sovngarde" in ids, "load_all: should contain blood_of_sovngarde")
+	_assert("_test_fixture" in ids, "load_all: should contain _test_fixture")
 
 
 func _test_get_adventures_for_deck() -> void:
-	var dragon_adventures := AdventureCatalogScript.get_adventures_for_deck("dragons_of_skyrim")
-	_assert(dragon_adventures.size() >= 1, "for_deck: dragons should have at least 1 adventure")
+	var fixture_adventures := AdventureCatalogScript.get_adventures_for_deck("_test_fixture")
+	_assert(fixture_adventures.size() >= 1, "for_deck: _test_fixture should have at least 1 adventure")
 	var found := false
-	for a in dragon_adventures:
-		if str(a.get("id", "")) == "the_dragon_crisis":
+	for a in fixture_adventures:
+		if str(a.get("id", "")) == "_test_fixture":
 			found = true
-	_assert(found, "for_deck: dragons should have the_dragon_crisis")
+	_assert(found, "for_deck: _test_fixture should have _test_fixture adventure")
 
 	var fake_adventures := AdventureCatalogScript.get_adventures_for_deck("nonexistent_deck")
 	_assert(fake_adventures.size() == 0, "for_deck: nonexistent deck should get 0 adventures, got %d" % fake_adventures.size())
 
 
 func _test_get_ordered_node_list() -> void:
-	var adventure := AdventureCatalogScript.load_adventure("the_dragon_crisis")
+	var adventure := AdventureCatalogScript.load_adventure("_test_fixture")
 	var ordered := AdventureCatalogScript.get_ordered_node_list(adventure)
 	# With branching, ordered follows first path: node_a -> node_b -> node_mini -> node_d -> node_e -> node_boss
 	_assert(ordered.size() >= 4, "ordered_nodes: should have at least 4 nodes following first path, got %d" % ordered.size())
@@ -90,7 +87,7 @@ func _test_get_graph_layers() -> void:
 
 
 func _test_get_graph_layers_branching() -> void:
-	var adventure := AdventureCatalogScript.load_adventure("the_dragon_crisis")
+	var adventure := AdventureCatalogScript.load_adventure("_test_fixture")
 	var layers := AdventureCatalogScript.get_graph_layers(adventure)
 	# Expected layers: [node_boon_start], [node_a], [node_b, node_c], [node_mini], [node_aug_creature], [node_boon], [node_d], [node_e, node_f], [node_boss]
 	_assert(layers.size() == 9, "graph_layers_branch: should have 9 layers, got %d" % layers.size())
@@ -106,9 +103,9 @@ func _test_get_graph_layers_branching() -> void:
 
 
 func _test_validate_adventure_valid() -> void:
-	var adventure := AdventureCatalogScript.load_adventure("the_dragon_crisis")
+	var adventure := AdventureCatalogScript.load_adventure("_test_fixture")
 	var result := AdventureCatalogScript.validate_adventure(adventure)
-	_assert(result.get("is_valid", false) == true, "validate_valid: the_dragon_crisis should be valid")
+	_assert(result.get("is_valid", false) == true, "validate_valid: _test_fixture should be valid")
 	_assert(result.get("errors", []).size() == 0, "validate_valid: should have 0 errors, got: %s" % str(result.get("errors", [])))
 
 
@@ -159,7 +156,7 @@ func _test_validate_adventure_new_node_types() -> void:
 
 
 func _test_get_start_node() -> void:
-	var adventure := AdventureCatalogScript.load_adventure("the_dragon_crisis")
+	var adventure := AdventureCatalogScript.load_adventure("_test_fixture")
 	var start_node := AdventureCatalogScript.get_start_node(adventure)
 	_assert(not start_node.is_empty(), "start_node: should return a node")
 	_assert(str(start_node.get("type", "")) == "boon", "start_node: first node should be boon")

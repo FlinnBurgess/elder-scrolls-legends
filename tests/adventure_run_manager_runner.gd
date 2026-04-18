@@ -53,10 +53,10 @@ func _finish() -> void:
 
 func _test_start_run() -> void:
 	var manager = AdventureRunManagerScript.new()
-	manager.start_run("the_dragon_crisis", "dragons_of_skyrim", [{"card_id": "c1", "quantity": 1}], "node_a")
+	manager.start_run("_test_fixture", "_test_fixture_deck", [{"card_id": "c1", "quantity": 1}], "node_a")
 	_assert(manager.state == AdventureRunManagerScript.State.VIEWING_MAP, "start_run: state should be VIEWING_MAP")
-	_assert(manager.adventure_id == "the_dragon_crisis", "start_run: adventure_id should match")
-	_assert(manager.deck_id == "dragons_of_skyrim", "start_run: deck_id should match")
+	_assert(manager.adventure_id == "_test_fixture", "start_run: adventure_id should match")
+	_assert(manager.deck_id == "_test_fixture_deck", "start_run: deck_id should match")
 	_assert(manager.current_node_id == "node_a", "start_run: current_node_id should be node_a")
 	_assert(manager.revives_remaining == 1, "start_run: should have 1 revive")
 	_assert(manager.completed_node_ids.is_empty(), "start_run: no completed nodes")
@@ -65,7 +65,7 @@ func _test_start_run() -> void:
 
 func _test_start_run_initializes_new_fields() -> void:
 	var manager = AdventureRunManagerScript.new()
-	manager.start_run("the_dragon_crisis", "dragons_of_skyrim", [{"card_id": "c1", "quantity": 1}], "node_a")
+	manager.start_run("_test_fixture", "_test_fixture_deck", [{"card_id": "c1", "quantity": 1}], "node_a")
 	_assert(manager.gold == 0, "new_fields: gold should start at 0")
 	_assert(manager.max_health_bonus == 0, "new_fields: max_health_bonus should start at 0")
 	_assert(manager.added_cards.is_empty(), "new_fields: added_cards should be empty")
@@ -73,11 +73,11 @@ func _test_start_run_initializes_new_fields() -> void:
 
 
 func _test_full_winning_run_branching() -> void:
-	var adventure := AdventureCatalogScript.load_adventure("the_dragon_crisis")
+	var adventure := AdventureCatalogScript.load_adventure("_test_fixture")
 	_assert(not adventure.is_empty(), "full_win_branch: should load adventure")
 
 	var manager = AdventureRunManagerScript.new()
-	manager.start_run("the_dragon_crisis", "dragons_of_skyrim", [{"card_id": "c1", "quantity": 1}], "node_a")
+	manager.start_run("_test_fixture", "_test_fixture_deck", [{"card_id": "c1", "quantity": 1}], "node_a")
 
 	# Win node_a (combat) — branches to node_b or node_c
 	_assert(manager.current_node_id == "node_a", "full_win_branch: should start on node_a")
@@ -129,9 +129,9 @@ func _test_full_winning_run_branching() -> void:
 
 
 func _test_loss_with_revive() -> void:
-	var adventure := AdventureCatalogScript.load_adventure("the_dragon_crisis")
+	var adventure := AdventureCatalogScript.load_adventure("_test_fixture")
 	var manager = AdventureRunManagerScript.new()
-	manager.start_run("the_dragon_crisis", "dragons_of_skyrim", [{"card_id": "c1", "quantity": 1}], "node_a")
+	manager.start_run("_test_fixture", "_test_fixture_deck", [{"card_id": "c1", "quantity": 1}], "node_a")
 
 	# Lose node_a (should use revive)
 	manager.start_match()
@@ -149,7 +149,7 @@ func _test_loss_with_revive() -> void:
 
 func _test_loss_without_revive() -> void:
 	var manager = AdventureRunManagerScript.new()
-	manager.start_run("the_dragon_crisis", "dragons_of_skyrim", [{"card_id": "c1", "quantity": 1}], "node_a")
+	manager.start_run("_test_fixture", "_test_fixture_deck", [{"card_id": "c1", "quantity": 1}], "node_a")
 
 	# Use up revive
 	manager.start_match()
@@ -167,10 +167,10 @@ func _test_loss_without_revive() -> void:
 func _test_save_load_round_trip() -> void:
 	_cleanup_test_files()
 
-	var adventure := AdventureCatalogScript.load_adventure("the_dragon_crisis")
+	var adventure := AdventureCatalogScript.load_adventure("_test_fixture")
 	var manager = AdventureRunManagerScript.new()
 	var deck := [{"card_id": "c1", "quantity": 2}, {"card_id": "c2", "quantity": 1}]
-	manager.start_run("the_dragon_crisis", "dragons_of_skyrim", deck, "node_a")
+	manager.start_run("_test_fixture", "_test_fixture_deck", deck, "node_a")
 
 	# Win first node
 	manager.start_match()
@@ -182,8 +182,8 @@ func _test_save_load_round_trip() -> void:
 	if loaded == null:
 		return
 	_assert(loaded.state == AdventureRunManagerScript.State.VIEWING_MAP, "save_load: state should be VIEWING_MAP, got %d" % loaded.state)
-	_assert(loaded.adventure_id == "the_dragon_crisis", "save_load: adventure_id should match")
-	_assert(loaded.deck_id == "dragons_of_skyrim", "save_load: deck_id should match")
+	_assert(loaded.adventure_id == "_test_fixture", "save_load: adventure_id should match")
+	_assert(loaded.deck_id == "_test_fixture_deck", "save_load: deck_id should match")
 	_assert(loaded.revives_remaining == 1, "save_load: should have 1 revive")
 	_assert(loaded.deck_cards.size() == 2, "save_load: should have 2 deck entries")
 	_cleanup_test_files()
@@ -193,7 +193,7 @@ func _test_save_load_new_fields() -> void:
 	_cleanup_test_files()
 
 	var manager = AdventureRunManagerScript.new()
-	manager.start_run("the_dragon_crisis", "dragons_of_skyrim", [{"card_id": "c1", "quantity": 1}], "node_a")
+	manager.start_run("_test_fixture", "_test_fixture_deck", [{"card_id": "c1", "quantity": 1}], "node_a")
 	manager.gold = 75
 	manager.max_health_bonus = 10
 	manager.added_cards = ["card_x", "card_y"]
@@ -215,7 +215,7 @@ func _test_has_active_run() -> void:
 	_assert(AdventureRunManagerScript.has_active_run() == false, "has_active: should be false initially")
 
 	var manager = AdventureRunManagerScript.new()
-	manager.start_run("the_dragon_crisis", "dragons_of_skyrim", [{"card_id": "c1", "quantity": 1}], "node_a")
+	manager.start_run("_test_fixture", "_test_fixture_deck", [{"card_id": "c1", "quantity": 1}], "node_a")
 	_assert(AdventureRunManagerScript.has_active_run() == true, "has_active: should be true after start")
 
 	manager.clear_run()
@@ -227,7 +227,7 @@ func _test_abandon_run() -> void:
 	_cleanup_test_files()
 
 	var manager = AdventureRunManagerScript.new()
-	manager.start_run("the_dragon_crisis", "dragons_of_skyrim", [{"card_id": "c1", "quantity": 1}], "node_a")
+	manager.start_run("_test_fixture", "_test_fixture_deck", [{"card_id": "c1", "quantity": 1}], "node_a")
 	_assert(AdventureRunManagerScript.has_active_run() == true, "abandon: should have active run")
 
 	manager.abandon_run()
@@ -241,7 +241,7 @@ func _test_match_state_save_load_clear() -> void:
 	_cleanup_test_files()
 
 	var manager = AdventureRunManagerScript.new()
-	manager.start_run("the_dragon_crisis", "dragons_of_skyrim", [{"card_id": "c1", "quantity": 1}], "node_a")
+	manager.start_run("_test_fixture", "_test_fixture_deck", [{"card_id": "c1", "quantity": 1}], "node_a")
 
 	var test_state := {"phase": "action", "turn_number": 5}
 	manager.save_match_state(test_state)
@@ -261,7 +261,7 @@ func _test_clear_run_also_clears_match_state() -> void:
 	_cleanup_test_files()
 
 	var manager = AdventureRunManagerScript.new()
-	manager.start_run("the_dragon_crisis", "dragons_of_skyrim", [{"card_id": "c1", "quantity": 1}], "node_a")
+	manager.start_run("_test_fixture", "_test_fixture_deck", [{"card_id": "c1", "quantity": 1}], "node_a")
 	manager.save_match_state({"phase": "action"})
 	_assert(AdventureRunManagerScript.has_saved_match_state() == true, "clear_run_ms: should have match state")
 

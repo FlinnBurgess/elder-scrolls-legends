@@ -1,0 +1,11 @@
+{
+	"name": "Test Fixture Deck",
+	"deck_id": "_test_fixture",
+	"attribute_ids": ["strength", "willpower"],
+	"cards": [
+		{"card_id": "str_morkul_gatekeeper", "quantity": 3},
+		{"card_id": "str_sharpshooter_scout", "quantity": 2},
+		{"card_id": "str_rapid_shot", "quantity": 2},
+		{"card_id": "wil_kvatch_soldier", "quantity": 3}
+	]
+}
