@@ -309,6 +309,8 @@ func _on_import_pressed() -> void:
 	for entry in cards:
 		var card: Dictionary = _card_by_id.get(entry.get("card_id", ""), {})
 		for attr in card.get("attributes", []):
+			if str(attr) == "neutral":
+				continue
 			attribute_set[attr] = true
 	var attribute_ids: Array = attribute_set.keys()
 	attribute_ids.sort()
