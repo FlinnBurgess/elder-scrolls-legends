@@ -67,7 +67,10 @@ const ATTRIBUTE_ICON_PATHS := {
 	"neutral": "res://assets/images/attributes/neutral-small.png",
 }
 const ATTRIBUTE_ICON_SIZE := 22
-const ATTRIBUTE_INLINE_ICON_SIZE := 40
+# Inline attribute icons in rules text scale with the rules font size.
+# Slightly larger than cap height so icons read as embedded glyphs rather than dominating the text.
+const ATTRIBUTE_INLINE_ICON_SCALE := 1.3
+const ATTRIBUTE_INLINE_ICON_DEFAULT_FONT_SIZE := 18
 
 const PIP_SIZE := 8.0
 const PIP_SPACING := 6.0
@@ -81,6 +84,7 @@ var _default_art_texture: Texture2D
 var _interactive := true
 var _deck_quantity_current := -1
 var _deck_quantity_max := -1
+var _rules_font_size := ATTRIBUTE_INLINE_ICON_DEFAULT_FONT_SIZE
 
 var _original_card_data: Dictionary = {}
 var _active_wax_wane_phases: Array = []  # e.g. ["wax"], ["wane"], or ["wax", "wane"]
@@ -1386,7 +1390,7 @@ func _rules_bbcode(card: Dictionary) -> String:
 
 
 func _replace_attribute_names_with_icons(text: String) -> String:
-	var s := ATTRIBUTE_INLINE_ICON_SIZE
+	var s: int = max(1, int(round(float(_rules_font_size) * ATTRIBUTE_INLINE_ICON_SCALE)))
 	for attr_name in ATTRIBUTE_ICON_PATHS:
 		var icon_path: String = ATTRIBUTE_ICON_PATHS[attr_name]
 		var img_tag := "[img=" + str(s) + "x" + str(s) + "]" + icon_path + "[/img]"
@@ -1576,8 +1580,7 @@ func _build_centered_label(name: String, font_size: int) -> Label:
 func _apply_font_sizes(scale: float) -> void:
 	_name_label.add_theme_font_size_override("font_size", _scaled_int(14, scale))
 	_subtype_label.add_theme_font_size_override("font_size", _scaled_int(10, scale))
-	_rules_label.add_theme_font_size_override("normal_font_size", _scaled_int(18, scale))
-	_rules_label.add_theme_font_size_override("bold_font_size", _scaled_int(18, scale))
+	_apply_rules_font_size(_scaled_int(18, scale))
 	_rarity_label.add_theme_font_size_override("font_size", _scaled_int(9, scale))
 	_cost_label.add_theme_font_size_override("font_size", _scaled_int(20, scale))
 	_attack_label.add_theme_font_size_override("font_size", _scaled_int(22, scale))
@@ -1602,11 +1605,19 @@ func _fit_rules_font_size_deferred() -> void:
 	var min_size := _scaled_int(8, scale)
 	var font_size := max_size
 	while font_size > min_size:
-		_rules_label.add_theme_font_size_override("normal_font_size", font_size)
-		_rules_label.add_theme_font_size_override("bold_font_size", font_size)
+		_apply_rules_font_size(font_size)
 		if _rules_label.get_content_height() <= int(available_height):
 			break
 		font_size -= 1
+
+
+func _apply_rules_font_size(size: int) -> void:
+	_rules_font_size = size
+	_rules_label.add_theme_font_size_override("normal_font_size", size)
+	_rules_label.add_theme_font_size_override("bold_font_size", size)
+	# Regenerate bbcode so inline attribute icons scale with the new font size.
+	if not _card_data.is_empty():
+		_rules_label.text = _rules_bbcode(_card_data)
 
 
 func _set_full_rect(control: Control) -> void:

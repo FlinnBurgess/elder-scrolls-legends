@@ -15,6 +15,7 @@ func _initialize() -> void:
 
 	_test_roll_rarity_produces_valid_strings()
 	_test_get_card_pool_matches_attributes_plus_neutral()
+	_test_get_card_pool_excludes_partial_attribute_matches()
 	_test_get_card_pool_excludes_non_collectible()
 	_test_get_pick_options_returns_correct_count()
 	_test_get_pick_options_respects_copy_limits()
@@ -51,22 +52,46 @@ func _test_get_card_pool_matches_attributes_plus_neutral() -> void:
 	for card in pool:
 		var card_attrs: Array = card.get("attributes", [])
 		if card_attrs.is_empty():
-			# Neutral card — always allowed
 			continue
-		var has_match := false
+		var all_match := true
 		for attr in card_attrs:
-			if attr in attribute_ids:
-				has_match = true
+			if attr == "neutral":
+				continue
+			if not (attr in attribute_ids):
+				all_match = false
 				break
-		_assert(has_match, "get_card_pool: card '%s' has attrs %s which don't match %s" % [card.get("card_id", ""), str(card_attrs), str(attribute_ids)])
+		_assert(all_match, "get_card_pool: card '%s' has attrs %s which aren't all in %s (neutral allowed)" % [card.get("card_id", ""), str(card_attrs), str(attribute_ids)])
 
-	# Verify neutral cards are present
+	# Verify neutral cards are present (attributes contain "neutral" or empty)
 	var has_neutral := false
 	for card in pool:
-		if card.get("attributes", []).is_empty():
+		var attrs: Array = card.get("attributes", [])
+		if attrs.is_empty() or "neutral" in attrs:
 			has_neutral = true
 			break
 	_assert(has_neutral, "get_card_pool: pool should contain neutral cards")
+
+
+func _test_get_card_pool_excludes_partial_attribute_matches() -> void:
+	var test_db := {
+		"single_match": {"card_id": "single_match", "attributes": ["intelligence"], "collectible": true, "rarity": "common"},
+		"dual_all_match": {"card_id": "dual_all_match", "attributes": ["intelligence", "endurance"], "collectible": true, "rarity": "common"},
+		"dual_partial": {"card_id": "dual_partial", "attributes": ["endurance", "agility"], "collectible": true, "rarity": "common"},
+		"triple_partial": {"card_id": "triple_partial", "attributes": ["strength", "intelligence", "endurance"], "collectible": true, "rarity": "common"},
+		"no_overlap": {"card_id": "no_overlap", "attributes": ["willpower"], "collectible": true, "rarity": "common"},
+		"neutral": {"card_id": "neutral", "attributes": [], "collectible": true, "rarity": "common"},
+	}
+	var pool: Array = ArenaDraftEngineScript.get_card_pool(["intelligence", "endurance"], test_db)
+	var pool_ids: Array = []
+	for card in pool:
+		pool_ids.append(card.get("card_id", ""))
+
+	_assert("single_match" in pool_ids, "get_card_pool: single matching attribute should be included")
+	_assert("dual_all_match" in pool_ids, "get_card_pool: dual card with both attrs in selection should be included")
+	_assert("neutral" in pool_ids, "get_card_pool: neutral card should be included")
+	_assert("dual_partial" not in pool_ids, "get_card_pool: dual card with only one attr in selection should be excluded")
+	_assert("triple_partial" not in pool_ids, "get_card_pool: triple card with non-matching attr should be excluded")
+	_assert("no_overlap" not in pool_ids, "get_card_pool: card with no matching attr should be excluded")
 
 
 func _test_get_card_pool_excludes_non_collectible() -> void:

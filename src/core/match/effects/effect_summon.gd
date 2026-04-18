@@ -254,6 +254,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						sfe_template = sfe_template.duplicate(true) if sfe_template == summon_template else sfe_template
 						sfe_template["keywords"] = sfe_kw_list.duplicate()
 				var sfe_count := MatchEffectParams._resolve_count_multiplier(match_state, trigger, event, effect)
+				var sfe_all_lanes := bool(effect.get("all_lanes", false))
 				for player_id in summon_players:
 					for s_lane_id in summon_lane_ids:
 						var sfe_active_lane: String = s_lane_id
@@ -268,6 +269,8 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 								"source_zone": MatchMutations.ZONE_GENERATED,
 							})
 							if not bool(summon_result.get("is_valid", false)):
+								if sfe_all_lanes:
+									break
 								# Overflow to another lane with open slots
 								var sfe_overflowed := false
 								for sfe_of_lane in match_state.get("lanes", []):

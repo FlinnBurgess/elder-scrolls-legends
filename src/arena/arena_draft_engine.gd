@@ -35,12 +35,14 @@ static func get_card_pool(attribute_ids: Array, card_database: Dictionary) -> Ar
 		if card_attrs.is_empty():
 			pool.append(card)
 			continue
-		var matches := false
+		var all_match := true
 		for attr in card_attrs:
-			if attr in attribute_ids:
-				matches = true
+			if attr == "neutral":
+				continue
+			if not (attr in attribute_ids):
+				all_match = false
 				break
-		if matches:
+		if all_match:
 			pool.append(card)
 	return pool
 

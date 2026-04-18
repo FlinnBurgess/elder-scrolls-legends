@@ -17,7 +17,7 @@
 			null,
 			null,
 			null,
-			"exc_neu_adoring_fan"
+			"aw_int_abnur_tharn"
 		],
 		"hand": [
 			"aw_end_hush"
@@ -52,15 +52,9 @@
 			"joo_str_agent_of_mehrunes_dagon",
 			"moe_neu_crocodile_brute"
 		],
-		"field_creatures": [
-			null,
-			null,
-			null
-		],
+		"field_creatures": [],
 		"hand": [
-			"joo_str_invasion_scout",
-			"joo_str_invasion_scout",
-			"joo_str_invasion_scout"
+			"hom_agi_telvanni_oathman"
 		],
 		"has_ring": false,
 		"health": 30.0,

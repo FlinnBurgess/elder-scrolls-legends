@@ -256,24 +256,28 @@ func _show_abandon_confirm() -> void:
 	_confirm_overlay.add_child(center)
 
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(440, 200)
+	panel.custom_minimum_size = Vector2(620, 300)
 	UITheme.style_panel(panel)
 	center.add_child(panel)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 16)
+	vbox.add_theme_constant_override("separation", 24)
 	panel.add_child(vbox)
 
 	var dialog_title := Label.new()
 	dialog_title.text = "Abandon Run?"
-	UITheme.style_title(dialog_title, 24)
+	UITheme.style_title(dialog_title, 36)
+	dialog_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	dialog_title.size_flags_horizontal = SIZE_SHRINK_CENTER | SIZE_EXPAND
 	vbox.add_child(dialog_title)
 
 	var dialog_msg := Label.new()
 	dialog_msg.text = "Your current run progress will be lost. This cannot be undone."
-	dialog_msg.add_theme_font_size_override("font_size", 18)
+	dialog_msg.add_theme_font_size_override("font_size", 24)
 	dialog_msg.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
 	dialog_msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	dialog_msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	dialog_msg.size_flags_horizontal = SIZE_SHRINK_CENTER | SIZE_EXPAND
 	vbox.add_child(dialog_msg)
 
 	var spacer := Control.new()
@@ -281,21 +285,21 @@ func _show_abandon_confirm() -> void:
 	vbox.add_child(spacer)
 
 	var btn_row := HBoxContainer.new()
-	btn_row.alignment = BoxContainer.ALIGNMENT_END
-	btn_row.add_theme_constant_override("separation", 12)
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row.add_theme_constant_override("separation", 16)
 	vbox.add_child(btn_row)
 
 	var cancel_btn := Button.new()
 	cancel_btn.text = "Cancel"
-	cancel_btn.custom_minimum_size = Vector2(140, 48)
-	UITheme.style_button(cancel_btn, 20, true)
+	cancel_btn.custom_minimum_size = Vector2(180, 64)
+	UITheme.style_button(cancel_btn, 26, true)
 	cancel_btn.pressed.connect(_dismiss_abandon_confirm)
 	btn_row.add_child(cancel_btn)
 
 	var confirm_btn := Button.new()
 	confirm_btn.text = "Abandon"
-	confirm_btn.custom_minimum_size = Vector2(140, 48)
-	UITheme.style_button_accent(confirm_btn, Color(0.84, 0.39, 0.31, 1.0), 20)
+	confirm_btn.custom_minimum_size = Vector2(180, 64)
+	UITheme.style_button_accent(confirm_btn, Color(0.84, 0.39, 0.31, 1.0), 26)
 	confirm_btn.pressed.connect(func() -> void:
 		_dismiss_abandon_confirm()
 		abandon_pressed.emit()
