@@ -103,12 +103,12 @@ High Rock is bounded by the Sea of Ghosts to the north, Hammerfell to the south 
 | **Nulfaga** | Mad Witch, Dowager Queen, Lysandus's mother | 3E | Story NPC | No card |
 | **Gortwog gro-Nagorm** | Orc king who re-established Orsinium | 3E | Boss (Orc theme) | **Gortwog gro-Nagorm** (Legendary 6c 4/6) |
 | **Angof the Gravesinger** | Reachman necromancer, Bloodthorn Cult leader | 2E | Boss (needs import) | No card |
-| **Baron Wylon Montclair** | Breton noble turned vampire lord | 2E | Boss (needs import) | No card |
+| **Baron Wylon Montclair** | Breton noble turned vampire lord | 2E | Boss (use Doomcrag Vampire / Night Talon Lord) | No card |
 | **Count Verandis Ravenwatch** | Good vampire, House Ravenwatch leader | 2E | Ally NPC | No card |
 | **King Ranser** | King of Rivenspire who waged war on Wayrest | 2E | Boss (needs import) | No card |
 | **Gaiden Shinji** | Redguard hero, Order of Diagna leader, Arena founder | 1E | Story NPC | No card |
 | **King Joile** | Treacherous King of Daggerfall during Siege of Orsinium | 1E | Boss candidate (needs import) | No card |
-| **Faolchu** | Ancient werewolf general resurrected by Angof | 2E | Mini-boss (needs import) | No card |
+| **Faolchu** | Ancient werewolf general resurrected by Angof | 2E | Mini-boss (use Aspect of Hircine) | No card |
 | **Durcorach the Black Drake** | Reachman Emperor who invaded High Rock | 2E | Boss candidate (needs import) | No card |
 
 ## 6. Signature Cultural Elements
@@ -268,8 +268,6 @@ Key Breton-themed Ward cards: Breton Conjurer, Daggerfall Mage, Glenumbra Sorcer
 | Eye of Magnus | Skyrim | INT/WIL | Thalmor, Storm Atronachs | Ancano |
 | The Five Tenets | Skyrim | AGI/END | Shadowscales, Necromancers | Emperor Titus Mede II |
 
-**Unused attribute pairs**: STR/INT, STR/END, INT/AGI, INT/END, WIL/AGI, WIL/END, plus all tri-color combinations.
-
 ---
 
 ### Proposal 1: "The Warp in the West"
@@ -280,59 +278,64 @@ Key Breton-themed Ward cards: Breton Conjurer, Daggerfall Mage, Glenumbra Sorcer
 
 **Storyline**: Emperor Uriel Septim VII sends you to investigate the haunting of Daggerfall by King Lysandus's ghost. The trail leads through court intrigue, the mad witch Nulfaga's castle, and ultimately to a confrontation with Mannimarco, the King of Worms, who seeks to use the Mantella — the heart of the Numidium — to achieve godhood. Stop the necromancer before his dark ascension tears the fabric of time itself.
 
-#### Player Deck: "Covenant Sorcerers" (INT/END)
+#### Enemy Decks
 
-**Archetype**: Ward-Conjuration Sorcerer — protect creatures with Wards, summon Atronachs, and outlast necromantic threats through magical resilience.
+##### 1. Daggerfall Street Ghosts (Combat)
+- **Focus:** `end_haunting_spirit` *Haunting Spirit* (END, 3c, 3/3) — spectral chaff that buffs a random ally on death
+- **Supporting:** `end_cursed_spectre` *Cursed Spectre*, `end_deathless_draugr` *Deathless Draugr*, `end_deadly_draugr` *Deadly Draugr*, `end_skeleton` *Skeleton*
+- **Modifier:** *New mechanic:* Haunted Streets — at end of each round, summon a free 1/1 Skeleton into a random enemy lane.
 
-**Legendary Anchors**:
-- High King Emeric (6c, 5/5, INT/END) — thematic leader
-- Supreme Atromancer (10c, 3/3) — conjuration finisher
-- Daggerfall Mage (3c, 2/2) — Ward + Tome engine
+##### 2. Lysandus's Mournful Honor Guard (Combat)
+- **Focus:** `aw_tri_daggerfall_phantom` *Daggerfall Phantom* (STR/INT/END, 2c, 2/2) — Spirit with item-returning Last Gasp
+- **Supporting:** `end_restless_templar` *Restless Templar*, `moe_neu_insidious_spirit` *Insidious Spirit*, `int_sundered_shade` *Sundered Shade*, `hos_wil_sovngarde_hero` *Sovngarde Hero*
+- **Modifier:** Prophecy — Every enemy creature with Prophecy triggers its Prophecy when summoned, not only on rune break.
 
-**Core Cards (30-card deck)**:
+##### 3. Shedungent Witch Coven (Combat)
+- **Focus:** `int_wispmother` *Wispmother* (INT, 7c, 5/5) — copies cheap summons into the other lane
+- **Supporting:** `int_glenumbra_sorceress` *Glenumbra Sorceress*, `neu_frenzied_witchman` *Frenzied Witchman*, `neu_reachman_shaman` *Reachman Shaman*, `int_breton_conjurer` *Breton Conjurer*
+- **Modifier:** *New mechanic:* Witch coven lane — enemy creatures in the right lane gain an extra attack each round.
 
-| Card | Attribute | Cost | Role |
-|------|-----------|------|------|
-| High King Emeric | INT/END | 6 | Deck anchor, Breton king |
-| Supreme Atromancer | INT | 10 | Finisher, summons Lava Atronachs |
-| Daggerfall Mage | INT | 3 | Ward, generates Tomes of Alteration |
-| Breton Conjurer (x2) | INT | 4 | Ward → summons 5/5 Frost Atronach |
-| Glenumbra Sorceress (x2) | INT | 5 | High-attack Ward creature |
-| Imbued Breton (x2) | INT | 5 | Ward + Consume synergy |
-| High Rock Summoner (x2) | INT | 2 | Cheap conjuration creature |
-| Camlorn Sentinel (x2) | INT | 2 | Prophecy, Guard |
-| Wardcrafter (x2) | INT | 2 | Grants Ward to creatures |
-| Lesser Ward (x2) | INT | 1 | Spell: give creature Ward |
-| Worm King's Agent | INT/END | 7 | Slay, summons Worm Thralls (turned to your side) |
-| Haunting Spirit (x2) | END | 3 | Deathrattle buff |
-| Deathless Draugr (x2) | END | 1 | Cheap, sticky creature |
-| Frostbite Spider (x2) | END | 3 | Shackle on summon |
-| Black Worm Necromancer | END | 6 | Summons from discard |
-| Mighty Conjuring (x2) | INT | 1 | Summon random Atronach |
-| Lightning Bolt (x2) | INT | 4 | Removal, Prophecy |
+##### 4. Bloodthorn Vine Keepers (Combat)
+- **Focus:** `end_flesh_atronach` *Flesh Atronach* (END, 6c, 1/1) — grows with enemy discard
+- **Supporting:** `end_black_worm_necromancer` *Black Worm Necromancer*, `end_gloom_wraith` *Gloom Wraith*, `end_deathless_draugr` *Deathless Draugr*, `hom_end_risen_horror` *Risen Horror*
+- **Modifier:** *New mechanic:* Creeping Vines — at the start of each enemy turn, the weakest friendly creature gains Shackle for one turn.
 
-**Mechanical Coherence**: The deck pairs INT's Ward/Conjuration identity with END's resilience and Last Gasp synergy. Breton Conjurers are the engine — their Wards generate 5/5 Frost Atronachs when broken, while Lesser Ward and Wardcrafter reset them. Supreme Atromancer provides a devastating finisher. END creatures provide early-game stall with Guards and sticky bodies.
+##### 5. Nulfaga's Aetherial Visions (Event Combat)
+- **Focus:** `neu_orb_of_vaermina` *Orb of Vaermina* (NEU, 6c support) — copies a card from your deck
+- **Supporting:** `int_moment_of_clarity` *Moment of Clarity*, `int_wardcrafter` *Wardcrafter*, `int_high_rock_summoner` *High Rock Summoner*, `int_camlorn_sentinel` *Camlorn Sentinel*
+- **Modifier:** *New mechanic:* Dreamwalk — the first action the enemy plays each turn is also added to your discard pile (they read your mind).
 
-#### Boss: Mannimarco, King of Worms
-- **Card**: Mannimarco (END, Legendary, 10c 6/6)
-- **Lore**: The most infamous necromancer in Tamriel's history. Originally an Altmer Psijic, expelled for practicing necromancy. Founded the Order of the Black Worm. In the Daggerfall storyline, he seeks the Mantella to achieve godhood.
-- **Boss Mechanic**: Summons creatures from the player's discard pile, turning fallen allies against them. Thematically represents his mastery over death itself.
+##### 6. Worm Nest Acolytes (Combat)
+- **Focus:** `moe_int_black_worm_neophyte` *Black Worm Neophyte* (INT, 4c, 4/3) — consumes an ally to summon a keyworded Skeleton
+- **Supporting:** `end_imprisoned_deathlord` *Imprisoned Deathlord*, `moe_int_wandering_skeleton` *Wandering Skeleton*, `end_grim_champion` *Grim Champion*, `mc_end_worm_thrall` *Worm Thrall*
+- **Modifier:** Consume — Slain enemy creatures fuel the next Neophyte summon; every third friendly death summons a free 2/2 Worm Thrall.
 
-#### Mini-Boss: Worm Cult Anchorite
-- **Deck theme**: Worm Cult — Black Worm Necromancer, Black Worm Neophyte, Worm King's Agent, skeletons, spirits
-- **Lore**: Leader of a Worm Nest, Mannimarco's lieutenants who recruit dark mages with promises of power
+##### 7. The Shedungent Gate (Event Combat)
+- **Focus:** `aw_int_mages_guild_conjurer` *Mages Guild Conjurer* (INT, 6c, 2/3) — Expertise chain of upgrading atronachs
+- **Supporting:** `int_frost_atronach` *Frost Atronach*, `int_flame_atronach` *Flame Atronach*, `int_storm_atronach` *Storm Atronach*, `mc_int_lava_atronach` *Lava Atronach*
+- **Modifier:** *New mechanic:* Atronach Gate — every time an enemy Atronach dies, summon a random new Atronach in its lane at end of turn.
 
-#### Enemy Deck Themes
-1. **Ghost of Lysandus** (early combat) — Spirit-heavy deck: Haunting Spirit, Insidious Spirit, Daggerfall Phantom, plus skeleton filler. Represents the undead haunting Daggerfall.
-2. **Worm Cult Anchorite** (mini-boss) — Worm-themed necromancers: Black Worm Necromancer, Black Worm Neophyte, Worm Thralls, skeleton tokens, raise-dead spells. Differentiated from existing Necromancer enemy by emphasizing Worm-specific cards and spirit creatures rather than pure Draugr.
-3. **Mannimarco** (final boss) — Mannimarco himself + elite undead: Bone Colossus, Flesh Atronach, Spirit creatures, plus raise-dead and soul-manipulation spells. Higher quality cards than the Anchorite deck.
+##### 8. Lich of Miscarcand's Echo (Combat)
+- **Focus:** `joo_end_miscarcand_lich` *Miscarcand Lich* (END, 4c, 3/5) — marks a creature; summons Risen Dead next to it
+- **Supporting:** `end_bone_colossus` *Bone Colossus*, `hom_end_ancestral_dead` *Ancestral Dead*, `moe_str_blastbones` *Blastbones*, `hom_end_risen_dead` *Risen Dead*
+- **Modifier:** Veteran — Each turn, the first enemy creature to die Veterans a random friendly enemy creature.
+
+##### 9. Worm Cult Anchorite (Mini-Boss)
+- **Focus:** `joo_end_faded_wraith` *Faded Wraith* (END, 5c, 1/3, Legendary) — draws cards equal to its power
+- **Supporting:** `mc_dual_worm_kings_agent` *Worm King's Agent*, `end_black_worm_necromancer` *Black Worm Necromancer*, `mc_end_worm_thrall` *Worm Thrall*, `end_haunting_spirit` *Haunting Spirit*
+- **Modifier:** *New mechanic:* Bone ritual — at the start of each enemy turn, if the enemy discard has 3+ creatures, summon a random one as a 1/1 Skeleton.
+
+##### 10. Mannimarco, King of Worms (Boss)
+- **Focus:** `aw_end_mannimarco` *Mannimarco* (END, 10c, 6/6, Legendary) — summons a creature from YOUR discard pile
+- **Supporting:** `end_bone_colossus` *Bone Colossus*, `end_flesh_atronach` *Flesh Atronach*, `moe_neu_insidious_spirit` *Insidious Spirit*, `end_raise_dead` *Raise Dead*
+- **Modifier:** Mantella Ascension — enemy gains +1 max magicka every 2 turns; when Mannimarco is played, all enemy creatures in discard may be summoned once that turn.
 
 #### Adventure Nodes
 
 ```
 Boon: "Nulfaga's Foresight" → Reinforcement: "Lion Guard Recruit" / Shop: "Daggerfall Market"
 → Mini-Boss: "Worm Cult Anchorite" → Creature Augment: "Direnni Enchanter"
-→ Boon: "Blessing of Magnus" → Combat: "Ghost of Lysandus"
+→ Boon: "Blessing of Magnus" → Combat: "Lysandus's Honor Guard"
 → Event: "Shedungent Castle" / Action Augment: "Aetherial Inscription"
 → Final Boss: "Mannimarco"
 ```
@@ -342,10 +345,9 @@ Boon: "Nulfaga's Foresight" → Reinforcement: "Lion Guard Recruit" / Shop: "Dag
 - Choice B: "Decline and search on your own" (no effect)
 
 #### Feasibility Rating
-- **Card pool depth**: Excellent — 44 Breton cards, 39 Ward cards, 31 skeletons, 20 spirits for enemies
-- **Boss availability**: Ready — Mannimarco exists as 10c legendary with perfect thematic ability
-- **Lore richness**: Deep — the entire TES II: Daggerfall main quest, one of the most iconic ES storylines
-- **Mechanical uniqueness**: High — first INT/END deck, Ward/Conjuration is mechanically distinct from all existing adventure decks
+- **Card pool depth**: Excellent — deep Skeleton, Spirit, Worm, and Breton Ward pools
+- **Boss availability**: Ready — Mannimarco 10c legendary with thematic discard-steal ability
+- **Lore richness**: Deep — full TES II: Daggerfall main quest
 
 ---
 
@@ -357,55 +359,65 @@ Boon: "Nulfaga's Foresight" → Reinforcement: "Lion Guard Recruit" / Shop: "Dag
 
 **Storyline**: Orc raids from the Wrothgarian Mountains have strangled trade along the Bjoulsae River and threaten Wayrest's prosperity. The Daggerfall Covenant musters an expedition to break the Orc stronghold of Orsinium. But the Orc king Gortwog gro-Nagorm is no mere warchief — he's a cunning leader who has forged the fractious Orc clans into a disciplined army. March through the treacherous mountain passes and storm the gates of the Orc capital itself.
 
-#### Player Deck: "Covenant Vanguard" (STR/END)
+#### Enemy Decks
 
-**Archetype**: Equipment Warrior — equip creatures with Covenant arms and armor, build a disciplined army of guards and knights.
+##### 1. Bjoulsae River Raiders (Combat)
+- **Focus:** `str_battlerage_orc` *Battlerage Orc* (STR, 3c, 2/3) — Charge
+- **Supporting:** `str_covenant_marauder` *Covenant Marauder*, `str_graystone_ravager` *Graystone Ravager*, `end_dragontail_savior` *Dragontail Savior*, `end_fharun_defender` *Fharun Defender*
+- **Modifier:** Charge — All enemy Orcs cost 1 less on turn 1 (raid opening).
 
-**Legendary Anchors**:
-- Emeric's Warlord (2c, 1/4) — item/Mobilize synergy
-- Orsinium Forge (5c, STR Support) — equips creatures with scaling Orsinium Plates
+##### 2. Wrothgarian Mountain Pass (Combat)
+- **Focus:** `str_morkul_gatekeeper` *Morkul Gatekeeper* (STR, 3c, 2/2) — Prophecy/Guard, buffs an ally
+- **Supporting:** `str_fortress_watchman` *Fortress Watchman*, `end_fharun_defender` *Fharun Defender*, `neu_portcullis` *Portcullis*, `end_stonetooth_scrapper` *Stonetooth Scrapper*
+- **Modifier:** *New mechanic:* Castle walls — each lane begins with a 0/3 Rampart token that blocks attacks until destroyed.
 
-**Core Cards (30-card deck)**:
+##### 3. Clan Shatul War Party (Combat)
+- **Focus:** `mhc_str_stoneshard_orc` *Stoneshard Orc* (STR, 3c, 2/1) — deals damage per friendly Orc
+- **Supporting:** `str_bangkorai_butcher` *Bangkorai Butcher*, `str_orc_clan_captain` *Orc Clan Captain*, `str_orc_clan_shaman` *Orc Clan Shaman*, `end_wrothgar_artisan` *Wrothgar Artisan*
+- **Modifier:** Tribal — each friendly Orc summoned gives every other friendly Orc +0/+1.
 
-| Card | Attribute | Cost | Role |
-|------|-----------|------|------|
-| Emeric's Warlord | — | 2 | Item synergy engine |
-| Orsinium Forge | STR | 5 | Support: equips creatures with scaling plates |
-| Covenant Plate (x3) | STR | 3 | Item: Prophecy/Mobilize/Guard +3/+1 |
-| Covenant Mail (x3) | END | 3 | Item: Prophecy/Mobilize/Guard +1/+3 |
-| Covenant Marauder (x2) | STR | 1 | Cheap opener |
-| Morkul Gatekeeper (x3) | STR | 3 | Guard |
-| Kvatch Soldier (x3) | — | 3 | Guard |
-| Hive Defender (x2) | — | 4 | Guard |
-| Wrothgar Artisan (x2) | END | 3 | Summon: +1/+1 to a creature |
-| Shornhelm Champion (x1) | — | 5 | Ward knight |
-| Restless Templar (x2) | END | 4 | Last Gasp: deal 2 to opponent |
-| Tree Minder (x2) | END | 1 | Cheap guard/body |
-| Rapid Shot (x2) | STR | 1 | Cheap removal |
-| Stone Throw (x2) | STR | 2 | Removal |
+##### 4. Wrothgar Forge-Priests (Combat)
+- **Focus:** `str_wrothgar_forge` *Wrothgar Forge* (STR, 7c support) — first summon each turn gets a random item
+- **Supporting:** `aw_str_orsinium_plate` *Orsinium Plate*, `str_covenant_marauder` *Covenant Marauder*, `aw_str_craven_conscript` *Craven Conscript*, `aw_str_fighters_guild_berserker` *Fighters Guild Berserker*
+- **Modifier:** Item — every enemy creature that survives a turn gains a random +1/+1 plate from the Forge.
 
-**Mechanical Coherence**: The deck uses STR/END's equipment identity — Covenant Plate and Mail give creatures Guard + Mobilize, letting them fight immediately and protect the lane. Orsinium Forge generates scaling equipment over time. Emeric's Warlord grows with each item played. END provides guards and sticky creatures to wear equipment.
+##### 5. Orc Shaman Circle (Event Combat)
+- **Focus:** `end_chieftains_banner` *Chieftain's Banner* (END, 3c support) — friendly Orcs get +0/+2
+- **Supporting:** `end_wrothgar_kingpin` *Wrothgar Kingpin*, `end_wrothgar_artisan` *Wrothgar Artisan*, `str_orc_clan_shaman` *Orc Clan Shaman*, `str_battlerage_orc` *Battlerage Orc*
+- **Modifier:** *New mechanic:* Malacath's favor — at turn 4, all enemy Orcs gain Breakthrough permanently.
 
-#### Boss: Gortwog gro-Nagorm
-- **Card**: Gortwog gro-Nagorm (Legendary, 6c 4/6)
-- **Lore**: The most famous Orc king, who politically maneuvered to have Orsinium recognized as a province. In-game, represents the Orc warlord defending his stronghold.
-- **Boss Mechanic**: Orc tribal synergy — surrounded by Orc allies that buff each other.
+##### 6. Malacath Cult Warchanters (Combat)
+- **Focus:** `hom_str_camonna_tong_heavy` *Camonna Tong Heavy* (STR, 5c, 4/3) — plot to unsummon weaker creatures
+- **Supporting:** `aw_str_high_rock_stalwart` *High Rock Stalwart*, `aw_str_fighters_guild_berserker` *Fighters Guild Berserker*, `aw_str_craven_conscript` *Craven Conscript*, `str_battlerage_orc` *Battlerage Orc*
+- **Modifier:** Guard — the first damage each turn to any enemy Orc is absorbed (Malacath's hide).
 
-#### Mini-Boss: Orc Warchief
-- **Deck theme**: Orc warband with tribal synergy (Wrothgar Kingpin, Orc Clan Captain, Battlerage Orcs)
+##### 7. Gates of Orsinium Defenders (Event Combat)
+- **Focus:** `str_fortress_watchman` *Fortress Watchman* (STR, 5c, 5/4) — Guard
+- **Supporting:** `str_morkul_gatekeeper` *Morkul Gatekeeper*, `end_fharun_defender` *Fharun Defender*, `neu_portcullis` *Portcullis*, `mc_dual_ayleid_guardian` *Ayleid Guardian*
+- **Modifier:** *New mechanic:* Gate Shatter — once per match the enemy can spend a turn to destroy all friendly items.
 
-#### Enemy Deck Themes
-1. **Orc Raider** (early combat) — Aggressive Orc deck: Covenant Marauder, Battlerage Orc, Orc Clan Shaman, Stoneshard Orc. Fast and punishing.
-2. **Orc Warchief** (mini-boss) — Synergy Orc deck: Wrothgar Kingpin, Orc Clan Captain, Bangkorai Butcher, Wood Orc Headhunter. The engine gets rolling as Orcs buff each other.
-3. **Gortwog gro-Nagorm** (final boss) — Elite Orc deck: Gortwog himself, Zumog Phoom, Garnag Dark Adherent, Wrothgar Forge. The most powerful Orc cards with equipment support.
+##### 8. Dragontail Clan Elites (Combat)
+- **Focus:** `str_wood_orc_headhunter` *Wood Orc Headhunter* (STR, 5c, 5/4, Legendary) — gains Charge if another Orc is out
+- **Supporting:** `end_dragontail_savior` *Dragontail Savior*, `end_stonetooth_scrapper` *Stonetooth Scrapper*, `end_night_predator` *Night Predator*, `str_bangkorai_butcher` *Bangkorai Butcher*
+- **Modifier:** Charge — all enemy Orcs with 5+ power gain Charge this match.
+
+##### 9. Zumog Phoom, Warlord Shaman (Mini-Boss)
+- **Focus:** `moe_end_zumog_phoom` *Zumog Phoom* (END, 6c, 4/6, Legendary) — marks a creature; when it dies, resummon as 1/1
+- **Supporting:** `db_str_garnag_dark_adherent` *Garnag, Dark Adherent*, `aw_str_fighters_guild_elite` *Fighters Guild Elite*, `dual_militant_chieftain` *Militant Chieftain*, `end_wrothgar_kingpin` *Wrothgar Kingpin*
+- **Modifier:** *New mechanic:* Chained Souls — every friendly creature that dies is sent to the enemy's hand as a 1/1 ghost copy.
+
+##### 10. Gortwog gro-Nagorm, King of Orsinium (Boss)
+- **Focus:** `dual_gortwog_gronagorm` *Gortwog gro-Nagorm* (STR/END, 6c, 4/6, Legendary) — summons a random creature from his deck each turn
+- **Supporting:** `aw_str_orsinium_forge` *Orsinium Forge*, `aw_str_fighters_guild_elite` *Fighters Guild Elite*, `db_str_garnag_dark_adherent` *Garnag, Dark Adherent*, `str_wood_orc_headhunter` *Wood Orc Headhunter*
+- **Modifier:** Item — Orsinium Forge equips each friendly Orc with an escalating Orsinium Plate; Gortwog gains +1/+1 for every plate the enemy controls.
 
 #### Adventure Nodes
 
 ```
-Boon: "Covenant Standard" → Combat: "Orc Raider"
+Boon: "Covenant Standard" → Combat: "Bjoulsae River Raiders"
 → Reinforcement: "Wayrest Levy" / Shop: "Covenant Quartermaster"
-→ Mini-Boss: "Orc Warchief" → Boon: "Shrine of Stendarr"
-→ Combat: "Orc Raider" → Creature Augment: "Covenant Forge" / Event: "Mountain Pass Ambush"
+→ Mini-Boss: "Zumog Phoom" → Boon: "Shrine of Stendarr"
+→ Combat: "Clan Shatul War Party" → Creature Augment: "Covenant Forge" / Event: "Mountain Pass Ambush"
 → Final Boss: "Gortwog gro-Nagorm"
 ```
 
@@ -414,10 +426,9 @@ Boon: "Covenant Standard" → Combat: "Orc Raider"
 - Choice B: "Take the long route" (no effect)
 
 #### Feasibility Rating
-- **Card pool depth**: Good — 34 Orc cards for enemies with built-in tribal synergy, moderate player equipment cards
-- **Boss availability**: Ready — Gortwog gro-Nagorm exists as legendary
-- **Lore richness**: Deep — the Siege of Orsinium is one of the defining events of the First Era, and Orc-Breton conflict is central to High Rock's identity
-- **Mechanical uniqueness**: High — first STR/END deck, equipment/Guard focus is mechanically distinct from all existing decks
+- **Card pool depth**: Excellent — 34-card Orc pool with tribal synergy
+- **Boss availability**: Ready — Gortwog gro-Nagorm, Zumog Phoom, Garnag, Fighters Guild Elite all legendary
+- **Lore richness**: Deep — Siege of Orsinium arc
 
 ---
 
@@ -429,57 +440,65 @@ Boon: "Covenant Standard" → Combat: "Orc Raider"
 
 **Storyline**: The noble houses of Rivenspire have kept an uneasy peace since Ranser's War — but now Baron Wylon Montclair has returned from the Doomcrag changed. Corrupted by the Lightless Remnant into a powerful vampire lord, Montclair has turned his house into an army of bloodfiends and threatens to drown Rivenspire in blood. Rally the remaining noble houses and Count Verandis Ravenwatch's "good" vampires to storm the Doomcrag and end Montclair's reign of terror before all of High Rock falls to darkness.
 
-#### Player Deck: "Ravenwatch Defenders" (WIL/END)
+#### Enemy Decks
 
-**Archetype**: Spellsword — Guards, healing, and resilient creatures that endure the vampire onslaught through defensive play and attrition.
+##### 1. Shornhelm Bloodfiend Pack (Combat)
+- **Focus:** `joo_end_brotherhood_vampire` *Brotherhood Vampire* (END, 2c, 1/2) — grows with deaths this turn
+- **Supporting:** `hom_end_quarra_clan_bloodkin` *Quarra Clan Bloodkin*, `cwc_end_barrow_stalker` *Barrow Stalker*, `end_deathless_draugr` *Deathless Draugr*, `end_deadly_draugr` *Deadly Draugr*
+- **Modifier:** *New mechanic:* Bloodlust — whenever an enemy creature kills a friendly creature, it heals the enemy player for 2.
 
-**Legendary Anchors**:
-- Jauffre (5c, 3/9, WIL) — massive defensive body
-- Tavyar the Knight (5c, 3/5, END) — Guard that prevents opponent targeting other creatures
+##### 2. Noble House Traitors (Combat)
+- **Focus:** `joo_agi_blades_stalwart` *Blades Stalwart* (AGI, 4c, 3/5) — Slay to gain power equal to health
+- **Supporting:** `joo_end_blades_defender` *Blades Defender*, `end_oldgate_warden` *Oldgate Warden*, `end_iliac_sorcerer` *Iliac Sorcerer*, `end_wind_keep_spellsword` *Wind Keep Spellsword*
+- **Modifier:** Guard — Every enemy Breton gains Guard while an enemy support is in play.
 
-**Core Cards (30-card deck)**:
+##### 3. Reezal-Jul's Dark Experiment (Combat)
+- **Focus:** `moe_int_black_worm_neophyte` *Black Worm Neophyte* (INT, 4c, 4/3) — Consume ally → keyworded Skeleton
+- **Supporting:** `end_cursed_spectre` *Cursed Spectre*, `end_haunting_spirit` *Haunting Spirit*, `end_deathless_draugr` *Deathless Draugr*, `end_skeleton` *Skeleton*
+- **Modifier:** *New mechanic:* Lightless Remnant — each turn the enemy consumes its weakest creature to draw a card.
 
-| Card | Attribute | Cost | Role |
-|------|-----------|------|------|
-| Jauffre | WIL | 5 | High-toughness wall |
-| Tavyar the Knight | END | 5 | Guard, protects other creatures |
-| Kvatch Soldier (x3) | WIL | 3 | Prophecy Guard |
-| Hive Defender (x3) | WIL | 4 | Premium Guard |
-| Piercing Javelin (x2) | WIL | 5 | Hard removal, Prophecy |
-| Execute (x2) | WIL | 1 | Cheap removal for damaged creatures |
-| Cloudrest Illusionist (x2) | WIL | 4 | Prophecy, -4/-0 debuff |
-| Summerset Shieldmage (x2) | WIL | 2 | Lane-wide +0/+1 buff |
-| Wrothgar Artisan (x2) | END | 3 | Summon: +1/+1 to a creature |
-| Haunting Spirit (x2) | END | 3 | Deathattle buff |
-| Deathless Draugr (x2) | END | 1 | Sticky cheap creature |
-| Tree Minder (x2) | END | 1 | Cheap body |
-| Frostbite Spider (x2) | END | 3 | Shackle — slows vampire aggression |
-| Restless Templar (x2) | END | 4 | Last Gasp: deal 2 to opponent |
-| Knight of the Hour (x1) | — | 5 | Guard + heal 3 on summon |
+##### 4. Northpoint Garrison Turned (Combat)
+- **Focus:** `end_northpoint_captain` *Northpoint Captain* (END, 4c, 4/2) — summons 0/4 Guard Herald
+- **Supporting:** `end_northpoint_herald` *Northpoint Herald*, `wil_kvatch_soldier` *Kvatch Soldier*, `wil_septim_guardsman` *Septim Guardsman*, `wil_hive_defender` *Hive Defender*
+- **Modifier:** Guard — All Guards that die summon a 0/4 Northpoint Herald in their lane.
 
-**Mechanical Coherence**: WIL/END Spellsword is the defensive attribute pair — WIL provides Guards, Prophecy, and removal while END provides resilient bodies with Last Gasp effects. The strategy is to wall up with Guards, remove key threats with Javelin/Execute, and grind through combat via attrition. Perfectly thematic for defending Rivenspire against a vampire invasion.
+##### 5. Hollow City Spectres (Event Combat)
+- **Focus:** `db_end_wrath_of_sithis` *Wrath of Sithis* (END, 6c, 5/6) — enemy cards cost 1 more next turn
+- **Supporting:** `moe_neu_insidious_spirit` *Insidious Spirit*, `joo_end_faded_wraith` *Faded Wraith*, `int_sundered_shade` *Sundered Shade*, `end_gloom_wraith` *Gloom Wraith*
+- **Modifier:** *New mechanic:* Spectral decay — every 3 turns all friendly creatures lose 1 power permanently.
 
-#### Boss: Baron Wylon Montclair (Custom)
-- **Card**: Does not exist — needs import or custom enemy-only boss
-- **Lore**: Breton nobleman turned vampire lord by the corrupted Lightless Remnant. His tragic transformation from loving father to bloodthirsty tyrant is one of ESO's best villain arcs.
-- **Boss Mechanic**: Vampire drain — could heal when dealing damage, creating a race against time.
+##### 6. Doomcrag Cultists (Combat)
+- **Focus:** `end_blood_magic_lord` *Blood Magic Lord* (END, 9c, 6/6, Legendary) — summon/slay generates Blood Magic spells
+- **Supporting:** `end_drain_life` *Drain Life*, `end_corpse_curse` *Corpse Curse*, `end_raise_dead` *Raise Dead*, `end_gargoyle` *Gargoyle*
+- **Modifier:** *New mechanic:* Blood ritual — each turn the enemy adds a random Blood Magic spell to their hand.
 
-#### Mini-Boss: Reezal-Jul (Custom)
-- **Lore**: Montclair's treacherous Argonian court mage who secretly corrupted the Lightless Remnant and engineered the vampire transformation.
-- **Alternative**: Could use an existing vampire legendary card as a stand-in.
+##### 7. Ravaged House Dorell (Combat)
+- **Focus:** `end_lion_guard_strategist` *Lion Guard Strategist* (END, 4c, 2/3) — grants Ward to friendly summons
+- **Supporting:** `int_wardcrafter` *Wardcrafter*, `end_iliac_sorcerer` *Iliac Sorcerer*, `int_camlorn_sentinel` *Camlorn Sentinel*, `hos_int_vigilant_of_stendarr` *Vigilant of Stendarr*
+- **Modifier:** Ward — every enemy creature enters play with a Ward the first time it is summoned.
 
-#### Enemy Deck Themes
-1. **Bloodfiend Pack** (early combat) — Aggressive vampire deck: Brotherhood Vampire, Night Shadow, cheap vampire creatures. Represents Montclair's bloodfiend army rampaging through Rivenspire.
-2. **Reezal-Jul** (mini-boss) — Necromancer-vampire hybrid deck: combines vampire creatures with raise-dead spells and spirit creatures. The court mage's dark experiments.
-3. **Baron Montclair** (final boss) — Elite vampire deck: Doomcrag Vampire, Ageless Vampire, Barrow Stalker, vampire legendaries. The most powerful vampire cards available.
+##### 8. Bloodfiend Swarm at the Doomcrag (Combat)
+- **Focus:** `end_night_shadow` *Night Shadow* (END, 6c, 6/5) — Breakthrough + Drain
+- **Supporting:** `db_end_ageless_vampire` *Ageless Vampire*, `dg_end_nightlord_vampire` *Nightlord Vampire*, `cwc_end_barrow_stalker` *Barrow Stalker*, `joo_end_brotherhood_vampire` *Brotherhood Vampire*
+- **Modifier:** Drain — all enemy Vampires gain Drain for the match.
+
+##### 9. Doomcrag Vampire Lord (Mini-Boss)
+- **Focus:** `end_doomcrag_vampire` *Doomcrag Vampire* (END, 6c, 4/4, Legendary) — Lethal, grants Lethal to lane
+- **Supporting:** `fsc_end_death_hound` *Death Hound*, `end_night_predator` *Night Predator*, `db_end_ageless_vampire` *Ageless Vampire*, `end_necromancers_amulet` *Necromancer's Amulet*
+- **Modifier:** Lethal — every enemy creature in Doomcrag Vampire's lane is treated as having Lethal (corrupting aura extends across the whole board).
+
+##### 10. Baron Wylon Montclair (Boss)
+- **Focus:** `end_night_talon_lord` *Night Talon Lord* (END, 9c, 8/8, Legendary) — Drain; Slay resummons the slain creature
+- **Supporting:** `dg_end_lord_harkon` *Lord Harkon*, `end_doomcrag_vampire` *Doomcrag Vampire*, `end_blood_magic_lord` *Blood Magic Lord*, `end_bone_colossus` *Bone Colossus*
+- **Modifier:** *New mechanic:* Lord of Blood — the first time a friendly creature dies each turn, Montclair heals 4 and gains +2/+2 for the rest of the match.
 
 #### Adventure Nodes
 
 ```
-Boon: "Ravenwatch Blessing" → Combat: "Bloodfiend Pack"
+Boon: "Ravenwatch Blessing" → Combat: "Shornhelm Bloodfiend Pack"
 → Healer: "Shrine of Arkay" / Shop: "Shornhelm Market"
-→ Mini-Boss: "Reezal-Jul" → Creature Augment: "Ravenwatch Training"
-→ Boon: "House Tamrith's Vigil" → Combat: "Bloodfiend Pack"
+→ Mini-Boss: "Doomcrag Vampire Lord" → Creature Augment: "Ravenwatch Training"
+→ Boon: "House Tamrith's Vigil" → Combat: "Bloodfiend Swarm at the Doomcrag"
 → Reinforcement: "Noble House Levy" / Event: "The Lightless Remnant"
 → Final Boss: "Baron Montclair"
 ```
@@ -489,10 +508,9 @@ Boon: "Ravenwatch Blessing" → Combat: "Bloodfiend Pack"
 - Choice B: "Refuse — the risk is too great" (no effect)
 
 #### Feasibility Rating
-- **Card pool depth**: Good (enemies) / Moderate (player) — 20 vampire cards for enemy decks; WIL/END has solid generic creatures but fewer Breton-specific cards
-- **Boss availability**: Needs import — Baron Montclair has no card; could use a generic vampire legendary as stand-in
-- **Lore richness**: Solid — one of ESO's best zone storylines with a compelling tragic villain
-- **Mechanical uniqueness**: High — first WIL/END deck, defensive/Guard playstyle is very distinct from existing aggro/combo decks
+- **Card pool depth**: Good — deep Vampire and Breton pools
+- **Boss availability**: Stand-in — Night Talon Lord serves as Montclair; Doomcrag Vampire serves as the mini-boss
+- **Lore richness**: Strong — ESO Rivenspire storyline with tragic vampire villain
 
 ---
 
@@ -504,56 +522,64 @@ Boon: "Ravenwatch Blessing" → Combat: "Bloodfiend Pack"
 
 **Storyline**: A dark cult has taken root in Glenumbra's forests. The Bloodthorn Cult, led by the Reachman necromancer Angof the Gravesinger, spreads corruption through poisonous vines that kill everything they touch. Worse, Angof has resurrected the ancient werewolf general Faolchu, who now leads a lycanthropic plague that has overrun the city of Camlorn. Rally the Lion Guard, cleanse the Bloodthorn corruption, and confront Angof in the ancient burial ground of Cath Bedraud.
 
-#### Player Deck: "Lion Guard Battlemages" (STR/INT)
+#### Enemy Decks
 
-**Archetype**: Battlemage — combines STR's aggressive creatures and removal with INT's Ward magic and conjuration. Breton battle-mages wielding sword and spell.
+##### 1. Glenumbra Moors Witch-Coven (Combat)
+- **Focus:** `neu_frenzied_witchman` *Frenzied Witchman* (NEU, 3c, 2/1) — buffs an ally with +2/+1
+- **Supporting:** `neu_reachman_shaman` *Reachman Shaman*, `neu_forsworn_guide` *Forsworn Guide*, `agi_murkwater_witch` *Murkwater Witch*, `agi_murkwater_shaman` *Murkwater Shaman*
+- **Modifier:** *New mechanic:* Witch coven lane — enemy creatures in the left lane gain +1 power each round.
 
-**Legendary Anchors**:
-- Daggerfall Mage (3c, 2/2, INT) — Ward + Tome generation
-- Hannibal Traven (7c, 5/5, INT) — Mages Guild leader
+##### 2. Cursed Camlorn Bloodfiends (Combat)
+- **Focus:** `end_night_predator` *Night Predator* (END, 6c, 5/6) — Breakthrough + Regenerate Werewolf
+- **Supporting:** `str_child_of_hircine` *Child of Hircine*, `hos_str_aelas_huntmate` *Aela's Huntmate*, `hos_str_circle_initiate` *Circle Initiate*, `end_deathless_draugr` *Deathless Draugr*
+- **Modifier:** *New mechanic:* Werewolf rage — at turn 5 all enemy creatures gain the Werewolf subtype and +2/+2.
 
-**Core Cards (30-card deck)**:
+##### 3. Bloodthorn Vine Cult (Combat)
+- **Focus:** `end_flesh_atronach` *Flesh Atronach* (END, 6c, 1/1) — grows with discarded creatures
+- **Supporting:** `end_haunting_spirit` *Haunting Spirit*, `end_cursed_spectre` *Cursed Spectre*, `hom_end_ancestral_dead` *Ancestral Dead*, `hom_end_risen_dead` *Risen Dead*
+- **Modifier:** *New mechanic:* Bloodthorn vines — every enemy creature that dies fills its lane with a 1/1 Skeleton.
 
-| Card | Attribute | Cost | Role |
-|------|-----------|------|------|
-| Daggerfall Mage | INT | 3 | Ward engine, Tome generation |
-| Hannibal Traven | INT | 7 | Mid-game power spike |
-| Breton Conjurer (x2) | INT | 4 | Ward → 5/5 Frost Atronach |
-| High Rock Summoner (x2) | INT | 2 | Cheap conjurer |
-| Glenumbra Sorceress (x2) | INT | 5 | High-attack Ward |
-| Wardcrafter (x2) | INT | 2 | Grants Ward |
-| Lightning Bolt (x2) | INT | 4 | Prophecy removal |
-| Firebolt (x3) | INT | 1 | Cheap removal |
-| Camlorn Sentinel (x2) | INT | 2 | Prophecy Guard |
-| Nord Firebrand (x2) | STR | 0 | Free charge creature |
-| Rapid Shot (x2) | STR | 1 | Cheap removal |
-| Stone Throw (x2) | STR | 2 | Removal |
-| Morkul Gatekeeper (x2) | STR | 3 | Guard |
-| Skaven Pyromancer (x2) | STR | 3 | AoE damage on summon |
-| Covenant Marauder (x2) | STR | 1 | Aggressive opener |
+##### 4. Lion Guard Turned (Combat)
+- **Focus:** `end_lion_guard_strategist` *Lion Guard Strategist* (END, 4c, 2/3) — grants Ward to friendly summons
+- **Supporting:** `int_camlorn_sentinel` *Camlorn Sentinel*, `int_camlorn_hero` *Camlorn Hero*, `int_evermore_steward` *Evermore Steward*, `wil_kvatch_soldier` *Kvatch Soldier*
+- **Modifier:** Ward — each enemy creature comes into play with one Ward this match.
 
-**Mechanical Coherence**: STR/INT Battlemage pairs aggressive STR creatures (charge, removal) with INT's Ward/Conjuration toolkit. Daggerfall Mage and Breton Conjurer provide the core engine, while STR burn spells handle the werewolf and undead enemies efficiently. The aggressive posture fits the theme of a military campaign to reclaim Glenumbra.
+##### 5. Forsworn Raid (Combat)
+- **Focus:** `neu_forsworn_guide` *Forsworn Guide* (NEU, 3c, 1/1) — unsummon another friendly for +2/+2
+- **Supporting:** `neu_frenzied_witchman` *Frenzied Witchman*, `neu_reachman_shaman` *Reachman Shaman*, `str_battlerage_orc` *Battlerage Orc*, `agi_murkwater_butcher` *Murkwater Butcher*
+- **Modifier:** Pilfer — every enemy creature that attacks a rune this match steals a card from the top of your deck.
 
-#### Boss: Angof the Gravesinger (Custom)
-- **Card**: Does not exist — needs import or custom enemy-only boss
-- **Lore**: Reachman necromancer who allied with Molag Bal and Mannimarco. His Bloodthorn vines corrupt the earth and raise the dead. He resurrected the werewolf Faolchu to spread lycanthropy through Glenumbra.
-- **Boss Mechanic**: Undead summoning — keeps raising skeleton/zombie creatures each turn, requiring the player to burn them down quickly.
+##### 6. Wyrd Tree Corrupted (Event Combat)
+- **Focus:** `int_wispmother` *Wispmother* (INT, 7c, 5/5) — clones cheap summons
+- **Supporting:** `int_high_rock_summoner` *High Rock Summoner*, `int_breton_conjurer` *Breton Conjurer*, `int_frost_atronach` *Frost Atronach*, `int_flame_atronach` *Flame Atronach*
+- **Modifier:** *New mechanic:* Wyrd corruption — once per turn the enemy may sacrifice a friendly creature to summon a random Atronach.
 
-#### Mini-Boss: Faolchu the Werewolf (Custom)
-- **Lore**: Ancient Alessian general who was a powerful werewolf in life. Resurrected by Angof to overrun Camlorn with lycanthropy.
-- **Alternative**: Could use Aspect of Hircine (9c, Legendary) or another existing werewolf card as stand-in.
+##### 7. Crypt of Cath Bedraud (Combat)
+- **Focus:** `end_imprisoned_deathlord` *Imprisoned Deathlord* (END, 4c, 7/7) — Shackles itself whenever the enemy summons a creature
+- **Supporting:** `end_grim_champion` *Grim Champion*, `moe_int_wandering_skeleton` *Wandering Skeleton*, `hom_end_risen_horror` *Risen Horror*, `end_skeleton` *Skeleton*
+- **Modifier:** *New mechanic:* Grave dust — whenever a friendly creature dies, a free 1/1 Skeleton is summoned in its lane.
 
-#### Enemy Deck Themes
-1. **Werewolf Pack** (early combat) — Werewolf creatures: Child of Hircine, werewolf commons, plus some beast filler. Represents the lycanthropic plague overrunning Camlorn.
-2. **Faolchu** (mini-boss) — Elite werewolf deck: Aspect of Hircine (or equivalent), werewolves with Reachman support (Frenzied Witchman, Forsworn Guide). The resurrected werewolf general and his pack.
-3. **Angof the Gravesinger** (final boss) — Undead/Reachman hybrid deck: Reachman shaman creatures combined with skeleton/spirit undead and Bloodthorn vine-themed cards. Custom boss card needed.
+##### 8. Angof's Blighted Acolytes (Combat)
+- **Focus:** `moe_int_black_worm_neophyte` *Black Worm Neophyte* (INT, 4c, 4/3) — Consume ally → keyworded Skeleton
+- **Supporting:** `end_black_worm_necromancer` *Black Worm Necromancer*, `hom_end_ancestral_dead` *Ancestral Dead*, `moe_str_blastbones` *Blastbones*, `neu_frenzied_witchman` *Frenzied Witchman*
+- **Modifier:** Consume — every creature that attacks consumes the lowest-cost card in the enemy hand to gain +1/+1.
+
+##### 9. Faolchu the Resurrected (Mini-Boss)
+- **Focus:** `hom_str_aspect_of_hircine` *Aspect of Hircine* (STR, 9c, 6/6, Legendary) — choose Strength (+6/+6 Guard) or Speed (Charge)
+- **Supporting:** `str_child_of_hircine` *Child of Hircine*, `end_night_predator` *Night Predator*, `hos_str_aelas_huntmate` *Aela's Huntmate*, `hos_str_circle_initiate` *Circle Initiate*
+- **Modifier:** *New mechanic:* Lycanthropic plague — every third friendly creature summoned turns into a 3/3 Werewolf under enemy control.
+
+##### 10. Angof the Gravesinger (Boss)
+- **Focus:** `end_bone_colossus` *Bone Colossus* (END, 7c, 5/5, Legendary) — fills lane with 1/1 Skeletons, buffs them
+- **Supporting:** `end_black_worm_necromancer` *Black Worm Necromancer*, `joo_end_miscarcand_lich` *Miscarcand Lich*, `end_flesh_atronach` *Flesh Atronach*, `end_raise_dead` *Raise Dead*
+- **Modifier:** *New mechanic:* Bloodthorn apotheosis — each turn Angof summons a 1/1 Skeleton in every lane; when 4 Skeletons die in one turn, summon a free Bone Colossus.
 
 #### Adventure Nodes
 
 ```
-Combat: "Werewolf Pack" → Reinforcement: "Lion Guard Recruit" / Healer: "Chapel of Dibella"
-→ Mini-Boss: "Faolchu" → Boon: "Blessing of Arkay"
-→ Combat: "Bloodthorn Cultist" → Shop: "Daggerfall Trading Post" / Event: "Cursed Camlorn"
+Combat: "Glenumbra Moors Witch-Coven" → Reinforcement: "Lion Guard Recruit" / Healer: "Chapel of Dibella"
+→ Mini-Boss: "Faolchu the Resurrected" → Boon: "Blessing of Arkay"
+→ Combat: "Bloodthorn Vine Cult" → Shop: "Daggerfall Trading Post" / Event: "Cursed Camlorn"
 → Action Augment: "Wyrd Tree Blessing" → Final Boss: "Angof the Gravesinger"
 ```
 
@@ -562,33 +588,25 @@ Combat: "Werewolf Pack" → Reinforcement: "Lion Guard Recruit" / Healer: "Chape
 - Choice B: "Grant a merciful end" (+25 gold)
 
 #### Feasibility Rating
-- **Card pool depth**: Moderate — STR/INT has good generic cards, but werewolf enemy pool (11 cards) and Reachman pool (6 cards) are thin; would need creative filler
-- **Boss availability**: Needs import — Angof and Faolchu have no cards
-- **Lore richness**: Solid — compelling ESO Glenumbra storyline with werewolves, necromancy, and Daedric corruption
-- **Mechanical uniqueness**: Good — first STR/INT deck, aggressive Battlemage playstyle is distinct; but enemy deck construction is the weakest of all proposals
+- **Card pool depth**: Moderate — relies on Werewolf (11), Reachman (6), and Skeleton pools mixed together
+- **Boss availability**: Stand-in — Bone Colossus (Angof) and Aspect of Hircine (Faolchu) fit thematically
+- **Lore richness**: Solid — ESO Glenumbra arc
 
 ---
 
 ## 10. Summary Table
 
-| Proposal | Deck Attrs | Card Depth | Boss Status | Lore | Uniqueness | Rank |
-|----------|-----------|------------|-------------|------|------------|------|
-| **The Warp in the West** | INT/END | Excellent | Ready (Mannimarco) | Deep | High (Ward/Conjuration) | **1st** |
-| **The Siege of Wrothgar** | STR/END | Good | Ready (Gortwog) | Deep | High (Equipment/Guard) | **2nd** |
-| **Darkness Over Rivenspire** | WIL/END | Good/Moderate | Needs import | Solid | High (Defensive) | **3rd** |
-| **Bloodthorn Rising** | STR/INT | Moderate | Needs import | Solid | Good (Battlemage) | **4th** |
+| Proposal | Enemy Themes | Card Depth | Boss Status | Lore | Rank |
+|----------|--------------|------------|-------------|------|------|
+| **The Warp in the West** | Spirits, Worm Cult, Skeletons, Atronachs | Excellent | Ready (Mannimarco) | Deep | **1st** |
+| **The Siege of Wrothgar** | Orc warband, Forge items | Excellent | Ready (Gortwog) | Deep | **2nd** |
+| **Darkness Over Rivenspire** | Vampires, Bretons, Blood Magic | Good | Stand-in (Night Talon Lord) | Strong | **3rd** |
+| **Bloodthorn Rising** | Werewolves, Reachmen, Skeletons | Moderate | Stand-in (Bone Colossus / Aspect of Hircine) | Solid | **4th** |
 
 ## 11. Recommendation
 
-**Build first: "The Warp in the West"**
+**Build first: "The Warp in the West"** — Deepest enemy pool (Skeletons, Spirits, Worm-specific cards), iconic Mannimarco boss with a perfect ability, and varied modifier spread across haunted streets, witch covens, atronach gates, and bone rituals.
 
-This is the clear winner on every axis:
+**Build second: "The Siege of Wrothgar"** — Thick Orc pool with tribal synergy, three legendary enemy anchors (Gortwog, Zumog Phoom, Garnag/Fighters Guild Elite), and Malacath/Forge themed modifiers.
 
-1. **Card depth** — 44 Breton cards, 39 Ward cards, and deep undead/spirit enemy pools make deck construction straightforward. No thin pools to worry about.
-2. **Lore iconicness** — The TES II: Daggerfall main quest is one of the franchise's most legendary storylines. Mannimarco, the Warp in the West, and the Numidium are top-tier Elder Scrolls lore.
-3. **Boss quality** — Mannimarco exists as a 10c legendary with a thematically perfect ability (summoning from opponent's discard = raising the dead). No import needed.
-4. **Mechanical uniqueness** — INT/END Sorcerer with Ward/Conjuration is completely distinct from all four existing adventure decks. No attribute overlap.
-
-**Build second: "The Siege of Wrothgar"** — The Orc enemy pool (34 cards with tribal synergy) is excellent, Gortwog exists as a boss, and STR/END equipment warrior is a satisfying archetype. This pairs well with "Warp in the West" since they represent opposite ends of High Rock's identity: arcane vs martial.
-
-**Hold for later: "Darkness Over Rivenspire"** and **"Bloodthorn Rising"** are both strong concepts but need boss card imports to execute. Rivenspire's vampire theme is compelling, but the WIL/END player deck has fewer Breton-specific cards. Bloodthorn Rising has the weakest enemy pool depth (werewolves: 11, Reachmen: 6).
+**Hold for later: "Darkness Over Rivenspire"** (needs Montclair stand-in — Night Talon Lord works) and **"Bloodthorn Rising"** (thinner Werewolf/Reachman pools; boss uses Bone Colossus as stand-in for Angof).
