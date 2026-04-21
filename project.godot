@@ -23,6 +23,11 @@ config/icon="res://icon.svg"
 
 PeekRuntimeHelper="*res://addons/godot_mcp/peek_runtime_helper.gd"
 
+[debug]
+
+file_logging/enable_file_logging=true
+file_logging/enable_file_logging.editor=false
+
 [display]
 
 window/size/viewport_width=2880
@@ -31,16 +36,12 @@ window/size/mode=2
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
-[editor_plugins]
+[network]
 
-enabled=PackedStringArray("res://addons/godot_mcp/plugin.cfg")
+tls/certificate_bundle_override="res://cacert.pem"
 
 [rendering]
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
-
-[network]
-
-tls/certificate_bundle_override="res://cacert.pem"

@@ -1,6 +1,8 @@
 class_name DeckCreationModal
 extends Control
 
+const UITheme = preload("res://src/ui/ui_theme.gd")
+
 const DECK_REGISTRY_PATH := "res://data/legends/registries/attribute_class_registry.json"
 const ATTRIBUTE_IDS := ["strength", "intelligence", "willpower", "agility", "endurance"]
 const MAX_ATTRIBUTES := 3
@@ -59,47 +61,60 @@ func _build_ui() -> void:
 
 	# Modal panel
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(500, 400)
-	var panel_style := StyleBoxFlat.new()
-	panel_style.bg_color = Color(0.12, 0.12, 0.15, 1.0)
-	panel_style.border_color = Color(0.4, 0.4, 0.5, 1.0)
-	panel_style.set_border_width_all(2)
-	panel_style.set_corner_radius_all(12)
-	panel_style.set_content_margin_all(24)
-	panel.add_theme_stylebox_override("panel", panel_style)
+	panel.custom_minimum_size = Vector2(720, 560)
+	UITheme.style_panel(panel)
 	center.add_child(panel)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 16)
+	vbox.add_theme_constant_override("separation", 24)
 	panel.add_child(vbox)
 
 	# Title
 	_title_label = Label.new()
 	_title_label.text = "Create New Deck"
-	_title_label.add_theme_font_size_override("font_size", 22)
-	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UITheme.style_title(_title_label, 36)
 	vbox.add_child(_title_label)
+
+	vbox.add_child(UITheme.make_separator(0.0))
 
 	# Deck name input
 	var name_label := Label.new()
 	name_label.text = "Deck Name"
-	name_label.add_theme_font_size_override("font_size", 14)
+	UITheme.style_section_label(name_label, 22)
 	vbox.add_child(name_label)
 
 	_name_input = LineEdit.new()
 	_name_input.placeholder_text = "Enter deck name..."
-	_name_input.add_theme_font_size_override("font_size", 16)
+	_name_input.custom_minimum_size = Vector2(0, 56)
+	_name_input.add_theme_font_size_override("font_size", 24)
+	_name_input.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
+	_name_input.add_theme_color_override("font_placeholder_color", UITheme.TEXT_MUTED)
+	_name_input.add_theme_color_override("caret_color", UITheme.GOLD)
+	var name_style := StyleBoxFlat.new()
+	name_style.bg_color = UITheme.BTN_BG
+	name_style.border_color = UITheme.GOLD_DIM
+	name_style.set_border_width_all(1)
+	name_style.set_corner_radius_all(4)
+	name_style.set_content_margin_all(14)
+	_name_input.add_theme_stylebox_override("normal", name_style)
+	var name_focus := StyleBoxFlat.new()
+	name_focus.bg_color = UITheme.BTN_BG_HOVER
+	name_focus.border_color = UITheme.GOLD
+	name_focus.set_border_width_all(2)
+	name_focus.set_corner_radius_all(4)
+	name_focus.set_content_margin_all(14)
+	_name_input.add_theme_stylebox_override("focus", name_focus)
 	_name_input.text_changed.connect(_on_name_changed)
 	vbox.add_child(_name_input)
 
 	# Attribute selection
 	_attr_label = Label.new()
 	_attr_label.text = "Select Attributes (1-3)"
-	_attr_label.add_theme_font_size_override("font_size", 14)
+	UITheme.style_section_label(_attr_label, 22)
 	vbox.add_child(_attr_label)
 
 	_attr_row = HBoxContainer.new()
-	_attr_row.add_theme_constant_override("separation", 8)
+	_attr_row.add_theme_constant_override("separation", 12)
 	_attr_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	vbox.add_child(_attr_row)
 
@@ -107,8 +122,8 @@ func _build_ui() -> void:
 		var button := Button.new()
 		button.toggle_mode = true
 		button.text = _attribute_display_names.get(attribute_id, attribute_id.capitalize())
-		button.custom_minimum_size = Vector2(90, 36)
-		button.add_theme_font_size_override("font_size", 13)
+		button.custom_minimum_size = Vector2(130, 56)
+		UITheme.style_button(button, 20)
 		button.toggled.connect(_on_attribute_toggled.bind(attribute_id))
 		_attr_row.add_child(button)
 		_attribute_buttons[attribute_id] = button
@@ -120,19 +135,21 @@ func _build_ui() -> void:
 
 	# Button row
 	var button_row := HBoxContainer.new()
-	button_row.add_theme_constant_override("separation", 12)
+	button_row.add_theme_constant_override("separation", 16)
 	button_row.alignment = BoxContainer.ALIGNMENT_END
 	vbox.add_child(button_row)
 
 	var cancel_button := Button.new()
 	cancel_button.text = "Cancel"
-	cancel_button.custom_minimum_size = Vector2(100, 36)
+	cancel_button.custom_minimum_size = Vector2(160, 56)
+	UITheme.style_button(cancel_button, 22, true)
 	cancel_button.pressed.connect(_on_cancel_pressed)
 	button_row.add_child(cancel_button)
 
 	_confirm_button = Button.new()
 	_confirm_button.text = "Create"
-	_confirm_button.custom_minimum_size = Vector2(100, 36)
+	_confirm_button.custom_minimum_size = Vector2(160, 56)
+	UITheme.style_button(_confirm_button, 22)
 	_confirm_button.disabled = true
 	_confirm_button.pressed.connect(_on_confirm_pressed)
 	button_row.add_child(_confirm_button)

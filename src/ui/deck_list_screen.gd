@@ -291,20 +291,116 @@ func _on_export_deck_pressed(deck_name: String, btn: Button) -> void:
 
 
 func _on_import_pressed() -> void:
-	var clipboard_text := DisplayServer.clipboard_get()
-	if clipboard_text.is_empty():
-		_show_import_error("Clipboard is empty. Copy a deck code first.")
+	_show_import_paste_modal()
+
+
+func _show_import_paste_modal() -> void:
+	var overlay := Control.new()
+	overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0, 0, 0, 0.6)
+	backdrop.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	backdrop.mouse_filter = MOUSE_FILTER_STOP
+	overlay.add_child(backdrop)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	overlay.add_child(center)
+
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(600, 420)
+	UITheme.style_panel(panel)
+	center.add_child(panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 16)
+	panel.add_child(vbox)
+
+	var title_label := Label.new()
+	title_label.text = "Import Deck"
+	UITheme.style_title(title_label, 28)
+	vbox.add_child(title_label)
+
+	var instructions := Label.new()
+	instructions.text = "Paste a deck code below:"
+	UITheme.style_section_label(instructions, 18)
+	vbox.add_child(instructions)
+
+	var code_input := TextEdit.new()
+	code_input.custom_minimum_size = Vector2(540, 160)
+	code_input.placeholder_text = "Paste deck code here..."
+	code_input.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
+	code_input.add_theme_font_size_override("font_size", 16)
+	code_input.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
+	code_input.add_theme_color_override("font_placeholder_color", UITheme.TEXT_MUTED)
+	code_input.add_theme_color_override("caret_color", UITheme.GOLD)
+	var input_style := StyleBoxFlat.new()
+	input_style.bg_color = UITheme.BTN_BG
+	input_style.border_color = UITheme.GOLD_DIM
+	input_style.set_border_width_all(1)
+	input_style.set_corner_radius_all(4)
+	input_style.set_content_margin_all(10)
+	code_input.add_theme_stylebox_override("normal", input_style)
+	var input_focus := StyleBoxFlat.new()
+	input_focus.bg_color = UITheme.BTN_BG_HOVER
+	input_focus.border_color = UITheme.GOLD
+	input_focus.set_border_width_all(2)
+	input_focus.set_corner_radius_all(4)
+	input_focus.set_content_margin_all(10)
+	code_input.add_theme_stylebox_override("focus", input_focus)
+	vbox.add_child(code_input)
+
+	var error_label := Label.new()
+	error_label.add_theme_font_size_override("font_size", 16)
+	error_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.4))
+	error_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	error_label.visible = false
+	vbox.add_child(error_label)
+
+	var spacer := Control.new()
+	spacer.size_flags_vertical = SIZE_EXPAND_FILL
+	vbox.add_child(spacer)
+
+	var button_row := HBoxContainer.new()
+	button_row.add_theme_constant_override("separation", 16)
+	button_row.alignment = BoxContainer.ALIGNMENT_END
+	vbox.add_child(button_row)
+
+	var cancel_btn := Button.new()
+	cancel_btn.text = "Cancel"
+	cancel_btn.custom_minimum_size = Vector2(140, 48)
+	UITheme.style_button(cancel_btn, 20, true)
+	cancel_btn.pressed.connect(overlay.queue_free)
+	button_row.add_child(cancel_btn)
+
+	var import_btn := Button.new()
+	import_btn.text = "Import"
+	import_btn.custom_minimum_size = Vector2(140, 48)
+	UITheme.style_button(import_btn, 20)
+	import_btn.pressed.connect(_on_import_code_submitted.bind(code_input, error_label, overlay))
+	button_row.add_child(import_btn)
+
+	add_child(overlay)
+	code_input.grab_focus()
+
+
+func _on_import_code_submitted(code_input: TextEdit, error_label: Label, overlay: Control) -> void:
+	var code_text := code_input.text.strip_edges()
+	if code_text.is_empty():
+		error_label.text = "Please paste a deck code."
+		error_label.visible = true
 		return
 
-	var result: Dictionary = DeckCodeClass.decode(clipboard_text.strip_edges(), _deck_code_to_card_id)
+	var result: Dictionary = DeckCodeClass.decode(code_text, _deck_code_to_card_id)
 	if result.get("error", "") != "":
-		_show_import_error(result.get("error", "Unknown error"))
+		error_label.text = result.get("error", "Unknown error")
+		error_label.visible = true
 		return
 
 	var cards: Array = result.get("cards", [])
 	var unknown: Array = result.get("unknown_codes", [])
 
-	# Infer attributes from the decoded cards
 	var attribute_set := {}
 	for entry in cards:
 		var card: Dictionary = _card_by_id.get(entry.get("card_id", ""), {})
@@ -315,7 +411,8 @@ func _on_import_pressed() -> void:
 	var attribute_ids: Array = attribute_set.keys()
 	attribute_ids.sort()
 
-	# Show name-only modal for the imported deck
+	overlay.queue_free()
+
 	var modal := DeckCreationModalClass.new()
 	modal.confirmed.connect(_on_import_confirmed.bind(modal, cards, attribute_ids, unknown))
 	modal.cancelled.connect(_on_modal_cancelled.bind(modal))
@@ -334,58 +431,6 @@ func _on_import_confirmed(deck_name: String, _attribute_ids_from_modal: Array, m
 	if not unknown_codes.is_empty():
 		push_warning("Import: %d unknown card codes were skipped: %s" % [unknown_codes.size(), str(unknown_codes)])
 	edit_deck_requested.emit(deck_name)
-
-
-func _show_import_error(message: String) -> void:
-	var overlay := Control.new()
-	overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0, 0, 0, 0.6)
-	backdrop.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	backdrop.mouse_filter = MOUSE_FILTER_STOP
-	overlay.add_child(backdrop)
-
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	overlay.add_child(center)
-
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(450, 180)
-	UITheme.style_panel(panel, Color(0.8, 0.3, 0.3, 0.6))
-	center.add_child(panel)
-
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 16)
-	panel.add_child(vbox)
-
-	var title_label := Label.new()
-	title_label.text = "Import Failed"
-	title_label.add_theme_font_size_override("font_size", 22)
-	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.4))
-	vbox.add_child(title_label)
-
-	var msg_label := Label.new()
-	msg_label.text = message
-	msg_label.add_theme_font_size_override("font_size", 18)
-	msg_label.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
-	msg_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	msg_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(msg_label)
-
-	var spacer := Control.new()
-	spacer.size_flags_vertical = SIZE_EXPAND_FILL
-	vbox.add_child(spacer)
-
-	var ok_btn := Button.new()
-	ok_btn.text = "OK"
-	ok_btn.custom_minimum_size = Vector2(120, 48)
-	UITheme.style_button(ok_btn, 20)
-	ok_btn.pressed.connect(overlay.queue_free)
-	vbox.add_child(ok_btn)
-
-	add_child(overlay)
 
 
 func _on_validation_error_pressed(deck_name: String, errors: Array) -> void:
