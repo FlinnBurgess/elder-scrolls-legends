@@ -183,7 +183,8 @@ func _refresh_player_sections() -> void:
 		var _t := Time.get_ticks_usec()
 		var avatar_component = section.get("avatar_component")
 		if avatar_component != null:
-			avatar_component.apply_player_state(player, is_opponent)
+			var portrait: Texture2D = _screen.get_player_portrait(player_id)
+			avatar_component.apply_player_state(player, is_opponent, portrait)
 			_screen._feedback._refresh_avatar_target_glow(avatar_component, player_id)
 		_us_avatar += Time.get_ticks_usec() - _t
 

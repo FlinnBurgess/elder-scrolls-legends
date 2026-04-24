@@ -17,6 +17,8 @@ const PuzzleBuilderScreenScript = preload("res://src/ui/puzzle/puzzle_builder_sc
 const GameLogger = preload("res://src/core/match/game_logger.gd")
 const UITheme = preload("res://src/ui/ui_theme.gd")
 const DeckCardListClass = preload("res://src/ui/components/deck_card_list.gd")
+const SettingsScreenScript = preload("res://src/ui/settings_screen.gd")
+const AvatarCarouselScreenScript = preload("res://src/ui/avatar_carousel_screen.gd")
 
 const DECKS_DIR := "res://data/decks/"
 
@@ -37,6 +39,8 @@ var _current_test_match_filename := ""
 var _puzzle_screen: Control
 var _current_puzzle_entry: Dictionary = {}
 var _current_puzzle_config: Dictionary = {}
+var _settings_screen: Control
+var _avatar_carousel_screen: Control
 
 
 func _ready() -> void:
@@ -55,6 +59,14 @@ func _show_main_menu() -> void:
 	if _deck_select_screen != null:
 		_deck_select_screen.queue_free()
 		_deck_select_screen = null
+	if _avatar_carousel_screen != null:
+		if is_instance_valid(_avatar_carousel_screen):
+			_avatar_carousel_screen.queue_free()
+		_avatar_carousel_screen = null
+	if _settings_screen != null:
+		if is_instance_valid(_settings_screen):
+			_settings_screen.queue_free()
+		_settings_screen = null
 	_deck_select_card_list = null
 	_deck_select_hover_layer = null
 
@@ -106,6 +118,7 @@ func _show_main_menu() -> void:
 		["Puzzles", _on_puzzles_pressed],
 		["Test Match Creator", _on_test_match_creator_pressed],
 		["Deck Builder", _on_deckbuilder_pressed],
+		["Settings", _on_settings_pressed],
 	]
 	for entry in buttons_data:
 		var btn := Button.new()
@@ -1039,6 +1052,50 @@ func _on_deckbuilder_pressed() -> void:
 	deckbuilder_screen.back_to_menu_requested.connect(_show_main_menu)
 	add_child(deckbuilder_screen)
 	_active_screen = deckbuilder_screen
+
+
+func _on_settings_pressed() -> void:
+	GameLogger.trc("App", "screen", "to:settings")
+	_main_menu.visible = false
+	_settings_screen = SettingsScreenScript.new()
+	_settings_screen.name = "Settings"
+	_settings_screen.back_pressed.connect(_on_settings_back)
+	_settings_screen.select_avatar_pressed.connect(_on_select_avatar_pressed)
+	add_child(_settings_screen)
+	_active_screen = _settings_screen
+
+
+func _on_settings_back() -> void:
+	if _settings_screen != null:
+		_settings_screen.queue_free()
+		_settings_screen = null
+	_active_screen = null
+	_show_main_menu()
+
+
+func _on_select_avatar_pressed() -> void:
+	GameLogger.trc("App", "screen", "to:avatar_carousel")
+	if _settings_screen != null:
+		_settings_screen.visible = false
+	_avatar_carousel_screen = AvatarCarouselScreenScript.new()
+	_avatar_carousel_screen.name = "AvatarCarousel"
+	_avatar_carousel_screen.back_pressed.connect(_on_avatar_carousel_back)
+	add_child(_avatar_carousel_screen)
+	_active_screen = _avatar_carousel_screen
+
+
+func _on_avatar_carousel_back() -> void:
+	if _avatar_carousel_screen != null:
+		_avatar_carousel_screen.queue_free()
+		_avatar_carousel_screen = null
+	if _settings_screen != null:
+		_settings_screen.visible = true
+		if _settings_screen.has_method("refresh_avatar_preview"):
+			_settings_screen.refresh_avatar_preview()
+		_active_screen = _settings_screen
+	else:
+		_active_screen = null
+		_show_main_menu()
 
 
 func _unhandled_input(event: InputEvent) -> void:

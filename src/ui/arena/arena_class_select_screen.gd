@@ -1,12 +1,13 @@
 class_name ArenaClassSelectScreen
 extends Control
 
-signal class_selected(attribute_ids: Array)
+signal class_selected(attribute_ids: Array, avatar_id: String)
 signal back_pressed
 
 const REGISTRY_PATH := "res://data/legends/registries/attribute_class_registry.json"
 const ArenaRunManagerScript = preload("res://src/arena/arena_run_manager.gd")
 const UITheme = preload("res://src/ui/ui_theme.gd")
+const AvatarRegistry = preload("res://src/core/avatar_registry.gd")
 
 const ATTRIBUTE_ICON_PATHS := {
 	"strength": "res://assets/images/attributes/strength-small.png",
@@ -61,6 +62,10 @@ func _load_class_options() -> void:
 
 	_class_options = [guaranteed_dual, guaranteed_triple, third_option]
 	_class_options.shuffle()
+	var avatar_ids := AvatarRegistry.pick_random_avatar_ids(_class_options.size())
+	for i in range(_class_options.size()):
+		_class_options[i] = _class_options[i].duplicate()
+		_class_options[i]["avatar_id"] = avatar_ids[i] if i < avatar_ids.size() else ""
 	ArenaRunManagerScript.save_class_options(_class_options)
 
 
@@ -117,12 +122,26 @@ func _build_ui() -> void:
 
 func _build_class_card(class_data: Dictionary) -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(CLASS_CARD_WIDTH, 220)
+	panel.custom_minimum_size = Vector2(CLASS_CARD_WIDTH, 320)
 	UITheme.style_panel(panel)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 16)
+	vbox.add_theme_constant_override("separation", 12)
 	panel.add_child(vbox)
+
+	# Avatar preview
+	var avatar_id := str(class_data.get("avatar_id", ""))
+	var avatar_tex: Texture2D = AvatarRegistry.load_full_texture(avatar_id) if not avatar_id.is_empty() else null
+	if avatar_tex != null:
+		var avatar_rect := TextureRect.new()
+		avatar_rect.texture = avatar_tex
+		avatar_rect.custom_minimum_size = Vector2(120, 180)
+		avatar_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		avatar_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		var avatar_row := HBoxContainer.new()
+		avatar_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		avatar_row.add_child(avatar_rect)
+		vbox.add_child(avatar_row)
 
 	# Class name
 	var name_label := Label.new()
@@ -163,7 +182,8 @@ func _build_class_card(class_data: Dictionary) -> PanelContainer:
 	select_button.text = "Select"
 	select_button.custom_minimum_size = Vector2(0, 56)
 	UITheme.style_button(select_button, 22)
-	select_button.pressed.connect(func() -> void: class_selected.emit(attr_ids))
+	var chosen_avatar_id := str(class_data.get("avatar_id", ""))
+	select_button.pressed.connect(func() -> void: class_selected.emit(attr_ids, chosen_avatar_id))
 	vbox.add_child(select_button)
 
 	return panel

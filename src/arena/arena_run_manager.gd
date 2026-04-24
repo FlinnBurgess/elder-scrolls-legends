@@ -12,6 +12,7 @@ enum State {
 
 var state: State = State.CLASS_SELECT
 var class_attributes: Array = []
+var player_avatar_id: String = ""
 var deck: Array = []  # Array of {card_id, quantity}
 var wins: int = 0
 var losses: int = 0
@@ -60,8 +61,9 @@ static func get_all_classes() -> Array:
 	return DUAL_CLASSES + TRIPLE_CLASSES
 
 
-func start_run(p_class_attributes: Array) -> void:
+func start_run(p_class_attributes: Array, p_avatar_id: String = "") -> void:
 	class_attributes = p_class_attributes.duplicate()
+	player_avatar_id = p_avatar_id
 	state = State.DRAFTING
 	deck = []
 	wins = 0
@@ -146,6 +148,7 @@ func save_run() -> void:
 	var data := {
 		"state": state,
 		"class_attributes": class_attributes,
+		"player_avatar_id": player_avatar_id,
 		"deck": deck,
 		"wins": wins,
 		"losses": losses,
@@ -179,6 +182,7 @@ static func load_run() -> ArenaRunManager:
 	var manager = script.new()
 	manager.state = int(data.get("state", State.CLASS_SELECT)) as State
 	manager.class_attributes = Array(data.get("class_attributes", []))
+	manager.player_avatar_id = str(data.get("player_avatar_id", ""))
 	manager.deck = Array(data.get("deck", []))
 	manager.wins = int(data.get("wins", 0))
 	manager.losses = int(data.get("losses", 0))

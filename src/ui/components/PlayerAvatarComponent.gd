@@ -14,15 +14,23 @@ const RUNE_ORBIT_RATIO := 0.58
 const PORTRAIT_MASK_SHADER_CODE := """
 shader_type canvas_item;
 
-uniform float feather = 0.02;
+uniform float feather = 0.005;
+// Corrects the circular mask when a non-square texture is drawn into a
+// square rect with STRETCH_KEEP_ASPECT_COVERED: Godot stretches the UV
+// range across the rect unevenly, which would otherwise warp the circle
+// into an ellipse.
+uniform vec2 uv_mask_scale = vec2(1.0, 1.0);
 
 void fragment() {
 	vec4 tex = texture(TEXTURE, UV);
-	float distance_from_center = distance(UV, vec2(0.5));
+	vec2 corrected = (UV - vec2(0.5)) * uv_mask_scale;
+	float distance_from_center = length(corrected);
 	float alpha_mask = 1.0 - smoothstep(0.5 - feather, 0.5, distance_from_center);
 	COLOR = vec4(tex.rgb, tex.a * alpha_mask);
 }
 """
+
+const MEDALLION_INNER_INSET := 10.0
 
 var _portrait_texture: Texture2D = DEFAULT_PORTRAIT
 var _presentation_mode := PRESENTATION_LOCAL_BOTTOM
@@ -163,6 +171,36 @@ func _build_internal_nodes() -> void:
 	_set_full_rect(_content_root)
 	add_child(_content_root)
 
+	# Render order for the medallion pieces (bottom -> top):
+	#   1. portrait_backdrop — solid dark circle, covers the medallion area.
+	#      Provides an opaque backing for avatars that have transparent pixels.
+	#   2. portrait_rect — avatar image with a circular shader mask. Sized to
+	#      exactly match the medallion square so its inscribed mask circle
+	#      coincides with the frame's outer edge (no gaps, no overflow).
+	#   3. medallion_outer — thick gold outer ring overlaying the portrait's
+	#      mask edge. Bg is transparent so the portrait shows through.
+	#   4. medallion_inner — thin gold inner ring, inset slightly, for
+	#      decoration. Bg is transparent.
+	# All four are siblings positioned manually by _layout_internal_nodes so
+	# no parent container can shrink or offset them.
+	_portrait_backdrop = PanelContainer.new()
+	_portrait_backdrop.name = "PortraitBackdrop"
+	_portrait_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_content_root.add_child(_portrait_backdrop)
+
+	_portrait_rect = TextureRect.new()
+	_portrait_rect.name = "PortraitTexture"
+	_portrait_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_portrait_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_portrait_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_content_root.add_child(_portrait_rect)
+
+	var shader := Shader.new()
+	shader.code = PORTRAIT_MASK_SHADER_CODE
+	_portrait_material = ShaderMaterial.new()
+	_portrait_material.shader = shader
+	_portrait_rect.material = _portrait_material
+
 	_medallion_outer = PanelContainer.new()
 	_medallion_outer.name = "MedallionOuter"
 	_medallion_outer.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -171,28 +209,7 @@ func _build_internal_nodes() -> void:
 	_medallion_inner = PanelContainer.new()
 	_medallion_inner.name = "MedallionInner"
 	_medallion_inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_set_full_rect(_medallion_inner, 10)
-	_medallion_outer.add_child(_medallion_inner)
-
-	_portrait_backdrop = PanelContainer.new()
-	_portrait_backdrop.name = "PortraitBackdrop"
-	_portrait_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_set_full_rect(_portrait_backdrop, 10)
-	_medallion_inner.add_child(_portrait_backdrop)
-
-	_portrait_rect = TextureRect.new()
-	_portrait_rect.name = "PortraitTexture"
-	_portrait_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_portrait_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_portrait_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	_set_full_rect(_portrait_rect)
-	_portrait_backdrop.add_child(_portrait_rect)
-
-	var shader := Shader.new()
-	shader.code = PORTRAIT_MASK_SHADER_CODE
-	_portrait_material = ShaderMaterial.new()
-	_portrait_material.shader = shader
-	_portrait_rect.material = _portrait_material
+	_content_root.add_child(_medallion_inner)
 
 	_ward_overlay = PanelContainer.new()
 	_ward_overlay.name = "WardOverlay"
@@ -311,15 +328,47 @@ func _refresh_portrait() -> void:
 	if _portrait_rect == null:
 		return
 	_portrait_rect.texture = _portrait_texture if _portrait_texture != null else DEFAULT_PORTRAIT
+	_refresh_portrait_mask_scale()
+
+
+func _refresh_portrait_mask_scale() -> void:
+	if _portrait_material == null or _portrait_rect == null:
+		return
+	var tex := _portrait_rect.texture
+	if tex == null:
+		_portrait_material.set_shader_parameter("uv_mask_scale", Vector2.ONE)
+		return
+	var tex_size := tex.get_size()
+	var rect_size := _portrait_rect.size
+	if rect_size.x <= 0.0 or rect_size.y <= 0.0:
+		rect_size = _portrait_rect.custom_minimum_size
+	if rect_size.x <= 0.0 or rect_size.y <= 0.0 or tex_size.x <= 0.0 or tex_size.y <= 0.0:
+		_portrait_material.set_shader_parameter("uv_mask_scale", Vector2.ONE)
+		return
+	# With STRETCH_KEEP_ASPECT_COVERED, UV is remapped across the rect such
+	# that the shorter texture dimension fills the matching rect dimension
+	# (UV spans [0,1] across that axis) while the longer dimension is cropped
+	# (UV spans a narrower subrange across the rect). To keep the circular
+	# mask circular in screen space, scale UV on the cropped axis by the ratio
+	# of texture aspect to rect aspect.
+	var tex_aspect := tex_size.x / tex_size.y
+	var rect_aspect := rect_size.x / rect_size.y
+	var scale := Vector2.ONE
+	if tex_aspect > rect_aspect:
+		scale.x = tex_aspect / rect_aspect
+	elif tex_aspect < rect_aspect:
+		scale.y = rect_aspect / tex_aspect
+	_portrait_material.set_shader_parameter("uv_mask_scale", scale)
 
 
 func _refresh_presentation() -> void:
 	if _medallion_outer == null:
 		return
 	var opponent := is_opponent()
-	_apply_panel_style(_medallion_outer, Color(0.09, 0.11, 0.14, 0.98) if not opponent else Color(0.15, 0.1, 0.11, 0.98), Color(0.52, 0.72, 0.95, 0.96) if not opponent else Color(0.88, 0.62, 0.42, 0.96), 3, _circular_panel_radius(_medallion_outer, 16))
-	_apply_panel_style(_medallion_inner, Color(0.05, 0.06, 0.08, 0.98), Color(0.74, 0.84, 0.98, 0.88) if not opponent else Color(0.98, 0.82, 0.58, 0.88), 1, _circular_panel_radius(_medallion_inner, 14))
-	_apply_panel_style(_portrait_backdrop, Color(0.14, 0.15, 0.19, 0.98) if not opponent else Color(0.18, 0.14, 0.14, 0.98), Color(0.32, 0.42, 0.56, 0.82) if not opponent else Color(0.54, 0.36, 0.3, 0.84), 1, _circular_panel_radius(_portrait_backdrop, 12))
+	var clear_fill := Color(0, 0, 0, 0)
+	_apply_panel_style(_medallion_outer, clear_fill, Color(0.52, 0.72, 0.95, 0.96) if not opponent else Color(0.88, 0.62, 0.42, 0.96), 3, _circular_panel_radius(_medallion_outer, 16))
+	_apply_panel_style(_medallion_inner, clear_fill, Color(0.74, 0.84, 0.98, 0.88) if not opponent else Color(0.98, 0.82, 0.58, 0.88), 1, _circular_panel_radius(_medallion_inner, 14))
+	_apply_panel_style(_portrait_backdrop, Color(0.09, 0.11, 0.14, 1.0) if not opponent else Color(0.15, 0.1, 0.11, 1.0), clear_fill, 0, _circular_panel_radius(_portrait_backdrop, 14))
 
 
 func _refresh_health() -> void:
@@ -402,8 +451,24 @@ func _layout_internal_nodes() -> void:
 	var content_size := Vector2(medallion_size + left_overhang + right_overhang, medallion_size + top_overhang + bottom_overhang)
 	var content_origin := Vector2((width - content_size.x) * 0.5, (height - content_size.y) * 0.5)
 	var medallion_origin := content_origin + Vector2(left_overhang, top_overhang)
+	# Backdrop, portrait, and the outer frame ring are all sized and positioned
+	# identically. The circular shader mask on the portrait is inscribed in its
+	# square bounds, so its circle has diameter == medallion_size. The outer
+	# frame's stylebox (transparent fill + gold border with corner_radius set
+	# to medallion_size / 2) renders a gold ring exactly on that circle's edge,
+	# covering the mask's outer pixels.
+	_portrait_backdrop.position = medallion_origin
+	_portrait_backdrop.size = Vector2.ONE * medallion_size
+	_portrait_rect.position = medallion_origin
+	_portrait_rect.size = Vector2.ONE * medallion_size
 	_medallion_outer.position = medallion_origin
 	_medallion_outer.size = Vector2.ONE * medallion_size
+
+	# The inner decorative ring is inset so two concentric gold rings are
+	# visible. Its circular border draws on top of the portrait.
+	var inner_size := maxf(0.0, medallion_size - MEDALLION_INNER_INSET * 2.0)
+	_medallion_inner.position = medallion_origin + Vector2.ONE * MEDALLION_INNER_INSET
+	_medallion_inner.size = Vector2.ONE * inner_size
 
 	var ward_inset := -6.0
 	_ward_overlay.position = medallion_origin + Vector2.ONE * ward_inset
@@ -421,6 +486,7 @@ func _layout_internal_nodes() -> void:
 		rune_panel.position = point - Vector2.ONE * rune_size * 0.5
 		rune_panel.size = Vector2.ONE * rune_size
 	_refresh_corner_radii()
+	_refresh_portrait_mask_scale()
 
 
 func _set_full_rect(control: Control, inset := 0.0) -> void:

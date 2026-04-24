@@ -64,9 +64,9 @@ func _show_class_select() -> void:
 	_current_screen = screen
 
 
-func _on_class_selected(attribute_ids: Array) -> void:
+func _on_class_selected(attribute_ids: Array, avatar_id: String) -> void:
 	_run_manager = ArenaRunManagerScript.new()
-	_run_manager.start_run(attribute_ids)
+	_run_manager.start_run(attribute_ids, avatar_id)
 	_show_draft()
 
 
@@ -106,6 +106,8 @@ func _resume_match() -> void:
 		var match_screen := MatchScreenScript.new()
 		match_screen.name = "ArenaMatch"
 		match_screen._arena_mode = true
+		if not _run_manager.player_avatar_id.is_empty():
+			match_screen.set_local_player_avatar(_run_manager.player_avatar_id)
 		match_screen.return_to_main_menu_requested.connect(_on_match_ended.bind(match_screen))
 		match_screen.forfeit_requested.connect(_on_match_forfeited)
 		match_screen.match_state_changed.connect(_on_match_state_changed)
@@ -213,6 +215,13 @@ func _on_fight_pressed() -> void:
 	var match_seed: int = rng.randi()
 	var first_player_index: int = rng.randi_range(0, 1)
 
+	# 10% chance: replace shadow lane with a random arena-flagged lane type
+	var lane_overrides: Dictionary = {}
+	if rng.randf() < 0.10:
+		var swap_lane_type := _pick_random_arena_lane_type(rng)
+		if swap_lane_type != "":
+			lane_overrides["shadow"] = swap_lane_type
+
 	# Save match config for resume
 	_run_manager.match_config = {
 		"opponent_attribute_ids": config["attribute_ids"],
@@ -220,6 +229,7 @@ func _on_fight_pressed() -> void:
 		"boss_config": boss_config,
 		"match_seed": match_seed,
 		"first_player_index": first_player_index,
+		"lane_overrides": lane_overrides,
 	}
 	_run_manager.save_run()
 
@@ -227,6 +237,8 @@ func _on_fight_pressed() -> void:
 	var match_screen := MatchScreenScript.new()
 	match_screen.name = "ArenaMatch"
 	match_screen._arena_mode = true
+	if not _run_manager.player_avatar_id.is_empty():
+		match_screen.set_local_player_avatar(_run_manager.player_avatar_id)
 	match_screen.return_to_main_menu_requested.connect(_on_match_ended.bind(match_screen))
 	match_screen.forfeit_requested.connect(_on_match_forfeited)
 	match_screen.match_state_changed.connect(_on_match_state_changed)
@@ -236,9 +248,9 @@ func _on_fight_pressed() -> void:
 	# archetype and build a playstyle-specific AI options profile.
 	var ai_options := {"quality": config["quality"], "ai_deck_ids": ai_deck_ids}
 	if not boss_config.is_empty():
-		match_screen.start_arena_boss_match(player_deck_ids, ai_deck_ids, boss_config, match_seed, first_player_index, ai_options)
+		match_screen.start_arena_boss_match(player_deck_ids, ai_deck_ids, boss_config, match_seed, first_player_index, ai_options, lane_overrides)
 	else:
-		match_screen.start_match_with_decks(player_deck_ids, ai_deck_ids, match_seed, first_player_index, ai_options)
+		match_screen.start_match_with_decks(player_deck_ids, ai_deck_ids, match_seed, first_player_index, ai_options, lane_overrides)
 
 
 func _on_match_forfeited() -> void:
@@ -322,6 +334,28 @@ static func _deck_to_card_ids(deck: Array) -> Array:
 		for _i in range(quantity):
 			ids.append(card_id)
 	return ids
+
+
+static func _pick_random_arena_lane_type(rng: RandomNumberGenerator) -> String:
+	var file := FileAccess.open("res://data/legends/registries/lane_registry.json", FileAccess.READ)
+	if file == null:
+		return ""
+	var parsed = JSON.parse_string(file.get_as_text())
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return ""
+	var candidates: Array = []
+	for lane_type in parsed.get("lane_types", []):
+		if typeof(lane_type) != TYPE_DICTIONARY:
+			continue
+		var id: String = str(lane_type.get("id", ""))
+		if id == "shadow" or id == "field":
+			continue
+		var availability: Array = lane_type.get("availability", [])
+		if availability.has("arena"):
+			candidates.append(id)
+	if candidates.is_empty():
+		return ""
+	return candidates[rng.randi_range(0, candidates.size() - 1)]
 
 
 static func _find_added_card(old_deck: Array, new_deck: Array) -> Dictionary:

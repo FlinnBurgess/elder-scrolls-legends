@@ -49,6 +49,8 @@ const MatchScreenTargetingClass = preload("res://src/ui/match_screen_targeting.g
 const ActiveBoonsOverlay = preload("res://src/ui/match/active_boons_overlay.gd")
 const UITheme = preload("res://src/ui/ui_theme.gd")
 const MatchScreenHistoryClass = preload("res://src/ui/match_screen_history.gd")
+const AvatarRegistry = preload("res://src/core/avatar_registry.gd")
+const PlayerSettings = preload("res://src/core/player_settings.gd")
 
 const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
 const PLAYER_ORDER := ["player_2", "player_1"]
@@ -188,6 +190,8 @@ var _puzzle_id := ""
 var _adventure_boons: Array = []
 var _adventure_augments: Dictionary = {}  # card_id -> Array of augment dicts
 var _pause_overlay: PanelContainer
+var _portrait_by_player_id: Dictionary = {}  # player_id -> Texture2D (top half of avatar)
+var _local_player_avatar_id := ""  # Explicit override for local player avatar, else uses PlayerSettings
 
 # Error report hover tracking
 var _error_report_hovered_type := ""
@@ -226,6 +230,24 @@ func _ready() -> void:
 	_ui_builder._build_ui()
 
 
+func set_local_player_avatar(avatar_id: String) -> void:
+	_local_player_avatar_id = avatar_id
+
+
+func get_player_portrait(player_id: String) -> Texture2D:
+	var tex = _portrait_by_player_id.get(player_id)
+	return tex if tex is Texture2D else null
+
+
+func _assign_match_portraits() -> void:
+	_portrait_by_player_id.clear()
+	var local_id := PLAYER_ORDER[1]  # "player_1"
+	var opponent_id := PLAYER_ORDER[0]  # "player_2"
+	var local_avatar_id := _local_player_avatar_id if not _local_player_avatar_id.is_empty() else PlayerSettings.get_avatar_id()
+	_portrait_by_player_id[local_id] = AvatarRegistry.load_top_half_texture(local_avatar_id)
+	_portrait_by_player_id[opponent_id] = AvatarRegistry.load_top_half_texture(AvatarRegistry.random_avatar_id())
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
@@ -246,7 +268,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int = -1, first_player_index: int = -1, ai_options: Dictionary = {}) -> bool:
+func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int = -1, first_player_index: int = -1, ai_options: Dictionary = {}, lane_overrides: Dictionary = {}) -> bool:
+	_assign_match_portraits()
 	_hand._cancel_detached_card_silent()
 	_overlays._dismiss_mulligan_overlay()
 	_overlays._dismiss_prophecy_overlay()
@@ -275,7 +298,7 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int 
 	var match_first_player: int = first_player_index if first_player_index >= 0 else rng.randi_range(0, 1)
 	var match_state := MatchBootstrap.create_standard_match(
 		[deck_one_ids, deck_two_ids],
-		{"seed": match_seed, "first_player_index": match_first_player}
+		{"seed": match_seed, "first_player_index": match_first_player, "lane_overrides": lane_overrides}
 	)
 	if match_state.is_empty():
 		_status_message = "Failed to create match."
@@ -315,7 +338,8 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int 
 	return true
 
 
-func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_config: Dictionary, seed: int = -1, first_player_index: int = -1, ai_options: Dictionary = {}) -> bool:
+func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_config: Dictionary, seed: int = -1, first_player_index: int = -1, ai_options: Dictionary = {}, lane_overrides: Dictionary = {}) -> bool:
+	_assign_match_portraits()
 	_hand._cancel_detached_card_silent()
 	_overlays._dismiss_mulligan_overlay()
 	_overlays._dismiss_prophecy_overlay()
@@ -342,7 +366,7 @@ func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_confi
 	rng.randomize()
 	var match_seed: int = seed if seed >= 0 else rng.randi()
 	var match_first_player: int = first_player_index if first_player_index >= 0 else rng.randi_range(0, 1)
-	var options := {"seed": match_seed, "first_player_index": match_first_player}
+	var options := {"seed": match_seed, "first_player_index": match_first_player, "lane_overrides": lane_overrides}
 	var match_state := MatchBootstrap.create_standard_match(
 		[deck_one_ids, deck_two_ids], options
 	)
@@ -590,6 +614,7 @@ static func _hydrate_all_zones(match_state: Dictionary, card_by_id: Dictionary) 
 
 
 func start_test_match(test_state: Dictionary) -> void:
+	_assign_match_portraits()
 	_hand._cancel_detached_card_silent()
 	_overlays._dismiss_mulligan_overlay()
 	_overlays._dismiss_prophecy_overlay()
@@ -643,6 +668,7 @@ func start_test_match(test_state: Dictionary) -> void:
 
 func start_puzzle_match(puzzle_state: Dictionary, puzzle_config: Dictionary = {},
 		puzzle_id: String = "", ai_options: Dictionary = {}, has_next: bool = false) -> void:
+	_assign_match_portraits()
 	_hand._cancel_detached_card_silent()
 	_overlays._dismiss_mulligan_overlay()
 	_overlays._dismiss_prophecy_overlay()
@@ -821,6 +847,7 @@ func _show_puzzle_objective_popup() -> void:
 
 
 func resume_from_state(saved_state: Dictionary) -> void:
+	_assign_match_portraits()
 	_hand._cancel_detached_card_silent()
 	_overlays._dismiss_mulligan_overlay()
 	_overlays._dismiss_prophecy_overlay()
