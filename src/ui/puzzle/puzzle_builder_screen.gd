@@ -84,7 +84,7 @@ var _hover_preview: Control
 var _hover_timer: Timer
 var _hover_card_data: Dictionary = {}
 const HOVER_DELAY := 0.35
-const PREVIEW_SIZE := Vector2(220, 384)
+const PREVIEW_SIZE := Vector2(220, 340)
 
 # Active overlay tracking
 var _active_overlay: Control

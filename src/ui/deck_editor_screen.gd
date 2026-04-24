@@ -15,7 +15,7 @@ const ErrorReportWriterClass = preload("res://src/core/error_report_writer.gd")
 const ErrorReportPopoverClass = preload("res://src/ui/components/error_report_popover.gd")
 const DeckCardListClass = preload("res://src/ui/components/deck_card_list.gd")
 const UITheme = preload("res://src/ui/ui_theme.gd")
-const CARD_ASPECT_RATIO := 384.0 / 220.0
+const CARD_ASPECT_RATIO := 340.0 / 220.0
 const ATTRIBUTE_TINTS := {
 	"strength": Color(0.84, 0.39, 0.31, 1.0),
 	"intelligence": Color(0.42, 0.62, 0.96, 1.0),
@@ -121,6 +121,15 @@ func _unhandled_input(event: InputEvent) -> void:
 				card_display.cycle_relationship(direction)
 				get_viewport().set_input_as_handled()
 				return
+		if event.keycode == KEY_T and event.ctrl_pressed:
+			CardDisplayComponentClass.USE_ESL_TEMPLATE = not CardDisplayComponentClass.USE_ESL_TEMPLATE
+			for card_id in _card_display_by_id:
+				var cd: Control = _card_display_by_id[card_id]
+				if is_instance_valid(cd) and cd.has_method("set_use_esl_template"):
+					cd.set_use_esl_template(CardDisplayComponentClass.USE_ESL_TEMPLATE)
+			print("[ESL TEMPLATE] toggled -> ", CardDisplayComponentClass.USE_ESL_TEMPLATE)
+			get_viewport().set_input_as_handled()
+			return
 		if event.keycode == KEY_LEFT:
 			_on_prev_page_pressed()
 			get_viewport().set_input_as_handled()

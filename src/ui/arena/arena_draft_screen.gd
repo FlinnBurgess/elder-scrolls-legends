@@ -13,7 +13,7 @@ const ErrorReportPopoverClass = preload("res://src/ui/components/error_report_po
 const DeckCardListClass = preload("res://src/ui/components/deck_card_list.gd")
 const UITheme = preload("res://src/ui/ui_theme.gd")
 
-const CARD_ASPECT_RATIO := 384.0 / 220.0
+const CARD_ASPECT_RATIO := 340.0 / 220.0
 const ATTRIBUTE_TINTS := {
 	"strength": Color(0.84, 0.39, 0.31, 1.0),
 	"intelligence": Color(0.42, 0.62, 0.96, 1.0),

@@ -6,7 +6,7 @@ signal reroll_requested
 
 const CardDisplayComponentScript = preload("res://src/ui/components/CardDisplayComponent.gd")
 
-const CARD_SIZE := Vector2(220, 384)
+const CARD_SIZE := Vector2(220, 340)
 
 var _pairs: Array = []  # Array of {card: Dictionary, augment: Dictionary}
 var _reroll_tokens: int = 0

@@ -6,7 +6,7 @@ signal reroll_requested
 
 const CardDisplayComponentScript = preload("res://src/ui/components/CardDisplayComponent.gd")
 
-const CARD_SIZE := Vector2(220, 384)
+const CARD_SIZE := Vector2(220, 340)
 
 var _creatures: Array = []  # Array of card dicts
 var _augments: Array = []  # Array of augment dicts

@@ -11,7 +11,7 @@ const PRESENTATION_FULL := "full"
 const PRESENTATION_CREATURE_BOARD_MINIMAL := "creature_board_minimal"
 const PRESENTATION_SUPPORT_BOARD_MINIMAL := "support_board_minimal"
 
-const FULL_LAYOUT_BASE_SIZE := Vector2(220, 384)
+const FULL_LAYOUT_BASE_SIZE := Vector2(220, 340)
 const CREATURE_BOARD_LAYOUT_BASE_SIZE := Vector2(251, 437)
 const SUPPORT_BOARD_LAYOUT_BASE_SIZE := Vector2(144, 144)
 const PRESENTATION_SCALE := 1.0
@@ -77,6 +77,35 @@ const PIP_SPACING := 6.0
 const PIP_COLOR_ACTIVE := Color(0.95, 0.88, 0.6, 1.0)
 const PIP_COLOR_INACTIVE := Color(0.5, 0.48, 0.42, 0.7)
 
+# ESL template overlay prototype (Saiyan/tesl-card-generator). Mono-neutral only.
+const ESL_TEMPLATE_FRAME_PATHS := {
+	"neutral": "res://assets/images/card_templates/frame_mono_neutral.png",
+}
+const ESL_TEMPLATE_RARITY_PATHS := {
+	"common": "res://assets/images/card_templates/rarity_common.png",
+	"rare": "res://assets/images/card_templates/rarity_rare.png",
+	"epic": "res://assets/images/card_templates/rarity_epic.png",
+	"legendary": "res://assets/images/card_templates/rarity_legendary.png",
+}
+const ESL_TEMPLATE_PH_PATH := "res://assets/images/card_templates/power_health_bg.png"
+const ESL_TEMPLATE_SUPPORT_PATH := "res://assets/images/card_templates/support_bg.png"
+
+# Normalised coordinates on the 440x680 reference canvas.
+const ESL_ART_RECT_N := Rect2(60.0 / 440.0, 120.0 / 680.0, 320.0 / 440.0, 420.0 / 680.0)
+const ESL_COST_RECT_N := Rect2(25.0 / 440.0, 55.0 / 680.0, 80.0 / 440.0, 80.0 / 680.0)
+const ESL_TITLE_RECT_N := Rect2(70.0 / 440.0, 85.0 / 680.0, 300.0 / 440.0, 30.0 / 680.0)
+const ESL_TYPE_RECT_N := Rect2(95.0 / 440.0, 118.0 / 680.0, 250.0 / 440.0, 22.0 / 680.0)
+const ESL_POWER_RECT_N := Rect2(15.0 / 440.0, 385.0 / 680.0, 100.0 / 440.0, 60.0 / 680.0)
+const ESL_HEALTH_RECT_N := Rect2(325.0 / 440.0, 385.0 / 680.0, 100.0 / 440.0, 60.0 / 680.0)
+const ESL_RULES_RECT_N := Rect2(50.0 / 440.0, 540.0 / 680.0, 310.0 / 440.0, 120.0 / 680.0)
+
+# The frame PNG has transparent padding around the visible card. These normalised
+# coords describe the visible card region inside the 440x680 canvas; the template
+# layers are oversized and offset so this region fills the component rect.
+const ESL_PNG_VISIBLE_N := Rect2(28.0 / 440.0, 55.0 / 680.0, 355.0 / 440.0, 568.0 / 680.0)
+
+static var USE_ESL_TEMPLATE := false
+
 var _card_data: Dictionary = {}
 var _presentation_mode := PRESENTATION_FULL
 var _is_built := false
@@ -130,6 +159,11 @@ var _crowned_badge: Label
 var _marked_badge: Label
 var _pips_container: HBoxContainer
 
+var _use_esl_template: bool = USE_ESL_TEMPLATE
+var _tpl_frame: TextureRect
+var _tpl_rarity: TextureRect
+var _tpl_ph: TextureRect
+
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -159,6 +193,33 @@ func _process(_delta: float) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED and _is_built:
 		_refresh_all()
+
+
+func set_use_esl_template(enabled: bool) -> void:
+	if _use_esl_template == enabled:
+		return
+	_use_esl_template = enabled
+	_refresh_all()
+
+
+func _esl_template_attribute_key() -> String:
+	var attributes: Array = _card_data.get("attributes", [])
+	if attributes.size() == 1:
+		var key := str(attributes[0]).to_lower()
+		if ESL_TEMPLATE_FRAME_PATHS.has(key):
+			return key
+	return "neutral"
+
+
+func _esl_template_supported(card: Dictionary) -> bool:
+	if not _use_esl_template:
+		return false
+	var attributes: Array = card.get("attributes", [])
+	if attributes.size() > 1:
+		return false
+	if attributes.size() == 1 and str(attributes[0]).to_lower() != "neutral":
+		return false
+	return true
 
 
 func set_card(card: Dictionary) -> void:
@@ -384,6 +445,29 @@ func _build_internal_nodes() -> void:
 		_shackle_overlay.texture = shackle_tex
 	_shackle_overlay.modulate = Color(1.0, 1.0, 1.0, 0.7)
 	_art_clip.add_child(_shackle_overlay)
+
+	# ESL template overlay layers (frame → rarity → ph/support) sit above art but below banners.
+	_tpl_frame = TextureRect.new()
+	_tpl_frame.name = "EslTplFrame"
+	_tpl_frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_tpl_frame.stretch_mode = TextureRect.STRETCH_SCALE
+	_tpl_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tpl_frame.visible = false
+	_content_root.add_child(_tpl_frame)
+	_tpl_rarity = TextureRect.new()
+	_tpl_rarity.name = "EslTplRarity"
+	_tpl_rarity.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_tpl_rarity.stretch_mode = TextureRect.STRETCH_SCALE
+	_tpl_rarity.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tpl_rarity.visible = false
+	_content_root.add_child(_tpl_rarity)
+	_tpl_ph = TextureRect.new()
+	_tpl_ph.name = "EslTplPh"
+	_tpl_ph.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_tpl_ph.stretch_mode = TextureRect.STRETCH_SCALE
+	_tpl_ph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tpl_ph.visible = false
+	_content_root.add_child(_tpl_ph)
 
 	# Name banner added AFTER art so it renders on top as an overlay
 	_name_banner = PanelContainer.new()
@@ -644,6 +728,29 @@ func _refresh_content() -> void:
 	_refresh_augment_badges()
 	_refresh_attribute_icons()
 	_refresh_gate_level_badge()
+	_refresh_esl_template_textures()
+
+
+func _refresh_esl_template_textures() -> void:
+	if _tpl_frame == null:
+		return
+	if not _esl_template_supported(_card_data):
+		_tpl_frame.visible = false
+		_tpl_rarity.visible = false
+		_tpl_ph.visible = false
+		return
+	var frame_path: String = ESL_TEMPLATE_FRAME_PATHS[_esl_template_attribute_key()]
+	_tpl_frame.texture = _load_texture_from_path(frame_path)
+	_tpl_frame.visible = _tpl_frame.texture != null
+	var rarity_key := _card_rarity_text(_card_data)
+	var rarity_path: String = ESL_TEMPLATE_RARITY_PATHS.get(rarity_key, ESL_TEMPLATE_RARITY_PATHS["common"])
+	_tpl_rarity.texture = _load_texture_from_path(rarity_path)
+	_tpl_rarity.visible = _tpl_rarity.texture != null
+	var ph_path := ESL_TEMPLATE_PH_PATH if _is_creature(_card_data) else ESL_TEMPLATE_SUPPORT_PATH
+	_tpl_ph.texture = _load_texture_from_path(ph_path)
+	# Only show the ph/support overlay for cards that actually use it.
+	var show_ph := _is_creature(_card_data) or _is_ongoing_support(_card_data)
+	_tpl_ph.visible = show_ph and _tpl_ph.texture != null
 
 
 func _refresh_styles() -> void:
@@ -707,6 +814,29 @@ func _refresh_styles() -> void:
 	_attack_label.add_theme_color_override("font_color", _stat_color(_card_data, "power"))
 	_health_label.add_theme_color_override("font_color", _stat_color(_card_data, "health"))
 
+	if _esl_template_supported(_card_data) and _presentation_mode == PRESENTATION_FULL:
+		# Procedural frame, banners, and icons are replaced by the PNG template layers.
+		_apply_panel_style(_outer_frame, Color.TRANSPARENT, Color.TRANSPARENT, 0, 0)
+		_apply_panel_style(_inner_frame, Color.TRANSPARENT, Color.TRANSPARENT, 0, 0)
+		_apply_panel_style(_art_frame, Color.TRANSPARENT, Color.TRANSPARENT, 0, 0)
+		_apply_panel_style(_name_banner, Color.TRANSPARENT, Color.TRANSPARENT, 0, 0)
+		_apply_panel_style(_subtype_banner, Color.TRANSPARENT, Color.TRANSPARENT, 0, 0)
+		_cost_badge.visible = false
+		_attack_badge.visible = false
+		_health_badge.visible = false
+		# ESL labels: cream title on dark banner, black magicka, cream P/H, dark type text.
+		_name_label.add_theme_color_override("font_color", Color(0.99, 0.96, 0.87, 1.0))
+		_subtype_label.add_theme_color_override("font_color", Color(0.88, 0.86, 0.73, 1.0))
+		if not _card_data.has("_effective_cost"):
+			_cost_label.add_theme_color_override("font_color", Color.BLACK)
+			_cost_label.add_theme_constant_override("outline_size", 0)
+		_attack_label.add_theme_color_override("font_color", Color(0.99, 0.96, 0.87, 1.0))
+		_attack_label.add_theme_constant_override("outline_size", 3)
+		_attack_label.add_theme_color_override("font_outline_color", Color.BLACK)
+		_health_label.add_theme_color_override("font_color", Color(0.99, 0.96, 0.87, 1.0))
+		_health_label.add_theme_constant_override("outline_size", 3)
+		_health_label.add_theme_color_override("font_outline_color", Color.BLACK)
+
 
 func _refresh_visibility() -> void:
 	if not _is_built:
@@ -717,12 +847,13 @@ func _refresh_visibility() -> void:
 	_name_banner.visible = full
 	_subtype_banner.visible = full
 	_rules_panel.visible = full
-	_rarity_marker.visible = full
-	_cost_badge.visible = full
+	_rarity_marker.visible = full and not _esl_template_supported(_card_data)
+	_cost_badge.visible = full and not _esl_template_supported(_card_data)
 	_cost_label.visible = full
 	# Attribute icons visibility is managed by _refresh_attribute_icons based on card data
-	_attack_badge.visible = is_creature and (full or creature_minimal)
-	_health_badge.visible = is_creature and (full or creature_minimal)
+	var hide_stat_badges := _esl_template_supported(_card_data) and full
+	_attack_badge.visible = is_creature and (full or creature_minimal) and not hide_stat_badges
+	_health_badge.visible = is_creature and (full or creature_minimal) and not hide_stat_badges
 	_ward_overlay.visible = _interactive and is_creature and (EvergreenRules.has_keyword(_card_data, EvergreenRules.KEYWORD_WARD) or EvergreenRules.has_status(_card_data, EvergreenRules.STATUS_DAMAGE_IMMUNE) or bool(_card_data.get("aura_damage_immune", false)))
 	_premium_overlay.visible = bool(_card_data.get("_premium", false))
 	var _innate_s: Array = _card_data.get("innate_statuses", []) if typeof(_card_data.get("innate_statuses")) == TYPE_ARRAY else []
@@ -756,6 +887,9 @@ func _layout_internal_nodes() -> void:
 
 
 func _layout_full(inner_rect: Rect2) -> void:
+	if _esl_template_supported(_card_data):
+		_layout_full_esl(inner_rect)
+		return
 	var scale := _layout_scale(PRESENTATION_FULL)
 	var content_padding := 6.0 * scale
 	var content_width := maxf(inner_rect.size.x - content_padding * 2.0, 0.0)
@@ -829,6 +963,84 @@ func _layout_full(inner_rect: Rect2) -> void:
 
 	# Relationship pips
 	_layout_pips()
+
+
+func _layout_full_esl(inner_rect: Rect2) -> void:
+	var _unused := inner_rect
+	var card_size := size if size != Vector2.ZERO else custom_minimum_size
+	var cw := card_size.x
+	var ch := card_size.y
+	var card_rect := Rect2(Vector2.ZERO, card_size)
+
+	# The template PNGs have transparent padding; oversize and offset them so the
+	# frame's visible region aligns with the component rect.
+	var vn := ESL_PNG_VISIBLE_N
+	var tpl_size := Vector2(cw / vn.size.x, ch / vn.size.y)
+	var tpl_pos := Vector2(-vn.position.x * tpl_size.x, -vn.position.y * tpl_size.y)
+	for tr in [_tpl_frame, _tpl_rarity, _tpl_ph]:
+		if tr != null:
+			tr.position = tpl_pos
+			tr.size = tpl_size
+
+	# Map PNG-space normalised rects into component-space rects via the template rect.
+	var map_rect := func(n: Rect2) -> Rect2:
+		return Rect2(
+			tpl_pos + Vector2(n.position.x * tpl_size.x, n.position.y * tpl_size.y),
+			Vector2(n.size.x * tpl_size.x, n.size.y * tpl_size.y)
+		)
+
+	var art_rect: Rect2 = map_rect.call(ESL_ART_RECT_N)
+	_art_frame.position = art_rect.position
+	_art_frame.size = art_rect.size
+	_art_clip.position = art_rect.position
+	_art_clip.size = art_rect.size
+	_art_texture.position = Vector2.ZERO
+	_art_texture.size = art_rect.size
+
+	_outer_frame.position = card_rect.position
+	_outer_frame.size = card_rect.size
+	_inner_frame.position = card_rect.position
+	_inner_frame.size = card_rect.size
+
+	var cost_rect: Rect2 = map_rect.call(ESL_COST_RECT_N)
+	_cost_label.position = cost_rect.position + Vector2(0.0, -5.0)
+	_cost_label.size = cost_rect.size
+
+	var title_rect: Rect2 = map_rect.call(ESL_TITLE_RECT_N)
+	_name_banner.position = title_rect.position + Vector2(0.0, -10.0)
+	_name_banner.size = title_rect.size
+	var type_rect: Rect2 = map_rect.call(ESL_TYPE_RECT_N)
+	_subtype_banner.position = type_rect.position + Vector2(0.0, -9.0)
+	_subtype_banner.size = type_rect.size
+
+	var power_rect: Rect2 = map_rect.call(ESL_POWER_RECT_N)
+	_attack_label.size = power_rect.size
+	_attack_label.position = power_rect.position + Vector2(0.0, -35.0)
+	_attack_label.rotation_degrees = 0.0
+	var health_rect: Rect2 = map_rect.call(ESL_HEALTH_RECT_N)
+	_health_label.size = health_rect.size
+	_health_label.position = health_rect.position + Vector2(3.0, -32.0)
+	_health_label.rotation_degrees = 0.0
+
+	var rules_rect: Rect2 = map_rect.call(ESL_RULES_RECT_N)
+	_rules_panel.position = rules_rect.position + Vector2(23.0, -60.0)
+	_rules_panel.size = rules_rect.size
+	_rules_panel.custom_minimum_size = Vector2.ZERO
+
+	# Move the rarity gem off-screen; rarity is now shown via the rarity PNG layer.
+	_rarity_marker.position = Vector2(-1000.0, -1000.0)
+	_rarity_marker.size = Vector2.ZERO
+
+	_layout_ward_overlay()
+	_layout_premium_overlay()
+	_layout_prophecy_glow_overlay()
+	_layout_attribute_icons()
+	_layout_augment_badges()
+	_keyword_icons_container.visible = false
+	_layout_pips()
+
+	if _lethal_particles != null:
+		_lethal_particles.position = _attack_label.position + power_rect.size * 0.5
 
 
 func _layout_creature_board_minimal(inner_rect: Rect2) -> void:
@@ -1132,7 +1344,7 @@ func _refresh_attribute_icons() -> void:
 	for child in _attribute_icons_container.get_children():
 		_attribute_icons_container.remove_child(child)
 		child.free()
-	if _presentation_mode != PRESENTATION_FULL:
+	if _presentation_mode != PRESENTATION_FULL or _esl_template_supported(_card_data):
 		_attribute_icons_container.visible = false
 		return
 	var attributes: Array = _card_data.get("attributes", [])
@@ -1578,6 +1790,19 @@ func _build_centered_label(name: String, font_size: int) -> Label:
 
 
 func _apply_font_sizes(scale: float) -> void:
+	if _esl_template_supported(_card_data) and _presentation_mode == PRESENTATION_FULL:
+		var card_h := (size.y if size.y > 0.0 else custom_minimum_size.y)
+		# Visible card is 568px of the 680px PNG canvas; scale from that baseline so
+		# font sizes stay in proportion to the rendered (not padded) card height.
+		var s := maxf(card_h / 568.0, 0.4)
+		_name_label.add_theme_font_size_override("font_size", maxi(1, int(round(22.0 * s))))
+		_subtype_label.add_theme_font_size_override("font_size", maxi(1, int(round(14.0 * s))))
+		_apply_rules_font_size(maxi(1, int(round(20.0 * s))))
+		_rarity_label.add_theme_font_size_override("font_size", maxi(1, int(round(9.0 * s))))
+		_cost_label.add_theme_font_size_override("font_size", maxi(1, int(round(52.0 * s))))
+		_attack_label.add_theme_font_size_override("font_size", maxi(1, int(round(48.0 * s))))
+		_health_label.add_theme_font_size_override("font_size", maxi(1, int(round(48.0 * s))))
+		return
 	_name_label.add_theme_font_size_override("font_size", _scaled_int(14, scale))
 	_subtype_label.add_theme_font_size_override("font_size", _scaled_int(10, scale))
 	_apply_rules_font_size(_scaled_int(18, scale))

@@ -23,8 +23,8 @@ const NEUTRAL_COST_COLOR := Color(0.6, 0.6, 0.6, 1.0)
 const ROW_HEIGHT := 52
 const ROW_BORDER := 4
 const ART_VSHIFT := -0.35
-const CARD_ASPECT_RATIO := 384.0 / 220.0
-const PREVIEW_HEIGHT := 384.0
+const CARD_ASPECT_RATIO := 340.0 / 220.0
+const PREVIEW_HEIGHT := 340.0
 const HOVER_DELAY := 0.35
 const FADE_SHADER_CODE := "
 shader_type canvas_item;

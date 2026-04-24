@@ -7,8 +7,8 @@ signal reroll_requested
 
 const CardDisplayComponentScript = preload("res://src/ui/components/CardDisplayComponent.gd")
 
-const CARD_SIZE := Vector2(286, 499)  # 30% larger than original 220x384
-const PREVIEW_SIZE := Vector2(429, 749)  # 50% larger than CARD_SIZE
+const CARD_SIZE := Vector2(286, 442)  # 30% larger than 220x340
+const PREVIEW_SIZE := Vector2(429, 663)  # 50% larger than CARD_SIZE
 const HOVER_DELAY := 0.5
 
 var _cards: Array = []
