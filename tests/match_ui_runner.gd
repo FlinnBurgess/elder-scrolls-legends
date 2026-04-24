@@ -827,9 +827,7 @@ func _expected_magicka_states(player: Dictionary) -> Array:
 	var raw_current = int(player.get("current_magicka", 0))
 	var raw_max = int(player.get("max_magicka", 0))
 	var raw_temp = int(player.get("temporary_magicka", 0))
-	var turns = int(player.get("turns_started", 0))
-	var bonus = maxi(0, raw_max - mini(turns, PlayerMagickaComponent.DEFAULT_SEGMENTS))
-	var segment_count = maxi(PlayerMagickaComponent.DEFAULT_SEGMENTS + bonus, maxi(raw_max, raw_current + raw_temp))
+	var segment_count = PlayerMagickaComponent.DEFAULT_SEGMENTS
 	var current = maxi(0, mini(segment_count, raw_current))
 	var max_magicka = maxi(0, mini(segment_count, raw_max))
 	var temporary = maxi(0, mini(segment_count - current, raw_temp))
@@ -1100,8 +1098,8 @@ func _test_spell_reveal_arrow_targets_player(screen: MatchScreen) -> bool:
 	var summon_state: Dictionary = screen._overlays._spell_reveal_state
 	if not _assert(not summon_state.is_empty(), "Summon reveal state should be populated after starting animation."):
 		return false
-	# Wait for card flip (0.4s) + interval (1.0s) + arrow draw (0.3s) + hold (0.3s) at ~60fps
-	await _await_frames(150)
+	# Wait real time for tween chain: card flip (0.4s) + interval (1.0s) + arrow draw (0.3s) + hold (0.3s)
+	await create_timer(2.5).timeout
 	var summon_final: Dictionary = screen._overlays._spell_reveal_state
 	if not _assert(summon_final.is_empty(), "Summon reveal state should be cleaned up after player-target arrow animation completes."):
 		return false
@@ -1117,7 +1115,7 @@ func _test_spell_reveal_arrow_targets_player(screen: MatchScreen) -> bool:
 	var spell_state: Dictionary = screen._overlays._spell_reveal_state
 	if not _assert(not spell_state.is_empty(), "Spell reveal state should be populated after starting animation."):
 		return false
-	await _await_frames(150)
+	await create_timer(2.5).timeout
 	var spell_final: Dictionary = screen._overlays._spell_reveal_state
 	return _assert(spell_final.is_empty(), "Spell reveal state should be cleaned up after player-target arrow animation completes.")
 

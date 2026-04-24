@@ -2870,7 +2870,7 @@ static func apply_hand_selection_effect(match_state: Dictionary, player_id: Stri
 			if not bool(das_summon.get("is_valid", false)):
 				return das_events
 			das_events.append_array(das_summon.get("events", []))
-			das_events.append({"event_type": EVENT_CREATURE_SUMMONED, "instance_id": str(das_card.get("instance_id", "")), "player_id": player_id, "lane_id": das_target_lane, "slot_index": int(das_summon.get("slot_index", -1)), "source_instance_id": source_instance_id, "power": int(das_card.get("power", 0)), "health": int(das_card.get("health", 0)), "card_name": str(das_card.get("name", "")), "reason": "discard_and_summon"})
+			das_events.append({"event_type": EVENT_CREATURE_SUMMONED, "instance_id": str(das_card.get("instance_id", "")), "player_id": player_id, "playing_player_id": player_id, "lane_id": das_target_lane, "slot_index": int(das_summon.get("slot_index", -1)), "source_instance_id": str(das_card.get("instance_id", "")), "source_controller_player_id": str(das_card.get("controller_player_id", player_id)), "power": int(das_card.get("power", 0)), "health": int(das_card.get("health", 0)), "card_name": str(das_card.get("name", "")), "reason": "discard_and_summon"})
 			if bool(das_summon.get("granted_cover", false)):
 				das_events.append({"event_type": "status_granted", "source_instance_id": str(das_card.get("instance_id", "")), "target_instance_id": str(das_card.get("instance_id", "")), "status_id": "cover"})
 			return das_events

@@ -57,7 +57,7 @@ static func create_standard_match(player_decks: Array, options: Dictionary = {})
 		"rng_seed": seed,
 		"rng_state": rng.state,
 		"players": players,
-		"lanes": _build_lanes(board_profile, players),
+		"lanes": _build_lanes(board_profile, players, options.get("lane_overrides", {})),
 		"mulligan": {
 			"pending_player_ids": [players[0]["player_id"], players[1]["player_id"]]
 		}
@@ -202,7 +202,7 @@ static func _build_shuffled_deck(player_id: String, deck_definition_ids: Array, 
 	return deck
 
 
-static func _build_lanes(board_profile: Dictionary, players: Array) -> Array:
+static func _build_lanes(board_profile: Dictionary, players: Array, lane_overrides: Dictionary = {}) -> Array:
 	var lanes: Array = []
 	var lane_entries: Array = board_profile.get("lanes", [])
 	var lane_type_lookup := _load_lane_type_lookup()
@@ -220,7 +220,10 @@ static func _build_lanes(board_profile: Dictionary, players: Array) -> Array:
 		var player_slots := {}
 		for player in players:
 			player_slots[player["player_id"]] = _build_empty_slots(slot_capacity)
-		var lane_record: Dictionary = lane_type_lookup.get(str(lane_entry.get("lane_type", lane_id)), {})
+		var lane_type_id: String = str(lane_entry.get("lane_type", lane_id))
+		if lane_overrides.has(lane_id):
+			lane_type_id = str(lane_overrides[lane_id])
+		var lane_record: Dictionary = lane_type_lookup.get(lane_type_id, {})
 		lanes.append({
 			"lane_id": lane_id,
 			"lane_type": lane_record.get("id", lane_id),

@@ -2,10 +2,10 @@
 
 ## Godot Headless Testing
 
-When running Godot in headless mode (e.g. `--headless --script tests/...`), **always** include `--log-file /tmp/godot.log`. Godot has a bug where `RotatedFileLogger::rotate_file()` segfaults in headless mode due to `user://` path resolution failing. Example:
+When running Godot in headless mode (e.g. `--headless --script tests/...`), **always** include `--log-file "$TMPDIR/godot.log"`. Godot has a bug where `RotatedFileLogger::rotate_file()` segfaults in headless mode when it can't open its log file (e.g. `user://` path resolution failing, or a sandbox blocking the write). Using `$TMPDIR` stays inside sandbox-writable paths; bare `/tmp/godot.log` is denied under Claude Code's sandbox and triggers the same segfault. Example:
 
 ```
-/Applications/Godot.app/Contents/MacOS/Godot --headless --log-file /tmp/godot.log --path /Users/flinnburgess/Development/Godot/ElderScrollsLegends --script tests/some_runner.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --log-file "$TMPDIR/godot.log" --path /Users/flinnburgess/Development/Godot/ElderScrollsLegends --script tests/some_runner.gd
 ```
 
 ## Glossary

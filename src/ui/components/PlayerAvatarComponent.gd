@@ -367,7 +367,7 @@ func _refresh_presentation() -> void:
 	var opponent := is_opponent()
 	var clear_fill := Color(0, 0, 0, 0)
 	_apply_panel_style(_medallion_outer, clear_fill, Color(0.52, 0.72, 0.95, 0.96) if not opponent else Color(0.88, 0.62, 0.42, 0.96), 3, _circular_panel_radius(_medallion_outer, 16))
-	_apply_panel_style(_medallion_inner, clear_fill, Color(0.74, 0.84, 0.98, 0.88) if not opponent else Color(0.98, 0.82, 0.58, 0.88), 1, _circular_panel_radius(_medallion_inner, 14))
+	_medallion_inner.visible = false
 	_apply_panel_style(_portrait_backdrop, Color(0.09, 0.11, 0.14, 1.0) if not opponent else Color(0.15, 0.1, 0.11, 1.0), clear_fill, 0, _circular_panel_radius(_portrait_backdrop, 14))
 
 

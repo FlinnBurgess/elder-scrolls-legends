@@ -134,6 +134,7 @@ func _run_all_tests() -> bool:
 		_test_consume_and_copy_veteran_fires_on_veteran_trigger() and
 		_test_strange_brew_transforms_hand_creature_with_cost_reduction() and
 		_test_optional_discard_and_summon_discards_and_summons_to_other_lane() and
+		_test_optional_discard_and_summon_does_not_re_trigger_source() and
 		_test_blind_moth_priest_glow_flag() and
 		_test_emperors_attendant_hand_selection_modify_stats() and
 		_test_sacrifice_and_absorb_stats_uses_remaining_health() and
@@ -5021,6 +5022,46 @@ func _test_optional_discard_and_summon_discards_and_summons_to_other_lane() -> b
 				return false
 			break
 	return _assert(found_trooper, "optional_discard_and_summon: Colovian Trooper should be summoned in shadow lane.")
+
+
+func _test_optional_discard_and_summon_does_not_re_trigger_source() -> bool:
+	# Regression: the creature_summoned event emitted for the summoned Colovian Trooper
+	# used to carry the Fortress Guard's instance_id as source_instance_id, so the
+	# Guard's own summon trigger re-fired on the Trooper's summon event and looped
+	# until the hand ran out.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var fodder_a := ScenarioFixtures.add_hand_card(player, "fodder_a", {"card_type": "action", "cost": 1})
+	var fodder_b := ScenarioFixtures.add_hand_card(player, "fodder_b", {"card_type": "action", "cost": 1})
+	var fodder_c := ScenarioFixtures.add_hand_card(player, "fodder_c", {"card_type": "action", "cost": 1})
+	var guard := ScenarioFixtures.summon_creature(player, match_state, "fortress_guard", "field", 3, 4, ["guard"], -1, {
+		"triggered_abilities": [{"family": "summon", "effects": [{"op": "optional_discard_and_summon", "discard_count": 1, "card_template": {"definition_id": "colovian_trooper", "name": "Colovian Trooper", "card_type": "creature", "subtypes": ["Imperial"], "attributes": ["willpower"], "cost": 2, "power": 2, "health": 2, "base_power": 2, "base_health": 2, "keywords": ["guard"], "rules_text": "Guard"}, "lane": "other"}]}],
+	})
+	if guard.is_empty():
+		return _assert(false, "Fortress Guard analog should summon.")
+	var resolve_result := MatchTiming.resolve_pending_hand_selection(match_state, pid, str(fodder_a.get("instance_id", "")))
+	if not _assert(bool(resolve_result.get("is_valid", false)), "no_re_trigger: resolve should be valid."):
+		return false
+	# No second pending hand selection should be queued — if Fortress Guard's trigger
+	# re-fired on the Trooper's summon, a new selection would appear.
+	if not _assert(not MatchTiming.has_pending_hand_selection(match_state, pid), "no_re_trigger: Fortress Guard should not re-trigger on Colovian Trooper summon."):
+		return false
+	# Exactly one Colovian Trooper should exist.
+	var trooper_count := 0
+	for lane in match_state.get("lanes", []):
+		for card in lane.get("player_slots", {}).get(pid, []):
+			if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == "colovian_trooper":
+				trooper_count += 1
+	if not _assert(trooper_count == 1, "no_re_trigger: should have exactly 1 Colovian Trooper, got %d." % trooper_count):
+		return false
+	# Exactly one fodder card should have been discarded.
+	var remaining_fodder := 0
+	for card in player.get("hand", []):
+		var def_id := str(card.get("definition_id", ""))
+		if def_id == "test_fodder_a" or def_id == "test_fodder_b" or def_id == "test_fodder_c":
+			remaining_fodder += 1
+	return _assert(remaining_fodder == 2, "no_re_trigger: only 1 fodder should be discarded, got %d remaining." % remaining_fodder)
 
 
 func _test_blind_moth_priest_glow_flag() -> bool:
