@@ -121,6 +121,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				card_display.cycle_relationship(direction)
 				get_viewport().set_input_as_handled()
 				return
+		if event.keycode == KEY_T and event.ctrl_pressed and event.shift_pressed:
+			_open_esl_template_adjuster()
+			get_viewport().set_input_as_handled()
+			return
 		if event.keycode == KEY_T and event.ctrl_pressed:
 			CardDisplayComponentClass.USE_ESL_TEMPLATE = not CardDisplayComponentClass.USE_ESL_TEMPLATE
 			for card_id in _card_display_by_id:
@@ -1190,6 +1194,20 @@ func _on_deck_row_mouse_exited() -> void:
 
 
 # --- Error Report Popover ---
+
+func _open_esl_template_adjuster() -> void:
+	var AdjusterClass = load("res://src/ui/esl_template_adjuster_screen.gd")
+	if AdjusterClass == null:
+		return
+	var adjuster: Control = AdjusterClass.new()
+	adjuster.dismissed.connect(func():
+		if is_instance_valid(adjuster):
+			adjuster.queue_free()
+		# Repaint visible cards so new overrides take effect immediately.
+		_render_current_page()
+	)
+	add_child(adjuster)
+
 
 func _open_error_report_popover() -> void:
 	if _error_report_popover != null:

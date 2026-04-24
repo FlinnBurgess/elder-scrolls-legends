@@ -77,34 +77,110 @@ const PIP_SPACING := 6.0
 const PIP_COLOR_ACTIVE := Color(0.95, 0.88, 0.6, 1.0)
 const PIP_COLOR_INACTIVE := Color(0.5, 0.48, 0.42, 0.7)
 
-# ESL template overlay prototype (Saiyan/tesl-card-generator). Mono-neutral only.
-const ESL_TEMPLATE_FRAME_PATHS := {
-	"neutral": "res://assets/images/card_templates/frame_mono_neutral.png",
+# ESL template overlay assets (Saiyan/tesl-card-generator). Attribute sets map
+# to frame keys via a sorted, comma-joined attribute tuple.
+const ESL_TEMPLATE_DIR := "res://assets/images/card_templates/"
+const ESL_FRAME_BY_ATTRIBUTES := {
+	# Mono
+	"neutral": "mono_neutral",
+	"strength": "mono_strength",
+	"intelligence": "mono_intelligence",
+	"willpower": "mono_willpower",
+	"agility": "mono_agility",
+	"endurance": "mono_endurance",
+	# Duo (alphabetical attribute order → class frame)
+	"agility,strength": "duo_archer",
+	"agility,intelligence": "duo_assassin",
+	"intelligence,strength": "duo_battlemage",
+	"strength,willpower": "duo_crusader",
+	"intelligence,willpower": "duo_mage",
+	"agility,willpower": "duo_monk",
+	"agility,endurance": "duo_scout",
+	"endurance,intelligence": "duo_sorcerer",
+	"endurance,willpower": "duo_spellsword",
+	"endurance,strength": "duo_warrior",
+	# Trio (base five + Houses of Morrowind)
+	"agility,intelligence,willpower": "trio_blue_yellow_green",      # Aldmeri Dominion
+	"endurance,intelligence,strength": "trio_red_blue_purple",       # Daggerfall Covenant
+	"agility,endurance,strength": "trio_red_green_purple",           # Ebonheart Pact
+	"agility,endurance,willpower": "trio_yellow_green_purple",       # Empire of Cyrodiil
+	"intelligence,strength,willpower": "trio_red_blue_yellow",       # Guildsworn
+	"endurance,strength,willpower": "trio_redoran",                  # House Redoran
+	"agility,endurance,intelligence": "trio_telvanni",               # House Telvanni
+	"agility,strength,willpower": "trio_hlaalu",                     # House Hlaalu
+	"endurance,intelligence,willpower": "trio_tribunal",             # Tribunal Temple
+	"agility,intelligence,strength": "trio_dagoth",                  # House Dagoth
 }
 const ESL_TEMPLATE_RARITY_PATHS := {
 	"common": "res://assets/images/card_templates/rarity_common.png",
 	"rare": "res://assets/images/card_templates/rarity_rare.png",
 	"epic": "res://assets/images/card_templates/rarity_epic.png",
 	"legendary": "res://assets/images/card_templates/rarity_legendary.png",
+	"legendary_duo": "res://assets/images/card_templates/rarity_legendary_duo.png",
+	"legendary_trio": "res://assets/images/card_templates/rarity_legendary_trio.png",
 }
 const ESL_TEMPLATE_PH_PATH := "res://assets/images/card_templates/power_health_bg.png"
 const ESL_TEMPLATE_SUPPORT_PATH := "res://assets/images/card_templates/support_bg.png"
 
 # Normalised coordinates on the 440x680 reference canvas.
-const ESL_ART_RECT_N := Rect2(60.0 / 440.0, 120.0 / 680.0, 320.0 / 440.0, 420.0 / 680.0)
-const ESL_COST_RECT_N := Rect2(25.0 / 440.0, 55.0 / 680.0, 80.0 / 440.0, 80.0 / 680.0)
-const ESL_TITLE_RECT_N := Rect2(70.0 / 440.0, 85.0 / 680.0, 300.0 / 440.0, 30.0 / 680.0)
-const ESL_TYPE_RECT_N := Rect2(95.0 / 440.0, 118.0 / 680.0, 250.0 / 440.0, 22.0 / 680.0)
-const ESL_POWER_RECT_N := Rect2(15.0 / 440.0, 385.0 / 680.0, 100.0 / 440.0, 60.0 / 680.0)
-const ESL_HEALTH_RECT_N := Rect2(325.0 / 440.0, 385.0 / 680.0, 100.0 / 440.0, 60.0 / 680.0)
-const ESL_RULES_RECT_N := Rect2(50.0 / 440.0, 540.0 / 680.0, 310.0 / 440.0, 120.0 / 680.0)
+static var ESL_ART_RECT_N := Rect2(60.0 / 440.0, 120.0 / 680.0, 320.0 / 440.0, 420.0 / 680.0)
+static var ESL_COST_RECT_N := Rect2(25.0 / 440.0, 51.0 / 680.0, 80.0 / 440.0, 80.0 / 680.0)
+static var ESL_TITLE_RECT_N := Rect2(100.0 / 440.0, 78.0 / 680.0, 252.0 / 440.0, 30.0 / 680.0)
+static var ESL_TYPE_RECT_N := Rect2(95.0 / 440.0, 111.0 / 680.0, 250.0 / 440.0, 22.0 / 680.0)
+static var ESL_POWER_RECT_N := Rect2(15.0 / 440.0, 359.0 / 680.0, 100.0 / 440.0, 60.0 / 680.0)
+static var ESL_HEALTH_RECT_N := Rect2(325.0 / 440.0, 362.0 / 680.0, 100.0 / 440.0, 60.0 / 680.0)
+static var ESL_RULES_RECT_N := Rect2(70.0 / 440.0, 493.0 / 680.0, 310.0 / 440.0, 120.0 / 680.0)
+static var ESL_ONGOING_RECT_N := Rect2(95.0 / 440.0, 470.0 / 680.0, 250.0 / 440.0, 22.0 / 680.0)
+
+const ESL_OVERRIDES_PATH := "res://data/esl_template_adjustments.json"
+static var _esl_overrides_loaded := false
+
+
+static func _rect_from_px_dict(d: Dictionary) -> Rect2:
+	return Rect2(
+		float(d.get("x", 0.0)) / 440.0,
+		float(d.get("y", 0.0)) / 680.0,
+		float(d.get("w", 0.0)) / 440.0,
+		float(d.get("h", 0.0)) / 680.0,
+	)
+
+
+static func load_esl_overrides() -> void:
+	_esl_overrides_loaded = true
+	if not FileAccess.file_exists(ESL_OVERRIDES_PATH):
+		return
+	var file := FileAccess.open(ESL_OVERRIDES_PATH, FileAccess.READ)
+	if file == null:
+		return
+	var txt := file.get_as_text()
+	file.close()
+	var parsed: Variant = JSON.parse_string(txt)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return
+	var data: Dictionary = parsed
+	if data.has("art"):
+		ESL_ART_RECT_N = _rect_from_px_dict(data["art"])
+	if data.has("cost"):
+		ESL_COST_RECT_N = _rect_from_px_dict(data["cost"])
+	if data.has("title"):
+		ESL_TITLE_RECT_N = _rect_from_px_dict(data["title"])
+	if data.has("type"):
+		ESL_TYPE_RECT_N = _rect_from_px_dict(data["type"])
+	if data.has("power"):
+		ESL_POWER_RECT_N = _rect_from_px_dict(data["power"])
+	if data.has("health"):
+		ESL_HEALTH_RECT_N = _rect_from_px_dict(data["health"])
+	if data.has("rules"):
+		ESL_RULES_RECT_N = _rect_from_px_dict(data["rules"])
+	if data.has("ongoing"):
+		ESL_ONGOING_RECT_N = _rect_from_px_dict(data["ongoing"])
 
 # The frame PNG has transparent padding around the visible card. These normalised
 # coords describe the visible card region inside the 440x680 canvas; the template
 # layers are oversized and offset so this region fills the component rect.
 const ESL_PNG_VISIBLE_N := Rect2(28.0 / 440.0, 55.0 / 680.0, 355.0 / 440.0, 568.0 / 680.0)
 
-static var USE_ESL_TEMPLATE := false
+static var USE_ESL_TEMPLATE := true
 
 var _card_data: Dictionary = {}
 var _presentation_mode := PRESENTATION_FULL
@@ -163,9 +239,12 @@ var _use_esl_template: bool = USE_ESL_TEMPLATE
 var _tpl_frame: TextureRect
 var _tpl_rarity: TextureRect
 var _tpl_ph: TextureRect
+var _tpl_label_strip: TextureRect
 
 
 func _ready() -> void:
+	if not _esl_overrides_loaded:
+		load_esl_overrides()
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	clip_contents = false
 	if custom_minimum_size == Vector2.ZERO:
@@ -202,24 +281,32 @@ func set_use_esl_template(enabled: bool) -> void:
 	_refresh_all()
 
 
-func _esl_template_attribute_key() -> String:
-	var attributes: Array = _card_data.get("attributes", [])
-	if attributes.size() == 1:
-		var key := str(attributes[0]).to_lower()
-		if ESL_TEMPLATE_FRAME_PATHS.has(key):
-			return key
-	return "neutral"
+func _esl_attribute_tuple_key(card: Dictionary) -> String:
+	var attributes: Array = card.get("attributes", [])
+	if attributes.is_empty():
+		return "neutral"
+	var keys: Array = []
+	for a in attributes:
+		var s := str(a).strip_edges().to_lower()
+		if s.is_empty() or s == "neutral":
+			continue
+		if not keys.has(s):
+			keys.append(s)
+	if keys.is_empty():
+		return "neutral"
+	keys.sort()
+	return ",".join(keys)
+
+
+func _esl_frame_key_for_card(card: Dictionary) -> String:
+	var tuple_key := _esl_attribute_tuple_key(card)
+	return ESL_FRAME_BY_ATTRIBUTES.get(tuple_key, "")
 
 
 func _esl_template_supported(card: Dictionary) -> bool:
 	if not _use_esl_template:
 		return false
-	var attributes: Array = card.get("attributes", [])
-	if attributes.size() > 1:
-		return false
-	if attributes.size() == 1 and str(attributes[0]).to_lower() != "neutral":
-		return false
-	return true
+	return _esl_frame_key_for_card(card) != ""
 
 
 func set_card(card: Dictionary) -> void:
@@ -468,6 +555,13 @@ func _build_internal_nodes() -> void:
 	_tpl_ph.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tpl_ph.visible = false
 	_content_root.add_child(_tpl_ph)
+	_tpl_label_strip = TextureRect.new()
+	_tpl_label_strip.name = "EslTplLabelStrip"
+	_tpl_label_strip.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_tpl_label_strip.stretch_mode = TextureRect.STRETCH_SCALE
+	_tpl_label_strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tpl_label_strip.visible = false
+	_content_root.add_child(_tpl_label_strip)
 
 	# Name banner added AFTER art so it renders on top as an overlay
 	_name_banner = PanelContainer.new()
@@ -636,6 +730,9 @@ func _build_internal_nodes() -> void:
 	_ongoing_badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_ongoing_badge.add_theme_font_size_override("font_size", 11)
 	_ongoing_badge.add_theme_color_override("font_color", Color(0.95, 0.88, 0.6, 1.0))
+	var bold_font_ongoing := SystemFont.new()
+	bold_font_ongoing.font_weight = 700
+	_ongoing_badge.add_theme_font_override("font", bold_font_ongoing)
 	_ongoing_badge.visible = false
 	_content_root.add_child(_ongoing_badge)
 
@@ -738,11 +835,20 @@ func _refresh_esl_template_textures() -> void:
 		_tpl_frame.visible = false
 		_tpl_rarity.visible = false
 		_tpl_ph.visible = false
+		if _tpl_label_strip != null:
+			_tpl_label_strip.visible = false
 		return
-	var frame_path: String = ESL_TEMPLATE_FRAME_PATHS[_esl_template_attribute_key()]
+	var frame_key: String = _esl_frame_key_for_card(_card_data)
+	var frame_path: String = ESL_TEMPLATE_DIR + "frame_" + frame_key + ".png"
 	_tpl_frame.texture = _load_texture_from_path(frame_path)
 	_tpl_frame.visible = _tpl_frame.texture != null
 	var rarity_key := _card_rarity_text(_card_data)
+	# Legendary has distinct overlays for duo/trio attribute counts.
+	if rarity_key == "legendary":
+		if frame_key.begins_with("duo_"):
+			rarity_key = "legendary_duo"
+		elif frame_key.begins_with("trio_"):
+			rarity_key = "legendary_trio"
 	var rarity_path: String = ESL_TEMPLATE_RARITY_PATHS.get(rarity_key, ESL_TEMPLATE_RARITY_PATHS["common"])
 	_tpl_rarity.texture = _load_texture_from_path(rarity_path)
 	_tpl_rarity.visible = _tpl_rarity.texture != null
@@ -751,6 +857,16 @@ func _refresh_esl_template_textures() -> void:
 	# Only show the ph/support overlay for cards that actually use it.
 	var show_ph := _is_creature(_card_data) or _is_ongoing_support(_card_data)
 	_tpl_ph.visible = show_ph and _tpl_ph.texture != null
+	# Creatures (oblivion gates) and actions (shouts) don't use the support_bg
+	# layer; overlay a dedicated label-strip copy so the bottom-of-art badge has
+	# its gold strip to sit on.
+	if _tpl_label_strip != null:
+		var needs_strip := not _label_strip_text(_card_data).is_empty() and not _is_ongoing_support(_card_data)
+		if needs_strip:
+			_tpl_label_strip.texture = _load_texture_from_path(ESL_TEMPLATE_SUPPORT_PATH)
+			_tpl_label_strip.visible = _tpl_label_strip.texture != null
+		else:
+			_tpl_label_strip.visible = false
 
 
 func _refresh_styles() -> void:
@@ -977,7 +1093,7 @@ func _layout_full_esl(inner_rect: Rect2) -> void:
 	var vn := ESL_PNG_VISIBLE_N
 	var tpl_size := Vector2(cw / vn.size.x, ch / vn.size.y)
 	var tpl_pos := Vector2(-vn.position.x * tpl_size.x, -vn.position.y * tpl_size.y)
-	for tr in [_tpl_frame, _tpl_rarity, _tpl_ph]:
+	for tr in [_tpl_frame, _tpl_rarity, _tpl_ph, _tpl_label_strip]:
 		if tr != null:
 			tr.position = tpl_pos
 			tr.size = tpl_size
@@ -1003,27 +1119,27 @@ func _layout_full_esl(inner_rect: Rect2) -> void:
 	_inner_frame.size = card_rect.size
 
 	var cost_rect: Rect2 = map_rect.call(ESL_COST_RECT_N)
-	_cost_label.position = cost_rect.position + Vector2(0.0, -5.0)
+	_cost_label.position = cost_rect.position
 	_cost_label.size = cost_rect.size
 
 	var title_rect: Rect2 = map_rect.call(ESL_TITLE_RECT_N)
-	_name_banner.position = title_rect.position + Vector2(0.0, -10.0)
+	_name_banner.position = title_rect.position
 	_name_banner.size = title_rect.size
 	var type_rect: Rect2 = map_rect.call(ESL_TYPE_RECT_N)
-	_subtype_banner.position = type_rect.position + Vector2(0.0, -9.0)
+	_subtype_banner.position = type_rect.position
 	_subtype_banner.size = type_rect.size
 
 	var power_rect: Rect2 = map_rect.call(ESL_POWER_RECT_N)
 	_attack_label.size = power_rect.size
-	_attack_label.position = power_rect.position + Vector2(0.0, -35.0)
+	_attack_label.position = power_rect.position
 	_attack_label.rotation_degrees = 0.0
 	var health_rect: Rect2 = map_rect.call(ESL_HEALTH_RECT_N)
 	_health_label.size = health_rect.size
-	_health_label.position = health_rect.position + Vector2(3.0, -32.0)
+	_health_label.position = health_rect.position
 	_health_label.rotation_degrees = 0.0
 
 	var rules_rect: Rect2 = map_rect.call(ESL_RULES_RECT_N)
-	_rules_panel.position = rules_rect.position + Vector2(23.0, -60.0)
+	_rules_panel.position = rules_rect.position
 	_rules_panel.size = rules_rect.size
 	_rules_panel.custom_minimum_size = Vector2.ZERO
 
@@ -1527,6 +1643,10 @@ func _rules_preview(card: Dictionary) -> String:
 	var rules_text := str(card.get("rules_text", "")).strip_edges()
 	if _is_ongoing_support(card) and rules_text.begins_with("Ongoing\n"):
 		rules_text = rules_text.substr("Ongoing\n".length()).strip_edges()
+	if int(card.get("shout_level", 0)) > 0:
+		var level_re := RegEx.new()
+		level_re.compile("Level \\d+:\\s*")
+		rules_text = level_re.sub(rules_text, "", true)
 	# Only extract keywords that appear as standalone entries at the start of the
 	# rules text (e.g. "Guard." or "Guard, Charge. Deal 2 damage."). Keywords
 	# embedded in sentences ("Give a creature Guard") must not be extracted.
@@ -1795,7 +1915,14 @@ func _apply_font_sizes(scale: float) -> void:
 		# Visible card is 568px of the 680px PNG canvas; scale from that baseline so
 		# font sizes stay in proportion to the rendered (not padded) card height.
 		var s := maxf(card_h / 568.0, 0.4)
-		_name_label.add_theme_font_size_override("font_size", maxi(1, int(round(22.0 * s))))
+		# Name font shrinks with title length so long titles don't intrude on the cost orb.
+		var name_len := _name_label.text.length()
+		var name_base := 22.0
+		if name_len >= 28:
+			name_base = 13.0
+		elif name_len >= 20:
+			name_base = 17.0
+		_name_label.add_theme_font_size_override("font_size", maxi(1, int(round(name_base * s))))
 		_subtype_label.add_theme_font_size_override("font_size", maxi(1, int(round(14.0 * s))))
 		_apply_rules_font_size(maxi(1, int(round(20.0 * s))))
 		_rarity_label.add_theme_font_size_override("font_size", maxi(1, int(round(9.0 * s))))
@@ -2031,6 +2158,10 @@ func _refresh_gate_level_badge() -> void:
 	if gate_level <= 0 or _presentation_mode != PRESENTATION_FULL:
 		_gate_level_badge.visible = false
 		return
+	if _esl_template_supported(_card_data):
+		# Template mode renders gate level via the unified label-strip badge.
+		_gate_level_badge.visible = false
+		return
 	_gate_level_badge.text = "Level: %d" % gate_level
 	_gate_level_badge.visible = true
 	var scale := _layout_scale(PRESENTATION_FULL)
@@ -2056,13 +2187,49 @@ func _refresh_gate_level_badge() -> void:
 	_gate_level_badge.add_theme_stylebox_override("normal", style)
 
 
+func _label_strip_text(card: Dictionary) -> String:
+	var gate_level := int(card.get("gate_level", 0))
+	if gate_level > 0:
+		return "Level %d" % gate_level
+	var shout_level := int(card.get("shout_level", 0))
+	if shout_level > 0:
+		return "Level %d" % shout_level
+	if _is_ongoing_support(card):
+		return "Ongoing"
+	return ""
+
+
 func _refresh_ongoing_badge() -> void:
 	if _ongoing_badge == null:
 		return
-	if _presentation_mode != PRESENTATION_FULL or not _is_ongoing_support(_card_data):
+	var badge_text := _label_strip_text(_card_data)
+	if _presentation_mode != PRESENTATION_FULL or badge_text.is_empty():
 		_ongoing_badge.visible = false
 		return
+	_ongoing_badge.text = badge_text
 	_ongoing_badge.visible = true
+	if _esl_template_supported(_card_data):
+		# Template frame has a built-in label strip at the bottom of the art; just
+		# place the text over it without our own pill stylebox.
+		_ongoing_badge.remove_theme_stylebox_override("normal")
+		_ongoing_badge.add_theme_color_override("font_color", Color.BLACK)
+		var card_size := size if size != Vector2.ZERO else custom_minimum_size
+		var cw := card_size.x
+		var ch := card_size.y
+		var vn := ESL_PNG_VISIBLE_N
+		var tpl_size := Vector2(cw / vn.size.x, ch / vn.size.y)
+		var tpl_pos := Vector2(-vn.position.x * tpl_size.x, -vn.position.y * tpl_size.y)
+		_ongoing_badge.position = tpl_pos + Vector2(
+			ESL_ONGOING_RECT_N.position.x * tpl_size.x,
+			ESL_ONGOING_RECT_N.position.y * tpl_size.y,
+		)
+		_ongoing_badge.size = Vector2(
+			ESL_ONGOING_RECT_N.size.x * tpl_size.x,
+			ESL_ONGOING_RECT_N.size.y * tpl_size.y,
+		)
+		var s := maxf(ch / 568.0, 0.4)
+		_ongoing_badge.add_theme_font_size_override("font_size", maxi(1, int(round(14.0 * s))))
+		return
 	var scale := _layout_scale(PRESENTATION_FULL)
 	var badge_w := _art_frame.size.x * 0.5
 	var badge_h := 18.0 * scale

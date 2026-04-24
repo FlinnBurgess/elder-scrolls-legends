@@ -18,6 +18,9 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	# This runner validates the procedural full-mode layout; disable the ESL
+	# template overlay so assertions about the procedural badges/frame apply.
+	CardDisplayComponent.USE_ESL_TEMPLATE = false
 	var component := CARD_DISPLAY_SCENE.instantiate() as CardDisplayComponent
 	if not _assert(component != null, "CardDisplayComponent scene should instantiate."):
 		quit(1)
