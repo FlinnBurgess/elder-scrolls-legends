@@ -72,7 +72,8 @@ static func _resolve_card_relationships(card: Dictionary, relationships: Array, 
 				continue
 			var level_text := str(level_template.get("rules_text", ""))
 			if not level_text.is_empty():
-				relationships.append({"type": "text", "text": level_text})
+				var level_num := int(level_template.get("shout_level", i + 1))
+				relationships.append({"type": "text", "text": level_text, "shout_level": level_num})
 
 
 static func _scan_effects_for_card_templates(effects: Array, relationships: Array, seen_card_ids: Dictionary) -> void:

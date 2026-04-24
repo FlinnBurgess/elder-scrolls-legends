@@ -130,7 +130,7 @@ static var ESL_TYPE_RECT_N := Rect2(95.0 / 440.0, 111.0 / 680.0, 250.0 / 440.0, 
 static var ESL_POWER_RECT_N := Rect2(15.0 / 440.0, 359.0 / 680.0, 100.0 / 440.0, 60.0 / 680.0)
 static var ESL_HEALTH_RECT_N := Rect2(325.0 / 440.0, 362.0 / 680.0, 100.0 / 440.0, 60.0 / 680.0)
 static var ESL_RULES_RECT_N := Rect2(70.0 / 440.0, 493.0 / 680.0, 310.0 / 440.0, 120.0 / 680.0)
-static var ESL_ONGOING_RECT_N := Rect2(95.0 / 440.0, 470.0 / 680.0, 250.0 / 440.0, 22.0 / 680.0)
+static var ESL_ONGOING_RECT_N := Rect2(95.0 / 440.0, 468.0 / 680.0, 250.0 / 440.0, 22.0 / 680.0)
 
 const ESL_OVERRIDES_PATH := "res://data/esl_template_adjustments.json"
 static var _esl_overrides_loaded := false
@@ -446,6 +446,8 @@ func _apply_relationship_view() -> void:
 			if not _original_card_data.is_empty():
 				_card_data = _original_card_data.duplicate(true)
 			_card_data["rules_text"] = str(rel.get("text", ""))
+			if rel.has("shout_level"):
+				_card_data["shout_level"] = int(rel["shout_level"])
 			# Clear triggered_abilities so _rules_preview doesn't extract keywords from them
 			_refresh_all()
 
@@ -1643,6 +1645,10 @@ func _rules_preview(card: Dictionary) -> String:
 	var rules_text := str(card.get("rules_text", "")).strip_edges()
 	if _is_ongoing_support(card) and rules_text.begins_with("Ongoing\n"):
 		rules_text = rules_text.substr("Ongoing\n".length()).strip_edges()
+	if str(card.get("card_type", "")) == "support" and int(card.get("support_uses", 0)) > 0:
+		var uses_re := RegEx.new()
+		uses_re.compile("^Uses: \\d+\\s*\\n?")
+		rules_text = uses_re.sub(rules_text, "", false).strip_edges()
 	if int(card.get("shout_level", 0)) > 0:
 		var level_re := RegEx.new()
 		level_re.compile("Level \\d+:\\s*")
@@ -2194,6 +2200,13 @@ func _label_strip_text(card: Dictionary) -> String:
 	var shout_level := int(card.get("shout_level", 0))
 	if shout_level > 0:
 		return "Level %d" % shout_level
+	if str(card.get("card_type", "")) == "support":
+		var remaining = card.get("remaining_support_uses", null)
+		if remaining != null:
+			return "Uses: %d" % int(remaining)
+		var uses_total := int(card.get("support_uses", 0))
+		if uses_total > 0:
+			return "Uses: %d" % uses_total
 	if _is_ongoing_support(card):
 		return "Ongoing"
 	return ""
@@ -2228,7 +2241,7 @@ func _refresh_ongoing_badge() -> void:
 			ESL_ONGOING_RECT_N.size.y * tpl_size.y,
 		)
 		var s := maxf(ch / 568.0, 0.4)
-		_ongoing_badge.add_theme_font_size_override("font_size", maxi(1, int(round(14.0 * s))))
+		_ongoing_badge.add_theme_font_size_override("font_size", maxi(1, int(round(18.0 * s))))
 		return
 	var scale := _layout_scale(PRESENTATION_FULL)
 	var badge_w := _art_frame.size.x * 0.5

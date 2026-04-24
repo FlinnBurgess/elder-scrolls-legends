@@ -43,9 +43,19 @@
 			"joo_str_agent_of_mehrunes_dagon",
 			"moe_neu_crocodile_brute"
 		],
-		"field_creatures": [],
+		"field_creatures": [
+			null,
+			null,
+			null,
+			"cwc_neu_abomination"
+		],
 		"hand": [
-			"hom_end_knight_of_gnisis"
+			"hos_wil_call_of_valor",
+			"hos_wil_call_of_valor",
+			"hos_wil_call_of_valor",
+			"joo_str_invasion_scout",
+			"joo_str_invasion_scout",
+			"joo_str_invasion_scout"
 		],
 		"has_ring": false,
 		"health": 30.0,
