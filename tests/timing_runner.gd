@@ -24,6 +24,9 @@ func _run_all_tests() -> bool:
 		_test_start_of_turn_triggers_resolve_in_slot_order() and
 		_test_on_play_summon_and_expertise_share_deterministic_order() and
 		_test_pilfer_and_veteran_trigger_from_damage_windows() and
+		_test_veteran_fires_on_face_attack() and
+		_test_veteran_fires_on_zero_power_blocker() and
+		_test_veteran_does_not_fire_when_attacker_dies() and
 		_test_slay_on_death_and_last_gasp_follow_death_window_order() and
 		_test_last_gasp_modify_stats_targets_all_instances_by_definition_id() and
 		_test_slay_fires_when_both_creatures_die() and
@@ -189,6 +192,77 @@ func _test_pilfer_and_veteran_trigger_from_damage_windows() -> bool:
 		_assert(veteran_result["is_valid"], "Veteran combat fixture should resolve.") and
 		_assert(_families_from_resolutions(veteran_result.get("trigger_resolutions", [])) == [MatchTiming.FAMILY_VETERAN], "Veteran should trigger when the creature attacks and survives.") and
 		_assert(veteran["health_bonus"] == 1, "Veteran effect should apply to the attacking creature that survived.")
+	)
+
+
+func _test_veteran_fires_on_face_attack() -> bool:
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var veteran := _summon_creature(active_player, match_state, "veteran_face", "field", 2, 5, [], 0, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_VETERAN,
+			"required_zone": "lane",
+			"effects": [{"op": "modify_stats", "target": "self", "power": 0, "health": 1}],
+		}]
+	})
+	_target_ready_for_attack(veteran, match_state)
+	var attack_result := MatchCombat.resolve_attack(match_state, active_player["player_id"], veteran["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	return (
+		_assert(attack_result["is_valid"], "Veteran face-attack fixture should resolve.") and
+		_assert(_families_from_resolutions(attack_result.get("trigger_resolutions", [])) == [MatchTiming.FAMILY_VETERAN], "Veteran should trigger when the creature attacks the opposing player and survives.") and
+		_assert(veteran["health_bonus"] == 1, "Veteran effect should apply after a successful face attack.")
+	)
+
+
+func _test_veteran_fires_on_zero_power_blocker() -> bool:
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var veteran := _summon_creature(active_player, match_state, "veteran_zero", "field", 2, 5, [], 0, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_VETERAN,
+			"required_zone": "lane",
+			"effects": [{"op": "modify_stats", "target": "self", "power": 0, "health": 1}],
+		}]
+	})
+	var blocker := _summon_creature(opponent, match_state, "zero_power_blocker", "field", 0, 3, [], 0)
+	_target_ready_for_attack(veteran, match_state)
+	var attack_result := MatchCombat.resolve_attack(match_state, active_player["player_id"], veteran["instance_id"], {
+		"type": "creature",
+		"instance_id": blocker["instance_id"],
+	})
+	return (
+		_assert(attack_result["is_valid"], "Veteran zero-power-blocker fixture should resolve.") and
+		_assert(_families_from_resolutions(attack_result.get("trigger_resolutions", [])) == [MatchTiming.FAMILY_VETERAN], "Veteran should trigger even when the blocker deals no retaliation damage.") and
+		_assert(veteran["health_bonus"] == 1, "Veteran effect should apply after attacking a zero-power blocker.")
+	)
+
+
+func _test_veteran_does_not_fire_when_attacker_dies() -> bool:
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var veteran := _summon_creature(active_player, match_state, "veteran_dies", "field", 2, 1, [], 0, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_VETERAN,
+			"required_zone": "lane",
+			"effects": [{"op": "modify_stats", "target": "self", "power": 0, "health": 1}],
+		}]
+	})
+	var blocker := _summon_creature(opponent, match_state, "lethal_blocker", "field", 5, 5, [], 0)
+	_target_ready_for_attack(veteran, match_state)
+	var attack_result := MatchCombat.resolve_attack(match_state, active_player["player_id"], veteran["instance_id"], {
+		"type": "creature",
+		"instance_id": blocker["instance_id"],
+	})
+	return (
+		_assert(attack_result["is_valid"], "Veteran death fixture should resolve.") and
+		_assert(_families_from_resolutions(attack_result.get("trigger_resolutions", [])) == [], "Veteran should not trigger if the attacker dies on its first attack.") and
+		_assert(veteran["health_bonus"] == 0, "Veteran effect should not apply if the attacker died.")
 	)
 
 

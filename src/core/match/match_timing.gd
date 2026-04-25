@@ -151,7 +151,7 @@ const FAMILY_SPECS := {
 	FAMILY_LAST_GASP: {"event_type": EVENT_CREATURE_DESTROYED, "window": WINDOW_AFTER, "match_role": "subject"},
 	FAMILY_SLAY: {"event_type": EVENT_CREATURE_DESTROYED, "window": WINDOW_AFTER, "match_role": "killer"},
 	FAMILY_PILFER: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "source", "target_type": "player", "min_amount": 1},
-	FAMILY_VETERAN: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "target", "damage_kind": "combat", "require_retaliation": true, "require_survived": true},
+	FAMILY_VETERAN: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "source", "damage_kind": "combat", "exclude_retaliation": true, "exclude_battle": true, "require_survived": true},
 	FAMILY_EXPERTISE: {"event_type": EVENT_TURN_ENDING, "window": WINDOW_AFTER, "match_role": "controller"},
 	FAMILY_PLOT: {"event_type": EVENT_TURN_ENDING, "window": WINDOW_AFTER, "match_role": "controller"},
 	FAMILY_RUNE_BREAK: {"event_type": EVENT_RUNE_BROKEN, "window": WINDOW_INTERRUPT, "match_role": "controller"},

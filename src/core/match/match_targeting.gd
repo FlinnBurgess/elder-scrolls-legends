@@ -107,6 +107,15 @@ static func get_valid_targets_for_mode(match_state: Dictionary, source_instance_
 				for card in player.get("support", []):
 					if typeof(card) == TYPE_DICTIONARY:
 						targets.append(card)
+		"creature_player_or_enemy_support":
+			targets = MatchTimingHelpers._all_lane_creatures(match_state)
+			targets.append({"player_id": opponent_id})
+			for player in match_state.get("players", []):
+				if typeof(player) != TYPE_DICTIONARY or str(player.get("player_id", "")) != opponent_id:
+					continue
+				for card in player.get("support", []):
+					if typeof(card) == TYPE_DICTIONARY:
+						targets.append(card)
 		"enemy_creature_or_support":
 			targets = MatchTimingHelpers._player_lane_creatures(match_state, opponent_id)
 			for player in match_state.get("players", []):
@@ -444,6 +453,24 @@ static func _resolve_card_targets(match_state: Dictionary, trigger: Dictionary, 
 			if EvergreenRules.has_status(card, EvergreenRules.STATUS_WOUNDED):
 				filtered.append(card)
 		targets = filtered
+	var filter_relationship := str(effect.get("target_filter_relationship", ""))
+	if filter_relationship == "friendly" or filter_relationship == "enemy":
+		var filtered: Array = []
+		var rel_controller := str(trigger.get("controller_player_id", ""))
+		for card in targets:
+			var card_controller := str(card.get("controller_player_id", ""))
+			if filter_relationship == "friendly" and card_controller == rel_controller:
+				filtered.append(card)
+			elif filter_relationship == "enemy" and card_controller != rel_controller and not card_controller.is_empty():
+				filtered.append(card)
+		targets = filtered
+	var filter_card_type := str(effect.get("target_filter_card_type", ""))
+	if not filter_card_type.is_empty():
+		var filtered: Array = []
+		for card in targets:
+			if str(card.get("card_type", "")) == filter_card_type:
+				filtered.append(card)
+		targets = filtered
 	# For random_* targets with filters: pick one random from the filtered set
 	if _rct_is_random and targets.size() > 1:
 		var _rct_ctx := "%s|%s|filtered_random" % [str(trigger.get("source_instance_id", "")), target]
@@ -458,6 +485,8 @@ static func _effect_has_target_filters(effect: Dictionary) -> bool:
 		or not str(effect.get("target_filter_attribute", "")).is_empty()
 		or int(effect.get("target_filter_max_power", -1)) >= 0
 		or bool(effect.get("target_filter_wounded", false))
+		or not str(effect.get("target_filter_relationship", "")).is_empty()
+		or not str(effect.get("target_filter_card_type", "")).is_empty()
 		or (typeof(effect.get("target_filter_subtypes", [])) == TYPE_ARRAY and not effect.get("target_filter_subtypes", []).is_empty()))
 
 

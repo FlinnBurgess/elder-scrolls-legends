@@ -171,7 +171,12 @@ func _run_all_tests() -> bool:
 		_test_set_power_to_health_preserves_existing_buffs() and
 		_test_shivering_apothecary_summons_random_elixir_to_support_zone() and
 		_test_shivering_apothecary_skips_when_support_zone_full() and
-		_test_next_card_cost_reduction_cleared_on_turn_end()
+		_test_next_card_cost_reduction_cleared_on_turn_end() and
+		_test_skywatch_vindicator_single_target_phase_damages_enemy() and
+		_test_skywatch_vindicator_single_target_phase_buffs_friendly() and
+		_test_dushnikh_yal_archer_damages_chosen_creature() and
+		_test_dushnikh_yal_archer_damages_chosen_player_face() and
+		_test_dushnikh_yal_archer_destroys_chosen_enemy_support()
 	)
 
 
@@ -6555,3 +6560,133 @@ func _test_next_card_cost_reduction_cleared_on_turn_end() -> bool:
 	player["next_card_cost_reduction"] = 6
 	MatchTurnLoop.end_turn(match_state, pid)
 	return _assert(int(player.get("next_card_cost_reduction", 0)) == 0, "next_card_cost_reduction should be cleared after the granting player's turn ends.")
+
+
+const _SKYWATCH_ABILITIES := [{
+	"family": "summon",
+	"target_mode": "any_creature",
+	"effects": [
+		{"op": "deal_damage", "target": "chosen_target", "target_filter_relationship": "enemy", "amount": 2},
+		{"op": "modify_stats", "target": "chosen_target", "target_filter_relationship": "friendly", "power": 2, "health": 2},
+	],
+}]
+
+
+func _test_skywatch_vindicator_single_target_phase_damages_enemy() -> bool:
+	# Skywatch Vindicator should expose ONE summon target_mode ability (any_creature).
+	# When the chosen target is an enemy, deal 2 damage; the +2/+2 effect must not apply.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var enemy := ScenarioFixtures.summon_creature(opponent, match_state, "enemy_target", "field", 3, 5)
+	var friendly := ScenarioFixtures.summon_creature(player, match_state, "friendly_target", "field", 2, 2)
+	var skywatch := ScenarioFixtures.summon_creature(player, match_state, "skywatch_e", "field", 4, 4, [], -1, {
+		"triggered_abilities": _SKYWATCH_ABILITIES.duplicate(true),
+	})
+	var skywatch_id := str(skywatch.get("instance_id", ""))
+	var abilities := MatchTargeting.get_target_mode_abilities(skywatch)
+	if not _assert(abilities.size() == 1, "Skywatch Vindicator should expose exactly one target_mode ability, got %d." % abilities.size()):
+		return false
+	var resolve := MatchTiming.resolve_targeted_effect(match_state, skywatch_id, {"target_instance_id": str(enemy.get("instance_id", ""))})
+	if not _assert(bool(resolve.get("is_valid", false)), "Resolving with an enemy target should succeed."):
+		return false
+	return (
+		_assert(EvergreenRules.get_remaining_health(enemy) == 3, "Enemy should take 2 damage (5 -> 3), got %d." % EvergreenRules.get_remaining_health(enemy)) and
+		_assert(EvergreenRules.get_power(friendly) == 2 and EvergreenRules.get_health(friendly) == 2, "Friendly should NOT be buffed when an enemy is chosen.")
+	)
+
+
+func _test_skywatch_vindicator_single_target_phase_buffs_friendly() -> bool:
+	# When the chosen target is a friendly creature, give +2/+2; the damage effect must not apply.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var enemy := ScenarioFixtures.summon_creature(opponent, match_state, "enemy_unbuffed", "field", 3, 5)
+	var friendly := ScenarioFixtures.summon_creature(player, match_state, "friendly_buffee", "field", 2, 2)
+	var skywatch := ScenarioFixtures.summon_creature(player, match_state, "skywatch_f", "field", 4, 4, [], -1, {
+		"triggered_abilities": _SKYWATCH_ABILITIES.duplicate(true),
+	})
+	var skywatch_id := str(skywatch.get("instance_id", ""))
+	var resolve := MatchTiming.resolve_targeted_effect(match_state, skywatch_id, {"target_instance_id": str(friendly.get("instance_id", ""))})
+	if not _assert(bool(resolve.get("is_valid", false)), "Resolving with a friendly target should succeed."):
+		return false
+	return (
+		_assert(EvergreenRules.get_power(friendly) == 4 and EvergreenRules.get_health(friendly) == 4, "Friendly should gain +2/+2 (2/2 -> 4/4), got %d/%d." % [EvergreenRules.get_power(friendly), EvergreenRules.get_health(friendly)]) and
+		_assert(EvergreenRules.get_remaining_health(enemy) == 5, "Enemy should NOT take damage when a friendly is chosen, got %d." % EvergreenRules.get_remaining_health(enemy))
+	)
+
+
+const _DUSHNIKH_YAL_ABILITIES := [{
+	"family": "summon",
+	"target_mode": "creature_player_or_enemy_support",
+	"effects": [
+		{"op": "deal_damage", "target": "chosen_target", "target_filter_card_type": "creature", "amount": 1},
+		{"op": "destroy_creature", "target": "chosen_target", "target_filter_card_type": "support"},
+	],
+}]
+
+
+func _test_dushnikh_yal_archer_damages_chosen_creature() -> bool:
+	# Single targeting phase. Picking a creature deals 1 damage; the destroy effect
+	# must not apply.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var oid := str(opponent.get("player_id", ""))
+	var enemy := ScenarioFixtures.summon_creature(opponent, match_state, "enemy_target", "field", 2, 3)
+	var enemy_support := ScenarioFixtures.make_card(oid, "untouched_supp", {"card_type": "support", "definition_id": "test_supp", "support_uses": 3, "remaining_support_uses": 3})
+	enemy_support["zone"] = "support"
+	opponent["support"].append(enemy_support)
+	var dushnikh := ScenarioFixtures.summon_creature(player, match_state, "dushnikh_dmg", "field", 3, 3, [], -1, {
+		"triggered_abilities": _DUSHNIKH_YAL_ABILITIES.duplicate(true),
+	})
+	var dushnikh_id := str(dushnikh.get("instance_id", ""))
+	var abilities := MatchTargeting.get_target_mode_abilities(dushnikh)
+	if not _assert(abilities.size() == 1, "Dushnikh Yal should expose exactly one target_mode ability, got %d." % abilities.size()):
+		return false
+	var resolve := MatchTiming.resolve_targeted_effect(match_state, dushnikh_id, {"target_instance_id": str(enemy.get("instance_id", ""))})
+	if not _assert(bool(resolve.get("is_valid", false)), "Resolving with a creature target should succeed."):
+		return false
+	return (
+		_assert(EvergreenRules.get_remaining_health(enemy) == 2, "Enemy creature should take 1 damage (3 -> 2), got %d." % EvergreenRules.get_remaining_health(enemy)) and
+		_assert(opponent.get("support", []).size() == 1, "Enemy support should not be destroyed when a creature is chosen.")
+	)
+
+
+func _test_dushnikh_yal_archer_damages_chosen_player_face() -> bool:
+	# Picking the opponent's face deals 1 damage to that player; the destroy effect
+	# must not apply.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var oid := str(opponent.get("player_id", ""))
+	var hp_before := int(opponent.get("health", 30))
+	var dushnikh := ScenarioFixtures.summon_creature(player, match_state, "dushnikh_face", "field", 3, 3, [], -1, {
+		"triggered_abilities": _DUSHNIKH_YAL_ABILITIES.duplicate(true),
+	})
+	var resolve := MatchTiming.resolve_targeted_effect(match_state, str(dushnikh.get("instance_id", "")), {"target_player_id": oid})
+	if not _assert(bool(resolve.get("is_valid", false)), "Resolving with the opponent face should succeed."):
+		return false
+	return _assert(int(opponent.get("health", 0)) == hp_before - 1, "Opponent should take 1 damage (%d -> %d), got %d." % [hp_before, hp_before - 1, int(opponent.get("health", 0))])
+
+
+func _test_dushnikh_yal_archer_destroys_chosen_enemy_support() -> bool:
+	# Picking an enemy support destroys it; the damage effect must not apply.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var oid := str(opponent.get("player_id", ""))
+	var hp_before := int(opponent.get("health", 30))
+	var enemy_support := ScenarioFixtures.make_card(oid, "enemy_supp", {"card_type": "support", "definition_id": "test_supp", "support_uses": 3, "remaining_support_uses": 3})
+	enemy_support["zone"] = "support"
+	opponent["support"].append(enemy_support)
+	var dushnikh := ScenarioFixtures.summon_creature(player, match_state, "dushnikh_destroy", "field", 3, 3, [], -1, {
+		"triggered_abilities": _DUSHNIKH_YAL_ABILITIES.duplicate(true),
+	})
+	var resolve := MatchTiming.resolve_targeted_effect(match_state, str(dushnikh.get("instance_id", "")), {"target_instance_id": str(enemy_support.get("instance_id", ""))})
+	if not _assert(bool(resolve.get("is_valid", false)), "Resolving with an enemy support target should succeed."):
+		return false
+	return (
+		_assert(opponent.get("support", []).is_empty(), "Enemy support zone should be empty after destruction.") and
+		_assert(int(opponent.get("health", 0)) == hp_before, "Opponent face should not take damage when a support is chosen.")
+	)
