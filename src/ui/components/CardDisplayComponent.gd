@@ -225,6 +225,9 @@ var _double_b_attack_badge: TextureRect
 var _double_b_attack_label: Label
 var _double_b_health_badge: TextureRect
 var _double_b_health_label: Label
+var _double_b_art_frame: PanelContainer
+var _double_b_art_clip: Control
+var _double_b_art_texture: TextureRect
 var _double_divider: ColorRect
 var _attack_badge: TextureRect
 var _attack_label: Label
@@ -509,6 +512,26 @@ func _build_internal_nodes() -> void:
 	_art_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_art_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_art_clip.add_child(_art_texture)
+
+	# Second art frame for double-card half-B (only positioned/visible when
+	# rendering a double; default hidden). Mirrors _art_frame / _art_clip / _art_texture.
+	_double_b_art_frame = PanelContainer.new()
+	_double_b_art_frame.name = "DoubleBArtFrame"
+	_double_b_art_frame.clip_contents = true
+	_double_b_art_frame.visible = false
+	_content_root.add_child(_double_b_art_frame)
+	_double_b_art_clip = Control.new()
+	_double_b_art_clip.name = "DoubleBArtClip"
+	_double_b_art_clip.clip_contents = true
+	_double_b_art_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_double_b_art_clip.visible = false
+	_content_root.add_child(_double_b_art_clip)
+	_double_b_art_texture = TextureRect.new()
+	_double_b_art_texture.name = "DoubleBArtTexture"
+	_double_b_art_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_double_b_art_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_double_b_art_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_double_b_art_clip.add_child(_double_b_art_texture)
 
 	# Ward overlay sits above artwork but below banners and badges
 	_ward_overlay = ColorRect.new()
@@ -980,6 +1003,16 @@ func _refresh_styles() -> void:
 	_apply_panel_style(_subtype_banner, Color(0.0, 0.0, 0.0, 0.95), art_border_color, 1, 0)
 	# Art frame – the main card image area
 	_apply_panel_style(_art_frame, _art_fill(_presentation_mode), accent.lerp(Color(0.78, 0.64, 0.4, 1.0), 0.42), _scaled_border_width(2 if _presentation_mode == PRESENTATION_FULL else 1, scale), 0)
+	# Mirror styling for double-card half-B nodes
+	if _double_b_name_banner != null:
+		_apply_panel_style(_double_b_name_banner, Color(0.0, 0.0, 0.0, 0.95), art_border_color, 0, 0)
+		var dnb_style := _double_b_name_banner.get_theme_stylebox("panel") as StyleBoxFlat
+		if dnb_style:
+			dnb_style.border_width_bottom = _scaled_border_width(2, scale)
+	if _double_b_subtype_banner != null:
+		_apply_panel_style(_double_b_subtype_banner, Color(0.0, 0.0, 0.0, 0.95), art_border_color, 1, 0)
+	if _double_b_art_frame != null:
+		_apply_panel_style(_double_b_art_frame, _art_fill(_presentation_mode), accent.lerp(Color(0.78, 0.64, 0.4, 1.0), 0.42), _scaled_border_width(2 if _presentation_mode == PRESENTATION_FULL else 1, scale), 0)
 	# Rules panel – transparent so text renders over the inner frame background
 	_apply_panel_style(_rules_panel, Color.TRANSPARENT, Color.TRANSPARENT, 0, 0)
 	# Rarity gem – small diamond, filled with rarity color
@@ -1279,11 +1312,12 @@ func _layout_full_esl(inner_rect: Rect2) -> void:
 
 
 # Position double-card overlays inside the ESL template card. Hide them when the
-# current card isn't a double. Layout strategy: the existing half-A elements use
-# the standard ESL rects (cost/title/subtype at top, power/health in mid-card),
-# but for doubles we re-position them within the TOP HALF of the art region and
-# add half-B mirrored elements within the BOTTOM HALF. The rules panel is hidden
-# (doubles have no rules text — the space is needed for the second half).
+# current card isn't a double. Layout strategy: render TWO mini full-card
+# layouts stacked vertically. Half-A uses the existing nodes (cost circle baked
+# into frame PNG aligns with cost-A); half-B uses the _double_b_* nodes. The
+# rules panel is hidden — doubles have no rules text, the space is used for
+# half-B's content. Card art comes from each half's own image (top half cropped
+# via AtlasTexture), not the composite.
 func _layout_full_esl_double_overlays(map_rect: Callable) -> void:
 	var is_double_card := str(_card_data.get("card_type", "")) == "double"
 	if not is_double_card:
@@ -1296,11 +1330,20 @@ func _layout_full_esl_double_overlays(map_rect: Callable) -> void:
 		_double_b_attack_label.visible = false
 		_double_b_health_badge.visible = false
 		_double_b_health_label.visible = false
+		_double_b_art_frame.visible = false
+		_double_b_art_clip.visible = false
+		_double_b_art_texture.visible = false
 		_cost_badge.visible = true
 		return
-	# Hide the rules panel — doubles render no rules text; the space is reused.
+
+	# Hide the rules panel and the ESL template's power/health backing overlay
+	# (which is sized for a single full-card stat region, not per-half stats).
 	_rules_panel.position = Vector2(-1000.0, -1000.0)
 	_rules_panel.size = Vector2.ZERO
+	if _tpl_ph != null:
+		_tpl_ph.visible = false
+	if _tpl_label_strip != null:
+		_tpl_label_strip.visible = false
 
 	var halves: Array = _card_data.get("half_card_ids", [])
 	if halves.size() < 2:
@@ -1308,78 +1351,124 @@ func _layout_full_esl_double_overlays(map_rect: Callable) -> void:
 	var seed_a := _resolve_double_half_seed(str(halves[0]))
 	var seed_b := _resolve_double_half_seed(str(halves[1]))
 
-	# Compute "half-shifted" normalised rects: same x/w, but y shifted down by
-	# half the art height to land in the bottom half of the art region.
-	var half_offset_n_y := ESL_ART_RECT_N.size.y * 0.5
-	var shift_n := func(n: Rect2) -> Rect2:
-		return Rect2(n.position.x, n.position.y + half_offset_n_y, n.size.x, n.size.y)
+	# Resolve standard rects (already in card-space coordinates).
+	var art_full: Rect2 = map_rect.call(ESL_ART_RECT_N)
+	var pw_full: Rect2 = map_rect.call(ESL_POWER_RECT_N)
+	var hp_full: Rect2 = map_rect.call(ESL_HEALTH_RECT_N)
+	var title_full: Rect2 = map_rect.call(ESL_TITLE_RECT_N)
+	var type_full: Rect2 = map_rect.call(ESL_TYPE_RECT_N)
+	var cost_full: Rect2 = map_rect.call(ESL_COST_RECT_N)
 
-	# Half-A elements use the standard ESL rects (already positioned above).
-	# Half-B elements use the shifted versions.
-	var cost_b_rect: Rect2 = map_rect.call(shift_n.call(ESL_COST_RECT_N))
-	_double_b_cost_label.size = cost_b_rect.size
-	_double_b_cost_label.position = cost_b_rect.position
-	# Render the magicka-icon texture explicitly behind the half-B cost label.
-	# (The ESL frame PNG only ships ONE cost circle, drawn at the top-left for
-	# half-A; half-B needs its own circle rendered as a separate TextureRect.)
-	_double_b_cost_badge.size = cost_b_rect.size
-	_double_b_cost_badge.position = cost_b_rect.position
-	_double_b_cost_label.visible = true
+	var card_h: float = size.y if size.y > 0 else custom_minimum_size.y
+	var divider_y := card_h * 0.5
+	# Half-A art occupies from the standard art top to just above the divider,
+	# leaving a thin gap so half-B's title banner can sit above its art.
+	var half_a_art_rect := Rect2(art_full.position.x, art_full.position.y, art_full.size.x, divider_y - art_full.position.y - 2.0)
+	# Half-B art mirrors half-A's pattern, anchored at the divider and ending
+	# near the bottom of the card with a small bottom margin for the rarity gem.
+	var bottom_margin := card_h * 0.05
+	var half_b_art_top := divider_y + 2.0
+	var half_b_art_rect := Rect2(art_full.position.x, half_b_art_top, art_full.size.x, card_h - half_b_art_top - bottom_margin)
+
+	# Half-A art: keep standard art frame at compressed rect.
+	_art_frame.position = half_a_art_rect.position
+	_art_frame.size = half_a_art_rect.size
+	_art_clip.position = half_a_art_rect.position
+	_art_clip.size = half_a_art_rect.size
+	_art_texture.position = Vector2.ZERO
+	_art_texture.size = half_a_art_rect.size
+
+	# Half-B art: place the second art frame in the bottom half region.
+	_double_b_art_frame.position = half_b_art_rect.position
+	_double_b_art_frame.size = half_b_art_rect.size
+	_double_b_art_frame.visible = true
+	_double_b_art_clip.position = half_b_art_rect.position
+	_double_b_art_clip.size = half_b_art_rect.size
+	_double_b_art_clip.visible = true
+	_double_b_art_texture.position = Vector2.ZERO
+	_double_b_art_texture.size = half_b_art_rect.size
+	_double_b_art_texture.visible = true
+
+	# Half-A cost / title / subtype: stay at standard ESL positions (frame PNG
+	# has cost circle baked in at top-left, aligning with cost-A naturally).
+	# Already positioned by _layout_full_esl above this call.
+
+	# Half-B cost circle: rendered as an explicit magicka-icon TextureRect sized
+	# to match cost-A but positioned overlapping the divider on the left.
+	_double_b_cost_badge.size = cost_full.size
+	_double_b_cost_badge.position = Vector2(cost_full.position.x, divider_y - cost_full.size.y * 0.5)
+	_double_b_cost_label.size = cost_full.size
+	_double_b_cost_label.position = _double_b_cost_badge.position
+	_double_b_cost_label.add_theme_font_size_override("font_size", _cost_label.get_theme_font_size("font_size"))
 	_double_b_cost_badge.visible = true
+	_double_b_cost_label.visible = true
 
-	var title_b_rect: Rect2 = map_rect.call(shift_n.call(ESL_TITLE_RECT_N))
-	_double_b_name_banner.position = title_b_rect.position
-	_double_b_name_banner.size = title_b_rect.size
+	# Half-B title banner: anchored just above half-B art top (so it overlaps
+	# the top of half-B art the same way half-A title overlaps half-A art).
+	var title_offset_in_art_a := title_full.position.y - art_full.position.y  # negative — title above art top
+	_double_b_name_banner.position = Vector2(title_full.position.x, half_b_art_top + title_offset_in_art_a)
+	_double_b_name_banner.size = title_full.size
 	_double_b_name_banner.visible = true
+	_double_b_name_label.add_theme_font_size_override("font_size", _name_label.get_theme_font_size("font_size"))
 
-	var type_b_rect: Rect2 = map_rect.call(shift_n.call(ESL_TYPE_RECT_N))
-	_double_b_subtype_banner.position = type_b_rect.position
-	_double_b_subtype_banner.size = type_b_rect.size
+	# Half-B subtype banner: just under the name banner.
+	var type_offset_in_art_a := type_full.position.y - art_full.position.y
+	_double_b_subtype_banner.position = Vector2(type_full.position.x, half_b_art_top + type_offset_in_art_a)
+	_double_b_subtype_banner.size = type_full.size
 	_double_b_subtype_banner.visible = true
-
-	# Power/health for each half — only when that half is a creature. Position
-	# inside its respective half art region (≈ 60% down within the half).
-	var art_rect_full: Rect2 = map_rect.call(ESL_ART_RECT_N)
-	var half_h := art_rect_full.size.y * 0.5
-	var half_a_top := art_rect_full.position.y
-	var half_b_top := half_a_top + half_h
-	var pw_size: Vector2 = map_rect.call(ESL_POWER_RECT_N).size
-	var hp_size: Vector2 = map_rect.call(ESL_HEALTH_RECT_N).size
-	var pw_x: float = map_rect.call(ESL_POWER_RECT_N).position.x
-	var hp_x: float = map_rect.call(ESL_HEALTH_RECT_N).position.x
+	_double_b_subtype_label.add_theme_font_size_override("font_size", _subtype_label.get_theme_font_size("font_size"))
 
 	var seed_a_is_creature := str(seed_a.get("card_type", "")) == "creature"
 	var seed_b_is_creature := str(seed_b.get("card_type", "")) == "creature"
 
-	# Half-A power/health: vertically centered within the lower portion of half-A.
+	# Power/health badges sit roughly 60% down inside each half art region.
+	# Use the standard power/health rect sizes; reposition them per-half.
+	var pw_size := pw_full.size
+	var hp_size := hp_full.size
+	var pw_x := pw_full.position.x
+	var hp_x := hp_full.position.x
+
 	if seed_a_is_creature:
-		var a_y := half_a_top + half_h * 0.55 - pw_size.y * 0.5
+		var a_y := half_a_art_rect.position.y + half_a_art_rect.size.y * 0.6 - pw_size.y * 0.5
 		_attack_label.position = Vector2(pw_x, a_y)
 		_attack_label.size = pw_size
 		_health_label.position = Vector2(hp_x, a_y)
 		_health_label.size = hp_size
+		# Render attack-icon and defense-icon textures behind half-A's labels
+		# so the diamond/shield badges show even though we're not at the ESL
+		# template's standard power/health position.
+		_attack_badge.size = pw_size
+		_attack_badge.position = Vector2(pw_x, a_y)
+		_health_badge.size = hp_size
+		_health_badge.position = Vector2(hp_x, a_y)
+		_attack_badge.visible = true
+		_health_badge.visible = true
 	else:
 		_attack_label.position = Vector2(-1000.0, -1000.0)
 		_attack_label.size = Vector2.ZERO
 		_health_label.position = Vector2(-1000.0, -1000.0)
 		_health_label.size = Vector2.ZERO
+		_attack_badge.size = Vector2.ZERO
+		_attack_badge.position = Vector2(-1000.0, -1000.0)
+		_health_badge.size = Vector2.ZERO
+		_health_badge.position = Vector2(-1000.0, -1000.0)
+		_attack_badge.visible = false
+		_health_badge.visible = false
 
 	if seed_b_is_creature:
-		var b_y := half_b_top + half_h * 0.55 - pw_size.y * 0.5
+		var b_y := half_b_art_rect.position.y + half_b_art_rect.size.y * 0.6 - pw_size.y * 0.5
 		_double_b_attack_label.position = Vector2(pw_x, b_y)
 		_double_b_attack_label.size = pw_size
 		_double_b_health_label.position = Vector2(hp_x, b_y)
 		_double_b_health_label.size = hp_size
 		_double_b_attack_label.visible = true
 		_double_b_health_label.visible = true
-		# Render the diamond/shield textures behind half-B's labels (the ESL
-		# template only ships one set, drawn at the standard ESL rect — half-A
-		# uses those, so half-B gets explicit textured badges).
-		var badge_pad := pw_size.x * 0.25
-		_double_b_attack_badge.size = pw_size + Vector2(badge_pad, badge_pad)
-		_double_b_attack_badge.position = Vector2(pw_x - badge_pad * 0.5, b_y - badge_pad * 0.5)
-		_double_b_health_badge.size = hp_size + Vector2(badge_pad, badge_pad)
-		_double_b_health_badge.position = Vector2(hp_x - badge_pad * 0.5, b_y - badge_pad * 0.5)
+		_double_b_attack_label.add_theme_font_size_override("font_size", _attack_label.get_theme_font_size("font_size"))
+		_double_b_health_label.add_theme_font_size_override("font_size", _health_label.get_theme_font_size("font_size"))
+		_double_b_attack_badge.size = pw_size
+		_double_b_attack_badge.position = Vector2(pw_x, b_y)
+		_double_b_health_badge.size = hp_size
+		_double_b_health_badge.position = Vector2(hp_x, b_y)
 		_double_b_attack_badge.visible = true
 		_double_b_health_badge.visible = true
 	else:
@@ -1388,7 +1477,7 @@ func _layout_full_esl_double_overlays(map_rect: Callable) -> void:
 		_double_b_attack_badge.visible = false
 		_double_b_health_badge.visible = false
 
-	_double_divider.visible = false  # ESL template + dual layout makes a divider redundant
+	_double_divider.visible = false
 
 
 func _layout_creature_board_minimal(inner_rect: Rect2) -> void:
@@ -1503,6 +1592,12 @@ func _refresh_double_card_overlays() -> void:
 	# Suppress rules text on the combined card — the bottom half is rendered
 	# in the rules-panel area instead.
 	_rules_label.text = ""
+	# Override art textures: each half gets the top half of its own source art
+	# rather than the runtime-composited stacked texture (which is intended
+	# for the non-ESL fallback layout).
+	_art_texture.texture = _double_top_half_atlas(str(_card_data.get("half_card_ids", [])[0]))
+	if _double_b_art_texture != null:
+		_double_b_art_texture.texture = _double_top_half_atlas(str(_card_data.get("half_card_ids", [])[1]))
 
 
 func _double_subtype_line(seed: Dictionary) -> String:
@@ -1603,6 +1698,30 @@ func _load_image_from_path(path: String) -> Image:
 	if loaded is Texture2D:
 		return (loaded as Texture2D).get_image()
 	return null
+
+
+# Returns an AtlasTexture referencing the top half of a card's full art image.
+# Used for double cards in ESL mode where each half occupies its own art frame
+# and we want to show the upper portion of each half's source art (matching
+# UESP's split visual where the bottom rules-text region of each half is
+# replaced by the next half's content).
+static var _double_top_half_atlas_cache: Dictionary = {}
+
+func _double_top_half_atlas(card_id: String) -> AtlasTexture:
+	if card_id.is_empty():
+		return null
+	if _double_top_half_atlas_cache.has(card_id):
+		return _double_top_half_atlas_cache[card_id]
+	var path := "res://assets/images/cards/" + card_id + ".png"
+	var base := _load_texture_from_path(path)
+	if base == null:
+		return null
+	var atlas := AtlasTexture.new()
+	atlas.atlas = base
+	var tex_size: Vector2 = base.get_size()
+	atlas.region = Rect2(0, 0, tex_size.x, tex_size.y * 0.5)
+	_double_top_half_atlas_cache[card_id] = atlas
+	return atlas
 
 
 func _layout_stat_badges(inner_rect: Rect2, art_rect: Rect2, scale: float, esl_style := false) -> void:
