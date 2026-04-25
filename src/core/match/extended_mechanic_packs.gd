@@ -695,7 +695,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 					if not srfc_card_ids.has(str(seed.get("card_id", ""))):
 						continue
 				else:
-					if not bool(seed.get("collectible", true)):
+					if not bool(seed.get("collectible", true)) or not bool(seed.get("random_generation_eligible", true)):
 						continue
 				if not srfc_req_card_type.is_empty() and str(seed.get("card_type", "")) != srfc_req_card_type:
 					continue
@@ -867,7 +867,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			for seed in erfc_seeds:
 				if typeof(seed) != TYPE_DICTIONARY:
 					continue
-				if not bool(seed.get("collectible", true)):
+				if not bool(seed.get("collectible", true)) or not bool(seed.get("random_generation_eligible", true)):
 					continue
 				if str(seed.get("card_type", "")) != "item":
 					continue
@@ -1065,7 +1065,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			for seed in srbtc_seeds:
 				if typeof(seed) != TYPE_DICTIONARY:
 					continue
-				if not bool(seed.get("collectible", true)):
+				if not bool(seed.get("collectible", true)) or not bool(seed.get("random_generation_eligible", true)):
 					continue
 				if str(seed.get("card_type", "")) != "creature":
 					continue
@@ -1132,7 +1132,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 				for seed in trbc_seeds:
 					if typeof(seed) != TYPE_DICTIONARY:
 						continue
-					if not bool(seed.get("collectible", true)):
+					if not bool(seed.get("collectible", true)) or not bool(seed.get("random_generation_eligible", true)):
 						continue
 					if str(seed.get("card_type", "")) != "creature":
 						continue
@@ -1156,7 +1156,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			for seed in trfc_seeds:
 				if typeof(seed) != TYPE_DICTIONARY:
 					continue
-				if not bool(seed.get("collectible", true)):
+				if not bool(seed.get("collectible", true)) or not bool(seed.get("random_generation_eligible", true)):
 					continue
 				if not trfc_req_card_type.is_empty() and str(seed.get("card_type", "")) != trfc_req_card_type:
 					continue
@@ -1202,7 +1202,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			var vat_seeds: Array = CardCatalog._card_seeds()
 			var vat_creatures: Array = []
 			for seed in vat_seeds:
-				if typeof(seed) == TYPE_DICTIONARY and str(seed.get("card_type", "")) == "creature" and bool(seed.get("collectible", true)):
+				if typeof(seed) == TYPE_DICTIONARY and str(seed.get("card_type", "")) == "creature" and bool(seed.get("collectible", true)) and bool(seed.get("random_generation_eligible", true)):
 					vat_creatures.append(seed)
 			if vat_creatures.is_empty():
 				return {"handled": true, "events": []}
@@ -1459,7 +1459,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			var mo_seeds: Array = CardCatalog._card_seeds()
 			var mo_collectible: Array = []
 			for seed in mo_seeds:
-				if typeof(seed) == TYPE_DICTIONARY and bool(seed.get("collectible", true)):
+				if typeof(seed) == TYPE_DICTIONARY and bool(seed.get("collectible", true)) and bool(seed.get("random_generation_eligible", true)):
 					mo_collectible.append(seed)
 			if mo_collectible.size() < 2:
 				return {"handled": true, "events": []}
@@ -1726,7 +1726,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			for bst_seed in CardCatalog._card_seeds():
 				if typeof(bst_seed) != TYPE_DICTIONARY:
 					continue
-				if not bool(bst_seed.get("collectible", true)):
+				if not bool(bst_seed.get("collectible", true)) or not bool(bst_seed.get("random_generation_eligible", true)):
 					continue
 				if str(bst_seed.get("card_type", "")) != "creature":
 					continue
@@ -1802,7 +1802,7 @@ static func apply_custom_effect(match_state: Dictionary, trigger: Dictionary, ev
 			for hc_seed in CardCatalog._card_seeds():
 				if typeof(hc_seed) != TYPE_DICTIONARY:
 					continue
-				if not bool(hc_seed.get("collectible", true)):
+				if not bool(hc_seed.get("collectible", true)) or not bool(hc_seed.get("random_generation_eligible", true)):
 					continue
 				if str(hc_seed.get("card_type", "")) != "creature":
 					continue
@@ -2428,6 +2428,8 @@ static func _filter_catalog_seeds(filter: Dictionary) -> Array:
 				continue
 		elif not include_uncollectible and not bool(seed.get("collectible", true)):
 			continue
+		if not bool(seed.get("random_generation_eligible", true)):
+			continue
 		if not req_card_type.is_empty() and str(seed.get("card_type", "")) != req_card_type:
 			continue
 		if max_cost >= 0 and int(seed.get("cost", 0)) > max_cost:
@@ -2701,7 +2703,7 @@ static func apply_hand_selection_effect(match_state: Dictionary, player_id: Stri
 			var tihr_seeds: Array = get_catalog_seeds()
 			var tihr_candidates: Array = []
 			for tihr_seed in tihr_seeds:
-				if not bool(tihr_seed.get("collectible", true)):
+				if not bool(tihr_seed.get("collectible", true)) or not bool(tihr_seed.get("random_generation_eligible", true)):
 					continue
 				if not tihr_filter_type.is_empty() and str(tihr_seed.get("card_type", "")) != tihr_filter_type:
 					continue

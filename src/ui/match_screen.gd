@@ -499,6 +499,9 @@ static func _hydrate_card(card: Dictionary, card_by_id: Dictionary) -> void:
 	card["is_unique"] = bool(definition.get("is_unique", false))
 	if not is_mutated:
 		card["rules_text"] = str(definition.get("rules_text", ""))
+	if definition.has("half_card_ids"):
+		card["half_card_ids"] = definition["half_card_ids"].duplicate(true)
+	card["random_generation_eligible"] = bool(definition.get("random_generation_eligible", true))
 	var existing_art_path := str(card.get("art_path", ""))
 	if existing_art_path.is_empty() or not ResourceLoader.exists(existing_art_path):
 		card["art_path"] = str(definition.get("art_path", ""))

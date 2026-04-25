@@ -89,7 +89,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var tih_seeds: Array = ExtendedMechanicPacks.get_catalog_seeds()
 				var tih_rand_candidates: Array = []
 				for tih_seed in tih_seeds:
-					if not bool(tih_seed.get("collectible", true)):
+					if not bool(tih_seed.get("collectible", true)) or not bool(tih_seed.get("random_generation_eligible", true)):
 						continue
 					if str(tih_seed.get("card_type", "")) != CARD_TYPE_CREATURE:
 						continue
@@ -142,7 +142,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var tihr_candidates: Array = []
 				var tihr_target_cost := int(card.get("cost", 0)) + tihr_cost_increase
 				for tihr_seed in tihr_seeds:
-					if not bool(tihr_seed.get("collectible", true)):
+					if not bool(tihr_seed.get("collectible", true)) or not bool(tihr_seed.get("random_generation_eligible", true)):
 						continue
 					if not tihr_resolved_type.is_empty() and str(tihr_seed.get("card_type", "")) != tihr_resolved_type:
 						continue

@@ -25,9 +25,11 @@ const ZONE_SUPPORT := "support"
 const ZONE_DISCARD := "discard"
 const ZONE_BANISHED := "banished"
 const ZONE_GENERATED := "generated"
+const ZONE_DOUBLE_ARCHIVE := "double_archive"
 
 const CARD_TYPE_CREATURE := "creature"
 const CARD_TYPE_ACTION := "action"
+const CARD_TYPE_DOUBLE := "double"
 const CARD_TYPE_ITEM := "item"
 const CARD_TYPE_SUPPORT := "support"
 
@@ -126,7 +128,7 @@ const EVENT_CARD_EQUIPPED := "card_equipped"
 const EVENT_CREATURE_CONSUMED := "card_consumed"
 const EVENT_CREATURE_SACRIFICED := "card_sacrificed"
 
-const PLAYER_ZONE_ORDER := [ZONE_HAND, ZONE_SUPPORT, ZONE_DISCARD, ZONE_BANISHED, ZONE_DECK]
+const PLAYER_ZONE_ORDER := [ZONE_HAND, ZONE_SUPPORT, ZONE_DISCARD, ZONE_BANISHED, ZONE_DECK, ZONE_DOUBLE_ARCHIVE]
 const RANDOM_KEYWORD_POOL := ["breakthrough", "charge", "drain", "guard", "lethal", "regenerate", "ward"]
 const ZONE_PRIORITY := {
 	ZONE_LANE: 0,
@@ -2663,9 +2665,10 @@ static func draw_cards(match_state: Dictionary, player_id: String, count: int, c
 
 		var drawn_card: Dictionary = deck.pop_back()
 		var hand: Array = player.get(ZONE_HAND, [])
+		var is_double_card := str(drawn_card.get("card_type", "")) == CARD_TYPE_DOUBLE
 		var allow_prophecy := bool(context.get("allow_prophecy_interrupt", false))
-		var is_prophecy := allow_prophecy and _can_open_prophecy_window(match_state, player_id, drawn_card)
-		if hand.size() >= MAX_HAND_SIZE and not is_prophecy:
+		var is_prophecy := allow_prophecy and not is_double_card and _can_open_prophecy_window(match_state, player_id, drawn_card)
+		if hand.size() >= MAX_HAND_SIZE and not is_prophecy and not is_double_card:
 			drawn_card["zone"] = ZONE_DISCARD
 			player[ZONE_DISCARD].append(drawn_card)
 			result["events"].append({
@@ -2675,6 +2678,34 @@ static func draw_cards(match_state: Dictionary, player_id: String, count: int, c
 				"card_name": str(drawn_card.get("name", "")),
 				"source_zone": ZONE_DECK,
 			})
+			continue
+		if is_double_card:
+			# Split the combined card into its two halves on draw. Halves are
+			# materialized into hand bypassing MAX_HAND_SIZE (9 -> 11 allowed).
+			# A single EVENT_CARD_DRAWN is emitted for the combined card.
+			var split_halves := _split_double_to_hand(match_state, player_id, drawn_card)
+			for half in split_halves:
+				MatchMutations.apply_first_turn_hand_cost(match_state, half, player_id)
+				result["cards"].append(half)
+			var double_draw_event := {
+				"event_type": EVENT_CARD_DRAWN,
+				"player_id": player_id,
+				"source_instance_id": str(context.get("source_instance_id", "")),
+				"source_controller_player_id": str(context.get("source_controller_player_id", "")),
+				"drawn_instance_id": str(drawn_card.get("instance_id", "")),
+				"source_zone": ZONE_DECK,
+				"target_zone": ZONE_DOUBLE_ARCHIVE,
+				"reason": str(context.get("reason", "draw")),
+				"timing_window": str(context.get("timing_window", WINDOW_AFTER)),
+				"is_double_card": true,
+				"split_half_instance_ids": [
+					str(split_halves[0].get("instance_id", "")) if split_halves.size() > 0 else "",
+					str(split_halves[1].get("instance_id", "")) if split_halves.size() > 1 else "",
+				],
+			}
+			if context.has("rune_threshold"):
+				double_draw_event["rune_threshold"] = int(context.get("rune_threshold", -1))
+			result["events"].append(double_draw_event)
 			continue
 		drawn_card["zone"] = ZONE_HAND
 		hand.append(drawn_card)
@@ -2700,6 +2731,66 @@ static func draw_cards(match_state: Dictionary, player_id: String, count: int, c
 			result["events"].append(_open_prophecy_window(match_state, player_id, drawn_card, context))
 			break
 	return result
+
+
+static func _split_double_to_hand(match_state: Dictionary, player_id: String, combined_card: Dictionary) -> Array:
+	return _split_double_to_zone(match_state, player_id, combined_card, ZONE_HAND)
+
+
+static func _split_double_to_zone(match_state: Dictionary, player_id: String, combined_card: Dictionary, target_zone: String) -> Array:
+	# Splits a combined "double" card into its two halves, archives the combined
+	# instance to ZONE_DOUBLE_ARCHIVE for replay/inspect lookup, and appends both
+	# halves to the chosen target_zone (hand, discard, banished). Buffs on the
+	# combined card (cost delta, power_bonus, health_bonus) are propagated to
+	# both halves.
+	var halves: Array = []
+	var player := MatchTimingHelpers._get_player_state(match_state, player_id)
+	if player.is_empty():
+		return halves
+	if not player.has(target_zone) or typeof(player.get(target_zone)) != TYPE_ARRAY:
+		player[target_zone] = []
+	var destination: Array = player[target_zone]
+	if not player.has(ZONE_DOUBLE_ARCHIVE) or typeof(player.get(ZONE_DOUBLE_ARCHIVE)) != TYPE_ARRAY:
+		player[ZONE_DOUBLE_ARCHIVE] = []
+	var archive: Array = player[ZONE_DOUBLE_ARCHIVE]
+
+	var combined_instance_id := str(combined_card.get("instance_id", ""))
+	var combined_base_cost := int(combined_card.get("_base_cost", combined_card.get("cost", 0)))
+	var combined_current_cost := int(combined_card.get("cost", combined_base_cost))
+	var combined_cost_delta := combined_current_cost - combined_base_cost
+	var combined_power_bonus := int(combined_card.get("power_bonus", 0))
+	var combined_health_bonus := int(combined_card.get("health_bonus", 0))
+
+	# Archive the combined card as a frozen snapshot. It is never targeted; lives
+	# only so replay/inspect lookups by instance_id can resolve.
+	var archived := combined_card.duplicate(true)
+	archived["zone"] = ZONE_DOUBLE_ARCHIVE
+	archive.append(archived)
+
+	var half_ids: Array = combined_card.get("half_card_ids", [])
+	for index in range(half_ids.size()):
+		var hid := str(half_ids[index])
+		var half_card: Dictionary = MatchMutations.build_generated_card(match_state, player_id, {"definition_id": hid})
+		# Halves were part of the starting deck via the combined card — clear
+		# the generated-card flag that build_generated_card sets by default.
+		half_card.erase("_not_in_starting_deck")
+		half_card["instance_id"] = "%s_h%d" % [combined_instance_id, index]
+		half_card["zone"] = target_zone
+		half_card["spawned_from_double"] = combined_instance_id
+		# Buff propagation from combined to half.
+		if combined_cost_delta != 0:
+			var new_cost := int(half_card.get("cost", 0)) + combined_cost_delta
+			if new_cost < 0:
+				new_cost = 0
+			half_card["cost"] = new_cost
+		if combined_power_bonus != 0:
+			half_card["power_bonus"] = int(half_card.get("power_bonus", 0)) + combined_power_bonus
+		if combined_health_bonus != 0:
+			half_card["health_bonus"] = int(half_card.get("health_bonus", 0)) + combined_health_bonus
+		EvergreenRules.sync_derived_state(half_card)
+		destination.append(half_card)
+		halves.append(half_card)
+	return halves
 
 
 static func _overflow_card_to_discard(player: Dictionary, card: Dictionary, player_id: String, source_zone: String, events: Array) -> bool:
@@ -3487,7 +3578,7 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 					for tsd_seed in tsd_seeds:
 						if typeof(tsd_seed) != TYPE_DICTIONARY:
 							continue
-						if not bool(tsd_seed.get("collectible", true)):
+						if not bool(tsd_seed.get("collectible", true)) or not bool(tsd_seed.get("random_generation_eligible", true)):
 							continue
 						if str(tsd_seed.get("card_type", "")) != "creature":
 							continue
@@ -3664,7 +3755,7 @@ static func _run_budget_summon_loop(match_state: Dictionary, trigger: Dictionary
 	for seed in CardCatalog._card_seeds():
 		if typeof(seed) != TYPE_DICTIONARY:
 			continue
-		if not bool(seed.get("collectible", true)):
+		if not bool(seed.get("collectible", true)) or not bool(seed.get("random_generation_eligible", true)):
 			continue
 		if str(seed.get("card_type", "")) != "creature":
 			continue

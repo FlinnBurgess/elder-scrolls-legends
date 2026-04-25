@@ -28,7 +28,7 @@ static func apply_boons_to_match_state(match_state: Dictionary, player_id: Strin
 			for seed in CardCatalog._card_seeds():
 				if typeof(seed) != TYPE_DICTIONARY:
 					continue
-				if not bool(seed.get("collectible", true)):
+				if not bool(seed.get("collectible", true)) or not bool(seed.get("random_generation_eligible", true)):
 					continue
 				if str(seed.get("card_type", "")) != "creature":
 					continue

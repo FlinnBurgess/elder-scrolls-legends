@@ -1233,6 +1233,10 @@ func _frame_rect(width: float, height: float) -> Rect2:
 
 
 func _resolve_art_texture(card: Dictionary) -> Texture2D:
+	if str(card.get("card_type", "")) == "double":
+		var composite := _compose_double_art_texture(card)
+		if composite != null:
+			return composite
 	for key in ["art_texture", "art"]:
 		var direct = card.get(key, null)
 		if direct is Texture2D:
@@ -1250,6 +1254,48 @@ func _resolve_art_texture(card: Dictionary) -> Texture2D:
 		if inferred != null:
 			return inferred
 	return _get_default_art_texture()
+
+
+# For double cards, compose a vertical-split art texture: top half of card A
+# above top half of card B. The result is cached on the card data dictionary
+# so subsequent _refresh_content calls reuse it.
+static var _double_art_cache: Dictionary = {}
+
+func _compose_double_art_texture(card: Dictionary) -> Texture2D:
+	var halves: Array = card.get("half_card_ids", [])
+	if halves.size() < 2:
+		return null
+	var cache_key := str(halves[0]) + "::" + str(halves[1])
+	if _double_art_cache.has(cache_key):
+		var cached = _double_art_cache[cache_key]
+		if cached is Texture2D:
+			return cached as Texture2D
+	var path_a := "res://assets/images/cards/" + str(halves[0]) + ".png"
+	var path_b := "res://assets/images/cards/" + str(halves[1]) + ".png"
+	var img_a := _load_image_from_path(path_a)
+	var img_b := _load_image_from_path(path_b)
+	if img_a == null or img_b == null:
+		return null
+	var width: int = img_a.get_width()
+	var height: int = img_a.get_height()
+	# Resize img_b to match img_a's dimensions for a clean stack.
+	if img_b.get_width() != width or img_b.get_height() != height:
+		img_b.resize(width, height, Image.INTERPOLATE_BILINEAR)
+	var composite := Image.create(width, height, false, img_a.get_format())
+	composite.blit_rect(img_a, Rect2i(0, 0, width, height / 2), Vector2i(0, 0))
+	composite.blit_rect(img_b, Rect2i(0, 0, width, height / 2), Vector2i(0, height / 2))
+	var tex := ImageTexture.create_from_image(composite)
+	_double_art_cache[cache_key] = tex
+	return tex
+
+
+func _load_image_from_path(path: String) -> Image:
+	if path.is_empty() or not ResourceLoader.exists(path):
+		return null
+	var loaded := ResourceLoader.load(path)
+	if loaded is Texture2D:
+		return (loaded as Texture2D).get_image()
+	return null
 
 
 func _layout_stat_badges(inner_rect: Rect2, art_rect: Rect2, scale: float, esl_style := false) -> void:

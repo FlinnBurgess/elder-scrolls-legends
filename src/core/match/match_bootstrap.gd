@@ -168,6 +168,7 @@ static func _build_player_state(player_id: String, deck_definition_ids: Array, r
 		"support": [],
 		"discard": [],
 		"banished": [],
+		"double_archive": [],
 		"max_magicka": 0,
 		"current_magicka": 0,
 		"temporary_magicka": 0,

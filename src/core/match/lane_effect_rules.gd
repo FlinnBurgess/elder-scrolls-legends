@@ -864,7 +864,7 @@ static func _resolve_lane_madness_transform(match_state: Dictionary, trigger: Di
 	for seed in seeds:
 		if typeof(seed) != TYPE_DICTIONARY:
 			continue
-		if not bool(seed.get("collectible", true)):
+		if not bool(seed.get("collectible", true)) or not bool(seed.get("random_generation_eligible", true)):
 			continue
 		if str(seed.get("card_type", "")) != "creature":
 			continue
@@ -971,7 +971,7 @@ static func _resolve_lane_plunder_attach_item(match_state: Dictionary, trigger: 
 	for seed in CardCatalog._card_seeds():
 		if typeof(seed) != TYPE_DICTIONARY:
 			continue
-		if not bool(seed.get("collectible", true)):
+		if not bool(seed.get("collectible", true)) or not bool(seed.get("random_generation_eligible", true)):
 			continue
 		if str(seed.get("card_type", "")) != "item":
 			continue
@@ -1248,7 +1248,7 @@ static func _resolve_lane_zoo_transform(match_state: Dictionary, trigger: Dictio
 	for seed in seeds:
 		if typeof(seed) != TYPE_DICTIONARY:
 			continue
-		if not bool(seed.get("collectible", true)):
+		if not bool(seed.get("collectible", true)) or not bool(seed.get("random_generation_eligible", true)):
 			continue
 		if str(seed.get("card_type", "")) != "creature":
 			continue

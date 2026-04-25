@@ -10,6 +10,7 @@ const MatchAuras = preload("res://src/core/match/match_auras.gd")
 const MatchTriggers = preload("res://src/core/match/match_triggers.gd")
 const MatchTargeting = preload("res://src/core/match/match_targeting.gd")
 const MatchSummonTiming = preload("res://src/core/match/match_summon_timing.gd")
+const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const GameLogger = preload("res://src/core/match/game_logger.gd")
 
 const ZONE_HAND := "hand"
@@ -667,12 +668,30 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					if mill_deck.is_empty():
 						break
 					var milled_card: Dictionary = mill_deck.pop_back()
-					milled_card["zone"] = ZONE_DISCARD
-					milled_card["entered_discard_on_turn"] = int(match_state.get("turn_number", 0))
-					mill_discard.push_front(milled_card)
-					generated_events.append({
-						"event_type": "card_milled",
-						"source_instance_id": str(trigger.get("source_instance_id", "")),
-						"player_id": player_id,
-						"milled_instance_id": str(milled_card.get("instance_id", "")),
-					})
+					if str(milled_card.get("card_type", "")) == "double":
+						# Double card: split into both halves, route to discard. Archive
+						# the combined instance and surface a single card_milled event.
+						var milled_halves := MatchTiming._split_double_to_zone(match_state, player_id, milled_card, ZONE_DISCARD)
+						for milled_half in milled_halves:
+							milled_half["entered_discard_on_turn"] = int(match_state.get("turn_number", 0))
+						generated_events.append({
+							"event_type": "card_milled",
+							"source_instance_id": str(trigger.get("source_instance_id", "")),
+							"player_id": player_id,
+							"milled_instance_id": str(milled_card.get("instance_id", "")),
+							"is_double_card": true,
+							"split_half_instance_ids": [
+								str(milled_halves[0].get("instance_id", "")) if milled_halves.size() > 0 else "",
+								str(milled_halves[1].get("instance_id", "")) if milled_halves.size() > 1 else "",
+							],
+						})
+					else:
+						milled_card["zone"] = ZONE_DISCARD
+						milled_card["entered_discard_on_turn"] = int(match_state.get("turn_number", 0))
+						mill_discard.push_front(milled_card)
+						generated_events.append({
+							"event_type": "card_milled",
+							"source_instance_id": str(trigger.get("source_instance_id", "")),
+							"player_id": player_id,
+							"milled_instance_id": str(milled_card.get("instance_id", "")),
+						})
