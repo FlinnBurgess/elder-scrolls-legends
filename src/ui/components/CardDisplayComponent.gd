@@ -1443,6 +1443,17 @@ func _layout_full_esl_double_overlays(map_rect: Callable) -> void:
 	if _tpl_label_strip != null:
 		_tpl_label_strip.visible = false
 
+	# The new frame_double_*.png templates already include the magicka circles,
+	# title strips, and subtype badge backgrounds for both halves. Hide all the
+	# extra chrome so only the labels (cost number, name, subtype) sit inside
+	# the frame's painted slots.
+	_cost_badge.visible = false
+	_double_b_cost_badge.visible = false
+	_apply_panel_style(_name_banner, Color.TRANSPARENT, Color.TRANSPARENT, 0, 0)
+	_apply_panel_style(_subtype_banner, Color.TRANSPARENT, Color.TRANSPARENT, 0, 0)
+	_apply_panel_style(_double_b_name_banner, Color.TRANSPARENT, Color.TRANSPARENT, 0, 0)
+	_apply_panel_style(_double_b_subtype_banner, Color.TRANSPARENT, Color.TRANSPARENT, 0, 0)
+
 	var halves: Array = _card_data.get("half_card_ids", [])
 	if halves.size() < 2:
 		return
@@ -1492,13 +1503,11 @@ func _layout_full_esl_double_overlays(map_rect: Callable) -> void:
 	_double_b_art_texture.size = art_b.size
 	_double_b_art_texture.visible = true
 
-	# Half-B cost circle.
-	_double_b_cost_badge.size = cost_b.size
-	_double_b_cost_badge.position = cost_b.position
+	# Half-B cost label (the magicka circle behind it is part of the frame PNG;
+	# we only render the number on top of it).
 	_double_b_cost_label.size = cost_b.size
 	_double_b_cost_label.position = cost_b.position
 	_double_b_cost_label.add_theme_font_size_override("font_size", _cost_label.get_theme_font_size("font_size"))
-	_double_b_cost_badge.visible = true
 	_double_b_cost_label.visible = true
 
 	# Half-B title and subtype banners.
