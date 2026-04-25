@@ -132,8 +132,29 @@ static var ESL_HEALTH_RECT_N := Rect2(325.0 / 440.0, 362.0 / 680.0, 100.0 / 440.
 static var ESL_RULES_RECT_N := Rect2(70.0 / 440.0, 493.0 / 680.0, 310.0 / 440.0, 120.0 / 680.0)
 static var ESL_ONGOING_RECT_N := Rect2(95.0 / 440.0, 468.0 / 680.0, 250.0 / 440.0, 22.0 / 680.0)
 
+# Double-card layout: 12 normalised rects describing each half's elements,
+# computed once from the previous code-computed positions so the visual is
+# unchanged on first run. Override via res://data/double_template_adjustments.json.
+# Half-A defaults match the standard ESL header positions; half-A art is the
+# top half of the standard art region. Half-B mirrors half-A shifted into the
+# bottom half of the card.
+static var DOUBLE_A_COST_RECT_N := Rect2(25.0 / 440.0, 51.0 / 680.0, 80.0 / 440.0, 80.0 / 680.0)
+static var DOUBLE_A_TITLE_RECT_N := Rect2(100.0 / 440.0, 78.0 / 680.0, 252.0 / 440.0, 30.0 / 680.0)
+static var DOUBLE_A_TYPE_RECT_N := Rect2(95.0 / 440.0, 111.0 / 680.0, 250.0 / 440.0, 22.0 / 680.0)
+static var DOUBLE_A_ART_RECT_N := Rect2(60.0 / 440.0, 120.0 / 680.0, 320.0 / 440.0, 218.0 / 680.0)
+static var DOUBLE_A_POWER_RECT_N := Rect2(15.0 / 440.0, 221.0 / 680.0, 100.0 / 440.0, 60.0 / 680.0)
+static var DOUBLE_A_HEALTH_RECT_N := Rect2(325.0 / 440.0, 221.0 / 680.0, 100.0 / 440.0, 60.0 / 680.0)
+static var DOUBLE_B_COST_RECT_N := Rect2(25.0 / 440.0, 300.0 / 680.0, 80.0 / 440.0, 80.0 / 680.0)
+static var DOUBLE_B_TITLE_RECT_N := Rect2(100.0 / 440.0, 300.0 / 680.0, 252.0 / 440.0, 30.0 / 680.0)
+static var DOUBLE_B_TYPE_RECT_N := Rect2(95.0 / 440.0, 333.0 / 680.0, 250.0 / 440.0, 22.0 / 680.0)
+static var DOUBLE_B_ART_RECT_N := Rect2(60.0 / 440.0, 342.0 / 680.0, 320.0 / 440.0, 304.0 / 680.0)
+static var DOUBLE_B_POWER_RECT_N := Rect2(15.0 / 440.0, 494.0 / 680.0, 100.0 / 440.0, 60.0 / 680.0)
+static var DOUBLE_B_HEALTH_RECT_N := Rect2(325.0 / 440.0, 494.0 / 680.0, 100.0 / 440.0, 60.0 / 680.0)
+
 const ESL_OVERRIDES_PATH := "res://data/esl_template_adjustments.json"
+const DOUBLE_OVERRIDES_PATH := "res://data/double_template_adjustments.json"
 static var _esl_overrides_loaded := false
+static var _double_overrides_loaded := false
 
 
 static func _rect_from_px_dict(d: Dictionary) -> Rect2:
@@ -174,6 +195,45 @@ static func load_esl_overrides() -> void:
 		ESL_RULES_RECT_N = _rect_from_px_dict(data["rules"])
 	if data.has("ongoing"):
 		ESL_ONGOING_RECT_N = _rect_from_px_dict(data["ongoing"])
+
+
+static func load_double_template_overrides() -> void:
+	_double_overrides_loaded = true
+	if not FileAccess.file_exists(DOUBLE_OVERRIDES_PATH):
+		return
+	var file := FileAccess.open(DOUBLE_OVERRIDES_PATH, FileAccess.READ)
+	if file == null:
+		return
+	var txt := file.get_as_text()
+	file.close()
+	var parsed: Variant = JSON.parse_string(txt)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return
+	var data: Dictionary = parsed
+	if data.has("double_a_cost"):
+		DOUBLE_A_COST_RECT_N = _rect_from_px_dict(data["double_a_cost"])
+	if data.has("double_a_title"):
+		DOUBLE_A_TITLE_RECT_N = _rect_from_px_dict(data["double_a_title"])
+	if data.has("double_a_type"):
+		DOUBLE_A_TYPE_RECT_N = _rect_from_px_dict(data["double_a_type"])
+	if data.has("double_a_art"):
+		DOUBLE_A_ART_RECT_N = _rect_from_px_dict(data["double_a_art"])
+	if data.has("double_a_power"):
+		DOUBLE_A_POWER_RECT_N = _rect_from_px_dict(data["double_a_power"])
+	if data.has("double_a_health"):
+		DOUBLE_A_HEALTH_RECT_N = _rect_from_px_dict(data["double_a_health"])
+	if data.has("double_b_cost"):
+		DOUBLE_B_COST_RECT_N = _rect_from_px_dict(data["double_b_cost"])
+	if data.has("double_b_title"):
+		DOUBLE_B_TITLE_RECT_N = _rect_from_px_dict(data["double_b_title"])
+	if data.has("double_b_type"):
+		DOUBLE_B_TYPE_RECT_N = _rect_from_px_dict(data["double_b_type"])
+	if data.has("double_b_art"):
+		DOUBLE_B_ART_RECT_N = _rect_from_px_dict(data["double_b_art"])
+	if data.has("double_b_power"):
+		DOUBLE_B_POWER_RECT_N = _rect_from_px_dict(data["double_b_power"])
+	if data.has("double_b_health"):
+		DOUBLE_B_HEALTH_RECT_N = _rect_from_px_dict(data["double_b_health"])
 
 # The frame PNG has transparent padding around the visible card. These normalised
 # coords describe the visible card region inside the 440x680 canvas; the template
@@ -260,6 +320,8 @@ var _tpl_label_strip: TextureRect
 func _ready() -> void:
 	if not _esl_overrides_loaded:
 		load_esl_overrides()
+	if not _double_overrides_loaded:
+		load_double_template_overrides()
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	clip_contents = false
 	if custom_minimum_size == Vector2.ZERO:
@@ -1351,96 +1413,80 @@ func _layout_full_esl_double_overlays(map_rect: Callable) -> void:
 	var seed_a := _resolve_double_half_seed(str(halves[0]))
 	var seed_b := _resolve_double_half_seed(str(halves[1]))
 
-	# Resolve standard rects (already in card-space coordinates).
-	var art_full: Rect2 = map_rect.call(ESL_ART_RECT_N)
-	var pw_full: Rect2 = map_rect.call(ESL_POWER_RECT_N)
-	var hp_full: Rect2 = map_rect.call(ESL_HEALTH_RECT_N)
-	var title_full: Rect2 = map_rect.call(ESL_TITLE_RECT_N)
-	var type_full: Rect2 = map_rect.call(ESL_TYPE_RECT_N)
-	var cost_full: Rect2 = map_rect.call(ESL_COST_RECT_N)
+	# Resolve every per-half rect from the static normalised constants. Each
+	# rect is overridable via res://data/double_template_adjustments.json and
+	# editable in-game via the double-card template builder (Ctrl+Shift+D).
+	var cost_a: Rect2 = map_rect.call(DOUBLE_A_COST_RECT_N)
+	var title_a: Rect2 = map_rect.call(DOUBLE_A_TITLE_RECT_N)
+	var type_a: Rect2 = map_rect.call(DOUBLE_A_TYPE_RECT_N)
+	var art_a: Rect2 = map_rect.call(DOUBLE_A_ART_RECT_N)
+	var power_a: Rect2 = map_rect.call(DOUBLE_A_POWER_RECT_N)
+	var health_a: Rect2 = map_rect.call(DOUBLE_A_HEALTH_RECT_N)
+	var cost_b: Rect2 = map_rect.call(DOUBLE_B_COST_RECT_N)
+	var title_b: Rect2 = map_rect.call(DOUBLE_B_TITLE_RECT_N)
+	var type_b: Rect2 = map_rect.call(DOUBLE_B_TYPE_RECT_N)
+	var art_b: Rect2 = map_rect.call(DOUBLE_B_ART_RECT_N)
+	var power_b: Rect2 = map_rect.call(DOUBLE_B_POWER_RECT_N)
+	var health_b: Rect2 = map_rect.call(DOUBLE_B_HEALTH_RECT_N)
 
-	var card_h: float = size.y if size.y > 0 else custom_minimum_size.y
-	var divider_y := card_h * 0.5
-	# Half-A art occupies from the standard art top to just above the divider,
-	# leaving a thin gap so half-B's title banner can sit above its art.
-	var half_a_art_rect := Rect2(art_full.position.x, art_full.position.y, art_full.size.x, divider_y - art_full.position.y - 2.0)
-	# Half-B art mirrors half-A's pattern, anchored at the divider and ending
-	# near the bottom of the card with a small bottom margin for the rarity gem.
-	var bottom_margin := card_h * 0.05
-	var half_b_art_top := divider_y + 2.0
-	var half_b_art_rect := Rect2(art_full.position.x, half_b_art_top, art_full.size.x, card_h - half_b_art_top - bottom_margin)
-
-	# Half-A art: keep standard art frame at compressed rect.
-	_art_frame.position = half_a_art_rect.position
-	_art_frame.size = half_a_art_rect.size
-	_art_clip.position = half_a_art_rect.position
-	_art_clip.size = half_a_art_rect.size
+	# Half-A: override the ESL primary cost/name/subtype positions with the
+	# per-half rects so half-A is symmetric with half-B (no longer using the
+	# standard ESL_*_RECT_N positions in double mode).
+	_cost_label.position = cost_a.position
+	_cost_label.size = cost_a.size
+	_name_banner.position = title_a.position
+	_name_banner.size = title_a.size
+	_subtype_banner.position = type_a.position
+	_subtype_banner.size = type_a.size
+	_art_frame.position = art_a.position
+	_art_frame.size = art_a.size
+	_art_clip.position = art_a.position
+	_art_clip.size = art_a.size
 	_art_texture.position = Vector2.ZERO
-	_art_texture.size = half_a_art_rect.size
+	_art_texture.size = art_a.size
 
-	# Half-B art: place the second art frame in the bottom half region.
-	_double_b_art_frame.position = half_b_art_rect.position
-	_double_b_art_frame.size = half_b_art_rect.size
+	# Half-B art frame.
+	_double_b_art_frame.position = art_b.position
+	_double_b_art_frame.size = art_b.size
 	_double_b_art_frame.visible = true
-	_double_b_art_clip.position = half_b_art_rect.position
-	_double_b_art_clip.size = half_b_art_rect.size
+	_double_b_art_clip.position = art_b.position
+	_double_b_art_clip.size = art_b.size
 	_double_b_art_clip.visible = true
 	_double_b_art_texture.position = Vector2.ZERO
-	_double_b_art_texture.size = half_b_art_rect.size
+	_double_b_art_texture.size = art_b.size
 	_double_b_art_texture.visible = true
 
-	# Half-A cost / title / subtype: stay at standard ESL positions (frame PNG
-	# has cost circle baked in at top-left, aligning with cost-A naturally).
-	# Already positioned by _layout_full_esl above this call.
-
-	# Half-B cost circle: rendered as an explicit magicka-icon TextureRect sized
-	# to match cost-A but positioned overlapping the divider on the left.
-	_double_b_cost_badge.size = cost_full.size
-	_double_b_cost_badge.position = Vector2(cost_full.position.x, divider_y - cost_full.size.y * 0.5)
-	_double_b_cost_label.size = cost_full.size
-	_double_b_cost_label.position = _double_b_cost_badge.position
+	# Half-B cost circle.
+	_double_b_cost_badge.size = cost_b.size
+	_double_b_cost_badge.position = cost_b.position
+	_double_b_cost_label.size = cost_b.size
+	_double_b_cost_label.position = cost_b.position
 	_double_b_cost_label.add_theme_font_size_override("font_size", _cost_label.get_theme_font_size("font_size"))
 	_double_b_cost_badge.visible = true
 	_double_b_cost_label.visible = true
 
-	# Half-B title banner: anchored just above half-B art top (so it overlaps
-	# the top of half-B art the same way half-A title overlaps half-A art).
-	var title_offset_in_art_a := title_full.position.y - art_full.position.y  # negative — title above art top
-	_double_b_name_banner.position = Vector2(title_full.position.x, half_b_art_top + title_offset_in_art_a)
-	_double_b_name_banner.size = title_full.size
+	# Half-B title and subtype banners.
+	_double_b_name_banner.position = title_b.position
+	_double_b_name_banner.size = title_b.size
 	_double_b_name_banner.visible = true
 	_double_b_name_label.add_theme_font_size_override("font_size", _name_label.get_theme_font_size("font_size"))
-
-	# Half-B subtype banner: just under the name banner.
-	var type_offset_in_art_a := type_full.position.y - art_full.position.y
-	_double_b_subtype_banner.position = Vector2(type_full.position.x, half_b_art_top + type_offset_in_art_a)
-	_double_b_subtype_banner.size = type_full.size
+	_double_b_subtype_banner.position = type_b.position
+	_double_b_subtype_banner.size = type_b.size
 	_double_b_subtype_banner.visible = true
 	_double_b_subtype_label.add_theme_font_size_override("font_size", _subtype_label.get_theme_font_size("font_size"))
 
 	var seed_a_is_creature := str(seed_a.get("card_type", "")) == "creature"
 	var seed_b_is_creature := str(seed_b.get("card_type", "")) == "creature"
 
-	# Power/health badges sit roughly 60% down inside each half art region.
-	# Use the standard power/health rect sizes; reposition them per-half.
-	var pw_size := pw_full.size
-	var hp_size := hp_full.size
-	var pw_x := pw_full.position.x
-	var hp_x := hp_full.position.x
-
 	if seed_a_is_creature:
-		var a_y := half_a_art_rect.position.y + half_a_art_rect.size.y * 0.6 - pw_size.y * 0.5
-		_attack_label.position = Vector2(pw_x, a_y)
-		_attack_label.size = pw_size
-		_health_label.position = Vector2(hp_x, a_y)
-		_health_label.size = hp_size
-		# Render attack-icon and defense-icon textures behind half-A's labels
-		# so the diamond/shield badges show even though we're not at the ESL
-		# template's standard power/health position.
-		_attack_badge.size = pw_size
-		_attack_badge.position = Vector2(pw_x, a_y)
-		_health_badge.size = hp_size
-		_health_badge.position = Vector2(hp_x, a_y)
+		_attack_label.position = power_a.position
+		_attack_label.size = power_a.size
+		_health_label.position = health_a.position
+		_health_label.size = health_a.size
+		_attack_badge.position = power_a.position
+		_attack_badge.size = power_a.size
+		_health_badge.position = health_a.position
+		_health_badge.size = health_a.size
 		_attack_badge.visible = true
 		_health_badge.visible = true
 	else:
@@ -1456,19 +1502,18 @@ func _layout_full_esl_double_overlays(map_rect: Callable) -> void:
 		_health_badge.visible = false
 
 	if seed_b_is_creature:
-		var b_y := half_b_art_rect.position.y + half_b_art_rect.size.y * 0.6 - pw_size.y * 0.5
-		_double_b_attack_label.position = Vector2(pw_x, b_y)
-		_double_b_attack_label.size = pw_size
-		_double_b_health_label.position = Vector2(hp_x, b_y)
-		_double_b_health_label.size = hp_size
+		_double_b_attack_label.position = power_b.position
+		_double_b_attack_label.size = power_b.size
+		_double_b_health_label.position = health_b.position
+		_double_b_health_label.size = health_b.size
 		_double_b_attack_label.visible = true
 		_double_b_health_label.visible = true
 		_double_b_attack_label.add_theme_font_size_override("font_size", _attack_label.get_theme_font_size("font_size"))
 		_double_b_health_label.add_theme_font_size_override("font_size", _health_label.get_theme_font_size("font_size"))
-		_double_b_attack_badge.size = pw_size
-		_double_b_attack_badge.position = Vector2(pw_x, b_y)
-		_double_b_health_badge.size = hp_size
-		_double_b_health_badge.position = Vector2(hp_x, b_y)
+		_double_b_attack_badge.position = power_b.position
+		_double_b_attack_badge.size = power_b.size
+		_double_b_health_badge.position = health_b.position
+		_double_b_health_badge.size = health_b.size
 		_double_b_attack_badge.visible = true
 		_double_b_health_badge.visible = true
 	else:

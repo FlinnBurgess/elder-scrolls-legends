@@ -125,6 +125,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_open_esl_template_adjuster()
 			get_viewport().set_input_as_handled()
 			return
+		if event.keycode == KEY_D and event.ctrl_pressed and event.shift_pressed:
+			_open_double_template_builder()
+			get_viewport().set_input_as_handled()
+			return
 		if event.keycode == KEY_T and event.ctrl_pressed:
 			CardDisplayComponentClass.USE_ESL_TEMPLATE = not CardDisplayComponentClass.USE_ESL_TEMPLATE
 			for card_id in _card_display_by_id:
@@ -1207,6 +1211,19 @@ func _open_esl_template_adjuster() -> void:
 		_render_current_page()
 	)
 	add_child(adjuster)
+
+
+func _open_double_template_builder() -> void:
+	var BuilderClass = load("res://src/ui/double_template_builder_screen.gd")
+	if BuilderClass == null:
+		return
+	var builder: Control = BuilderClass.new()
+	builder.dismissed.connect(func():
+		if is_instance_valid(builder):
+			builder.queue_free()
+		_render_current_page()
+	)
+	add_child(builder)
 
 
 func _open_error_report_popover() -> void:
