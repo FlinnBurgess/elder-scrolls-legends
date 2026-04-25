@@ -1453,6 +1453,19 @@ func _layout_full_esl_double_overlays(map_rect: Callable) -> void:
 	_apply_panel_style(_subtype_banner, Color.TRANSPARENT, Color.TRANSPARENT, 0, 0)
 	_apply_panel_style(_double_b_name_banner, Color.TRANSPARENT, Color.TRANSPARENT, 0, 0)
 	_apply_panel_style(_double_b_subtype_banner, Color.TRANSPARENT, Color.TRANSPARENT, 0, 0)
+	# The cost-A label was given a black font in _refresh_styles for ESL mode
+	# (since the frame's blue magicka circle has light fill). Apply the same
+	# override to cost-B so it isn't left as the default white.
+	_double_b_cost_label.add_theme_color_override("font_color", Color.BLACK)
+	_double_b_cost_label.add_theme_constant_override("outline_size", 0)
+	# Stat-badge textures are very tall (attack-icon.png is 93x207); fitting
+	# them with STRETCH_KEEP_ASPECT_CENTERED into the user's drag rect makes
+	# them tiny. STRETCH_SCALE fills the rect directly so the badge size in
+	# the editor matches what's rendered.
+	_attack_badge.stretch_mode = TextureRect.STRETCH_SCALE
+	_health_badge.stretch_mode = TextureRect.STRETCH_SCALE
+	_double_b_attack_badge.stretch_mode = TextureRect.STRETCH_SCALE
+	_double_b_health_badge.stretch_mode = TextureRect.STRETCH_SCALE
 
 	var halves: Array = _card_data.get("half_card_ids", [])
 	if halves.size() < 2:

@@ -26,7 +26,9 @@ const RECT_KEYS := [
 	"double_b_power",
 	"double_b_health",
 ]
-const DEFAULT_DOUBLE_CARD_ID := "iom_double_baliwog_tidecrawlers_and_smoked_baliwog_leg"
+# Default sample uses two creature halves so both stat-badge sets are visible
+# from the start (action/item halves don't render power/health badges).
+const DEFAULT_DOUBLE_CARD_ID := "iom_double_manic_and_demented_grummite"
 
 signal dismissed
 
