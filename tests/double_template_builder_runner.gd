@@ -79,12 +79,15 @@ func _test_override_loader_round_trip() -> bool:
 
 
 func _test_default_reset_path() -> bool:
-	# DOUBLE_A_COST_RECT_N's default should match ESL_COST_RECT_N (cost-A
-	# inherits the standard ESL cost circle position so the frame PNG aligns).
-	var ad := CardDisplayComponent.DOUBLE_A_COST_RECT_N
-	var es := CardDisplayComponent.ESL_COST_RECT_N
-	if not _rect_approx_eq(ad, es):
-		return _assert(false, "DOUBLE_A_COST_RECT_N should match ESL_COST_RECT_N by default")
+	# Cost-A and cost-B should be vertically separated (B below A) and on the
+	# left side of the card — this catches accidental swaps and confirms the
+	# defaults sit in the expected halves.
+	var a := CardDisplayComponent.DOUBLE_A_COST_RECT_N
+	var b := CardDisplayComponent.DOUBLE_B_COST_RECT_N
+	if not _assert(a.position.y < b.position.y, "Cost-A must sit above Cost-B"):
+		return false
+	if not _assert(a.position.x < 0.5 and b.position.x < 0.5, "Cost circles should be on the left half of the card"):
+		return false
 	return true
 
 

@@ -133,23 +133,23 @@ static var ESL_RULES_RECT_N := Rect2(70.0 / 440.0, 493.0 / 680.0, 310.0 / 440.0,
 static var ESL_ONGOING_RECT_N := Rect2(95.0 / 440.0, 468.0 / 680.0, 250.0 / 440.0, 22.0 / 680.0)
 
 # Double-card layout: 12 normalised rects describing each half's elements,
-# computed once from the previous code-computed positions so the visual is
-# unchanged on first run. Override via res://data/double_template_adjustments.json.
-# Half-A defaults match the standard ESL header positions; half-A art is the
-# top half of the standard art region. Half-B mirrors half-A shifted into the
-# bottom half of the card.
-static var DOUBLE_A_COST_RECT_N := Rect2(25.0 / 440.0, 51.0 / 680.0, 80.0 / 440.0, 80.0 / 680.0)
-static var DOUBLE_A_TITLE_RECT_N := Rect2(100.0 / 440.0, 78.0 / 680.0, 252.0 / 440.0, 30.0 / 680.0)
-static var DOUBLE_A_TYPE_RECT_N := Rect2(95.0 / 440.0, 111.0 / 680.0, 250.0 / 440.0, 22.0 / 680.0)
-static var DOUBLE_A_ART_RECT_N := Rect2(60.0 / 440.0, 120.0 / 680.0, 320.0 / 440.0, 218.0 / 680.0)
-static var DOUBLE_A_POWER_RECT_N := Rect2(15.0 / 440.0, 221.0 / 680.0, 100.0 / 440.0, 60.0 / 680.0)
-static var DOUBLE_A_HEALTH_RECT_N := Rect2(325.0 / 440.0, 221.0 / 680.0, 100.0 / 440.0, 60.0 / 680.0)
-static var DOUBLE_B_COST_RECT_N := Rect2(25.0 / 440.0, 300.0 / 680.0, 80.0 / 440.0, 80.0 / 680.0)
-static var DOUBLE_B_TITLE_RECT_N := Rect2(100.0 / 440.0, 300.0 / 680.0, 252.0 / 440.0, 30.0 / 680.0)
-static var DOUBLE_B_TYPE_RECT_N := Rect2(95.0 / 440.0, 333.0 / 680.0, 250.0 / 440.0, 22.0 / 680.0)
-static var DOUBLE_B_ART_RECT_N := Rect2(60.0 / 440.0, 342.0 / 680.0, 320.0 / 440.0, 304.0 / 680.0)
-static var DOUBLE_B_POWER_RECT_N := Rect2(15.0 / 440.0, 494.0 / 680.0, 100.0 / 440.0, 60.0 / 680.0)
-static var DOUBLE_B_HEALTH_RECT_N := Rect2(325.0 / 440.0, 494.0 / 680.0, 100.0 / 440.0, 60.0 / 680.0)
+# tuned to align with the slots baked into the frame_double_*.png templates.
+# Override via res://data/double_template_adjustments.json or fine-tune
+# visually with the in-game template builder (Ctrl+Shift+D in deck editor).
+# Defaults below are starting estimates — drag the frames in the builder to
+# match the frame PNG's exact slot positions then Save.
+static var DOUBLE_A_COST_RECT_N := Rect2(14.0 / 440.0, 40.0 / 680.0, 80.0 / 440.0, 80.0 / 680.0)
+static var DOUBLE_A_TITLE_RECT_N := Rect2(110.0 / 440.0, 80.0 / 680.0, 230.0 / 440.0, 30.0 / 680.0)
+static var DOUBLE_A_TYPE_RECT_N := Rect2(150.0 / 440.0, 110.0 / 680.0, 150.0 / 440.0, 20.0 / 680.0)
+static var DOUBLE_A_ART_RECT_N := Rect2(68.0 / 440.0, 110.0 / 680.0, 310.0 / 440.0, 210.0 / 680.0)
+static var DOUBLE_A_POWER_RECT_N := Rect2(80.0 / 440.0, 245.0 / 680.0, 70.0 / 440.0, 50.0 / 680.0)
+static var DOUBLE_A_HEALTH_RECT_N := Rect2(305.0 / 440.0, 245.0 / 680.0, 70.0 / 440.0, 50.0 / 680.0)
+static var DOUBLE_B_COST_RECT_N := Rect2(14.0 / 440.0, 320.0 / 680.0, 80.0 / 440.0, 80.0 / 680.0)
+static var DOUBLE_B_TITLE_RECT_N := Rect2(110.0 / 440.0, 360.0 / 680.0, 230.0 / 440.0, 30.0 / 680.0)
+static var DOUBLE_B_TYPE_RECT_N := Rect2(150.0 / 440.0, 390.0 / 680.0, 150.0 / 440.0, 20.0 / 680.0)
+static var DOUBLE_B_ART_RECT_N := Rect2(68.0 / 440.0, 390.0 / 680.0, 310.0 / 440.0, 210.0 / 680.0)
+static var DOUBLE_B_POWER_RECT_N := Rect2(80.0 / 440.0, 525.0 / 680.0, 70.0 / 440.0, 50.0 / 680.0)
+static var DOUBLE_B_HEALTH_RECT_N := Rect2(305.0 / 440.0, 525.0 / 680.0, 70.0 / 440.0, 50.0 / 680.0)
 
 const ESL_OVERRIDES_PATH := "res://data/esl_template_adjustments.json"
 const DOUBLE_OVERRIDES_PATH := "res://data/double_template_adjustments.json"
@@ -376,8 +376,44 @@ func _esl_attribute_tuple_key(card: Dictionary) -> String:
 
 
 func _esl_frame_key_for_card(card: Dictionary) -> String:
+	if str(card.get("card_type", "")) == "double":
+		var dk := _esl_double_frame_key_for_card(card)
+		if not dk.is_empty():
+			return dk
 	var tuple_key := _esl_attribute_tuple_key(card)
 	return ESL_FRAME_BY_ATTRIBUTES.get(tuple_key, "")
+
+
+# Returns the frame_double_<a>_<b> key for a double card, looking up each
+# half's primary attribute. If a corresponding asset exists, that key is used;
+# otherwise returns "" so the caller falls back to the standard ESL lookup.
+func _esl_double_frame_key_for_card(card: Dictionary) -> String:
+	var halves: Array = card.get("half_card_ids", [])
+	if halves.size() < 2:
+		return ""
+	var seed_a := _resolve_double_half_seed(str(halves[0]))
+	var seed_b := _resolve_double_half_seed(str(halves[1]))
+	var attr_a := _primary_attribute_for_seed(seed_a)
+	var attr_b := _primary_attribute_for_seed(seed_b)
+	if attr_a.is_empty() or attr_b.is_empty():
+		return ""
+	var candidate := "double_%s_%s" % [attr_a, attr_b]
+	# Only return the key if the matching frame PNG actually exists, so cards
+	# without a hand-painted double frame keep working via the duo/mono path.
+	if ResourceLoader.exists(ESL_TEMPLATE_DIR + "frame_" + candidate + ".png"):
+		return candidate
+	return ""
+
+
+func _primary_attribute_for_seed(seed: Dictionary) -> String:
+	var attrs = seed.get("attributes", [])
+	if typeof(attrs) != TYPE_ARRAY or attrs.is_empty():
+		return "neutral"
+	for a in attrs:
+		var s := str(a).strip_edges().to_lower()
+		if not s.is_empty():
+			return s
+	return "neutral"
 
 
 func _esl_template_supported(card: Dictionary) -> bool:
@@ -1017,7 +1053,7 @@ func _refresh_esl_template_textures() -> void:
 	var rarity_key := _card_rarity_text(_card_data)
 	# Legendary has distinct overlays for duo/trio attribute counts.
 	if rarity_key == "legendary":
-		if frame_key.begins_with("duo_"):
+		if frame_key.begins_with("duo_") or frame_key == "double_endurance_intelligence":
 			rarity_key = "legendary_duo"
 		elif frame_key.begins_with("trio_"):
 			rarity_key = "legendary_trio"
