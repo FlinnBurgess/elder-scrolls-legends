@@ -10,6 +10,8 @@ const MatchAuras = preload("res://src/core/match/match_auras.gd")
 const MatchTriggers = preload("res://src/core/match/match_triggers.gd")
 const MatchTargeting = preload("res://src/core/match/match_targeting.gd")
 const MatchSummonTiming = preload("res://src/core/match/match_summon_timing.gd")
+const MatchTiming = preload("res://src/core/match/match_timing.gd")
+const CardCatalog = preload("res://src/deck/card_catalog.gd")
 const GameLogger = preload("res://src/core/match/game_logger.gd")
 
 const ZONE_HAND := "hand"
@@ -241,29 +243,12 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var dfdf_filter_raw = effect.get("filter", {})
 				var dfdf_filter: Dictionary = dfdf_filter_raw if typeof(dfdf_filter_raw) == TYPE_DICTIONARY else {}
 				var dfdf_candidates: Array = []
+				var dfdf_remaining_magicka := int(dfdf_player.get("current_magicka", 0))
 				for di in range(dfdf_deck.size()):
 					var card: Dictionary = dfdf_deck[di]
 					if typeof(card) != TYPE_DICTIONARY:
 						continue
-					var dfdf_match := true
-					if dfdf_filter.has("card_type") and str(card.get("card_type", "")) != str(dfdf_filter["card_type"]):
-						dfdf_match = false
-					if dfdf_filter.has("multi_attribute"):
-						var attrs: Array = card.get("attributes", [])
-						if typeof(attrs) != TYPE_ARRAY or attrs.size() < 2:
-							dfdf_match = false
-					if dfdf_filter.has("cost_equals_remaining_magicka"):
-						var remaining := int(dfdf_player.get("current_magicka", 0))
-						if int(card.get("cost", -1)) != remaining:
-							dfdf_match = false
-					if dfdf_filter.has("max_cost") and int(card.get("cost", 0)) > int(dfdf_filter["max_cost"]):
-						dfdf_match = false
-					if dfdf_filter.has("subtype_in"):
-						var dfdf_st_filter = dfdf_filter["subtype_in"]
-						if typeof(dfdf_st_filter) == TYPE_ARRAY:
-							if not ExtendedMechanicPacks.card_matches_any_subtype(card, dfdf_st_filter):
-								dfdf_match = false
-					if dfdf_match:
+					if _draw_filter_matches(card, dfdf_filter, dfdf_remaining_magicka):
 						dfdf_candidates.append(di)
 				if not dfdf_candidates.is_empty():
 					var dfdf_is_player_choice := bool(effect.get("player_choice", false))
@@ -300,8 +285,12 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 							if dfdf_unique:
 								dfdf_drawn_def_ids.append(str(drawn.get("definition_id", "")))
 							dfdf_deck.remove_at(pick_idx)
-							drawn["zone"] = ZONE_HAND
-							dfdf_hand.append(drawn)
+							if str(drawn.get("card_type", "")) == "double":
+								# Tutor selected a combined card — split into halves on entry to hand.
+								MatchTiming._split_double_to_zone(match_state, player_id, drawn, ZONE_HAND)
+							else:
+								drawn["zone"] = ZONE_HAND
+								dfdf_hand.append(drawn)
 							generated_events.append({"event_type": "card_drawn", "player_id": player_id, "drawn_instance_id": str(drawn.get("instance_id", "")), "source": "draw_from_deck_filtered", "reason": reason})
 							var dfdf_adjusted: Array = []
 							for ci in dfdf_candidates:
@@ -764,3 +753,59 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						"then_context": {},
 						"prompt": "Choose a Prophecy to play from your hand.",
 					})
+
+
+# Filter matching for tutor effects (draw_from_deck_filtered). For double cards,
+# implements "either-mode" per UESP spec: a double matches if either half
+# satisfies card_type / subtype filter clauses. Cost-based clauses are checked
+# against the combined card (whose cost = sum of halves).
+static func _draw_filter_matches(card: Dictionary, filter: Dictionary, remaining_magicka: int) -> bool:
+	# Cost-based clauses use combined card values.
+	if filter.has("cost_equals_remaining_magicka") and int(card.get("cost", -1)) != remaining_magicka:
+		return false
+	if filter.has("max_cost") and int(card.get("cost", 0)) > int(filter["max_cost"]):
+		return false
+	if filter.has("multi_attribute"):
+		var attrs: Array = card.get("attributes", [])
+		if typeof(attrs) != TYPE_ARRAY or attrs.size() < 2:
+			return false
+	# Type/subtype clauses: doubles match if either half matches.
+	var is_double := str(card.get("card_type", "")) == "double"
+	if not is_double:
+		if filter.has("card_type") and str(card.get("card_type", "")) != str(filter["card_type"]):
+			return false
+		if filter.has("subtype_in"):
+			var st_filter = filter["subtype_in"]
+			if typeof(st_filter) == TYPE_ARRAY and not ExtendedMechanicPacks.card_matches_any_subtype(card, st_filter):
+				return false
+		return true
+	# Double card: check if either half matches type/subtype clauses.
+	if not filter.has("card_type") and not filter.has("subtype_in"):
+		return true
+	var halves: Array = card.get("half_card_ids", [])
+	if halves.size() < 2:
+		return false
+	for hid in halves:
+		var half_seed := _find_seed_by_id(str(hid))
+		if half_seed.is_empty():
+			continue
+		var half_match := true
+		if filter.has("card_type") and str(half_seed.get("card_type", "")) != str(filter["card_type"]):
+			half_match = false
+		if half_match and filter.has("subtype_in"):
+			var st_filter2 = filter["subtype_in"]
+			if typeof(st_filter2) == TYPE_ARRAY and not ExtendedMechanicPacks.card_matches_any_subtype(half_seed, st_filter2):
+				half_match = false
+		if half_match:
+			return true
+	return false
+
+
+static var _seed_cache: Dictionary = {}
+
+static func _find_seed_by_id(card_id: String) -> Dictionary:
+	if _seed_cache.is_empty():
+		for seed in CardCatalog._card_seeds():
+			if typeof(seed) == TYPE_DICTIONARY:
+				_seed_cache[str(seed.get("card_id", ""))] = seed
+	return _seed_cache.get(card_id, {})

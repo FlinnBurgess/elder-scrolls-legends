@@ -26,7 +26,9 @@ func _run_all_tests() -> bool:
 		_test_drawing_only_double_in_deck_does_not_trigger_fatigue() and
 		_test_buff_propagation_cost_delta_to_halves() and
 		_test_halves_have_distinct_instance_ids_and_split_origin_pointer() and
-		_test_milling_a_double_splits_both_halves_into_discard()
+		_test_milling_a_double_splits_both_halves_into_discard() and
+		_test_tutor_either_mode_matches_double_when_half_matches() and
+		_test_tutor_picking_double_splits_into_hand()
 	)
 
 
@@ -327,6 +329,61 @@ func _test_milling_a_double_splits_both_halves_into_discard() -> bool:
 			has_double_event = true
 			break
 	if not _assert(has_double_event, "card_milled event should be flagged is_double_card=true"):
+		return false
+	return true
+
+
+func _test_tutor_either_mode_matches_double_when_half_matches() -> bool:
+	# Place a creature/action double (Manic Jack/Mutation) in deck and run a
+	# draw_from_deck_filtered with card_type=action. The combined should be
+	# matched because Manic Mutation is an action.
+	var match_state := _make_started_match()
+	_force_top_of_deck(match_state, 0, "iom_double_manic_jack_and_mutation")
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player.get("player_id", ""))
+	var hand_size_before := int(player["hand"].size())
+
+	var EffectDraw = preload("res://src/core/match/effects/effect_draw.gd")
+	var trigger := {"controller_player_id": pid, "source_instance_id": "test_tutor_src"}
+	var effect := {"op": "draw_from_deck_filtered", "target_player": "controller", "filter": {"card_type": "action"}, "count": 1}
+	var generated_events: Array = []
+	EffectDraw.apply("draw_from_deck_filtered", match_state, trigger, {}, effect, generated_events, {"reason": "test_tutor", "descriptor": {}})
+
+	# Expect 2 halves added to hand (Manic Jack + Manic Mutation), combined removed from deck
+	if not _assert(player["hand"].size() == hand_size_before + 2, "Hand should grow by 2 (split) after either-mode tutor; got %d" % (player["hand"].size() - hand_size_before)):
+		return false
+	var added_names: Array = []
+	for i in range(hand_size_before, player["hand"].size()):
+		added_names.append(str(player["hand"][i].get("name", "")))
+	added_names.sort()
+	if not _assert(added_names == ["Manic Jack", "Manic Mutation"], "Halves should be Manic Jack and Manic Mutation; got %s" % str(added_names)):
+		return false
+	return true
+
+
+func _test_tutor_picking_double_splits_into_hand() -> bool:
+	# Use player_choice tutor: place double in deck, run draw_from_deck_filtered
+	# with player_choice=true, then resolve the pending selection picking the
+	# combined card. Expect split.
+	var match_state := _make_started_match()
+	_force_top_of_deck(match_state, 0, "iom_double_spawn_mother_and_baliwog")
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player.get("player_id", ""))
+	var hand_size_before := int(player["hand"].size())
+	var combined_iid := str(player["deck"][player["deck"].size() - 1].get("instance_id", ""))
+
+	MatchTiming.ensure_match_state(match_state)
+	var EffectDraw = preload("res://src/core/match/effects/effect_draw.gd")
+	var trigger := {"controller_player_id": pid, "source_instance_id": "test_tutor_choice_src"}
+	var effect := {"op": "draw_from_deck_filtered", "target_player": "controller", "filter": {"card_type": "creature"}, "player_choice": true}
+	var generated_events: Array = []
+	EffectDraw.apply("draw_from_deck_filtered", match_state, trigger, {}, effect, generated_events, {"reason": "test_tutor_choice", "descriptor": {}})
+
+	if not _assert(MatchTiming.has_pending_deck_selection(match_state, pid), "Should have a pending deck selection"):
+		return false
+	# Resolve picking the combined card
+	MatchTiming.resolve_pending_deck_selection(match_state, pid, combined_iid)
+	if not _assert(player["hand"].size() == hand_size_before + 2, "Hand should grow by 2 after split; got %d" % (player["hand"].size() - hand_size_before)):
 		return false
 	return true
 

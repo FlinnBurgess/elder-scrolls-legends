@@ -2481,13 +2481,24 @@ static func resolve_pending_deck_selection(match_state: Dictionary, player_id: S
 			})
 		"draw_card_to_hand":
 			deck.remove_at(chosen_idx)
-			chosen_card["zone"] = ZONE_HAND
-			var dch_hand: Array = player.get(ZONE_HAND, [])
-			dch_hand.append(chosen_card)
-			var dch_mod_power := int(then_context.get("modify_power", 0))
-			var dch_mod_health := int(then_context.get("modify_health", 0))
-			if dch_mod_power != 0 or dch_mod_health != 0:
-				EvergreenRules.apply_stat_bonus(chosen_card, dch_mod_power, dch_mod_health, str(then_context.get("reason", "deck_selection")))
+			if str(chosen_card.get("card_type", "")) == "double":
+				# Player picked a combined card from deck — split into halves on
+				# entry to hand. Stat-bonus modifiers from then_context propagate
+				# to both halves via the standard buff-propagation path below.
+				var dch_split_halves := _split_double_to_zone(match_state, player_id, chosen_card, ZONE_HAND)
+				var dch_mod_power_d := int(then_context.get("modify_power", 0))
+				var dch_mod_health_d := int(then_context.get("modify_health", 0))
+				if dch_mod_power_d != 0 or dch_mod_health_d != 0:
+					for dch_half in dch_split_halves:
+						EvergreenRules.apply_stat_bonus(dch_half, dch_mod_power_d, dch_mod_health_d, str(then_context.get("reason", "deck_selection")))
+			else:
+				chosen_card["zone"] = ZONE_HAND
+				var dch_hand: Array = player.get(ZONE_HAND, [])
+				dch_hand.append(chosen_card)
+				var dch_mod_power := int(then_context.get("modify_power", 0))
+				var dch_mod_health := int(then_context.get("modify_health", 0))
+				if dch_mod_power != 0 or dch_mod_health != 0:
+					EvergreenRules.apply_stat_bonus(chosen_card, dch_mod_power, dch_mod_health, str(then_context.get("reason", "deck_selection")))
 			generated_events.append({"event_type": "card_drawn", "player_id": player_id, "drawn_instance_id": str(chosen_card.get("instance_id", "")), "source": "draw_from_deck_filtered", "reason": str(then_context.get("reason", "deck_selection"))})
 		"summon_creature_from_deck":
 			deck.remove_at(chosen_idx)

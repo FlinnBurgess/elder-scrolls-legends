@@ -214,6 +214,12 @@ var _rarity_marker: PanelContainer
 var _rarity_label: Label
 var _cost_badge: TextureRect
 var _cost_label: Label
+# Double-card half-B overlays — only populated/visible when rendering a double card.
+var _double_b_cost_badge: TextureRect
+var _double_b_cost_label: Label
+var _double_b_name_banner: PanelContainer
+var _double_b_name_label: Label
+var _double_divider: ColorRect
 var _attack_badge: TextureRect
 var _attack_label: Label
 var _health_badge: TextureRect
@@ -625,6 +631,41 @@ func _build_internal_nodes() -> void:
 	_cost_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	_content_root.add_child(_cost_label)
 
+	# Double-card overlays: a second cost badge + label, a half-B name banner,
+	# and a thin horizontal divider rendered at the vertical art midpoint.
+	# All are hidden by default and only positioned/shown when rendering doubles.
+	_double_b_cost_badge = TextureRect.new()
+	_double_b_cost_badge.name = "DoubleBCostBadge"
+	_double_b_cost_badge.texture = preload("res://assets/images/cards/magicka-icon.png")
+	_double_b_cost_badge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_double_b_cost_badge.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_double_b_cost_badge.visible = false
+	_content_root.add_child(_double_b_cost_badge)
+	_double_b_cost_label = _build_centered_label("DoubleBCostLabel", 16)
+	_double_b_cost_label.add_theme_constant_override("outline_size", 3)
+	_double_b_cost_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_double_b_cost_label.visible = false
+	_content_root.add_child(_double_b_cost_label)
+	_double_b_name_banner = PanelContainer.new()
+	_double_b_name_banner.name = "DoubleBNameBanner"
+	_double_b_name_banner.clip_contents = true
+	_double_b_name_banner.visible = false
+	_content_root.add_child(_double_b_name_banner)
+	var double_b_box := _build_panel_box(_double_b_name_banner, 0, 4, BoxContainer.ALIGNMENT_CENTER)
+	_double_b_name_label = Label.new()
+	_double_b_name_label.name = "DoubleBNameLabel"
+	_double_b_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_double_b_name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_double_b_name_label.max_lines_visible = 1
+	_double_b_name_label.add_theme_font_size_override("font_size", 13)
+	double_b_box.add_child(_double_b_name_label)
+	_double_divider = ColorRect.new()
+	_double_divider.name = "DoubleDivider"
+	_double_divider.color = Color(0.95, 0.88, 0.6, 0.85)
+	_double_divider.visible = false
+	_double_divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_content_root.add_child(_double_divider)
+
 	_attribute_icons_container = VBoxContainer.new()
 	_attribute_icons_container.name = "AttributeIcons"
 	_attribute_icons_container.add_theme_constant_override("separation", 2)
@@ -828,6 +869,7 @@ func _refresh_content() -> void:
 	_refresh_attribute_icons()
 	_refresh_gate_level_badge()
 	_refresh_esl_template_textures()
+	_refresh_double_card_overlays()
 
 
 func _refresh_esl_template_textures() -> void:
@@ -1011,6 +1053,7 @@ func _layout_full(inner_rect: Rect2) -> void:
 	var scale := _layout_scale(PRESENTATION_FULL)
 	var content_padding := 6.0 * scale
 	var content_width := maxf(inner_rect.size.x - content_padding * 2.0, 0.0)
+	var is_double_card := str(_card_data.get("card_type", "")) == "double"
 
 	# Cost badge – magicka icon, top-left overlapping the frame
 	var cost_side := 42.0 * scale
@@ -1081,6 +1124,35 @@ func _layout_full(inner_rect: Rect2) -> void:
 
 	# Relationship pips
 	_layout_pips()
+
+	# Double-card overlays: position cost-B badge at the vertical midpoint of
+	# the art region, the half-B name banner just above the divider line, and
+	# the divider itself across the art's vertical midpoint.
+	if is_double_card:
+		var divider_y := _art_frame.position.y + _art_frame.size.y * 0.5
+		_double_divider.size = Vector2(_art_frame.size.x, maxf(2.0 * scale, 2.0))
+		_double_divider.position = Vector2(_art_frame.position.x, divider_y - _double_divider.size.y * 0.5)
+		_double_divider.visible = true
+		# Half-B cost badge: same dimensions as primary cost badge but anchored
+		# at the divider's left edge, vertically centered on the divider line.
+		_double_b_cost_badge.size = cost_size
+		_double_b_cost_badge.position = Vector2(_outer_frame.position.x - 8.0 * scale, divider_y - cost_size.y * 0.5)
+		_double_b_cost_label.size = cost_size
+		_double_b_cost_label.position = _double_b_cost_badge.position
+		_double_b_cost_badge.visible = true
+		_double_b_cost_label.visible = true
+		# Half-B name banner: positioned just below the divider, mirroring how
+		# the primary name banner sits at the top of the art region.
+		var dnb_height := 28.0 * scale
+		var border_w_d := float(_scaled_border_width(2, scale))
+		_double_b_name_banner.position = Vector2(_art_frame.position.x + border_w_d, divider_y + border_w_d)
+		_double_b_name_banner.size = Vector2(_art_frame.size.x - border_w_d * 2.0, dnb_height)
+		_double_b_name_banner.visible = true
+	else:
+		_double_divider.visible = false
+		_double_b_cost_badge.visible = false
+		_double_b_cost_label.visible = false
+		_double_b_name_banner.visible = false
 
 
 func _layout_full_esl(inner_rect: Rect2) -> void:
@@ -1230,6 +1302,46 @@ func _frame_rect(width: float, height: float) -> Rect2:
 		var full_inset := Vector2(8, 8)
 		return Rect2(full_inset, Vector2(maxf(width - full_inset.x * 2.0, 0.0), maxf(height - full_inset.y * 2.0, 0.0)))
 	return Rect2(Vector2.ZERO, Vector2(width, height))
+
+
+func _refresh_double_card_overlays() -> void:
+	if _double_b_cost_label == null:
+		return
+	if str(_card_data.get("card_type", "")) != "double":
+		_double_b_cost_label.text = ""
+		_double_b_name_label.text = ""
+		# Update the primary name and cost labels back to the combined values
+		# (the standard _refresh_content already handled this).
+		return
+	var halves: Array = _card_data.get("half_card_ids", [])
+	if halves.size() < 2:
+		return
+	var seed_a := _resolve_double_half_seed(str(halves[0]))
+	var seed_b := _resolve_double_half_seed(str(halves[1]))
+	if seed_a.is_empty() or seed_b.is_empty():
+		return
+	# Override the primary cost/name labels to reflect HALF A (top half),
+	# and populate half-B labels with HALF B (bottom half).
+	_cost_label.text = str(int(seed_a.get("cost", 0)))
+	_name_label.text = str(seed_a.get("name", ""))
+	_double_b_cost_label.text = str(int(seed_b.get("cost", 0)))
+	_double_b_name_label.text = str(seed_b.get("name", ""))
+
+
+static var _double_half_seed_cache: Dictionary = {}
+
+func _resolve_double_half_seed(card_id: String) -> Dictionary:
+	if card_id.is_empty():
+		return {}
+	if _double_half_seed_cache.has(card_id):
+		return _double_half_seed_cache[card_id]
+	var CardCatalog2 = preload("res://src/deck/card_catalog.gd")
+	for seed in CardCatalog2._card_seeds():
+		if typeof(seed) == TYPE_DICTIONARY and str(seed.get("card_id", "")) == card_id:
+			_double_half_seed_cache[card_id] = seed
+			return seed
+	_double_half_seed_cache[card_id] = {}
+	return {}
 
 
 func _resolve_art_texture(card: Dictionary) -> Texture2D:
