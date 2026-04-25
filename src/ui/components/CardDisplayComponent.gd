@@ -219,6 +219,12 @@ var _double_b_cost_badge: TextureRect
 var _double_b_cost_label: Label
 var _double_b_name_banner: PanelContainer
 var _double_b_name_label: Label
+var _double_b_subtype_banner: PanelContainer
+var _double_b_subtype_label: Label
+var _double_b_attack_badge: TextureRect
+var _double_b_attack_label: Label
+var _double_b_health_badge: TextureRect
+var _double_b_health_label: Label
 var _double_divider: ColorRect
 var _attack_badge: TextureRect
 var _attack_label: Label
@@ -659,6 +665,43 @@ func _build_internal_nodes() -> void:
 	_double_b_name_label.max_lines_visible = 1
 	_double_b_name_label.add_theme_font_size_override("font_size", 13)
 	double_b_box.add_child(_double_b_name_label)
+	_double_b_subtype_banner = PanelContainer.new()
+	_double_b_subtype_banner.name = "DoubleBSubtypeBanner"
+	_double_b_subtype_banner.clip_contents = true
+	_double_b_subtype_banner.visible = false
+	_content_root.add_child(_double_b_subtype_banner)
+	var double_b_subtype_box := _build_panel_box(_double_b_subtype_banner, 0, 4, BoxContainer.ALIGNMENT_CENTER)
+	_double_b_subtype_label = Label.new()
+	_double_b_subtype_label.name = "DoubleBSubtypeLabel"
+	_double_b_subtype_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_double_b_subtype_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_double_b_subtype_label.max_lines_visible = 1
+	_double_b_subtype_label.add_theme_font_size_override("font_size", 9)
+	double_b_subtype_box.add_child(_double_b_subtype_label)
+	_double_b_attack_badge = TextureRect.new()
+	_double_b_attack_badge.name = "DoubleBAttackBadge"
+	_double_b_attack_badge.texture = preload("res://assets/images/cards/attack-icon.png")
+	_double_b_attack_badge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_double_b_attack_badge.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_double_b_attack_badge.visible = false
+	_content_root.add_child(_double_b_attack_badge)
+	_double_b_attack_label = _build_centered_label("DoubleBAttackLabel", 18)
+	_double_b_attack_label.add_theme_constant_override("outline_size", 3)
+	_double_b_attack_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_double_b_attack_label.visible = false
+	_content_root.add_child(_double_b_attack_label)
+	_double_b_health_badge = TextureRect.new()
+	_double_b_health_badge.name = "DoubleBHealthBadge"
+	_double_b_health_badge.texture = preload("res://assets/images/cards/defense-icon.png")
+	_double_b_health_badge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_double_b_health_badge.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_double_b_health_badge.visible = false
+	_content_root.add_child(_double_b_health_badge)
+	_double_b_health_label = _build_centered_label("DoubleBHealthLabel", 18)
+	_double_b_health_label.add_theme_constant_override("outline_size", 3)
+	_double_b_health_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_double_b_health_label.visible = false
+	_content_root.add_child(_double_b_health_label)
 	_double_divider = ColorRect.new()
 	_double_divider.name = "DoubleDivider"
 	_double_divider.color = Color(0.95, 0.88, 0.6, 0.85)
@@ -1232,6 +1275,121 @@ func _layout_full_esl(inner_rect: Rect2) -> void:
 	if _lethal_particles != null:
 		_lethal_particles.position = _attack_label.position + power_rect.size * 0.5
 
+	_layout_full_esl_double_overlays(map_rect)
+
+
+# Position double-card overlays inside the ESL template card. Hide them when the
+# current card isn't a double. Layout strategy: the existing half-A elements use
+# the standard ESL rects (cost/title/subtype at top, power/health in mid-card),
+# but for doubles we re-position them within the TOP HALF of the art region and
+# add half-B mirrored elements within the BOTTOM HALF. The rules panel is hidden
+# (doubles have no rules text — the space is needed for the second half).
+func _layout_full_esl_double_overlays(map_rect: Callable) -> void:
+	var is_double_card := str(_card_data.get("card_type", "")) == "double"
+	if not is_double_card:
+		_double_divider.visible = false
+		_double_b_cost_badge.visible = false
+		_double_b_cost_label.visible = false
+		_double_b_name_banner.visible = false
+		_double_b_subtype_banner.visible = false
+		_double_b_attack_badge.visible = false
+		_double_b_attack_label.visible = false
+		_double_b_health_badge.visible = false
+		_double_b_health_label.visible = false
+		_cost_badge.visible = true
+		return
+	# Hide the rules panel — doubles render no rules text; the space is reused.
+	_rules_panel.position = Vector2(-1000.0, -1000.0)
+	_rules_panel.size = Vector2.ZERO
+
+	var halves: Array = _card_data.get("half_card_ids", [])
+	if halves.size() < 2:
+		return
+	var seed_a := _resolve_double_half_seed(str(halves[0]))
+	var seed_b := _resolve_double_half_seed(str(halves[1]))
+
+	# Compute "half-shifted" normalised rects: same x/w, but y shifted down by
+	# half the art height to land in the bottom half of the art region.
+	var half_offset_n_y := ESL_ART_RECT_N.size.y * 0.5
+	var shift_n := func(n: Rect2) -> Rect2:
+		return Rect2(n.position.x, n.position.y + half_offset_n_y, n.size.x, n.size.y)
+
+	# Half-A elements use the standard ESL rects (already positioned above).
+	# Half-B elements use the shifted versions.
+	var cost_b_rect: Rect2 = map_rect.call(shift_n.call(ESL_COST_RECT_N))
+	_double_b_cost_label.size = cost_b_rect.size
+	_double_b_cost_label.position = cost_b_rect.position
+	# Render the magicka-icon texture explicitly behind the half-B cost label.
+	# (The ESL frame PNG only ships ONE cost circle, drawn at the top-left for
+	# half-A; half-B needs its own circle rendered as a separate TextureRect.)
+	_double_b_cost_badge.size = cost_b_rect.size
+	_double_b_cost_badge.position = cost_b_rect.position
+	_double_b_cost_label.visible = true
+	_double_b_cost_badge.visible = true
+
+	var title_b_rect: Rect2 = map_rect.call(shift_n.call(ESL_TITLE_RECT_N))
+	_double_b_name_banner.position = title_b_rect.position
+	_double_b_name_banner.size = title_b_rect.size
+	_double_b_name_banner.visible = true
+
+	var type_b_rect: Rect2 = map_rect.call(shift_n.call(ESL_TYPE_RECT_N))
+	_double_b_subtype_banner.position = type_b_rect.position
+	_double_b_subtype_banner.size = type_b_rect.size
+	_double_b_subtype_banner.visible = true
+
+	# Power/health for each half — only when that half is a creature. Position
+	# inside its respective half art region (≈ 60% down within the half).
+	var art_rect_full: Rect2 = map_rect.call(ESL_ART_RECT_N)
+	var half_h := art_rect_full.size.y * 0.5
+	var half_a_top := art_rect_full.position.y
+	var half_b_top := half_a_top + half_h
+	var pw_size: Vector2 = map_rect.call(ESL_POWER_RECT_N).size
+	var hp_size: Vector2 = map_rect.call(ESL_HEALTH_RECT_N).size
+	var pw_x: float = map_rect.call(ESL_POWER_RECT_N).position.x
+	var hp_x: float = map_rect.call(ESL_HEALTH_RECT_N).position.x
+
+	var seed_a_is_creature := str(seed_a.get("card_type", "")) == "creature"
+	var seed_b_is_creature := str(seed_b.get("card_type", "")) == "creature"
+
+	# Half-A power/health: vertically centered within the lower portion of half-A.
+	if seed_a_is_creature:
+		var a_y := half_a_top + half_h * 0.55 - pw_size.y * 0.5
+		_attack_label.position = Vector2(pw_x, a_y)
+		_attack_label.size = pw_size
+		_health_label.position = Vector2(hp_x, a_y)
+		_health_label.size = hp_size
+	else:
+		_attack_label.position = Vector2(-1000.0, -1000.0)
+		_attack_label.size = Vector2.ZERO
+		_health_label.position = Vector2(-1000.0, -1000.0)
+		_health_label.size = Vector2.ZERO
+
+	if seed_b_is_creature:
+		var b_y := half_b_top + half_h * 0.55 - pw_size.y * 0.5
+		_double_b_attack_label.position = Vector2(pw_x, b_y)
+		_double_b_attack_label.size = pw_size
+		_double_b_health_label.position = Vector2(hp_x, b_y)
+		_double_b_health_label.size = hp_size
+		_double_b_attack_label.visible = true
+		_double_b_health_label.visible = true
+		# Render the diamond/shield textures behind half-B's labels (the ESL
+		# template only ships one set, drawn at the standard ESL rect — half-A
+		# uses those, so half-B gets explicit textured badges).
+		var badge_pad := pw_size.x * 0.25
+		_double_b_attack_badge.size = pw_size + Vector2(badge_pad, badge_pad)
+		_double_b_attack_badge.position = Vector2(pw_x - badge_pad * 0.5, b_y - badge_pad * 0.5)
+		_double_b_health_badge.size = hp_size + Vector2(badge_pad, badge_pad)
+		_double_b_health_badge.position = Vector2(hp_x - badge_pad * 0.5, b_y - badge_pad * 0.5)
+		_double_b_attack_badge.visible = true
+		_double_b_health_badge.visible = true
+	else:
+		_double_b_attack_label.visible = false
+		_double_b_health_label.visible = false
+		_double_b_attack_badge.visible = false
+		_double_b_health_badge.visible = false
+
+	_double_divider.visible = false  # ESL template + dual layout makes a divider redundant
+
 
 func _layout_creature_board_minimal(inner_rect: Rect2) -> void:
 	var scale := _layout_scale(PRESENTATION_CREATURE_BOARD_MINIMAL)
@@ -1310,8 +1468,9 @@ func _refresh_double_card_overlays() -> void:
 	if str(_card_data.get("card_type", "")) != "double":
 		_double_b_cost_label.text = ""
 		_double_b_name_label.text = ""
-		# Update the primary name and cost labels back to the combined values
-		# (the standard _refresh_content already handled this).
+		_double_b_subtype_label.text = ""
+		_double_b_attack_label.text = ""
+		_double_b_health_label.text = ""
 		return
 	var halves: Array = _card_data.get("half_card_ids", [])
 	if halves.size() < 2:
@@ -1320,12 +1479,40 @@ func _refresh_double_card_overlays() -> void:
 	var seed_b := _resolve_double_half_seed(str(halves[1]))
 	if seed_a.is_empty() or seed_b.is_empty():
 		return
-	# Override the primary cost/name labels to reflect HALF A (top half),
-	# and populate half-B labels with HALF B (bottom half).
+	# Override the primary cost/name/subtype labels to reflect HALF A (top half),
+	# and populate half-B labels with HALF B (bottom half). Also override stat
+	# labels with each half's values (only meaningful for creature halves).
 	_cost_label.text = str(int(seed_a.get("cost", 0)))
 	_name_label.text = str(seed_a.get("name", ""))
+	_subtype_label.text = _double_subtype_line(seed_a)
 	_double_b_cost_label.text = str(int(seed_b.get("cost", 0)))
 	_double_b_name_label.text = str(seed_b.get("name", ""))
+	_double_b_subtype_label.text = _double_subtype_line(seed_b)
+	if str(seed_a.get("card_type", "")) == "creature":
+		_attack_label.text = str(int(seed_a.get("base_power", 0)))
+		_health_label.text = str(int(seed_a.get("base_health", 0)))
+	else:
+		_attack_label.text = ""
+		_health_label.text = ""
+	if str(seed_b.get("card_type", "")) == "creature":
+		_double_b_attack_label.text = str(int(seed_b.get("base_power", 0)))
+		_double_b_health_label.text = str(int(seed_b.get("base_health", 0)))
+	else:
+		_double_b_attack_label.text = ""
+		_double_b_health_label.text = ""
+	# Suppress rules text on the combined card — the bottom half is rendered
+	# in the rules-panel area instead.
+	_rules_label.text = ""
+
+
+func _double_subtype_line(seed: Dictionary) -> String:
+	# Compose a "Subtype" or "Type" line for one half of a double card. Falls
+	# back to the type ("Creature", "Action", "Item") if no subtype is set.
+	var subtypes_raw = seed.get("subtypes", [])
+	if typeof(subtypes_raw) == TYPE_ARRAY and subtypes_raw.size() > 0:
+		return ", ".join(subtypes_raw)
+	var ct := str(seed.get("card_type", "")).capitalize()
+	return ct
 
 
 static var _double_half_seed_cache: Dictionary = {}
@@ -1388,14 +1575,22 @@ func _compose_double_art_texture(card: Dictionary) -> Texture2D:
 	var img_b := _load_image_from_path(path_b)
 	if img_a == null or img_b == null:
 		return null
-	var width: int = img_a.get_width()
-	var height: int = img_a.get_height()
-	# Resize img_b to match img_a's dimensions for a clean stack.
-	if img_b.get_width() != width or img_b.get_height() != height:
-		img_b.resize(width, height, Image.INTERPOLATE_BILINEAR)
-	var composite := Image.create(width, height, false, img_a.get_format())
-	composite.blit_rect(img_a, Rect2i(0, 0, width, height / 2), Vector2i(0, 0))
-	composite.blit_rect(img_b, Rect2i(0, 0, width, height / 2), Vector2i(0, height / 2))
+	# Normalise both halves to a common RGBA8 format and shared canvas size so
+	# blit_rect doesn't choke on format/size mismatches (e.g. one half being a
+	# 2048x2048 RGB PNG while the other is a 1024x1024 RGBA PNG).
+	var canvas_w: int = max(img_a.get_width(), img_b.get_width())
+	var canvas_h: int = max(img_a.get_height(), img_b.get_height())
+	if img_a.get_format() != Image.FORMAT_RGBA8:
+		img_a.convert(Image.FORMAT_RGBA8)
+	if img_b.get_format() != Image.FORMAT_RGBA8:
+		img_b.convert(Image.FORMAT_RGBA8)
+	if img_a.get_width() != canvas_w or img_a.get_height() != canvas_h:
+		img_a.resize(canvas_w, canvas_h, Image.INTERPOLATE_BILINEAR)
+	if img_b.get_width() != canvas_w or img_b.get_height() != canvas_h:
+		img_b.resize(canvas_w, canvas_h, Image.INTERPOLATE_BILINEAR)
+	var composite := Image.create(canvas_w, canvas_h, false, Image.FORMAT_RGBA8)
+	composite.blit_rect(img_a, Rect2i(0, 0, canvas_w, canvas_h / 2), Vector2i(0, 0))
+	composite.blit_rect(img_b, Rect2i(0, 0, canvas_w, canvas_h / 2), Vector2i(0, canvas_h / 2))
 	var tex := ImageTexture.create_from_image(composite)
 	_double_art_cache[cache_key] = tex
 	return tex

@@ -1,0 +1,41 @@
+{
+  "name": "Double Cards Visual Test",
+  "description": "Hand seeded with all 8 double cards for layout review. Player 2 has standard runes and an empty deck.",
+  "turn_number": 1,
+  "first_player": "player_1",
+  "player_1": {
+    "health": 30,
+    "max_magicka": 12,
+    "current_magicka": 12,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "hand": [
+      "iom_double_cloak_and_dagger",
+      "iom_double_manic_jack_and_mutation",
+      "iom_double_spawn_mother_and_baliwog",
+      "iom_double_felldew_and_elytra_noble",
+      "iom_double_baliwog_tidecrawlers_and_smoked_baliwog_leg",
+      "iom_double_manic_and_demented_grummite",
+      "iom_double_tavyar_and_rayvat",
+      "moe_double_cadwell_soul_shriven_and_betrayer"
+    ],
+    "deck": [
+      "iom_double_cloak_and_dagger",
+      "iom_double_manic_jack_and_mutation",
+      "neu_steel_dagger",
+      "neu_steel_dagger"
+    ],
+    "field_creatures": []
+  },
+  "player_2": {
+    "health": 30,
+    "max_magicka": 12,
+    "current_magicka": 12,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "hand": [],
+    "deck": [
+      "neu_steel_dagger",
+      "neu_steel_dagger",
+      "neu_steel_dagger"
+    ]
+  }
+}
