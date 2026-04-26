@@ -10,6 +10,7 @@ const MatchTimingHelpers = preload("res://src/core/match/match_timing_helpers.gd
 const MatchEffectParams = preload("res://src/core/match/match_effect_params.gd")
 const MatchSummonTiming = preload("res://src/core/match/match_summon_timing.gd")
 const MatchCombat = preload("res://src/core/match/match_combat.gd")
+const MatchTriggers = preload("res://src/core/match/match_triggers.gd")
 const GameLogger = preload("res://src/core/match/game_logger.gd")
 const PHASE_READY_FOR_FIRST_TURN := "ready_for_first_turn"
 const PHASE_ACTION := "action"
@@ -184,7 +185,10 @@ static func _start_turn(match_state: Dictionary, player_id: String) -> Dictionar
 	var magicka_gained := 0
 	if not suppress_magicka:
 		var current_max := int(player.get("max_magicka", 0))
-		var new_max := maxi(current_max, mini(MAX_MAGICKA_CAP, current_max + 1))
+		var per_turn_gain := 1
+		if MatchTriggers._has_double_max_magicka_gain(match_state, player_id):
+			per_turn_gain = 2
+		var new_max := maxi(current_max, mini(MAX_MAGICKA_CAP, current_max + per_turn_gain))
 		magicka_gained = new_max - current_max
 		player["max_magicka"] = new_max
 	player["current_magicka"] = int(player["max_magicka"])

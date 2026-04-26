@@ -118,6 +118,7 @@ func _run_all_tests() -> bool:
 		_test_conditional_drawn_card_bonus_sets_base_cost() and
 		_test_banish_by_name_from_opponent() and
 		_test_double_max_magicka_gain_works_on_first_gain() and
+		_test_double_max_magicka_gain_doubles_start_of_turn_gain() and
 		_test_magicka_aura_visible_to_aura_conditions() and
 		_test_grant_keyword_to_all_copies_spreads_to_hand_and_deck() and
 		_test_haskill_random_cost_trigger_draws_on_match() and
@@ -4491,6 +4492,24 @@ func _test_double_max_magicka_gain_works_on_first_gain() -> bool:
 	# The first gain should be doubled: 10 + 2 = 12
 	var final_max := int(player.get("max_magicka", 0))
 	return _assert(final_max == 12, "First gain_max_magicka should be doubled by Pure-Blood Elder (expected 12, got %d)." % final_max)
+
+
+func _test_double_max_magicka_gain_doubles_start_of_turn_gain() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	player["max_magicka"] = 5
+	player["current_magicka"] = 5
+	ScenarioFixtures.summon_creature(player, match_state, "pbe_sot", "field", 8, 8, [], -1, {
+		"cost": 0,
+		"triggered_abilities": [{"family": "on_gain_max_magicka", "required_zone": "lane", "effects": [{"op": "double_max_magicka_gain"}]}],
+	})
+	MatchTurnLoop.end_turn(match_state, pid)
+	MatchTurnLoop.end_turn(match_state, oid)
+	var final_max := int(player.get("max_magicka", 0))
+	return _assert(final_max == 7, "Start-of-turn natural +1 should be doubled to +2 by Pure-Blood Elder (expected 7, got %d)." % final_max)
 
 
 func _test_magicka_aura_visible_to_aura_conditions() -> bool:

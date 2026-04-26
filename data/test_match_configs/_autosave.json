@@ -1,7 +1,11 @@
 {
 	"enemy": {
 		"current_magicka": 12.0,
-		"deck": [],
+		"deck": [
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark"
+		],
 		"discard": [
 			"hos_str_aelas_huntmate"
 		],
@@ -16,8 +20,7 @@
 		"health": 25.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [
-			"db_end_ageless_vampire",
-			"aw_int_abnur_tharn"
+			"cwc_neu_abomination"
 		],
 		"supports": [
 			"hos_int_arcane_enchanter"
@@ -49,16 +52,13 @@
 		"field_creatures": [
 			null,
 			null,
-			null,
-			"db_end_ageless_vampire"
+			null
 		],
 		"hand": [
-			"dual_skywatch_vindicator",
-			"mc_str_dushnikh_yal_archer",
-			"joo_str_marauder_chieftain",
-			"str_skaven_pyromancer",
-			"hom_str_dagoth_dagger",
-			"str_orc_clan_captain"
+			"iom_end_jyggalags_incursion",
+			"joo_end_determined_supplier",
+			"end_tree_minder",
+			"wil_piercing_javelin"
 		],
 		"has_ring": false,
 		"health": 30.0,
