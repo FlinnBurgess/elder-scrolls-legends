@@ -24,11 +24,13 @@ const ATTRIBUTE_TINTS := {
 	"endurance": Color(0.58, 0.46, 0.72, 1.0),
 }
 const NEUTRAL_COST_COLOR := Color(0.6, 0.6, 0.6, 1.0)
-const GRID_COLUMNS := 4
-const GRID_ROWS := 3
+const GRID_COLUMNS := 5
+const GRID_ROWS := 2
 const CARDS_PER_PAGE := GRID_COLUMNS * GRID_ROWS
-const GRID_H_SEPARATION := 12
-const GRID_V_SEPARATION := 12
+const GRID_H_SEPARATION := 36
+const GRID_V_SEPARATION := 60
+const GRID_SCROLL_PADDING := 24
+const MAX_CELL_WIDTH := 360.0
 
 signal done_pressed
 signal cancel_pressed
@@ -138,12 +140,23 @@ func _unhandled_input(event: InputEvent) -> void:
 			print("[ESL TEMPLATE] toggled -> ", CardDisplayComponentClass.USE_ESL_TEMPLATE)
 			get_viewport().set_input_as_handled()
 			return
-		if event.keycode == KEY_LEFT:
-			_on_prev_page_pressed()
-			get_viewport().set_input_as_handled()
-		elif event.keycode == KEY_RIGHT:
-			_on_next_page_pressed()
-			get_viewport().set_input_as_handled()
+
+
+func _input(event: InputEvent) -> void:
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	if event.keycode != KEY_LEFT and event.keycode != KEY_RIGHT:
+		return
+	if _error_report_popover != null:
+		return
+	var focus_owner := get_viewport().gui_get_focus_owner()
+	if focus_owner is LineEdit:
+		return
+	if event.keycode == KEY_LEFT:
+		_on_prev_page_pressed()
+	else:
+		_on_next_page_pressed()
+	get_viewport().set_input_as_handled()
 
 
 func load_deck(deck_name: String, definition: Dictionary) -> void:
@@ -318,12 +331,20 @@ func _build_ui() -> void:
 	_browser_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	_browser_scroll.resized.connect(_on_browser_scroll_resized)
 	_left_column.add_child(_browser_scroll)
+	var grid_margin := MarginContainer.new()
+	grid_margin.size_flags_horizontal = SIZE_EXPAND_FILL
+	grid_margin.add_theme_constant_override("margin_top", 24)
+	_browser_scroll.add_child(grid_margin)
+	var grid_wrap := HBoxContainer.new()
+	grid_wrap.size_flags_horizontal = SIZE_EXPAND_FILL
+	grid_wrap.alignment = BoxContainer.ALIGNMENT_CENTER
+	grid_margin.add_child(grid_wrap)
 	_card_grid = GridContainer.new()
 	_card_grid.columns = GRID_COLUMNS
-	_card_grid.size_flags_horizontal = SIZE_EXPAND_FILL
+	_card_grid.size_flags_horizontal = SIZE_SHRINK_CENTER
 	_card_grid.add_theme_constant_override("h_separation", GRID_H_SEPARATION)
 	_card_grid.add_theme_constant_override("v_separation", GRID_V_SEPARATION)
-	_browser_scroll.add_child(_card_grid)
+	grid_wrap.add_child(_card_grid)
 
 	_left_column.add_child(_build_pagination_controls())
 
@@ -528,15 +549,15 @@ func _build_filter_bar() -> Control:
 
 	# Attribute chips group
 	var attr_group := HBoxContainer.new()
-	attr_group.add_theme_constant_override("separation", 8)
+	attr_group.add_theme_constant_override("separation", 12)
 	top_row.add_child(attr_group)
 	var attr_label := Label.new()
-	attr_label.text = "Attr"
+	attr_label.text = "Attributes"
 	attr_label.size_flags_vertical = SIZE_SHRINK_CENTER
 	UITheme.style_section_label(attr_label, 22)
 	attr_group.add_child(attr_label)
 	_attribute_chip_container = HBoxContainer.new()
-	_attribute_chip_container.add_theme_constant_override("separation", 4)
+	_attribute_chip_container.add_theme_constant_override("separation", 14)
 	_attribute_chip_container.size_flags_vertical = SIZE_SHRINK_CENTER
 	attr_group.add_child(_attribute_chip_container)
 
@@ -550,7 +571,7 @@ func _build_filter_bar() -> Control:
 	UITheme.style_section_label(cost_label, 22)
 	cost_group.add_child(cost_label)
 	_cost_chip_container = HBoxContainer.new()
-	_cost_chip_container.add_theme_constant_override("separation", 4)
+	_cost_chip_container.add_theme_constant_override("separation", 8)
 	_cost_chip_container.size_flags_vertical = SIZE_SHRINK_CENTER
 	cost_group.add_child(_cost_chip_container)
 	for cost in [0, 1, 2, 3, 4, 5, 6]:
@@ -559,6 +580,7 @@ func _build_filter_bar() -> Control:
 		chip.text = str(cost)
 		chip.custom_minimum_size = Vector2(44, 42)
 		chip.add_theme_font_size_override("font_size", 22)
+		_style_filter_chip(chip)
 		chip.toggled.connect(_on_cost_chip_toggled.bind(cost))
 		_cost_chip_container.add_child(chip)
 	var seven_plus := Button.new()
@@ -566,6 +588,7 @@ func _build_filter_bar() -> Control:
 	seven_plus.text = "7+"
 	seven_plus.custom_minimum_size = Vector2(50, 42)
 	seven_plus.add_theme_font_size_override("font_size", 22)
+	_style_filter_chip(seven_plus)
 	seven_plus.toggled.connect(_on_cost_chip_toggled.bind(7))
 	_cost_chip_container.add_child(seven_plus)
 
@@ -843,7 +866,9 @@ func _compute_cell_size() -> Vector2:
 	var scroll_width := 600.0
 	if _browser_scroll != null and _browser_scroll.size.x > 0:
 		scroll_width = _browser_scroll.size.x
-	var cell_w := maxf(100.0, (scroll_width - float(GRID_H_SEPARATION * (GRID_COLUMNS - 1))) / float(GRID_COLUMNS))
+	var available := scroll_width - float(GRID_SCROLL_PADDING) - float(GRID_H_SEPARATION * (GRID_COLUMNS - 1))
+	var cell_w := maxf(100.0, available / float(GRID_COLUMNS))
+	cell_w = minf(cell_w, MAX_CELL_WIDTH)
 	var cell_h := cell_w * CARD_ASPECT_RATIO
 	return Vector2(cell_w, cell_h)
 
@@ -890,6 +915,8 @@ func _refresh_attribute_chips() -> void:
 		chip.text = _attribute_display_name(attr_id)
 		chip.custom_minimum_size = Vector2(0, 42)
 		chip.add_theme_font_size_override("font_size", 22)
+		chip.focus_mode = Control.FOCUS_NONE
+		_style_filter_chip(chip)
 		chip.toggled.connect(_on_attribute_chip_toggled.bind(attr_id))
 		_attribute_chip_container.add_child(chip)
 
@@ -1178,10 +1205,39 @@ func _on_search_input_gui_input(event: InputEvent) -> void:
 func _disable_button_focus(node: Node) -> void:
 	if node is LineEdit:
 		return
-	if node is BaseButton or node is OptionButton:
+	if node is BaseButton or node is OptionButton or node is ScrollContainer:
 		(node as Control).focus_mode = Control.FOCUS_NONE
 	for child in node.get_children():
 		_disable_button_focus(child)
+
+
+func _style_filter_chip(chip: Button) -> void:
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = UITheme.BTN_BG
+	normal.border_color = UITheme.GOLD_DIM
+	normal.set_border_width_all(1)
+	normal.set_corner_radius_all(4)
+	normal.set_content_margin_all(6)
+	chip.add_theme_stylebox_override("normal", normal)
+	var hover := StyleBoxFlat.new()
+	hover.bg_color = UITheme.BTN_BG_HOVER
+	hover.border_color = UITheme.GOLD
+	hover.set_border_width_all(2)
+	hover.set_corner_radius_all(4)
+	hover.set_content_margin_all(6)
+	chip.add_theme_stylebox_override("hover", hover)
+	var pressed := StyleBoxFlat.new()
+	pressed.bg_color = UITheme.BTN_BG_PRESSED
+	pressed.border_color = UITheme.GOLD_BRIGHT
+	pressed.set_border_width_all(3)
+	pressed.set_corner_radius_all(4)
+	pressed.set_content_margin_all(6)
+	chip.add_theme_stylebox_override("pressed", pressed)
+	chip.add_theme_stylebox_override("hover_pressed", pressed.duplicate())
+	chip.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
+	chip.add_theme_color_override("font_hover_color", UITheme.GOLD)
+	chip.add_theme_color_override("font_pressed_color", UITheme.GOLD_BRIGHT)
+	chip.add_theme_color_override("font_hover_pressed_color", UITheme.GOLD_BRIGHT)
 
 
 # --- Error Report Hover Handlers ---
