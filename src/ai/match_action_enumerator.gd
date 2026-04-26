@@ -986,6 +986,9 @@ static func _expand_target_parameter_sets(match_state: Dictionary, requirements:
 					elif atm == "enemy_creature_or_support":
 						if card_controller == atm_controller:
 							continue
+					elif atm == "creature_2_power_or_less":
+						if EvergreenRules.get_power(card) > 2:
+							continue
 					elif atm == "creature_4_power_or_less":
 						if EvergreenRules.get_power(card) > 4:
 							continue

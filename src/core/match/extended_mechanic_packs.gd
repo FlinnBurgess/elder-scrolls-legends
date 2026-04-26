@@ -3021,6 +3021,8 @@ static func _card_matches_target_mode(target_mode: String, card: Dictionary, con
 					ensure_player_state(c1pol_player)
 					c1pol_max += c1pol_empower * (int(c1pol_player.get("empower_count_this_turn", 0)) + int(source_card.get("_permanent_empower_bonus", 0)))
 			return EvergreenRules.get_power(card) <= c1pol_max
+		"creature_2_power_or_less":
+			return EvergreenRules.get_power(card) <= 2
 		"creature_4_power_or_less":
 			return EvergreenRules.get_power(card) <= 4
 		"creature_4_power_or_more":

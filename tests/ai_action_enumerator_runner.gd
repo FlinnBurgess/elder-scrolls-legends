@@ -18,6 +18,7 @@ func _initialize() -> void:
 	_test_action_immune_conditional_excludes_target(failures)
 	_test_action_immune_status_excludes_target(failures)
 	_test_protect_friendly_from_actions_excludes_targets(failures)
+	_test_creature_2_power_or_less_excludes_high_power_targets(failures)
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)
@@ -356,5 +357,49 @@ func _test_protect_friendly_from_actions_excludes_targets(failures: Array) -> vo
 	VerificationAssertions.assert_true(
 		not non_tavyar_targeted,
 		"Action should not target other friendly creatures while Tavyar is on board.",
+		failures
+	)
+
+
+func _test_creature_2_power_or_less_excludes_high_power_targets(failures: Array) -> void:
+	# Execute (action_target_mode "creature_2_power_or_less") must not enumerate creatures with power > 2 as targets.
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 10, "first_player_index": 1})
+	var player := ScenarioFixtures.player(match_state, 0)
+	var opponent := ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Player has a high-power creature (8/8) and a low-power creature (2/2)
+	ScenarioFixtures.summon_creature(player, match_state, "big", "field", 8, 8)
+	ScenarioFixtures.summon_creature(player, match_state, "small", "shadow", 2, 2)
+	# Opponent has Execute in hand
+	ScenarioFixtures.add_hand_card(opponent, "execute", {
+		"card_type": "action",
+		"cost": 1,
+		"action_target_mode": "creature_2_power_or_less",
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"required_zone": "discard",
+			"effects": [{"op": "destroy_creature", "target": "event_target"}],
+		}],
+	})
+	var surface := MatchActionEnumerator.enumerate_legal_actions(match_state, oid)
+	var action_plays := _actions_for_kind(surface, "play_action")
+	var big_targeted := false
+	var small_targeted := false
+	for action in action_plays:
+		var params: Dictionary = action.get("parameters", {})
+		var target_id := str(params.get("target_instance_id", ""))
+		if target_id == pid + "_big":
+			big_targeted = true
+		elif target_id == pid + "_small":
+			small_targeted = true
+	VerificationAssertions.assert_true(
+		not big_targeted,
+		"creature_2_power_or_less must not enumerate an 8-power creature as a target.",
+		failures
+	)
+	VerificationAssertions.assert_true(
+		small_targeted,
+		"creature_2_power_or_less should still enumerate a 2-power creature as a target.",
 		failures
 	)

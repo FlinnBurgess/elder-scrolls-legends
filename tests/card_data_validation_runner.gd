@@ -15,6 +15,7 @@ const ACTION_TARGET_MODES: Array[String] = [
 	"enemy_creature_or_support",
 	"choose_lane",
 	"creature_1_power_or_less",
+	"creature_2_power_or_less",
 	"creature_4_power_or_less",
 	"creature_4_power_or_more",
 	"creature_with_0_power",

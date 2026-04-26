@@ -131,6 +131,9 @@ static func get_valid_targets_for_mode(match_state: Dictionary, source_instance_
 				c1pol_max += c1pol_empower * MatchTimingHelpers._get_empower_amount(match_state, controller_id, source_card)
 			targets = MatchTimingHelpers._all_lane_creatures(match_state)
 			targets = targets.filter(func(c): return EvergreenRules.get_power(c) <= c1pol_max)
+		"creature_2_power_or_less":
+			targets = MatchTimingHelpers._all_lane_creatures(match_state)
+			targets = targets.filter(func(c): return EvergreenRules.get_power(c) <= 2)
 		"creature_4_power_or_less":
 			targets = MatchTimingHelpers._all_lane_creatures(match_state)
 			targets = targets.filter(func(c): return EvergreenRules.get_power(c) <= 4)

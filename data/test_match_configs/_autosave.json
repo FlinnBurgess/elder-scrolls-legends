@@ -7,14 +7,18 @@
 		],
 		"field_creatures": [
 			null,
+			null,
 			null
 		],
 		"hand": [
-			"moe_agi_illicit_butcher"
+			"wil_execute"
 		],
 		"health": 25.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [],
+		"shadow_creatures": [
+			"db_end_ageless_vampire",
+			"aw_int_abnur_tharn"
+		],
 		"supports": [
 			"hos_int_arcane_enchanter"
 		]
@@ -33,7 +37,8 @@
 	"player": {
 		"current_magicka": 6.0,
 		"deck": [
-			"iom_double_manic_jack_and_mutation"
+			"db_wil_knight_of_the_hour",
+			"hom_end_bonewalker"
 		],
 		"discard": [
 			"hom_end_vvardvark",
@@ -44,8 +49,8 @@
 		"field_creatures": [
 			null,
 			null,
-			"exc_neu_adoring_fan",
-			"mhc_int_gardener_of_swords"
+			null,
+			"db_end_ageless_vampire"
 		],
 		"hand": [
 			"dual_skywatch_vindicator",
@@ -58,10 +63,7 @@
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 6.0,
-		"shadow_creatures": [
-			"mc_end_pure_blood_elder",
-			"mhc_int_gardener_of_swords"
-		],
+		"shadow_creatures": [],
 		"supports": [
 			"hos_wil_wolf_cage"
 		]

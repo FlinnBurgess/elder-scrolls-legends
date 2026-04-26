@@ -165,6 +165,8 @@ func _action_target_mode_allows(action_card: Dictionary, target_instance_id: Str
 						c1pol_max += c1pol_empower * (int(p.get("empower_count_this_turn", 0)) + int(action_card.get("_permanent_empower_bonus", 0)))
 						break
 			mode_allowed = _screen.EvergreenRules.get_power(target_card) <= c1pol_max
+		"creature_2_power_or_less":
+			mode_allowed = _screen.EvergreenRules.get_power(target_card) <= 2
 		"creature_4_power_or_less":
 			mode_allowed = _screen.EvergreenRules.get_power(target_card) <= 4
 		"creature_4_power_or_more":
