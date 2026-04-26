@@ -802,9 +802,18 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 		if typeof(event_rules_tags) != TYPE_ARRAY or not event_rules_tags.has(required_played_rules_tag):
 			return false
 	if bool(descriptor.get("exclude_self", family_spec.get("exclude_self", false))):
-		var event_source_id := str(event.get("source_instance_id", event.get("subject_instance_id", "")))
-		if event_source_id == str(trigger.get("source_instance_id", "")):
-			return false
+		var trigger_source_id := str(trigger.get("source_instance_id", ""))
+		# The "subject" of the event differs by event type. For stats_modified / keyword_granted
+		# the affected card is target_instance_id (source_instance_id is the buffer). For summon /
+		# card_played events the affected card is source_instance_id. Prefer target if present.
+		var event_target_id := str(event.get("target_instance_id", ""))
+		if not event_target_id.is_empty():
+			if event_target_id == trigger_source_id:
+				return false
+		else:
+			var event_source_id := str(event.get("source_instance_id", event.get("subject_instance_id", "")))
+			if event_source_id == trigger_source_id:
+				return false
 	# Prevent infinite summon loops: if the summoned creature was spawned by this trigger's
 	# source AND by the same trigger family, skip. Different families on the same card
 	# (e.g. on_play summon + on_friendly_summon equip) should still fire.

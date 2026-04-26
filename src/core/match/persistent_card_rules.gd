@@ -278,6 +278,11 @@ static func play_item_from_hand(match_state: Dictionary, player_id: String, inst
 		"source_controller_player_id": str(attach_result["card"].get("controller_player_id", player_id)),
 		"target_instance_id": target_instance_id,
 	})
+	# Forward any stats_modified events emitted by attach_item_to_creature (so equip
+	# power/health bonuses fire on_friendly_power_gain triggers).
+	for ar_event in attach_result.get("events", []):
+		if typeof(ar_event) == TYPE_DICTIONARY and str(ar_event.get("event_type", "")) == "stats_modified":
+			generated_events.append(ar_event)
 	var timing_result := MatchTiming.publish_events(match_state, generated_events)
 	# Check for consume abilities on the played item (e.g., Bone Armor)
 	MatchTiming._check_consume_abilities(match_state, attach_result["card"])

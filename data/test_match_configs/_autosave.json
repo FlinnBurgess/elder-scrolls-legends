@@ -51,7 +51,11 @@
 		],
 		"hand": [
 			"dual_skywatch_vindicator",
-			"mc_str_dushnikh_yal_archer"
+			"mc_str_dushnikh_yal_archer",
+			"joo_str_marauder_chieftain",
+			"str_skaven_pyromancer",
+			"hom_str_dagoth_dagger",
+			"str_orc_clan_captain"
 		],
 		"has_ring": false,
 		"health": 30.0,

@@ -8,8 +8,11 @@ const MatchTimingHelpers = preload("res://src/core/match/match_timing_helpers.gd
 
 
 static func recalculate_auras(match_state: Dictionary) -> Array:
-	# Step 1: Clear all aura bonuses on lane creatures, snapshot previous aura keywords
+	# Step 1: Clear all aura bonuses on lane creatures, snapshot previous aura state
 	var _prev_aura_keywords: Dictionary = {}  # instance_id -> Array of keywords
+	var _prev_aura_power: Dictionary = {}  # instance_id -> int
+	var _prev_aura_health: Dictionary = {}  # instance_id -> int
+	var _card_by_iid: Dictionary = {}  # instance_id -> card (for delta lookup)
 	for lane in match_state.get("lanes", []):
 		var player_slots_by_id: Dictionary = lane.get("player_slots", {})
 		for player_id in player_slots_by_id.keys():
@@ -18,6 +21,9 @@ static func recalculate_auras(match_state: Dictionary) -> Array:
 					continue
 				var iid := str(card.get("instance_id", ""))
 				_prev_aura_keywords[iid] = card.get("aura_keywords", []).duplicate()
+				_prev_aura_power[iid] = int(card.get("aura_power_bonus", 0))
+				_prev_aura_health[iid] = int(card.get("aura_health_bonus", 0))
+				_card_by_iid[iid] = card
 				card["aura_power_bonus"] = 0
 				card["aura_health_bonus"] = 0
 				card["aura_keywords"] = []
@@ -268,7 +274,9 @@ static func recalculate_auras(match_state: Dictionary) -> Array:
 					if typeof(dot_immunities) == TYPE_ARRAY and dot_immunities.has("damage_on_own_turn"):
 						card["aura_damage_immune"] = true
 
-	# Step 4: Emit keyword_granted events for newly gained aura keywords
+	# Step 4: Emit keyword_granted events for newly gained aura keywords, and
+	# stats_modified events when aura power/health bonus changes (so triggers like
+	# on_friendly_power_gain react to aura buffs from cards like Orc Clan Captain).
 	var aura_keyword_events: Array = []
 	for lane in lanes:
 		var player_slots_by_id: Dictionary = lane.get("player_slots", {})
@@ -287,6 +295,19 @@ static func recalculate_auras(match_state: Dictionary) -> Array:
 							"keyword_id": str(kw),
 							"reason": "aura",
 						})
+				var power_delta := int(card.get("aura_power_bonus", 0)) - int(_prev_aura_power.get(iid, 0))
+				var health_delta := int(card.get("aura_health_bonus", 0)) - int(_prev_aura_health.get(iid, 0))
+				if power_delta != 0 or health_delta != 0:
+					aura_keyword_events.append({
+						"event_type": "stats_modified",
+						"source_instance_id": iid,
+						"source_controller_player_id": str(card.get("controller_player_id", player_id)),
+						"player_id": str(card.get("controller_player_id", player_id)),
+						"target_instance_id": iid,
+						"power_bonus": power_delta,
+						"health_bonus": health_delta,
+						"reason": "aura",
+					})
 	# Step 5: Blind Moth Priest — glow when opponent has a Prophecy on top of their deck
 	_refresh_blind_moth_priest(match_state, lanes)
 

@@ -79,6 +79,7 @@ func _run_all_tests() -> bool:
 		_test_filter_unique_cost_reduction() and
 		_test_guess_opponent_card_varies_per_instance() and
 		_test_unstoppable_rage_deal_damage_to_lane() and
+		_test_summon_deal_damage_all_other_creatures_in_lane_excludes_self() and
 		_test_dark_rebirth_sacrifice_and_resummon() and
 		_test_recall_and_resummon_preserves_state_triggers_summon() and
 		_test_trial_of_flame_destroy_all_except_strongest() and
@@ -176,7 +177,11 @@ func _run_all_tests() -> bool:
 		_test_skywatch_vindicator_single_target_phase_buffs_friendly() and
 		_test_dushnikh_yal_archer_damages_chosen_creature() and
 		_test_dushnikh_yal_archer_damages_chosen_player_face() and
-		_test_dushnikh_yal_archer_destroys_chosen_enemy_support()
+		_test_dushnikh_yal_archer_destroys_chosen_enemy_support() and
+		_test_marauder_chieftain_does_not_self_loop_on_own_power_gain() and
+		_test_marauder_chieftain_gains_power_when_it_buffs_an_ally() and
+		_test_marauder_chieftain_gains_power_when_item_buffs_ally() and
+		_test_marauder_chieftain_gains_power_when_aura_buffs_ally()
 	)
 
 
@@ -3095,6 +3100,28 @@ func _test_unstoppable_rage_deal_damage_to_lane() -> bool:
 		return false
 	# The source creature should NOT take damage from itself
 	return _assert(EvergreenRules.get_remaining_health(friendly) == 5, "Unstoppable Rage: source creature should not damage itself.")
+
+
+func _test_summon_deal_damage_all_other_creatures_in_lane_excludes_self() -> bool:
+	# Regression: Skaven Pyromancer's summon used target "all_creatures_in_lane",
+	# which damaged itself. Card text says "all other creatures in this lane".
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var ally := ScenarioFixtures.summon_creature(player, match_state, "ally_friendly", "field", 1, 1)
+	var enemy := ScenarioFixtures.summon_creature(opponent, match_state, "enemy_target", "field", 1, 3)
+	var pyromancer := ScenarioFixtures.add_hand_card(player, "pyromancer", {
+		"card_type": "creature", "cost": 3, "power": 2, "health": 3,
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_SUMMON, "effects": [{"op": "deal_damage", "target": "all_other_creatures_in_lane", "amount": 1}]}],
+	})
+	LaneRules.summon_from_hand(match_state, pid, str(pyromancer.get("instance_id", "")), "field", {})
+	var ally_loc := MatchMutations.find_card_location(match_state, str(ally.get("instance_id", "")))
+	if not _assert(str(ally_loc.get("zone", "")) == "discard", "Ally (1hp) should be destroyed by 1 damage."):
+		return false
+	if not _assert(EvergreenRules.get_remaining_health(enemy) == 2, "Enemy (3hp) should take 1 damage, leaving 2hp."):
+		return false
+	return _assert(EvergreenRules.get_remaining_health(pyromancer) == 3, "Source creature should NOT damage itself; expected full 3hp.")
 
 
 func _test_dark_rebirth_sacrifice_and_resummon() -> bool:
@@ -6689,4 +6716,109 @@ func _test_dushnikh_yal_archer_destroys_chosen_enemy_support() -> bool:
 	return (
 		_assert(opponent.get("support", []).is_empty(), "Enemy support zone should be empty after destruction.") and
 		_assert(int(opponent.get("health", 0)) == hp_before, "Opponent face should not take damage when a support is chosen.")
+	)
+
+
+func _test_marauder_chieftain_does_not_self_loop_on_own_power_gain() -> bool:
+	# Regression: on_friendly_power_gain must exclude the trigger source itself.
+	# Otherwise a creature that buffs itself in response to friendly power gain
+	# (e.g. Marauder Chieftain) would re-trigger on its own buff event in an infinite loop.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var chieftain := ScenarioFixtures.summon_creature(player, match_state, "marauder_chieftain", "field", 1, 5, [], -1, {
+		"definition_id": "joo_str_marauder_chieftain",
+		"triggered_abilities": [{"family": "on_friendly_power_gain", "required_zone": "lane", "effects": [{"op": "modify_stats", "target": "self", "power_source": "event_power_gained"}]}],
+	})
+	var ally := ScenarioFixtures.summon_creature(player, match_state, "ally_target", "field", 1, 1)
+	var buff := ScenarioFixtures.add_hand_card(player, "test_buff_action", {
+		"card_type": "action", "cost": 0,
+		"action_target_mode": "any_creature",
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "modify_stats", "target": "event_target", "power": 1, "health": 0}]}],
+	})
+	var result := MatchTiming.play_action_from_hand(match_state, pid, str(buff.get("instance_id", "")), {"target_instance_id": str(ally.get("instance_id", ""))})
+	if not _assert(bool(result.get("is_valid", false)), "Buff action should be playable."):
+		return false
+	return (
+		_assert(EvergreenRules.get_power(ally) == 2, "Ally power should be 2 after +1/+0 buff, got %d." % EvergreenRules.get_power(ally)) and
+		_assert(EvergreenRules.get_power(chieftain) == 2, "Chieftain power should be 2 (1 base + 1 from ally's gain, no self-loop), got %d." % EvergreenRules.get_power(chieftain))
+	)
+
+
+func _test_marauder_chieftain_gains_power_when_it_buffs_an_ally() -> bool:
+	# Regression: when the chieftain itself is the buffer (event.source_instance_id == chieftain)
+	# and the buffed card is an ally (event.target_instance_id != chieftain), on_friendly_power_gain
+	# must still fire on the chieftain.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var ally := ScenarioFixtures.summon_creature(player, match_state, "ally_target", "field", 1, 1)
+	var chieftain_in_hand := ScenarioFixtures.add_hand_card(player, "marauder_chieftain", {
+		"card_type": "creature", "cost": 0, "power": 1, "health": 5,
+		"definition_id": "joo_str_marauder_chieftain",
+		"triggered_abilities": [
+			{"family": "summon", "target_mode": "any_creature", "effects": [{"op": "modify_stats", "target": "chosen_target", "power": 1, "health": 0}]},
+			{"family": "on_friendly_power_gain", "required_zone": "lane", "effects": [{"op": "modify_stats", "target": "self", "power_source": "event_power_gained"}]},
+		],
+	})
+	LaneRules.summon_from_hand(match_state, pid, str(chieftain_in_hand.get("instance_id", "")), "field")
+	var resolve := MatchTiming.resolve_targeted_effect(match_state, str(chieftain_in_hand.get("instance_id", "")), {"target_instance_id": str(ally.get("instance_id", ""))}, {"allowed_families": ["summon"]})
+	if not _assert(bool(resolve.get("is_valid", false)), "Resolving chieftain summon target should succeed."):
+		return false
+	var chieftain_in_lane := _find_lane_card(match_state, "field", pid, "joo_str_marauder_chieftain")
+	return (
+		_assert(EvergreenRules.get_power(ally) == 2, "Ally should be 2 power after chieftain's +1 buff, got %d." % EvergreenRules.get_power(ally)) and
+		_assert(not chieftain_in_lane.is_empty(), "Chieftain should be on the field.") and
+		_assert(EvergreenRules.get_power(chieftain_in_lane) == 2, "Chieftain should gain +1 from ally's power gain (1->2), got %d." % EvergreenRules.get_power(chieftain_in_lane))
+	)
+
+
+func _test_marauder_chieftain_gains_power_when_item_buffs_ally() -> bool:
+	# Regression: an item that grants power to a friendly creature on equip should trigger
+	# the chieftain's on_friendly_power_gain. The buff event has the item as source and the
+	# equipped ally as target.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var chieftain := ScenarioFixtures.summon_creature(player, match_state, "marauder_chieftain", "field", 1, 5, [], -1, {
+		"definition_id": "joo_str_marauder_chieftain",
+		"triggered_abilities": [{"family": "on_friendly_power_gain", "required_zone": "lane", "effects": [{"op": "modify_stats", "target": "self", "power_source": "event_power_gained"}]}],
+	})
+	var ally := ScenarioFixtures.summon_creature(player, match_state, "ally_target", "field", 1, 1)
+	var item := ScenarioFixtures.add_hand_card(player, "buffing_item", {
+		"card_type": "item", "cost": 0, "equip_power_bonus": 1,
+	})
+	var result := PersistentCardRules.play_item_from_hand(match_state, pid, str(item.get("instance_id", "")), {"target_instance_id": str(ally.get("instance_id", ""))})
+	if not _assert(bool(result.get("is_valid", false)), "Item should equip to ally."):
+		return false
+	return (
+		_assert(EvergreenRules.get_power(ally) == 2, "Ally should gain +1 power from item, got %d." % EvergreenRules.get_power(ally)) and
+		_assert(EvergreenRules.get_power(chieftain) == 2, "Chieftain should gain +1 from item buffing ally (1->2), got %d." % EvergreenRules.get_power(chieftain))
+	)
+
+
+func _test_marauder_chieftain_gains_power_when_aura_buffs_ally() -> bool:
+	# Regression: aura buffs (e.g. Orc Clan Captain's "+1/+0 to other friendlies in this lane")
+	# must emit stats_modified events so on_friendly_power_gain triggers fire.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	# Chieftain in shadow lane (different lane than the aura source)
+	var chieftain := ScenarioFixtures.summon_creature(player, match_state, "marauder_chieftain", "shadow", 1, 5, [], -1, {
+		"definition_id": "joo_str_marauder_chieftain",
+		"triggered_abilities": [{"family": "on_friendly_power_gain", "required_zone": "lane", "effects": [{"op": "modify_stats", "target": "self", "power_source": "event_power_gained"}]}],
+	})
+	# Ally in field lane
+	var ally := ScenarioFixtures.summon_creature(player, match_state, "ally_target", "field", 1, 1)
+	# Captain analog enters field lane with same_lane / other_friendly +1 power aura
+	var captain_in_hand := ScenarioFixtures.add_hand_card(player, "orc_clan_captain", {
+		"card_type": "creature", "cost": 0, "power": 2, "health": 2,
+		"aura": {"scope": "same_lane", "target": "other_friendly", "power": 1},
+	})
+	var summon_result := LaneRules.summon_from_hand(match_state, pid, str(captain_in_hand.get("instance_id", "")), "field")
+	if not _assert(bool(summon_result.get("is_valid", false)), "Captain summon should be valid."):
+		return false
+	return (
+		_assert(EvergreenRules.get_power(ally) == 2, "Ally should be 2 power from captain's aura, got %d." % EvergreenRules.get_power(ally)) and
+		_assert(EvergreenRules.get_power(chieftain) == 2, "Chieftain (in shadow lane) should gain +1 from ally's aura buff (1->2), got %d." % EvergreenRules.get_power(chieftain))
 	)

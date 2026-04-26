@@ -9,6 +9,18 @@ const DeckValidatorClass = preload("res://src/deck/deck_validator.gd")
 const DeckEditorScreenClass = preload("res://src/ui/deck_editor_screen.gd")
 const UITheme = preload("res://src/ui/ui_theme.gd")
 
+const ATTRIBUTE_ICON_PATHS := {
+	"strength": "res://assets/images/attributes/strength-small.png",
+	"intelligence": "res://assets/images/attributes/intelligence-small.png",
+	"willpower": "res://assets/images/attributes/willpower-small.png",
+	"agility": "res://assets/images/attributes/agility-small.png",
+	"endurance": "res://assets/images/attributes/endurance-small.png",
+	"neutral": "res://assets/images/attributes/neutral-small.png",
+}
+const ATTRIBUTE_ORDER := ["strength", "intelligence", "willpower", "agility", "endurance", "neutral"]
+const ROW_ATTRIBUTE_ICON_SIZE := 36
+const ROW_ATTRIBUTE_BOX_WIDTH := 132
+
 signal edit_deck_requested(deck_name: String)
 signal back_pressed
 
@@ -132,6 +144,27 @@ func _build_deck_row(deck_name: String) -> Control:
 	row.size_flags_horizontal = SIZE_SHRINK_CENTER
 	row.add_theme_constant_override("separation", 12)
 
+	var definition := DeckPersistenceClass.load_deck(deck_name)
+
+	# Attribute icons (left of deck name; fixed width so rows align)
+	var attribute_box := HBoxContainer.new()
+	attribute_box.add_theme_constant_override("separation", 4)
+	attribute_box.alignment = BoxContainer.ALIGNMENT_END
+	attribute_box.custom_minimum_size = Vector2(ROW_ATTRIBUTE_BOX_WIDTH, 60)
+	var attribute_ids: Array = definition.get("attribute_ids", []) if not definition.is_empty() else []
+	var seen := {}
+	for attr_id in ATTRIBUTE_ORDER:
+		if attr_id in attribute_ids and not seen.has(attr_id):
+			seen[attr_id] = true
+			var icon := TextureRect.new()
+			icon.texture = load(ATTRIBUTE_ICON_PATHS[attr_id])
+			icon.custom_minimum_size = Vector2(ROW_ATTRIBUTE_ICON_SIZE, ROW_ATTRIBUTE_ICON_SIZE)
+			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			icon.size_flags_vertical = SIZE_SHRINK_CENTER
+			attribute_box.add_child(icon)
+	row.add_child(attribute_box)
+
 	# Deck name button (clickable to edit — expands to fill remaining space)
 	var name_button := Button.new()
 	name_button.text = deck_name
@@ -148,7 +181,6 @@ func _build_deck_row(deck_name: String) -> Control:
 	error_btn.custom_minimum_size = Vector2(52, 60)
 	UITheme.style_button_accent(error_btn, Color(0.8, 0.25, 0.2, 1.0), 26)
 	row.add_child(error_btn)
-	var definition := DeckPersistenceClass.load_deck(deck_name)
 	if not definition.is_empty():
 		var validation := DeckValidatorClass.validate_deck(definition, _card_by_id)
 		var errors: Array = validation.get("errors", [])

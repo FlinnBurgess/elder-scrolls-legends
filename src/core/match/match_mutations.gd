@@ -155,21 +155,37 @@ static func attach_item_to_creature(match_state: Dictionary, controller_player_i
 	var attached_items: Array = target_card.get("attached_items", [])
 	attached_items.append(item)
 	target_card["attached_items"] = attached_items
+	var equip_events: Array = [
+		_build_move_event(item, source_zone, ZONE_ATTACHED_ITEM, str(item.get("controller_player_id", controller_player_id))),
+		{
+			"event_type": "card_equipped",
+			"player_id": controller_player_id,
+			"source_instance_id": str(item.get("instance_id", "")),
+			"target_instance_id": str(target_card.get("instance_id", "")),
+			"controller_player_id": str(item.get("controller_player_id", controller_player_id)),
+		}
+	]
+	# Equipment that grants stats represents a power/health gain on the host. Emit a
+	# stats_modified event so triggers like on_friendly_power_gain react to it.
+	var equip_power := int(item.get("equip_power_bonus", 0))
+	var equip_health := int(item.get("equip_health_bonus", 0))
+	if equip_power != 0 or equip_health != 0:
+		equip_events.append({
+			"event_type": "stats_modified",
+			"source_instance_id": str(item.get("instance_id", "")),
+			"source_controller_player_id": str(item.get("controller_player_id", controller_player_id)),
+			"player_id": str(target_card.get("controller_player_id", controller_player_id)),
+			"target_instance_id": str(target_card.get("instance_id", "")),
+			"power_bonus": equip_power,
+			"health_bonus": equip_health,
+			"reason": "equip",
+		})
 	return {
 		"is_valid": true,
 		"errors": [],
 		"card": item,
 		"host": target_card,
-		"events": [
-			_build_move_event(item, source_zone, ZONE_ATTACHED_ITEM, str(item.get("controller_player_id", controller_player_id))),
-			{
-				"event_type": "card_equipped",
-				"player_id": controller_player_id,
-				"source_instance_id": str(item.get("instance_id", "")),
-				"target_instance_id": str(target_card.get("instance_id", "")),
-				"controller_player_id": str(item.get("controller_player_id", controller_player_id)),
-			}
-		],
+		"events": equip_events,
 	}
 
 
