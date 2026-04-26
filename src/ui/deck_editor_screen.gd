@@ -305,12 +305,20 @@ func _build_ui() -> void:
 	outer_margin.add_theme_constant_override("margin_bottom", 50)
 	add_child(outer_margin)
 
+	var root_vbox := VBoxContainer.new()
+	root_vbox.size_flags_horizontal = SIZE_EXPAND_FILL
+	root_vbox.size_flags_vertical = SIZE_EXPAND_FILL
+	root_vbox.add_theme_constant_override("separation", 12)
+	outer_margin.add_child(root_vbox)
+
+	root_vbox.add_child(_build_deck_header())
+
 	_root_split = HSplitContainer.new()
 	_root_split.size_flags_horizontal = SIZE_EXPAND_FILL
 	_root_split.size_flags_vertical = SIZE_EXPAND_FILL
 	_root_split.add_theme_constant_override("separation", 16)
 	_root_split.resized.connect(_on_root_split_resized)
-	outer_margin.add_child(_root_split)
+	root_vbox.add_child(_root_split)
 
 	_left_column = VBoxContainer.new()
 	_left_column.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -354,8 +362,6 @@ func _build_ui() -> void:
 	_right_column.size_flags_vertical = SIZE_EXPAND_FILL
 	_right_column.add_theme_constant_override("separation", 12)
 	_root_split.add_child(_right_column)
-
-	_right_column.add_child(_build_deck_header())
 
 	_deck_card_list = DeckCardListClass.new()
 	_deck_card_list.set_show_remove_buttons(true)
@@ -423,30 +429,36 @@ func _build_pagination_controls() -> Control:
 
 
 func _build_deck_header() -> Control:
-	var header_button := Button.new()
-	header_button.size_flags_horizontal = SIZE_EXPAND_FILL
-	header_button.custom_minimum_size = Vector2(0, 56)
-	header_button.flat = true
-	header_button.pressed.connect(_on_deck_header_pressed)
-	var header_box := VBoxContainer.new()
-	header_box.add_theme_constant_override("separation", 6)
-	header_box.mouse_filter = MOUSE_FILTER_IGNORE
-	header_button.add_child(header_box)
+	var row := HBoxContainer.new()
+	row.size_flags_horizontal = SIZE_EXPAND_FILL
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 16)
+
+	var info_box := VBoxContainer.new()
+	info_box.size_flags_vertical = SIZE_SHRINK_CENTER
+	info_box.add_theme_constant_override("separation", 4)
+	row.add_child(info_box)
 
 	_deck_header_name_label = Label.new()
 	_deck_header_name_label.text = _deck_name if not _deck_name.is_empty() else "Untitled Deck"
-	_deck_header_name_label.mouse_filter = MOUSE_FILTER_IGNORE
-	UITheme.style_title(_deck_header_name_label, 24)
+	UITheme.style_title(_deck_header_name_label, 28)
 	_deck_header_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	header_box.add_child(_deck_header_name_label)
+	info_box.add_child(_deck_header_name_label)
 
 	_deck_header_attr_container = HBoxContainer.new()
 	_deck_header_attr_container.add_theme_constant_override("separation", 8)
-	_deck_header_attr_container.mouse_filter = MOUSE_FILTER_IGNORE
-	header_box.add_child(_deck_header_attr_container)
+	info_box.add_child(_deck_header_attr_container)
 	_refresh_deck_header_attributes()
 
-	return header_button
+	var edit_btn := Button.new()
+	edit_btn.text = "Edit"
+	edit_btn.custom_minimum_size = Vector2(110, 44)
+	edit_btn.size_flags_vertical = SIZE_SHRINK_CENTER
+	UITheme.style_button(edit_btn, 18)
+	edit_btn.pressed.connect(_on_deck_header_pressed)
+	row.add_child(edit_btn)
+
+	return row
 
 
 func _refresh_deck_header_attributes() -> void:
@@ -604,6 +616,18 @@ func _build_filter_bar() -> Control:
 	_class_filter_button.item_selected.connect(_on_class_filter_selected)
 	_type_filter_button.item_selected.connect(_on_type_filter_selected)
 	_keyword_filter_button.item_selected.connect(_on_keyword_filter_selected)
+
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = SIZE_EXPAND_FILL
+	dropdown_row.add_child(spacer)
+
+	var clear_btn := Button.new()
+	clear_btn.text = "Clear filters"
+	clear_btn.custom_minimum_size = Vector2(140, 44)
+	clear_btn.size_flags_vertical = SIZE_SHRINK_CENTER
+	UITheme.style_button(clear_btn, 18)
+	clear_btn.pressed.connect(_on_clear_filters_pressed)
+	dropdown_row.add_child(clear_btn)
 
 	return panel
 
@@ -985,6 +1009,32 @@ func _on_keyword_filter_selected(index: int) -> void:
 	_refresh_browser()
 
 
+func _on_clear_filters_pressed() -> void:
+	_search_query = ""
+	if _search_input != null:
+		_search_input.text = ""
+	_active_attribute_filters.clear()
+	if _attribute_chip_container != null:
+		for child in _attribute_chip_container.get_children():
+			if child is Button:
+				(child as Button).set_pressed_no_signal(false)
+	_active_cost_filters.clear()
+	if _cost_chip_container != null:
+		for child in _cost_chip_container.get_children():
+			if child is Button:
+				(child as Button).set_pressed_no_signal(false)
+	_browser_class_filter = ""
+	if _class_filter_button != null:
+		_class_filter_button.selected = 0
+	_browser_type_filter = ""
+	if _type_filter_button != null:
+		_type_filter_button.selected = 0
+	_browser_keyword_filter = ""
+	if _keyword_filter_button != null:
+		_keyword_filter_button.selected = 0
+	_refresh_browser()
+
+
 func _build_relationship_context() -> Dictionary:
 	var deck_cards: Array = []
 	for card_id in _deck_quantities:
@@ -1121,43 +1171,46 @@ func _show_illegal_cards_confirmation(new_name: String, new_attribute_ids: Array
 	add_child(center)
 
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(450, 0)
+	panel.custom_minimum_size = Vector2(720, 0)
 	var panel_style := StyleBoxFlat.new()
 	panel_style.bg_color = Color(0.12, 0.12, 0.15, 1.0)
 	panel_style.border_color = Color(0.4, 0.4, 0.5, 1.0)
 	panel_style.set_border_width_all(2)
 	panel_style.set_corner_radius_all(12)
-	panel_style.set_content_margin_all(24)
+	panel_style.set_content_margin_all(36)
 	panel.add_theme_stylebox_override("panel", panel_style)
 	center.add_child(panel)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 12)
+	vbox.add_theme_constant_override("separation", 20)
 	panel.add_child(vbox)
 
 	var title := Label.new()
 	title.text = "Remove Illegal Cards?"
-	title.add_theme_font_size_override("font_size", 18)
+	title.add_theme_font_size_override("font_size", 32)
 	vbox.add_child(title)
 
 	var msg := Label.new()
 	msg.text = "Changing attributes will remove %d card(s) that are no longer legal:\n%s" % [illegal_card_ids.size(), ", ".join(card_names)]
+	msg.add_theme_font_size_override("font_size", 22)
 	msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(msg)
 
 	var btn_row := HBoxContainer.new()
-	btn_row.add_theme_constant_override("separation", 12)
+	btn_row.add_theme_constant_override("separation", 16)
 	btn_row.alignment = BoxContainer.ALIGNMENT_END
 	vbox.add_child(btn_row)
 
 	var cancel_btn := Button.new()
 	cancel_btn.text = "Cancel"
-	cancel_btn.custom_minimum_size = Vector2(100, 36)
+	cancel_btn.custom_minimum_size = Vector2(140, 52)
+	cancel_btn.add_theme_font_size_override("font_size", 22)
 	btn_row.add_child(cancel_btn)
 
 	var confirm_btn := Button.new()
 	confirm_btn.text = "Remove & Apply"
-	confirm_btn.custom_minimum_size = Vector2(120, 36)
+	confirm_btn.custom_minimum_size = Vector2(180, 52)
+	confirm_btn.add_theme_font_size_override("font_size", 22)
 	btn_row.add_child(confirm_btn)
 
 	cancel_btn.pressed.connect(func():
