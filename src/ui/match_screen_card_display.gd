@@ -133,6 +133,8 @@ func _lane_readiness_badge_text(card: Dictionary) -> String:
 		return "WAITING"
 	if bool(card.get("cannot_attack", false)) or _screen.EvergreenRules.has_status(card, _screen.EvergreenRules.STATUS_SHACKLED):
 		return "WAITING"
+	if _screen.EvergreenRules.get_power(card) <= 0:
+		return "WAITING"
 	var innate: Array = card.get("innate_statuses", []) if typeof(card.get("innate_statuses")) == TYPE_ARRAY else []
 	if innate.has("shackle_permanent_unless_equipped") and _screen.EvergreenRules.get_attached_items(card).is_empty():
 		return "WAITING"

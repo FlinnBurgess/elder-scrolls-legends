@@ -18,6 +18,10 @@ const GRID_COLUMNS := 7
 const GRID_ROWS := 2
 const CARDS_PER_PAGE := GRID_COLUMNS * GRID_ROWS
 const TOAST_DURATION := 1.1
+const CARD_ASPECT_RATIO := 340.0 / 220.0
+const COLUMN_SEPARATION := 8
+const ROW_SEPARATION := 100
+const GRID_TOP_MARGIN := 40
 
 var multi_add_mode := false
 
@@ -32,6 +36,12 @@ var _card_type_filter := ""
 var _toast_panel: PanelContainer
 var _toast_label: Label
 var _toast_tween: Tween
+var _header_row: HBoxContainer
+var _filter_row: HBoxContainer
+var _page_row: HBoxContainer
+const ROOT_SEPARATION := 12
+const OVERLAY_MARGIN_X := 40
+const OVERLAY_MARGIN_Y := 30
 
 
 func _ready() -> void:
@@ -68,6 +78,7 @@ func _build_ui() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	z_index = 60
 	mouse_filter = MOUSE_FILTER_STOP
+	resized.connect(_update_row_heights)
 
 	var bg_style := StyleBoxFlat.new()
 	bg_style.bg_color = Color(0.04, 0.05, 0.07, 0.92)
@@ -75,22 +86,23 @@ func _build_ui() -> void:
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 40)
-	margin.add_theme_constant_override("margin_right", 40)
-	margin.add_theme_constant_override("margin_top", 30)
-	margin.add_theme_constant_override("margin_bottom", 30)
+	margin.add_theme_constant_override("margin_left", OVERLAY_MARGIN_X)
+	margin.add_theme_constant_override("margin_right", OVERLAY_MARGIN_X)
+	margin.add_theme_constant_override("margin_top", OVERLAY_MARGIN_Y)
+	margin.add_theme_constant_override("margin_bottom", OVERLAY_MARGIN_Y)
 	add_child(margin)
 
 	var root := VBoxContainer.new()
 	root.size_flags_horizontal = SIZE_EXPAND_FILL
 	root.size_flags_vertical = SIZE_EXPAND_FILL
-	root.add_theme_constant_override("separation", 12)
+	root.add_theme_constant_override("separation", ROOT_SEPARATION)
 	margin.add_child(root)
 
 	# Header row
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 12)
 	root.add_child(header)
+	_header_row = header
 
 	var cancel_btn := Button.new()
 	cancel_btn.text = "Cancel"
@@ -107,6 +119,7 @@ func _build_ui() -> void:
 	var filter_row := HBoxContainer.new()
 	filter_row.add_theme_constant_override("separation", 12)
 	root.add_child(filter_row)
+	_filter_row = filter_row
 
 	_search_input = LineEdit.new()
 	_search_input.placeholder_text = "Search by name..."
@@ -144,33 +157,46 @@ func _build_ui() -> void:
 	_type_filter.item_selected.connect(func(_idx): _page = 0; _apply_filter())
 	filter_row.add_child(_type_filter)
 
+	# Explicit top-margin spacer above the grid (more reliable than MarginContainer
+	# wrapper, which can have its margin squeezed under min-size contention).
+	var grid_top_spacer := Control.new()
+	grid_top_spacer.custom_minimum_size = Vector2(0, GRID_TOP_MARGIN)
+	grid_top_spacer.mouse_filter = MOUSE_FILTER_IGNORE
+	root.add_child(grid_top_spacer)
+
 	# Card grid area — VBox of HBox rows
 	_grid = VBoxContainer.new()
 	_grid.size_flags_horizontal = SIZE_EXPAND_FILL
 	_grid.size_flags_vertical = SIZE_EXPAND_FILL
-	_grid.add_theme_constant_override("separation", 8)
+	_grid.add_theme_constant_override("separation", ROW_SEPARATION)
+	_grid.resized.connect(_update_row_heights)
 	root.add_child(_grid)
 
 	# Pagination
 	var page_row := HBoxContainer.new()
 	page_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	page_row.add_theme_constant_override("separation", 16)
+	page_row.add_theme_constant_override("separation", 24)
 	root.add_child(page_row)
+	_page_row = page_row
 
 	var prev_btn := Button.new()
 	prev_btn.text = "<"
-	prev_btn.custom_minimum_size = Vector2(40, 36)
+	prev_btn.custom_minimum_size = Vector2(72, 64)
+	prev_btn.add_theme_font_size_override("font_size", 28)
 	prev_btn.pressed.connect(func(): _page = maxi(0, _page - 1); _render_page())
 	page_row.add_child(prev_btn)
 
 	_page_label = Label.new()
 	_page_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_page_label.custom_minimum_size = Vector2(120, 0)
+	_page_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_page_label.custom_minimum_size = Vector2(220, 64)
+	_page_label.add_theme_font_size_override("font_size", 24)
 	page_row.add_child(_page_label)
 
 	var next_btn := Button.new()
 	next_btn.text = ">"
-	next_btn.custom_minimum_size = Vector2(40, 36)
+	next_btn.custom_minimum_size = Vector2(72, 64)
+	next_btn.add_theme_font_size_override("font_size", 28)
 	next_btn.pressed.connect(func():
 		var max_page := maxi(0, ceili(float(_filtered.size()) / CARDS_PER_PAGE) - 1)
 		_page = mini(_page + 1, max_page)
@@ -278,18 +304,15 @@ func _render_page() -> void:
 		# Start a new row every GRID_COLUMNS cards
 		if (i - start) % GRID_COLUMNS == 0:
 			current_row = HBoxContainer.new()
-			current_row.add_theme_constant_override("separation", 8)
+			current_row.add_theme_constant_override("separation", COLUMN_SEPARATION)
 			current_row.size_flags_horizontal = SIZE_EXPAND_FILL
-			current_row.size_flags_vertical = SIZE_EXPAND_FILL
 			_grid.add_child(current_row)
 
 		var card: Dictionary = _filtered[i]
 		var card_id := str(card.get("_card_id", ""))
 
-		# Card container — fills slot, clickable
+		# Card container — fixed size set by _update_row_heights, clickable
 		var card_container := Control.new()
-		card_container.size_flags_horizontal = SIZE_EXPAND_FILL
-		card_container.size_flags_vertical = SIZE_EXPAND_FILL
 		card_container.mouse_filter = MOUSE_FILTER_STOP
 		current_row.add_child(card_container)
 
@@ -313,11 +336,48 @@ func _render_page() -> void:
 					_show_toast("Added: %s" % card_name)
 		)
 
-	# Pad the last row with empty spacers to keep cards same width
-	if current_row != null:
-		var items_in_last_row := (end - start) % GRID_COLUMNS
-		if items_in_last_row > 0:
-			for _j in range(GRID_COLUMNS - items_in_last_row):
-				var spacer := Control.new()
-				spacer.size_flags_horizontal = SIZE_EXPAND_FILL
-				current_row.add_child(spacer)
+	_update_row_heights()
+
+
+func _update_row_heights() -> void:
+	if _grid == null:
+		return
+	# Derive the available grid area from the overlay (window-anchored = stable)
+	# and the chrome rows' content-derived minimum sizes. Doing it this way avoids
+	# a feedback loop with our own row min-size assignments — using _grid.size for
+	# the clamp lets the grid grow under our own pressure and the cards never shrink.
+	var overlay_size := size
+	if overlay_size.x <= 0.0 or overlay_size.y <= 0.0:
+		return
+	var root_h := overlay_size.y - float(2 * OVERLAY_MARGIN_Y)
+	var root_w := overlay_size.x - float(2 * OVERLAY_MARGIN_X)
+	var chrome_h := 0.0
+	if _header_row != null:
+		chrome_h += _header_row.get_combined_minimum_size().y
+	if _filter_row != null:
+		chrome_h += _filter_row.get_combined_minimum_size().y
+	if _page_row != null:
+		chrome_h += _page_row.get_combined_minimum_size().y
+	chrome_h += float(GRID_TOP_MARGIN)
+	# Root has 5 children (header, filter, spacer, grid, page) → 4 separations.
+	chrome_h += float(ROOT_SEPARATION * 4)
+	var avail_grid_h := root_h - chrome_h
+	var avail_grid_w := root_w
+	if avail_grid_h <= 0.0 or avail_grid_w <= 0.0:
+		return
+	var avail_w := avail_grid_w - float(COLUMN_SEPARATION * (GRID_COLUMNS - 1))
+	var avail_h := avail_grid_h - float(ROW_SEPARATION * (GRID_ROWS - 1))
+	if avail_w <= 0.0 or avail_h <= 0.0:
+		return
+	var max_cell_w := avail_w / float(GRID_COLUMNS)
+	var max_cell_h := avail_h / float(GRID_ROWS)
+	var cell_w := minf(max_cell_w, max_cell_h / CARD_ASPECT_RATIO)
+	var cell_h := cell_w * CARD_ASPECT_RATIO
+	for child in _grid.get_children():
+		if child is HBoxContainer:
+			var row := child as HBoxContainer
+			row.custom_minimum_size = Vector2(0, cell_h)
+			row.alignment = BoxContainer.ALIGNMENT_CENTER
+			for card_container in row.get_children():
+				if card_container is Control:
+					card_container.custom_minimum_size = Vector2(cell_w, cell_h)

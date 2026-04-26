@@ -7,9 +7,7 @@
 		],
 		"field_creatures": [
 			null,
-			null,
-			"int_balmora_spymaster",
-			"hos_str_aelas_huntmate"
+			null
 		],
 		"hand": [
 			"moe_agi_illicit_butcher"
@@ -33,7 +31,7 @@
 	],
 	"name": "",
 	"player": {
-		"current_magicka": 12.0,
+		"current_magicka": 6.0,
 		"deck": [
 			"iom_double_manic_jack_and_mutation"
 		],
@@ -46,8 +44,8 @@
 		"field_creatures": [
 			null,
 			null,
-			"aw_end_black_marsh_prodigy",
-			"cwc_neu_abomination"
+			"exc_neu_adoring_fan",
+			"mhc_int_gardener_of_swords"
 		],
 		"hand": [
 			"dual_skywatch_vindicator",
@@ -59,9 +57,10 @@
 		],
 		"has_ring": false,
 		"health": 30.0,
-		"max_magicka": 12.0,
+		"max_magicka": 6.0,
 		"shadow_creatures": [
-			"db_end_ageless_vampire"
+			"mc_end_pure_blood_elder",
+			"mhc_int_gardener_of_swords"
 		],
 		"supports": [
 			"hos_wil_wolf_cage"
