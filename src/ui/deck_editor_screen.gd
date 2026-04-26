@@ -40,8 +40,6 @@ var _keyword_registry := {}
 var _catalog_cards: Array = []
 var _card_by_id := {}
 var _attribute_display_names := {}
-var _class_display_names := {}
-var _class_records: Array = []
 var _card_id_to_deck_code := {}
 
 # Deck state
@@ -58,7 +56,6 @@ var _total_pages := 1
 # Filter state — attributes and costs support multi-select via toggle chips
 var _active_attribute_filters: Array[String] = []
 var _active_cost_filters: Array[int] = []
-var _browser_class_filter := ""
 var _browser_type_filter := ""
 var _browser_keyword_filter := ""
 var _search_query := ""
@@ -67,7 +64,6 @@ var _search_query := ""
 var _search_input: LineEdit
 var _attribute_chip_container: HBoxContainer
 var _cost_chip_container: HBoxContainer
-var _class_filter_button: OptionButton
 var _type_filter_button: OptionButton
 var _keyword_filter_button: OptionButton
 var _browser_summary_label: Label
@@ -283,13 +279,6 @@ func _load_attribute_registry_labels() -> void:
 			continue
 		var attribute: Dictionary = raw_attribute
 		_attribute_display_names[str(attribute.get("id", ""))] = str(attribute.get("display_name", attribute.get("id", "")))
-	for bucket in ["dual_classes", "triple_classes"]:
-		for raw_class in parsed.get(bucket, []):
-			if typeof(raw_class) != TYPE_DICTIONARY:
-				continue
-			var class_record: Dictionary = raw_class
-			_class_records.append(class_record)
-			_class_display_names[str(class_record.get("id", ""))] = str(class_record.get("display_name", class_record.get("id", "")))
 
 
 # --- UI Construction ---
@@ -606,14 +595,12 @@ func _build_filter_bar() -> Control:
 
 	box.add_child(UITheme.make_separator(0.0))
 
-	# Row 2: Class | Type | Keyword dropdowns
+	# Row 2: Type | Keyword dropdowns
 	var dropdown_row := HBoxContainer.new()
 	dropdown_row.add_theme_constant_override("separation", 16)
 	box.add_child(dropdown_row)
-	_class_filter_button = _build_dropdown(dropdown_row, "Class", _class_filter_items())
 	_type_filter_button = _build_dropdown(dropdown_row, "Type", _type_filter_items())
 	_keyword_filter_button = _build_dropdown(dropdown_row, "Keyword", _keyword_filter_items())
-	_class_filter_button.item_selected.connect(_on_class_filter_selected)
 	_type_filter_button.item_selected.connect(_on_type_filter_selected)
 	_keyword_filter_button.item_selected.connect(_on_keyword_filter_selected)
 
@@ -694,16 +681,6 @@ func _build_dropdown(parent: HBoxContainer, label_text: String, items: Array) ->
 
 # --- Filter Item Lists ---
 
-func _class_filter_items() -> Array:
-	var items: Array = [
-		{"label": "Any", "value": ""},
-		{"label": "No class restriction", "value": "none"},
-	]
-	for class_record in _class_records:
-		items.append({"label": str(class_record.get("display_name", "")), "value": str(class_record.get("id", ""))})
-	return items
-
-
 func _type_filter_items() -> Array:
 	return [
 		{"label": "Any", "value": ""},
@@ -741,8 +718,6 @@ func _filtered_cards() -> Array:
 			continue
 		if not _active_attribute_filters.is_empty() and not _card_matches_attribute_chips(card):
 			continue
-		if not _browser_class_filter.is_empty() and not _card_matches_class_filter(card, _browser_class_filter):
-			continue
 		if not _browser_type_filter.is_empty() and str(card.get("card_type", "")) != _browser_type_filter:
 			continue
 		if not _active_cost_filters.is_empty() and not _card_matches_cost_chips(card):
@@ -766,23 +741,21 @@ func _card_matches_search(card: Dictionary, search_term: String) -> bool:
 
 
 func _card_matches_attribute_chips(card: Dictionary) -> bool:
-	var attributes: Array = card.get("attributes", [])
+	var raw_attrs: Array = card.get("attributes", [])
+	var card_set: Dictionary = {}
+	for a in raw_attrs:
+		var s := str(a)
+		if s == "neutral":
+			continue
+		card_set[s] = true
+	if card_set.is_empty():
+		card_set["neutral"] = true
+	if _active_attribute_filters.size() != card_set.size():
+		return false
 	for filter_attr in _active_attribute_filters:
-		if filter_attr == "neutral":
-			if attributes.is_empty() or attributes == ["neutral"]:
-				return true
-		else:
-			if attributes.has(filter_attr):
-				return true
-	return false
-
-
-func _card_matches_class_filter(card: Dictionary, class_id: String) -> bool:
-	var card_class: Variant = card.get("class_id", null)
-	var card_class_str := "" if card_class == null else str(card_class)
-	if class_id == "none":
-		return card_class_str.is_empty()
-	return card_class_str == class_id
+		if not card_set.has(str(filter_attr)):
+			return false
+	return true
 
 
 func _card_matches_cost_chips(card: Dictionary) -> bool:
@@ -994,11 +967,6 @@ func _on_cost_chip_toggled(pressed: bool, cost: int) -> void:
 	_refresh_browser()
 
 
-func _on_class_filter_selected(index: int) -> void:
-	_browser_class_filter = str(_class_filter_button.get_item_metadata(index))
-	_refresh_browser()
-
-
 func _on_type_filter_selected(index: int) -> void:
 	_browser_type_filter = str(_type_filter_button.get_item_metadata(index))
 	_refresh_browser()
@@ -1023,9 +991,6 @@ func _on_clear_filters_pressed() -> void:
 		for child in _cost_chip_container.get_children():
 			if child is Button:
 				(child as Button).set_pressed_no_signal(false)
-	_browser_class_filter = ""
-	if _class_filter_button != null:
-		_class_filter_button.selected = 0
 	_browser_type_filter = ""
 	if _type_filter_button != null:
 		_type_filter_button.selected = 0
