@@ -63,8 +63,9 @@
 			"aw_int_abnur_tharn"
 		],
 		"hand": [
-			"joo_str_blood_crazed_daedroth",
-			"int_firebolt"
+			"joo_str_invasion_scout",
+			"joo_str_invasion_scout",
+			"joo_str_invasion_scout"
 		],
 		"has_ring": false,
 		"health": 30.0,

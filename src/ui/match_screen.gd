@@ -1727,7 +1727,7 @@ func _add_hover_preview_to_layer(card: Dictionary, instance_id: String, name_pre
 	var wrapper := Control.new()
 	wrapper.name = "%s_%s" % [name_prefix, instance_id]
 	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wrapper.z_index = 400
+	wrapper.z_index = 500
 	# Start at base size so component._ready() sets fonts at scale 1.0
 	wrapper.size = base_size
 	wrapper.custom_minimum_size = base_size
@@ -1769,7 +1769,7 @@ func _build_attached_items_panel(attached_items: Array, instance_id: String) -> 
 	var panel := PanelContainer.new()
 	panel.name = "lane_hover_preview_items_%s" % instance_id
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.z_index = 400
+	panel.z_index = 500
 	var style := StyleBoxFlat.new()
 	style.bg_color = UITheme.PANEL_BG
 	style.border_color = UITheme.PANEL_BORDER
