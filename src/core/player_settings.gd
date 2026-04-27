@@ -45,3 +45,35 @@ static func get_avatar_full_texture() -> Texture2D:
 
 static func get_avatar_top_half_texture() -> Texture2D:
 	return AvatarRegistry.load_top_half_texture(get_avatar_id())
+
+
+static func get_favourite_card_ids() -> Array:
+	var data := _load_raw()
+	var raw: Variant = data.get("favourite_card_ids", [])
+	var result: Array = []
+	if typeof(raw) == TYPE_ARRAY:
+		for value in raw:
+			result.append(str(value))
+	return result
+
+
+static func is_favourite_card(card_id: String) -> bool:
+	return get_favourite_card_ids().has(card_id)
+
+
+static func set_favourite_card(card_id: String, favourite: bool) -> void:
+	if card_id.is_empty():
+		return
+	var data := _load_raw()
+	var ids: Array = []
+	var raw: Variant = data.get("favourite_card_ids", [])
+	if typeof(raw) == TYPE_ARRAY:
+		for value in raw:
+			ids.append(str(value))
+	if favourite:
+		if not ids.has(card_id):
+			ids.append(card_id)
+	else:
+		ids.erase(card_id)
+	data["favourite_card_ids"] = ids
+	_save_raw(data)

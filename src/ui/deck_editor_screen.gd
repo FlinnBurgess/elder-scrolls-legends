@@ -14,6 +14,7 @@ const MagickaCurveChartClass = preload("res://src/ui/components/magicka_curve_ch
 const ErrorReportWriterClass = preload("res://src/core/error_report_writer.gd")
 const ErrorReportPopoverClass = preload("res://src/ui/components/error_report_popover.gd")
 const DeckCardListClass = preload("res://src/ui/components/deck_card_list.gd")
+const PlayerSettingsClass = preload("res://src/core/player_settings.gd")
 const UITheme = preload("res://src/ui/ui_theme.gd")
 const CARD_ASPECT_RATIO := 340.0 / 220.0
 const ATTRIBUTE_TINTS := {
@@ -59,6 +60,8 @@ var _active_cost_filters: Array[int] = []
 var _browser_type_filter := ""
 var _browser_keyword_filter := ""
 var _search_query := ""
+var _favourites_filter_active := false
+var _favourite_card_ids: Dictionary = {}
 
 # UI references
 var _search_input: LineEdit
@@ -66,6 +69,8 @@ var _attribute_chip_container: HBoxContainer
 var _cost_chip_container: HBoxContainer
 var _type_filter_button: OptionButton
 var _keyword_filter_button: OptionButton
+var _favourites_filter_button: Button
+var _favourite_button_by_id: Dictionary = {}
 var _browser_summary_label: Label
 var _card_grid: GridContainer
 var _browser_scroll: ScrollContainer
@@ -265,6 +270,13 @@ func _load_data() -> void:
 	_card_id_to_deck_code = catalog_result.get("card_id_to_deck_code", {})
 	_keyword_registry = EvergreenRules.get_registry()
 	_load_attribute_registry_labels()
+	_load_favourites()
+
+
+func _load_favourites() -> void:
+	_favourite_card_ids.clear()
+	for card_id in PlayerSettingsClass.get_favourite_card_ids():
+		_favourite_card_ids[str(card_id)] = true
 
 
 func _load_attribute_registry_labels() -> void:
@@ -604,6 +616,16 @@ func _build_filter_bar() -> Control:
 	_type_filter_button.item_selected.connect(_on_type_filter_selected)
 	_keyword_filter_button.item_selected.connect(_on_keyword_filter_selected)
 
+	_favourites_filter_button = Button.new()
+	_favourites_filter_button.toggle_mode = true
+	_favourites_filter_button.text = "♥ Favourites"
+	_favourites_filter_button.custom_minimum_size = Vector2(160, 44)
+	_favourites_filter_button.size_flags_vertical = SIZE_SHRINK_CENTER
+	_favourites_filter_button.add_theme_font_size_override("font_size", 20)
+	_style_filter_chip(_favourites_filter_button)
+	_favourites_filter_button.toggled.connect(_on_favourites_filter_toggled)
+	dropdown_row.add_child(_favourites_filter_button)
+
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = SIZE_EXPAND_FILL
 	dropdown_row.add_child(spacer)
@@ -724,6 +746,8 @@ func _filtered_cards() -> Array:
 			continue
 		if not _browser_keyword_filter.is_empty() and not _card_matches_keyword_filter(card, _browser_keyword_filter):
 			continue
+		if _favourites_filter_active and not _favourite_card_ids.has(str(card.get("card_id", ""))):
+			continue
 		filtered.append(card)
 	return filtered
 
@@ -791,6 +815,7 @@ func _refresh_browser() -> void:
 func _render_current_page() -> void:
 	_clear_children(_card_grid)
 	_card_display_by_id.clear()
+	_favourite_button_by_id.clear()
 	var start := _current_page * CARDS_PER_PAGE
 	var end := mini(start + CARDS_PER_PAGE, _filtered_cache.size())
 	_browser_summary_label.text = "%d cards shown | %d in deck" % [_filtered_cache.size(), get_deck_count()]
@@ -823,7 +848,73 @@ func _build_card_cell(card: Dictionary, cell_size: Vector2) -> Control:
 	wrapper.add_child(card_display)
 	card_display.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_card_display_by_id[card_id] = card_display
+	wrapper.add_child(_build_favourite_heart(card_id, wrapper))
 	return wrapper
+
+
+func _build_favourite_heart(card_id: String, wrapper: Control) -> Button:
+	var heart := Button.new()
+	heart.flat = true
+	heart.focus_mode = Control.FOCUS_NONE
+	heart.mouse_filter = Control.MOUSE_FILTER_STOP
+	heart.anchor_left = 1.0
+	heart.anchor_right = 1.0
+	heart.anchor_top = 0.0
+	heart.anchor_bottom = 0.0
+	var transparent := StyleBoxEmpty.new()
+	heart.add_theme_stylebox_override("normal", transparent)
+	heart.add_theme_stylebox_override("hover", transparent)
+	heart.add_theme_stylebox_override("pressed", transparent)
+	heart.add_theme_stylebox_override("focus", transparent)
+	heart.tooltip_text = "Favourite"
+	heart.pressed.connect(_on_favourite_heart_pressed.bind(card_id))
+	_favourite_button_by_id[card_id] = heart
+	_update_favourite_heart_label(card_id)
+	wrapper.resized.connect(_layout_favourite_heart.bind(card_id, wrapper))
+	_layout_favourite_heart.call_deferred(card_id, wrapper)
+	return heart
+
+
+func _layout_favourite_heart(card_id: String, wrapper: Control) -> void:
+	var heart: Button = _favourite_button_by_id.get(card_id, null)
+	if heart == null or not is_instance_valid(heart) or not is_instance_valid(wrapper):
+		return
+	var width := wrapper.size.x
+	if width <= 0.0:
+		return
+	# Scale matches CardDisplayComponent layout (220x340 base, count badge ~36x22 at 2,2).
+	var scale := width / 220.0
+	var size := 30.0 * scale
+	heart.offset_left = -size - 4.0 * scale
+	heart.offset_right = -4.0 * scale
+	heart.offset_top = 2.0 * scale + 22.0 * scale + 4.0 * scale
+	heart.offset_bottom = heart.offset_top + size
+	heart.add_theme_font_size_override("font_size", int(round(22.0 * scale)))
+
+
+func _update_favourite_heart_label(card_id: String) -> void:
+	var heart: Button = _favourite_button_by_id.get(card_id, null)
+	if heart == null or not is_instance_valid(heart):
+		return
+	var is_fav := _favourite_card_ids.has(card_id)
+	heart.text = "♥" if is_fav else "♡"
+	var color := Color(0.95, 0.25, 0.4, 1.0) if is_fav else Color(0.85, 0.85, 0.85, 1.0)
+	var hover := Color(1.0, 0.45, 0.55, 1.0) if is_fav else Color(0.95, 0.55, 0.65, 1.0)
+	heart.add_theme_color_override("font_color", color)
+	heart.add_theme_color_override("font_hover_color", hover)
+	heart.add_theme_color_override("font_pressed_color", hover)
+
+
+func _on_favourite_heart_pressed(card_id: String) -> void:
+	var now_favourite := not _favourite_card_ids.has(card_id)
+	if now_favourite:
+		_favourite_card_ids[card_id] = true
+	else:
+		_favourite_card_ids.erase(card_id)
+	PlayerSettingsClass.set_favourite_card(card_id, now_favourite)
+	_update_favourite_heart_label(card_id)
+	if _favourites_filter_active:
+		_refresh_browser()
 
 
 func _refresh_card_quantities() -> void:
@@ -980,6 +1071,11 @@ func _on_keyword_filter_selected(index: int) -> void:
 	_refresh_browser()
 
 
+func _on_favourites_filter_toggled(pressed: bool) -> void:
+	_favourites_filter_active = pressed
+	_refresh_browser()
+
+
 func _on_clear_filters_pressed() -> void:
 	_search_query = ""
 	if _search_input != null:
@@ -1000,6 +1096,9 @@ func _on_clear_filters_pressed() -> void:
 	_browser_keyword_filter = ""
 	if _keyword_filter_button != null:
 		_keyword_filter_button.selected = 0
+	_favourites_filter_active = false
+	if _favourites_filter_button != null:
+		_favourites_filter_button.set_pressed_no_signal(false)
 	_refresh_browser()
 
 
