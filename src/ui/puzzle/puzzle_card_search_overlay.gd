@@ -283,7 +283,12 @@ func _apply_filter() -> void:
 		if not search.is_empty():
 			var name_lower := str(card.get("name", "")).to_lower()
 			var text_lower := str(card.get("rules_text", "")).to_lower()
-			if name_lower.find(search) == -1 and text_lower.find(search) == -1:
+			var subtype_match := false
+			for subtype in card.get("subtypes", []):
+				if str(subtype).to_lower().find(search) != -1:
+					subtype_match = true
+					break
+			if name_lower.find(search) == -1 and text_lower.find(search) == -1 and not subtype_match:
 				continue
 		if not type_name.is_empty():
 			if str(card.get("card_type", "")).to_lower() != type_name:

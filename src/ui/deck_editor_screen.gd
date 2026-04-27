@@ -737,6 +737,9 @@ func _card_matches_search(card: Dictionary, search_term: String) -> bool:
 	for value in haystack:
 		if search_term in value:
 			return true
+	for subtype in card.get("subtypes", []):
+		if search_term in str(subtype).to_lower():
+			return true
 	return false
 
 
