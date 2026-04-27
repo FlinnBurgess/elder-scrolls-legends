@@ -12,6 +12,7 @@ const MatchAuras = preload("res://src/core/match/match_auras.gd")
 const MatchTriggers = preload("res://src/core/match/match_triggers.gd")
 const PersistentCardRules = preload("res://src/core/match/persistent_card_rules.gd")
 const EffectSacrifice = preload("res://src/core/match/effects/effect_sacrifice.gd")
+const EffectStats = preload("res://src/core/match/effects/effect_stats.gd")
 const ScenarioFixtures = preload("res://tests/support/scenario_fixtures.gd")
 
 
@@ -182,7 +183,8 @@ func _run_all_tests() -> bool:
 		_test_marauder_chieftain_does_not_self_loop_on_own_power_gain() and
 		_test_marauder_chieftain_gains_power_when_it_buffs_an_ally() and
 		_test_marauder_chieftain_gains_power_when_item_buffs_ally() and
-		_test_marauder_chieftain_gains_power_when_aura_buffs_ally()
+		_test_marauder_chieftain_gains_power_when_aura_buffs_ally() and
+		_test_set_health_clears_existing_damage()
 	)
 
 
@@ -6841,3 +6843,47 @@ func _test_marauder_chieftain_gains_power_when_aura_buffs_ally() -> bool:
 		_assert(EvergreenRules.get_power(ally) == 2, "Ally should be 2 power from captain's aura, got %d." % EvergreenRules.get_power(ally)) and
 		_assert(EvergreenRules.get_power(chieftain) == 2, "Chieftain (in shadow lane) should gain +1 from ally's aura buff (1->2), got %d." % EvergreenRules.get_power(chieftain))
 	)
+
+
+func _test_set_health_clears_existing_damage() -> bool:
+	# Three Feather Warchief: "Set a creature's health to 1." Targeting an
+	# already-damaged creature must leave it at 1 effective HP, not kill it
+	# by stacking prior damage on top of the new base. The creature should
+	# stay wounded because its current HP is below its theoretical max.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var damaged_5_5 := ScenarioFixtures.summon_creature(opponent, match_state, "damaged_5_5", "field", 5, 5, [], -1, {"damage_marked": 4})
+	damaged_5_5["status_markers"] = ["wounded"]
+	var fresh_5_5 := ScenarioFixtures.summon_creature(opponent, match_state, "fresh_5_5", "field", 5, 5)
+	var true_1_1 := ScenarioFixtures.summon_creature(opponent, match_state, "true_1_1", "field", 1, 1)
+	var apply_warchief := func(target: Dictionary) -> void:
+		var trigger := {
+			"source_instance_id": "warchief_test",
+			"controller_player_id": pid,
+			"_chosen_target_id": str(target.get("instance_id", "")),
+			"descriptor": {"family": "summon", "effects": []},
+		}
+		var effect := {"op": "set_health", "target": "chosen_target", "amount": 1}
+		var generated: Array = []
+		EffectStats.apply("set_health", match_state, trigger, {}, effect, generated, {"descriptor": trigger["descriptor"], "reason": "summon"})
+	apply_warchief.call(damaged_5_5)
+	apply_warchief.call(fresh_5_5)
+	apply_warchief.call(true_1_1)
+	# Damaged 5/5 → 1 HP, still wounded (max was 5), no leftover damage.
+	if not _assert(EvergreenRules.get_remaining_health(damaged_5_5) == 1, "damaged 5/5: expect 1 HP, got %d." % EvergreenRules.get_remaining_health(damaged_5_5)):
+		return false
+	if not _assert(int(damaged_5_5.get("damage_marked", 0)) == 0, "damaged 5/5: damage_marked should be cleared, got %d." % int(damaged_5_5.get("damage_marked", 0))):
+		return false
+	if not _assert((damaged_5_5.get("status_markers", []) as Array).has("wounded"), "damaged 5/5: should still be wounded (max 5, current 1)."):
+		return false
+	# Fresh 5/5 → 1 HP, now wounded because theoretical max is still 5.
+	if not _assert(EvergreenRules.get_remaining_health(fresh_5_5) == 1, "fresh 5/5: expect 1 HP, got %d." % EvergreenRules.get_remaining_health(fresh_5_5)):
+		return false
+	if not _assert((fresh_5_5.get("status_markers", []) as Array).has("wounded"), "fresh 5/5: should be wounded after set_health(1)."):
+		return false
+	# True 1/1 → 1 HP, not wounded because current == max.
+	if not _assert(EvergreenRules.get_remaining_health(true_1_1) == 1, "1/1: expect 1 HP, got %d." % EvergreenRules.get_remaining_health(true_1_1)):
+		return false
+	return _assert(not (true_1_1.get("status_markers", []) as Array).has("wounded"), "1/1: set_health(1) should not wound a creature already at max.")

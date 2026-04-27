@@ -15,6 +15,7 @@ const CardDisplayComponentScript = preload("res://src/ui/components/CardDisplayC
 const PuzzlePersistenceScript = preload("res://src/puzzle/puzzle_persistence.gd")
 const TestMatchConfigScript = preload("res://data/test_match_config.gd")
 const LANE_REGISTRY_PATH := "res://data/legends/registries/lane_registry.json"
+const MAX_HAND_SIZE := 10
 
 # Quick-add cards shown in the test match creator's list editor (hand/deck/discard only).
 const QUICK_ADD_CARD_IDS := {
@@ -952,6 +953,10 @@ func _on_card_add_requested(card_id: String) -> void:
 	if not (key in ["hand", "deck", "discard", "supports"]):
 		return
 	var list: Array = _get_side_cfg(_pending_list_side).get(key, [])
+	if key == "hand" and list.size() >= MAX_HAND_SIZE:
+		if _active_overlay != null:
+			_active_overlay.set("add_reject_reason", "Card limit reached")
+		return
 	list.append(card_id)
 	_get_side_cfg(_pending_list_side)[key] = list
 	_autosave()
@@ -972,6 +977,10 @@ func _on_card_selected(card_id: String) -> void:
 			_get_side_cfg(_pending_slot_side)[lane_key] = creatures
 		"hand", "deck", "discard":
 			var list: Array = _get_side_cfg(_pending_list_side).get(_pending_card_target, [])
+			if _pending_card_target == "hand" and list.size() >= MAX_HAND_SIZE:
+				_refresh_board()
+				_open_list_editor(_pending_list_side, _pending_card_target)
+				return
 			list.append(card_id)
 			_get_side_cfg(_pending_list_side)[_pending_card_target] = list
 			_refresh_board()
@@ -1157,9 +1166,11 @@ func _open_list_editor(side: String, list_key: String) -> void:
 	vbox.add_child(btn_row)
 
 	var add_btn := Button.new()
-	add_btn.text = "Add Card"
+	var hand_full := list_key == "hand" and list_data.size() >= MAX_HAND_SIZE
+	add_btn.text = "Hand Full (%d)" % MAX_HAND_SIZE if hand_full else "Add Card"
 	add_btn.custom_minimum_size = Vector2(200, 64)
 	UITheme.style_button(add_btn, 26)
+	add_btn.disabled = hand_full
 	var filter_hint := "support" if list_key == "supports" else ""
 	add_btn.pressed.connect(func():
 		_dismiss_overlay()
@@ -1259,6 +1270,8 @@ func _build_quick_add_section(parent: VBoxContainer, side: String, list_key: Str
 
 func _quick_add_card(side: String, list_key: String, card_id: String) -> void:
 	var list: Array = _get_side_cfg(side).get(list_key, [])
+	if list_key == "hand" and list.size() >= MAX_HAND_SIZE:
+		return
 	list.append(card_id)
 	_get_side_cfg(side)[list_key] = list
 	_autosave()

@@ -2,7 +2,9 @@
 	"enemy": {
 		"current_magicka": 12.0,
 		"deck": [
-			"int_lightning_bolt",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
 			"hom_end_vvardvark",
 			"hom_end_vvardvark",
 			"hom_end_vvardvark"
@@ -12,18 +14,18 @@
 		],
 		"field_creatures": [
 			null,
-			null,
-			null,
-			"int_abecean_navigator"
+			{
+				"can_attack": true,
+				"definition_id": "cwc_neu_abomination",
+				"health_bonus": 1
+			},
+			"cwc_neu_abomination",
+			"aw_int_abnur_tharn"
 		],
-		"hand": [
-			"wil_execute"
-		],
+		"hand": [],
 		"health": 29.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [
-			"cwc_neu_abomination"
-		],
+		"shadow_creatures": [],
 		"supports": [
 			"hos_int_arcane_enchanter"
 		]
@@ -52,23 +54,13 @@
 			"moe_neu_crocodile_brute"
 		],
 		"field_creatures": [
-			null,
-			null,
-			null,
-			"hom_end_ald_velothi_assassin"
+			"neu_ageless_automaton",
+			"db_end_ageless_vampire",
+			"dual_ahnassi"
 		],
 		"hand": [
-			"iom_end_jyggalags_incursion",
-			"joo_end_determined_supplier",
-			"end_tree_minder",
-			"wil_piercing_javelin",
-			"aw_end_hush",
-			"str_steel_scimitar",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark",
-			"hom_end_vvardvark"
+			"joo_end_three_feather_warchief",
+			"agi_finish_off"
 		],
 		"has_ring": false,
 		"health": 30.0,

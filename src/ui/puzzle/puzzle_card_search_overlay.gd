@@ -24,6 +24,10 @@ const ROW_SEPARATION := 100
 const GRID_TOP_MARGIN := 40
 
 var multi_add_mode := false
+# Set by the listener of card_add_requested (synchronously, during emit) to
+# signal that the add was rejected — overlay then shows this as the toast
+# instead of "Added: <card>".
+var add_reject_reason := ""
 
 var _all_cards: Array = []
 var _filtered: Array = []
@@ -332,8 +336,12 @@ func _render_page() -> void:
 				if event.button_index == MOUSE_BUTTON_LEFT:
 					card_selected.emit(cid)
 				elif event.button_index == MOUSE_BUTTON_RIGHT and multi_add_mode:
+					add_reject_reason = ""
 					card_add_requested.emit(cid)
-					_show_toast("Added: %s" % card_name)
+					if add_reject_reason.is_empty():
+						_show_toast("Added: %s" % card_name)
+					else:
+						_show_toast(add_reject_reason)
 		)
 
 	_update_row_heights()

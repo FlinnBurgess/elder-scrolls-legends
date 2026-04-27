@@ -156,9 +156,17 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 		"set_health":
 			var sh_amount := int(effect.get("amount", 0))
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
-				card["health"] = sh_amount
-				card["base_health"] = sh_amount
 				EvergreenRules.ensure_card_state(card)
+				# Apply the change as a stat bonus diff so a reduction routes through
+				# health_debuff_marked (keeps wounded sync correct vs. theoretical max),
+				# and a buff routes through health_bonus.
+				var diff := sh_amount - EvergreenRules.get_health(card)
+				if diff != 0:
+					EvergreenRules.apply_stat_bonus(card, 0, diff, reason)
+				# Drop any prior damage so the new effective HP equals sh_amount;
+				# without this a wounded creature would die when its max shrinks.
+				card["damage_marked"] = 0
+				EvergreenRules.sync_derived_state(card)
 				generated_events.append({
 					"event_type": "stats_modified",
 					"source_instance_id": str(trigger.get("source_instance_id", "")),
