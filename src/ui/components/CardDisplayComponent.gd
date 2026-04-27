@@ -1164,10 +1164,11 @@ func _refresh_styles() -> void:
 		if not _card_data.has("_effective_cost"):
 			_cost_label.add_theme_color_override("font_color", Color.BLACK)
 			_cost_label.add_theme_constant_override("outline_size", 0)
-		_attack_label.add_theme_color_override("font_color", Color(0.99, 0.96, 0.87, 1.0))
+		var esl_stat_base := Color(0.99, 0.96, 0.87, 1.0)
+		_attack_label.add_theme_color_override("font_color", _stat_color(_card_data, "power", esl_stat_base))
 		_attack_label.add_theme_constant_override("outline_size", 3)
 		_attack_label.add_theme_color_override("font_outline_color", Color.BLACK)
-		_health_label.add_theme_color_override("font_color", Color(0.99, 0.96, 0.87, 1.0))
+		_health_label.add_theme_color_override("font_color", _stat_color(_card_data, "health", esl_stat_base))
 		_health_label.add_theme_constant_override("outline_size", 3)
 		_health_label.add_theme_color_override("font_outline_color", Color.BLACK)
 
@@ -2435,16 +2436,16 @@ func _cost_display_color() -> Color:
 	return Color.BLACK
 
 
-func _stat_color(card: Dictionary, stat: String) -> Color:
+func _stat_color(card: Dictionary, stat: String, base_color: Color = COLOR_STAT_BASE) -> Color:
 	if not _is_creature(card):
-		return COLOR_STAT_BASE
+		return base_color
 	var current := EvergreenRules.get_power(card) if stat == "power" else EvergreenRules.get_remaining_health(card)
 	var printed := _printed_power(card) if stat == "power" else _printed_health(card)
 	if current > printed:
 		return COLOR_STAT_BUFF
 	if current < printed:
 		return COLOR_STAT_REDUCED
-	return COLOR_STAT_BASE
+	return base_color
 
 
 func _printed_power(card: Dictionary) -> int:

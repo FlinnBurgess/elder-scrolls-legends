@@ -603,10 +603,22 @@ static func _apply_playing_card_mutation(match_state: Dictionary, card: Dictiona
 static func silence_card(card: Dictionary, options: Dictionary = {}, match_state: Dictionary = {}) -> Dictionary:
 	var previous_definition_id := str(card.get("definition_id", ""))
 	var events: Array = []
+	EvergreenRules.ensure_card_state(card)
+	# Capture pre-silence remaining HP so we can preserve it. Removing buffs/items
+	# normally lowers max HP without changing damage_marked, which would silently
+	# damage a wounded creature (e.g. equipped 1/4 at 1 HP -> dies on silence).
+	# Rule: if pre-silence remaining > base, clamp to base; otherwise preserve.
+	var pre_silence_remaining := EvergreenRules.get_remaining_health(card)
+	var base_health := 0
+	if card.has("health"):
+		base_health = int(card.get("health", 0))
+	elif card.has("current_health"):
+		base_health = int(card.get("current_health", 0))
+	else:
+		base_health = int(card.get("base_health", 0))
 	if not match_state.is_empty():
 		var detached := _move_attached_items_to_owner_discard(match_state, card, {"reason": str(options.get("reason", "silence"))})
 		events.append_array(detached.get("events", []))
-	EvergreenRules.ensure_card_state(card)
 	card["keywords"] = []
 	card["granted_keywords"] = []
 	card["triggered_abilities"] = []
@@ -620,6 +632,10 @@ static func silence_card(card: Dictionary, options: Dictionary = {}, match_state
 	card.erase("shackle_expires_on_turn")
 	card.erase("temporary_stat_bonuses")
 	card.erase("temporary_keywords")
+	var target_remaining: int = min(pre_silence_remaining, base_health)
+	var post_silence_max := EvergreenRules.get_health(card)
+	card["damage_marked"] = max(0, post_silence_max - target_remaining)
+	GameLogger.trc("Mut", "silence_hp", "card:%s,pre_rem:%d,base:%d,post_max:%d,target_rem:%d,dmg:%d" % [str(card.get("name", card.get("instance_id", ""))), pre_silence_remaining, base_health, post_silence_max, target_remaining, int(card["damage_marked"])])
 	EvergreenRules.sync_derived_state(card)
 	return {
 		"is_valid": true,

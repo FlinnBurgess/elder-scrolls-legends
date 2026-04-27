@@ -630,6 +630,28 @@ func _animate_enemy_prophecy_resolution(action: Dictionary, _result: Dictionary)
 		# Flip animation: scale X to 0, swap to card face, scale back
 		var instance_id := str(_screen._overlays._prophecy_overlay_state.get("instance_id", ""))
 		var card = _screen._card_from_instance_id(instance_id)
+		var card_size: Vector2 = card_back.size
+		# Snapshot target position now — an intermediate _refresh_ui() can
+		# remove the target button before the arrow callback fires.
+		var pr_target: Dictionary = action.get("target", {})
+		var pr_target_kind := str(pr_target.get("kind", ""))
+		var pr_arrow_end := Vector2.ZERO
+		var pr_has_target := false
+		if action_kind == _screen.MatchActionEnumerator.KIND_PLAY_ACTION or action_kind == _screen.MatchActionEnumerator.KIND_PLAY_ITEM:
+			if pr_target_kind == "card":
+				var pr_target_id := str(pr_target.get("instance_id", ""))
+				var pr_button: Button = _screen._card_buttons.get(pr_target_id)
+				if pr_button != null and is_instance_valid(pr_button):
+					var pr_card_size: Vector2 = pr_button.get_meta("card_size", pr_button.size)
+					pr_arrow_end = pr_button.global_position + Vector2(pr_card_size.x * 0.5, 0.0)
+					pr_has_target = true
+			elif pr_target_kind == "player":
+				var pr_target_player_id := str(pr_target.get("player_id", ""))
+				var pr_section: Dictionary = _screen._player_sections.get(pr_target_player_id, {})
+				var pr_avatar: Control = pr_section.get("avatar_component")
+				if pr_avatar != null and is_instance_valid(pr_avatar):
+					pr_arrow_end = pr_avatar.global_position + Vector2(pr_avatar.size.x * 0.5, pr_avatar.size.y * 0.5)
+					pr_has_target = true
 		card_back.pivot_offset = Vector2(card_back.size.x * 0.5, card_back.size.y * 0.5)
 		var tween = _screen.create_tween()
 		tween.tween_property(card_back, "scale:x", 0.0, 0.2)
@@ -647,6 +669,24 @@ func _animate_enemy_prophecy_resolution(action: Dictionary, _result: Dictionary)
 		tween.tween_property(card_back, "scale:x", 1.0, 0.2)
 		tween.tween_interval(0.4)
 		tween.tween_callback(func():
+			if pr_has_target:
+				var arrow := Line2D.new()
+				arrow.width = 3.0
+				arrow.default_color = Color(1.0, 0.85, 0.3, 0.95)
+				arrow.z_index = 500
+				_screen._prophecy_card_overlay.add_child(arrow)
+				_screen._overlays._prophecy_overlay_state["arrow"] = arrow
+				var arrow_start := card_back.global_position + Vector2(card_size.x * 0.5, card_size.y)
+				var arrow_tween = _screen.create_tween()
+				arrow_tween.tween_method(func(progress: float):
+					_draw_spell_reveal_arrow_partial(progress, arrow, arrow_start, pr_arrow_end)
+				, 0.0, 1.0, 0.3)
+				arrow_tween.tween_interval(0.3)
+				arrow_tween.tween_callback(func():
+					_screen._overlays._dismiss_prophecy_overlay()
+					_screen._refresh_ui()
+				)
+				return
 			_screen._overlays._dismiss_prophecy_overlay()
 			_screen._refresh_ui()
 		)

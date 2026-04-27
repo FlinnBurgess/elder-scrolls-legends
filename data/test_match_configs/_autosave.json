@@ -2,6 +2,7 @@
 	"enemy": {
 		"current_magicka": 12.0,
 		"deck": [
+			"int_lightning_bolt",
 			"hom_end_vvardvark",
 			"hom_end_vvardvark",
 			"hom_end_vvardvark"
@@ -12,12 +13,13 @@
 		"field_creatures": [
 			null,
 			null,
-			null
+			null,
+			"int_abecean_navigator"
 		],
 		"hand": [
 			"wil_execute"
 		],
-		"health": 25.0,
+		"health": 29.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [
 			"cwc_neu_abomination"
@@ -52,13 +54,21 @@
 		"field_creatures": [
 			null,
 			null,
-			null
+			null,
+			"hom_end_ald_velothi_assassin"
 		],
 		"hand": [
 			"iom_end_jyggalags_incursion",
 			"joo_end_determined_supplier",
 			"end_tree_minder",
-			"wil_piercing_javelin"
+			"wil_piercing_javelin",
+			"aw_end_hush",
+			"str_steel_scimitar",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark"
 		],
 		"has_ring": false,
 		"health": 30.0,

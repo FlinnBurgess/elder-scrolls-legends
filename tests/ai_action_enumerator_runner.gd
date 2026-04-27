@@ -14,6 +14,7 @@ func _initialize() -> void:
 	_test_ring_end_turn_and_summon_slots(failures)
 	_test_targeted_actions_and_attack_targets(failures)
 	_test_pending_prophecy_window_switches_priority(failures)
+	_test_pending_prophecy_window_enumerates_targeted_action_plays(failures)
 	_test_action_variants_include_double_card_and_exalt(failures)
 	_test_action_immune_conditional_excludes_target(failures)
 	_test_action_immune_status_excludes_target(failures)
@@ -151,6 +152,45 @@ func _test_pending_prophecy_window_switches_priority(failures: Array) -> void:
 	VerificationAssertions.assert_equal(_action_ids(_actions_for_kind(surface, "decline_prophecy")), [
 		"decline_prophecy:player_2:player_2_summoned_prophecy:response=prophecy",
 	], "Prophecy windows should include an explicit decline action.", failures)
+
+
+func _test_pending_prophecy_window_enumerates_targeted_action_plays(failures: Array) -> void:
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 10, "first_player_index": 0})
+	var active_player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	active_player["hand"] = []
+	opponent["hand"] = []
+	var prophecy_bolt := ScenarioFixtures.make_card(str(opponent.get("player_id", "")), "prophecy_bolt", {
+		"zone": "deck",
+		"card_type": "action",
+		"cost": 4,
+		"action_target_mode": "creature_or_player",
+		"rules_tags": [MatchTiming.RULE_TAG_PROPHECY],
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"required_zone": "discard",
+			"effects": [{"op": "deal_damage", "target": "event_target", "amount": 4}],
+		}],
+	})
+	ScenarioFixtures.set_deck_cards(opponent, [prophecy_bolt])
+	var attacker := ScenarioFixtures.summon_creature(active_player, match_state, "prophecy_breaker", "field", 6, 6, [], 0, {"cost": 0})
+	ScenarioFixtures.ready_for_attack(attacker, match_state)
+	var attack_result := MatchCombat.resolve_attack(match_state, str(active_player.get("player_id", "")), str(attacker.get("instance_id", "")), {
+		"type": MatchCombat.TARGET_TYPE_PLAYER,
+		"player_id": str(opponent.get("player_id", "")),
+	})
+	VerificationAssertions.assert_true(bool(attack_result.get("is_valid", false)), "Prophecy setup attack should resolve successfully.", failures)
+	var surface := MatchActionEnumerator.enumerate_legal_actions(match_state)
+	_assert_surface_consistency(match_state, surface, failures, "prophecy-action-surface")
+	VerificationAssertions.assert_equal(str(surface.get("decision_player_id", "")), str(opponent.get("player_id", "")), "Pending Prophecy should switch the legal actor to the responding player.", failures)
+	VerificationAssertions.assert_equal(_action_ids(_actions_for_kind(surface, "play_action")), [
+		"play_action:player_2:player_2_prophecy_bolt:target=player_1_prophecy_breaker:response=prophecy",
+		"play_action:player_2:player_2_prophecy_bolt:player=player_1:response=prophecy",
+		"play_action:player_2:player_2_prophecy_bolt:player=player_2:response=prophecy",
+	], "Targeted action Prophecy plays should enumerate one action per valid creature/player target so the AI can pick the best free-cast target.", failures)
+	VerificationAssertions.assert_equal(_action_ids(_actions_for_kind(surface, "decline_prophecy")), [
+		"decline_prophecy:player_2:player_2_prophecy_bolt:response=prophecy",
+	], "Targeted action Prophecy windows should still expose an explicit decline action.", failures)
 
 
 func _test_action_variants_include_double_card_and_exalt(failures: Array) -> void:

@@ -90,7 +90,10 @@ func _run_all_tests() -> bool:
 		# Yokudan Nightblade silence_on_equipped aura
 		_test_yokudan_nightblade_grants_silence_immunity_to_equipped_friendlies() and
 		# Lute silence immunity via attached item grants_immunity
-		_test_lute_attached_item_grants_silence_immunity()
+		_test_lute_attached_item_grants_silence_immunity() and
+		# Silence health-preservation rule
+		_test_silence_preserves_remaining_health_when_at_or_below_base() and
+		_test_silence_clamps_remaining_health_to_base_when_above()
 	)
 
 
@@ -509,6 +512,64 @@ func _test_lute_attached_item_grants_silence_immunity() -> bool:
 		_assert(MatchTimingHelpers._is_immune_to_effect(match_state, host, "silence"), "Lute: wielder should be immune to silence.") and
 		_assert(not MatchTimingHelpers._is_immune_to_effect(match_state, bare, "silence"), "Lute: unequipped friendly creature should NOT be immune.")
 	)
+
+
+func _test_silence_preserves_remaining_health_when_at_or_below_base() -> bool:
+	# Regression: Ald-Velothi Assassin (1/2) with Steel Scimitar (+2/+2) takes 3
+	# damage in combat, leaving it at 1 remaining HP. Silencing it detached the
+	# item and the unchanged damage_marked overflowed the new max, killing it.
+	# Pre-silence remaining (1) was at-or-below base (2), so HP must be preserved.
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid: String = player["player_id"]
+	var host := _summon_creature(player, match_state, "wounded_host", "field", 1, 2, 0)
+	var item := _add_hand_card(player, "buff_item", {
+		"card_type": "item",
+		"cost": 1,
+		"equip_power_bonus": 2,
+		"equip_health_bonus": 2,
+	})
+	var play_result := PersistentCardRules.play_item_from_hand(match_state, pid, item["instance_id"], {"target_instance_id": host["instance_id"]})
+	if not _assert(play_result["is_valid"], "Fixture: buff item should attach."):
+		return false
+	host["damage_marked"] = 3
+	var pre_remaining := EvergreenRules.get_remaining_health(host)
+	if not _assert(pre_remaining == 1, "Fixture: wounded host should have 1 HP, got %d." % pre_remaining):
+		return false
+	var silence_result := MatchMutations.silence_card(host, {}, match_state)
+	if not _assert(silence_result["is_valid"], "Silence on wounded host should succeed."):
+		return false
+	var post_remaining := EvergreenRules.get_remaining_health(host)
+	var post_max := EvergreenRules.get_health(host)
+	return (
+		_assert(post_remaining == 1, "Silence: remaining HP should stay at 1, got %d." % post_remaining) and
+		_assert(post_max == 2, "Silence: max HP should drop to base 2, got %d." % post_max) and
+		_assert(host.get("attached_items", []).is_empty(), "Silence: items should be detached.")
+	)
+
+
+func _test_silence_clamps_remaining_health_to_base_when_above() -> bool:
+	# Companion to the wounded case: a fully-healthy buffed creature loses its
+	# buffs on silence and ends at base max, not above.
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid: String = player["player_id"]
+	var host := _summon_creature(player, match_state, "healthy_host", "field", 1, 2, 0)
+	var item := _add_hand_card(player, "buff_item_full", {
+		"card_type": "item",
+		"cost": 1,
+		"equip_power_bonus": 2,
+		"equip_health_bonus": 2,
+	})
+	PersistentCardRules.play_item_from_hand(match_state, pid, item["instance_id"], {"target_instance_id": host["instance_id"]})
+	var pre_remaining := EvergreenRules.get_remaining_health(host)
+	if not _assert(pre_remaining == 4, "Fixture: healthy buffed host should have 4 HP, got %d." % pre_remaining):
+		return false
+	var silence_result := MatchMutations.silence_card(host, {}, match_state)
+	if not _assert(silence_result["is_valid"], "Silence on healthy host should succeed."):
+		return false
+	var post_remaining := EvergreenRules.get_remaining_health(host)
+	return _assert(post_remaining == 2, "Silence: above-base HP should clamp to base 2, got %d." % post_remaining)
 
 
 func _test_yokudan_nightblade_grants_silence_immunity_to_equipped_friendlies() -> bool:

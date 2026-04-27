@@ -32,6 +32,10 @@ func _initialize() -> void:
 	_test_ai_prefers_clean_attack_over_silence(failures)
 	_test_ai_skips_silence_on_self_harming_creature(failures)
 	_test_ai_skips_silence_on_vanilla_creature_with_spent_summon_trigger(failures)
+	_test_declines_prophecy_damage_when_no_finish(failures)
+	_test_plays_prophecy_damage_for_lethal(failures)
+	_test_plays_prophecy_damage_with_hand_finisher(failures)
+	_test_plays_prophecy_damage_at_low_hp(failures)
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)
@@ -176,11 +180,12 @@ func _test_declines_bad_prophecy(failures: Array) -> void:
 		"zone": "deck",
 		"card_type": "action",
 		"cost": 4,
+		"action_target_mode": "friendly_creature",
 		"rules_tags": [MatchTiming.RULE_TAG_PROPHECY],
 		"triggered_abilities": [{
 			"family": MatchTiming.FAMILY_ON_PLAY,
 			"required_zone": "discard",
-			"effects": [{"op": "damage", "target": "event_target", "amount": 2}],
+			"effects": [{"op": "deal_damage", "target": "event_target", "amount": 2}],
 		}],
 	})
 	ScenarioFixtures.set_deck_cards(responding_player, [prophecy])
@@ -519,6 +524,128 @@ func _test_ai_skips_silence_on_vanilla_creature_with_spent_summon_trigger(failur
 		"AI should not waste a silence on a vanilla creature with no ongoing value.\nAction: %s\n%s" % [action_id, probe],
 		failures
 	)
+
+
+# Regression: AI used a free Prophecy Lightning Bolt on a 5-HP creature it
+# couldn't kill, with no follow-up damage in hand and nothing on board to
+# finish. The free spell should be saved (declined) for a more decisive moment.
+func _test_declines_prophecy_damage_when_no_finish(failures: Array) -> void:
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 5, "first_player_index": 0})
+	var active_player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var responding_player: Dictionary = ScenarioFixtures.player(match_state, 1)
+	active_player["hand"] = []
+	responding_player["hand"] = []
+	# Active player has a 5-HP creature — Lightning Bolt's 4 damage won't kill it.
+	ScenarioFixtures.summon_creature(active_player, match_state, "fat_target", "field", 3, 5, [], 0, {"cost": 0})
+	# Responding player has a cheap unrelated card in hand so save-for-later is viable.
+	ScenarioFixtures.add_hand_card(responding_player, "filler_creature", {"card_type": "creature", "cost": 1, "power": 1, "health": 1})
+	var bolt := ScenarioFixtures.make_card(str(responding_player.get("player_id", "")), "lightning_bolt", {
+		"zone": "deck",
+		"card_type": "action",
+		"cost": 4,
+		"action_target_mode": "creature_or_player",
+		"rules_tags": [MatchTiming.RULE_TAG_PROPHECY],
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"effects": [{"op": "deal_damage", "target": "event_target", "amount": 4}],
+		}],
+	})
+	ScenarioFixtures.set_deck_cards(responding_player, [bolt])
+	MatchTiming.apply_player_damage(match_state, str(responding_player.get("player_id", "")), 6, {"reason": "test_rune_break", "source_controller_player_id": str(active_player.get("player_id", ""))})
+	_assert_policy_pick(match_state, "decline_prophecy:player_2:player_2_lightning_bolt:response=prophecy", failures, "AI should decline a free Prophecy Lightning Bolt when it cannot kill the target and has no follow-up.")
+
+
+# Counterpart: when the free Lightning Bolt achieves a clean kill, the AI must
+# still play it — declining a free removal would be silly.
+func _test_plays_prophecy_damage_for_lethal(failures: Array) -> void:
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 5, "first_player_index": 0})
+	var active_player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var responding_player: Dictionary = ScenarioFixtures.player(match_state, 1)
+	active_player["hand"] = []
+	responding_player["hand"] = []
+	# Active player has a 4-HP creature — Lightning Bolt's 4 damage kills it outright.
+	ScenarioFixtures.summon_creature(active_player, match_state, "kill_target", "field", 3, 4, [], 0, {"cost": 0})
+	var bolt := ScenarioFixtures.make_card(str(responding_player.get("player_id", "")), "lightning_bolt", {
+		"zone": "deck",
+		"card_type": "action",
+		"cost": 4,
+		"action_target_mode": "creature_or_player",
+		"rules_tags": [MatchTiming.RULE_TAG_PROPHECY],
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"effects": [{"op": "deal_damage", "target": "event_target", "amount": 4}],
+		}],
+	})
+	ScenarioFixtures.set_deck_cards(responding_player, [bolt])
+	MatchTiming.apply_player_damage(match_state, str(responding_player.get("player_id", "")), 6, {"reason": "test_rune_break", "source_controller_player_id": str(active_player.get("player_id", ""))})
+	_assert_policy_pick(match_state, "play_action:player_2:player_2_lightning_bolt:target=player_1_kill_target", failures, "AI should play a free Prophecy Lightning Bolt when it secures a clean kill.")
+
+
+# Counterpart: with a 1-damage finisher in hand, the wounded 5-HP creature
+# becomes reachable next turn — playing the bolt now is the right tempo move.
+func _test_plays_prophecy_damage_with_hand_finisher(failures: Array) -> void:
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 5, "first_player_index": 0})
+	var active_player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var responding_player: Dictionary = ScenarioFixtures.player(match_state, 1)
+	active_player["hand"] = []
+	responding_player["hand"] = []
+	ScenarioFixtures.summon_creature(active_player, match_state, "fat_target", "field", 3, 5, [], 0, {"cost": 0})
+	# Responding player holds a cheap 1-damage ping that finishes the wounded target.
+	ScenarioFixtures.add_hand_card(responding_player, "ping", {
+		"card_type": "action",
+		"cost": 1,
+		"action_target_mode": "creature_or_player",
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"effects": [{"op": "deal_damage", "target": "event_target", "amount": 1}],
+		}],
+	})
+	var bolt := ScenarioFixtures.make_card(str(responding_player.get("player_id", "")), "lightning_bolt", {
+		"zone": "deck",
+		"card_type": "action",
+		"cost": 4,
+		"action_target_mode": "creature_or_player",
+		"rules_tags": [MatchTiming.RULE_TAG_PROPHECY],
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"effects": [{"op": "deal_damage", "target": "event_target", "amount": 4}],
+		}],
+	})
+	ScenarioFixtures.set_deck_cards(responding_player, [bolt])
+	MatchTiming.apply_player_damage(match_state, str(responding_player.get("player_id", "")), 6, {"reason": "test_rune_break", "source_controller_player_id": str(active_player.get("player_id", ""))})
+	_assert_policy_pick(match_state, "play_action:player_2:player_2_lightning_bolt:target=player_1_fat_target", failures, "AI should play a free Prophecy Lightning Bolt when a hand finisher can convert the partial damage into a kill.")
+
+
+# Counterpart: at very low HP the safety_factor collapses the no-finish penalty,
+# so removing/threat-reducing the wounded creature is still the right call even
+# without a finisher.
+func _test_plays_prophecy_damage_at_low_hp(failures: Array) -> void:
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 5, "first_player_index": 0})
+	var active_player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var responding_player: Dictionary = ScenarioFixtures.player(match_state, 1)
+	active_player["hand"] = []
+	responding_player["hand"] = []
+	# Big threat on board — would lethal next turn if we don't damage it now.
+	ScenarioFixtures.summon_creature(active_player, match_state, "fat_threat", "field", 4, 5, [], 0, {"cost": 0})
+	# Cheap filler so save-for-later remains technically viable; safety should still dominate.
+	ScenarioFixtures.add_hand_card(responding_player, "filler_creature", {"card_type": "creature", "cost": 1, "power": 1, "health": 1})
+	var bolt := ScenarioFixtures.make_card(str(responding_player.get("player_id", "")), "lightning_bolt", {
+		"zone": "deck",
+		"card_type": "action",
+		"cost": 4,
+		"action_target_mode": "creature_or_player",
+		"rules_tags": [MatchTiming.RULE_TAG_PROPHECY],
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"effects": [{"op": "deal_damage", "target": "event_target", "amount": 4}],
+		}],
+	})
+	ScenarioFixtures.set_deck_cards(responding_player, [bolt])
+	# Break a rune at full HP to draw the prophecy, then drop HP into the danger zone
+	# so the safety_factor collapses the no-finish penalty without killing the player.
+	MatchTiming.apply_player_damage(match_state, str(responding_player.get("player_id", "")), 6, {"reason": "test_rune_break", "source_controller_player_id": str(active_player.get("player_id", ""))})
+	responding_player["health"] = 3
+	_assert_policy_pick(match_state, "play_action:player_2:player_2_lightning_bolt:target=player_1_fat_threat", failures, "AI at low HP should still play a free Prophecy damage spell on a non-killable threat — the safety factor collapses the no-finish penalty.")
 
 
 func _assert_policy_pick(match_state: Dictionary, expected_prefix: String, failures: Array, message: String) -> void:

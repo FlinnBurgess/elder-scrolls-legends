@@ -22,6 +22,8 @@ const MatchActionEnumerator = preload("res://src/ai/match_action_enumerator.gd")
 const MatchActionExecutor = preload("res://src/ai/match_action_executor.gd")
 const MatchStateEvaluator = preload("res://src/ai/match_state_evaluator.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
+const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
+const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 
 const LETHAL_BONUS := 500000.0
 const WIN_BONUS := 1000000.0
@@ -317,6 +319,7 @@ static func _tactical_bonus(before_state: Dictionary, after_state: Dictionary, a
 			bonus += 0.55
 			bonus += _removal_efficiency_adjustment(before_state, after_state, player_id, opponent_id, spent_magicka)
 			bonus += _control_action_efficiency_adjustment(before_state, after_state, action, player_id, opponent_id, spent_magicka)
+			bonus += _prophecy_damage_efficiency_adjustment(before_state, action, player_id, opponent_id, options)
 		MatchActionEnumerator.KIND_PLAY_ITEM:
 			# _PLAY_ITEM already added +0.75 above; apply efficiency check for damage items.
 			bonus += _removal_efficiency_adjustment(before_state, after_state, player_id, opponent_id, spent_magicka)
@@ -407,6 +410,203 @@ static func _control_action_efficiency_adjustment(before_state: Dictionary, afte
 	# the state_score delta alone decides if the action is worthwhile.
 	var shortfall := clampf((MIN_USEFUL_BENEFIT - total_benefit) / MIN_USEFUL_BENEFIT, 0.0, 1.0)
 	return -(0.55 + 0.45 * spent_magicka) * shortfall
+
+
+## Penalize "spending" a free Prophecy damage action on a creature it can't kill
+## when no follow-up exists to finish the kill, biasing the AI toward declining
+## the Prophecy and saving the card for a more decisive moment.
+##
+## A free Prophecy damage spell pays no magicka, so spent_magicka penalties
+## don't kick in — leaving the existing threat-reduction reward to make any
+## partial-damage play look attractive. This function asks: would I actually
+## be able to convert the partial damage into a kill (now or next turn), or
+## am I "wasting" the free play that could have been a real kill later?
+static func _prophecy_damage_efficiency_adjustment(before_state: Dictionary, action: Dictionary, player_id: String, opponent_id: String, options: Dictionary) -> float:
+	if not bool(action.get("played_for_free", false)):
+		return 0.0
+	if str(action.get("response_kind", "")) != MatchTiming.RULE_TAG_PROPHECY:
+		return 0.0
+	var source_instance_id := str(action.get("source_instance_id", ""))
+	var source_card := _find_card(before_state, source_instance_id)
+	if source_card.is_empty():
+		return 0.0
+	var damage := _extract_pure_damage_amount(source_card)
+	if damage <= 0:
+		return 0.0
+	var enemy_creatures := _enemy_creatures_with_locations(before_state, opponent_id)
+	if enemy_creatures.is_empty():
+		return 0.0  # No creature targets — let the existing scoring handle face damage.
+	# Lethal-now check: any creature dies outright?
+	for entry in enemy_creatures:
+		var c: Dictionary = entry.get("card", {})
+		var hp := int(c.get("current_health", c.get("health", 0)))
+		if damage >= hp and hp > 0:
+			return 0.0
+	# Pick the lowest-HP enemy creature as the target the AI is most likely to chase.
+	var best_entry: Dictionary = enemy_creatures[0]
+	for entry in enemy_creatures:
+		var c: Dictionary = entry.get("card", {})
+		var b: Dictionary = best_entry.get("card", {})
+		if int(c.get("current_health", c.get("health", 0))) < int(b.get("current_health", b.get("health", 0))):
+			best_entry = entry
+	var target_card: Dictionary = best_entry.get("card", {})
+	var target_lane: String = str(best_entry.get("lane_id", ""))
+	var target_hp_before := int(target_card.get("current_health", target_card.get("health", 0)))
+	if target_hp_before <= 0:
+		return 0.0
+	var target_hp_after := target_hp_before - damage
+	# Hand follow-up: any non-prophecy-source action card in hand that can finish?
+	if _hand_can_finish(before_state, player_id, source_instance_id, target_hp_after):
+		return 0.0
+	# On-board reach (next turn). 50/50 coin flip on whether the wounded target
+	# survives the opponent's remaining turn — adds variety while staying
+	# deterministic (seeded from turn + target + player id).
+	var optimistic := _prophecy_target_survives_coin_flip(before_state, target_card, player_id)
+	if optimistic and _onboard_can_finish(before_state, player_id, opponent_id, target_lane, target_card, target_hp_after):
+		return 0.0
+	# Save-for-later viability: next turn can pay AND there's another playable card.
+	var save_viable := _save_for_later_viable(before_state, player_id, source_card)
+	# Cancel the state-eval reward perceived from partial damage. The 2.5/dmg
+	# coefficient is calibrated to outweigh the AI's perceived gain (state delta +
+	# play_action bonus) while still letting safety_factor / save_modulation
+	# soften the penalty when the play is genuinely the right call.
+	var perceived_gain := float(damage) * 2.5
+	# Scale by remaining-HP fraction: barely-scratched (high fraction) takes full
+	# hit; near-death (low fraction) keeps a smaller penalty since partial damage
+	# was real progress.
+	var fraction := float(maxi(target_hp_after, 0)) / float(maxi(1, target_hp_before))
+	var progress_factor := 0.7 + 0.5 * fraction
+	var base_penalty := perceived_gain * progress_factor + 2.0
+	# Safety scaling: at low HP, even partial damage is worth doing — let the
+	# regular reward win. Mirrors the safety_factor in _removal_efficiency_adjustment.
+	var player := _find_player(before_state, player_id)
+	var player_hp := maxf(0.0, float(int(player.get("health", 30))))
+	const REFERENCE_MAX_HP := 30.0
+	var safety_factor := clampf(player_hp / REFERENCE_MAX_HP, 0.0, 1.0)
+	# If save-for-later isn't realistic (no leftover for another card), declining
+	# offers little benefit so the penalty halves.
+	var save_modulation := 1.0 if save_viable else 0.5
+	return -base_penalty * safety_factor * save_modulation
+
+
+static func _extract_pure_damage_amount(card: Dictionary) -> int:
+	var triggers: Array = card.get("triggered_abilities", [])
+	if triggers.size() != 1:
+		return 0
+	var trigger: Dictionary = triggers[0] if typeof(triggers[0]) == TYPE_DICTIONARY else {}
+	var effects: Array = trigger.get("effects", [])
+	if effects.size() != 1:
+		return 0
+	var effect: Dictionary = effects[0] if typeof(effects[0]) == TYPE_DICTIONARY else {}
+	if str(effect.get("op", "")) != "deal_damage":
+		return 0
+	# Only single-target damage; skip AOE / pre-targeted variants.
+	var tgt := str(effect.get("target", ""))
+	if tgt != "event_target" and tgt != "":
+		return 0
+	return int(effect.get("amount", 0))
+
+
+static func _enemy_creatures_with_locations(match_state: Dictionary, opponent_id: String) -> Array:
+	var result: Array = []
+	for lane in match_state.get("lanes", []):
+		var lane_id := str(lane.get("lane_id", ""))
+		for card in lane.get("player_slots", {}).get(opponent_id, []):
+			if typeof(card) == TYPE_DICTIONARY and str(card.get("card_type", "")) == "creature":
+				result.append({"card": card, "lane_id": lane_id})
+	return result
+
+
+static func _hand_can_finish(match_state: Dictionary, player_id: String, exclude_instance_id: String, remaining_hp: int) -> bool:
+	if remaining_hp <= 0:
+		return true
+	var player := _find_player(match_state, player_id)
+	for card in player.get("hand", []):
+		if typeof(card) != TYPE_DICTIONARY:
+			continue
+		if str(card.get("instance_id", "")) == exclude_instance_id:
+			continue
+		if str(card.get("card_type", "")) != "action":
+			continue
+		var dmg := _max_damage_from_card(card)
+		if dmg >= remaining_hp:
+			return true
+	return false
+
+
+## Return the largest single-target damage amount the card can deliver via any
+## of its triggered abilities. Used as a follow-up screen for finishing wounded
+## targets — keep the heuristic loose since the AI doesn't need to confirm
+## targeting legality, just feasibility.
+static func _max_damage_from_card(card: Dictionary) -> int:
+	var max_dmg := 0
+	for trigger in card.get("triggered_abilities", []):
+		if typeof(trigger) != TYPE_DICTIONARY:
+			continue
+		for effect in trigger.get("effects", []):
+			if typeof(effect) != TYPE_DICTIONARY:
+				continue
+			if str(effect.get("op", "")) != "deal_damage":
+				continue
+			max_dmg = maxi(max_dmg, int(effect.get("amount", 0)))
+	return max_dmg
+
+
+static func _onboard_can_finish(match_state: Dictionary, player_id: String, opponent_id: String, target_lane: String, target_card: Dictionary, remaining_hp: int) -> bool:
+	if remaining_hp <= 0:
+		return true
+	var target_id := str(target_card.get("instance_id", ""))
+	var ai_power_in_lane := 0
+	var guard_hp := 0
+	for lane in match_state.get("lanes", []):
+		if str(lane.get("lane_id", "")) != target_lane:
+			continue
+		for card in lane.get("player_slots", {}).get(player_id, []):
+			if typeof(card) == TYPE_DICTIONARY:
+				ai_power_in_lane += EvergreenRules.get_power(card)
+		for card in lane.get("player_slots", {}).get(opponent_id, []):
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			# The wounded target itself is what we're trying to reach — exclude it
+			# from the guard wall so we don't double-count its own remaining HP.
+			if str(card.get("instance_id", "")) == target_id:
+				continue
+			if EvergreenRules.has_keyword(card, EvergreenRules.KEYWORD_GUARD):
+				guard_hp += EvergreenRules.get_remaining_health(card)
+	var effective_hp := remaining_hp + guard_hp
+	return ai_power_in_lane >= effective_hp
+
+
+## Deterministic 50/50 coin flip on whether the wounded prophecy target survives
+## the opponent's remaining turn. Seeded from turn + target instance_id + player
+## so the same scenario reproduces across replays but different prophecies in
+## the same turn flip independently.
+static func _prophecy_target_survives_coin_flip(match_state: Dictionary, target_card: Dictionary, player_id: String) -> bool:
+	var seed_value := int(match_state.get("turn_number", 0))
+	seed_value = seed_value * 1315423911 + str(target_card.get("instance_id", "")).hash()
+	seed_value = seed_value * 1315423911 + player_id.hash()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	return rng.randi() % 2 == 0
+
+
+static func _save_for_later_viable(match_state: Dictionary, player_id: String, source_card: Dictionary) -> bool:
+	var player := _find_player(match_state, player_id)
+	var current_max := int(player.get("max_magicka", 0))
+	var card_cost := int(source_card.get("cost", 0))
+	var next_max := mini(MatchTurnLoop.MAX_MAGICKA_CAP, current_max + 1)
+	if card_cost > next_max:
+		return false
+	var leftover := next_max - card_cost
+	var source_id := str(source_card.get("instance_id", ""))
+	for card in player.get("hand", []):
+		if typeof(card) != TYPE_DICTIONARY:
+			continue
+		if str(card.get("instance_id", "")) == source_id:
+			continue
+		if int(card.get("cost", 0)) <= leftover:
+			return true
+	return false
 
 
 static func _attack_trade_bonus(before_state: Dictionary, after_state: Dictionary, action: Dictionary) -> float:

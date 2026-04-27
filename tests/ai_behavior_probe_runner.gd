@@ -104,11 +104,12 @@ func _test_prophecy_decline_probe(failures: Array) -> void:
 		"zone": "deck",
 		"card_type": "action",
 		"cost": 4,
+		"action_target_mode": "friendly_creature",
 		"rules_tags": [MatchTiming.RULE_TAG_PROPHECY],
 		"triggered_abilities": [{
 			"family": MatchTiming.FAMILY_ON_PLAY,
 			"required_zone": "discard",
-			"effects": [{"op": "damage", "target": "event_target", "amount": 2}],
+			"effects": [{"op": "deal_damage", "target": "event_target", "amount": 2}],
 		}],
 	})
 	ScenarioFixtures.set_deck_cards(responding_player, [prophecy])

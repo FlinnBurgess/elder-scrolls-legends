@@ -418,14 +418,7 @@ static func _enumerate_pending_prophecy_actions(match_state: Dictionary, player_
 		if card_type == "creature":
 			actions.append_array(_enumerate_creature_prophecy_plays(match_state, player_id, card))
 		elif card_type == "action":
-			var play_action := _build_descriptor(KIND_PLAY_ACTION, match_state, player_id, card, {}, {
-				"timing_window": TIMING_INTERRUPT,
-				"response_kind": MatchTiming.RULE_TAG_PROPHECY,
-				"played_for_free": true,
-				"order_key": ACTION_KIND_ORDER[KIND_SUMMON_CREATURE],
-			})
-			if action_is_legal(match_state, play_action):
-				actions.append(play_action)
+			actions.append_array(_enumerate_action_prophecy_plays(match_state, player_id, card))
 		var decline_action := _build_descriptor(KIND_DECLINE_PROPHECY, match_state, player_id, card, {}, {
 			"timing_window": TIMING_INTERRUPT,
 			"response_kind": MatchTiming.RULE_TAG_PROPHECY,
@@ -434,6 +427,26 @@ static func _enumerate_pending_prophecy_actions(match_state: Dictionary, player_
 		})
 		if action_is_legal(match_state, decline_action):
 			actions.append(decline_action)
+	return actions
+
+
+static func _enumerate_action_prophecy_plays(match_state: Dictionary, player_id: String, card: Dictionary) -> Array:
+	var actions: Array = []
+	var requirements := _collect_target_requirements(_play_triggers(card))
+	requirements["action_target_mode"] = str(card.get("action_target_mode", ""))
+	requirements["controller_player_id"] = player_id
+	var target_sets := _expand_target_parameter_sets(match_state, requirements)
+	if target_sets.is_empty():
+		target_sets = [{}]
+	for parameters in target_sets:
+		var descriptor := _build_descriptor(KIND_PLAY_ACTION, match_state, player_id, card, parameters, {
+			"timing_window": TIMING_INTERRUPT,
+			"response_kind": MatchTiming.RULE_TAG_PROPHECY,
+			"played_for_free": true,
+			"order_key": ACTION_KIND_ORDER[KIND_SUMMON_CREATURE],
+		})
+		if action_is_legal(match_state, descriptor):
+			actions.append(descriptor)
 	return actions
 
 

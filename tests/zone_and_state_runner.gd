@@ -96,7 +96,7 @@ func _test_state_mutations_cover_silence_change_copy_transform_and_consume() -> 
 	var mutable := _summon_creature(player, match_state, "mutable", "shadow", 2, 4, ["guard"], -1, {
 		"triggered_abilities": [{"family": MatchTiming.FAMILY_SUMMON, "required_zone": "lane", "effects": [{"op": "log", "message": "mutable"}]}],
 	})
-	mutable["damage_marked"] = 1
+	mutable["damage_marked"] = 2
 	mutable["power_bonus"] = 2
 	mutable["health_bonus"] = 1
 	mutable["granted_keywords"] = ["ward"]

@@ -164,6 +164,9 @@ func _dismiss_prophecy_overlay() -> void:
 	var card_back: Control = _prophecy_overlay_state.get("card_back")
 	if card_back != null and is_instance_valid(card_back):
 		card_back.queue_free()
+	var arrow: Line2D = _prophecy_overlay_state.get("arrow")
+	if arrow != null and is_instance_valid(arrow):
+		arrow.queue_free()
 	_prophecy_overlay_state = {}
 
 
