@@ -283,6 +283,10 @@ static func matches_additional_conditions(match_state: Dictionary, trigger: Dict
 	if bool(descriptor.get("required_wounded_enemy_in_lane", false)):
 		if not _has_wounded_enemy_in_lane(match_state, trigger):
 			return false
+	# Wounded creature (friend or foe) in lane condition
+	if bool(descriptor.get("required_wounded_in_lane", false)):
+		if not _has_wounded_in_lane(match_state, trigger):
+			return false
 	# Enemy in lane condition
 	if bool(descriptor.get("required_enemy_in_lane", false)):
 		if not _has_enemy_in_lane(match_state, trigger):
@@ -2598,6 +2602,30 @@ static func _has_wounded_enemy_in_lane(match_state: Dictionary, trigger: Diction
 			continue
 		for card in player_slots[pid]:
 			if typeof(card) == TYPE_DICTIONARY and EvergreenRules.has_status(card, EvergreenRules.STATUS_WOUNDED):
+				return true
+	return false
+
+
+static func _has_wounded_in_lane(match_state: Dictionary, trigger: Dictionary) -> bool:
+	var source_instance_id := str(trigger.get("source_instance_id", ""))
+	var source_card := _find_card_anywhere(match_state, source_instance_id)
+	if source_card.is_empty():
+		return false
+	var source_lane_index := _get_card_lane_index(match_state, source_card)
+	if source_lane_index < 0:
+		return false
+	var lanes: Array = match_state.get("lanes", [])
+	if source_lane_index >= lanes.size():
+		return false
+	var lane: Dictionary = lanes[source_lane_index]
+	var player_slots: Dictionary = lane.get("player_slots", {})
+	for pid in player_slots.keys():
+		for card in player_slots[pid]:
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			if str(card.get("instance_id", "")) == source_instance_id:
+				continue
+			if EvergreenRules.has_status(card, EvergreenRules.STATUS_WOUNDED):
 				return true
 	return false
 

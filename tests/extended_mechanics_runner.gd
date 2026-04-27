@@ -157,6 +157,8 @@ func _run_all_tests() -> bool:
 		_test_consume_card_single_consume_no_infinite_loop() and
 		_test_draw_copy_of_consumed_last_gasp_draws_copy_to_hand() and
 		_test_green_pact_stalker_buffs_with_wounded_enemy_in_lane() and
+		_test_blood_crazed_daedroth_draws_with_friendly_wounded_in_lane() and
+		_test_blood_crazed_daedroth_no_draw_without_wounded_in_lane() and
 		_test_summon_each_unique_from_deck_dedupes_by_definition_not_cost() and
 		_test_feed_queues_pending_choice_for_keyword_recipient() and
 		_test_razum_dar_copies_opponent_drawn_card_not_self() and
@@ -5906,6 +5908,53 @@ func _test_green_pact_stalker_buffs_with_wounded_enemy_in_lane() -> bool:
 		_assert(EvergreenRules.get_power(stalker) == 5, "Stalker power should be 3+2=5 (got %d)." % [EvergreenRules.get_power(stalker)]) and
 		_assert(EvergreenRules.get_health(stalker) == 6, "Stalker health should be 4+2=6 (got %d)." % [EvergreenRules.get_health(stalker)])
 	)
+
+
+func _test_blood_crazed_daedroth_draws_with_friendly_wounded_in_lane() -> bool:
+	# Regression: Blood-Crazed Daedroth ("Draw a card if there is a Wounded creature in this lane")
+	# previously used required_wounded_enemy_in_lane and ignored friendly wounded creatures.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	# Stock the deck so a draw can resolve.
+	var pid := str(player.get("player_id", ""))
+	ScenarioFixtures.set_deck_cards(player, [
+		ScenarioFixtures.make_card(pid, "deck_top", {"card_type": "creature", "cost": 1, "power": 1, "health": 1}),
+	])
+	# Place a wounded FRIENDLY creature in the field lane.
+	var ally := ScenarioFixtures.summon_creature(player, match_state, "wounded_ally", "field", 2, 4, [], -1, {
+		"damage_marked": 1,
+	})
+	if not _assert(not ally.is_empty(), "Wounded ally should be summoned."):
+		return false
+	if not _assert(EvergreenRules.has_status(ally, EvergreenRules.STATUS_WOUNDED), "Ally should be wounded."):
+		return false
+	var hand_before: int = player.get("hand", []).size()
+	# Summon Blood-Crazed Daedroth-style card to the same lane.
+	var daedroth := ScenarioFixtures.summon_creature(player, match_state, "daedroth", "field", 3, 2, [], -1, {
+		"triggered_abilities": [{"family": "summon", "required_wounded_in_lane": true, "effects": [{"op": "draw_cards", "target_player": "controller", "count": 1}]}],
+	})
+	if not _assert(not daedroth.is_empty(), "Daedroth should be summoned."):
+		return false
+	var hand_after: int = player.get("hand", []).size()
+	return _assert(hand_after == hand_before + 1, "Hand should grow by 1 after Daedroth summon (was %d, now %d)." % [hand_before, hand_after])
+
+
+func _test_blood_crazed_daedroth_no_draw_without_wounded_in_lane() -> bool:
+	# Negative case: with no wounded creature in the lane, the daedroth's draw must NOT fire.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	ScenarioFixtures.set_deck_cards(player, [
+		ScenarioFixtures.make_card(pid, "deck_top", {"card_type": "creature", "cost": 1, "power": 1, "health": 1}),
+	])
+	var hand_before: int = player.get("hand", []).size()
+	var daedroth := ScenarioFixtures.summon_creature(player, match_state, "daedroth", "field", 3, 2, [], -1, {
+		"triggered_abilities": [{"family": "summon", "required_wounded_in_lane": true, "effects": [{"op": "draw_cards", "target_player": "controller", "count": 1}]}],
+	})
+	if not _assert(not daedroth.is_empty(), "Daedroth should be summoned."):
+		return false
+	var hand_after: int = player.get("hand", []).size()
+	return _assert(hand_after == hand_before, "Hand should NOT grow when no wounded creature is in the lane (was %d, now %d)." % [hand_before, hand_after])
 
 
 func _test_summon_each_unique_from_deck_dedupes_by_definition_not_cost() -> bool:

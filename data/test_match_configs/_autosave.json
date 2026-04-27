@@ -17,10 +17,14 @@
 			{
 				"can_attack": true,
 				"definition_id": "cwc_neu_abomination",
-				"health_bonus": 1
+				"health_bonus": 1.0
 			},
 			"cwc_neu_abomination",
-			"aw_int_abnur_tharn"
+			{
+				"can_attack": true,
+				"definition_id": "aw_int_abnur_tharn",
+				"health_bonus": 2.0
+			}
 		],
 		"hand": [],
 		"health": 29.0,
@@ -42,7 +46,7 @@
 	],
 	"name": "",
 	"player": {
-		"current_magicka": 6.0,
+		"current_magicka": 12.0,
 		"deck": [
 			"db_wil_knight_of_the_hour",
 			"hom_end_bonewalker"
@@ -54,17 +58,17 @@
 			"moe_neu_crocodile_brute"
 		],
 		"field_creatures": [
-			"neu_ageless_automaton",
-			"db_end_ageless_vampire",
-			"dual_ahnassi"
+			null,
+			null,
+			"aw_int_abnur_tharn"
 		],
 		"hand": [
-			"joo_end_three_feather_warchief",
-			"agi_finish_off"
+			"joo_str_blood_crazed_daedroth",
+			"int_firebolt"
 		],
 		"has_ring": false,
 		"health": 30.0,
-		"max_magicka": 6.0,
+		"max_magicka": 12.0,
 		"shadow_creatures": [],
 		"supports": [
 			"hos_wil_wolf_cage"

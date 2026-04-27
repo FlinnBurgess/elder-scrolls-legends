@@ -2439,6 +2439,8 @@ func _cost_display_color() -> Color:
 func _stat_color(card: Dictionary, stat: String, base_color: Color = COLOR_STAT_BASE) -> Color:
 	if not _is_creature(card):
 		return base_color
+	if stat == "health" and EvergreenRules.has_status(card, EvergreenRules.STATUS_WOUNDED):
+		return COLOR_STAT_REDUCED
 	var current := EvergreenRules.get_power(card) if stat == "power" else EvergreenRules.get_remaining_health(card)
 	var printed := _printed_power(card) if stat == "power" else _printed_health(card)
 	if current > printed:
