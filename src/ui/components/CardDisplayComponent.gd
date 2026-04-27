@@ -2206,10 +2206,10 @@ func _subtype_line(card: Dictionary) -> String:
 	var subtypes: Array = card.get("subtypes", [])
 	if subtypes.is_empty():
 		return _identifier_to_name(str(card.get("card_type", "card")))
-	var subtype_names: Array = []
-	for subtype in subtypes:
-		subtype_names.append(_identifier_to_name(str(subtype)))
-	return " • ".join(subtype_names)
+	var first_name := _identifier_to_name(str(subtypes[0]))
+	if subtypes.size() > 1:
+		return first_name + " +"
+	return first_name
 
 
 func _is_ongoing_support(card: Dictionary) -> bool:

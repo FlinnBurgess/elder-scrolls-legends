@@ -62,6 +62,13 @@ static func _resolve_card_relationships(card: Dictionary, relationships: Array, 
 		if not item_data.has("art_path") and not def_id.is_empty():
 			item_data["art_path"] = "res://assets/images/cards/" + def_id + ".png"
 		relationships.append({"type": "card", "card_data": item_data})
+	# Multi-subtype alt-view: list all subtypes for cards with 2+
+	var card_subtypes = card.get("subtypes", [])
+	if typeof(card_subtypes) == TYPE_ARRAY and card_subtypes.size() > 1:
+		var subtype_names: Array = []
+		for st in card_subtypes:
+			subtype_names.append(str(st))
+		relationships.append({"type": "text", "text": "Subtypes:\n" + " • ".join(subtype_names)})
 	# Shout alt-views: show higher levels as text relationships
 	var shout_levels = card.get("shout_levels", [])
 	if typeof(shout_levels) == TYPE_ARRAY and not shout_levels.is_empty():
