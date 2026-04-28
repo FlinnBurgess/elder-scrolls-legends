@@ -118,6 +118,9 @@ const ESL_TEMPLATE_RARITY_PATHS := {
 	"legendary": "res://assets/images/card_templates/rarity_legendary.png",
 	"legendary_duo": "res://assets/images/card_templates/rarity_legendary_duo.png",
 	"legendary_trio": "res://assets/images/card_templates/rarity_legendary_trio.png",
+	"legendary_unique": "res://assets/images/card_templates/rarity_legendary_unique.png",
+	"legendary_unique_duo": "res://assets/images/card_templates/rarity_legendary_unique_duo.png",
+	"legendary_unique_trio": "res://assets/images/card_templates/rarity_legendary_unique_trio.png",
 }
 const ESL_TEMPLATE_PH_PATH := "res://assets/images/card_templates/power_health_bg.png"
 const ESL_TEMPLATE_SUPPORT_PATH := "res://assets/images/card_templates/support_bg.png"
@@ -1057,6 +1060,11 @@ func _refresh_esl_template_textures() -> void:
 			rarity_key = "legendary_duo"
 		elif frame_key.begins_with("trio_"):
 			rarity_key = "legendary_trio"
+		if bool(_card_data.get("is_unique", false)):
+			match rarity_key:
+				"legendary": rarity_key = "legendary_unique"
+				"legendary_duo": rarity_key = "legendary_unique_duo"
+				"legendary_trio": rarity_key = "legendary_unique_trio"
 	var rarity_path: String = ESL_TEMPLATE_RARITY_PATHS.get(rarity_key, ESL_TEMPLATE_RARITY_PATHS["common"])
 	_tpl_rarity.texture = _load_texture_from_path(rarity_path)
 	_tpl_rarity.visible = _tpl_rarity.texture != null
