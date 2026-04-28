@@ -36,6 +36,7 @@ func _initialize() -> void:
 	_test_plays_prophecy_damage_for_lethal(failures)
 	_test_plays_prophecy_damage_with_hand_finisher(failures)
 	_test_plays_prophecy_damage_at_low_hp(failures)
+	_test_shackles_big_threat_when_summoning_optional_shackler(failures)
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)
@@ -646,6 +647,36 @@ func _test_plays_prophecy_damage_at_low_hp(failures: Array) -> void:
 	MatchTiming.apply_player_damage(match_state, str(responding_player.get("player_id", "")), 6, {"reason": "test_rune_break", "source_controller_player_id": str(active_player.get("player_id", ""))})
 	responding_player["health"] = 3
 	_assert_policy_pick(match_state, "play_action:player_2:player_2_lightning_bolt:target=player_1_fat_threat", failures, "AI at low HP should still play a free Prophecy damage spell on a non-killable threat — the safety factor collapses the no-finish penalty.")
+
+
+func _test_shackles_big_threat_when_summoning_optional_shackler(failures: Array) -> void:
+	# Regression for Shrieking Harpy ignoring Alduin: when summoning a creature
+	# with a non-mandatory "shackle an enemy creature" trigger, the AI must
+	# pick the targeted variant over the no-target fizzle when a meaningful
+	# threat is in range — shackle persists through the controller's next turn,
+	# so it should reduce the perceived face threat.
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 5, "first_player_index": 1})
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player: Dictionary = ScenarioFixtures.player(match_state, 1)
+	opponent["hand"] = []
+	player["hand"] = []
+	ScenarioFixtures.summon_creature(opponent, match_state, "alduin", "field", 12, 12, [], 0, {"cost": 0})
+	ScenarioFixtures.add_hand_card(player, "shrieking_harpy", {
+		"card_type": "creature",
+		"cost": 2,
+		"power": 2,
+		"health": 1,
+		"triggered_abilities": [{
+			"family": "summon",
+			"target_mode": "enemy_creature",
+			"effects": [{"op": "shackle", "target": "chosen_target"}],
+		}],
+	})
+	_assert_policy_pick(match_state, "summon_creature:player_2:player_2_shrieking_harpy:lane=", failures, "AI summoning a shackler with a big threat in range should pick a targeted variant rather than fizzling.")
+	var choice := HeuristicMatchPolicy.choose_action(match_state)
+	var action: Dictionary = choice.get("chosen_action", {})
+	var params: Dictionary = action.get("parameters", {})
+	VerificationAssertions.assert_equal(str(params.get("summon_target_instance_id", "")), str(opponent.get("player_id", "")) + "_alduin", "AI should target the only enemy creature (Alduin) when summoning Shrieking Harpy.", failures)
 
 
 func _assert_policy_pick(match_state: Dictionary, expected_prefix: String, failures: Array, message: String) -> void:

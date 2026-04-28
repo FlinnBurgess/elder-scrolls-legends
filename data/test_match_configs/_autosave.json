@@ -14,19 +14,13 @@
 		],
 		"field_creatures": [
 			null,
-			{
-				"can_attack": true,
-				"definition_id": "cwc_neu_abomination",
-				"health_bonus": 1.0
-			},
-			"cwc_neu_abomination",
-			{
-				"can_attack": true,
-				"definition_id": "aw_int_abnur_tharn",
-				"health_bonus": 2.0
-			}
+			null,
+			"hom_end_vvardvark",
+			"hom_end_vvardvark"
 		],
-		"hand": [],
+		"hand": [
+			"int_shrieking_harpy"
+		],
 		"health": 29.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [],
@@ -48,8 +42,7 @@
 	"player": {
 		"current_magicka": 12.0,
 		"deck": [
-			"db_wil_knight_of_the_hour",
-			"hom_end_bonewalker"
+			"int_lightning_bolt"
 		],
 		"discard": [
 			"hom_end_vvardvark",
@@ -60,12 +53,14 @@
 		"field_creatures": [
 			null,
 			null,
-			"aw_int_abnur_tharn"
+			"hos_neu_alduin"
 		],
 		"hand": [
 			"joo_str_invasion_scout",
 			"joo_str_invasion_scout",
-			"joo_str_invasion_scout"
+			"joo_str_invasion_scout",
+			"hom_agi_naryu_virian",
+			"wil_piercing_javelin"
 		],
 		"has_ring": false,
 		"health": 30.0,

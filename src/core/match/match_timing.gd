@@ -2096,6 +2096,52 @@ static func _check_on_friendly_wax_wane_target_mode(match_state: Dictionary, eve
 				})
 
 
+## Check if a turn_started event should trigger start_of_turn abilities with
+## target_mode (e.g. Mehrunes Dagon's Flayer). Queue pending_summon_effect_targets
+## so the active player must pick the target — these are excluded from auto-pick
+## in _trigger_matches_event.
+static func _check_start_of_turn_target_mode(match_state: Dictionary, event: Dictionary) -> void:
+	if str(event.get("event_type", "")) != EVENT_TURN_STARTED:
+		return
+	var active_player_id := str(event.get("player_id", ""))
+	if active_player_id.is_empty():
+		return
+	for lane in match_state.get("lanes", []):
+		var slots: Array = lane.get("player_slots", {}).get(active_player_id, [])
+		for card in slots:
+			if typeof(card) != TYPE_DICTIONARY:
+				continue
+			var instance_id := str(card.get("instance_id", ""))
+			if EvergreenRules.has_raw_status(card, EvergreenRules.STATUS_SILENCED):
+				continue
+			var abilities = card.get("triggered_abilities", [])
+			if typeof(abilities) != TYPE_ARRAY:
+				continue
+			for descriptor in abilities:
+				if typeof(descriptor) != TYPE_DICTIONARY:
+					continue
+				if str(descriptor.get("family", "")) != FAMILY_START_OF_TURN:
+					continue
+				if str(descriptor.get("target_mode", "")).is_empty():
+					continue
+				if not bool(descriptor.get("enabled", true)):
+					continue
+				if descriptor.has("required_zone") and str(descriptor.get("required_zone", "")) != ZONE_LANE:
+					continue
+				var tm := str(descriptor.get("target_mode", ""))
+				var valid_targets := MatchTargeting.get_valid_targets_for_mode(match_state, instance_id, tm, descriptor)
+				if valid_targets.is_empty():
+					continue
+				var controller_id := str(card.get("controller_player_id", active_player_id))
+				var pending_arr: Array = match_state.get("pending_summon_effect_targets", [])
+				pending_arr.append({
+					"player_id": controller_id,
+					"source_instance_id": instance_id,
+					"mandatory": false,
+					"allowed_families": [FAMILY_START_OF_TURN],
+				})
+
+
 ## Check if a played action card has multi-target on_play triggers (two_creatures, three_creatures)
 ## and queue pending target selections for each target needed.
 static func _check_action_multi_target_abilities(match_state: Dictionary, card: Dictionary) -> void:
@@ -3638,6 +3684,8 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 		_check_pilfer_target_mode(match_state, event)
 		# Queue player-targeted on_friendly_wax/wane triggers (e.g. Frazzled Alfiq deal 1 damage)
 		_check_on_friendly_wax_wane_target_mode(match_state, event)
+		# Queue player-targeted start_of_turn triggers (e.g. Mehrunes Dagon's Flayer)
+		_check_start_of_turn_target_mode(match_state, event)
 	var aura_kw_events := MatchAuras.recalculate_auras(match_state)
 	for raw_aura_kw_event in aura_kw_events:
 		queue.append(MatchTimingHelpers._normalize_event(match_state, raw_aura_kw_event, {}))

@@ -107,7 +107,7 @@ func _compute_lane_row_hash(lane_id: String, player_id: String, slots: Array) ->
 	for card in slots:
 		if typeof(card) != TYPE_DICTIONARY:
 			continue
-		var statuses = card.get("statuses", [])
+		var statuses = card.get("status_markers", [])
 		var statuses_str := ""
 		if typeof(statuses) == TYPE_ARRAY:
 			var sorted_statuses: Array = statuses.duplicate()

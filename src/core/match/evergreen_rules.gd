@@ -200,9 +200,11 @@ static func refresh_for_controller_turn(card: Dictionary, current_turn_number: i
 		card.erase("cover_expires_on_turn")
 		card.erase("cover_granted_by")
 		result["cover_expired"] = true
-	# Strict < (vs cover's <=) so shackle persists through the controller's next turn,
-	# causing them to skip that attack opportunity, then clears on the turn after.
-	if has_raw_status(card, STATUS_SHACKLED) and int(card.get("shackle_expires_on_turn", -1)) < current_turn_number:
+	# Refresh runs before turn_number is incremented in _start_turn, so the
+	# expires_on_turn (set as turn_number+2 at apply time) sits one turn ahead of
+	# what refresh sees. Using <= matches cover's semantics and clears shackle on
+	# the controller's turn-after-next regardless of who applied it.
+	if has_raw_status(card, STATUS_SHACKLED) and int(card.get("shackle_expires_on_turn", -1)) <= current_turn_number:
 		remove_status(card, STATUS_SHACKLED)
 		card.erase("shackle_expires_on_turn")
 		result["shackle_cleared"] = true

@@ -38,6 +38,7 @@ const FAMILY_WAX := "wax"
 const FAMILY_WANE := "wane"
 const FAMILY_ON_FRIENDLY_WAX := "on_friendly_wax"
 const FAMILY_ON_FRIENDLY_WANE := "on_friendly_wane"
+const FAMILY_START_OF_TURN := "start_of_turn"
 
 const PLAYER_ZONE_ORDER := [ZONE_HAND, ZONE_SUPPORT, ZONE_DISCARD, ZONE_BANISHED, ZONE_DECK]
 const ZONE_PRIORITY := {
@@ -362,9 +363,10 @@ static func _trigger_matches_event(match_state: Dictionary, trigger: Dictionary,
 			else:
 				return false
 		else:
-			# on_friendly_wax/wane with target_mode require player targeting —
-			# they are queued via pending_summon_effect_targets, not auto-picked.
-			if inject_family == FAMILY_ON_FRIENDLY_WAX or inject_family == FAMILY_ON_FRIENDLY_WANE:
+			# on_friendly_wax/wane and start_of_turn with target_mode require
+			# player targeting — they are queued via pending_summon_effect_targets,
+			# not auto-picked.
+			if inject_family == FAMILY_ON_FRIENDLY_WAX or inject_family == FAMILY_ON_FRIENDLY_WANE or inject_family == FAMILY_START_OF_TURN:
 				return false
 			var source_id := str(trigger.get("source_instance_id", ""))
 			var tm := str(descriptor.get("target_mode", ""))

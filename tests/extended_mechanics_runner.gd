@@ -68,6 +68,9 @@ func _run_all_tests() -> bool:
 		_test_dual_wax_wane() and
 		_test_wax_creature_turn_trigger() and
 		_test_on_friendly_wax_target_mode() and
+		_test_start_of_turn_target_mode_flayer() and
+		_test_start_of_turn_target_mode_decline() and
+		_test_start_of_turn_target_mode_no_valid_targets() and
 		_test_wax_creature_in_hand_target_mode() and
 		_test_aldora_the_daring_pack() and
 		_test_mistveil_warden_pack() and
@@ -126,6 +129,7 @@ func _run_all_tests() -> bool:
 		_test_haskill_random_cost_trigger_no_draw_on_mismatch() and
 		_test_shuffle_into_deck_respects_count() and
 		_test_on_friendly_summon_copy_no_infinite_loop() and
+		_test_summon_copy_of_self_spawns_at_base_stats() and
 		_test_hannibal_traven_learn_and_last_gasp_queues_free_plays() and
 		_test_sotha_sil_end_of_turn_summons_imperfect_with_exalted() and
 		_test_renegade_magister_doubles_action_damage() and
@@ -1909,6 +1913,122 @@ func _test_on_friendly_wax_target_mode() -> bool:
 		_assert(bool(resolve.get("is_valid", false)), "Resolving on_friendly_wax target should succeed.") and
 		_assert(enemy_health_after == 2, "Enemy creature should take 1 damage from on_friendly_wax, health: 3 -> 2, got %d." % enemy_health_after)
 	)
+
+
+func _test_start_of_turn_target_mode_flayer() -> bool:
+	# Mehrunes Dagon's Flayer's start_of_turn effect (deal 1 damage and give +2/+0
+	# to another friendly creature) should be player-targeted, not auto-picked.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	var flayer := ScenarioFixtures.summon_creature(player, match_state, "flayer", "field", 3, 5, [], -1, {
+		"cost": 5,
+		"triggered_abilities": [
+			{"family": "start_of_turn", "required_zone": "lane", "target_mode": "another_friendly_creature", "deferred_visual": true, "effects": [
+				{"op": "deal_damage", "target": "chosen_target", "amount": 1},
+				{"op": "modify_stats", "target": "chosen_target", "power": 2, "health": 0},
+			]},
+		],
+	})
+	var ally_a := ScenarioFixtures.summon_creature(player, match_state, "ally_a", "field", 2, 4)
+	var ally_b := ScenarioFixtures.summon_creature(player, match_state, "ally_b", "field", 1, 3)
+	var ally_a_id := str(ally_a.get("instance_id", ""))
+	var ally_b_id := str(ally_b.get("instance_id", ""))
+	var ally_a_power_before := EvergreenRules.get_power(ally_a)
+	var ally_a_health_before := EvergreenRules.get_remaining_health(ally_a)
+	var ally_b_power_before := EvergreenRules.get_power(ally_b)
+	var ally_b_health_before := EvergreenRules.get_remaining_health(ally_b)
+	# End opponent's idle turn so we can come back into player_1's start of turn
+	MatchTurnLoop.end_turn(match_state, pid)
+	MatchTurnLoop.end_turn(match_state, oid)
+	# Flayer's start_of_turn should NOT have auto-fired — it should be queued
+	if not _assert(MatchTiming.has_pending_summon_effect_target(match_state, pid),
+			"Flayer start_of_turn should queue pending_summon_effect_targets, not auto-pick."):
+		return false
+	var ally_a_power_pending := EvergreenRules.get_power(ally_a)
+	var ally_b_power_pending := EvergreenRules.get_power(ally_b)
+	var ally_a_health_pending := EvergreenRules.get_remaining_health(ally_a)
+	var ally_b_health_pending := EvergreenRules.get_remaining_health(ally_b)
+	if not _assert(ally_a_power_pending == ally_a_power_before
+			and ally_b_power_pending == ally_b_power_before
+			and ally_a_health_pending == ally_a_health_before
+			and ally_b_health_pending == ally_b_health_before,
+			"Flayer should NOT modify allies before player picks a target."):
+		return false
+	# Resolve targeting on ally_a
+	var resolve := MatchTiming.resolve_pending_summon_effect_target(match_state, pid, {"target_instance_id": ally_a_id})
+	var ally_a_power_after := EvergreenRules.get_power(ally_a)
+	var ally_a_health_after := EvergreenRules.get_remaining_health(ally_a)
+	var ally_b_power_after := EvergreenRules.get_power(ally_b)
+	var ally_b_health_after := EvergreenRules.get_remaining_health(ally_b)
+	return (
+		_assert(bool(resolve.get("is_valid", false)), "Resolving Flayer target should succeed.") and
+		_assert(ally_a_power_after == ally_a_power_before + 2,
+			"Chosen ally should gain +2 power: %d -> %d." % [ally_a_power_before, ally_a_power_after]) and
+		_assert(ally_a_health_after == ally_a_health_before - 1,
+			"Chosen ally should take 1 damage: %d -> %d." % [ally_a_health_before, ally_a_health_after]) and
+		_assert(ally_b_power_after == ally_b_power_before
+			and ally_b_health_after == ally_b_health_before,
+			"Non-chosen ally should be unaffected.")
+	)
+
+
+func _test_start_of_turn_target_mode_decline() -> bool:
+	# Declining the Flayer targeting prompt should drop the effect entirely.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	ScenarioFixtures.summon_creature(player, match_state, "flayer", "field", 3, 5, [], -1, {
+		"cost": 5,
+		"triggered_abilities": [
+			{"family": "start_of_turn", "required_zone": "lane", "target_mode": "another_friendly_creature", "deferred_visual": true, "effects": [
+				{"op": "deal_damage", "target": "chosen_target", "amount": 1},
+				{"op": "modify_stats", "target": "chosen_target", "power": 2, "health": 0},
+			]},
+		],
+	})
+	var ally := ScenarioFixtures.summon_creature(player, match_state, "ally", "field", 2, 4)
+	var ally_power_before := EvergreenRules.get_power(ally)
+	var ally_health_before := EvergreenRules.get_remaining_health(ally)
+	MatchTurnLoop.end_turn(match_state, pid)
+	MatchTurnLoop.end_turn(match_state, oid)
+	if not _assert(MatchTiming.has_pending_summon_effect_target(match_state, pid),
+			"Flayer start_of_turn should queue a pending target."):
+		return false
+	MatchTiming.decline_pending_summon_effect_target(match_state, pid)
+	return (
+		_assert(not MatchTiming.has_pending_summon_effect_target(match_state, pid),
+			"Declining should clear the pending target.") and
+		_assert(EvergreenRules.get_power(ally) == ally_power_before
+			and EvergreenRules.get_remaining_health(ally) == ally_health_before,
+			"Declining should leave allies unmodified.")
+	)
+
+
+func _test_start_of_turn_target_mode_no_valid_targets() -> bool:
+	# With no other friendly creatures, the Flayer's start_of_turn should silently skip.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	ScenarioFixtures.summon_creature(player, match_state, "flayer", "field", 3, 5, [], -1, {
+		"cost": 5,
+		"triggered_abilities": [
+			{"family": "start_of_turn", "required_zone": "lane", "target_mode": "another_friendly_creature", "deferred_visual": true, "effects": [
+				{"op": "deal_damage", "target": "chosen_target", "amount": 1},
+				{"op": "modify_stats", "target": "chosen_target", "power": 2, "health": 0},
+			]},
+		],
+	})
+	MatchTurnLoop.end_turn(match_state, pid)
+	MatchTurnLoop.end_turn(match_state, oid)
+	return _assert(not MatchTiming.has_pending_summon_effect_target(match_state, pid),
+		"Flayer should not queue a pending target when no other friendly creatures exist.")
 
 
 func _test_wax_creature_in_hand_target_mode() -> bool:
@@ -4643,6 +4763,54 @@ func _test_on_friendly_summon_copy_no_infinite_loop() -> bool:
 	return (
 		_assert(field_count == 2, "Field should have copy_summoner + atronach = 2, got %d." % field_count) and
 		_assert(shadow_count == 1, "Shadow should have 1 copy (no infinite loop), got %d." % shadow_count)
+	)
+
+
+func _test_summon_copy_of_self_spawns_at_base_stats() -> bool:
+	# Regression: a creature buffed to 3/2 (base 2/1 + bonuses) using slay -> summon_copy_of_self
+	# must spawn the new copy at base stats (2/1), not inherit the source's accumulated buffs,
+	# granted keywords, attached items, or status markers (e.g. Naryu Virian's +1/+1 slay aura).
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var slayer := ScenarioFixtures.summon_creature(player, match_state, "morag_proxy", "field", 2, 1, [], -1, {
+		"base_power": 2,
+		"base_health": 1,
+		"triggered_abilities": [{"family": "slay", "required_zone": "lane", "effects": [{"op": "summon_copy_of_self"}]}],
+	})
+	# Pre-buff the slayer to simulate Naryu Virian's "Slay: +1/+1" aura already having fired.
+	# Also grant a keyword + status marker that should NOT propagate to the copy.
+	slayer["power_bonus"] = 1
+	slayer["health_bonus"] = 1
+	slayer["aura_keywords"] = ["lethal"]
+	slayer["granted_keywords"] = ["charge"]
+	slayer["status_markers"] = ["wounded"]
+	var enemy := ScenarioFixtures.summon_creature(opponent, match_state, "weak_target", "field", 1, 1)
+	var attack_result := MatchCombat.resolve_attack(match_state, pid, str(slayer.get("instance_id", "")), {
+		"type": "creature",
+		"instance_id": str(enemy.get("instance_id", "")),
+	})
+	if not _assert(bool(attack_result.get("is_valid", false)), "Slayer should attack the 1/1 enemy successfully."):
+		return false
+	var field_creatures := _lane_creatures(match_state, "field", pid)
+	if not _assert(field_creatures.size() == 2, "Field should have slayer + spawned copy = 2 creatures, got %d." % field_creatures.size()):
+		return false
+	var copy: Dictionary = {}
+	for creature in field_creatures:
+		if typeof(creature) == TYPE_DICTIONARY and str(creature.get("instance_id", "")) != str(slayer.get("instance_id", "")):
+			copy = creature
+			break
+	if not _assert(not copy.is_empty(), "Spawned copy should be present on the field."):
+		return false
+	return (
+		_assert(int(copy.get("power", -1)) == 2, "Copy power should be base 2, got %d." % int(copy.get("power", -1))) and
+		_assert(int(copy.get("health", -1)) == 1, "Copy health should be base 1, got %d." % int(copy.get("health", -1))) and
+		_assert(int(copy.get("power_bonus", -1)) == 0, "Copy should not inherit power_bonus, got %d." % int(copy.get("power_bonus", -1))) and
+		_assert(int(copy.get("health_bonus", -1)) == 0, "Copy should not inherit health_bonus, got %d." % int(copy.get("health_bonus", -1))) and
+		_assert(copy.get("aura_keywords", []) == [], "Copy should not inherit aura_keywords, got %s." % str(copy.get("aura_keywords", []))) and
+		_assert(copy.get("granted_keywords", []) == [], "Copy should not inherit granted_keywords, got %s." % str(copy.get("granted_keywords", []))) and
+		_assert(copy.get("status_markers", []) == [], "Copy should not inherit status_markers, got %s." % str(copy.get("status_markers", [])))
 	)
 
 

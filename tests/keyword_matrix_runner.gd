@@ -24,6 +24,7 @@ func _run_all_tests() -> bool:
 		_test_ward_blocks_damage_once_and_prevents_lethal() and
 		_test_regenerate_and_shackle_refresh_on_controller_turn() and
 		_test_shackle_makes_creature_skip_next_attack_turn() and
+		_test_opponent_shackle_clears_on_targets_turn_after_next() and
 		_test_silenced_suppresses_guard_and_cover_behavior() and
 		_test_rally_buffs_a_deterministic_hand_creature() and
 		_test_rally_stacks_multiple_triggers() and
@@ -124,6 +125,41 @@ func _test_shackle_makes_creature_skip_next_attack_turn() -> bool:
 	return (
 		_assert(not EvergreenRules.has_status(attacker, EvergreenRules.STATUS_SHACKLED), "Shackle should clear on the controller's turn after the skipped one.") and
 		_assert(not attacker.has("shackle_expires_on_turn"), "shackle_expires_on_turn should be erased once the shackle expires.")
+	)
+
+
+func _test_opponent_shackle_clears_on_targets_turn_after_next() -> bool:
+	# Regression: a creature shackled by the opponent (e.g., Shrieking Harpy targeting
+	# Alduin) used to remain shackled for two of the controller's turns instead of one,
+	# because _refresh_board_state_for_turn runs before turn_number is incremented and
+	# the previous strict-< comparison against expires_on_turn (apply_turn + 2) was
+	# off-by-one for the opponent-shackle case.
+	var match_state := _build_started_match(18, 0)
+	var first_player: Dictionary = match_state["players"][0]
+	var second_player: Dictionary = match_state["players"][1]
+	var target := _summon_creature(first_player, match_state, "shackled_target", "field", 5, 5)
+	_target_ready_for_attack(target, match_state)
+	# Hand turn over to the opponent so they're the one applying the shackle.
+	MatchTurnLoop.end_turn(match_state, first_player["player_id"])
+	# Apply shackle from the opponent's turn the same way the engine does.
+	EvergreenRules.add_status(target, EvergreenRules.STATUS_SHACKLED)
+	target["shackle_expires_on_turn"] = int(match_state.get("turn_number", 0)) + 2
+	# Advance to the controller's next turn — they should still be shackled and unable to attack.
+	MatchTurnLoop.end_turn(match_state, second_player["player_id"])
+	if not _assert(EvergreenRules.has_status(target, EvergreenRules.STATUS_SHACKLED), "Opponent-applied shackle should persist through the target's next turn so they skip their attack."):
+		return false
+	var blocked := MatchCombat.validate_attack(match_state, first_player["player_id"], target["instance_id"], {
+		"type": "player",
+		"player_id": second_player["player_id"],
+	})
+	if not _assert(not bool(blocked.get("is_valid", false)), "Opponent-shackled creature must not be allowed to attack on its controller's next turn."):
+		return false
+	# Advance one more round; shackle should clear so the target can attack again.
+	MatchTurnLoop.end_turn(match_state, first_player["player_id"])
+	MatchTurnLoop.end_turn(match_state, second_player["player_id"])
+	return (
+		_assert(not EvergreenRules.has_status(target, EvergreenRules.STATUS_SHACKLED), "Opponent-applied shackle must clear on the controller's turn after the skipped one (not two turns later).") and
+		_assert(not target.has("shackle_expires_on_turn"), "shackle_expires_on_turn should be erased once the shackle expires.")
 	)
 
 

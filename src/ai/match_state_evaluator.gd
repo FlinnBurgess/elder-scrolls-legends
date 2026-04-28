@@ -430,6 +430,10 @@ static func _can_threaten_face_next_turn(card: Dictionary) -> bool:
 		return false
 	if bool(card.get("cannot_attack", false)):
 		return false
+	# Shackle persists through the controller's next turn, so a shackled
+	# creature can't attack on its next opportunity.
+	if EvergreenRules.has_status(card, EvergreenRules.STATUS_SHACKLED):
+		return false
 	return true
 
 

@@ -330,9 +330,19 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var scos_loc := MatchMutations.find_card_location(match_state, scos_source_id)
 				var scos_lane_id := str(scos_loc.get("lane_id", event.get("lane_id", "field")))
 				var scos_template: Dictionary = scos_source.duplicate(true)
-				scos_template.erase("instance_id")
-				scos_template.erase("status_markers")
-				scos_template.erase("has_attacked_this_turn")
+				# Strip per-instance and accumulated state — the new copy must spawn at base stats,
+				# not inherit buffs/auras/items/damage from the source (e.g. Naryu Virian's +1/+1 aura).
+				for scos_key in [
+					"instance_id", "status_markers", "has_attacked_this_turn", "entered_lane_on_turn",
+					"lane_id", "slot_index", "damage_marked", "health_debuff_marked",
+					"power_bonus", "health_bonus", "aura_power_bonus", "aura_health_bonus",
+					"aura_keywords", "granted_keywords", "attached_items", "aura_damage_immune",
+					"_spawned_by_instance_id", "_spawned_by_family", "_effects_checked",
+					"_passive_extra_attack_used_this_turn", "temporary_stat_bonuses", "temporary_keywords",
+					"cover_expires_on_turn", "cover_granted_by", "shackle_expires_on_turn",
+					"_consumed_equip_keywords",
+				]:
+					scos_template.erase(scos_key)
 				var scos_copy := MatchMutations.build_generated_card(match_state, scos_controller, scos_template)
 				var scos_summon := MatchMutations.summon_card_to_lane(match_state, scos_controller, scos_copy, scos_lane_id, {"source_zone": MatchMutations.ZONE_GENERATED})
 				if bool(scos_summon.get("is_valid", false)):
