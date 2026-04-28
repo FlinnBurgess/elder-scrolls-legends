@@ -165,6 +165,21 @@ static func close() -> void:
 		_trace_file = null
 
 
+static func copy_trace_to_clipboard() -> bool:
+	if _trace_file != null:
+		_flush_trace_buffer()
+		_trace_file.flush()
+	if not FileAccess.file_exists(TRACE_PATH):
+		return false
+	var reader := FileAccess.open(TRACE_PATH, FileAccess.READ)
+	if reader == null:
+		return false
+	var contents := reader.get_as_text()
+	reader.close()
+	DisplayServer.clipboard_set(contents)
+	return true
+
+
 # --- Private event handlers ---
 
 static func _log_turn_started(match_state: Dictionary, event: Dictionary) -> void:

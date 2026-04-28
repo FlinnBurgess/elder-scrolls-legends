@@ -1933,6 +1933,13 @@ func _input(event: InputEvent) -> void:
 			_targeting._update_targeting_arrow(mouse_pos)
 	elif event is InputEventKey:
 		var key_event := event as InputEventKey
+		if key_event.pressed and not key_event.echo and key_event.unicode == 63 and _pause_overlay != null and _pause_overlay.visible:
+			if GameLogger.copy_trace_to_clipboard():
+				_queue_status_toast("Game trace copied to clipboard", Color(0.6, 0.9, 0.5))
+			else:
+				_queue_status_toast("No game trace available", Color(0.9, 0.5, 0.4))
+			get_viewport().set_input_as_handled()
+			return
 		if key_event.pressed and not key_event.echo and key_event.unicode == 34:
 			if _error_report_popover == null:
 				_open_error_report_popover()
