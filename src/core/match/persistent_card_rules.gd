@@ -189,7 +189,8 @@ static func play_item_from_hand(match_state: Dictionary, player_id: String, inst
 
 	var play_cost := 0 if bool(options.get("played_for_free", false)) else get_effective_play_cost(match_state, player_id, item_card)
 
-	# Check for throw-mode: item with on_play enemy damage ability targeting an enemy creature
+	# Check for throw-mode: item with on_play enemy damage ability targeting an enemy creature.
+	# A throw item discards itself instead of equipping, so enemy targeting is allowed for throws.
 	var is_throw := false
 	var throw_ability := {}
 	if not target_card.is_empty() and str(target_card.get("controller_player_id", "")) != player_id:
@@ -200,6 +201,12 @@ static func play_item_from_hand(match_state: Dictionary, player_id: String, inst
 					is_throw = true
 					throw_ability = ta
 					break
+
+	# Items equip onto friendly creatures only. Throws (handled above) are the sole
+	# exception, since they don't actually equip.
+	if not is_throw and not target_card.is_empty() and str(target_card.get("controller_player_id", "")) != player_id:
+		GameLogger.trc("Persist", "play_item_reject", "p:%s,id:%s,tgt:%s,tgt_ctrl:%s" % [player_id, instance_id, target_instance_id, str(target_card.get("controller_player_id", ""))])
+		return _invalid_result("Items can only be equipped to friendly creatures.")
 
 	if play_cost > 0:
 		_spend_magicka(match_state, player_id, play_cost)

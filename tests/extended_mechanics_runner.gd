@@ -66,6 +66,7 @@ func _run_all_tests() -> bool:
 		_test_treasure_hunt_count_based() and
 		_test_wax_and_wane_pack() and
 		_test_dual_wax_wane() and
+		_test_dual_wax_wane_buffs_summoned_copy() and
 		_test_wax_creature_turn_trigger() and
 		_test_on_friendly_wax_target_mode() and
 		_test_start_of_turn_target_mode_flayer() and
@@ -1810,6 +1811,54 @@ func _test_dual_wax_wane() -> bool:
 		_assert(phase_after_end == "wane", "Phase should toggle normally to wane after dual turn.") and
 		_assert(not dual_after_end, "Dual wax/wane flag should be cleared at end of turn.") and
 		_assert(health_after_normal == 17, "Only wane effect should fire after dual flag is cleared.")
+	)
+
+
+func _test_dual_wax_wane_buffs_summoned_copy() -> bool:
+	# Alfiq Illusionist + Moon Gate: wax summons a copy in the other lane and
+	# wane buffs +1/+2/Guard. Under dual_wax_wane, the copy should also receive
+	# the wane stat/keyword buff (without re-firing wax recursively).
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var player_id := str(player.get("player_id", ""))
+	var copy_template := {
+		"definition_id": "dual_alfiq",
+		"name": "Dual Alfiq",
+		"card_type": "creature",
+		"cost": 3,
+		"power": 2,
+		"health": 1,
+		"base_power": 2,
+		"base_health": 1,
+		"triggered_abilities": [],
+	}
+	var alfiq := ScenarioFixtures.add_hand_card(player, "alfiq", {
+		"definition_id": "dual_alfiq",
+		"card_type": "creature",
+		"cost": 0,
+		"power": 2,
+		"health": 1,
+		"triggered_abilities": [
+			{"family": "wax", "required_zone": "lane", "effects": [{"op": "summon_from_effect", "lane": "other", "card_template": copy_template}]},
+			{"family": "wane", "required_zone": "lane", "effects": [
+				{"op": "modify_stats", "target": "self", "power": 1, "health": 2},
+				{"op": "grant_keyword", "target": "self", "keyword_id": "guard"},
+			]},
+		],
+	})
+	player["_dual_wax_wane"] = true
+	var summon_result := LaneRules.summon_from_hand(match_state, player_id, str(alfiq.get("instance_id", "")), "shadow", {})
+	var original := _find_lane_card(match_state, "shadow", player_id, "dual_alfiq")
+	var copy := _find_lane_card(match_state, "field", player_id, "dual_alfiq")
+	return (
+		_assert(bool(summon_result.get("is_valid", false)), "Alfiq Illusionist fixture should summon from hand.") and
+		_assert(not original.is_empty(), "Original Alfiq should be in shadow lane.") and
+		_assert(not copy.is_empty(), "Wax should summon a copy into the field lane.") and
+		_assert(EvergreenRules.get_power(original) == 3 and EvergreenRules.get_health(original) == 3, "Original should have wane +1/+2 buff (3/3), got %d/%d." % [EvergreenRules.get_power(original), EvergreenRules.get_health(original)]) and
+		_assert(EvergreenRules.has_keyword(original, "guard"), "Original should have guard from wane.") and
+		_assert(EvergreenRules.get_power(copy) == 3 and EvergreenRules.get_health(copy) == 3, "Copy should also receive wane +1/+2 buff under dual wax/wane (3/3), got %d/%d." % [EvergreenRules.get_power(copy), EvergreenRules.get_health(copy)]) and
+		_assert(EvergreenRules.has_keyword(copy, "guard"), "Copy should also receive guard from wane under dual wax/wane.") and
+		_assert(_find_lane_card(match_state, "shadow", player_id, "dual_alfiq").get("instance_id", "") == original.get("instance_id", ""), "Wax should not recursively summon another copy in shadow lane.")
 	)
 
 

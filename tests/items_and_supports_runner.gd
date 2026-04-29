@@ -93,7 +93,10 @@ func _run_all_tests() -> bool:
 		_test_lute_attached_item_grants_silence_immunity() and
 		# Silence health-preservation rule
 		_test_silence_preserves_remaining_health_when_at_or_below_base() and
-		_test_silence_clamps_remaining_health_to_base_when_above()
+		_test_silence_clamps_remaining_health_to_base_when_above() and
+		# Items can only be equipped to friendly creatures
+		_test_items_reject_enemy_creature_target() and
+		_test_throw_items_still_target_enemy_creatures()
 	)
 
 
@@ -2113,6 +2116,63 @@ func _test_spider_lair_only_summons_configured_spider_ids() -> bool:
 		if not _assert(allowed_ids.has(def_id), "Spider Lair summoned '%s' — only %s allowed." % [def_id, str(allowed_ids)]):
 			return false
 	return true
+
+
+func _test_items_reject_enemy_creature_target() -> bool:
+	# Regression: Fork of Horripilation (and any plain item) must not be playable on
+	# an enemy creature. Items equip onto friendly creatures only.
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player.get("player_id", ""))
+	var enemy_creature := _summon_creature(opponent, match_state, "enemy_target", "field", 3, 3, 0)
+	var fork := _add_hand_card(player, "fork_of_horripilation", {
+		"card_type": "item",
+		"cost": 3,
+		"equip_power_bonus": -2,
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_SLAY,
+			"required_zone": "lane",
+			"effects": [
+				{"op": "destroy_item", "target": "self"},
+				{"op": "draw_cards", "target_player": "controller", "count": 3},
+			],
+		}],
+	})
+	var magicka_before: int = player["current_magicka"]
+	var result := PersistentCardRules.play_item_from_hand(match_state, pid, fork["instance_id"], {"target_instance_id": enemy_creature["instance_id"]})
+	return (
+		_assert(not result.get("is_valid", false), "Item play targeting an enemy creature must be rejected.") and
+		_assert(player["current_magicka"] == magicka_before, "Rejected item play must not spend magicka.") and
+		_assert(_contains_instance(player["hand"], fork["instance_id"]), "Rejected item must remain in hand.") and
+		_assert(enemy_creature.get("attached_items", []).is_empty(), "Enemy creature must have no items attached.")
+	)
+
+
+func _test_throw_items_still_target_enemy_creatures() -> bool:
+	# Throw items (with on_play target_mode: enemy_creature) discard themselves and
+	# apply effects to the enemy target — they remain a valid exception to the
+	# friendly-only equip rule.
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player.get("player_id", ""))
+	var enemy_creature := _summon_creature(opponent, match_state, "throw_target", "field", 3, 5, 0)
+	var throw_dagger := _add_hand_card(player, "throw_dagger", {
+		"card_type": "item",
+		"cost": 1,
+		"triggered_abilities": [{
+			"family": "on_play",
+			"target_mode": "enemy_creature",
+			"effects": [{"op": "deal_damage", "target": "chosen_target", "amount": 2}],
+		}],
+	})
+	var result := PersistentCardRules.play_item_from_hand(match_state, pid, throw_dagger["instance_id"], {"target_instance_id": enemy_creature["instance_id"]})
+	return (
+		_assert(result.get("is_valid", false), "Throw item targeting an enemy creature should resolve.") and
+		_assert(_contains_instance(player["discard"], throw_dagger["instance_id"]), "Thrown item should land in the player's discard.") and
+		_assert(enemy_creature.get("attached_items", []).is_empty(), "Thrown item should not equip the enemy creature.")
+	)
 
 
 func _assert(condition: bool, message: String) -> bool:

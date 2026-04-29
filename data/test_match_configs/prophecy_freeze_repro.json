@@ -1,0 +1,57 @@
+{
+  "name": "Prophecy Freeze Repro",
+  "description": "Reproduce the bug-report freeze. AI's Stormhold Henchman attacks face for 4, breaks the 25-HP rune, and the rune-draw lands Camlorn Sentinel as a Prophecy for player_1. Player_1 already has Bitterfish Witch (also a Prophecy) in hand. Player_2's shadow lane has 5 creatures (1 over capacity) to mirror the post-Slaughterfish-Spawning state.",
+  "board_profile": "standard_versus",
+  "turn_number": 13,
+  "first_player": "player_2",
+  "player_1": {
+    "health": 28,
+    "max_magicka": 6,
+    "current_magicka": 0,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": true,
+    "ring_charges": 1,
+    "hand": ["joo_agi_bitterfish_witch"],
+    "deck": [
+      "int_camlorn_sentinel",
+      "agi_helstrom_footpad",
+      "agi_helstrom_footpad",
+      "agi_helstrom_footpad"
+    ],
+    "discard": [],
+    "supports": [],
+    "field_creatures": [
+      {"definition_id": "agi_daring_cutpurse", "can_attack": true}
+    ],
+    "shadow_creatures": [
+      {"definition_id": "hos_int_mystic_dragon", "can_attack": true},
+      {"definition_id": "int_shrieking_harpy", "can_attack": true}
+    ]
+  },
+  "player_2": {
+    "health": 28,
+    "max_magicka": 10,
+    "current_magicka": 0,
+    "rune_thresholds": [25, 20, 15, 10, 5],
+    "has_ring": false,
+    "ring_charges": 0,
+    "hand": [],
+    "deck": [
+      "agi_helstrom_footpad",
+      "agi_helstrom_footpad",
+      "agi_helstrom_footpad"
+    ],
+    "discard": [],
+    "field_creatures": [
+      {"definition_id": "agi_helstrom_footpad", "can_attack": true},
+      {"definition_id": "neu_slaughterfish", "can_attack": false}
+    ],
+    "shadow_creatures": [
+      {"definition_id": "agi_helstrom_footpad", "can_attack": true},
+      {"definition_id": "end_hist_speaker", "can_attack": true},
+      {"definition_id": "dual_thorn_histmage", "can_attack": true, "power_bonus": 2},
+      {"definition_id": "end_stormhold_henchman", "can_attack": true},
+      {"definition_id": "neu_slaughterfish", "can_attack": false, "status_markers": ["cover"]}
+    ]
+  }
+}

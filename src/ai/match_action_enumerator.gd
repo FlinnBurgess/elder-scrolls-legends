@@ -698,7 +698,13 @@ static func _enumerate_item_plays(match_state: Dictionary, player_id: String, pl
 	for card in _player_zone_cards(match_state, player_id, MatchMutations.ZONE_HAND):
 		if str(card.get("card_type", "")) != "item":
 			continue
+		var item_is_throw := _item_is_throw(card)
 		for target_card in _all_lane_cards(match_state):
+			# Items equip on friendly creatures only; throws are the sole exception
+			# since they target enemies but don't equip.
+			var target_is_friendly: bool = str(target_card.get("controller_player_id", "")) == player_id
+			if not target_is_friendly and not item_is_throw:
+				continue
 			var descriptor := _build_descriptor(KIND_PLAY_ITEM, match_state, player_id, card, {
 				"target_instance_id": str(target_card.get("instance_id", "")),
 			}, {
@@ -1301,6 +1307,16 @@ static func _all_lane_cards(match_state: Dictionary) -> Array:
 				if typeof(card) == TYPE_DICTIONARY:
 					cards.append(card)
 	return cards
+
+
+static func _item_is_throw(item_card: Dictionary) -> bool:
+	for ta in item_card.get("triggered_abilities", []):
+		if typeof(ta) != TYPE_DICTIONARY or str(ta.get("family", "")) != "on_play":
+			continue
+		var tm := str(ta.get("target_mode", ""))
+		if tm == "enemy_creature" or tm == "enemy_creature_optional":
+			return true
+	return false
 
 
 static func _player_ids(match_state: Dictionary) -> Array:

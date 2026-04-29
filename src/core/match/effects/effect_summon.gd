@@ -295,6 +295,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 							if bool(effect.get("silenced", false)):
 								var silence_result := MatchMutations.silence_card(summon_result["card"], {"reason": reason}, match_state)
 								generated_events.append_array(silence_result.get("events", []))
+							_apply_dual_wax_wane_buff(match_state, trigger, summon_result["card"], str(descriptor.get("family", "")), generated_events)
 							_MT()._check_summon_abilities(match_state, summon_result["card"])
 		"summon_copy":
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
@@ -990,3 +991,66 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			var src_result := ExtendedMechanicPacks.apply_custom_effect(match_state, trigger, event, src_delegated)
 			if bool(src_result.get("handled", false)):
 				generated_events.append_array(src_result.get("events", []))
+
+
+# Under Moon Gate's dual_wax_wane, a wax-spawned copy should inherit the source's
+# wane self-buff (and vice versa) without re-firing the spawning ability — only
+# stat/keyword effects are copied to avoid recursive summons.
+static func _apply_dual_wax_wane_buff(match_state: Dictionary, trigger: Dictionary, new_card: Dictionary, spawn_family: String, generated_events: Array) -> void:
+	if spawn_family != FAMILY_WAX and spawn_family != FAMILY_WANE:
+		return
+	var controller_id := str(trigger.get("controller_player_id", ""))
+	var player := MatchTimingHelpers._get_player_state(match_state, controller_id)
+	if player.is_empty() or not bool(player.get("_dual_wax_wane", false)):
+		return
+	var source_id := str(trigger.get("source_instance_id", ""))
+	if source_id.is_empty():
+		return
+	var source := MatchTimingHelpers._find_card_anywhere(match_state, source_id)
+	if source.is_empty():
+		return
+	var complementary := FAMILY_WANE if spawn_family == FAMILY_WAX else FAMILY_WAX
+	var abilities = source.get("triggered_abilities", [])
+	if typeof(abilities) != TYPE_ARRAY:
+		return
+	var target_id := str(new_card.get("instance_id", ""))
+	for ab in abilities:
+		if typeof(ab) != TYPE_DICTIONARY or str(ab.get("family", "")) != complementary:
+			continue
+		var fx_list = ab.get("effects", [])
+		if typeof(fx_list) != TYPE_ARRAY:
+			continue
+		for fx in fx_list:
+			if typeof(fx) != TYPE_DICTIONARY or str(fx.get("target", "")) != "self":
+				continue
+			var op := str(fx.get("op", ""))
+			if op == "modify_stats":
+				var p := int(fx.get("power", 0))
+				var h := int(fx.get("health", 0))
+				EvergreenRules.apply_stat_bonus(new_card, p, h, "dual_wax_wane")
+				generated_events.append({
+					"event_type": "stats_modified",
+					"source_instance_id": source_id,
+					"source_controller_player_id": controller_id,
+					"player_id": str(new_card.get("controller_player_id", "")),
+					"target_instance_id": target_id,
+					"power_bonus": p,
+					"health_bonus": h,
+					"reason": "dual_wax_wane",
+				})
+			elif op == "grant_keyword":
+				var kw := str(fx.get("keyword_id", ""))
+				if kw.is_empty():
+					continue
+				EvergreenRules.ensure_card_state(new_card)
+				var granted: Array = new_card.get("granted_keywords", [])
+				if not granted.has(kw):
+					granted.append(kw)
+					new_card["granted_keywords"] = granted
+					generated_events.append({
+						"event_type": "keyword_granted",
+						"source_instance_id": source_id,
+						"target_instance_id": target_id,
+						"keyword_id": kw,
+						"reason": "dual_wax_wane",
+					})

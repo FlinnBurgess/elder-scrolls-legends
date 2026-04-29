@@ -19,7 +19,7 @@
 			"hom_end_vvardvark"
 		],
 		"hand": [
-			"int_shrieking_harpy"
+			"iom_neu_fork_of_horripilation"
 		],
 		"health": 29.0,
 		"max_magicka": 12.0,
@@ -56,19 +56,18 @@
 			"hos_neu_alduin"
 		],
 		"hand": [
-			"joo_str_invasion_scout",
-			"joo_str_invasion_scout",
-			"joo_str_invasion_scout",
-			"hom_agi_naryu_virian",
+			"moe_wil_alfiq_illusionist",
+			"moe_neu_moon_gate",
+			"agi_mournhold_traitor",
 			"wil_piercing_javelin"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [],
-		"supports": [
-			"hos_wil_wolf_cage"
-		]
+		"shadow_creatures": [
+			"agi_mournhold_traitor"
+		],
+		"supports": []
 	},
 	"type": "kill"
 }

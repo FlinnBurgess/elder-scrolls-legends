@@ -946,7 +946,7 @@ func _show_test_match_picker() -> void:
 
 
 func _on_match_button_gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_MIDDLE:
+	if event is InputEventMouseButton and event.pressed and (event.button_index == MOUSE_BUTTON_MIDDLE or event.button_index == MOUSE_BUTTON_RIGHT):
 		get_viewport().set_input_as_handled()
 		_show_test_match_picker()
 

@@ -2217,6 +2217,7 @@ func _on_card_pressed(instance_id: String) -> void:
 		_selected_instance_id = instance_id
 		var result := play_or_activate_selected()
 		if not bool(result.get("is_valid", false)):
+			_selected_instance_id = ""
 			_report_invalid_interaction(str(result.get("message", "Cannot activate support.")), {"instance_ids": [instance_id]})
 		return
 	# Ignore clicks on cards that cannot act (spent, shackled, enemy cards, etc.)
