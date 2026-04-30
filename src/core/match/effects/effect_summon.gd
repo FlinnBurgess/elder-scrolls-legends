@@ -330,20 +330,13 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				var scos_controller := str(scos_source.get("controller_player_id", ""))
 				var scos_loc := MatchMutations.find_card_location(match_state, scos_source_id)
 				var scos_lane_id := str(scos_loc.get("lane_id", event.get("lane_id", "field")))
-				var scos_template: Dictionary = scos_source.duplicate(true)
-				# Strip per-instance and accumulated state — the new copy must spawn at base stats,
-				# not inherit buffs/auras/items/damage from the source (e.g. Naryu Virian's +1/+1 aura).
-				for scos_key in [
-					"instance_id", "status_markers", "has_attacked_this_turn", "entered_lane_on_turn",
-					"lane_id", "slot_index", "damage_marked", "health_debuff_marked",
-					"power_bonus", "health_bonus", "aura_power_bonus", "aura_health_bonus",
-					"aura_keywords", "granted_keywords", "attached_items", "aura_damage_immune",
-					"_spawned_by_instance_id", "_spawned_by_family", "_effects_checked",
-					"_passive_extra_attack_used_this_turn", "temporary_stat_bonuses", "temporary_keywords",
-					"cover_expires_on_turn", "cover_granted_by", "shackle_expires_on_turn",
-					"_consumed_equip_keywords",
-				]:
-					scos_template.erase(scos_key)
+				# Build the copy from a definitional allowlist rather than duplicate-then-strip.
+				# Per-instance state (damage, buffs, statuses, items, combat-pending flags, etc.)
+				# must never leak into the new copy — when both attacker and defender die in a
+				# trade, the dying source still carries damage_marked/wounded plus any number of
+				# transient flags, and a missed strip-list entry produces a 0-HP clone that dies
+				# on the state-based action sweep. An allowlist closes that whole class of bug.
+				var scos_template := _build_copy_template(scos_source)
 				var scos_copy := MatchMutations.build_generated_card(match_state, scos_controller, scos_template)
 				var scos_summon := MatchMutations.summon_card_to_lane(match_state, scos_controller, scos_copy, scos_lane_id, {"source_zone": MatchMutations.ZONE_GENERATED})
 				if bool(scos_summon.get("is_valid", false)):
@@ -1054,3 +1047,42 @@ static func _apply_dual_wax_wane_buff(match_state: Dictionary, trigger: Dictiona
 						"keyword_id": kw,
 						"reason": "dual_wax_wane",
 					})
+
+
+# Allowlist of fields that define what a card *is* — copied from source into a
+# fresh template for summon_copy_of_self. Anything outside this list is per-instance
+# state (damage, buffs, statuses, items, combat-pending flags) and must not leak.
+const _COPY_OF_SELF_DEFINITIONAL_FIELDS := [
+	# Identity
+	"definition_id", "name", "art_path", "card_type",
+	"subtypes", "attributes", "rarity", "is_unique", "is_token",
+	"deck_code_id", "set_id", "release_group_id",
+	# Stats (base values — bonuses are stripped)
+	"cost", "_base_cost",
+	"power", "health", "base_power", "base_health",
+	# Abilities & passives
+	"keywords", "triggered_abilities", "passive_abilities",
+	"aura", "grants_trigger", "grants_immunity", "self_immunity",
+	"cost_reduction_aura",
+	# Item-specific
+	"equip_keywords", "equip_power_bonus", "equip_health_bonus",
+	# Static metadata
+	"rules_text", "rules_tags", "effect_ids",
+	"innate_statuses", "attack_condition", "action_target_mode",
+	"random_generation_eligible", "collectible",
+	"support_uses", "play_limit_per_turn", "stats_from_max_magicka",
+	"half_card_ids",
+]
+
+
+static func _build_copy_template(source: Dictionary) -> Dictionary:
+	var template := {}
+	for key in _COPY_OF_SELF_DEFINITIONAL_FIELDS:
+		if not source.has(key):
+			continue
+		var value = source[key]
+		if typeof(value) == TYPE_DICTIONARY or typeof(value) == TYPE_ARRAY:
+			template[key] = value.duplicate(true)
+		else:
+			template[key] = value
+	return template

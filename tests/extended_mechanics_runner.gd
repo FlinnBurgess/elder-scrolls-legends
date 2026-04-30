@@ -131,6 +131,7 @@ func _run_all_tests() -> bool:
 		_test_shuffle_into_deck_respects_count() and
 		_test_on_friendly_summon_copy_no_infinite_loop() and
 		_test_summon_copy_of_self_spawns_at_base_stats() and
+		_test_summon_copy_of_self_when_slayer_dies_in_trade() and
 		_test_hannibal_traven_learn_and_last_gasp_queues_free_plays() and
 		_test_sotha_sil_end_of_turn_summons_imperfect_with_exalted() and
 		_test_renegade_magister_doubles_action_damage() and
@@ -4860,6 +4861,54 @@ func _test_summon_copy_of_self_spawns_at_base_stats() -> bool:
 		_assert(copy.get("aura_keywords", []) == [], "Copy should not inherit aura_keywords, got %s." % str(copy.get("aura_keywords", []))) and
 		_assert(copy.get("granted_keywords", []) == [], "Copy should not inherit granted_keywords, got %s." % str(copy.get("granted_keywords", []))) and
 		_assert(copy.get("status_markers", []) == [], "Copy should not inherit status_markers, got %s." % str(copy.get("status_markers", [])))
+	)
+
+
+func _test_summon_copy_of_self_when_slayer_dies_in_trade() -> bool:
+	# Regression for the user-reported "Morag Tong Aspirant didn't clone after slaying
+	# a Sundered Shade" case: the source dies in the same combat that fires its slay,
+	# so summon_copy_of_self runs while the source is still in lane but already wounded
+	# and flagged as combat-pending. The copy must still spawn at base stats and survive.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	# 2/1 slayer with slay -> summon_copy_of_self, plus a junk field that should NOT
+	# leak into the copy if accidentally left on the source. Charge so it can attack
+	# on the turn it enters lane (existing test pattern).
+	var slayer := ScenarioFixtures.summon_creature(player, match_state, "morag_proxy", "field", 2, 1, ["charge"], -1, {
+		"base_power": 2,
+		"base_health": 1,
+		"triggered_abilities": [{"family": "slay", "required_zone": "lane", "effects": [{"op": "summon_copy_of_self"}]}],
+	})
+	# Sentinel field — if this leaks into the copy it proves the strip-then-duplicate
+	# strategy is brittle. The allowlist must drop it.
+	slayer["_junk_per_instance_state"] = "should_not_leak"
+	# 3/2 enemy: kills the 2/1 slayer in retaliation while being killed itself.
+	var enemy := ScenarioFixtures.summon_creature(opponent, match_state, "shade_proxy", "field", 3, 2)
+	var attack_result := MatchCombat.resolve_attack(match_state, pid, str(slayer.get("instance_id", "")), {
+		"type": "creature",
+		"instance_id": str(enemy.get("instance_id", "")),
+	})
+	if not _assert(bool(attack_result.get("is_valid", false)), "Slayer should attack the 3/2 enemy successfully."):
+		return false
+	if not _assert(bool(attack_result.get("attacker_destroyed", false)), "Slayer should die in the trade (got attacker_destroyed=false)."):
+		return false
+	if not _assert(bool(attack_result.get("defender_destroyed", false)), "Enemy should die in the trade."):
+		return false
+	# The original slayer is in discard. The new copy should be alive in field lane.
+	var field_creatures := _lane_creatures(match_state, "field", pid)
+	if not _assert(field_creatures.size() == 1, "Field should have exactly the spawned copy = 1 creature, got %d." % field_creatures.size()):
+		return false
+	var copy: Dictionary = field_creatures[0]
+	if not _assert(str(copy.get("instance_id", "")) != str(slayer.get("instance_id", "")), "Field creature should be the spawned copy, not the original slayer."):
+		return false
+	return (
+		_assert(int(copy.get("power", -1)) == 2, "Copy power should be base 2, got %d." % int(copy.get("power", -1))) and
+		_assert(int(copy.get("health", -1)) == 1, "Copy health should be base 1 (not 0), got %d." % int(copy.get("health", -1))) and
+		_assert(EvergreenRules.get_remaining_health(copy) == 1, "Copy remaining_health should be 1 (not 0 — that would destroy it on the SBA sweep), got %d." % EvergreenRules.get_remaining_health(copy)) and
+		_assert(int(copy.get("damage_marked", 0)) == 0, "Copy should not inherit damage_marked, got %d." % int(copy.get("damage_marked", 0))) and
+		_assert(not copy.has("_junk_per_instance_state"), "Copy must not inherit per-instance fields outside the definitional allowlist.")
 	)
 
 
