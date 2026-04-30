@@ -384,6 +384,22 @@ static func _ability_conditions_met(match_state: Dictionary, controller_id: Stri
 				rfac_count += 1
 		if rfac_count < rfac_min:
 			return false
+	# Delegate to the full additional-conditions checker so target_mode abilities
+	# (e.g. Ash Piercer's required_friendly_creature_min_power) are gated the same
+	# way trigger-registry-driven abilities are.
+	var synthetic_trigger := {
+		"controller_player_id": controller_id,
+		"source_instance_id": source_instance_id,
+	}
+	var synthetic_event := {
+		"source_instance_id": source_instance_id,
+		"player_id": controller_id,
+		"playing_player_id": controller_id,
+		"controller_player_id": controller_id,
+		"source_controller_player_id": controller_id,
+	}
+	if not ExtendedMechanicPacks.matches_additional_conditions(match_state, synthetic_trigger, ability, synthetic_event):
+		return false
 	return true
 
 

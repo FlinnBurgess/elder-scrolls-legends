@@ -3603,6 +3603,26 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 			# Re-check loss condition: if an exalted creature dies, a "cannot_lose" passive
 			# may no longer be satisfied, so the controller at 0 HP should now lose.
 			_recheck_cannot_lose(match_state, str(event.get("controller_player_id", "")), processed_events)
+			# Brotherhood Sanctuary: snapshot the killer's attached-item slay descriptors
+			# so repeat_slay_reward can replay them even if those items destroy themselves
+			# (e.g. Fork of Horripilation) before on_friendly_slay fires.
+			if not event.has("_killer_item_slay_descs"):
+				var ksd_killer_id := str(event.get("destroyed_by_instance_id", ""))
+				if not ksd_killer_id.is_empty():
+					var ksd_killer := MatchTimingHelpers._find_card_anywhere(match_state, ksd_killer_id)
+					if not ksd_killer.is_empty():
+						var ksd_snap: Array = []
+						for ksd_item in ksd_killer.get("attached_items", []):
+							if typeof(ksd_item) != TYPE_DICTIONARY:
+								continue
+							var ksd_triggers = ksd_item.get("triggered_abilities", [])
+							if typeof(ksd_triggers) != TYPE_ARRAY:
+								continue
+							for ksd_desc in ksd_triggers:
+								if typeof(ksd_desc) == TYPE_DICTIONARY and str(ksd_desc.get("family", "")) == FAMILY_SLAY:
+									ksd_snap.append({"item_instance_id": str(ksd_item.get("instance_id", "")), "owner_player_id": str(ksd_item.get("owner_player_id", "")), "descriptor": ksd_desc.duplicate(true)})
+						if not ksd_snap.is_empty():
+							event["_killer_item_slay_descs"] = ksd_snap
 		# Silence can suppress exalted status, invalidating "cannot_lose" condition
 		if str(event.get("event_type", "")) == "card_silenced":
 			var cs_card := MatchTimingHelpers._find_card_anywhere(match_state, str(event.get("source_instance_id", "")))

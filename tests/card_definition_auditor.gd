@@ -38,7 +38,7 @@ const CONDITION_KEYS := [
 	"required_no_crowned_creature", "required_summon_unique",
 	"required_host_min_power", "required_equipper_subtype", "required_equipper_name",
 	"damage_kind", "exclude_retaliation", "exclude_battle", "require_retaliation",
-	"required_played_card_type", "required_played_rules_tag", "exclude_self",
+	"required_played_card_type", "required_played_rules_tag", "exclude_self", "exclude_self_caused", "non_chaining",
 	"require_same_lane", "max_event_source_cost", "required_event_source_zone",
 	"required_event_target_zone", "required_event_status_id",
 	"required_target_keyword", "required_summon_subtype", "required_summon_keyword",

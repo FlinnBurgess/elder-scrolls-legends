@@ -68,6 +68,9 @@ func _run_all_tests() -> bool:
 		_test_ring_of_lordship_requires_wielder_in_lane() and
 		# Daggerfall Phantom last gasp
 		_test_last_gasp_returns_equipped_items_to_hand() and
+		# Brotherhood Sanctuary doubles slay reward from a self-destroying equipped item
+		_test_brotherhood_sanctuary_doubles_attached_item_slay() and
+		_test_two_brotherhood_sanctuaries_triple_attached_item_slay() and
 		# Conjurer's Spirit health-gained condition
 		_test_end_of_turn_support_fires_when_health_gained() and
 		# Unrelenting Siege grant_extra_attack passive
@@ -1732,6 +1735,103 @@ func _test_last_gasp_returns_equipped_items_to_hand() -> bool:
 		_assert(not dagger_in_discard, "Dagger should not remain in discard after last gasp.") and
 		_assert(not sword_in_discard, "Sword should not remain in discard after last gasp.")
 	)
+
+
+func _test_brotherhood_sanctuary_doubles_attached_item_slay() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player["player_id"])
+	var opp_id := str(opponent["player_id"])
+	var attacker := _summon_creature(player, match_state, "fork_wielder", "field", 5, 5, 0)
+	var fork := _add_hand_card(player, "fake_fork_of_horripilation", {
+		"card_type": "item",
+		"cost": 3,
+		"equip_power_bonus": 0,
+		"triggered_abilities": [{
+			"family": "slay",
+			"required_zone": "lane",
+			"effects": [
+				{"op": "destroy_item", "target": "self"},
+				{"op": "draw_cards", "target_player": "controller", "count": 3},
+			],
+		}],
+	})
+	var equip := PersistentCardRules.play_item_from_hand(match_state, pid, fork["instance_id"], {"target_instance_id": attacker["instance_id"]})
+	if not _assert(bool(equip.get("is_valid", false)), "Equipping Fork-style item should succeed."):
+		return false
+	var sanctuary := _add_hand_card(player, "fake_brotherhood_sanctuary", {
+		"card_type": "support",
+		"cost": 1,
+		"support_uses": 0,
+		"triggered_abilities": [{
+			"family": "on_friendly_slay",
+			"required_zone": "support",
+			"effects": [{"op": "repeat_slay_reward"}],
+		}],
+	})
+	var support_play := PersistentCardRules.play_support_from_hand(match_state, pid, str(sanctuary["instance_id"]))
+	if not _assert(bool(support_play.get("is_valid", false)), "Brotherhood Sanctuary should play onto support zone."):
+		return false
+	var enemy := _summon_creature(opponent, match_state, "fragile_target", "field", 1, 1, 0)
+	ScenarioFixtures.ready_for_attack(attacker, match_state)
+	var hand_size_before: int = player["hand"].size()
+	var attack_result := MatchCombat.resolve_attack(match_state, pid, str(attacker["instance_id"]), {"type": "creature", "instance_id": str(enemy["instance_id"])})
+	if not _assert(bool(attack_result.get("is_valid", false)), "Attack should resolve."):
+		return false
+	var hand_gain: int = player["hand"].size() - hand_size_before
+	return (
+		_assert(_contains_instance(opponent["discard"], enemy["instance_id"]), "Enemy creature should be destroyed by the attack.") and
+		_assert(_contains_instance(player["discard"], fork["instance_id"]), "Fork-style item should be sacrificed by its own slay effect.") and
+		_assert(hand_gain == 6, "Brotherhood Sanctuary should double the slay draw (3+3=6), got %d." % hand_gain)
+	)
+
+
+func _test_two_brotherhood_sanctuaries_triple_attached_item_slay() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player["player_id"])
+	var attacker := _summon_creature(player, match_state, "fork_wielder_b", "field", 5, 5, 0)
+	var fork := _add_hand_card(player, "fake_fork_b", {
+		"card_type": "item",
+		"cost": 3,
+		"equip_power_bonus": 0,
+		"triggered_abilities": [{
+			"family": "slay",
+			"required_zone": "lane",
+			"effects": [
+				{"op": "destroy_item", "target": "self"},
+				{"op": "draw_cards", "target_player": "controller", "count": 3},
+			],
+		}],
+	})
+	if not _assert(bool(PersistentCardRules.play_item_from_hand(match_state, pid, fork["instance_id"], {"target_instance_id": attacker["instance_id"]}).get("is_valid", false)), "Equip should succeed."):
+		return false
+	for sanctuary_label in ["sanctuary_1", "sanctuary_2"]:
+		var sanctuary := _add_hand_card(player, sanctuary_label, {
+			"card_type": "support",
+			"cost": 1,
+			"support_uses": 0,
+			"triggered_abilities": [{
+				"family": "on_friendly_slay",
+				"required_zone": "support",
+				"effects": [{"op": "repeat_slay_reward"}],
+			}],
+		})
+		if not _assert(bool(PersistentCardRules.play_support_from_hand(match_state, pid, str(sanctuary["instance_id"])).get("is_valid", false)), "Sanctuary play should succeed."):
+			return false
+	var enemy := _summon_creature(opponent, match_state, "fragile_target_b", "field", 1, 1, 0)
+	ScenarioFixtures.ready_for_attack(attacker, match_state)
+	# Empty the hand so MAX_HAND_SIZE doesn't truncate the 9 expected draws
+	player["hand"].clear()
+	var attack_result := MatchCombat.resolve_attack(match_state, pid, str(attacker["instance_id"]), {"type": "creature", "instance_id": str(enemy["instance_id"])})
+	if not _assert(bool(attack_result.get("is_valid", false)), "Attack should resolve."):
+		return false
+	var hand_gain: int = player["hand"].size()
+	# Two Sanctuaries should re-fire the slay twice, totalling 3 firings (1 original + 2 repeats)
+	# = 9 draws. If the implementation recursed, we'd see far more.
+	return _assert(hand_gain == 9, "Two Brotherhood Sanctuaries should triple the slay draw (3*3=9), got %d." % hand_gain)
 
 
 func _test_end_of_turn_support_fires_when_health_gained() -> bool:

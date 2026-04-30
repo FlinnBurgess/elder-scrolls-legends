@@ -816,6 +816,22 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 			var event_source_id := str(event.get("source_instance_id", event.get("subject_instance_id", "")))
 			if event_source_id == trigger_source_id:
 				return false
+	# exclude_self_caused: skip when the event was emitted by this trigger's own source card
+	# ("with another effect" semantics — used for cards like Shearpoint Dragon to keep their
+	# stat-modification effects from chain-triggering themselves).
+	if bool(descriptor.get("exclude_self_caused", family_spec.get("exclude_self_caused", false))):
+		var esc_trigger_source := str(trigger.get("source_instance_id", ""))
+		var esc_event_source := str(event.get("source_instance_id", ""))
+		if not esc_event_source.is_empty() and esc_event_source == esc_trigger_source:
+			return false
+	# non_chaining: skip events emitted by triggers of this same family. Prevents
+	# cross-card cascades between two cards sharing a reactive family (e.g. two
+	# Shearpoint Dragons would otherwise ping-pong stat reductions forever).
+	if bool(descriptor.get("non_chaining", family_spec.get("non_chaining", false))):
+		var nc_event_reason := str(event.get("reason", ""))
+		var nc_family := str(descriptor.get("family", ""))
+		if not nc_family.is_empty() and nc_event_reason == nc_family:
+			return false
 	# Prevent infinite summon loops: if the summoned creature was spawned by this trigger's
 	# source AND by the same trigger family, skip. Different families on the same card
 	# (e.g. on_play summon + on_friendly_summon equip) should still fire.

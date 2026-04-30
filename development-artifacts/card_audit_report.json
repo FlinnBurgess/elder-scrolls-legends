@@ -1,9 +1,22 @@
 {
-  "findings": [],
+  "findings": [
+    {
+      "card_id": "joo_str_blood_crazed_daedroth",
+      "card_name": "Blood-Crazed Daedroth",
+      "check": "unknown_descriptor_key",
+      "context": {
+        "key": "required_wounded_in_lane",
+        "suggestion": "",
+        "trigger_index": 0
+      },
+      "detail": "Trigger #0 has unrecognized key 'required_wounded_in_lane'",
+      "severity": "warning"
+    }
+  ],
   "summary": {
-    "cards_with_issues": 0,
+    "cards_with_issues": 1,
     "errors": 0,
-    "total_cards": 1324,
-    "warnings": 0
+    "total_cards": 1330,
+    "warnings": 1
   }
 }

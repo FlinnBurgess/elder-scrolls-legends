@@ -41,6 +41,8 @@ func _run_all_tests() -> bool:
 		_test_set_power_with_duration_expires() and
 		_test_set_power_duration_cleared_on_change() and
 		_test_modify_stats_until_start_of_next_turn_expires() and
+		_test_shearpoint_dragon_self_caused_does_not_chain() and
+		_test_shearpoint_dragon_two_copies_do_not_cascade() and
 		_test_veteran_hook() and
 		_test_action_pack_matrix() and
 		_test_empower_and_expertise_hooks() and
@@ -99,6 +101,7 @@ func _run_all_tests() -> bool:
 		_test_play_prophecy_from_hand_opens_prophecy_window() and
 		_test_required_friendly_attribute_count_neutral() and
 		_test_required_friendly_attribute_count_not_met_blocks_target() and
+		_test_required_friendly_creature_min_power_blocks_target_summon() and
 		_test_summon_from_hand_to_full_lane_auto_summons() and
 		_test_consume_and_reduce_matching_subtype_cost() and
 		_test_adoring_fan_death_sets_return_timer() and
@@ -828,6 +831,141 @@ func _test_modify_stats_until_start_of_next_turn_expires() -> bool:
 	# End opponent's turn — debuff must clear before player's next turn starts
 	MatchTurnLoop.end_turn(match_state, oid)
 	return _assert(EvergreenRules.get_power(enemy) == 5, "Enemy power should revert to 5 at start of caster's next turn (got %d)." % EvergreenRules.get_power(enemy))
+
+
+func _test_shearpoint_dragon_self_caused_does_not_chain() -> bool:
+	# Regression: Shearpoint Dragon's on_enemy_stat_reduction trigger must not fire
+	# from its own stat-reduction effects, otherwise it loops infinitely. Verifies
+	# the exclude_self_caused flag blocks events emitted by the trigger's own source
+	# while still allowing reductions from other effects to chain once.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	var shearpoint_ability := {
+		"family": "on_enemy_stat_reduction",
+		"required_zone": "lane",
+		"exclude_self_caused": true,
+		"non_chaining": true,
+		"effects": [{
+			"op": "modify_stats",
+			"target": "event_target",
+			"power_source": "event_power_reduced_sign",
+			"health_source": "event_health_reduced_sign",
+		}],
+	}
+	var shearpoint := ScenarioFixtures.summon_creature(player, match_state, "shearpoint", "field", 4, 4, [], -1, {
+		"triggered_abilities": [shearpoint_ability],
+	})
+	var enemy := ScenarioFixtures.summon_creature(opponent, match_state, "vvardvark_target", "field", 10, 10)
+	var enemy_id := str(enemy.get("instance_id", ""))
+	# Apply Shearpoint's own -2/-2 effect: reduce stats AND emit a stats_modified event
+	# whose source is Shearpoint. The trigger must NOT chain on this event.
+	EvergreenRules.apply_stat_bonus(enemy, -2, -2, "shearpoint_summon")
+	var self_caused_event := {
+		"event_type": "stats_modified",
+		"source_instance_id": str(shearpoint.get("instance_id", "")),
+		"source_controller_player_id": pid,
+		"player_id": oid,
+		"target_instance_id": enemy_id,
+		"power_bonus": -2,
+		"health_bonus": -2,
+		"reason": "shearpoint_summon",
+	}
+	MatchTiming.publish_events(match_state, [self_caused_event])
+	if not (
+		_assert(EvergreenRules.get_power(enemy) == 8, "Shearpoint must not chain off its own reduction (power got %d, expected 8)." % EvergreenRules.get_power(enemy)) and
+		_assert(EvergreenRules.get_health(enemy) == 8, "Shearpoint must not chain off its own reduction (health got %d, expected 8)." % EvergreenRules.get_health(enemy))
+	):
+		return false
+	# Now reduce from a DIFFERENT source — Shearpoint must add an extra -1/-1 (one chain only).
+	var other_source := ScenarioFixtures.summon_creature(player, match_state, "other_debuffer", "field", 1, 1)
+	EvergreenRules.apply_stat_bonus(enemy, -1, -1, "other_effect")
+	var other_event := {
+		"event_type": "stats_modified",
+		"source_instance_id": str(other_source.get("instance_id", "")),
+		"source_controller_player_id": pid,
+		"player_id": oid,
+		"target_instance_id": enemy_id,
+		"power_bonus": -1,
+		"health_bonus": -1,
+		"reason": "other_effect",
+	}
+	MatchTiming.publish_events(match_state, [other_event])
+	# Enemy was 8/8 before; -1/-1 from other + extra -1/-1 from Shearpoint = 6/6.
+	return (
+		_assert(EvergreenRules.get_power(enemy) == 6, "Shearpoint should add extra -1 from another effect (power got %d, expected 6)." % EvergreenRules.get_power(enemy)) and
+		_assert(EvergreenRules.get_health(enemy) == 6, "Shearpoint should add extra -1 from another effect (health got %d, expected 6)." % EvergreenRules.get_health(enemy))
+	)
+
+
+func _test_shearpoint_dragon_two_copies_do_not_cascade() -> bool:
+	# Regression: with two Shearpoint Dragons in play, the second's -2/-2 summon should
+	# pull a single +1 reduction from the first's passive (-3/-3 total) and stop. Without
+	# the family-level non_chaining flag, the two passives ping-pong reductions forever.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	var shearpoint_ability := {
+		"family": "on_enemy_stat_reduction",
+		"required_zone": "lane",
+		"exclude_self_caused": true,
+		"non_chaining": true,
+		"effects": [{
+			"op": "modify_stats",
+			"target": "event_target",
+			"power_source": "event_power_reduced_sign",
+			"health_source": "event_health_reduced_sign",
+		}],
+	}
+	var sd_a := ScenarioFixtures.summon_creature(player, match_state, "shearpoint_a", "field", 4, 4, [], -1, {
+		"triggered_abilities": [shearpoint_ability],
+	})
+	var sd_b := ScenarioFixtures.summon_creature(player, match_state, "shearpoint_b", "field", 4, 4, [], -1, {
+		"triggered_abilities": [shearpoint_ability],
+	})
+	# Bloody Hand Chef-style: gains as much power/health as the enemy lost, on every reduction.
+	var bhc := ScenarioFixtures.summon_creature(player, match_state, "bhc_two", "field", 2, 2, [], -1, {
+		"triggered_abilities": [{
+			"family": "on_enemy_stat_reduction",
+			"required_zone": "lane",
+			"effects": [{
+				"op": "modify_stats",
+				"target": "self",
+				"power_source": "event_power_reduced",
+				"health_source": "event_health_reduced",
+			}],
+		}],
+	})
+	var enemy := ScenarioFixtures.summon_creature(opponent, match_state, "vvardvark_two", "field", 10, 10)
+	var enemy_id := str(enemy.get("instance_id", ""))
+	# Simulate SD-B's summon -2/-2: apply the bonus AND emit a "summon" event from SD-B.
+	EvergreenRules.apply_stat_bonus(enemy, -2, -2, "summon")
+	var summon_event := {
+		"event_type": "stats_modified",
+		"source_instance_id": str(sd_b.get("instance_id", "")),
+		"source_controller_player_id": pid,
+		"player_id": oid,
+		"target_instance_id": enemy_id,
+		"power_bonus": -2,
+		"health_bonus": -2,
+		"reason": "summon",
+	}
+	MatchTiming.publish_events(match_state, [summon_event])
+	# SD-B's exclude_self_caused blocks self-trigger; SD-A reacts once for an extra -1/-1.
+	# SD-A's emission has reason="on_enemy_stat_reduction"; SD-B's non_chaining filter blocks it.
+	# BHC has no non_chaining and reacts to every reduction: +2 from SD-B summon and +1 from
+	# SD-A's chained -1/-1, totalling +3/+3.
+	return (
+		_assert(EvergreenRules.get_power(enemy) == 7, "Two Shearpoints should yield -3 power total (got %d, expected 7)." % EvergreenRules.get_power(enemy)) and
+		_assert(EvergreenRules.get_health(enemy) == 7, "Two Shearpoints should yield -3 health total (got %d, expected 7)." % EvergreenRules.get_health(enemy)) and
+		_assert(EvergreenRules.get_power(bhc) == 5, "BHC should accumulate +3 power across both reductions (got %d, expected 5)." % EvergreenRules.get_power(bhc)) and
+		_assert(EvergreenRules.get_health(bhc) == 5, "BHC should accumulate +3 health across both reductions (got %d, expected 5)." % EvergreenRules.get_health(bhc)) and
+		_assert(typeof(sd_a) == TYPE_DICTIONARY, "SD-A fixture should be present.")
+	)
 
 
 func _test_veteran_hook() -> bool:
@@ -3785,6 +3923,44 @@ func _test_required_friendly_attribute_count_not_met_blocks_target() -> bool:
 		return false
 	# Enemy should still have Guard (not silenced)
 	return _assert(EvergreenRules.has_keyword(enemy, "guard"), "Fabricant: enemy should still have Guard — silence should not have fired.")
+
+
+func _test_required_friendly_creature_min_power_blocks_target_summon() -> bool:
+	# Ash Piercer: "Summon: Deal 3 damage to a creature if you have a creature with 5 power or more."
+	# Regression for AI/auto-resolve path firing the trigger without checking the gate.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	# Friendly creature with only 2 power — gate (>=5) should NOT be met
+	ScenarioFixtures.summon_creature(player, match_state, "weak_friendly", "field", 2, 3, [])
+	# Enemy creature serves as the candidate target
+	var enemy := ScenarioFixtures.summon_creature(opponent, match_state, "enemy_target", "field", 3, 4, [])
+	var enemy_starting_health := EvergreenRules.get_health(enemy)
+	# Ash Piercer analog: summon: deal 3 damage to chosen creature, gated on 5+ power friendly
+	var piercer := ScenarioFixtures.add_hand_card(player, "ash_piercer_test", {
+		"card_type": "creature", "cost": 5, "power": 3, "health": 4,
+		"triggered_abilities": [{
+			"family": "summon",
+			"target_mode": "any_creature",
+			"required_friendly_creature_min_power": 5,
+			"effects": [{"op": "deal_damage", "target": "chosen_target", "amount": 3}],
+		}],
+	})
+	# get_all_valid_targets should be empty when the gate isn't satisfied
+	var sim_state := match_state.duplicate(true)
+	LaneRules.summon_from_hand(sim_state, pid, str(piercer.get("instance_id", "")), "field")
+	var valid_targets := MatchTargeting.get_all_valid_targets(sim_state, str(piercer.get("instance_id", "")))
+	if not _assert(valid_targets.is_empty(), "Ash Piercer: no valid targets should be offered without 5+ power friendly, got %d." % valid_targets.size()):
+		return false
+	# resolve_targeted_effect (the AI's path) must reject the attempt
+	LaneRules.summon_from_hand(match_state, pid, str(piercer.get("instance_id", "")), "field")
+	var resolve_result := MatchTiming.resolve_targeted_effect(match_state, str(piercer.get("instance_id", "")), {"target_instance_id": str(enemy.get("instance_id", ""))}, {"allowed_families": ["summon"]})
+	if not _assert(not bool(resolve_result.get("is_valid", false)), "Ash Piercer: resolve_targeted_effect should reject when no 5+ power friendly."):
+		return false
+	# Enemy should still be at full health — damage must not have fired
+	return _assert(EvergreenRules.get_health(enemy) == enemy_starting_health, "Ash Piercer: enemy should be unharmed (%d/%d), got %d." % [enemy_starting_health, enemy_starting_health, EvergreenRules.get_health(enemy)])
 
 
 func _test_summon_from_hand_to_full_lane_auto_summons() -> bool:

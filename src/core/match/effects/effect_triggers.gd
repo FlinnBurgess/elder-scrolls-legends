@@ -283,13 +283,14 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 			var rsr_killer := MatchTimingHelpers._find_card_anywhere(match_state, rsr_killer_id)
 			if not rsr_killer.is_empty():
 				var rsr_controller := str(rsr_killer.get("controller_player_id", ""))
-				# Collect slay descriptors: own triggered_abilities + granted triggers from friendly cards
-				var rsr_slay_descs: Array = []
+				# Collect slay descriptor entries: {descriptor, source_id, owner_player_id}
+				var rsr_slay_entries: Array = []
+				var rsr_killer_owner := str(rsr_killer.get("owner_player_id", ""))
 				var rsr_raw_triggers = rsr_killer.get("triggered_abilities", [])
 				if typeof(rsr_raw_triggers) == TYPE_ARRAY:
 					for rsr_desc in rsr_raw_triggers:
 						if typeof(rsr_desc) == TYPE_DICTIONARY and str(rsr_desc.get("family", "")) == FAMILY_SLAY:
-							rsr_slay_descs.append(rsr_desc)
+							rsr_slay_entries.append({"descriptor": rsr_desc, "source_id": rsr_killer_id, "owner_player_id": rsr_killer_owner})
 				# Also check grants_trigger from friendly lane creatures and supports
 				for rsr_lane in match_state.get("lanes", []):
 					for rsr_card in rsr_lane.get("player_slots", {}).get(rsr_controller, []):
@@ -304,7 +305,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 							var rsr_req_kw := str(rsr_grant.get("required_keyword", ""))
 							if not rsr_req_kw.is_empty() and not EvergreenRules.has_keyword(rsr_killer, rsr_req_kw):
 								continue
-							rsr_slay_descs.append(rsr_grant)
+							rsr_slay_entries.append({"descriptor": rsr_grant, "source_id": rsr_killer_id, "owner_player_id": rsr_killer_owner})
 				for rsr_support in MatchTimingHelpers._get_player_state(match_state, rsr_controller).get(ZONE_SUPPORT, []):
 					if typeof(rsr_support) != TYPE_DICTIONARY:
 						continue
@@ -317,9 +318,26 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						var rsr_req_kw := str(rsr_grant.get("required_keyword", ""))
 						if not rsr_req_kw.is_empty() and not EvergreenRules.has_keyword(rsr_killer, rsr_req_kw):
 							continue
-						rsr_slay_descs.append(rsr_grant)
-				for rsr_idx in range(rsr_slay_descs.size()):
-					var rsr_desc: Dictionary = rsr_slay_descs[rsr_idx]
+						rsr_slay_entries.append({"descriptor": rsr_grant, "source_id": rsr_killer_id, "owner_player_id": rsr_killer_owner})
+				# Slay descriptors from items that were attached to the killer at the
+				# moment of the kill (snapshotted in publish_events). Those items may
+				# have already destroyed themselves via destroy_item: self.
+				for rsr_item_entry in event.get("_killer_item_slay_descs", []):
+					if typeof(rsr_item_entry) != TYPE_DICTIONARY:
+						continue
+					var rsr_item_desc: Dictionary = rsr_item_entry.get("descriptor", {})
+					if rsr_item_desc.is_empty():
+						continue
+					rsr_slay_entries.append({
+						"descriptor": rsr_item_desc,
+						"source_id": str(rsr_item_entry.get("item_instance_id", "")),
+						"owner_player_id": str(rsr_item_entry.get("owner_player_id", rsr_killer_owner)),
+					})
+				for rsr_idx in range(rsr_slay_entries.size()):
+					var rsr_entry: Dictionary = rsr_slay_entries[rsr_idx]
+					var rsr_desc: Dictionary = rsr_entry.get("descriptor", {})
+					var rsr_source_id := str(rsr_entry.get("source_id", rsr_killer_id))
+					var rsr_owner_id := str(rsr_entry.get("owner_player_id", rsr_killer_owner))
 					var rsr_tm := str(rsr_desc.get("target_mode", ""))
 					if not rsr_tm.is_empty():
 						var rsr_valid := MatchTargeting.get_valid_targets_for_mode(match_state, rsr_killer_id, rsr_tm, rsr_desc)
@@ -335,13 +353,14 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						var rsr_synth_trigger := {
 							"trigger_id": "%s_repeat_slay_%d" % [rsr_killer_id, rsr_idx],
 							"trigger_index": rsr_idx,
-							"source_instance_id": rsr_killer_id,
-							"owner_player_id": str(rsr_killer.get("owner_player_id", "")),
+							"source_instance_id": rsr_source_id,
+							"owner_player_id": rsr_owner_id,
 							"controller_player_id": rsr_controller,
 							"source_zone": "lane",
 							"descriptor": rsr_desc.duplicate(true),
 						}
 						var rsr_resolution := MatchTriggers._build_trigger_resolution(match_state, rsr_synth_trigger, event)
+						GameLogger.log_trigger_resolution(match_state, rsr_resolution, rsr_synth_trigger)
 						generated_events.append_array(_MT()._apply_effects(match_state, rsr_synth_trigger, event, rsr_resolution))
 		"grant_double_summon_this_turn":
 			var gdst_controller_id := str(trigger.get("controller_player_id", ""))

@@ -18,12 +18,13 @@
 			"hom_end_vvardvark",
 			"hom_end_vvardvark"
 		],
-		"hand": [
-			"iom_neu_fork_of_horripilation"
-		],
+		"hand": [],
 		"health": 29.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [],
+		"shadow_creatures": [
+			"aw_int_abnur_tharn",
+			"aw_int_abnur_tharn"
+		],
 		"supports": [
 			"hos_int_arcane_enchanter"
 		]
@@ -42,7 +43,18 @@
 	"player": {
 		"current_magicka": 12.0,
 		"deck": [
-			"int_lightning_bolt"
+			"int_lightning_bolt",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark",
+			"hom_end_vvardvark"
 		],
 		"discard": [
 			"hom_end_vvardvark",
@@ -52,22 +64,19 @@
 		],
 		"field_creatures": [
 			null,
-			null,
-			"hom_agi_morag_tong_aspirant"
+			"dual_ahnassi"
 		],
 		"hand": [
-			"moe_wil_alfiq_illusionist",
-			"moe_neu_moon_gate",
-			"agi_mournhold_traitor",
-			"wil_piercing_javelin"
+			"iom_neu_fork_of_horripilation",
+			"db_agi_brotherhood_sanctuary"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [
-			"hom_agi_naryu_virian"
-		],
-		"supports": []
+		"shadow_creatures": [],
+		"supports": [
+			"db_agi_brotherhood_sanctuary"
+		]
 	},
 	"type": "kill"
 }
