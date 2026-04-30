@@ -18,7 +18,7 @@ const ATTRIBUTE_ICON_PATHS := {
 	"neutral": "res://assets/images/attributes/neutral-small.png",
 }
 
-const CLASS_CARD_WIDTH := 240
+const CLASS_CARD_WIDTH := 480
 
 var _is_built := false
 var _class_options: Array = []
@@ -81,7 +81,7 @@ func _build_ui() -> void:
 	add_child(center)
 
 	var root := VBoxContainer.new()
-	root.custom_minimum_size = Vector2(800, 0)
+	root.custom_minimum_size = Vector2(1620, 0)
 	root.add_theme_constant_override("separation", 32)
 	center.add_child(root)
 
@@ -122,7 +122,7 @@ func _build_ui() -> void:
 
 func _build_class_card(class_data: Dictionary) -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(CLASS_CARD_WIDTH, 320)
+	panel.custom_minimum_size = Vector2(CLASS_CARD_WIDTH, 780)
 	UITheme.style_panel(panel)
 
 	var vbox := VBoxContainer.new()
@@ -135,7 +135,7 @@ func _build_class_card(class_data: Dictionary) -> PanelContainer:
 	if avatar_tex != null:
 		var avatar_rect := TextureRect.new()
 		avatar_rect.texture = avatar_tex
-		avatar_rect.custom_minimum_size = Vector2(120, 180)
+		avatar_rect.custom_minimum_size = Vector2(360, 540)
 		avatar_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		avatar_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		var avatar_row := HBoxContainer.new()

@@ -101,11 +101,9 @@ func _test_targeted_actions_and_attack_targets(failures: Array) -> void:
 	], "Support play should be exposed as an explicit legal action.", failures)
 	VerificationAssertions.assert_equal(_action_ids(_actions_for_kind(surface, "play_item")), [
 		"play_item:player_1:player_1_dagger:target=player_1_attacker",
-		"play_item:player_1:player_1_dagger:target=player_2_defender",
 		"play_item:player_1:player_1_mobilize_kit:target=player_1_attacker",
-		"play_item:player_1:player_1_mobilize_kit:target=player_2_defender",
 		"play_item:player_1:player_1_mobilize_kit:lane=shadow:slot=0",
-	], "Item play should enumerate creature targets and Mobilize lane options deterministically.", failures)
+	], "Item play should enumerate friendly creature targets and Mobilize lane options deterministically.", failures)
 	VerificationAssertions.assert_equal(_action_ids(_actions_for_kind(surface, "activate_support")), [
 		"activate_support:player_1:player_1_arsenal:target=player_1_attacker",
 		"activate_support:player_1:player_1_arsenal:target=player_2_defender",

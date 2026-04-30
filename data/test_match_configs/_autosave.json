@@ -53,7 +53,7 @@
 		"field_creatures": [
 			null,
 			null,
-			"hos_neu_alduin"
+			"hom_agi_morag_tong_aspirant"
 		],
 		"hand": [
 			"moe_wil_alfiq_illusionist",
@@ -65,7 +65,7 @@
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [
-			"agi_mournhold_traitor"
+			"hom_agi_naryu_virian"
 		],
 		"supports": []
 	},

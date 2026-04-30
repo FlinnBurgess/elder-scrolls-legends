@@ -91,11 +91,12 @@ func _compute_support_row_hash(player_id: String, supports: Array) -> Dictionary
 	var iids: Array = []
 	for c in supports:
 		if typeof(c) == TYPE_DICTIONARY:
+			var remaining = c.get("remaining_support_uses", -1)
 			iids.append("%s:%d:%d:%d" % [
 				str(c.get("instance_id", "")),
 				int(c.get("damage_marked", 0)),
 				int(c.get("activations_this_turn", 0)),
-				int(c.get("remaining_support_uses", -1)),
+				-1 if remaining == null else int(remaining),
 			])
 	return {
 		"player": player_id,
