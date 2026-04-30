@@ -19,6 +19,7 @@ const UITheme = preload("res://src/ui/ui_theme.gd")
 const DeckCardListClass = preload("res://src/ui/components/deck_card_list.gd")
 const SettingsScreenScript = preload("res://src/ui/settings_screen.gd")
 const AvatarCarouselScreenScript = preload("res://src/ui/avatar_carousel_screen.gd")
+const PlayerSettings = preload("res://src/core/player_settings.gd")
 
 const DECKS_DIR := "res://data/decks/"
 
@@ -28,6 +29,7 @@ var _pause_overlay: Control
 var _deck_select_screen: Control
 var _deck_select_buttons: Array = []
 var _deck_entries: Array = []
+var _deck_ai_pool_enabled: Dictionary = {}
 var _selected_deck_index := -1
 var _start_match_button: Button
 var _deck_select_card_list: DeckCardList
@@ -393,6 +395,13 @@ func _show_deck_select_screen() -> void:
 		_main_menu.visible = true
 		return
 
+	# Seed the AI-pool toggle state from persisted player settings.
+	var disabled_ids := PlayerSettings.get_ai_pool_disabled_ids()
+	_deck_ai_pool_enabled.clear()
+	for entry in _deck_entries:
+		var id := _deck_entry_id(entry)
+		_deck_ai_pool_enabled[id] = not disabled_ids.has(id)
+
 	_selected_deck_index = -1
 	_deck_select_buttons.clear()
 
@@ -453,7 +462,7 @@ func _show_deck_select_screen() -> void:
 	var list := VBoxContainer.new()
 	list.custom_minimum_size = Vector2(720, 0)
 	list.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list.add_theme_constant_override("separation", 10)
+	list.add_theme_constant_override("separation", 2)
 	content_row.add_child(list)
 
 	var right_margin := MarginContainer.new()
@@ -485,12 +494,38 @@ func _show_deck_select_screen() -> void:
 	_deck_select_screen.add_child(_deck_select_hover_layer)
 	_deck_select_card_list.enable_hover_preview(_deck_select_hover_layer, _deck_select_card_lookup)
 
+	# "AI" header sits above the AI-pool checkbox column on every deck row.
+	var ai_header_row := HBoxContainer.new()
+	ai_header_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ai_header_row.add_theme_constant_override("separation", 12)
+	list.add_child(ai_header_row)
+
+	var ai_header_label := Label.new()
+	ai_header_label.text = "AI"
+	ai_header_label.custom_minimum_size = Vector2(48, 0)
+	ai_header_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ai_header_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	UITheme.style_section_label(ai_header_label, 26)
+	ai_header_row.add_child(ai_header_label)
+
+	var ai_header_spacer := Control.new()
+	ai_header_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ai_header_row.add_child(ai_header_spacer)
+
+	# Decks live in their own inner VBox so the gap below the AI header stays tight
+	# while deck rows keep their normal vertical rhythm.
+	var decks_inner := VBoxContainer.new()
+	decks_inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	decks_inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	decks_inner.add_theme_constant_override("separation", 10)
+	list.add_child(decks_inner)
+
 	if not player_entries.is_empty():
 		var my_decks_label := Label.new()
 		my_decks_label.text = "My Decks"
 		my_decks_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		UITheme.style_section_label(my_decks_label, 24)
-		list.add_child(my_decks_label)
+		decks_inner.add_child(my_decks_label)
 
 	var defaults_container: VBoxContainer = null
 	var defaults_scroll: ScrollContainer = null
@@ -504,7 +539,7 @@ func _show_deck_select_screen() -> void:
 			if not player_entries.is_empty():
 				var defaults_spacer := Control.new()
 				defaults_spacer.custom_minimum_size = Vector2(0, 12)
-				list.add_child(defaults_spacer)
+				decks_inner.add_child(defaults_spacer)
 			defaults_toggle_button = Button.new()
 			defaults_toggle_button.flat = true
 			defaults_toggle_button.focus_mode = Control.FOCUS_NONE
@@ -513,7 +548,7 @@ func _show_deck_select_screen() -> void:
 			defaults_toggle_button.add_theme_color_override("font_color", UITheme.TEXT_SECTION)
 			defaults_toggle_button.add_theme_color_override("font_hover_color", UITheme.GOLD)
 			defaults_toggle_button.add_theme_color_override("font_pressed_color", UITheme.GOLD_BRIGHT)
-			list.add_child(defaults_toggle_button)
+			decks_inner.add_child(defaults_toggle_button)
 
 			defaults_scroll = ScrollContainer.new()
 			defaults_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -521,7 +556,7 @@ func _show_deck_select_screen() -> void:
 			defaults_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 			defaults_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 			defaults_scroll.visible = not start_collapsed
-			list.add_child(defaults_scroll)
+			decks_inner.add_child(defaults_scroll)
 
 			defaults_container = VBoxContainer.new()
 			defaults_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -531,8 +566,26 @@ func _show_deck_select_screen() -> void:
 			_update_defaults_toggle_label(defaults_toggle_button, defaults_scroll, default_count)
 			defaults_toggle_button.pressed.connect(_on_defaults_toggle_pressed.bind(defaults_toggle_button, defaults_scroll, default_count))
 
-		var parent_container: Container = defaults_container if i >= defaults_start_index else list
+		var parent_container: Container = defaults_container if i >= defaults_start_index else decks_inner
 		var entry: Dictionary = _deck_entries[i]
+		var entry_id := _deck_entry_id(entry)
+		if not _deck_ai_pool_enabled.has(entry_id):
+			_deck_ai_pool_enabled[entry_id] = true
+
+		var deck_row := HBoxContainer.new()
+		deck_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		deck_row.add_theme_constant_override("separation", 12)
+
+		var ai_pool_checkbox := CheckBox.new()
+		ai_pool_checkbox.button_pressed = bool(_deck_ai_pool_enabled[entry_id])
+		ai_pool_checkbox.tooltip_text = "Include this deck in the AI opponent pool"
+		ai_pool_checkbox.custom_minimum_size = Vector2(48, 48)
+		ai_pool_checkbox.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		ai_pool_checkbox.focus_mode = Control.FOCUS_NONE
+		UITheme.style_checkbox(ai_pool_checkbox, 22, 36, UITheme.GOLD)
+		ai_pool_checkbox.toggled.connect(_on_deck_ai_pool_toggled.bind(entry_id))
+		deck_row.add_child(ai_pool_checkbox)
+
 		var deck_button := Button.new()
 		deck_button.custom_minimum_size = Vector2(0, 60)
 		deck_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -576,7 +629,8 @@ func _show_deck_select_screen() -> void:
 		count_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		content.add_child(count_label)
-		parent_container.add_child(deck_button)
+		deck_row.add_child(deck_button)
+		parent_container.add_child(deck_row)
 		_deck_select_buttons.append(deck_button)
 
 	# Bottom action buttons
@@ -666,7 +720,7 @@ func _on_start_match_pressed() -> void:
 	if player_deck_ids.is_empty():
 		return
 
-	var enemy_deck_ids := _pick_random_enemy_deck(selected_entry.get("path", ""))
+	var enemy_deck_ids := _pick_random_enemy_deck(_deck_entry_id(selected_entry))
 	if enemy_deck_ids.is_empty():
 		return
 
@@ -726,16 +780,41 @@ func _on_deck_select_back_pressed() -> void:
 	_main_menu.visible = true
 
 
-func _pick_random_enemy_deck(exclude_path: String) -> Array:
-	var deck_files := _list_deck_files()
+func _deck_entry_id(entry: Dictionary) -> String:
+	var path := str(entry.get("path", ""))
+	if not path.is_empty():
+		return "default:" + path
+	return "player:" + str(entry.get("name", ""))
+
+
+func _on_deck_ai_pool_toggled(pressed: bool, entry_id: String) -> void:
+	_deck_ai_pool_enabled[entry_id] = pressed
+	PlayerSettings.set_ai_pool_enabled(entry_id, pressed)
+
+
+func _entry_to_card_ids(entry: Dictionary) -> Array:
+	if entry.has("card_ids"):
+		return (entry.get("card_ids", []) as Array).duplicate()
+	return _load_deck_card_ids(str(entry.get("path", "")))
+
+
+func _pick_random_enemy_deck(exclude_id: String) -> Array:
 	var candidates: Array = []
-	for path in deck_files:
-		if path != exclude_path:
-			candidates.append(path)
+	for entry in _deck_entries:
+		var entry_id := _deck_entry_id(entry)
+		if entry_id == exclude_id:
+			continue
+		if not bool(_deck_ai_pool_enabled.get(entry_id, true)):
+			continue
+		candidates.append(entry)
 	if candidates.is_empty():
-		candidates = deck_files
+		for entry in _deck_entries:
+			if _deck_entry_id(entry) != exclude_id:
+				candidates.append(entry)
+	if candidates.is_empty():
+		return []
 	candidates.shuffle()
-	return _load_deck_card_ids(candidates[0])
+	return _entry_to_card_ids(candidates[0])
 
 
 func _load_valid_player_deck_entries() -> Array:

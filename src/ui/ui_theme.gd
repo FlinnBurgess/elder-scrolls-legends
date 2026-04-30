@@ -201,15 +201,14 @@ static func style_option_button(btn: OptionButton, font_size: int = 22) -> void:
 	popup.add_theme_color_override("font_hover_color", GOLD_BRIGHT)
 
 
-static func style_checkbox(cb: CheckBox, font_size: int = 22) -> void:
+static func style_checkbox(cb: CheckBox, font_size: int = 22, icon_size: int = 24, unchecked_color: Color = GOLD_DIM) -> void:
 	cb.add_theme_font_size_override("font_size", font_size)
 	cb.add_theme_color_override("font_color", GOLD)
 	cb.add_theme_color_override("font_hover_color", GOLD_BRIGHT)
 	cb.add_theme_color_override("font_pressed_color", GOLD_BRIGHT)
 
-	var size := 24
-	var unchecked := _make_checkbox_icon(size, GOLD_DIM, false)
-	var checked := _make_checkbox_icon(size, GOLD, true)
+	var unchecked := _make_checkbox_icon(icon_size, unchecked_color, false)
+	var checked := _make_checkbox_icon(icon_size, GOLD, true)
 	cb.add_theme_icon_override("unchecked", unchecked)
 	cb.add_theme_icon_override("checked", checked)
 
@@ -217,8 +216,8 @@ static func style_checkbox(cb: CheckBox, font_size: int = 22) -> void:
 static func _make_checkbox_icon(size: int, border_color: Color, checked: bool) -> ImageTexture:
 	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
-	# Border
-	var border := 2
+	# Border thickness scales with size so larger checkboxes don't look frail
+	var border := maxi(2, int(round(float(size) / 12.0)))
 	for x in range(size):
 		for y in range(size):
 			if x < border or x >= size - border or y < border or y >= size - border:

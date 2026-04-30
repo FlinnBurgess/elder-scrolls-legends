@@ -77,3 +77,34 @@ static func set_favourite_card(card_id: String, favourite: bool) -> void:
 		ids.erase(card_id)
 	data["favourite_card_ids"] = ids
 	_save_raw(data)
+
+
+# AI opponent pool: stores the set of deck entry IDs the player has *excluded*
+# from the random AI pool on the deck-select screen. Storing the excluded set
+# (rather than the included set) makes new decks default to "in the pool".
+
+static func get_ai_pool_disabled_ids() -> Dictionary:
+	var data := _load_raw()
+	var ids: Dictionary = {}
+	var raw: Variant = data.get("ai_pool_disabled_deck_ids", [])
+	if typeof(raw) == TYPE_ARRAY:
+		for value in raw:
+			ids[str(value)] = true
+	return ids
+
+
+static func set_ai_pool_enabled(entry_id: String, enabled: bool) -> void:
+	if entry_id.is_empty():
+		return
+	var data := _load_raw()
+	var ids: Array = []
+	var raw: Variant = data.get("ai_pool_disabled_deck_ids", [])
+	if typeof(raw) == TYPE_ARRAY:
+		for value in raw:
+			var id_str := str(value)
+			if id_str != entry_id:
+				ids.append(id_str)
+	if not enabled:
+		ids.append(entry_id)
+	data["ai_pool_disabled_deck_ids"] = ids
+	_save_raw(data)
