@@ -108,3 +108,26 @@ static func set_ai_pool_enabled(entry_id: String, enabled: bool) -> void:
 		ids.append(entry_id)
 	data["ai_pool_disabled_deck_ids"] = ids
 	_save_raw(data)
+
+
+# AI engine selection: which decision policy the local-match AI uses.
+# "heuristic" (default) — fast scoring + lookahead, peeks at opponent info.
+# "ismcts" — Information Set Monte Carlo Tree Search; reasons over hidden info.
+
+const AI_ENGINE_HEURISTIC := "heuristic"
+const AI_ENGINE_ISMCTS := "ismcts"
+
+
+static func get_ai_engine() -> String:
+	var data := _load_raw()
+	var engine := str(data.get("ai_engine", AI_ENGINE_HEURISTIC))
+	if engine != AI_ENGINE_ISMCTS:
+		return AI_ENGINE_HEURISTIC
+	return AI_ENGINE_ISMCTS
+
+
+static func set_ai_engine(engine: String) -> void:
+	var resolved := AI_ENGINE_ISMCTS if engine == AI_ENGINE_ISMCTS else AI_ENGINE_HEURISTIC
+	var data := _load_raw()
+	data["ai_engine"] = resolved
+	_save_raw(data)

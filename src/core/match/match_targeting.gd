@@ -384,6 +384,19 @@ static func _ability_conditions_met(match_state: Dictionary, controller_id: Stri
 				rfac_count += 1
 		if rfac_count < rfac_min:
 			return false
+	# required_creature_in_each_lane: controller must have another creature in every lane (excludes self).
+	# Mirrors MatchTriggers._matches_conditions; inlined here because MatchTargeting
+	# cannot import MatchTriggers (cycle).
+	if bool(ability.get("required_creature_in_each_lane", false)):
+		var rciel_lanes: Array = match_state.get("lanes", [])
+		for rciel_lane in rciel_lanes:
+			var rciel_slots: Array = rciel_lane.get("player_slots", {}).get(controller_id, [])
+			var rciel_count := 0
+			for rciel_card in rciel_slots:
+				if typeof(rciel_card) == TYPE_DICTIONARY and str(rciel_card.get("instance_id", "")) != source_instance_id:
+					rciel_count += 1
+			if rciel_count < 1:
+				return false
 	# Delegate to the full additional-conditions checker so target_mode abilities
 	# (e.g. Ash Piercer's required_friendly_creature_min_power) are gated the same
 	# way trigger-registry-driven abilities are.

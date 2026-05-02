@@ -234,10 +234,15 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				})
 		"swap_stats":
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
+				# Swap visible (current) stats: new power = remaining health,
+				# new max health = current power. Clear damage so the swapped
+				# health value is what shows on the board, not stale damage_marked.
 				var current_power := EvergreenRules.get_power(card)
-				var current_health := EvergreenRules.get_health(card)
-				var power_diff := current_health - current_power
-				var health_diff := current_power - current_health
+				var remaining_health := EvergreenRules.get_remaining_health(card)
+				var max_health := EvergreenRules.get_health(card)
+				var power_diff := remaining_health - current_power
+				var health_diff := current_power - max_health
+				EvergreenRules.restore_health(card)
 				EvergreenRules.apply_stat_bonus(card, power_diff, health_diff, reason)
 				generated_events.append({
 					"event_type": "stats_swapped",

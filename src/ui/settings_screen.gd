@@ -67,6 +67,8 @@ func _build_ui() -> void:
 	select_btn.pressed.connect(func() -> void: select_avatar_pressed.emit())
 	label_col.add_child(select_btn)
 
+	root.add_child(_build_ai_engine_panel())
+
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0, 8)
 	root.add_child(spacer)
@@ -81,6 +83,44 @@ func _build_ui() -> void:
 	UITheme.style_button(back_button, 22, true)
 	back_button.pressed.connect(func() -> void: back_pressed.emit())
 	back_row.add_child(back_button)
+
+
+func _build_ai_engine_panel() -> PanelContainer:
+	var panel := PanelContainer.new()
+	UITheme.style_panel(panel)
+
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 12)
+	panel.add_child(col)
+
+	var heading := Label.new()
+	heading.text = "AI Engine"
+	heading.add_theme_font_size_override("font_size", 24)
+	heading.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
+	col.add_child(heading)
+
+	var description := Label.new()
+	description.text = "Heuristic = fast, peeks at opponent info.\nISMCTS = slower, reasons under hidden info (experimental)."
+	description.add_theme_font_size_override("font_size", 16)
+	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(description)
+
+	var dropdown := OptionButton.new()
+	dropdown.add_theme_font_size_override("font_size", 18)
+	dropdown.custom_minimum_size = Vector2(320, 44)
+	dropdown.add_item("Heuristic", 0)
+	dropdown.add_item("ISMCTS (experimental)", 1)
+	var current := PlayerSettings.get_ai_engine()
+	dropdown.select(1 if current == PlayerSettings.AI_ENGINE_ISMCTS else 0)
+	dropdown.item_selected.connect(_on_ai_engine_selected)
+	col.add_child(dropdown)
+
+	return panel
+
+
+func _on_ai_engine_selected(index: int) -> void:
+	var engine := PlayerSettings.AI_ENGINE_ISMCTS if index == 1 else PlayerSettings.AI_ENGINE_HEURISTIC
+	PlayerSettings.set_ai_engine(engine)
 
 
 func refresh_avatar_preview() -> void:

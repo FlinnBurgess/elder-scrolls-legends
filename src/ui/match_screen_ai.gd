@@ -3,6 +3,7 @@ extends RefCounted
 
 const AIPlayProfile = preload("res://src/ai/ai_play_profile.gd")
 const DeckArchetypeDetector = preload("res://src/ai/deck_archetype_detector.gd")
+const ISMCTSMatchPolicy = preload("res://src/ai/ismcts_match_policy.gd")
 
 var _screen  # MatchScreen reference
 var _ai_waiting_for_turn_banner := false
@@ -105,10 +106,15 @@ func _execute_local_match_ai_step() -> Dictionary:
 			_screen._refresh_ui()
 			return {"did_execute": true, "yield_reason": _ai_post_action_state()}
 	var _choose_start := Time.get_ticks_msec()
-	var choice = _screen.HeuristicMatchPolicy.choose_action(_screen._match_state, ai_player_id, _ai_options)
+	var engine := str(_ai_options.get("ai_engine", "heuristic"))
+	var choice
+	if engine == "ismcts":
+		choice = ISMCTSMatchPolicy.choose_action(_screen._match_state, ai_player_id, _ai_options)
+	else:
+		choice = _screen.HeuristicMatchPolicy.choose_action(_screen._match_state, ai_player_id, _ai_options)
 	var _choose_elapsed := Time.get_ticks_msec() - _choose_start
 	if _choose_elapsed > 2000:
-		_screen.GameLogger.trc("AI", "choose_action", "SLOW CHOOSE %dms actions=%d" % [_choose_elapsed, choice.get("considered_actions", []).size()])
+		_screen.GameLogger.trc("AI", "choose_action", "SLOW CHOOSE %dms engine=%s actions=%d" % [_choose_elapsed, engine, choice.get("considered_actions", []).size()])
 	if not bool(choice.get("is_valid", false)):
 		return {
 			"did_execute": false,
@@ -371,11 +377,20 @@ static func _build_ai_play_profile(ai_options: Dictionary, card_by_id: Dictionar
 		return {}
 	var quality := float(ai_options.get("quality", 1.0))
 	var ai_deck_ids: Array = ai_options.get("ai_deck_ids", [])
+	var profile: Dictionary
 	if ai_deck_ids.is_empty():
-		return AIPlayProfile.build_options(0.0, quality)
-	var archetype = DeckArchetypeDetector.detect(ai_deck_ids, card_by_id)
-	var aggro_score := float(archetype.get("aggro_score", 0.0))
-	return AIPlayProfile.build_options(aggro_score, quality)
+		profile = AIPlayProfile.build_options(0.0, quality)
+	else:
+		var archetype = DeckArchetypeDetector.detect(ai_deck_ids, card_by_id)
+		var aggro_score := float(archetype.get("aggro_score", 0.0))
+		profile = AIPlayProfile.build_options(aggro_score, quality)
+	# Forward keys the AI policy reads at runtime so they survive the profile
+	# build. `human_deck_name` is the deck-learning identity (empty for random
+	# decks, which is the bypass).
+	for passthrough_key in ["human_deck_name", "ismcts_budget_ms", "ismcts_max_iters", "ismcts_resample_every", "ismcts_rollout_plies"]:
+		if ai_options.has(passthrough_key):
+			profile[passthrough_key] = ai_options[passthrough_key]
+	return profile
 
 
 func get_local_match_ai_pacing_state() -> Dictionary:

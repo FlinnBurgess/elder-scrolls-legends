@@ -734,7 +734,8 @@ func _on_start_match_pressed() -> void:
 	match_screen.return_to_main_menu_requested.connect(_show_main_menu)
 	add_child(match_screen)
 	_active_screen = match_screen
-	match_screen.start_match_with_decks(player_deck_ids, enemy_deck_ids)
+	var ai_options := {"human_deck_name": str(selected_entry.get("name", ""))}
+	match_screen.start_match_with_decks(player_deck_ids, enemy_deck_ids, -1, -1, ai_options)
 
 
 func _on_random_decks_pressed() -> void:
@@ -768,7 +769,9 @@ func _on_random_decks_pressed() -> void:
 	match_screen.return_to_main_menu_requested.connect(_show_main_menu)
 	add_child(match_screen)
 	_active_screen = match_screen
-	match_screen.start_match_with_decks(player_deck_ids, enemy_deck_ids)
+	# Random decks: empty human_deck_name is the explicit bypass — AI makes
+	# no attempt to identify or remember a freshly randomized deck.
+	match_screen.start_match_with_decks(player_deck_ids, enemy_deck_ids, -1, -1, {"human_deck_name": ""})
 
 
 func _on_deck_select_back_pressed() -> void:

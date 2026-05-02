@@ -949,7 +949,35 @@ static func _collect_target_requirements(triggers: Array) -> Dictionary:
 				var lane_val := str(effect.get("lane", ""))
 				if lane_val.is_empty() or lane_val == "chosen":
 					requirements["needs_lane_id"] = true
+	requirements["_source_can_benefit_friendly"] = _source_can_benefit_friendly(triggers)
 	return requirements
+
+
+# True if the source's effects on the chosen target include anything beneficial
+# (heal, buff, grant a positive keyword/extra-attack). Used to gate AI's
+# self-targeting on `any_creature` spells: when the only effects on the target
+# are harmful (damage, silence, shackle, destroy, debuff), self-targeting is
+# strictly dominated by enemy targeting and the AI should not consider it.
+static func _source_can_benefit_friendly(triggers: Array) -> bool:
+	for trigger in triggers:
+		if typeof(trigger) != TYPE_DICTIONARY:
+			continue
+		for raw_effect in trigger.get("effects", []):
+			if typeof(raw_effect) != TYPE_DICTIONARY:
+				continue
+			var effect: Dictionary = raw_effect
+			if str(effect.get("target", "")) != "event_target":
+				continue
+			var op := str(effect.get("op", ""))
+			match op:
+				"restore_creature_health", "grant_keyword", "grant_extra_attack":
+					return true
+				"modify_stats":
+					var p := int(effect.get("power", 0))
+					var h := int(effect.get("health", 0))
+					if p >= 0 and h >= 0 and (p > 0 or h > 0):
+						return true
+	return false
 
 
 static func _expand_target_parameter_sets(match_state: Dictionary, requirements: Dictionary) -> Array:
@@ -987,6 +1015,11 @@ static func _expand_target_parameter_sets(match_state: Dictionary, requirements:
 					var card_controller := str(card.get("controller_player_id", ""))
 					if atm == "friendly_creature" or atm == "another_friendly_creature":
 						if card_controller != atm_controller:
+							continue
+					elif atm == "any_creature":
+						# Gate AI self-targeting: if every on-target effect is
+						# harmful, friendly is strictly dominated by enemy.
+						if card_controller == atm_controller and not bool(requirements.get("_source_can_benefit_friendly", false)):
 							continue
 					elif atm == "enemy_creature":
 						if card_controller == atm_controller:

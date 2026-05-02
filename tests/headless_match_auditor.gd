@@ -15,6 +15,7 @@ const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const MatchActionEnumerator = preload("res://src/ai/match_action_enumerator.gd")
 const MatchActionExecutor = preload("res://src/ai/match_action_executor.gd")
 const HeuristicMatchPolicy = preload("res://src/ai/heuristic_match_policy.gd")
+const ISMCTSMatchPolicy = preload("res://src/ai/ismcts_match_policy.gd")
 const MatchScreen = preload("res://src/ui/match_screen.gd")
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const ErrorReportWriter = preload("res://src/core/error_report_writer.gd")
@@ -22,6 +23,9 @@ const ErrorReportWriter = preload("res://src/core/error_report_writer.gd")
 const NUM_MATCHES := 50
 const MAX_ACTIONS_PER_MATCH := 400
 const DECK_SIZE := 30
+# Flip to "ismcts" to stress-test the ISMCTS engine in AI-vs-AI matches.
+# Note: ISMCTS is much slower per decision; reduce NUM_MATCHES when toggled.
+const AI_ENGINE := "heuristic"
 
 var _catalog: Dictionary = {}
 var _card_by_id: Dictionary = {}
@@ -120,7 +124,7 @@ func _run_single_match(match_index: int) -> void:
 		var action: Dictionary = {}
 		if bool(match_state.get("_end_of_turn_targets_queued", false)):
 			if MatchTiming.has_pending_turn_trigger_target(match_state, active_id):
-				action = HeuristicMatchPolicy.choose_action(match_state, active_id, {"quality": 0.5, "lookahead": 0}).get("chosen_action", {})
+				action = _decide(match_state, active_id).get("chosen_action", {})
 				if action.is_empty():
 					MatchTiming.decline_pending_turn_trigger_target(match_state, active_id)
 					continue
@@ -131,10 +135,7 @@ func _run_single_match(match_index: int) -> void:
 				consecutive_invalid = 0
 				continue
 		else:
-			var choice := HeuristicMatchPolicy.choose_action(match_state, active_id, {
-				"quality": 0.5,
-				"lookahead": 0,
-			})
+			var choice := _decide(match_state, active_id)
 			action = choice.get("chosen_action", {})
 		if action.is_empty():
 			# No legal actions — try end turn
@@ -143,7 +144,7 @@ func _run_single_match(match_index: int) -> void:
 				match_state["_end_of_turn_targets_queued"] = true
 			if MatchTiming.has_pending_turn_trigger_target(match_state, active_id):
 				# AI needs to resolve pending turn triggers
-				action = HeuristicMatchPolicy.choose_action(match_state, active_id, {"quality": 0.5, "lookahead": 0})
+				action = _decide(match_state, active_id)
 				if action.is_empty():
 					MatchTiming.decline_pending_turn_trigger_target(match_state, active_id)
 					continue
@@ -201,6 +202,12 @@ func _build_random_deck(rng: RandomNumberGenerator) -> Array:
 	for _i in range(DECK_SIZE):
 		deck.append(_creature_ids[rng.randi_range(0, _creature_ids.size() - 1)])
 	return deck
+
+
+func _decide(match_state: Dictionary, active_id: String) -> Dictionary:
+	if AI_ENGINE == "ismcts":
+		return ISMCTSMatchPolicy.choose_action(match_state, active_id, {"ismcts_budget_ms": 200})
+	return HeuristicMatchPolicy.choose_action(match_state, active_id, {"quality": 0.5, "lookahead": 0})
 
 
 # ── AUDIT: SUBTYPE FILTER ──────────────────────────────────────────────────

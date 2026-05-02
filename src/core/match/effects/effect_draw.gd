@@ -312,7 +312,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						drawn["zone"] = ZONE_HAND
 						var dsfd_hand: Array = dsfd_player.get(ZONE_HAND, [])
 						dsfd_hand.append(drawn)
-						generated_events.append({"event_type": "card_drawn", "player_id": dsfd_controller, "instance_id": str(drawn.get("instance_id", "")), "source": "draw_specific_from_deck", "reason": reason})
+						generated_events.append({"event_type": "card_drawn", "player_id": dsfd_controller, "drawn_instance_id": str(drawn.get("instance_id", "")), "source": "draw_specific_from_deck", "reason": reason})
 						break
 		"draw_all_creatures_from_discard":
 			var dacfd_controller := str(trigger.get("controller_player_id", ""))
@@ -329,7 +329,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					MatchMutations.restore_definition_state(card)
 					card["zone"] = ZONE_HAND
 					dacfd_hand.append(card)
-					generated_events.append({"event_type": "card_drawn", "player_id": dacfd_controller, "instance_id": str(card.get("instance_id", "")), "source": "draw_all_creatures_from_discard", "reason": reason})
+					generated_events.append({"event_type": "card_drawn", "player_id": dacfd_controller, "drawn_instance_id": str(card.get("instance_id", "")), "source": "draw_all_creatures_from_discard", "reason": reason})
 		"draw_random_creature_from_discard":
 			var drcfd_controller := str(trigger.get("controller_player_id", ""))
 			var drcfd_player := MatchTimingHelpers._get_player_state(match_state, drcfd_controller)
@@ -348,7 +348,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					MatchMutations.restore_definition_state(drcfd_picked)
 					drcfd_picked["zone"] = ZONE_HAND
 					drcfd_hand.append(drcfd_picked)
-					generated_events.append({"event_type": "card_drawn", "player_id": drcfd_controller, "instance_id": str(drcfd_picked.get("instance_id", "")), "source": "draw_random_creature_from_discard", "reason": reason})
+					generated_events.append({"event_type": "card_drawn", "player_id": drcfd_controller, "drawn_instance_id": str(drcfd_picked.get("instance_id", "")), "source": "draw_random_creature_from_discard", "reason": reason})
 		"draw_cards_per_runes":
 			var dcpr_controller_id := str(trigger.get("controller_player_id", ""))
 			var dcpr_player := MatchTimingHelpers._get_player_state(match_state, dcpr_controller_id)

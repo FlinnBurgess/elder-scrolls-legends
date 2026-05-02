@@ -1,6 +1,10 @@
 class_name MatchScreenRefresh
 extends RefCounted
 
+const AIDeckMemory = preload("res://src/ai/ai_deck_memory.gd")
+const AIObservationTracker = preload("res://src/ai/ai_observation_tracker.gd")
+const DeckPersistence = preload("res://src/deck/deck_persistence.gd")
+
 var _screen  # MatchScreen reference
 
 # Per-row hash cache for skipping unchanged lane rebuilds. Keyed by lane_row_key.
@@ -392,6 +396,7 @@ func _refresh_match_end_overlay() -> void:
 	_screen._match_end_overlay.visible = visible
 	if not visible:
 		return
+	_record_ai_memory_once()
 	var local_won: bool = winner_player_id == _screen._local_player_id()
 	# Mark puzzle as solved on first win detection
 	if _screen._puzzle_mode and local_won and not _screen._puzzle_id.is_empty():
@@ -530,3 +535,46 @@ func _build_ring_token(index: int, active: bool) -> Control:
 	panel.custom_minimum_size = Vector2(18, 18)
 	_screen._ui_builder._apply_panel_style(panel, Color(0.7, 0.57, 0.24, 0.98) if active else Color(0.12, 0.12, 0.14, 0.94), Color(0.96, 0.87, 0.58, 0.98) if active else Color(0.31, 0.3, 0.28, 0.86), 1, 9)
 	return panel
+
+
+# Update AIDeckMemory once when a match ends. Bypasses for random decks
+# (empty human_deck_name) and for puzzle/adventure/arena flows that do not
+# carry a saved-deck identity.
+func _record_ai_memory_once() -> void:
+	if _screen._ai_memory_recorded:
+		return
+	if _screen._puzzle_mode or _screen._arena_mode:
+		_screen._ai_memory_recorded = true
+		return
+	var ai_options: Dictionary = _screen._match_state.get("ai_options", {})
+	var human_deck_name := str(ai_options.get("human_deck_name", ""))
+	if human_deck_name.is_empty():
+		_screen._ai_memory_recorded = true
+		return
+	var ai_pid := str(_screen.PLAYER_ORDER[0])
+	var observed := AIObservationTracker.observe(_screen._match_state, ai_pid)
+	var observed_def_ids: Array = observed.get("def_counts", {}).keys()
+	var current_contents := _deck_contents_counts(human_deck_name)
+	if current_contents.is_empty():
+		_screen._ai_memory_recorded = true
+		return
+	AIDeckMemory.record_match(human_deck_name, observed_def_ids, current_contents)
+	_screen._ai_memory_recorded = true
+
+
+static func _deck_contents_counts(deck_name: String) -> Dictionary:
+	var definition := DeckPersistence.load_deck(deck_name)
+	if typeof(definition) != TYPE_DICTIONARY or definition.is_empty():
+		return {}
+	var cards: Array = definition.get("cards", [])
+	if typeof(cards) != TYPE_ARRAY:
+		return {}
+	var counts: Dictionary = {}
+	for entry in cards:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var def_id := str(entry.get("card_id", ""))
+		if def_id.is_empty():
+			continue
+		counts[def_id] = int(counts.get(def_id, 0)) + int(entry.get("quantity", 1))
+	return counts

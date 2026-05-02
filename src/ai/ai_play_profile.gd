@@ -1,6 +1,8 @@
 class_name AIPlayProfile
 extends RefCounted
 
+const PlayerSettings = preload("res://src/core/player_settings.gd")
+
 ## Builds a weight-options dictionary that shapes AI decision-making based on
 ## deck archetype and opponent quality.
 ##
@@ -148,6 +150,10 @@ static func build_options(aggro_score: float, quality: float) -> Dictionary:
 	# Selectivity: min_action_gain threshold is scaled by quality so low-quality
 	# AI takes marginal plays while high-quality AI is more selective.
 	profile["min_action_gain"] = profile["min_action_gain"] * (0.5 + quality * 0.5)
+
+	# Decision engine choice (heuristic vs ISMCTS) — read from PlayerSettings.
+	# The match-screen dispatcher reads `ai_engine` from the options dict.
+	profile["ai_engine"] = PlayerSettings.get_ai_engine()
 
 	return profile
 

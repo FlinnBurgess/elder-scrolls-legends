@@ -13,8 +13,12 @@
 			"hos_str_aelas_huntmate"
 		],
 		"field_creatures": [
-			null,
-			null,
+			"int_abecean_navigator",
+			{
+				"can_attack": true,
+				"damage_marked": 5.0,
+				"definition_id": "moe_end_fallen_dragon"
+			},
 			"hom_end_vvardvark",
 			"hom_end_vvardvark"
 		],
@@ -54,7 +58,8 @@
 			"hom_end_vvardvark",
 			"hom_end_vvardvark",
 			"hom_end_vvardvark",
-			"hom_end_vvardvark"
+			"hom_end_vvardvark",
+			"hom_tri_bolvyn_venim"
 		],
 		"discard": [
 			"hom_end_vvardvark",
@@ -64,18 +69,19 @@
 		],
 		"field_creatures": [
 			null,
-			"dual_ahnassi"
+			"dual_ahnassi",
+			null,
+			"hom_str_aldruhn_arms_master"
 		],
 		"hand": [
-			"iom_neu_fork_of_horripilation",
-			"db_agi_brotherhood_sanctuary"
+			"hom_end_bal_isra_warrider"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [],
 		"supports": [
-			"db_agi_brotherhood_sanctuary"
+			"agi_thieves_den"
 		]
 	},
 	"type": "kill"

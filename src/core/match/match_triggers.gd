@@ -409,6 +409,11 @@ static func _trigger_matches_event(match_state: Dictionary, trigger: Dictionary,
 	if event_type == "creature_summoned" and str(event.get("reason", "")) == "change":
 		if str(trigger.get("source_instance_id", "")) != str(event.get("source_instance_id", "")):
 			return false
+	if family == "on_rally_empty_hand":
+		var oreh_player := MatchTimingHelpers._get_player_state(match_state, str(trigger.get("controller_player_id", "")))
+		for oreh_card in oreh_player.get(ZONE_HAND, []):
+			if typeof(oreh_card) == TYPE_DICTIONARY and str(oreh_card.get("card_type", "")) == "creature":
+				return false
 	if not _matches_trigger_role(match_state, trigger, descriptor, family_spec, event):
 		if family == FAMILY_ITEM_DETACHED:
 			GameLogger.trc("Timing", "item_detach_role_fail", "src:%s,evt_src:%s" % [str(trigger.get("source_instance_id", "")), str(event.get("source_instance_id", ""))])
@@ -950,6 +955,10 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 			return false
 		var rtie_target := MatchTimingHelpers._find_card_anywhere(match_state, rtie_target_id)
 		if rtie_target.is_empty() or str(rtie_target.get("controller_player_id", "")) == str(trigger.get("controller_player_id", "")):
+			return false
+	if bool(descriptor.get("required_target_player_is_opponent", family_spec.get("required_target_player_is_opponent", false))):
+		var rtpo_target_player_id := str(event.get("target_player_id", ""))
+		if rtpo_target_player_id.is_empty() or rtpo_target_player_id == str(trigger.get("controller_player_id", "")):
 			return false
 	if bool(family_spec.get("required_source_has_pilfer_or_drain", false)):
 		var rspd_source := MatchTimingHelpers._find_card_anywhere(match_state, str(event.get("source_instance_id", "")))

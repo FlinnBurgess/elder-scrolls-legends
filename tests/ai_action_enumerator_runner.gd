@@ -20,6 +20,8 @@ func _initialize() -> void:
 	_test_action_immune_status_excludes_target(failures)
 	_test_protect_friendly_from_actions_excludes_targets(failures)
 	_test_creature_2_power_or_less_excludes_high_power_targets(failures)
+	_test_any_creature_harmful_excludes_friendly_targets(failures)
+	_test_any_creature_buff_includes_friendly_targets(failures)
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)
@@ -439,5 +441,93 @@ func _test_creature_2_power_or_less_excludes_high_power_targets(failures: Array)
 	VerificationAssertions.assert_true(
 		small_targeted,
 		"creature_2_power_or_less should still enumerate a 2-power creature as a target.",
+		failures
+	)
+
+
+func _test_any_creature_harmful_excludes_friendly_targets(failures: Array) -> void:
+	# Rapid Shot ("Deal 1 damage; if it survives, draw") is action_target_mode
+	# "any_creature" but every effect on the target is harmful, so AI must not
+	# enumerate friendly creatures as targets.
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 10, "first_player_index": 1})
+	var player := ScenarioFixtures.player(match_state, 0)
+	var opponent := ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	ScenarioFixtures.summon_creature(opponent, match_state, "own_summoner", "shadow", 1, 1)
+	ScenarioFixtures.summon_creature(player, match_state, "enemy_creature", "field", 2, 4)
+	ScenarioFixtures.add_hand_card(opponent, "rapid_shot", {
+		"card_type": "action",
+		"cost": 1,
+		"action_target_mode": "any_creature",
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"effects": [
+				{"op": "deal_damage", "target": "event_target", "amount": 1},
+				{"op": "draw_cards", "target_player": "controller", "count": 1, "require_event_target_alive": true},
+			],
+		}],
+	})
+	var surface := MatchActionEnumerator.enumerate_legal_actions(match_state, oid)
+	var action_plays := _actions_for_kind(surface, "play_action")
+	var enemy_targeted := false
+	for action in action_plays:
+		var params: Dictionary = action.get("parameters", {})
+		var target_id := str(params.get("target_instance_id", ""))
+		VerificationAssertions.assert_true(
+			target_id != oid + "_own_summoner",
+			"Rapid Shot (any_creature, harmful-only) must not enumerate a friendly creature as a target.",
+			failures
+		)
+		if target_id == pid + "_enemy_creature":
+			enemy_targeted = true
+	VerificationAssertions.assert_true(
+		enemy_targeted,
+		"Rapid Shot (any_creature, harmful-only) should still enumerate enemy creatures as targets.",
+		failures
+	)
+
+
+func _test_any_creature_buff_includes_friendly_targets(failures: Array) -> void:
+	# Healing Hands ("Heal a creature, then give it +1/+1") uses any_creature
+	# with beneficial effects on the target. AI should be able to self-target.
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 10, "first_player_index": 1})
+	var player := ScenarioFixtures.player(match_state, 0)
+	var opponent := ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	ScenarioFixtures.summon_creature(opponent, match_state, "own_ally", "shadow", 1, 1)
+	ScenarioFixtures.summon_creature(player, match_state, "enemy_creature", "field", 2, 4)
+	ScenarioFixtures.add_hand_card(opponent, "healing_hands", {
+		"card_type": "action",
+		"cost": 0,
+		"action_target_mode": "any_creature",
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"effects": [
+				{"op": "restore_creature_health", "target": "event_target"},
+				{"op": "modify_stats", "target": "event_target", "power": 1, "health": 1},
+			],
+		}],
+	})
+	var surface := MatchActionEnumerator.enumerate_legal_actions(match_state, oid)
+	var action_plays := _actions_for_kind(surface, "play_action")
+	var friendly_targeted := false
+	var enemy_targeted := false
+	for action in action_plays:
+		var params: Dictionary = action.get("parameters", {})
+		var target_id := str(params.get("target_instance_id", ""))
+		if target_id == oid + "_own_ally":
+			friendly_targeted = true
+		elif target_id == pid + "_enemy_creature":
+			enemy_targeted = true
+	VerificationAssertions.assert_true(
+		friendly_targeted,
+		"Healing Hands (any_creature, has beneficial effects) must enumerate friendly creatures as targets.",
+		failures
+	)
+	VerificationAssertions.assert_true(
+		enemy_targeted,
+		"Healing Hands (any_creature) should also still enumerate enemy creatures as targets.",
 		failures
 	)

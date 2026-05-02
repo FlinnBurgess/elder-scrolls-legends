@@ -49,6 +49,8 @@ func _run_all_tests() -> bool:
 		_test_item_on_attack_trigger_fires_for_host_creature() and
 		_test_slay_discard_matching_from_opponent_deck() and
 		_test_skar_drillmaster_copies_rallied_creature_to_hand() and
+		_test_on_rally_empty_hand_draws_bolvyn_from_deck_when_hand_empty() and
+		_test_on_rally_empty_hand_does_not_fire_with_creature_in_hand() and
 		_test_plot_effects_append_when_plot_active() and
 		_test_baandari_opportunist_copy_has_pilfer() and
 		_test_draw_from_deck_filtered_then_modify_stats_last_drawn() and
@@ -1189,6 +1191,84 @@ func _test_skar_drillmaster_copies_rallied_creature_to_hand() -> bool:
 		_assert(copy_found, "A generated copy card should exist in hand.") and
 		_assert(copy_power_bonus == 1, "Copy should have base stats with only +1 from effect, not inherited bonuses. Got: %d." % copy_power_bonus) and
 		_assert(copy_health_bonus == 1, "Copy should have base stats with only +1 from effect, not inherited bonuses. Got: %d." % copy_health_bonus)
+	)
+
+
+func _test_on_rally_empty_hand_draws_bolvyn_from_deck_when_hand_empty() -> bool:
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	active_player["hand"].clear()
+	active_player["deck"].clear()
+	var rally_attacker := _summon_creature(active_player, match_state, "rally_atk", "field", 2, 2, ["rally"], 0)
+	var bolvyn := _add_deck_card(active_player, "bolvyn_clone", {
+		"card_type": "creature",
+		"power": 3,
+		"health": 3,
+		"keywords": ["rally"],
+		"triggered_abilities": [{"family": "on_rally_empty_hand", "effects": [{"op": "draw_specific_from_deck", "target": "self"}]}],
+	})
+	_target_ready_for_attack(rally_attacker, match_state)
+	_reset_timing_logs(match_state)
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], rally_attacker["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	var bolvyn_id := str(bolvyn["instance_id"])
+	var bolvyn_in_hand := false
+	for card in active_player["hand"]:
+		if str(card.get("instance_id", "")) == bolvyn_id:
+			bolvyn_in_hand = true
+			break
+	var bolvyn_in_deck := false
+	for card in active_player["deck"]:
+		if str(card.get("instance_id", "")) == bolvyn_id:
+			bolvyn_in_deck = true
+			break
+	return (
+		_assert(result["is_valid"], "Rally attack should resolve.") and
+		_assert(bolvyn_in_hand, "on_rally_empty_hand must draw Bolvyn-style cards from deck when hand has no creatures.") and
+		_assert(not bolvyn_in_deck, "Bolvyn should be removed from deck after being drawn.") and
+		_assert(int(bolvyn.get("power_bonus", 0)) == 1 and int(bolvyn.get("health_bonus", 0)) == 1, "Drawn Bolvyn should be the rally target since it was the only creature in hand.")
+	)
+
+
+func _test_on_rally_empty_hand_does_not_fire_with_creature_in_hand() -> bool:
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	active_player["hand"].clear()
+	active_player["deck"].clear()
+	var rally_attacker := _summon_creature(active_player, match_state, "rally_atk", "field", 2, 2, ["rally"], 0)
+	_add_hand_card(active_player, "rally_target_creature", {"card_type": "creature", "power": 2, "health": 2})
+	var bolvyn := _add_deck_card(active_player, "bolvyn_clone", {
+		"card_type": "creature",
+		"power": 3,
+		"health": 3,
+		"keywords": ["rally"],
+		"triggered_abilities": [{"family": "on_rally_empty_hand", "effects": [{"op": "draw_specific_from_deck", "target": "self"}]}],
+	})
+	_target_ready_for_attack(rally_attacker, match_state)
+	_reset_timing_logs(match_state)
+	var result := MatchCombat.resolve_attack(match_state, active_player["player_id"], rally_attacker["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	var bolvyn_id := str(bolvyn["instance_id"])
+	var bolvyn_in_hand := false
+	for card in active_player["hand"]:
+		if str(card.get("instance_id", "")) == bolvyn_id:
+			bolvyn_in_hand = true
+			break
+	var bolvyn_in_deck := false
+	for card in active_player["deck"]:
+		if str(card.get("instance_id", "")) == bolvyn_id:
+			bolvyn_in_deck = true
+			break
+	return (
+		_assert(result["is_valid"], "Rally attack should resolve.") and
+		_assert(not bolvyn_in_hand, "on_rally_empty_hand must not fire while a creature is in hand — Bolvyn should not be drawn.") and
+		_assert(bolvyn_in_deck, "Bolvyn should remain in deck.")
 	)
 
 

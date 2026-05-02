@@ -102,6 +102,7 @@ func _run_all_tests() -> bool:
 		_test_required_friendly_attribute_count_neutral() and
 		_test_required_friendly_attribute_count_not_met_blocks_target() and
 		_test_required_friendly_creature_min_power_blocks_target_summon() and
+		_test_required_creature_in_each_lane_blocks_target_summon() and
 		_test_summon_from_hand_to_full_lane_auto_summons() and
 		_test_consume_and_reduce_matching_subtype_cost() and
 		_test_adoring_fan_death_sets_return_timer() and
@@ -156,6 +157,7 @@ func _run_all_tests() -> bool:
 		_test_equip_random_item_fires_on_play_effects() and
 		_test_unicorn_aura_only_grants_charge_to_lower_power() and
 		_test_heretic_conjurer_pilfer_transforms_summoned_to_daedra() and
+		_test_pilfer_does_not_trigger_on_self_damage() and
 		_test_heretic_conjurer_transform_clears_gate_restrictions() and
 		_test_equip_from_effect_does_not_trigger_expertise() and
 		_test_shackle_immune_clears_existing_shackle() and
@@ -195,7 +197,8 @@ func _run_all_tests() -> bool:
 		_test_marauder_chieftain_gains_power_when_it_buffs_an_ally() and
 		_test_marauder_chieftain_gains_power_when_item_buffs_ally() and
 		_test_marauder_chieftain_gains_power_when_aura_buffs_ally() and
-		_test_set_health_clears_existing_damage()
+		_test_set_health_clears_existing_damage() and
+		_test_swap_stats_uses_current_health_not_max()
 	)
 
 
@@ -3963,6 +3966,42 @@ func _test_required_friendly_creature_min_power_blocks_target_summon() -> bool:
 	return _assert(EvergreenRules.get_health(enemy) == enemy_starting_health, "Ash Piercer: enemy should be unharmed (%d/%d), got %d." % [enemy_starting_health, enemy_starting_health, EvergreenRules.get_health(enemy)])
 
 
+func _test_required_creature_in_each_lane_blocks_target_summon() -> bool:
+	# Bruma Oppressor: "Summon: If you have another creature in each lane, set a creature's power to 1."
+	# Regression for AI/auto-resolve path firing the trigger when only one lane has a friendly.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	# Friendly creature only in shadow — field stays empty, so the gate should NOT be met.
+	ScenarioFixtures.summon_creature(player, match_state, "shadow_only_friendly", "shadow", 3, 3, [])
+	# Enemy creature serves as the candidate target
+	var enemy := ScenarioFixtures.summon_creature(opponent, match_state, "enemy_target", "field", 4, 4, [])
+	var enemy_starting_power := EvergreenRules.get_power(enemy)
+	var oppressor := ScenarioFixtures.add_hand_card(player, "bruma_oppressor_test", {
+		"card_type": "creature", "cost": 4, "power": 3, "health": 3,
+		"triggered_abilities": [{
+			"family": "summon",
+			"target_mode": "any_creature",
+			"required_creature_in_each_lane": true,
+			"effects": [{"op": "set_power", "target": "chosen_target", "amount": 1}],
+		}],
+	})
+	# get_all_valid_targets should be empty when the gate isn't satisfied
+	var sim_state := match_state.duplicate(true)
+	LaneRules.summon_from_hand(sim_state, pid, str(oppressor.get("instance_id", "")), "shadow")
+	var valid_targets := MatchTargeting.get_all_valid_targets(sim_state, str(oppressor.get("instance_id", "")))
+	if not _assert(valid_targets.is_empty(), "Bruma Oppressor: no valid targets should be offered without a friendly in each lane, got %d." % valid_targets.size()):
+		return false
+	# resolve_targeted_effect (the AI's path) must reject the attempt
+	LaneRules.summon_from_hand(match_state, pid, str(oppressor.get("instance_id", "")), "shadow")
+	var resolve_result := MatchTiming.resolve_targeted_effect(match_state, str(oppressor.get("instance_id", "")), {"target_instance_id": str(enemy.get("instance_id", ""))}, {"allowed_families": ["summon"]})
+	if not _assert(not bool(resolve_result.get("is_valid", false)), "Bruma Oppressor: resolve_targeted_effect should reject without a friendly in each lane."):
+		return false
+	# Enemy power must not have been overwritten to 1
+	return _assert(EvergreenRules.get_power(enemy) == enemy_starting_power, "Bruma Oppressor: enemy power should be unchanged (%d), got %d." % [enemy_starting_power, EvergreenRules.get_power(enemy)])
+
+
 func _test_summon_from_hand_to_full_lane_auto_summons() -> bool:
 	# Opponent goes first so we can end their turn to trigger the ability
 	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 10, "first_player_index": 1})
@@ -5960,6 +5999,40 @@ func _test_heretic_conjurer_pilfer_transforms_summoned_to_daedra() -> bool:
 	)
 
 
+func _test_pilfer_does_not_trigger_on_self_damage() -> bool:
+	# Repro: Afflicted Alit (deals damage to both faces on summon) gains pilfer
+	# from Thieves' Den. Pilfer should fire only on damage to the opponent's
+	# face, not when the creature damages its own controller's face.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var opp_id := str(opponent.get("player_id", ""))
+	# Pilfer: +1/+1
+	var alit := ScenarioFixtures.summon_creature(player, match_state, "afflicted_alit", "field", 3, 1, [], -1, {
+		"cost": 2,
+		"triggered_abilities": [{"family": "pilfer", "required_zone": "lane", "effects": [{"op": "modify_stats", "target": "self", "power": 1, "health": 1}]}],
+	})
+	var alit_id := str(alit.get("instance_id", ""))
+	var make_dmg := func(target_player_id: String) -> Dictionary:
+		return {
+			"event_type": "damage_resolved",
+			"damage_kind": "ability",
+			"source_instance_id": alit_id,
+			"source_controller_player_id": pid,
+			"target_type": "player",
+			"target_player_id": target_player_id,
+			"amount": 2,
+		}
+	# Damage controller's own face — pilfer should NOT trigger.
+	MatchTiming.publish_events(match_state, [make_dmg.call(pid)])
+	if not _assert(EvergreenRules.get_power(alit) == 3 and EvergreenRules.get_health(alit) == 1, "Pilfer must not fire on damage to own face (got %d/%d)." % [EvergreenRules.get_power(alit), EvergreenRules.get_health(alit)]):
+		return false
+	# Damage opponent's face — pilfer SHOULD trigger.
+	MatchTiming.publish_events(match_state, [make_dmg.call(opp_id)])
+	return _assert(EvergreenRules.get_power(alit) == 4 and EvergreenRules.get_health(alit) == 2, "Pilfer should fire on damage to opponent's face (got %d/%d)." % [EvergreenRules.get_power(alit), EvergreenRules.get_health(alit)])
+
+
 func _test_heretic_conjurer_transform_clears_gate_restrictions() -> bool:
 	# When Heretic Conjurer's pilfer chains through invade (summoned Daedra has invade summon),
 	# the Oblivion Gate also gets transformed. The gate's cannot_attack and grants_immunity
@@ -7378,3 +7451,40 @@ func _test_set_health_clears_existing_damage() -> bool:
 	if not _assert(EvergreenRules.get_remaining_health(true_1_1) == 1, "1/1: expect 1 HP, got %d." % EvergreenRules.get_remaining_health(true_1_1)):
 		return false
 	return _assert(not (true_1_1.get("status_markers", []) as Array).has("wounded"), "1/1: set_health(1) should not wound a creature already at max.")
+
+
+func _test_swap_stats_uses_current_health_not_max() -> bool:
+	# Hatchery Meddler swaps a creature's power and current (visible) health.
+	# A 5/10 creature already at 5 damage shows as 5/5 — swapping should leave
+	# it at 5/5, not kill it by swapping max stats (which would drop max health
+	# to 5 while 5 damage_marked persisted).
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var wounded_dragon := ScenarioFixtures.summon_creature(opponent, match_state, "wounded_dragon", "field", 5, 10, [], -1, {"damage_marked": 5})
+	wounded_dragon["status_markers"] = ["wounded"]
+	var healthy_3_5 := ScenarioFixtures.summon_creature(opponent, match_state, "healthy_3_5", "field", 3, 5)
+	var apply_swap := func(target: Dictionary) -> void:
+		var trigger := {
+			"source_instance_id": "meddler_test",
+			"controller_player_id": pid,
+			"_chosen_target_id": str(target.get("instance_id", "")),
+			"descriptor": {"family": "summon", "effects": []},
+		}
+		var effect := {"op": "swap_stats", "target": "chosen_target"}
+		var generated: Array = []
+		EffectStats.apply("swap_stats", match_state, trigger, {}, effect, generated, {"descriptor": trigger["descriptor"], "reason": "summon"})
+	apply_swap.call(wounded_dragon)
+	apply_swap.call(healthy_3_5)
+	# Wounded 5 power / 5 remaining → swap → still 5/5, must not be destroyed.
+	if not _assert(EvergreenRules.get_power(wounded_dragon) == 5, "wounded dragon: expect power 5 after swap, got %d." % EvergreenRules.get_power(wounded_dragon)):
+		return false
+	if not _assert(EvergreenRules.get_remaining_health(wounded_dragon) == 5, "wounded dragon: expect 5 remaining HP after swap, got %d." % EvergreenRules.get_remaining_health(wounded_dragon)):
+		return false
+	if not _assert(int(wounded_dragon.get("damage_marked", 0)) == 0, "wounded dragon: damage_marked should be cleared by swap, got %d." % int(wounded_dragon.get("damage_marked", 0))):
+		return false
+	# Healthy 3/5 → swap → 5/3.
+	if not _assert(EvergreenRules.get_power(healthy_3_5) == 5, "3/5: expect power 5 after swap, got %d." % EvergreenRules.get_power(healthy_3_5)):
+		return false
+	return _assert(EvergreenRules.get_remaining_health(healthy_3_5) == 3, "3/5: expect 3 HP after swap, got %d." % EvergreenRules.get_remaining_health(healthy_3_5))

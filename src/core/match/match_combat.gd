@@ -719,41 +719,31 @@ static func _resolve_rally_empty_hand_draws(match_state: Dictionary, attacker: D
 			break
 	if has_creature_in_hand:
 		return []
-	# Scan board for creatures with on_rally_empty_hand triggered ability
-	var draw_definition_ids: Array = []
-	for lane in match_state.get("lanes", []):
-		var slots: Array = lane.get("player_slots", {}).get(controller_player_id, [])
-		for card in slots:
-			if typeof(card) != TYPE_DICTIONARY:
-				continue
-			for ability in card.get("triggered_abilities", []):
-				if typeof(ability) != TYPE_DICTIONARY:
-					continue
-				if str(ability.get("family", "")) == "on_rally_empty_hand":
-					var def_id := str(card.get("definition_id", ""))
-					if not def_id.is_empty() and not draw_definition_ids.has(def_id):
-						draw_definition_ids.append(def_id)
-	if draw_definition_ids.is_empty():
-		return []
-	# Draw all matching cards from deck to hand
+	# Scan deck for cards whose on_rally_empty_hand ability draws them from deck.
 	var events: Array = []
 	var deck: Array = player.get("deck", [])
 	var i := deck.size() - 1
 	while i >= 0:
 		var card: Dictionary = deck[i]
-		if typeof(card) == TYPE_DICTIONARY and draw_definition_ids.has(str(card.get("definition_id", ""))):
-			deck.remove_at(i)
-			card["zone"] = "hand"
-			hand.append(card)
-			MatchMutations.apply_first_turn_hand_cost(match_state, card, controller_player_id)
-			events.append({
-				"event_type": "card_drawn",
-				"player_id": controller_player_id,
-				"instance_id": str(card.get("instance_id", "")),
-				"definition_id": str(card.get("definition_id", "")),
-				"draw_reason": "rally_empty_hand",
-				"source_zone": "deck",
-			})
+		if typeof(card) == TYPE_DICTIONARY:
+			var has_trigger := false
+			for ability in card.get("triggered_abilities", []):
+				if typeof(ability) == TYPE_DICTIONARY and str(ability.get("family", "")) == "on_rally_empty_hand":
+					has_trigger = true
+					break
+			if has_trigger:
+				deck.remove_at(i)
+				card["zone"] = "hand"
+				hand.append(card)
+				MatchMutations.apply_first_turn_hand_cost(match_state, card, controller_player_id)
+				events.append({
+					"event_type": "card_drawn",
+					"player_id": controller_player_id,
+					"drawn_instance_id": str(card.get("instance_id", "")),
+					"definition_id": str(card.get("definition_id", "")),
+					"draw_reason": "rally_empty_hand",
+					"source_zone": "deck",
+				})
 		i -= 1
 	return events
 

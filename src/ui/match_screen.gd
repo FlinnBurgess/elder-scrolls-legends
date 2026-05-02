@@ -112,6 +112,7 @@ var _betray: RefCounted  # MatchScreenBetray
 var _targeting: RefCounted  # MatchScreenTargeting
 var _history: RefCounted  # MatchScreenHistory
 var _match_state: Dictionary = {}
+var _ai_memory_recorded := false
 var _selected_instance_id := ""
 var _pending_free_play_detach_id := ""
 var _selected_pile_player_id := ""
