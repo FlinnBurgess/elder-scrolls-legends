@@ -821,6 +821,12 @@ static func _matches_conditions(match_state: Dictionary, trigger: Dictionary, de
 			var event_source_id := str(event.get("source_instance_id", event.get("subject_instance_id", "")))
 			if event_source_id == trigger_source_id:
 				return false
+	# Prevent reaction chains where two creatures with the same family trigger
+	# (e.g. two Marauder Chieftains' on_friendly_power_gain) buff each other recursively.
+	# When the event was caused by a trigger of the same family, suppress.
+	var ecbf := str(descriptor.get("exclude_event_caused_by_family", family_spec.get("exclude_event_caused_by_family", "")))
+	if not ecbf.is_empty() and str(event.get("caused_by_family", "")) == ecbf:
+		return false
 	# exclude_self_caused: skip when the event was emitted by this trigger's own source card
 	# ("with another effect" semantics — used for cards like Shearpoint Dragon to keep their
 	# stat-modification effects from chain-triggering themselves).

@@ -127,6 +127,7 @@ static func apply_mulligan(match_state: Dictionary, player_id: String, discard_i
 		var rng := _build_mulligan_rng(match_state, player, discarded_cards)
 		_shuffle_array(player["deck"], rng)
 	player["hand"] = kept_cards
+	_split_doubles_in_hand(match_state, player)
 	player["mulligan_complete"] = true
 	player["mulligan_discarded_instance_ids"] = discard_instance_ids.duplicate()
 
@@ -138,6 +139,36 @@ static func apply_mulligan(match_state: Dictionary, player_id: String, discard_i
 		match_state["phase"] = "ready_for_first_turn"
 
 	return match_state
+
+
+static func _split_doubles_in_hand(match_state: Dictionary, player: Dictionary) -> void:
+	# Doubles can sit in the opening hand through the mulligan UI as a single
+	# combined card (so the player can choose to keep or discard the pair as a
+	# unit). On mulligan completion any kept double must split into its halves —
+	# during normal gameplay the split happens at draw time, but mulligan-kept
+	# cards never went through draw_cards.
+	var player_id := str(player.get("player_id", ""))
+	var hand: Array = player.get("hand", [])
+	var index := 0
+	while index < hand.size():
+		var card: Dictionary = hand[index]
+		if str(card.get("card_type", "")) != "double":
+			index += 1
+			continue
+		hand.remove_at(index)
+		GameLogger.trc("Bootstrap", "split_double_mulligan", "p:%s,inst:%s" % [player_id, str(card.get("instance_id", ""))])
+		var halves: Array = MatchMutations.split_double_to_hand(match_state, player_id, card)
+		# split_double_to_hand appended halves to the end of hand; move them to
+		# where the combined card was so hand ordering is preserved.
+		var moved: Array = []
+		for _i in range(halves.size()):
+			if hand.is_empty():
+				break
+			moved.append(hand.pop_back())
+		moved.reverse()
+		for half in moved:
+			hand.insert(index, half)
+			index += 1
 
 
 static func _build_player_state(player_id: String, deck_definition_ids: Array, receives_ring: bool, rng: RandomNumberGenerator) -> Dictionary:

@@ -117,6 +117,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					"power_bonus": total_power,
 					"health_bonus": total_health,
 					"reason": reason,
+					"caused_by_family": str(descriptor.get("family", "")),
 				})
 		"set_stats":
 			var set_power_val: Variant = effect.get("power", null)

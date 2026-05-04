@@ -564,7 +564,7 @@ static func get_effective_play_cost(match_state: Dictionary, player_id: String, 
 			var empower_total := int(player.get("empower_count_this_turn", 0)) + int(card.get("_permanent_empower_bonus", 0))
 			reduction += empower_total * per_amount
 		elif per_source == "per_action_played_this_turn":
-			reduction += int(player.get("noncreature_plays_this_turn", 0)) * per_amount
+			reduction += int(player.get("actions_played_this_turn", 0)) * per_amount
 		elif per_source == "per_friendly_wounded":
 			for lane in match_state.get("lanes", []):
 				for c in lane.get("player_slots", {}).get(player_id, []):

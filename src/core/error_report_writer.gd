@@ -189,7 +189,8 @@ static func _build_player_snapshot(player: Dictionary) -> Dictionary:
 	var turn_state := {}
 	var _ts_keys := [
 		"cards_played_this_turn", "creature_summons_this_turn",
-		"noncreature_plays_this_turn", "creatures_died_this_turn",
+		"noncreature_plays_this_turn", "actions_played_this_turn",
+		"creatures_died_this_turn",
 		"pilfer_or_drain_count_this_turn", "invades_this_turn",
 	]
 	for key in _ts_keys:

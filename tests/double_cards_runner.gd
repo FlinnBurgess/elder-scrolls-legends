@@ -28,7 +28,9 @@ func _run_all_tests() -> bool:
 		_test_halves_have_distinct_instance_ids_and_split_origin_pointer() and
 		_test_milling_a_double_splits_both_halves_into_discard() and
 		_test_tutor_either_mode_matches_double_when_half_matches() and
-		_test_tutor_picking_double_splits_into_hand()
+		_test_tutor_picking_double_splits_into_hand() and
+		_test_kept_double_in_mulligan_splits_into_halves() and
+		_test_drawn_double_during_mulligan_splits_into_halves()
 	)
 
 
@@ -384,6 +386,94 @@ func _test_tutor_picking_double_splits_into_hand() -> bool:
 	# Resolve picking the combined card
 	MatchTiming.resolve_pending_deck_selection(match_state, pid, combined_iid)
 	if not _assert(player["hand"].size() == hand_size_before + 2, "Hand should grow by 2 after split; got %d" % (player["hand"].size() - hand_size_before)):
+		return false
+	return true
+
+
+func _bootstrap_pre_mulligan_match() -> Dictionary:
+	# Bootstrap returns a match in the "mulligan" phase. Hydrate cards so card_type
+	# is populated, but do NOT call MatchScreen helpers that advance phases.
+	var match_state := MatchBootstrap.create_standard_match([
+		_build_filler_deck("alpha", 20),
+		_build_filler_deck("beta", 20),
+	], {"seed": 17, "first_player_index": 0})
+	if match_state.is_empty():
+		return {}
+	var catalog := CardCatalog.load_default()
+	MatchScreen._hydrate_match_cards(match_state, catalog.get("card_by_id", {}))
+	return match_state
+
+
+func _replace_hand_card_with_double(match_state: Dictionary, player_index: int, hand_index: int, combined_definition_id: String) -> Dictionary:
+	var player: Dictionary = match_state["players"][player_index]
+	var hand: Array = player["hand"]
+	var card: Dictionary = hand[hand_index]
+	for key in ["name", "card_type", "cost", "_base_cost", "power", "health", "rules_text", "subtypes", "attributes", "keywords", "rules_tags", "triggered_abilities", "half_card_ids", "random_generation_eligible"]:
+		if card.has(key):
+			card.erase(key)
+	card["definition_id"] = combined_definition_id
+	var catalog := CardCatalog.load_default()
+	MatchScreen._hydrate_card(card, catalog.get("card_by_id", {}))
+	return card
+
+
+func _test_kept_double_in_mulligan_splits_into_halves() -> bool:
+	var match_state := _bootstrap_pre_mulligan_match()
+	if not _assert(not match_state.is_empty(), "Match should bootstrap"):
+		return false
+	# Replace one opening-hand card with a double; mulligan with no discards (keep all).
+	var double_card := _replace_hand_card_with_double(match_state, 0, 0, "iom_double_manic_jack_and_mutation")
+	var combined_iid := str(double_card.get("instance_id", ""))
+	var pid := str(match_state["players"][0].get("player_id", ""))
+	MatchBootstrap.apply_mulligan(match_state, pid, [])
+	var player: Dictionary = match_state["players"][0]
+	var hand: Array = player["hand"]
+	# Hand should still be 3 cards: 2 halves + 2 untouched - 1 combined removed = 4? No:
+	# original hand size 3, removed 1 combined, added 2 halves = 4.
+	if not _assert(hand.size() == 4, "Hand should grow to 4 (3 - 1 combined + 2 halves); got %d" % hand.size()):
+		return false
+	var has_combined := false
+	var halves_present: Array = []
+	for c in hand:
+		if str(c.get("instance_id", "")) == combined_iid:
+			has_combined = true
+		if str(c.get("spawned_from_double", "")) == combined_iid:
+			halves_present.append(str(c.get("name", "")))
+	if not _assert(not has_combined, "Combined double should no longer be in hand"):
+		return false
+	halves_present.sort()
+	if not _assert(halves_present == ["Manic Jack", "Manic Mutation"], "Hand should contain both halves; got %s" % str(halves_present)):
+		return false
+	# Combined should be archived
+	var archive: Array = player.get("double_archive", [])
+	if not _assert(archive.size() == 1, "Combined should be archived; got %d entries" % archive.size()):
+		return false
+	if not _assert(str(archive[0].get("instance_id", "")) == combined_iid, "Archive should hold the combined instance"):
+		return false
+	return true
+
+
+func _test_drawn_double_during_mulligan_splits_into_halves() -> bool:
+	# Mulligan a non-double card; ensure the drawn replacement, if a double, splits.
+	var match_state := _bootstrap_pre_mulligan_match()
+	if not _assert(not match_state.is_empty(), "Match should bootstrap"):
+		return false
+	var pid := str(match_state["players"][0].get("player_id", ""))
+	# Force the top of deck (next draw) to be a double.
+	_force_top_of_deck(match_state, 0, "iom_double_spawn_mother_and_baliwog")
+	var player: Dictionary = match_state["players"][0]
+	var discard_iid := str(player["hand"][0].get("instance_id", ""))
+	MatchBootstrap.apply_mulligan(match_state, pid, [discard_iid])
+	var hand: Array = player["hand"]
+	# Discarded 1, drew 1 (which was a double and split into 2). Net: 3 - 1 + 2 = 4.
+	if not _assert(hand.size() == 4, "Hand should be 4 (3 - 1 discard + 2 halves of replacement double); got %d" % hand.size()):
+		return false
+	var halves_present: Array = []
+	for c in hand:
+		if c.has("spawned_from_double"):
+			halves_present.append(str(c.get("name", "")))
+	halves_present.sort()
+	if not _assert(halves_present == ["Baliwog", "Spawn Mother"], "Drawn double should split; got %s" % str(halves_present)):
 		return false
 	return true
 

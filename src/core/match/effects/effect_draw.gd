@@ -287,7 +287,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 							dfdf_deck.remove_at(pick_idx)
 							if str(drawn.get("card_type", "")) == "double":
 								# Tutor selected a combined card — split into halves on entry to hand.
-								MatchTiming._split_double_to_zone(match_state, player_id, drawn, ZONE_HAND)
+								MatchMutations.split_double_to_zone(match_state, player_id, drawn, ZONE_HAND)
 							else:
 								drawn["zone"] = ZONE_HAND
 								dfdf_hand.append(drawn)

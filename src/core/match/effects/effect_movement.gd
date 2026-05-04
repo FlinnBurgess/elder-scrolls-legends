@@ -671,7 +671,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					if str(milled_card.get("card_type", "")) == "double":
 						# Double card: split into both halves, route to discard. Archive
 						# the combined instance and surface a single card_milled event.
-						var milled_halves := MatchTiming._split_double_to_zone(match_state, player_id, milled_card, ZONE_DISCARD)
+						var milled_halves: Array = MatchMutations.split_double_to_zone(match_state, player_id, milled_card, ZONE_DISCARD)
 						for milled_half in milled_halves:
 							milled_half["entered_discard_on_turn"] = int(match_state.get("turn_number", 0))
 						generated_events.append({

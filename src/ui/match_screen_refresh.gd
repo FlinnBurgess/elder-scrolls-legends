@@ -4,6 +4,7 @@ extends RefCounted
 const AIDeckMemory = preload("res://src/ai/ai_deck_memory.gd")
 const AIObservationTracker = preload("res://src/ai/ai_observation_tracker.gd")
 const DeckPersistence = preload("res://src/deck/deck_persistence.gd")
+const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 
 var _screen  # MatchScreen reference
 
@@ -129,8 +130,8 @@ func _compute_lane_row_hash(lane_id: String, player_id: String, slots: Array) ->
 		var attached = card.get("attached_items", [])
 		card_digests.append({
 			"iid": str(card.get("instance_id", "")),
-			"power": int(card.get("power", 0)),
-			"health": int(card.get("health", 0)),
+			"power": EvergreenRules.get_power(card),
+			"health": EvergreenRules.get_health(card),
 			"damage": int(card.get("damage_marked", 0)),
 			"statuses": statuses_str,
 			"attacked": bool(card.get("has_attacked_this_turn", false)),
@@ -160,7 +161,7 @@ func _compute_hand_section_hash(player_id: String, player: Dictionary, hand_publ
 			continue
 		if iid in _screen._draw_animating_ids:
 			continue
-		hand_iids.append("%s:%d:%d" % [iid, int(card.get("cost", 0)), int(card.get("_permanent_empower_bonus", 0))])
+		hand_iids.append("%s:%d:%d:%d:%d:%d" % [iid, int(card.get("cost", 0)), int(card.get("_permanent_empower_bonus", 0)), EvergreenRules.get_power(card), EvergreenRules.get_health(card), int(card.get("damage_marked", 0))])
 	return {
 		"iids": hand_iids,
 		"selected": _screen._selected_instance_id,

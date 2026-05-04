@@ -7,6 +7,7 @@ const GameLogger = preload("res://src/core/match/game_logger.gd")
 
 const CARD_TYPE_CREATURE := "creature"
 const CARD_TYPE_ITEM := "item"
+const CARD_TYPE_DOUBLE := "double"
 const ZONE_HAND := "hand"
 const ZONE_SUPPORT := "support"
 const ZONE_DECK := "deck"
@@ -15,6 +16,7 @@ const ZONE_ATTACHED_ITEM := "attached_item"
 const ZONE_DISCARD := "discard"
 const ZONE_BANISHED := "banished"
 const ZONE_GENERATED := "generated"
+const ZONE_DOUBLE_ARCHIVE := "double_archive"
 const PLAYING_CARD_ID := "fom_neu_playing_card"
 const PLAYER_ZONE_ORDER := [ZONE_HAND, ZONE_SUPPORT, ZONE_DISCARD, ZONE_BANISHED, ZONE_DECK]
 const IDENTITY_FIELDS := [
@@ -938,6 +940,64 @@ static func restore_definition_state(card: Dictionary) -> void:
 			elif card.has("aura"):
 				card.erase("aura")
 			break
+
+
+static func split_double_to_hand(match_state: Dictionary, player_id: String, combined_card: Dictionary) -> Array:
+	return split_double_to_zone(match_state, player_id, combined_card, ZONE_HAND)
+
+
+static func split_double_to_zone(match_state: Dictionary, player_id: String, combined_card: Dictionary, target_zone: String) -> Array:
+	# Splits a combined "double" card into its two halves, archives the combined
+	# instance to ZONE_DOUBLE_ARCHIVE for replay/inspect lookup, and appends both
+	# halves to the chosen target_zone. Buffs on the combined card propagate to
+	# both halves.
+	var halves: Array = []
+	var player := {}
+	for p in match_state.get("players", []):
+		if str(p.get("player_id", "")) == player_id:
+			player = p
+			break
+	if player.is_empty():
+		return halves
+	if not player.has(target_zone) or typeof(player.get(target_zone)) != TYPE_ARRAY:
+		player[target_zone] = []
+	var destination: Array = player[target_zone]
+	if not player.has(ZONE_DOUBLE_ARCHIVE) or typeof(player.get(ZONE_DOUBLE_ARCHIVE)) != TYPE_ARRAY:
+		player[ZONE_DOUBLE_ARCHIVE] = []
+	var archive: Array = player[ZONE_DOUBLE_ARCHIVE]
+
+	var combined_instance_id := str(combined_card.get("instance_id", ""))
+	var combined_base_cost := int(combined_card.get("_base_cost", combined_card.get("cost", 0)))
+	var combined_current_cost := int(combined_card.get("cost", combined_base_cost))
+	var combined_cost_delta := combined_current_cost - combined_base_cost
+	var combined_power_bonus := int(combined_card.get("power_bonus", 0))
+	var combined_health_bonus := int(combined_card.get("health_bonus", 0))
+
+	var archived := combined_card.duplicate(true)
+	archived["zone"] = ZONE_DOUBLE_ARCHIVE
+	archive.append(archived)
+
+	var half_ids: Array = combined_card.get("half_card_ids", [])
+	for index in range(half_ids.size()):
+		var hid := str(half_ids[index])
+		var half_card: Dictionary = build_generated_card(match_state, player_id, {"definition_id": hid})
+		half_card.erase("_not_in_starting_deck")
+		half_card["instance_id"] = "%s_h%d" % [combined_instance_id, index]
+		half_card["zone"] = target_zone
+		half_card["spawned_from_double"] = combined_instance_id
+		if combined_cost_delta != 0:
+			var new_cost := int(half_card.get("cost", 0)) + combined_cost_delta
+			if new_cost < 0:
+				new_cost = 0
+			half_card["cost"] = new_cost
+		if combined_power_bonus != 0:
+			half_card["power_bonus"] = int(half_card.get("power_bonus", 0)) + combined_power_bonus
+		if combined_health_bonus != 0:
+			half_card["health_bonus"] = int(half_card.get("health_bonus", 0)) + combined_health_bonus
+		EvergreenRules.sync_derived_state(half_card)
+		destination.append(half_card)
+		halves.append(half_card)
+	return halves
 
 
 static func apply_first_turn_hand_cost(match_state: Dictionary, card: Dictionary, player_id: String) -> void:

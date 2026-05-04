@@ -35,6 +35,10 @@ func _run_all_tests(screen: MatchScreen) -> bool:
 		return false
 	if not _test_hand_hash_includes_selection_state(screen):
 		return false
+	if not _test_lane_row_hash_changes_when_stat_bonus_applied(screen):
+		return false
+	if not _test_hand_section_hash_changes_when_stat_bonus_applied(screen):
+		return false
 	if not _test_player_surface_presentation(screen):
 		return false
 	if not _test_card_frame_presentation(screen):
@@ -85,6 +89,54 @@ func _test_hand_hash_includes_selection_state(screen: MatchScreen) -> bool:
 	var hash_active = screen._refresh._compute_hand_section_hash(player_id, player, hand_public)
 	screen._overlays._hand_selection_state = {}
 	return _assert(hash_empty != hash_active, "Hand section hash must differ when entering hand-selection mode so the hand row rebuilds.")
+
+
+func _test_lane_row_hash_changes_when_stat_bonus_applied(screen: MatchScreen) -> bool:
+	if not _assert(screen.load_scenario("local_match"), "Local match scenario should load for lane-hash verification."):
+		return false
+	var match_state = screen.get_match_state()
+	var lane_card := _find_lane_card(match_state, "Vanguard Captain")
+	if not _assert(not lane_card.is_empty(), "local_match scenario should contain the Vanguard Captain lane card."):
+		return false
+	var lane_id := ""
+	for lane in match_state.get("lanes", []):
+		if _contains_card(lane.get("player_slots", {}).get("player_1", []), lane_card):
+			lane_id = str(lane.get("lane_id", ""))
+			break
+	var slots: Array = []
+	for lane in match_state.get("lanes", []):
+		if str(lane.get("lane_id", "")) == lane_id:
+			slots = lane.get("player_slots", {}).get("player_1", [])
+			break
+	var hash_before = screen._refresh._compute_lane_row_hash(lane_id, "player_1", slots)
+	lane_card["power_bonus"] = int(lane_card.get("power_bonus", 0)) + 1
+	lane_card["health_bonus"] = int(lane_card.get("health_bonus", 0)) + 1
+	var hash_after = screen._refresh._compute_lane_row_hash(lane_id, "player_1", slots)
+	return _assert(hash_before != hash_after, "Lane row hash must change when a creature gains a stat bonus so the lane rebuilds and shows the new stats.")
+
+
+func _test_hand_section_hash_changes_when_stat_bonus_applied(screen: MatchScreen) -> bool:
+	if not _assert(screen.load_scenario("local_match"), "Local match scenario should load for hand-hash stat-bonus verification."):
+		return false
+	var player_id := "player_1"
+	var player = _player_state(screen.get_match_state(), player_id)
+	var hand: Array = player.get("hand", [])
+	if not _assert(not hand.is_empty(), "Local match scenario should leave at least one card in the player's hand."):
+		return false
+	var hand_card: Dictionary = hand[0]
+	var hand_public := screen._is_hand_public(player_id)
+	var hash_before = screen._refresh._compute_hand_section_hash(player_id, player, hand_public)
+	hand_card["power_bonus"] = int(hand_card.get("power_bonus", 0)) + 1
+	hand_card["health_bonus"] = int(hand_card.get("health_bonus", 0)) + 1
+	var hash_after = screen._refresh._compute_hand_section_hash(player_id, player, hand_public)
+	return _assert(hash_before != hash_after, "Hand section hash must change when a hand card gains a stat bonus.")
+
+
+func _contains_card(slots: Array, card: Dictionary) -> bool:
+	for c in slots:
+		if typeof(c) == TYPE_DICTIONARY and str(c.get("instance_id", "")) == str(card.get("instance_id", "")):
+			return true
+	return false
 
 
 func _test_layout_hierarchy(screen: MatchScreen) -> bool:
@@ -572,7 +624,7 @@ func _test_target_highlighting(screen: MatchScreen) -> bool:
 		_assert(item_select_ok, "Selecting the sandbox item should succeed.") and
 		_assert(item_state.get("selection_mode", "") == "item", "Item selection should enter item targeting mode.") and
 		_assert(item_state.get("valid_target_instance_ids", []).has(str(vanguard.get("instance_id", ""))), "Item selection should highlight the valid friendly equip target.") and
-		_assert(item_state.get("valid_target_instance_ids", []).has(str(bone_guard.get("instance_id", ""))), "Item highlights should follow current engine legality, including sandbox enemy targets when legal.") and
+		_assert(not item_state.get("valid_target_instance_ids", []).has(str(bone_guard.get("instance_id", ""))), "Standard equip items should not highlight enemy creatures — items only equip to friendly creatures.") and
 		_assert(invalid_item_slot == null or invalid_item_state.get("invalid_lane_slot_keys", []).has("field:player_1:1"), "Invalid non-creature item drops should be surfaced for feedback.") and
 		_assert(invalid_item_slot == null or invalid_item_message.contains("Select a creature"), "Invalid item drop feedback should explain that a creature target is required.") and
 		_assert(attacker_select_ok, "Selecting the sandbox attacker through the visible board-card button should succeed.") and

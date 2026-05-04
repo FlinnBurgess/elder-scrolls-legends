@@ -48,6 +48,7 @@ func _run_all_tests() -> bool:
 		_test_empower_and_expertise_hooks() and
 		_test_empower_deal_damage() and
 		_test_empower_cost_reduction() and
+		_test_per_action_played_cost_reduction_only_counts_actions() and
 		_test_empower_destroy_creature() and
 		_test_empower_destroy_creature_targeting() and
 		_test_empower_add_support_uses() and
@@ -197,6 +198,7 @@ func _run_all_tests() -> bool:
 		_test_marauder_chieftain_gains_power_when_it_buffs_an_ally() and
 		_test_marauder_chieftain_gains_power_when_item_buffs_ally() and
 		_test_marauder_chieftain_gains_power_when_aura_buffs_ally() and
+		_test_two_marauder_chieftains_do_not_recursively_buff_each_other() and
 		_test_set_health_clears_existing_damage() and
 		_test_swap_stats_uses_current_health_not_max()
 	)
@@ -1245,6 +1247,49 @@ func _test_empower_cost_reduction() -> bool:
 		_assert(effective_cost == 4, "Empower cost reduction: 7 base - 3 empower = 4, got %d." % effective_cost) and
 		_assert(bool(costly_play.get("is_valid", false)), "Empower cost-reduced action should be playable with 10 magicka.")
 	)
+
+
+func _test_per_action_played_cost_reduction_only_counts_actions() -> bool:
+	# Fingers of the Mountain pattern: cost reduces by 1 per ACTION played this turn,
+	# not per item or support. Regression for noncreature_plays_this_turn over-counting.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	var host := ScenarioFixtures.summon_creature(player, match_state, "fotm_host", "field", 2, 3)
+	var fingers := ScenarioFixtures.add_hand_card(player, "fotm_like", {
+		"card_type": "action",
+		"cost": 6,
+		"self_cost_reduction": {"per_action_played_this_turn": 1},
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "damage", "target_player": "target_player", "amount": 1}]}],
+	})
+	var base_cost := PersistentCardRules.get_effective_play_cost(match_state, pid, fingers)
+	if not _assert(base_cost == 6, "Base cost with no plays should be 6, got %d." % base_cost):
+		return false
+	# Play an item — must NOT discount
+	var sword := ScenarioFixtures.add_hand_card(player, "fotm_sword", {"card_type": "item", "cost": 0, "equip_power_bonus": 1})
+	PersistentCardRules.play_item_from_hand(match_state, pid, str(sword.get("instance_id", "")), {"target_instance_id": str(host.get("instance_id", ""))})
+	var cost_after_item := PersistentCardRules.get_effective_play_cost(match_state, pid, fingers)
+	if not _assert(cost_after_item == 6, "Item play should not discount per_action_played_this_turn (got %d)." % cost_after_item):
+		return false
+	# Play a support — must NOT discount
+	var banner := ScenarioFixtures.add_hand_card(player, "fotm_banner", {"card_type": "support", "cost": 0})
+	PersistentCardRules.play_support_from_hand(match_state, pid, str(banner.get("instance_id", "")))
+	var cost_after_support := PersistentCardRules.get_effective_play_cost(match_state, pid, fingers)
+	if not _assert(cost_after_support == 6, "Support play should not discount per_action_played_this_turn (got %d)." % cost_after_support):
+		return false
+	# Play an action — must discount by 1
+	var ping1 := ScenarioFixtures.add_hand_card(player, "fotm_ping1", {"card_type": "action", "cost": 0, "triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "damage", "target_player": "target_player", "amount": 1}]}]})
+	MatchTiming.play_action_from_hand(match_state, pid, str(ping1.get("instance_id", "")), {"target_player_id": oid})
+	var cost_after_action1 := PersistentCardRules.get_effective_play_cost(match_state, pid, fingers)
+	if not _assert(cost_after_action1 == 5, "Action play should discount by 1 (got %d)." % cost_after_action1):
+		return false
+	# Second action — discount by 2
+	var ping2 := ScenarioFixtures.add_hand_card(player, "fotm_ping2", {"card_type": "action", "cost": 0, "triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "damage", "target_player": "target_player", "amount": 1}]}]})
+	MatchTiming.play_action_from_hand(match_state, pid, str(ping2.get("instance_id", "")), {"target_player_id": oid})
+	var cost_after_action2 := PersistentCardRules.get_effective_play_cost(match_state, pid, fingers)
+	return _assert(cost_after_action2 == 4, "Two actions should discount by 2 (got %d)." % cost_after_action2)
 
 
 func _test_empower_destroy_creature() -> bool:
@@ -7406,6 +7451,39 @@ func _test_marauder_chieftain_gains_power_when_aura_buffs_ally() -> bool:
 	return (
 		_assert(EvergreenRules.get_power(ally) == 2, "Ally should be 2 power from captain's aura, got %d." % EvergreenRules.get_power(ally)) and
 		_assert(EvergreenRules.get_power(chieftain) == 2, "Chieftain (in shadow lane) should gain +1 from ally's aura buff (1->2), got %d." % EvergreenRules.get_power(chieftain))
+	)
+
+
+func _test_two_marauder_chieftains_do_not_recursively_buff_each_other() -> bool:
+	# Regression: two Marauder Chieftains in lane each have on_friendly_power_gain.
+	# When chieftain A reacts to an ally's buff and gains +1 power, chieftain B
+	# would see A's gain and buff itself, then A would see B's gain and re-trigger,
+	# creating an unbounded loop. Buffs caused by another on_friendly_power_gain
+	# trigger must be ignored by all on_friendly_power_gain reactors.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var pid := str(player.get("player_id", ""))
+	var chieftain_a := ScenarioFixtures.summon_creature(player, match_state, "marauder_chieftain_a", "field", 1, 5, [], -1, {
+		"definition_id": "joo_str_marauder_chieftain",
+		"triggered_abilities": [{"family": "on_friendly_power_gain", "required_zone": "lane", "effects": [{"op": "modify_stats", "target": "self", "power_source": "event_power_gained"}]}],
+	})
+	var chieftain_b := ScenarioFixtures.summon_creature(player, match_state, "marauder_chieftain_b", "field", 1, 5, [], -1, {
+		"definition_id": "joo_str_marauder_chieftain",
+		"triggered_abilities": [{"family": "on_friendly_power_gain", "required_zone": "lane", "effects": [{"op": "modify_stats", "target": "self", "power_source": "event_power_gained"}]}],
+	})
+	var ally := ScenarioFixtures.summon_creature(player, match_state, "ally_target", "field", 1, 1)
+	var buff := ScenarioFixtures.add_hand_card(player, "test_buff_action", {
+		"card_type": "action", "cost": 0,
+		"action_target_mode": "any_creature",
+		"triggered_abilities": [{"family": MatchTiming.FAMILY_ON_PLAY, "required_zone": "discard", "effects": [{"op": "modify_stats", "target": "event_target", "power": 1, "health": 0}]}],
+	})
+	var result := MatchTiming.play_action_from_hand(match_state, pid, str(buff.get("instance_id", "")), {"target_instance_id": str(ally.get("instance_id", ""))})
+	if not _assert(bool(result.get("is_valid", false)), "Buff action should be playable."):
+		return false
+	return (
+		_assert(EvergreenRules.get_power(ally) == 2, "Ally should be 2 power after +1/+0 buff, got %d." % EvergreenRules.get_power(ally)) and
+		_assert(EvergreenRules.get_power(chieftain_a) == 2, "Chieftain A should be 2 (1 base + 1 from ally's gain, no chain), got %d." % EvergreenRules.get_power(chieftain_a)) and
+		_assert(EvergreenRules.get_power(chieftain_b) == 2, "Chieftain B should be 2 (1 base + 1 from ally's gain, no chain), got %d." % EvergreenRules.get_power(chieftain_b))
 	)
 
 

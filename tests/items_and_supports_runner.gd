@@ -12,6 +12,7 @@ const MatchActionEnumerator = preload("res://src/ai/match_action_enumerator.gd")
 const MatchCombat = preload("res://src/core/match/match_combat.gd")
 const MatchTargeting = preload("res://src/core/match/match_targeting.gd")
 const ScenarioFixtures = preload("res://tests/support/scenario_fixtures.gd")
+const CatalogTestHelper = preload("res://tests/support/catalog_test_helper.gd")
 
 
 func _initialize() -> void:
@@ -63,6 +64,8 @@ func _run_all_tests() -> bool:
 		_test_sehts_masterwork_no_discount_for_duplicate_deck() and
 		# Transitus Shrine type filter
 		_test_transitus_shrine_only_discounts_creatures_and_actions() and
+		# Forward Camp supports-only filter
+		_test_forward_camp_only_discounts_supports() and
 		# Ring of Lordship wielder-subtype filter
 		_test_ring_of_lordship_discounts_creatures_matching_wielder_subtype() and
 		_test_ring_of_lordship_requires_wielder_in_lane() and
@@ -99,7 +102,10 @@ func _run_all_tests() -> bool:
 		_test_silence_clamps_remaining_health_to_base_when_above() and
 		# Items can only be equipped to friendly creatures
 		_test_items_reject_enemy_creature_target() and
-		_test_throw_items_still_target_enemy_creatures()
+		_test_throw_items_still_target_enemy_creatures() and
+		# Craglorn Scavenger only buffs while in lane, not while in hand
+		_test_craglorn_scavenger_does_not_buff_while_in_hand() and
+		_test_craglorn_scavenger_buffs_when_in_lane()
 	)
 
 
@@ -1645,6 +1651,37 @@ func _test_transitus_shrine_only_discounts_creatures_and_actions() -> bool:
 	)
 
 
+func _test_forward_camp_only_discounts_supports() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player.get("player_id", ""))
+	var helper := CatalogTestHelper.new()
+	if not helper.load_catalog():
+		return _assert(false, "Forward Camp test: catalog failed to load.")
+	# Place Forward Camp in the support zone using its real catalog definition
+	var camp := ScenarioFixtures.make_card(pid, "aw_wil_forward_camp", helper.card_extra("aw_wil_forward_camp"))
+	camp["zone"] = "support"
+	player["support"].append(camp)
+	# Support in hand: should be discounted
+	var hand_support := _add_hand_card(player, "fc_support", {"card_type": "support", "cost": 4, "support_uses": 3})
+	var support_cost := PersistentCardRules.get_effective_play_cost(match_state, pid, hand_support)
+	# Creature in hand: should NOT be discounted
+	var hand_creature := _add_hand_card(player, "fc_creature", {"card_type": "creature", "cost": 5, "power": 3, "health": 3})
+	var creature_cost := PersistentCardRules.get_effective_play_cost(match_state, pid, hand_creature)
+	# Action in hand: should NOT be discounted
+	var hand_action := _add_hand_card(player, "fc_action", {"card_type": "action", "cost": 4})
+	var action_cost := PersistentCardRules.get_effective_play_cost(match_state, pid, hand_action)
+	# Item in hand: should NOT be discounted
+	var hand_item := _add_hand_card(player, "fc_item", {"card_type": "item", "cost": 3})
+	var item_cost := PersistentCardRules.get_effective_play_cost(match_state, pid, hand_item)
+	return (
+		_assert(support_cost == 3, "Forward Camp should discount support from 4 to 3, got %d." % support_cost) and
+		_assert(creature_cost == 5, "Forward Camp should NOT discount creature, expected 5 got %d." % creature_cost) and
+		_assert(action_cost == 4, "Forward Camp should NOT discount action, expected 4 got %d." % action_cost) and
+		_assert(item_cost == 3, "Forward Camp should NOT discount item, expected 3 got %d." % item_cost)
+	)
+
+
 func _test_ring_of_lordship_discounts_creatures_matching_wielder_subtype() -> bool:
 	var match_state := _build_started_match()
 	var player: Dictionary = match_state["players"][0]
@@ -2272,6 +2309,72 @@ func _test_throw_items_still_target_enemy_creatures() -> bool:
 		_assert(result.get("is_valid", false), "Throw item targeting an enemy creature should resolve.") and
 		_assert(_contains_instance(player["discard"], throw_dagger["instance_id"]), "Thrown item should land in the player's discard.") and
 		_assert(enemy_creature.get("attached_items", []).is_empty(), "Thrown item should not equip the enemy creature.")
+	)
+
+
+func _test_craglorn_scavenger_does_not_buff_while_in_hand() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player["player_id"])
+	var helper := CatalogTestHelper.new()
+	if not helper.load_catalog():
+		return _assert(false, "Failed to load catalog for Craglorn Scavenger test.")
+	var scavenger := helper.add_to_hand(player, "int_craglorn_scavenger")
+	var support := _add_hand_card(player, "support_for_craglorn", {
+		"card_type": "support",
+		"cost": 1,
+		"support_uses": 1,
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ACTIVATE,
+			"required_zone": "support",
+			"effects": [{"op": "draw_cards", "target_player": "controller", "count": 1}],
+		}],
+	})
+	var play_result := PersistentCardRules.play_support_from_hand(match_state, pid, support["instance_id"])
+	var activate_result := PersistentCardRules.activate_support(match_state, pid, support["instance_id"])
+	return (
+		_assert(play_result.get("is_valid", false), "Support play should succeed.") and
+		_assert(activate_result.get("is_valid", false), "Support activation should succeed.") and
+		_assert(int(scavenger.get("power_bonus", 0)) == 0 and int(scavenger.get("health_bonus", 0)) == 0,
+			"Craglorn Scavenger in hand must not gain stat bonuses from support play or activation. Got power_bonus=%d health_bonus=%d." % [int(scavenger.get("power_bonus", 0)), int(scavenger.get("health_bonus", 0))])
+	)
+
+
+func _test_craglorn_scavenger_buffs_when_in_lane() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid := str(player["player_id"])
+	var helper := CatalogTestHelper.new()
+	if not helper.load_catalog():
+		return _assert(false, "Failed to load catalog for Craglorn Scavenger test.")
+	var scavenger := helper.summon(player, match_state, "int_craglorn_scavenger", "field")
+	var base_power := EvergreenRules.get_power(scavenger)
+	var base_health := EvergreenRules.get_health(scavenger)
+	var support := _add_hand_card(player, "support_for_craglorn_lane", {
+		"card_type": "support",
+		"cost": 1,
+		"support_uses": 1,
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ACTIVATE,
+			"required_zone": "support",
+			"effects": [{"op": "draw_cards", "target_player": "controller", "count": 1}],
+		}],
+	})
+	var play_result := PersistentCardRules.play_support_from_hand(match_state, pid, support["instance_id"])
+	# +1/+1 from on_play (support played)
+	var after_play_power := EvergreenRules.get_power(scavenger)
+	var after_play_health := EvergreenRules.get_health(scavenger)
+	var activate_result := PersistentCardRules.activate_support(match_state, pid, support["instance_id"])
+	# Another +1/+1 from activate
+	var after_activate_power := EvergreenRules.get_power(scavenger)
+	var after_activate_health := EvergreenRules.get_health(scavenger)
+	return (
+		_assert(play_result.get("is_valid", false), "Support play should succeed.") and
+		_assert(activate_result.get("is_valid", false), "Support activation should succeed.") and
+		_assert(after_play_power == base_power + 1 and after_play_health == base_health + 1,
+			"Craglorn Scavenger in lane should gain +1/+1 when a support is played.") and
+		_assert(after_activate_power == base_power + 2 and after_activate_health == base_health + 2,
+			"Craglorn Scavenger in lane should gain another +1/+1 when a support is activated.")
 	)
 
 

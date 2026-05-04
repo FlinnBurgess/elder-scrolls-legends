@@ -179,7 +179,7 @@ const FAMILY_SPECS := {
 	FAMILY_AFTER_CARD_PLAYED: {"event_type": EVENT_CARD_PLAYED, "window": WINDOW_AFTER, "match_role": "any_player"},
 	FAMILY_ON_OPPONENT_DAMAGED: {"event_type": EVENT_DAMAGE_RESOLVED, "window": WINDOW_AFTER, "match_role": "target_player_is_opponent", "target_type": "player"},
 	FAMILY_ON_KEYWORD_GAINED: {"event_type": "keyword_granted", "window": WINDOW_AFTER, "match_role": "target"},
-	FAMILY_ON_FRIENDLY_POWER_GAIN: {"event_type": "stats_modified", "window": WINDOW_AFTER, "match_role": "controller", "require_positive_power_bonus": true, "exclude_self": true},
+	FAMILY_ON_FRIENDLY_POWER_GAIN: {"event_type": "stats_modified", "window": WINDOW_AFTER, "match_role": "controller", "require_positive_power_bonus": true, "exclude_self": true, "exclude_event_caused_by_family": "on_friendly_power_gain"},
 	FAMILY_ON_CONSUMED: {"event_type": EVENT_CREATURE_CONSUMED, "window": WINDOW_AFTER, "match_role": "target"},
 	FAMILY_ON_ENEMY_PROPHECY_DRAWN: {"event_type": EVENT_CARD_DRAWN, "window": WINDOW_AFTER, "match_role": "opponent_player", "required_reason": EVENT_RUNE_BROKEN, "required_drawn_prophecy": true},
 	FAMILY_ON_FRIENDLY_SACRIFICE: {"event_type": EVENT_CREATURE_SACRIFICED, "window": WINDOW_AFTER, "match_role": "controller"},
@@ -2531,7 +2531,7 @@ static func resolve_pending_deck_selection(match_state: Dictionary, player_id: S
 				# Player picked a combined card from deck — split into halves on
 				# entry to hand. Stat-bonus modifiers from then_context propagate
 				# to both halves via the standard buff-propagation path below.
-				var dch_split_halves := _split_double_to_zone(match_state, player_id, chosen_card, ZONE_HAND)
+				var dch_split_halves := MatchMutations.split_double_to_zone(match_state, player_id, chosen_card, ZONE_HAND)
 				var dch_mod_power_d := int(then_context.get("modify_power", 0))
 				var dch_mod_health_d := int(then_context.get("modify_health", 0))
 				if dch_mod_power_d != 0 or dch_mod_health_d != 0:
@@ -2740,7 +2740,7 @@ static func draw_cards(match_state: Dictionary, player_id: String, count: int, c
 			# Split the combined card into its two halves on draw. Halves are
 			# materialized into hand bypassing MAX_HAND_SIZE (9 -> 11 allowed).
 			# A single EVENT_CARD_DRAWN is emitted for the combined card.
-			var split_halves := _split_double_to_hand(match_state, player_id, drawn_card)
+			var split_halves := MatchMutations.split_double_to_hand(match_state, player_id, drawn_card)
 			for half in split_halves:
 				MatchMutations.apply_first_turn_hand_cost(match_state, half, player_id)
 				result["cards"].append(half)
@@ -2788,66 +2788,6 @@ static func draw_cards(match_state: Dictionary, player_id: String, count: int, c
 			result["events"].append(_open_prophecy_window(match_state, player_id, drawn_card, context))
 			break
 	return result
-
-
-static func _split_double_to_hand(match_state: Dictionary, player_id: String, combined_card: Dictionary) -> Array:
-	return _split_double_to_zone(match_state, player_id, combined_card, ZONE_HAND)
-
-
-static func _split_double_to_zone(match_state: Dictionary, player_id: String, combined_card: Dictionary, target_zone: String) -> Array:
-	# Splits a combined "double" card into its two halves, archives the combined
-	# instance to ZONE_DOUBLE_ARCHIVE for replay/inspect lookup, and appends both
-	# halves to the chosen target_zone (hand, discard, banished). Buffs on the
-	# combined card (cost delta, power_bonus, health_bonus) are propagated to
-	# both halves.
-	var halves: Array = []
-	var player := MatchTimingHelpers._get_player_state(match_state, player_id)
-	if player.is_empty():
-		return halves
-	if not player.has(target_zone) or typeof(player.get(target_zone)) != TYPE_ARRAY:
-		player[target_zone] = []
-	var destination: Array = player[target_zone]
-	if not player.has(ZONE_DOUBLE_ARCHIVE) or typeof(player.get(ZONE_DOUBLE_ARCHIVE)) != TYPE_ARRAY:
-		player[ZONE_DOUBLE_ARCHIVE] = []
-	var archive: Array = player[ZONE_DOUBLE_ARCHIVE]
-
-	var combined_instance_id := str(combined_card.get("instance_id", ""))
-	var combined_base_cost := int(combined_card.get("_base_cost", combined_card.get("cost", 0)))
-	var combined_current_cost := int(combined_card.get("cost", combined_base_cost))
-	var combined_cost_delta := combined_current_cost - combined_base_cost
-	var combined_power_bonus := int(combined_card.get("power_bonus", 0))
-	var combined_health_bonus := int(combined_card.get("health_bonus", 0))
-
-	# Archive the combined card as a frozen snapshot. It is never targeted; lives
-	# only so replay/inspect lookups by instance_id can resolve.
-	var archived := combined_card.duplicate(true)
-	archived["zone"] = ZONE_DOUBLE_ARCHIVE
-	archive.append(archived)
-
-	var half_ids: Array = combined_card.get("half_card_ids", [])
-	for index in range(half_ids.size()):
-		var hid := str(half_ids[index])
-		var half_card: Dictionary = MatchMutations.build_generated_card(match_state, player_id, {"definition_id": hid})
-		# Halves were part of the starting deck via the combined card — clear
-		# the generated-card flag that build_generated_card sets by default.
-		half_card.erase("_not_in_starting_deck")
-		half_card["instance_id"] = "%s_h%d" % [combined_instance_id, index]
-		half_card["zone"] = target_zone
-		half_card["spawned_from_double"] = combined_instance_id
-		# Buff propagation from combined to half.
-		if combined_cost_delta != 0:
-			var new_cost := int(half_card.get("cost", 0)) + combined_cost_delta
-			if new_cost < 0:
-				new_cost = 0
-			half_card["cost"] = new_cost
-		if combined_power_bonus != 0:
-			half_card["power_bonus"] = int(half_card.get("power_bonus", 0)) + combined_power_bonus
-		if combined_health_bonus != 0:
-			half_card["health_bonus"] = int(half_card.get("health_bonus", 0)) + combined_health_bonus
-		EvergreenRules.sync_derived_state(half_card)
-		destination.append(half_card)
-		halves.append(half_card)
-	return halves
 
 
 static func _overflow_card_to_discard(player: Dictionary, card: Dictionary, player_id: String, source_zone: String, events: Array) -> bool:
@@ -3219,7 +3159,7 @@ static func play_action_from_hand(match_state: Dictionary, player_id: String, in
 		elif sr_source == "creatures_died_this_turn":
 			action_cost_reduction += int(player.get("creatures_died_this_turn", 0)) * sr_amount
 		elif sr_source == "per_action_played_this_turn":
-			action_cost_reduction += int(player.get("noncreature_plays_this_turn", 0)) * sr_amount
+			action_cost_reduction += int(player.get("actions_played_this_turn", 0)) * sr_amount
 		elif sr_source == "per_friendly_wounded":
 			for lane in match_state.get("lanes", []):
 				for c in lane.get("player_slots", {}).get(player_id, []):

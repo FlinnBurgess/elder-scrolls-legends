@@ -58,6 +58,8 @@ static func ensure_player_state(player: Dictionary) -> void:
 		player["cards_played_this_turn"] = 0
 	if not player.has("noncreature_plays_this_turn"):
 		player["noncreature_plays_this_turn"] = 0
+	if not player.has("actions_played_this_turn"):
+		player["actions_played_this_turn"] = 0
 	if not player.has("empower_count_this_turn"):
 		player["empower_count_this_turn"] = 0
 	if not player.has("creature_summons_this_turn"):
@@ -85,6 +87,7 @@ static func reset_turn_state(player: Dictionary) -> void:
 				card["_permanent_empower_bonus"] = int(card.get("_permanent_empower_bonus", 0)) + empower_this_turn
 	player["cards_played_this_turn"] = 0
 	player["noncreature_plays_this_turn"] = 0
+	player["actions_played_this_turn"] = 0
 	player["empower_count_this_turn"] = 0
 	player["creature_summons_this_turn"] = 0
 	player["creatures_died_this_turn"] = 0
@@ -118,6 +121,8 @@ static func observe_event(match_state: Dictionary, event: Dictionary) -> void:
 			player["card_types_played_this_turn"] = _ctptt
 		if _ct != "creature" and str(event.get("source_zone", "")) == ZONE_HAND:
 			player["noncreature_plays_this_turn"] = int(player.get("noncreature_plays_this_turn", 0)) + 1
+		if _ct == "action" and str(event.get("source_zone", "")) == ZONE_HAND:
+			player["actions_played_this_turn"] = int(player.get("actions_played_this_turn", 0)) + 1
 		return
 	if event_type == "creature_destroyed":
 		# Increment death counter for both players (Ghost Fanatic counts all deaths)
