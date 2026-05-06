@@ -14,6 +14,13 @@ const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 # Default weights — these match the midrange profile in AIPlayProfile and serve
 # as fallback values when no options dictionary is provided.
 const HEALTH_WEIGHT := 2.5
+# Per-card value used to estimate the *opponent's* hand without peeking at its
+# contents. The AI is only allowed to see opponent hand SIZE (public info), so
+# we multiply size by an empirically-tuned average card value rather than
+# walking the cards. Calibrated to roughly match what the contents-aware
+# `_self_hand_value` returns on a typical deck-mix hand (~1.8/card given a 60%
+# creature mix, avg cost 3.5, avg 3/3 stats).
+const OPP_HAND_PER_CARD_ESTIMATE := 1.8
 # Scaling factor for diminishing-returns health utility curve.
 # sqrt(30) normalises so _health_utility(30) == 30, keeping overall magnitude
 # compatible with the existing health_weight constants across all profiles.
@@ -57,8 +64,8 @@ static func evaluate_state(match_state: Dictionary, perspective_player_id: Strin
 	score += (int(me.get("rune_thresholds", []).size()) - int(opponent.get("rune_thresholds", []).size())) * rune_w
 	score += _board_value(match_state, perspective_player_id)
 	score += _support_zone_value(me, support_base) - _support_zone_value(opponent, support_base)
-	score += _hand_value(me) * hand_w
-	score -= _hand_value(opponent) * opp_hand_w
+	score += _self_hand_value(me) * hand_w
+	score -= _opponent_hand_value(opponent) * opp_hand_w
 	score += float(MatchTurnLoop.get_available_magicka(me)) * UNUSED_MAGICKA_WEIGHT if str(match_state.get("active_player_id", "")) == perspective_player_id else 0.0
 	score += float(int(me.get("ring_of_magicka_charges", 0))) * RING_CHARGE_WEIGHT
 	score -= float(int(opponent.get("ring_of_magicka_charges", 0))) * RING_CHARGE_WEIGHT
@@ -211,7 +218,9 @@ static func _support_zone_value(player_state: Dictionary, support_base: float = 
 	return total
 
 
-static func _hand_value(player_state: Dictionary) -> float:
+## Detailed hand evaluation — ONLY safe to call on the AI's OWN hand. Reads
+## individual card cost, type, stats, and prophecy tag.
+static func _self_hand_value(player_state: Dictionary) -> float:
 	var total := 0.0
 	for card in player_state.get("hand", []):
 		if typeof(card) != TYPE_DICTIONARY:
@@ -230,6 +239,14 @@ static func _hand_value(player_state: Dictionary) -> float:
 			card_value += 0.25
 		total += card_value
 	return total
+
+
+## Fair-play opponent hand estimate. The AI is only entitled to see hand
+## *size* (public information), so this multiplies size by a per-card
+## average. Never reads card contents — that would be cheating.
+static func _opponent_hand_value(player_state: Dictionary) -> float:
+	var hand: Array = player_state.get("hand", [])
+	return float(hand.size()) * OPP_HAND_PER_CARD_ESTIMATE
 
 
 static func _incoming_face_threat(match_state: Dictionary, defending_player_id: String) -> int:

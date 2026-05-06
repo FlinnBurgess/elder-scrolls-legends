@@ -231,6 +231,13 @@ func _ready() -> void:
 	_ui_builder._build_ui()
 
 
+func _exit_tree() -> void:
+	# Join any in-flight ISMCTS worker thread so we don't leak it when the
+	# screen frees mid-think.
+	if _ai_system != null and _ai_system.has_method("cleanup_threads"):
+		_ai_system.cleanup_threads()
+
+
 func set_local_player_avatar(avatar_id: String) -> void:
 	_local_player_avatar_id = avatar_id
 
@@ -308,9 +315,13 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int 
 	if not _adventure_boons.is_empty():
 		BoonRules.apply_boons_to_match_state(match_state, PLAYER_ORDER[1], _adventure_boons)
 	_hydrate_match_cards(match_state, card_by_id)
+	# Build AI play profile from deck archetype and quality. The profile shapes
+	# how aggressively/defensively the AI plays and how precise its decisions are.
+	# Built before mulligan so per-deck strategy rules can drive mulligan picks.
+	_ai_system._ai_options = MatchScreenAIClass._build_ai_play_profile(ai_options, card_by_id)
 	# Apply AI mulligan immediately (invisible to player)
 	var ai_id := PLAYER_ORDER[0]
-	var ai_discard_ids := HeuristicMatchPolicy.choose_mulligan(match_state, ai_id)
+	var ai_discard_ids := HeuristicMatchPolicy.choose_mulligan(match_state, ai_id, _ai_system._ai_options)
 	MatchBootstrap.apply_mulligan(match_state, ai_id, ai_discard_ids)
 	_hydrate_match_cards(match_state, card_by_id)
 	# Apply augments after the final hydration so they aren't overwritten
@@ -320,9 +331,6 @@ func start_match_with_decks(deck_one_ids: Array, deck_two_ids: Array, seed: int 
 	# Store state but don't start the turn yet - wait for player mulligan
 	_match_state = match_state
 	_match_state["_defer_visual_effects"] = true
-	# Build AI play profile from deck archetype and quality. The profile shapes
-	# how aggressively/defensively the AI plays and how precise its decisions are.
-	_ai_system._ai_options = MatchScreenAIClass._build_ai_play_profile(ai_options, card_by_id)
 	_match_state["ai_options"] = _ai_system._ai_options
 	_overlays._mulligan_card_by_id = card_by_id
 	_ai_system._ai_enabled = false
@@ -417,8 +425,10 @@ func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_confi
 		var creature := MatchMutations.build_generated_card(match_state, boss_id, template)
 		var lane_id := str(lanes[lane_index].get("lane_id", ""))
 		MatchMutations.summon_card_to_lane(match_state, boss_id, creature, lane_id, {"apply_shadow_cover": false})
+	# Build AI play profile early so per-deck strategy can drive mulligan picks.
+	_ai_system._ai_options = MatchScreenAIClass._build_ai_play_profile(ai_options, card_by_id)
 	# Apply AI mulligan immediately (invisible to player)
-	var ai_discard_ids := HeuristicMatchPolicy.choose_mulligan(match_state, boss_id)
+	var ai_discard_ids := HeuristicMatchPolicy.choose_mulligan(match_state, boss_id, _ai_system._ai_options)
 	MatchBootstrap.apply_mulligan(match_state, boss_id, ai_discard_ids)
 	_hydrate_match_cards(match_state, card_by_id)
 	# Apply augments after the final hydration so they aren't overwritten
@@ -427,7 +437,6 @@ func start_arena_boss_match(deck_one_ids: Array, deck_two_ids: Array, boss_confi
 	GameLogger.start_match(match_state)
 	_match_state = match_state
 	_match_state["_defer_visual_effects"] = true
-	_ai_system._ai_options = MatchScreenAIClass._build_ai_play_profile(ai_options, card_by_id)
 	_match_state["ai_options"] = _ai_system._ai_options
 	_overlays._mulligan_card_by_id = card_by_id
 	_ai_system._ai_enabled = false

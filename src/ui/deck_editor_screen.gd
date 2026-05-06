@@ -47,7 +47,9 @@ var _card_id_to_deck_code := {}
 var _deck_name := ""
 var _deck_attribute_ids: Array[String] = []
 var _deck_quantities := {}
+var _deck_strategy: Dictionary = {}
 var _original_deck_definition := {}
+var _strategy_editor: Control = null
 
 # Pagination state
 var _current_page := 0
@@ -174,6 +176,8 @@ func load_deck(deck_name: String, definition: Dictionary) -> void:
 		var quantity := int(entry.get("quantity", 0))
 		if not card_id.is_empty() and quantity > 0:
 			_deck_quantities[card_id] = quantity
+	var loaded_strategy: Variant = definition.get("strategy", {})
+	_deck_strategy = (loaded_strategy as Dictionary).duplicate(true) if typeof(loaded_strategy) == TYPE_DICTIONARY else {}
 	_refresh_deck_header()
 	_refresh_attribute_chips()
 	_refresh_deck_card_list()
@@ -195,11 +199,14 @@ func get_deck_definition() -> Dictionary:
 			"card_id": str(card_id),
 			"quantity": int(_deck_quantities.get(card_id, 0)),
 		})
-	return {
+	var definition := {
 		"name": _deck_name,
 		"attribute_ids": _deck_attribute_ids.duplicate(),
 		"cards": entries,
 	}
+	if _deck_strategy != null and not _deck_strategy.is_empty():
+		definition["strategy"] = _deck_strategy.duplicate(true)
+	return definition
 
 
 func get_deck_card_quantity(card_id: String) -> int:
@@ -513,6 +520,13 @@ func _build_action_buttons() -> Control:
 	UITheme.style_button_accent(validate_btn, UITheme.GOLD, 18)
 	validate_btn.pressed.connect(_on_validate_pressed)
 	row.add_child(validate_btn)
+
+	var ai_strategy_btn := Button.new()
+	ai_strategy_btn.text = "AI Strategy"
+	ai_strategy_btn.custom_minimum_size = Vector2(160, 52)
+	UITheme.style_button_accent(ai_strategy_btn, Color(0.86, 0.62, 0.32, 1.0), 18)
+	ai_strategy_btn.pressed.connect(_on_ai_strategy_pressed)
+	row.add_child(ai_strategy_btn)
 
 	var export_btn := Button.new()
 	export_btn.text = "Export Code"
@@ -1310,6 +1324,27 @@ func _on_export_pressed(btn: Button) -> void:
 func _on_done_pressed() -> void:
 	DeckPersistenceClass.save_deck(_deck_name, get_deck_definition())
 	done_pressed.emit()
+
+
+func _on_ai_strategy_pressed() -> void:
+	if _strategy_editor != null and is_instance_valid(_strategy_editor):
+		return
+	var DeckStrategyEditorClass = preload("res://src/ui/deck_strategy_editor.gd")
+	_strategy_editor = DeckStrategyEditorClass.new()
+	_strategy_editor.load_state(_deck_name, _deck_quantities.duplicate(), _card_by_id, _deck_strategy)
+	_strategy_editor.strategy_saved.connect(_on_strategy_saved)
+	_strategy_editor.closed.connect(_on_strategy_editor_closed)
+	add_child(_strategy_editor)
+
+
+func _on_strategy_saved(strategy: Dictionary) -> void:
+	_deck_strategy = strategy.duplicate(true)
+
+
+func _on_strategy_editor_closed() -> void:
+	if _strategy_editor != null and is_instance_valid(_strategy_editor):
+		_strategy_editor.queue_free()
+	_strategy_editor = null
 
 
 func _on_cancel_pressed() -> void:

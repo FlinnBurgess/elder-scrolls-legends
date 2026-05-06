@@ -24,6 +24,7 @@ const MatchStateEvaluator = preload("res://src/ai/match_state_evaluator.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
+const DeckStrategy = preload("res://src/ai/deck_strategy.gd")
 
 const LETHAL_BONUS := 500000.0
 const WIN_BONUS := 1000000.0
@@ -38,7 +39,7 @@ const DEFAULT_LOOKAHEAD_DISCOUNT := 0.85
 const ACTION_SCORING_BUDGET_MS := 5000
 
 
-static func choose_mulligan(match_state: Dictionary, player_id: String) -> Array:
+static func choose_mulligan(match_state: Dictionary, player_id: String, options: Dictionary = {}) -> Array:
 	var player := _find_player(match_state, player_id)
 	if player.is_empty():
 		return []
@@ -57,6 +58,10 @@ static func choose_mulligan(match_state: Dictionary, player_id: String) -> Array
 		seen_definition_ids[definition_id] = true
 		if keep_score < 0.0:
 			discard_ids.append(instance_id)
+	# Strategy mulligan rules override cost-based defaults.
+	var strategy: Dictionary = options.get("strategy", {})
+	if not strategy.is_empty():
+		discard_ids = DeckStrategy.apply_mulligan_rules(strategy, hand, discard_ids)
 	return discard_ids
 
 
@@ -180,7 +185,15 @@ static func _score_action_immediate(match_state: Dictionary, action: Dictionary,
 	# Pass options to evaluate_state so archetype-specific weights are used.
 	var state_score := MatchStateEvaluator.evaluate_state(simulated_state, player_id, options)
 	var tactical_bonus := _tactical_bonus(match_state, simulated_state, action, player_id, options)
-	var total := state_score + tactical_bonus
+	# Apply per-deck strategy adjustments (soft prior).
+	var strategy: Dictionary = options.get("strategy", {})
+	var strategy_adj := 0.0
+	var strategy_attribution: Array = []
+	if not strategy.is_empty():
+		var adj_result := DeckStrategy.compute_score_adjustment(strategy, match_state, simulated_state, action, player_id)
+		strategy_adj = float(adj_result.get("adjustment", 0.0))
+		strategy_attribution = adj_result.get("attribution", [])
+	var total := state_score + tactical_bonus + strategy_adj
 	var reason := "highest_score"
 	if float(tactical_bonus) >= LETHAL_BONUS:
 		reason = "lethal"
@@ -191,6 +204,8 @@ static func _score_action_immediate(match_state: Dictionary, action: Dictionary,
 		"action": action.duplicate(true),
 		"state_score": state_score,
 		"tactical_bonus": tactical_bonus,
+		"strategy_adjustment": strategy_adj,
+		"strategy_attribution": strategy_attribution,
 		"continuation_gain": 0.0,
 		"immediate_score": total,
 		"total_score": total,
@@ -779,7 +794,7 @@ static func _classify_candidate(before_state: Dictionary, after_state: Dictionar
 
 
 static func _candidate_summary(candidate: Dictionary, decision_reason: String) -> String:
-	return "%s | %s | reason=%s | score=%s gain=%s state=%s tactic=%s follow=%s" % [
+	var base := "%s | %s | reason=%s | score=%s gain=%s state=%s tactic=%s follow=%s" % [
 		str(candidate.get("behavior_label", "highest_score")),
 		str(candidate.get("action_summary", _action_summary(candidate.get("action", {})))),
 		decision_reason,
@@ -789,6 +804,13 @@ static func _candidate_summary(candidate: Dictionary, decision_reason: String) -
 		_format_score(float(candidate.get("tactical_bonus", 0.0))),
 		_format_score(float(candidate.get("continuation_gain", 0.0))),
 	]
+	var attribution: Array = candidate.get("strategy_attribution", [])
+	if not attribution.is_empty():
+		var parts: Array = []
+		for entry in attribution:
+			parts.append("%s%s" % [str(entry.get("note", "")), _format_score(float(entry.get("delta", 0.0)))])
+		base += " strategy=[" + ", ".join(parts) + "]"
+	return base
 
 
 static func _action_summary(action: Dictionary) -> String:

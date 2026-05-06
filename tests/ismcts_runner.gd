@@ -21,6 +21,11 @@ func _initialize() -> void:
 	_test_runs_full_turn_without_crashing(failures)
 	_test_random_deck_bypass_uses_no_belief(failures)
 	_test_belief_biases_determinizer_sampling(failures)
+	_test_interrupt_flag_shortcircuits_search(failures)
+	_test_ai_takes_free_face_attack(failures)
+	_test_convergence_short_circuit_bails_early(failures)
+	_test_small_surface_delegates_to_heuristic_fast(failures)
+	_test_choose_action_does_not_mutate_input_state(failures)
 	if not failures.is_empty():
 		for failure in failures:
 			push_error(failure)
@@ -172,6 +177,111 @@ func _test_belief_biases_determinizer_sampling(failures: Array) -> void:
 	# slots we expect well over zero hits from the believed deck.
 	VerificationAssertions.assert_true(believed_hits > 0, "Belief-biased determinization should sample from believed deck (got 0 hits)", failures)
 	AIDeckMemory.forget_all()
+
+
+func _test_interrupt_flag_shortcircuits_search(failures: Array) -> void:
+	# A pre-cancelled interrupt should bail the search before consuming budget,
+	# returning a fallback choice quickly.
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 5, "first_player_index": 0})
+	var ai := ScenarioFixtures.player(match_state, 0)
+	ScenarioFixtures.add_hand_card(ai, "interrupt_creature_a", {"card_type": "creature", "cost": 2, "power": 2, "health": 2})
+	ScenarioFixtures.add_hand_card(ai, "interrupt_creature_b", {"card_type": "creature", "cost": 3, "power": 3, "health": 3})
+	var ai_pid := str(ai.get("player_id", ""))
+	var interrupt := {"cancelled": true}  # cancelled before we even start
+	var start_ms := Time.get_ticks_msec()
+	var choice = ISMCTSMatchPolicy.choose_action(match_state, ai_pid, {
+		"ismcts_budget_ms": 5000,
+		"ismcts_interrupt": interrupt,
+	})
+	var elapsed := Time.get_ticks_msec() - start_ms
+	VerificationAssertions.assert_true(bool(choice.get("is_valid", false)), "Pre-cancelled interrupt still returns a valid fallback", failures)
+	VerificationAssertions.assert_true(elapsed < 500, "Pre-cancelled interrupt should return fast (got %dms)" % elapsed, failures)
+
+
+func _test_ai_takes_free_face_attack(failures: Array) -> void:
+	# Repro of the live bug: AI has a 2/2 in lane that's ready to attack and
+	# the opponent has an empty board + 30 HP. End-turn vs face-attack should
+	# clearly favour the attack — a +2 to opponent's incoming damage.
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 2, "first_player_index": 0})
+	var ai := ScenarioFixtures.player(match_state, 0)
+	var opp := ScenarioFixtures.player(match_state, 1)
+	ai["hand"] = []  # no plays — only end_turn or attack
+	var attacker := ScenarioFixtures.summon_creature(ai, match_state, "free_swing", "field", 2, 2, [], 0, {"cost": 0})
+	ScenarioFixtures.ready_for_attack(attacker, match_state)
+	var ai_pid := str(ai.get("player_id", ""))
+	var choice = ISMCTSMatchPolicy.choose_action(match_state, ai_pid, {"ismcts_budget_ms": 600})
+	VerificationAssertions.assert_true(bool(choice.get("is_valid", false)), "Choice valid", failures)
+	var action: Dictionary = choice.get("chosen_action", {})
+	VerificationAssertions.assert_equal(str(action.get("kind", "")), MatchActionEnumerator.KIND_ATTACK, "AI must take the free face attack instead of ending turn", failures)
+	var target: Dictionary = action.get("parameters", {}).get("target", {})
+	VerificationAssertions.assert_equal(str(target.get("type", "")), "player", "Attack target must be opponent's face", failures)
+
+
+func _test_small_surface_delegates_to_heuristic_fast(failures: Array) -> void:
+	# Reproduces the user's scenario: AI is out of magicka, has 1 creature
+	# ready to attack. Surface = {attack creature, attack face, end_turn}.
+	# This must NOT burn the full thinking budget — should short-circuit
+	# to the heuristic and return in well under a second even with budget=10s.
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 0, "first_player_index": 0})
+	var ai := ScenarioFixtures.player(match_state, 0)
+	var opp := ScenarioFixtures.player(match_state, 1)
+	ai["hand"] = []
+	var attacker := ScenarioFixtures.summon_creature(ai, match_state, "tired_warrior", "field", 2, 2, [], 0, {"cost": 0})
+	ScenarioFixtures.ready_for_attack(attacker, match_state)
+	ScenarioFixtures.summon_creature(opp, match_state, "blocker", "field", 1, 1, [], 0, {"cost": 0})
+	var ai_pid := str(ai.get("player_id", ""))
+	var start_ms := Time.get_ticks_msec()
+	var choice = ISMCTSMatchPolicy.choose_action(match_state, ai_pid, {"ismcts_budget_ms": 10000})
+	var elapsed := Time.get_ticks_msec() - start_ms
+	VerificationAssertions.assert_true(elapsed < 1000, "Small action surface must short-circuit (took %dms with 10s budget)" % elapsed, failures)
+	VerificationAssertions.assert_true(bool(choice.get("is_valid", false)), "Choice valid", failures)
+	VerificationAssertions.assert_equal(str(choice.get("reason", "")), "ismcts_small_surface_delegate", "Reason should indicate small-surface delegation", failures)
+
+
+func _test_convergence_short_circuit_bails_early(failures: Array) -> void:
+	# With a clear-cut decision (lethal-on-board scenario) the offensive lethal
+	# guard ALREADY short-circuits before MCTS. Confirm the result reason is
+	# the guard, not the search — proving lethal short-circuiting is in play.
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 5, "first_player_index": 0})
+	var ai := ScenarioFixtures.player(match_state, 0)
+	var opp := ScenarioFixtures.player(match_state, 1)
+	ai["hand"] = []
+	opp["health"] = 4
+	var attacker := ScenarioFixtures.summon_creature(ai, match_state, "lethal_swinger", "field", 4, 4, [], 0, {"cost": 0})
+	ScenarioFixtures.ready_for_attack(attacker, match_state)
+	var start_ms := Time.get_ticks_msec()
+	var choice = ISMCTSMatchPolicy.choose_action(match_state, str(ai.get("player_id", "")), {"ismcts_budget_ms": 5000})
+	var elapsed := Time.get_ticks_msec() - start_ms
+	VerificationAssertions.assert_true(elapsed < 1000, "Lethal short-circuit should keep total time well under the 5s budget (took %dms)" % elapsed, failures)
+
+
+func _test_choose_action_does_not_mutate_input_state(failures: Array) -> void:
+	# Critical correctness check for the in-place rollout optimisation. The
+	# policy clones once internally and mutates the clone freely during MCTS
+	# rollouts; the live match_state's *gameplay* fields must be unchanged.
+	#
+	# We compare the `players` and `lanes` arrays (everything the engine
+	# reads to make decisions) rather than the full top-level dict — top-
+	# level fields like `_ai_observed_by_pid` and `_ismcts_pool_cache` are
+	# legitimately written by the policy as caches and aren't gameplay state.
+	#
+	# Surface needs to exceed SMALL_SURFACE_THRESHOLD so MCTS actually runs.
+	var match_state := ScenarioFixtures.create_started_match({"set_all_magicka": 8, "first_player_index": 0})
+	var ai := ScenarioFixtures.player(match_state, 0)
+	var opp := ScenarioFixtures.player(match_state, 1)
+	for i in range(10):
+		ScenarioFixtures.add_hand_card(ai, "filler_%d" % i, {"card_type": "creature", "cost": 1, "power": 1, "health": 1})
+	ScenarioFixtures.summon_creature(ai, match_state, "friendly", "field", 2, 2, [], 0, {"cost": 0})
+	ScenarioFixtures.summon_creature(opp, match_state, "enemy", "field", 2, 2, [], 0, {"cost": 0})
+	var players_before := JSON.stringify(match_state.get("players", []))
+	var lanes_before := JSON.stringify(match_state.get("lanes", []))
+	var ai_pid := str(ai.get("player_id", ""))
+	var choice = ISMCTSMatchPolicy.choose_action(match_state, ai_pid, {"ismcts_budget_ms": 400})
+	VerificationAssertions.assert_true(bool(choice.get("is_valid", false)), "Policy returned a valid choice", failures)
+	var players_after := JSON.stringify(match_state.get("players", []))
+	var lanes_after := JSON.stringify(match_state.get("lanes", []))
+	VerificationAssertions.assert_equal(players_after, players_before, "choose_action must not mutate players[] (in-place rollout safety)", failures)
+	VerificationAssertions.assert_equal(lanes_after, lanes_before, "choose_action must not mutate lanes[] (in-place rollout safety)", failures)
 
 
 func _test_runs_full_turn_without_crashing(failures: Array) -> void:

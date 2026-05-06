@@ -154,6 +154,9 @@ static func build_options(aggro_score: float, quality: float) -> Dictionary:
 	# Decision engine choice (heuristic vs ISMCTS) — read from PlayerSettings.
 	# The match-screen dispatcher reads `ai_engine` from the options dict.
 	profile["ai_engine"] = PlayerSettings.get_ai_engine()
+	# ISMCTS-specific tuning: max wall-clock time per decision. Only consulted
+	# by the ISMCTS policy; harmless for heuristic.
+	profile["ismcts_budget_ms"] = PlayerSettings.get_ismcts_budget_ms()
 
 	return profile
 

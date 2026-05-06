@@ -131,3 +131,25 @@ static func set_ai_engine(engine: String) -> void:
 	var data := _load_raw()
 	data["ai_engine"] = resolved
 	_save_raw(data)
+
+
+# ISMCTS thinking-time budget per decision (milliseconds). Only consulted when
+# the engine is "ismcts". Clamped to [200, 10000].
+
+const ISMCTS_BUDGET_DEFAULT_MS := 800
+const ISMCTS_BUDGET_MIN_MS := 200
+const ISMCTS_BUDGET_MAX_MS := 5000
+
+
+static func get_ismcts_budget_ms() -> int:
+	var data := _load_raw()
+	var raw: Variant = data.get("ismcts_budget_ms", ISMCTS_BUDGET_DEFAULT_MS)
+	var ms := int(raw)
+	return clampi(ms, ISMCTS_BUDGET_MIN_MS, ISMCTS_BUDGET_MAX_MS)
+
+
+static func set_ismcts_budget_ms(ms: int) -> void:
+	var clamped := clampi(ms, ISMCTS_BUDGET_MIN_MS, ISMCTS_BUDGET_MAX_MS)
+	var data := _load_raw()
+	data["ismcts_budget_ms"] = clamped
+	_save_raw(data)

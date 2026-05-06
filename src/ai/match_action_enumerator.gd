@@ -466,7 +466,12 @@ static func _enumerate_creature_prophecy_plays(match_state: Dictionary, player_i
 			continue
 		if has_target_mode:
 			var sim_state := _lightweight_clone(match_state)
+			# Suppress trace logging during this validation-only simulation;
+			# otherwise every MCTS iteration's action enumeration spams the
+			# trace file with unrelated summon_from_hand lines.
+			GameLogger.suppress()
 			var sim_result := LaneRules.summon_from_hand(sim_state, player_id, str(card.get("instance_id", "")), lane_id, {"slot_index": -1, "played_for_free": true})
+			GameLogger.unsuppress()
 			if not bool(sim_result.get("is_valid", false)):
 				continue
 			var valid_targets := MatchTiming.get_all_valid_targets(sim_state, str(card.get("instance_id", "")))

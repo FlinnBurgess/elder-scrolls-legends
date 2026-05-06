@@ -212,17 +212,21 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 					if not steal_source.is_empty():
 						steal_source["_stolen_instance_id"] = str(card.get("instance_id", ""))
 					var steal_kw := str(effect.get("grant_keyword", ""))
+					var steal_added_kw := false
 					if not steal_kw.is_empty():
 						EvergreenRules.ensure_card_state(card)
 						var steal_granted: Array = card.get("granted_keywords", [])
 						if not steal_granted.has(steal_kw):
 							steal_granted.append(steal_kw)
 							card["granted_keywords"] = steal_granted
+							steal_added_kw = true
 							generated_events.append({"event_type": "keyword_granted", "source_instance_id": str(trigger.get("source_instance_id", "")), "target_instance_id": str(card.get("instance_id", "")), "keyword_id": steal_kw})
 					if bool(effect.get("temporary", false)):
 						card["_stolen_temporarily"] = true
 						card["_stolen_return_to"] = str(card.get("owner_player_id", ""))
 						card["_stolen_on_turn"] = int(match_state.get("turn_number", 0))
+						if steal_added_kw:
+							card["_stolen_granted_keyword"] = steal_kw
 		"banish":
 			for card in MatchTargeting._resolve_card_targets(match_state, trigger, event, effect):
 				var banish_result := MatchMutations.banish_card(match_state, str(card.get("instance_id", "")))

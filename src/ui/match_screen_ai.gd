@@ -11,6 +11,16 @@ var _local_match_ai_action_count := 0
 var _ai_enabled := false
 var _ai_options: Dictionary = {}
 var _spell_reveal_started_ms: int = -1
+# Off-main-thread ISMCTS state. The worker thread reads its own snapshot of
+# match_state and writes the resulting choice back to `_think_result`. The
+# main thread polls `_think_thread.is_alive()` each frame and stays free for
+# UI/hover. `_think_interrupt` is a Dictionary the policy polls each iteration
+# so we can short-circuit a long search when the screen exits mid-think.
+var _think_thread: Thread = null
+var _think_active := false
+var _think_interrupt: Dictionary = {}
+var _think_result: Dictionary = {}
+var _think_started_ms: int = 0
 const SPELL_REVEAL_TIMEOUT_MS := 5000
 const MAX_AI_ACTIONS_PER_TURN := 50
 
@@ -109,7 +119,31 @@ func _execute_local_match_ai_step() -> Dictionary:
 	var engine := str(_ai_options.get("ai_engine", "heuristic"))
 	var choice
 	if engine == "ismcts":
-		choice = ISMCTSMatchPolicy.choose_action(_screen._match_state, ai_player_id, _ai_options)
+		# Threaded path: kick off if no think running, otherwise poll. The main
+		# thread stays responsive (hover, animations) for the entire budget.
+		if _think_active:
+			if _think_thread != null and _think_thread.is_alive():
+				return {"did_execute": false, "yield_reason": "thinking"}
+			# Worker finished — collect result.
+			_think_thread.wait_to_finish()
+			choice = _think_result
+			_think_thread = null
+			_think_active = false
+			_think_result = {}
+			_think_interrupt = {}
+		else:
+			# Snapshot match_state so the worker thread reads only its own copy
+			# (the policy further clones internally per iteration). Pass an
+			# interrupt dict the worker polls each iteration.
+			var snapshot: Dictionary = _screen._match_state.duplicate(true)
+			_think_interrupt = {"cancelled": false}
+			var threaded_options: Dictionary = _ai_options.duplicate(true)
+			threaded_options["ismcts_interrupt"] = _think_interrupt
+			_think_thread = Thread.new()
+			_think_started_ms = Time.get_ticks_msec()
+			_think_active = true
+			_think_thread.start(_run_ismcts_thread.bind(snapshot, ai_player_id, threaded_options))
+			return {"did_execute": false, "yield_reason": "thinking"}
 	else:
 		choice = _screen.HeuristicMatchPolicy.choose_action(_screen._match_state, ai_player_id, _ai_options)
 	var _choose_elapsed := Time.get_ticks_msec() - _choose_start
@@ -390,6 +424,21 @@ static func _build_ai_play_profile(ai_options: Dictionary, card_by_id: Dictionar
 	for passthrough_key in ["human_deck_name", "ismcts_budget_ms", "ismcts_max_iters", "ismcts_resample_every", "ismcts_rollout_plies"]:
 		if ai_options.has(passthrough_key):
 			profile[passthrough_key] = ai_options[passthrough_key]
+	# Resolve the per-deck strategy guide. Callers can pass it inline as
+	# ai_options["strategy"], or pass ai_options["ai_deck_name"] to look up the
+	# strategy from the saved deck JSON.
+	var DeckStrategy = preload("res://src/ai/deck_strategy.gd")
+	var DeckPersistence = preload("res://src/deck/deck_persistence.gd")
+	var strategy: Dictionary = ai_options.get("strategy", {})
+	if strategy.is_empty():
+		var ai_deck_name := str(ai_options.get("ai_deck_name", ""))
+		if not ai_deck_name.is_empty():
+			var deck_def: Dictionary = DeckPersistence.load_deck(ai_deck_name)
+			var deck_strategy: Dictionary = deck_def.get("strategy", {})
+			if not deck_strategy.is_empty():
+				strategy = deck_strategy
+	if not DeckStrategy.is_empty(strategy):
+		profile["strategy"] = strategy
 	return profile
 
 
@@ -401,4 +450,28 @@ func get_local_match_ai_pacing_state() -> Dictionary:
 		"queued_delay_ms_remaining": _local_match_ai_delay_remaining_ms(),
 		"paused_delay_ms_remaining": _screen._paused_ai_step_delay_ms,
 		"action_count": _local_match_ai_action_count,
+		"thinking": _think_active,
+		"think_elapsed_ms": Time.get_ticks_msec() - _think_started_ms if _think_active else 0,
 	}
+
+
+# Worker entry point. Runs on a background thread; reads only its own
+# `snapshot` clone of match_state, never touches `_screen._match_state`.
+# Writes the resulting choice to `_think_result` — the main thread reads it
+# only after `wait_to_finish()` returns.
+func _run_ismcts_thread(snapshot: Dictionary, ai_pid: String, options: Dictionary) -> void:
+	_think_result = ISMCTSMatchPolicy.choose_action(snapshot, ai_pid, options)
+
+
+# Called from MatchScreen on exit. Cancels any in-flight think and joins the
+# worker so we don't leave a dangling thread when the screen frees.
+func cleanup_threads() -> void:
+	if _think_thread == null:
+		return
+	if _think_active:
+		_think_interrupt["cancelled"] = true
+	_think_thread.wait_to_finish()
+	_think_thread = null
+	_think_active = false
+	_think_interrupt = {}
+	_think_result = {}

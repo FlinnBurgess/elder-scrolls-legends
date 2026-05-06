@@ -309,6 +309,8 @@ func _is_card_target_valid_for_selected_inner(selected_card: Dictionary, mode: S
 	match mode:
 		_screen.SELECTION_MODE_ITEM:
 			var item_state: Dictionary = _screen._match_state.duplicate(true)
+			if _screen._overlays._is_pending_prophecy_card(selected_card):
+				return bool(_screen.MatchTiming.play_pending_prophecy(item_state, str(selected_card.get("controller_player_id", "")), _screen._selected_instance_id, {"target_instance_id": target_instance_id}).get("is_valid", false))
 			return bool(_screen.PersistentCardRules.play_item_from_hand(item_state, str(selected_card.get("controller_player_id", "")), _screen._selected_instance_id, {"target_instance_id": target_instance_id}).get("is_valid", false))
 		_screen.SELECTION_MODE_ACTION:
 			if not _screen._targeting._action_target_mode_allows(selected_card, target_instance_id):

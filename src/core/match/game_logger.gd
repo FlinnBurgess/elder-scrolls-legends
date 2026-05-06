@@ -3,6 +3,7 @@ extends RefCounted
 
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const DeckCodeClass = preload("res://src/deck/deck_code.gd")
+const AIDecisionLogger = preload("res://src/ai/ai_decision_logger.gd")
 
 static var LOG_PATH := "res://game_log.txt" if OS.has_feature("editor") else "user://game_log.txt"
 static var TRACE_PATH := "res://game_trace.txt" if OS.has_feature("editor") else "user://game_trace.txt"
@@ -43,6 +44,9 @@ static func start_match(match_state: Dictionary) -> void:
 		push_error("GameLogger: Failed to open log file at %s" % LOG_PATH)
 		return
 	_trace_file = FileAccess.open(TRACE_PATH, FileAccess.WRITE)
+	# Open a fresh AI decision log alongside the main game log so each match
+	# has matching telemetry files for inspection.
+	AIDecisionLogger.start_match()
 	_write("=== MATCH START ===")
 	var rng_seed: int = int(match_state.get("rng_seed", 0))
 	var catalog_result := CardCatalog.load_default()

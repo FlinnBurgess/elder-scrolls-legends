@@ -200,7 +200,9 @@ func _run_all_tests() -> bool:
 		_test_marauder_chieftain_gains_power_when_aura_buffs_ally() and
 		_test_two_marauder_chieftains_do_not_recursively_buff_each_other() and
 		_test_set_health_clears_existing_damage() and
-		_test_swap_stats_uses_current_health_not_max()
+		_test_swap_stats_uses_current_health_not_max() and
+		_test_temporary_steal_returns_at_end_of_turn() and
+		_test_temporary_steal_grants_charge_only_for_borrowed_turn()
 	)
 
 
@@ -7566,3 +7568,62 @@ func _test_swap_stats_uses_current_health_not_max() -> bool:
 	if not _assert(EvergreenRules.get_power(healthy_3_5) == 5, "3/5: expect power 5 after swap, got %d." % EvergreenRules.get_power(healthy_3_5)):
 		return false
 	return _assert(EvergreenRules.get_remaining_health(healthy_3_5) == 3, "3/5: expect 3 HP after swap, got %d." % EvergreenRules.get_remaining_health(healthy_3_5))
+
+
+func _make_temp_steal_action(player_state: Dictionary) -> Dictionary:
+	return ScenarioFixtures.add_hand_card(player_state, "temp_steal_action", {
+		"card_type": "action",
+		"cost": 0,
+		"action_target_mode": "enemy_creature",
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_ON_PLAY,
+			"effects": [{"op": "steal", "target": "event_target", "temporary": true, "grant_keyword": "charge"}],
+		}],
+	})
+
+
+func _test_temporary_steal_returns_at_end_of_turn() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var oid := str(opponent.get("player_id", ""))
+	var victim := ScenarioFixtures.summon_creature(opponent, match_state, "victim", "field", 2, 4)
+	var victim_id := str(victim.get("instance_id", ""))
+	var action := _make_temp_steal_action(player)
+	var play_result := MatchTiming.play_action_from_hand(match_state, pid, str(action.get("instance_id", "")), {"target_instance_id": victim_id})
+	if not _assert(bool(play_result.get("is_valid", false)), "temp steal: action play should be valid."):
+		return false
+	var loc_after_play := MatchMutations.find_card_location(match_state, victim_id)
+	if not _assert(str(loc_after_play.get("card", {}).get("controller_player_id", "")) == pid, "temp steal: victim should be controlled by stealing player after play."):
+		return false
+	# End the stealing player's turn — the creature should return to original owner.
+	MatchTurnLoop.end_turn(match_state, pid)
+	var loc_after_eot := MatchMutations.find_card_location(match_state, victim_id)
+	if not _assert(bool(loc_after_eot.get("is_valid", false)), "temp steal: victim should still exist after end of turn."):
+		return false
+	var returned_card: Dictionary = loc_after_eot.get("card", {})
+	return (
+		_assert(str(returned_card.get("controller_player_id", "")) == oid, "temp steal: victim should return to original owner after end of turn, got controller %s." % str(returned_card.get("controller_player_id", ""))) and
+		_assert(str(loc_after_eot.get("zone", "")) == "lane", "temp steal: victim should still be on a lane after return, got zone %s." % str(loc_after_eot.get("zone", ""))) and
+		_assert(not bool(returned_card.get("_stolen_temporarily", false)), "temp steal: _stolen_temporarily flag should be cleared after return.")
+	)
+
+
+func _test_temporary_steal_grants_charge_only_for_borrowed_turn() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var victim := ScenarioFixtures.summon_creature(opponent, match_state, "victim_kw", "field", 2, 4)
+	var victim_id := str(victim.get("instance_id", ""))
+	var action := _make_temp_steal_action(player)
+	MatchTiming.play_action_from_hand(match_state, pid, str(action.get("instance_id", "")), {"target_instance_id": victim_id})
+	var stolen_loc := MatchMutations.find_card_location(match_state, victim_id)
+	var stolen_card: Dictionary = stolen_loc.get("card", {})
+	if not _assert(stolen_card.get("granted_keywords", []).has("charge"), "temp steal: stolen creature should have charge granted while stolen."):
+		return false
+	MatchTurnLoop.end_turn(match_state, pid)
+	var returned_loc := MatchMutations.find_card_location(match_state, victim_id)
+	var returned_card: Dictionary = returned_loc.get("card", {})
+	return _assert(not returned_card.get("granted_keywords", []).has("charge"), "temp steal: charge keyword granted by steal should be removed on return.")

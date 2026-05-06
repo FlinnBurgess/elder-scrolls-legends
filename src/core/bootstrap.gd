@@ -720,7 +720,10 @@ func _on_start_match_pressed() -> void:
 	if player_deck_ids.is_empty():
 		return
 
-	var enemy_deck_ids := _pick_random_enemy_deck(_deck_entry_id(selected_entry))
+	var enemy_entry := _pick_random_enemy_deck_entry(_deck_entry_id(selected_entry))
+	if enemy_entry.is_empty():
+		return
+	var enemy_deck_ids := _entry_to_card_ids(enemy_entry)
 	if enemy_deck_ids.is_empty():
 		return
 
@@ -734,7 +737,10 @@ func _on_start_match_pressed() -> void:
 	match_screen.return_to_main_menu_requested.connect(_show_main_menu)
 	add_child(match_screen)
 	_active_screen = match_screen
-	var ai_options := {"human_deck_name": str(selected_entry.get("name", ""))}
+	var ai_options := {
+		"human_deck_name": str(selected_entry.get("name", "")),
+		"ai_deck_name": str(enemy_entry.get("name", "")),
+	}
 	match_screen.start_match_with_decks(player_deck_ids, enemy_deck_ids, -1, -1, ai_options)
 
 
@@ -802,6 +808,13 @@ func _entry_to_card_ids(entry: Dictionary) -> Array:
 
 
 func _pick_random_enemy_deck(exclude_id: String) -> Array:
+	var picked := _pick_random_enemy_deck_entry(exclude_id)
+	if picked.is_empty():
+		return []
+	return _entry_to_card_ids(picked)
+
+
+func _pick_random_enemy_deck_entry(exclude_id: String) -> Dictionary:
 	var candidates: Array = []
 	for entry in _deck_entries:
 		var entry_id := _deck_entry_id(entry)
@@ -815,9 +828,9 @@ func _pick_random_enemy_deck(exclude_id: String) -> Array:
 			if _deck_entry_id(entry) != exclude_id:
 				candidates.append(entry)
 	if candidates.is_empty():
-		return []
+		return {}
 	candidates.shuffle()
-	return _entry_to_card_ids(candidates[0])
+	return candidates[0]
 
 
 func _load_valid_player_deck_entries() -> Array:

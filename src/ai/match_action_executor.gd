@@ -158,3 +158,20 @@ static func clone_and_execute(match_state: Dictionary, action: Dictionary) -> Di
 	GameLogger.unsuppress()
 	result["match_state"] = clone
 	return result
+
+
+## In-place execute. Caller MUST own the state (i.e. it's already a private
+## clone, not the live game state). Used by MCTS rollouts where each ply
+## was previously cloning a state we'd discard immediately — wasteful when
+## the state already belongs to a single-use rollout.
+##
+## Skips the legality check (callers in rollouts pull from
+## enumerate_legal_actions which already validates) and suppresses logger
+## output so trace files don't fill up with simulated plays.
+static func execute_silent(match_state: Dictionary, action: Dictionary) -> Dictionary:
+	if not match_state.has("_publish_events_loop_limit"):
+		match_state["_publish_events_loop_limit"] = 50
+	GameLogger.suppress()
+	var result := execute_action(match_state, action, true)
+	GameLogger.unsuppress()
+	return result

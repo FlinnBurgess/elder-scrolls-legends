@@ -27,6 +27,7 @@ func _run_all_tests() -> bool:
 		_test_on_enemy_rune_destroyed_triggers_invade() and
 		_test_fighters_guild_hall_triggers_on_retaliation_damage() and
 		_test_prophecy_item_can_be_thrown_at_enemy() and
+		_test_prophecy_item_can_be_equipped_to_friendly_creature() and
 		_test_prevent_rune_draw_heals_instead_of_drawing() and
 		_test_prevent_rune_draw_silenced_does_not_block() and
 		_test_draw_cards_per_runes_threshold_logic() and
@@ -324,6 +325,48 @@ func _test_prophecy_item_can_be_thrown_at_enemy() -> bool:
 		_assert(not MatchTiming.has_pending_prophecy(match_state, opponent["player_id"]), "Prophecy play should consume the pending window.") and
 		_assert(remaining == 3, "Target creature should have 3 health remaining after 3 throw damage to a 6-health creature (got %d)." % remaining) and
 		_assert(str(prophecy_item.get("zone", "")) == "discard", "Thrown prophecy item should move to discard.")
+	)
+
+
+func _test_prophecy_item_can_be_equipped_to_friendly_creature() -> bool:
+	# Regression: an equip-only prophecy item (e.g. Covenant Mail) drawn during the
+	# opponent's turn must validate against friendly-creature targets. Previously the
+	# UI fed validation through play_item_from_hand, which rejected it because the
+	# active player was the opponent — locking the player out of equipping it.
+	var match_state := _build_started_match(20, 0)
+	var active_player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	# Friendly creature on the opponent's side (the prophecy holder) to receive the item
+	var friendly_target := _summon_creature(opponent, match_state, "covenant_target", "field", 2, 3, [], 0)
+	var prophecy_item := _make_card(opponent["player_id"], "prophecy_covenant_mail", {
+		"card_type": "item",
+		"rules_tags": ["prophecy"],
+		"equip_power_bonus": 1,
+		"equip_health_bonus": 4,
+	})
+	_set_deck_cards(opponent, [prophecy_item])
+	var attacker := _summon_creature(active_player, match_state, "rune_breaker_mail", "field", 6, 6, [], 0)
+	_target_ready_for_attack(attacker, match_state)
+
+	var attack_result := MatchCombat.resolve_attack(match_state, active_player["player_id"], attacker["instance_id"], {
+		"type": "player",
+		"player_id": opponent["player_id"],
+	})
+	if not (
+		_assert(attack_result["is_valid"], "Prophecy item equip test: attack should resolve.") and
+		_assert(MatchTiming.has_pending_prophecy(match_state, opponent["player_id"]), "Item Prophecy draw should open a pending window.")
+	):
+		return false
+
+	var play_result := MatchTiming.play_pending_prophecy(match_state, opponent["player_id"], prophecy_item["instance_id"], {
+		"target_instance_id": friendly_target["instance_id"],
+	})
+	var attached: Array = friendly_target.get("attached_items", [])
+	var attached_id := str(attached[0].get("instance_id", "")) if attached.size() > 0 else ""
+	return (
+		_assert(bool(play_result.get("is_valid", false)), "Equipping a prophecy item to a friendly creature during the opponent's turn should succeed.") and
+		_assert(not MatchTiming.has_pending_prophecy(match_state, opponent["player_id"]), "Prophecy play should consume the pending window.") and
+		_assert(attached_id == str(prophecy_item.get("instance_id", "")), "Prophecy item should be attached to the friendly target after play.")
 	)
 
 

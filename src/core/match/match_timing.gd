@@ -3517,9 +3517,10 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 	var trigger_resolutions: Array = []
 	var _loop_guard := 0
 	var _loop_limit: int = int(match_state.get("_publish_events_loop_limit", 250))
+	var _loop_warn_threshold: int = maxi(_loop_limit - 50, (_loop_limit * 4) / 5)
 	while not queue.is_empty():
 		_loop_guard += 1
-		if _loop_guard > _loop_limit - 50:
+		if _loop_guard > _loop_warn_threshold:
 			print("[LOOP_GUARD] publish_events iteration %d. Queue size: %d" % [_loop_guard, queue.size()])
 			for _dbg_i in range(mini(5, queue.size())):
 				var _dbg_evt: Dictionary = queue[_dbg_i]
@@ -4283,6 +4284,35 @@ static func process_end_of_turn_returns(match_state: Dictionary, turn_number: in
 				rtd_events.append({"event_type": "card_moved", "instance_id": rtd_entry["instance_id"], "source_zone": "lane", "target_zone": ZONE_DECK, "reason": "return_to_deck_end_of_turn"})
 		if not rtd_events.is_empty():
 			publish_events(match_state, rtd_events)
+	# Return temporarily-stolen creatures (e.g. Mecinar's Will) to their original owner
+	var temp_steal_returns: Array = []
+	for ts_lane in match_state.get("lanes", []):
+		for ts_pid in ts_lane.get("player_slots", {}).keys():
+			for ts_card in ts_lane.get("player_slots", {}).get(ts_pid, []):
+				if typeof(ts_card) == TYPE_DICTIONARY and bool(ts_card.get("_stolen_temporarily", false)) and int(ts_card.get("_stolen_on_turn", -1)) == turn_number:
+					temp_steal_returns.append(ts_card)
+	if not temp_steal_returns.is_empty():
+		var ts_events: Array = []
+		for ts_card in temp_steal_returns:
+			var ts_return_to := str(ts_card.get("_stolen_return_to", ""))
+			var ts_instance_id := str(ts_card.get("instance_id", ""))
+			if ts_return_to.is_empty() or ts_instance_id.is_empty():
+				continue
+			var ts_granted_kw := str(ts_card.get("_stolen_granted_keyword", ""))
+			if not ts_granted_kw.is_empty():
+				var ts_kw_list: Array = ts_card.get("granted_keywords", [])
+				ts_kw_list.erase(ts_granted_kw)
+				ts_card["granted_keywords"] = ts_kw_list
+			ts_card.erase("_stolen_temporarily")
+			ts_card.erase("_stolen_return_to")
+			ts_card.erase("_stolen_on_turn")
+			ts_card.erase("_stolen_granted_keyword")
+			GameLogger.trc("Mut", "return_temp_steal", "id:%s,to:%s" % [ts_instance_id, ts_return_to])
+			var ts_result := MatchMutations.steal_card(match_state, ts_return_to, ts_instance_id, {})
+			if bool(ts_result.get("is_valid", false)):
+				ts_events.append_array(ts_result.get("events", []))
+		if not ts_events.is_empty():
+			publish_events(match_state, ts_events)
 
 
 # --- Facade delegations for functions called externally by class_name ---
