@@ -25,6 +25,7 @@ const MatchTiming = preload("res://src/core/match/match_timing.gd")
 const MatchTurnLoop = preload("res://src/core/match/match_turn_loop.gd")
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
 const DeckStrategy = preload("res://src/ai/deck_strategy.gd")
+const GameLogger = preload("res://src/core/match/game_logger.gd")
 
 const LETHAL_BONUS := 500000.0
 const WIN_BONUS := 1000000.0
@@ -40,11 +41,17 @@ const ACTION_SCORING_BUDGET_MS := 5000
 
 
 static func choose_mulligan(match_state: Dictionary, player_id: String, options: Dictionary = {}) -> Array:
+	# Suppress trace logging during the entire decision: any nested simulation
+	# path (clone_and_execute, validation probes, etc.) is silenced so the
+	# trace log only shows real plays.
+	GameLogger.suppress()
 	var player := _find_player(match_state, player_id)
 	if player.is_empty():
+		GameLogger.unsuppress()
 		return []
 	var hand: Array = player.get("hand", [])
 	if hand.is_empty():
+		GameLogger.unsuppress()
 		return []
 	var seen_definition_ids := {}
 	var discard_ids: Array = []
@@ -62,6 +69,7 @@ static func choose_mulligan(match_state: Dictionary, player_id: String, options:
 	var strategy: Dictionary = options.get("strategy", {})
 	if not strategy.is_empty():
 		discard_ids = DeckStrategy.apply_mulligan_rules(strategy, hand, discard_ids)
+	GameLogger.unsuppress()
 	return discard_ids
 
 
@@ -83,9 +91,16 @@ static func _mulligan_keep_score(card: Dictionary, cost: int) -> float:
 
 
 static func choose_action(match_state: Dictionary, player_id: String = "", options: Dictionary = {}) -> Dictionary:
+	# Suppress trace logging during the entire AI decision: every action we
+	# score uses clone_and_execute internally, but we wrap the whole thing as
+	# belt-and-suspenders so any nested code path that bypasses clone_and_execute
+	# is also silenced. The chosen action is committed to the live match state
+	# OUTSIDE this function, so real plays still log normally.
+	GameLogger.suppress()
 	var surface := MatchActionEnumerator.enumerate_legal_actions(match_state, player_id)
 	var decision_player_id := str(surface.get("decision_player_id", ""))
 	if decision_player_id.is_empty() or not str(surface.get("blocked_reason", "")).is_empty():
+		GameLogger.unsuppress()
 		return {"is_valid": false, "surface": surface, "reason": str(surface.get("blocked_reason", "No legal actor could be determined.")), "chosen_action": {}}
 	var merged := _merged_options(options)
 	var baseline := MatchStateEvaluator.evaluate_state(match_state, decision_player_id, merged)
@@ -93,6 +108,7 @@ static func choose_action(match_state: Dictionary, player_id: String = "", optio
 	var lookahead := int(merged.get("lookahead_depth", DEFAULT_LOOKAHEAD_DEPTH))
 	var ranked := _rank_actions(match_state, surface, decision_player_id, baseline, merged, lookahead)
 	if ranked.is_empty():
+		GameLogger.unsuppress()
 		return {"is_valid": false, "surface": surface, "reason": "No legal actions were available.", "chosen_action": {}}
 
 	# Apply score noise for lower-quality AI: adds random perturbation so the AI
@@ -103,6 +119,7 @@ static func choose_action(match_state: Dictionary, player_id: String = "", optio
 
 	var chosen := _select_final_candidate(ranked, surface, baseline, merged)
 	var decision_reason := _decision_reason(chosen, ranked, surface, merged)
+	GameLogger.unsuppress()
 	return {
 		"is_valid": true,
 		"surface": surface,
@@ -193,6 +210,17 @@ static func _score_action_immediate(match_state: Dictionary, action: Dictionary,
 		var adj_result := DeckStrategy.compute_score_adjustment(strategy, match_state, simulated_state, action, player_id)
 		strategy_adj = float(adj_result.get("adjustment", 0.0))
 		strategy_attribution = adj_result.get("attribution", [])
+		# Diagnostic: log strategy evaluation for play actions.
+		if DeckStrategy._is_play_action(str(action.get("kind", ""))):
+			var def_dbg := DeckStrategy._action_played_definition_id(action, match_state, player_id)
+			var p_dbg := _find_player(match_state, player_id)
+			print("[strategy-debug] kind=%s def=%s max_magicka=%d strategy_adj=%.1f attrib=%s" % [
+				str(action.get("kind", "")),
+				def_dbg,
+				int(p_dbg.get("max_magicka", 0)),
+				strategy_adj,
+				str(strategy_attribution),
+			])
 	var total := state_score + tactical_bonus + strategy_adj
 	var reason := "highest_score"
 	if float(tactical_bonus) >= LETHAL_BONUS:
@@ -923,4 +951,7 @@ static func _merged_options(options: Dictionary) -> Dictionary:
 		"opponent_hand_weight": float(options.get("opponent_hand_weight", 0.45)),
 		"support_base_value": float(options.get("support_base_value", 1.1)),
 		"incoming_threat_weight": float(options.get("incoming_threat_weight", 3.5)),
+		# Per-deck strategy guide (passed through unchanged — it's a structured
+		# rule list, not a numeric weight).
+		"strategy": options.get("strategy", {}),
 	}

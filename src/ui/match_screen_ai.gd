@@ -439,6 +439,11 @@ static func _build_ai_play_profile(ai_options: Dictionary, card_by_id: Dictionar
 				strategy = deck_strategy
 	if not DeckStrategy.is_empty(strategy):
 		profile["strategy"] = strategy
+	# Diagnostic: confirms strategy reached the AI options builder.
+	print("[strategy-debug] _build_ai_play_profile ai_deck_name=%s strategy_rules=%d" % [
+		str(ai_options.get("ai_deck_name", "")),
+		(profile.get("strategy", {}) as Dictionary).get("rules", []).size(),
+	])
 	return profile
 
 

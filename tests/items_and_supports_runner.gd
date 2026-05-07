@@ -1,6 +1,7 @@
 extends SceneTree
 
 const EvergreenRules = preload("res://src/core/match/evergreen_rules.gd")
+const MatchAuras = preload("res://src/core/match/match_auras.gd")
 const MatchBootstrap = preload("res://src/core/match/match_bootstrap.gd")
 const MatchMutations = preload("res://src/core/match/match_mutations.gd")
 const MatchTiming = preload("res://src/core/match/match_timing.gd")
@@ -100,6 +101,7 @@ func _run_all_tests() -> bool:
 		# Silence health-preservation rule
 		_test_silence_preserves_remaining_health_when_at_or_below_base() and
 		_test_silence_clamps_remaining_health_to_base_when_above() and
+		_test_silence_with_self_aura_does_not_kill_buffed_wounded_host() and
 		# Items can only be equipped to friendly creatures
 		_test_items_reject_enemy_creature_target() and
 		_test_throw_items_still_target_enemy_creatures() and
@@ -582,6 +584,50 @@ func _test_silence_clamps_remaining_health_to_base_when_above() -> bool:
 		return false
 	var post_remaining := EvergreenRules.get_remaining_health(host)
 	return _assert(post_remaining == 2, "Silence: above-base HP should clamp to base 2, got %d." % post_remaining)
+
+
+func _test_silence_with_self_aura_does_not_kill_buffed_wounded_host() -> bool:
+	# Regression: Rihad Battlemage (3/3 base, self-aura "+0/+3 while equipped").
+	# Pre-silence the engine left aura_health_bonus stale at +3, so silence_card
+	# computed post_silence_max=6 from get_health(); damage_marked was set to 3
+	# to "preserve" the 4 HP. A subsequent 2 damage from the same on_play
+	# resolution (e.g. Sorcerer's Negation) brought damage_marked to 5, and the
+	# deferred aura recalc then dropped max back to 3, killing the creature via
+	# the engine's aura death sweep.
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var pid: String = player["player_id"]
+	var host := _summon_creature(player, match_state, "battlemage_analog", "field", 3, 3, 0, {
+		"aura": {"scope": "self", "condition": "has_item", "health": 3},
+	})
+	host["damage_marked"] = 2
+	var item := _add_hand_card(player, "buff_dagger", {
+		"card_type": "item",
+		"cost": 1,
+		"equip_power_bonus": 2,
+		"equip_health_bonus": 0,
+	})
+	var play_result := PersistentCardRules.play_item_from_hand(match_state, pid, item["instance_id"], {"target_instance_id": host["instance_id"]})
+	if not _assert(play_result["is_valid"], "Fixture: item should attach to self-aura host."):
+		return false
+	MatchAuras.recalculate_auras(match_state)
+	var pre_silence_remaining := EvergreenRules.get_remaining_health(host)
+	var pre_silence_max := EvergreenRules.get_health(host)
+	if not _assert(pre_silence_remaining == 4 and pre_silence_max == 6, "Fixture: equipped self-aura host should be 4/6, got %d/%d." % [pre_silence_remaining, pre_silence_max]):
+		return false
+	var silence_result := MatchMutations.silence_card(host, {"reason": "test_self_aura_silence"}, match_state)
+	if not _assert(silence_result["is_valid"], "Silence on equipped self-aura host should succeed."):
+		return false
+	var damage_result := EvergreenRules.apply_damage_to_creature(host, 2)
+	if not _assert(int(damage_result.get("applied", 0)) > 0, "Damage from second on_play effect should apply."):
+		return false
+	MatchAuras.recalculate_auras(match_state)
+	var post_max := EvergreenRules.get_health(host)
+	var post_remaining := EvergreenRules.get_remaining_health(host)
+	return (
+		_assert(post_max == 3, "Silence: max HP should drop to base 3 once aura is recalculated, got %d." % post_max) and
+		_assert(post_remaining == 1, "Silence then 2 damage on a 5/4 buffed host should leave 1 HP, got %d." % post_remaining)
+	)
 
 
 func _test_yokudan_nightblade_grants_silence_immunity_to_equipped_friendlies() -> bool:

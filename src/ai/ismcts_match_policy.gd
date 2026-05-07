@@ -33,6 +33,7 @@ const DeckPersistence = preload("res://src/deck/deck_persistence.gd")
 const DeckStrategy = preload("res://src/ai/deck_strategy.gd")
 const LethalGuard = preload("res://src/ai/lethal_guard.gd")
 const AIDecisionLogger = preload("res://src/ai/ai_decision_logger.gd")
+const GameLogger = preload("res://src/core/match/game_logger.gd")
 
 const DEFAULT_BUDGET_MS := 800
 const DEFAULT_MAX_ITERATIONS := 2000
@@ -120,7 +121,10 @@ static func _deck_contents_counts(deck_name: String) -> Dictionary:
 static func choose_action(match_state: Dictionary, player_id: String = "", options: Dictionary = {}) -> Dictionary:
 	# Telemetry: every return path stamps fields into `trace` and logs once
 	# via `_log_decision_and_return` so the user can inspect ai_decisions.log
-	# to see where time goes.
+	# to see where time goes. That helper also calls GameLogger.unsuppress()
+	# to balance the suppress() below — wrap the entire decision so any nested
+	# code that bypasses clone_and_execute still leaves the trace log clean.
+	GameLogger.suppress()
 	var t_total := Time.get_ticks_msec()
 	var trace: Dictionary = {
 		"turn": int(match_state.get("turn_number", 0)),
@@ -278,13 +282,15 @@ static func choose_action(match_state: Dictionary, player_id: String = "", optio
 
 
 # Emit a final telemetry line and return the choice. Centralised here so
-# every return path is logged consistently.
+# every return path is logged consistently. Also balances the GameLogger.suppress()
+# call at the top of choose_action.
 static func _log_decision_and_return(choice: Dictionary, trace: Dictionary, t_total: int) -> Dictionary:
 	trace["elapsed_ms"] = Time.get_ticks_msec() - t_total
 	trace["chose_kind"] = str(choice.get("chosen_action", {}).get("kind", ""))
 	trace["chose"] = str(choice.get("action_summary", ""))
 	trace["reason"] = str(choice.get("reason", ""))
 	AIDecisionLogger.log_decision(trace)
+	GameLogger.unsuppress()
 	return choice
 
 

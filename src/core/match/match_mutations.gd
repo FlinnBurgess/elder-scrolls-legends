@@ -634,6 +634,18 @@ static func silence_card(card: Dictionary, options: Dictionary = {}, match_state
 	card.erase("shackle_expires_on_turn")
 	card.erase("temporary_stat_bonuses")
 	card.erase("temporary_keywords")
+	# Refresh aura bonuses now that this card's own aura is erased and items
+	# are detached. Otherwise stale aura_health_bonus from this card's
+	# self-aura (e.g. Rihad Battlemage's +0/+3 while equipped) inflates the
+	# computed post_silence_max below, causing silence to leave excess
+	# damage_marked that becomes lethal once the engine's deferred aura
+	# recalc zeros aura_health_bonus on the next event-processing pass.
+	# load() avoids the circular import with MatchAuras (which preloads
+	# MatchMutations).
+	if not match_state.is_empty():
+		var MatchAuras = load("res://src/core/match/match_auras.gd")
+		var aura_events: Array = MatchAuras.recalculate_auras(match_state)
+		events.append_array(aura_events)
 	var target_remaining: int = min(pre_silence_remaining, base_health)
 	var post_silence_max := EvergreenRules.get_health(card)
 	card["damage_marked"] = max(0, post_silence_max - target_remaining)
