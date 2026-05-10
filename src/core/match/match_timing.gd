@@ -3701,12 +3701,17 @@ static func publish_events(match_state: Dictionary, events: Array, context: Dict
 					continue
 				if EvergreenRules.get_remaining_health(card) <= 0:
 					var instance_id := str(card.get("instance_id", ""))
+					var lane_id := str(lane.get("lane_id", ""))
 					var destroy_result := MatchMutations.move_card_to_zone(match_state, instance_id, "discard")
 					if bool(destroy_result.get("is_valid", false)):
 						aura_death_events.append({
 							"event_type": "creature_destroyed",
+							"instance_id": instance_id,
 							"source_instance_id": instance_id,
+							"owner_player_id": str(card.get("owner_player_id", "")),
 							"controller_player_id": str(card.get("controller_player_id", "")),
+							"lane_id": lane_id,
+							"source_zone": ZONE_LANE,
 							"reason": "aura_health_loss",
 						})
 	if not aura_death_events.is_empty():

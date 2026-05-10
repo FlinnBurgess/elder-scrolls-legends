@@ -43,6 +43,7 @@ func _run_all_tests() -> bool:
 		_test_wax_wane_target_mode_not_queued_at_end_of_turn() and
 		_test_trigger_wane_queues_targeted_wax_wane_for_other_friendly() and
 		_test_slay_does_not_fire_on_stat_reduction_kill() and
+		_test_last_gasp_summon_from_effect_fires_on_stat_reduction_kill() and
 		_test_play_random_from_deck_creates_free_plays() and
 		_test_decline_pending_free_play_keeps_card_in_hand() and
 		_test_copy_pilfer_abilities_fires_all_friendly_pilfer_triggers() and
@@ -932,6 +933,57 @@ func _test_slay_does_not_fire_on_stat_reduction_kill() -> bool:
 	return (
 		_assert(has_death, "Victim should die from 0 health after stat reduction.") and
 		_assert(not families.has(MatchTiming.FAMILY_SLAY), "Slay should NOT trigger from stat-reduction kill (no combat killer).")
+	)
+
+
+func _test_last_gasp_summon_from_effect_fires_on_stat_reduction_kill() -> bool:
+	# Regression: a Deathless-Draugr-style last_gasp that uses summon_from_effect
+	# without an explicit lane should fall back to the dying creature's lane.
+	# Prior bug: the aura death sweep emitted creature_destroyed with no lane_id
+	# and no instance_id, so summon_from_effect's lane resolution silently bailed
+	# when the death came from a stat-reduction (e.g. Curse) rather than damage.
+	var match_state := _build_started_match(20, 0)
+	var opponent: Dictionary = match_state["players"][1]
+	var victim := _summon_creature(opponent, match_state, "victim", "field", 1, 1, [], 0, {
+		"triggered_abilities": [{
+			"family": MatchTiming.FAMILY_LAST_GASP,
+			"effects": [{"op": "summon_from_effect", "card_template": {
+				"definition_id": "test_skeleton",
+				"name": "Test Skeleton",
+				"card_type": "creature",
+				"power": 1,
+				"health": 1,
+				"base_power": 1,
+				"base_health": 1,
+				"cost": 1,
+			}}],
+		}]
+	})
+	_reset_timing_logs(match_state)
+	EvergreenRules.apply_stat_bonus(victim, -1, -1, "action")
+	var timing_result := MatchTiming.publish_events(match_state, [{
+		"event_type": "stats_modified",
+		"source_instance_id": "external_action",
+		"target_instance_id": str(victim.get("instance_id", "")),
+		"power_bonus": -1,
+		"health_bonus": -1,
+	}])
+	var death_event_has_lane := false
+	for evt in timing_result.get("processed_events", []):
+		if str(evt.get("event_type", "")) == "creature_destroyed" and str(evt.get("instance_id", "")) == str(victim.get("instance_id", "")):
+			death_event_has_lane = not str(evt.get("lane_id", "")).is_empty()
+			break
+	var summoned_skeleton: Dictionary = {}
+	for lane in match_state.get("lanes", []):
+		if str(lane.get("lane_id", "")) != "field":
+			continue
+		for card in lane.get("player_slots", {}).get(opponent["player_id"], []):
+			if typeof(card) == TYPE_DICTIONARY and str(card.get("definition_id", "")) == "test_skeleton":
+				summoned_skeleton = card
+				break
+	return (
+		_assert(death_event_has_lane, "Aura/stat-reduction death event must carry lane_id so last_gasp summon_from_effect can resolve its lane.") and
+		_assert(not summoned_skeleton.is_empty(), "Last gasp summon_from_effect should summon a skeleton when the host dies from stat reduction.")
 	)
 
 

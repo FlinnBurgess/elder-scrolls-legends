@@ -62,13 +62,17 @@
 			"str_rihad_battlemage"
 		],
 		"hand": [
-			"agi_curse"
+			"agi_curse",
+			"agi_curse",
+			"int_firebolt"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
 		"shadow_creatures": [
-			"int_balmora_spymaster"
+			"int_balmora_spymaster",
+			"end_deathless_draugr",
+			"end_deathless_draugr"
 		],
 		"supports": [
 			"agi_thieves_den"
