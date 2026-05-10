@@ -20,7 +20,51 @@ func _run_all_tests() -> bool:
 		_test_zone_routes_and_ownership_controller_rules() and
 		_test_hidden_zone_steal_discards_to_owner_pile() and
 		_test_state_mutations_cover_silence_change_copy_transform_and_consume() and
-		_test_timing_effect_ops_use_shared_mutations()
+		_test_timing_effect_ops_use_shared_mutations() and
+		_test_card_loses_buffs_when_entering_discard()
+	)
+
+
+func _test_card_loses_buffs_when_entering_discard() -> bool:
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+
+	# Lane death path: card with stacked buffs (power_bonus, health_bonus,
+	# aura_power_bonus, granted_keywords, damage_marked, status_markers) must
+	# revert to base stats when sent to discard via move_card_to_zone.
+	var buffed := _summon_creature(player, match_state, "buffed", "field", 1, 4)
+	buffed["power_bonus"] = 2
+	buffed["health_bonus"] = 1
+	buffed["aura_power_bonus"] = 3
+	buffed["aura_health_bonus"] = 2
+	buffed["aura_keywords"] = ["guard"]
+	buffed["granted_keywords"] = ["ward"]
+	buffed["damage_marked"] = 2
+	buffed["status_markers"] = ["cover"]
+	var discard_lane_result := MatchMutations.discard_card(match_state, buffed["instance_id"])
+	if not (
+		_assert(discard_lane_result["is_valid"], "Lane->discard should succeed.") and
+		_assert(int(buffed.get("power_bonus", -1)) == 0, "power_bonus should be cleared on discard.") and
+		_assert(int(buffed.get("health_bonus", -1)) == 0, "health_bonus should be cleared on discard.") and
+		_assert(int(buffed.get("aura_power_bonus", -1)) == 0, "aura_power_bonus should be cleared on discard.") and
+		_assert(int(buffed.get("aura_health_bonus", -1)) == 0, "aura_health_bonus should be cleared on discard.") and
+		_assert((buffed.get("aura_keywords", []) as Array).is_empty(), "aura_keywords should be cleared on discard.") and
+		_assert((buffed.get("granted_keywords", []) as Array).is_empty(), "granted_keywords should be cleared on discard.") and
+		_assert(int(buffed.get("damage_marked", -1)) == 0, "damage_marked should be cleared on discard.") and
+		_assert(not (buffed.get("status_markers", []) as Array).has("cover"), "transient status markers should be cleared on discard.")
+	):
+		return false
+
+	# Hand-discard path: bulk discard_from_hand must also strip buffs so cards
+	# in the discard pile are read as base stats (e.g. for Odirniran's filter).
+	var hand_card := _add_hand_card(player, "hand_buffed", {"power_bonus": 4, "aura_power_bonus": 1, "status_markers": ["cover"]})
+	var hand_discard_result := MatchMutations.discard_from_hand(match_state, player["player_id"], 1, {"selection": "back"})
+	return (
+		_assert(hand_discard_result["is_valid"], "Hand discard should succeed.") and
+		_assert(_contains_instance(player["discard"], hand_card["instance_id"]), "Hand-discarded card should land in the discard pile.") and
+		_assert(int(hand_card.get("power_bonus", -1)) == 0, "Hand discard should clear power_bonus.") and
+		_assert(int(hand_card.get("aura_power_bonus", -1)) == 0, "Hand discard should clear aura_power_bonus.") and
+		_assert(not (hand_card.get("status_markers", []) as Array).has("cover"), "Hand discard should clear transient status markers.")
 	)
 
 

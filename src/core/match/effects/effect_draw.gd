@@ -445,6 +445,7 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						var doth_hand: Array = doth_player.get(ZONE_HAND, [])
 						if doth_hand.size() >= MAX_HAND_SIZE:
 							doth_card["zone"] = ZONE_DISCARD
+							MatchMutations.reset_transient_state(doth_card)
 							doth_player[ZONE_DISCARD].append(doth_card)
 							generated_events.append({"event_type": EVENT_CARD_OVERDRAW, "player_id": doth_controller_id, "instance_id": str(doth_card.get("instance_id", "")), "source_zone": ZONE_DECK})
 						else:

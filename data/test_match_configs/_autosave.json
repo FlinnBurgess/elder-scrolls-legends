@@ -62,17 +62,14 @@
 			"str_rihad_battlemage"
 		],
 		"hand": [
-			"db_end_dark_guardian",
-			"end_preserver_of_the_root",
-			"hos_dual_sorcerers_negation",
-			"iom_str_dagger",
-			"int_firebolt",
-			"cwc_str_grappling_hook"
+			"agi_curse"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [],
+		"shadow_creatures": [
+			"int_balmora_spymaster"
+		],
 		"supports": [
 			"agi_thieves_den"
 		]

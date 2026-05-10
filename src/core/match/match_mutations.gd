@@ -494,6 +494,9 @@ static func discard_from_hand(match_state: Dictionary, player_id: String, count:
 		card["controller_player_id"] = destination_player_id
 		card["zone"] = ZONE_DISCARD
 		_clear_lane_state(card)
+		_clear_attachment_state(card)
+		reset_transient_state(card)
+		card["entered_discard_on_turn"] = int(match_state.get("turn_number", 0))
 		destination_lookup["player"][ZONE_DISCARD].append(card)
 		cards.append(card)
 		events.append(_build_move_event(card, ZONE_HAND, ZONE_DISCARD, destination_player_id))
@@ -928,6 +931,10 @@ static func reset_transient_state(card: Dictionary) -> void:
 	card["granted_keywords"] = []
 	card["damage_marked"] = 0
 	card["status_markers"] = []
+	card["aura_power_bonus"] = 0
+	card["aura_health_bonus"] = 0
+	card["aura_keywords"] = []
+	card["aura_damage_immune"] = false
 	_apply_innate_statuses(card)
 	card.erase("cover_expires_on_turn")
 	card.erase("cover_granted_by")
@@ -1074,6 +1081,7 @@ static func _move_attached_items_to_owner_discard(match_state: Dictionary, host_
 		_clear_attachment_state(item)
 		item["controller_player_id"] = destination_player_id
 		item["zone"] = ZONE_DISCARD
+		reset_transient_state(item)
 		destination_lookup["player"][ZONE_DISCARD].append(item)
 		moved_items.append(item)
 		events.append(_build_move_event(item, ZONE_ATTACHED_ITEM, ZONE_DISCARD, destination_player_id))

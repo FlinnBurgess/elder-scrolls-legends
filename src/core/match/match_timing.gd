@@ -928,6 +928,7 @@ static func resolve_pending_top_deck_choice(match_state: Dictionary, player_id: 
 			if not deck.is_empty():
 				var top_card: Dictionary = deck.pop_back()
 				top_card["zone"] = ZONE_DISCARD
+				MatchMutations.reset_transient_state(top_card)
 				var discard_pile: Array = top_deck_player.get(ZONE_DISCARD, [])
 				discard_pile.append(top_card)
 				events.append({
@@ -2727,6 +2728,7 @@ static func draw_cards(match_state: Dictionary, player_id: String, count: int, c
 		var is_prophecy := allow_prophecy and not is_double_card and _can_open_prophecy_window(match_state, player_id, drawn_card)
 		if hand.size() >= MAX_HAND_SIZE and not is_prophecy and not is_double_card:
 			drawn_card["zone"] = ZONE_DISCARD
+			MatchMutations.reset_transient_state(drawn_card)
 			player[ZONE_DISCARD].append(drawn_card)
 			result["events"].append({
 				"event_type": EVENT_CARD_OVERDRAW,
@@ -2795,6 +2797,7 @@ static func _overflow_card_to_discard(player: Dictionary, card: Dictionary, play
 	if hand.size() < MAX_HAND_SIZE:
 		return false
 	card["zone"] = ZONE_DISCARD
+	MatchMutations.reset_transient_state(card)
 	player[ZONE_DISCARD].append(card)
 	events.append({
 		"event_type": EVENT_CARD_OVERDRAW,
@@ -2872,6 +2875,7 @@ static func decline_pending_prophecy(match_state: Dictionary, player_id: String,
 			var card: Dictionary = hand[card_index]
 			hand.remove_at(card_index)
 			card["zone"] = ZONE_DISCARD
+			MatchMutations.reset_transient_state(card)
 			player[ZONE_DISCARD].append(card)
 			events.append({
 				"event_type": EVENT_CARD_OVERDRAW,
