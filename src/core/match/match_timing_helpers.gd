@@ -32,8 +32,14 @@ static func _get_card_lane_index(match_state: Dictionary, instance_id: String) -
 		var player_slots: Dictionary = lanes[lane_index].get("player_slots", {})
 		for pid in player_slots.keys():
 			for card in player_slots[pid]:
-				if typeof(card) == TYPE_DICTIONARY and str(card.get("instance_id", "")) == instance_id:
+				if typeof(card) != TYPE_DICTIONARY:
+					continue
+				if str(card.get("instance_id", "")) == instance_id:
 					return lane_index
+				# An attached item shares its host's lane.
+				for attached_item in card.get("attached_items", []):
+					if typeof(attached_item) == TYPE_DICTIONARY and str(attached_item.get("instance_id", "")) == instance_id:
+						return lane_index
 	return -1
 
 

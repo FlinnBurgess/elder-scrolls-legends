@@ -48,6 +48,10 @@ static func get_valid_targets_for_mode(match_state: Dictionary, source_instance_
 			targets = targets.filter(func(c): return str(c.get("instance_id", "")) != source_instance_id)
 		"enemy_creature":
 			targets = MatchTimingHelpers._player_lane_creatures(match_state, opponent_id)
+		"enemy_creature_other_lane":
+			if source_lane_index >= 0:
+				targets = MatchTimingHelpers._player_lane_creatures(match_state, opponent_id)
+				targets = targets.filter(func(c): return MatchTimingHelpers._get_card_lane_index(match_state, str(c.get("instance_id", ""))) != source_lane_index)
 		"friendly_creature":
 			targets = MatchTimingHelpers._player_lane_creatures(match_state, controller_id)
 		"another_friendly_creature":

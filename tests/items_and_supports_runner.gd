@@ -107,7 +107,10 @@ func _run_all_tests() -> bool:
 		_test_throw_items_still_target_enemy_creatures() and
 		# Craglorn Scavenger only buffs while in lane, not while in hand
 		_test_craglorn_scavenger_does_not_buff_while_in_hand() and
-		_test_craglorn_scavenger_buffs_when_in_lane()
+		_test_craglorn_scavenger_buffs_when_in_lane() and
+		# Grappling Hook moves enemy from other lane into host's lane and rejects same-lane targets
+		_test_grappling_hook_pulls_enemy_from_other_lane_and_removes_cover() and
+		_test_grappling_hook_rejects_same_lane_enemy_target()
 	)
 
 
@@ -2421,6 +2424,89 @@ func _test_craglorn_scavenger_buffs_when_in_lane() -> bool:
 			"Craglorn Scavenger in lane should gain +1/+1 when a support is played.") and
 		_assert(after_activate_power == base_power + 2 and after_activate_health == base_health + 2,
 			"Craglorn Scavenger in lane should gain another +1/+1 when a support is activated.")
+	)
+
+
+func _test_grappling_hook_pulls_enemy_from_other_lane_and_removes_cover() -> bool:
+	# Grappling Hook: host equipped in field, enemy in shadow with Cover.
+	# Hook target must move the enemy into field (host's lane) and strip Cover.
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player.get("player_id", ""))
+	var host := _summon_creature(player, match_state, "hook_host", "field", 2, 4, -1)
+	var host_id := str(host.get("instance_id", ""))
+	var enemy := _summon_creature(opponent, match_state, "hook_enemy", "shadow", 2, 3, -1)
+	var enemy_id := str(enemy.get("instance_id", ""))
+	EvergreenRules.add_status(enemy, EvergreenRules.STATUS_COVER)
+	var hook := _add_hand_card(player, "cwc_str_grappling_hook", {
+		"card_type": "item",
+		"cost": 4,
+		"equip_power_bonus": 3,
+		"equip_health_bonus": 2,
+		"triggered_abilities": [{
+			"family": "on_play",
+			"target_mode": "enemy_creature_other_lane",
+			"effects": [
+				{"op": "move_between_lanes", "target": "chosen_target", "lane_id": "self_lane"},
+				{"op": "remove_status", "target": "chosen_target", "status_id": "cover"},
+			],
+		}],
+	})
+	var hook_id := str(hook.get("instance_id", ""))
+	var play_result := PersistentCardRules.play_item_from_hand(match_state, pid, hook_id, {"target_instance_id": host_id})
+	if not _assert(bool(play_result.get("is_valid", false)), "Grappling Hook should equip onto the friendly host."):
+		return false
+	var resolve := MatchTiming.resolve_pending_summon_effect_target(match_state, pid, {"target_instance_id": enemy_id})
+	if not _assert(bool(resolve.get("is_valid", false)), "Resolving Grappling Hook target should succeed for enemy in other lane."):
+		return false
+	var moved := _find_lane_card(match_state, "field", str(opponent.get("player_id", "")), "hook_enemy")
+	return (
+		_assert(not moved.is_empty(), "Grappling Hook should pull the enemy into the host's lane (field).") and
+		_assert(not EvergreenRules.has_status(moved, EvergreenRules.STATUS_COVER), "Grappling Hook should strip Cover from the pulled enemy.")
+	)
+
+
+func _test_grappling_hook_rejects_same_lane_enemy_target() -> bool:
+	# Grappling Hook on a same-lane enemy is a no-op: enemy_creature_other_lane filters
+	# them out, so the resolution should fail and the enemy should keep its Cover.
+	var match_state := _build_started_match()
+	var player: Dictionary = match_state["players"][0]
+	var opponent: Dictionary = match_state["players"][1]
+	var pid := str(player.get("player_id", ""))
+	var host := _summon_creature(player, match_state, "hook_host_same", "field", 2, 4, -1)
+	var host_id := str(host.get("instance_id", ""))
+	var enemy := _summon_creature(opponent, match_state, "hook_enemy_same", "field", 2, 3, -1)
+	var enemy_id := str(enemy.get("instance_id", ""))
+	EvergreenRules.add_status(enemy, EvergreenRules.STATUS_COVER)
+	var hook := _add_hand_card(player, "cwc_str_grappling_hook_same", {
+		"card_type": "item",
+		"cost": 4,
+		"equip_power_bonus": 3,
+		"equip_health_bonus": 2,
+		"triggered_abilities": [{
+			"family": "on_play",
+			"target_mode": "enemy_creature_other_lane",
+			"effects": [
+				{"op": "move_between_lanes", "target": "chosen_target", "lane_id": "self_lane"},
+				{"op": "remove_status", "target": "chosen_target", "status_id": "cover"},
+			],
+		}],
+	})
+	var hook_id := str(hook.get("instance_id", ""))
+	var play_result := PersistentCardRules.play_item_from_hand(match_state, pid, hook_id, {"target_instance_id": host_id})
+	if not _assert(bool(play_result.get("is_valid", false)), "Grappling Hook should still equip onto the friendly host."):
+		return false
+	var valid_targets := MatchTiming.get_all_valid_targets(match_state, hook_id)
+	for t in valid_targets:
+		if str(t.get("instance_id", "")) == enemy_id:
+			return _assert(false, "Same-lane enemy should not be a valid Grappling Hook target.")
+	var still_in_shadow := _find_lane_card(match_state, "shadow", str(opponent.get("player_id", "")), "hook_enemy_same")
+	var still_in_field := _find_lane_card(match_state, "field", str(opponent.get("player_id", "")), "hook_enemy_same")
+	return (
+		_assert(still_in_shadow.is_empty(), "Same-lane enemy should not have moved to shadow.") and
+		_assert(not still_in_field.is_empty(), "Same-lane enemy should remain in field.") and
+		_assert(EvergreenRules.has_status(still_in_field, EvergreenRules.STATUS_COVER), "Same-lane enemy should retain Cover (effect did not fire).")
 	)
 
 
