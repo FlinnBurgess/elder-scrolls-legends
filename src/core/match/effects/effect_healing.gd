@@ -169,7 +169,8 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 						var base_uses = card.get("support_uses", null)
 						if asu_activated_only and (base_uses == null or int(base_uses) <= 0):
 							continue
-						var current_uses := int(card.get("remaining_support_uses", card.get("support_uses", 0)))
+						var raw_uses = card.get("remaining_support_uses", card.get("support_uses", 0))
+						var current_uses := 0 if raw_uses == null else int(raw_uses)
 						card["remaining_support_uses"] = current_uses + asu_amount
 				generated_events.append({"event_type": "support_uses_added", "player_id": asu_controller, "amount": asu_amount, "reason": reason})
 		"prevent_rune_draw":

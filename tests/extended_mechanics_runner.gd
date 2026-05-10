@@ -202,7 +202,8 @@ func _run_all_tests() -> bool:
 		_test_set_health_clears_existing_damage() and
 		_test_swap_stats_uses_current_health_not_max() and
 		_test_temporary_steal_returns_at_end_of_turn() and
-		_test_temporary_steal_grants_charge_only_for_borrowed_turn()
+		_test_temporary_steal_grants_charge_only_for_borrowed_turn() and
+		_test_a_land_divided_fills_chosen_lane_with_correct_token()
 	)
 
 
@@ -7627,3 +7628,71 @@ func _test_temporary_steal_grants_charge_only_for_borrowed_turn() -> bool:
 	var returned_loc := MatchMutations.find_card_location(match_state, victim_id)
 	var returned_card: Dictionary = returned_loc.get("card", {})
 	return _assert(not returned_card.get("granted_keywords", []).has("charge"), "temp steal: charge keyword granted by steal should be removed on return.")
+
+
+func _test_a_land_divided_fills_chosen_lane_with_correct_token() -> bool:
+	# Regression: A Land Divided uses required_event_lane_id on its triggers
+	# to discriminate the left/right effects. The card must declare
+	# action_target_mode "choose_lane" so play options include lane_id; otherwise
+	# the card_played event has empty lane_id, neither trigger fires, and the
+	# card resolves to nothing (observed in AI play).
+	var catalog := CardCatalog.load_default()
+	var card_by_id: Dictionary = catalog.get("card_by_id", {})
+	var land_divided: Dictionary = card_by_id.get("hos_wil_a_land_divided", {})
+	if not _assert(not land_divided.is_empty(), "A Land Divided must exist in catalog."):
+		return false
+	if not _assert(str(land_divided.get("action_target_mode", "")) == "choose_lane", "A Land Divided must declare action_target_mode=choose_lane so AI/UI pass lane_id on play."):
+		return false
+	# Field lane → Stormcloak Skirmishers
+	var field_state := _build_started_match()
+	var field_player: Dictionary = ScenarioFixtures.player(field_state, 0)
+	var field_pid := str(field_player.get("player_id", ""))
+	var field_card_extra: Dictionary = {
+		"definition_id": "hos_wil_a_land_divided",
+		"name": "A Land Divided",
+		"card_type": "action",
+		"cost": 0,
+		"action_target_mode": str(land_divided.get("action_target_mode", "")),
+		"triggered_abilities": land_divided.get("triggered_abilities", []),
+	}
+	var field_action := ScenarioFixtures.add_hand_card(field_player, "land_divided_field", field_card_extra)
+	var field_play := MatchTiming.play_action_from_hand(field_state, field_pid, str(field_action.get("instance_id", "")), {"lane_id": "field"})
+	if not _assert(bool(field_play.get("is_valid", false)), "A Land Divided into field lane should resolve."):
+		return false
+	var field_skirmisher_count := 0
+	var field_trooper_count := 0
+	for lane in field_state.get("lanes", []):
+		if str(lane.get("lane_id", "")) != "field":
+			continue
+		for c in lane.get("player_slots", {}).get(field_pid, []):
+			if typeof(c) == TYPE_DICTIONARY:
+				if str(c.get("definition_id", "")) == "hos_str_stormcloak_skirmisher":
+					field_skirmisher_count += 1
+				elif str(c.get("definition_id", "")) == "hos_wil_colovian_trooper":
+					field_trooper_count += 1
+	if not _assert(field_skirmisher_count >= 1, "A Land Divided to field lane should fill it with Stormcloak Skirmishers."):
+		return false
+	if not _assert(field_trooper_count == 0, "A Land Divided to field lane must not summon Colovian Troopers."):
+		return false
+	# Shadow lane → Colovian Troopers
+	var shadow_state := _build_started_match()
+	var shadow_player: Dictionary = ScenarioFixtures.player(shadow_state, 0)
+	var shadow_pid := str(shadow_player.get("player_id", ""))
+	var shadow_action := ScenarioFixtures.add_hand_card(shadow_player, "land_divided_shadow", field_card_extra)
+	var shadow_play := MatchTiming.play_action_from_hand(shadow_state, shadow_pid, str(shadow_action.get("instance_id", "")), {"lane_id": "shadow"})
+	if not _assert(bool(shadow_play.get("is_valid", false)), "A Land Divided into shadow lane should resolve."):
+		return false
+	var shadow_skirmisher_count := 0
+	var shadow_trooper_count := 0
+	for lane in shadow_state.get("lanes", []):
+		if str(lane.get("lane_id", "")) != "shadow":
+			continue
+		for c in lane.get("player_slots", {}).get(shadow_pid, []):
+			if typeof(c) == TYPE_DICTIONARY:
+				if str(c.get("definition_id", "")) == "hos_str_stormcloak_skirmisher":
+					shadow_skirmisher_count += 1
+				elif str(c.get("definition_id", "")) == "hos_wil_colovian_trooper":
+					shadow_trooper_count += 1
+	if not _assert(shadow_trooper_count >= 1, "A Land Divided to shadow lane should fill it with Colovian Troopers."):
+		return false
+	return _assert(shadow_skirmisher_count == 0, "A Land Divided to shadow lane must not summon Stormcloak Skirmishers.")

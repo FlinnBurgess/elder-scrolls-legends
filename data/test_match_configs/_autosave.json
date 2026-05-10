@@ -17,7 +17,11 @@
 		],
 		"health": 29.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [],
+		"shadow_creatures": [
+			"cwc_neu_abomination",
+			"cwc_neu_abomination",
+			"cwc_neu_abomination"
+		],
 		"supports": [
 			"hos_int_arcane_enchanter"
 		]
