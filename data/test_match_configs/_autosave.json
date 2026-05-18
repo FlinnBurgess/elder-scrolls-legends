@@ -16,7 +16,11 @@
 		"hand": [],
 		"health": 29.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [],
+		"shadow_creatures": [
+			"cwc_neu_abomination",
+			"aw_int_abnur_tharn",
+			"hos_str_aelas_huntmate"
+		],
 		"supports": [
 			"hos_int_arcane_enchanter"
 		]
@@ -33,7 +37,7 @@
 	],
 	"name": "",
 	"player": {
-		"current_magicka": 12.0,
+		"current_magicka": 20,
 		"deck": [
 			"int_lightning_bolt",
 			"hom_end_vvardvark",
@@ -58,21 +62,21 @@
 		"field_creatures": [
 			null,
 			null,
-			null,
-			"str_rihad_battlemage"
+			null
 		],
 		"hand": [
-			"agi_curse",
-			"agi_curse",
-			"int_firebolt"
+			"aw_end_xivkyn_banelord",
+			"hom_end_vvardvark",
+			"hos_neu_alduin"
 		],
 		"has_ring": false,
 		"health": 30.0,
-		"max_magicka": 12.0,
+		"max_magicka": 20,
 		"shadow_creatures": [
-			"int_balmora_spymaster",
-			"end_deathless_draugr",
-			"end_deathless_draugr"
+			"hos_agi_shearpoint_dragon",
+			"cwc_neu_abomination",
+			"hom_str_aldruhn_arms_master",
+			"wil_aldmeri_patriot"
 		],
 		"supports": [
 			"agi_thieves_den"

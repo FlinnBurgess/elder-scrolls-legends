@@ -168,13 +168,18 @@ static func apply(op: String, match_state: Dictionary, trigger: Dictionary, even
 				# without this a wounded creature would die when its max shrinks.
 				card["damage_marked"] = 0
 				EvergreenRules.sync_derived_state(card)
+				# Emit health_bonus diff so reduction-reactors (Shearpoint Dragon, Bloody
+				# Hand Chef) see "set health to N" as a reduction when N < current health.
 				generated_events.append({
 					"event_type": "stats_modified",
 					"source_instance_id": str(trigger.get("source_instance_id", "")),
 					"source_controller_player_id": str(trigger.get("controller_player_id", "")),
 					"player_id": str(card.get("controller_player_id", "")),
 					"target_instance_id": str(card.get("instance_id", "")),
+					"power_bonus": 0,
+					"health_bonus": diff,
 					"reason": reason,
+					"caused_by_family": str(descriptor.get("family", "")),
 				})
 		"double_stats":
 			var ds_stat := str(effect.get("stat", "both"))

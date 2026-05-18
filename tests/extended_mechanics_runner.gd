@@ -43,6 +43,7 @@ func _run_all_tests() -> bool:
 		_test_modify_stats_until_start_of_next_turn_expires() and
 		_test_shearpoint_dragon_self_caused_does_not_chain() and
 		_test_shearpoint_dragon_two_copies_do_not_cascade() and
+		_test_shearpoint_amplifies_set_health_to_lethal() and
 		_test_veteran_hook() and
 		_test_action_pack_matrix() and
 		_test_empower_and_expertise_hooks() and
@@ -973,6 +974,56 @@ func _test_shearpoint_dragon_two_copies_do_not_cascade() -> bool:
 		_assert(EvergreenRules.get_power(bhc) == 5, "BHC should accumulate +3 power across both reductions (got %d, expected 5)." % EvergreenRules.get_power(bhc)) and
 		_assert(EvergreenRules.get_health(bhc) == 5, "BHC should accumulate +3 health across both reductions (got %d, expected 5)." % EvergreenRules.get_health(bhc)) and
 		_assert(typeof(sd_a) == TYPE_DICTIONARY, "SD-A fixture should be present.")
+	)
+
+
+func _test_shearpoint_amplifies_set_health_to_lethal() -> bool:
+	# Regression: Xivkyn Banelord's "set health of each enemy in this lane to 1"
+	# must trigger Shearpoint Dragon's on_enemy_stat_reduction, dropping the
+	# enemy from 1 HP to 0 (extra -1 health). The set_health op must emit a
+	# stats_modified event with a negative health_bonus so require_negative_stat_bonus
+	# passes and the trigger fires.
+	var match_state := _build_started_match()
+	var player: Dictionary = ScenarioFixtures.player(match_state, 0)
+	var opponent: Dictionary = ScenarioFixtures.player(match_state, 1)
+	var pid := str(player.get("player_id", ""))
+	var shearpoint_ability := {
+		"family": "on_enemy_stat_reduction",
+		"required_zone": "lane",
+		"exclude_self_caused": true,
+		"non_chaining": true,
+		"effects": [{
+			"op": "modify_stats",
+			"target": "event_target",
+			"power_source": "event_power_reduced_sign",
+			"health_source": "event_health_reduced_sign",
+		}],
+	}
+	ScenarioFixtures.summon_creature(player, match_state, "shearpoint_amp", "field", 4, 4, [], -1, {
+		"triggered_abilities": [shearpoint_ability],
+	})
+	var enemy := ScenarioFixtures.summon_creature(opponent, match_state, "vvardvark_banelord_target", "field", 5, 5)
+	var enemy_id := str(enemy.get("instance_id", ""))
+	# Simulate Banelord's set_health(1) on the enemy by going through the EffectStats
+	# dispatcher (so generated events flow through publish_events for triggers).
+	var banelord_trigger := {
+		"source_instance_id": "banelord_sim",
+		"controller_player_id": pid,
+		"_chosen_target_id": enemy_id,
+		"descriptor": {"family": "summon", "effects": []},
+	}
+	var banelord_effect := {"op": "set_health", "target": "chosen_target", "amount": 1}
+	var generated: Array = []
+	EffectStats.apply("set_health", match_state, banelord_trigger, {}, banelord_effect, generated, {"descriptor": banelord_trigger["descriptor"], "reason": "summon"})
+	var timing := MatchTiming.publish_events(match_state, generated)
+	var saw_destroyed := false
+	for evt in timing.get("processed_events", []):
+		if str(evt.get("event_type", "")) == "creature_destroyed" and str(evt.get("instance_id", "")) == enemy_id:
+			saw_destroyed = true
+			break
+	return (
+		_assert(saw_destroyed, "Shearpoint should amplify Banelord's set_health(1) to lethal — expected a creature_destroyed event for the enemy.") and
+		_assert(str(enemy.get("zone", "")) == "discard", "Enemy should be in discard after lethal stat reduction (zone got %s)." % str(enemy.get("zone", "")))
 	)
 
 

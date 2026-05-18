@@ -715,6 +715,12 @@ func _animate_abomination_stitch(abomination_instance_id: String, source_creatur
 	cleanup.tween_interval(move_start + move_duration)
 	cleanup.tween_callback(func():
 		_stitch_hidden_id = ""
+		# Restore button visibility explicitly — _refresh_ui()'s hash-skip path
+		# may keep the existing (alpha-0) button instead of rebuilding it.
+		var stitch_btn: Button = _screen._card_buttons.get(abomination_instance_id) as Button
+		if stitch_btn != null and is_instance_valid(stitch_btn):
+			stitch_btn.modulate = Color(1, 1, 1, 1)
+			stitch_btn.mouse_filter = Control.MOUSE_FILTER_STOP
 		_screen._refresh._refresh_ui()
 		if is_instance_valid(container):
 			container.queue_free()
@@ -876,6 +882,12 @@ func _animate_alduin_board_wipe(alduin_instance_id: String, destroyed_ids: Array
 	cleanup_tween.tween_interval(move_start + move_duration)
 	cleanup_tween.tween_callback(func():
 		_board_wipe_hidden_id = ""
+		# Restore button visibility explicitly — _refresh_ui()'s hash-skip path
+		# may keep the existing (alpha-0) button instead of rebuilding it.
+		var alduin_btn: Button = _screen._card_buttons.get(alduin_instance_id) as Button
+		if alduin_btn != null and is_instance_valid(alduin_btn):
+			alduin_btn.modulate = Color(1, 1, 1, 1)
+			alduin_btn.mouse_filter = Control.MOUSE_FILTER_STOP
 		_screen._refresh._refresh_ui()
 		if is_instance_valid(container):
 			container.queue_free()
