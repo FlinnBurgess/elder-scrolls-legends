@@ -66,7 +66,8 @@
 			"joo_str_agent_of_mehrunes_dagon"
 		],
 		"hand": [
-			"end_gloom_wraith"
+			"end_gloom_wraith",
+			"hos_neu_alduin"
 		],
 		"has_ring": false,
 		"health": 30.0,

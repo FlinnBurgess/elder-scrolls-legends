@@ -46,12 +46,44 @@ var _avatar_carousel_screen: Control
 
 
 func _ready() -> void:
-	var window_size := DisplayServer.window_get_size()
-	print("Window resolution: %dx%d" % [window_size.x, window_size.y])
+	_log_render_diagnostics()
 	if OS.has_feature("dedicated_server"):
 		print("Bootstrap scene ready (headless).")
 		return
 	_show_main_menu()
+
+
+func _log_render_diagnostics() -> void:
+	var window_size := DisplayServer.window_get_size()
+	var screen := DisplayServer.window_get_current_screen()
+	var screen_size := DisplayServer.screen_get_size(screen)
+	var screen_scale := DisplayServer.screen_get_scale(screen)
+	var screen_dpi := DisplayServer.screen_get_dpi(screen)
+	var screen_refresh := DisplayServer.screen_get_refresh_rate(screen)
+	var viewport := get_viewport()
+	var viewport_size := viewport.get_visible_rect().size if viewport != null else Vector2.ZERO
+	var content_scale_mode := -1
+	var content_scale_factor := -1.0
+	var window := get_window()
+	if window != null:
+		content_scale_mode = window.content_scale_mode
+		content_scale_factor = window.content_scale_factor
+	var vsync_mode := DisplayServer.window_get_vsync_mode()
+	var rendering_method: String = str(ProjectSettings.get_setting("rendering/renderer/rendering_method", "?"))
+	var adapter_name := RenderingServer.get_video_adapter_name()
+	var adapter_driver_info := OS.get_video_adapter_driver_info()
+	var driver_str := "/".join(adapter_driver_info) if adapter_driver_info.size() > 0 else "?"
+	var is_debug := OS.is_debug_build()
+	print("[render-diag] window=%dx%d viewport=%.0fx%.0f screen=%dx%d screen_scale=%.2f dpi=%d refresh=%.1fHz" % [
+		window_size.x, window_size.y,
+		viewport_size.x, viewport_size.y,
+		screen_size.x, screen_size.y,
+		screen_scale, screen_dpi, screen_refresh,
+	])
+	print("[render-diag] content_scale_mode=%d content_scale_factor=%.2f vsync_mode=%d method=%s adapter=%s driver=%s debug_build=%s" % [
+		content_scale_mode, content_scale_factor, vsync_mode,
+		rendering_method, adapter_name, driver_str, str(is_debug),
+	])
 
 
 func _show_main_menu() -> void:
