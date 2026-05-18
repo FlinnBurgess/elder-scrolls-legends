@@ -13,7 +13,8 @@
 			null
 		],
 		"hand": [
-			"hom_agi_berne_clan_nightstalker"
+			"hom_agi_berne_clan_nightstalker",
+			"dual_edict_of_azura"
 		],
 		"health": 29.0,
 		"max_magicka": 12.0,
@@ -62,20 +63,13 @@
 		"field_creatures": [
 			null,
 			null,
-			null,
-			"joo_str_agent_of_mehrunes_dagon"
+			null
 		],
-		"hand": [
-			"end_gloom_wraith",
-			"hos_neu_alduin"
-		],
+		"hand": [],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 20.0,
-		"shadow_creatures": [
-			"hom_end_ald_velothi_assassin",
-			"hom_end_ald_velothi_assassin"
-		],
+		"shadow_creatures": [],
 		"supports": [
 			"agi_thieves_den"
 		]

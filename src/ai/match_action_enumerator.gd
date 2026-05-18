@@ -1014,8 +1014,16 @@ static func _expand_target_parameter_sets(match_state: Dictionary, requirements:
 						if typeof(pffa_card) == TYPE_DICTIONARY and EvergreenRules._has_passive(pffa_card, "protect_friendly_from_actions"):
 							pffa_protectors[pffa_pid] = str(pffa_card.get("instance_id", ""))
 		var expanded_card_sets: Array = []
+		var candidate_cards: Array = _all_lane_cards(match_state)
+		if atm == "enemy_creature_or_support" or atm == "enemy_support_or_neutral_creature":
+			for sup_player in match_state.get("players", []):
+				if typeof(sup_player) != TYPE_DICTIONARY:
+					continue
+				for sup_card in sup_player.get("support", []):
+					if typeof(sup_card) == TYPE_DICTIONARY:
+						candidate_cards.append(sup_card)
 		for parameters in parameter_sets:
-			for card in _all_lane_cards(match_state):
+			for card in candidate_cards:
 				if not atm.is_empty() and not atm_controller.is_empty():
 					var card_controller := str(card.get("controller_player_id", ""))
 					if atm == "friendly_creature" or atm == "another_friendly_creature":
@@ -1037,9 +1045,10 @@ static func _expand_target_parameter_sets(match_state: Dictionary, requirements:
 					elif atm == "enemy_support_or_neutral_creature":
 						if card_controller == atm_controller:
 							continue
-						var card_attrs: Array = card.get("attributes", [])
-						if typeof(card_attrs) != TYPE_ARRAY or not card_attrs.has("neutral"):
-							continue
+						if str(card.get("card_type", "")) != "support":
+							var card_attrs: Array = card.get("attributes", [])
+							if typeof(card_attrs) != TYPE_ARRAY or not card_attrs.has("neutral"):
+								continue
 					elif atm == "enemy_creature_or_support":
 						if card_controller == atm_controller:
 							continue

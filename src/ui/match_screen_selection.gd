@@ -166,7 +166,12 @@ func _selected_action_consumes_card_click(target_card: Dictionary) -> bool:
 		_screen.SELECTION_MODE_ITEM:
 			return target_zone == _screen.MatchMutations.ZONE_LANE
 		_screen.SELECTION_MODE_ACTION:
-			return target_zone == _screen.MatchMutations.ZONE_LANE
+			if target_zone == _screen.MatchMutations.ZONE_LANE:
+				return true
+			if target_zone == _screen.MatchMutations.ZONE_SUPPORT:
+				var atm := str(selected_card.get("action_target_mode", ""))
+				return atm == "enemy_creature_or_support" or atm == "enemy_support_or_neutral_creature"
+			return false
 		_screen.SELECTION_MODE_SUPPORT:
 			return _screen._targeting._selected_support_uses_card_targets(selected_card) and target_zone == _screen.MatchMutations.ZONE_LANE
 		_screen.SELECTION_MODE_ATTACK:
@@ -476,6 +481,10 @@ func _card_interaction_state(card: Dictionary, surface: String) -> String:
 			return "valid" if _is_card_target_valid_for_selected(instance_id) else "invalid"
 	if mode == _screen.SELECTION_MODE_ACTION and surface == "lane" and not _screen._targeting._targeting_arrow_state.is_empty():
 		return "valid" if _is_card_target_valid_for_selected(instance_id) else "invalid"
+	if mode == _screen.SELECTION_MODE_ACTION and surface == "support" and not _screen._targeting._targeting_arrow_state.is_empty():
+		var atm := str(_selected_card().get("action_target_mode", ""))
+		if atm == "enemy_creature_or_support" or atm == "enemy_support_or_neutral_creature":
+			return "valid" if _is_card_target_valid_for_selected(instance_id) else "invalid"
 	return "default"
 
 

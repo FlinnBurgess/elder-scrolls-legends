@@ -149,6 +149,8 @@ func _action_target_mode_allows(action_card: Dictionary, target_instance_id: Str
 		"enemy_support_or_neutral_creature":
 			if target_controller == controller_id:
 				mode_allowed = false
+			elif str(target_card.get("card_type", "")) == "support":
+				mode_allowed = true
 			else:
 				var attrs: Array = target_card.get("attributes", [])
 				mode_allowed = typeof(attrs) == TYPE_ARRAY and attrs.has("neutral")
