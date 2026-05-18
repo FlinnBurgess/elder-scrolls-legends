@@ -1466,6 +1466,18 @@ static func _has_summon_target(action: Dictionary) -> bool:
 	return not str(params.get("summon_target_instance_id", "")).is_empty() or not str(params.get("summon_target_player_id", "")).is_empty()
 
 
+static func _card_summon_target_is_secret(card: Dictionary) -> bool:
+	for ability in card.get("triggered_abilities", []):
+		if typeof(ability) != TYPE_DICTIONARY:
+			continue
+		if str(ability.get("family", "")) != "summon":
+			continue
+		for effect in ability.get("effects", []):
+			if typeof(effect) == TYPE_DICTIONARY and str(effect.get("op", "")) == "secretly_choose_creature":
+				return true
+	return false
+
+
 func _animate_enemy_creature_summon_reveal(action: Dictionary, _result: Dictionary) -> void:
 	var source_card: Dictionary = action.get("source_card", {})
 	if source_card.is_empty():
@@ -1475,6 +1487,9 @@ func _animate_enemy_creature_summon_reveal(action: Dictionary, _result: Dictiona
 	var params: Dictionary = action.get("parameters", {})
 	var summon_target_id := str(params.get("summon_target_instance_id", ""))
 	var summon_target_player_id := str(params.get("summon_target_player_id", ""))
+	var source_instance_id := str(action.get("source_instance_id", ""))
+	var full_source_card: Dictionary = _screen._card_from_instance_id(source_instance_id) if not source_instance_id.is_empty() else {}
+	var hide_target_arrow := _card_summon_target_is_secret(full_source_card)
 
 	var card_size = _screen._hand_card_display_size()
 	var viewport_size = _screen.get_viewport_rect().size
@@ -1511,6 +1526,10 @@ func _animate_enemy_creature_summon_reveal(action: Dictionary, _result: Dictiona
 	tween.tween_property(card_back, "scale:x", 1.0, 0.2)
 	tween.tween_interval(1.0)
 	tween.tween_callback(func():
+		if hide_target_arrow:
+			_dismiss_spell_reveal()
+			_screen._refresh_ui()
+			return
 		var arrow_end := Vector2.ZERO
 		var has_target := false
 		if not summon_target_id.is_empty():

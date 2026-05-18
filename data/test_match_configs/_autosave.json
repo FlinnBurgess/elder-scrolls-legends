@@ -10,17 +10,14 @@
 		"field_creatures": [
 			null,
 			null,
-			null,
-			"cwc_neu_abomination"
+			null
 		],
-		"hand": [],
+		"hand": [
+			"hom_agi_berne_clan_nightstalker"
+		],
 		"health": 29.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [
-			"cwc_neu_abomination",
-			"aw_int_abnur_tharn",
-			"hos_str_aelas_huntmate"
-		],
+		"shadow_creatures": [],
 		"supports": [
 			"hos_int_arcane_enchanter"
 		]
@@ -37,7 +34,7 @@
 	],
 	"name": "",
 	"player": {
-		"current_magicka": 20,
+		"current_magicka": 20.0,
 		"deck": [
 			"int_lightning_bolt",
 			"hom_end_vvardvark",
@@ -67,11 +64,13 @@
 		"hand": [
 			"aw_end_xivkyn_banelord",
 			"hom_end_vvardvark",
-			"hos_neu_alduin"
+			"hos_neu_alduin",
+			"hom_agi_berne_clan_nightstalker",
+			"wil_piercing_javelin"
 		],
 		"has_ring": false,
 		"health": 30.0,
-		"max_magicka": 20,
+		"max_magicka": 20.0,
 		"shadow_creatures": [
 			"hos_agi_shearpoint_dragon",
 			"cwc_neu_abomination",
