@@ -17,7 +17,10 @@
 		],
 		"health": 29.0,
 		"max_magicka": 12.0,
-		"shadow_creatures": [],
+		"shadow_creatures": [
+			null,
+			"hom_end_ald_velothi_assassin"
+		],
 		"supports": [
 			"hos_int_arcane_enchanter"
 		]
@@ -59,23 +62,18 @@
 		"field_creatures": [
 			null,
 			null,
-			null
+			null,
+			"joo_str_agent_of_mehrunes_dagon"
 		],
 		"hand": [
-			"aw_end_xivkyn_banelord",
-			"hom_end_vvardvark",
-			"hos_neu_alduin",
-			"hom_agi_berne_clan_nightstalker",
-			"wil_piercing_javelin"
+			"end_gloom_wraith"
 		],
 		"has_ring": false,
 		"health": 30.0,
 		"max_magicka": 20.0,
 		"shadow_creatures": [
-			"hos_agi_shearpoint_dragon",
-			"cwc_neu_abomination",
-			"hom_str_aldruhn_arms_master",
-			"wil_aldmeri_patriot"
+			"hom_end_ald_velothi_assassin",
+			"hom_end_ald_velothi_assassin"
 		],
 		"supports": [
 			"agi_thieves_den"
